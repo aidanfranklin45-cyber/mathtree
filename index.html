@@ -469,6 +469,22 @@
                 </div>
               </div>
             </details>
+            <!-- Create Proforma Button -->
+            <div class="pt-4 border-t border-emerald-950/40">
+              <button id="btn-create-proforma" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white font-bold text-sm tracking-wide shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 transition-all duration-300 flex items-center justify-center space-x-2 border border-brand-400/20 group relative overflow-hidden">
+                <div class="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                <svg id="proforma-spinner" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="relative z-10 flex items-center space-x-1.5">
+                  <svg class="w-4 h-4 text-emerald-100 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Create Proforma</span>
+                </span>
+              </button>
+            </div>
           </form>
 
           <!-- System Assumptions Notes -->
@@ -481,6 +497,23 @@
       <!-- Right column: Dashboard (takes 8 cols on lg) -->
       <section class="lg:col-span-8 space-y-6">
         
+        <!-- Calculation Out of Sync Warning Banner -->
+        <div id="out-of-sync-banner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between text-xs text-amber-200 shadow-md shadow-amber-950/10 animate-pulse">
+          <div class="flex items-center space-x-2.5">
+            <div class="p-1 rounded-md bg-amber-500/20 text-amber-400">
+              <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <span class="font-bold">Pending Changes Detected:</span> Proforma projections are out of sync with your new inputs.
+            </div>
+          </div>
+          <button id="btn-sync-banner" class="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[10px] font-bold text-amber-300 uppercase tracking-wider transition border border-amber-500/20">
+            Recalculate
+          </button>
+        </div>
+
         <!-- Live-Updating Metrics cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- NOI Card -->
@@ -491,7 +524,10 @@
               <span id="metric-noi" class="text-2xl font-extrabold text-white tracking-tight">$0</span>
               <span id="metric-noi-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
             </div>
-            <div class="mt-3 flex items-center text-xs text-slate-500">
+            <div class="mt-1 text-[11px] text-brand-400 font-semibold flex items-center space-x-1">
+              <span id="metric-noi-summary">Avg 10-Yr NOI: $0/yr</span>
+            </div>
+            <div class="mt-3 flex items-center text-xs text-slate-500 border-t border-slate-900/60 pt-2">
               <span>Gross income minus vacancy & operating expenses</span>
             </div>
           </div>
@@ -504,7 +540,10 @@
               <span id="metric-cap-rate" class="text-2xl font-extrabold text-accent-cyan tracking-tight">0.0%</span>
               <span id="metric-cap-rate-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
             </div>
-            <div class="mt-3 flex items-center text-xs text-slate-500">
+            <div class="mt-1 text-[11px] text-accent-cyan font-semibold flex items-center space-x-1">
+              <span id="metric-cap-rate-summary">Entry: 0.00% | Exit: 0.00%</span>
+            </div>
+            <div class="mt-3 flex items-center text-xs text-slate-500 border-t border-slate-900/60 pt-2">
               <span id="metric-cap-rate-desc">Annual NOI divided by property value</span>
             </div>
           </div>
@@ -517,7 +556,10 @@
               <span id="metric-cash-on-cash" class="text-2xl font-extrabold text-accent-emerald tracking-tight">0.0%</span>
               <span id="metric-cash-on-cash-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
             </div>
-            <div class="mt-3 flex items-center text-xs text-slate-500">
+            <div class="mt-1 text-[11px] text-accent-emerald font-semibold flex items-center space-x-1">
+              <span id="metric-cash-on-cash-summary">Avg 10-Yr CoC: 0.00%</span>
+            </div>
+            <div class="mt-3 flex items-center text-xs text-slate-500 border-t border-slate-900/60 pt-2">
               <span>Annual cash flow divided by total invested cash</span>
             </div>
           </div>
@@ -1347,8 +1389,32 @@
       }
     }
 
+    let isCalculationRunning = false;
+    let isUiOutOfSync = false;
+
+    function markUiOutOfSync(outOfSync = true) {
+      isUiOutOfSync = outOfSync;
+      const banner = document.getElementById('out-of-sync-banner');
+      if (banner) {
+        if (outOfSync) {
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+    }
+
     // Main controller: performs calculations and updates all components
-    function updateCalculations() {
+    async function updateCalculations() {
+      if (isCalculationRunning) return;
+      isCalculationRunning = true;
+
+      // Show spinner and disable button
+      const spinner = document.getElementById('proforma-spinner');
+      const createBtn = document.getElementById('btn-create-proforma');
+      if (spinner) spinner.classList.remove('hidden');
+      if (createBtn) createBtn.disabled = true;
+
       syncSimpleModeState();
       syncManagementCheckboxState();
       const inputs = getInputsFromForm();
@@ -1362,9 +1428,47 @@
       // Auto-save user inputs
       savePresetValues(activeTab, inputs);
 
-      // Perform projections
-      const mappedTab = activeTab;
-      const res = window.PropertyMath.calculateProjections(mappedTab, inputs);
+      let res = null;
+      
+      // Attempt cloud calculations if not file://
+      if (window.location.protocol !== 'file:') {
+        try {
+          // Attempt Vercel endpoint
+          let response = await fetch('/api/calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assetType: activeTab, inputs })
+          });
+          
+          if (!response.ok) {
+            // Try Netlify endpoint
+            response = await fetch('/.netlify/functions/calculate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ assetType: activeTab, inputs })
+            });
+          }
+          
+          if (response.ok) {
+            res = await response.json();
+            console.log('Calculated via Cloud Function');
+          }
+        } catch (e) {
+          console.warn('Cloud Function failed, falling back to local math engine:', e);
+        }
+      }
+      
+      // Fallback
+      if (!res) {
+        res = window.PropertyMath.calculateProjections(activeTab, inputs);
+        console.log('Calculated via local math engine');
+      }
+
+      // Hide spinner and enable button
+      if (spinner) spinner.classList.add('hidden');
+      if (createBtn) createBtn.disabled = false;
+      isCalculationRunning = false;
+      markUiOutOfSync(false);
 
       // Read target year from inspector slider
       const targetYearInput = parseInt(document.getElementById('input-year-inspector').value) || 1;
@@ -1381,6 +1485,22 @@
       document.getElementById('metric-noi').textContent = formatCurrency(targetYearProj.netOperatingIncome);
       document.getElementById('metric-cap-rate').textContent = `${targetYearProj.capRate.toFixed(2)}%`;
       document.getElementById('metric-cash-on-cash').textContent = `${targetYearProj.cashOnCash.toFixed(2)}%`;
+
+      // Update Dynamic Cards Subtitles (10-Yr Summaries)
+      // 1. Average NOI
+      const sumNoi = res.projections.reduce((sum, p) => sum + p.netOperatingIncome, 0);
+      const avgNoi = sumNoi / res.projections.length;
+      document.getElementById('metric-noi-summary').textContent = `Avg 10-Yr NOI: ${formatCurrency(avgNoi)}/yr`;
+
+      // 2. Entry vs Exit Cap Rate
+      const entryCap = res.projections[0].capRate;
+      const exitCap = res.projections[inputs.exitYear - 1] ? res.projections[inputs.exitYear - 1].capRate : res.projections[9].capRate;
+      document.getElementById('metric-cap-rate-summary').textContent = `Entry: ${entryCap.toFixed(2)}% | Exit: ${exitCap.toFixed(2)}%`;
+
+      // 3. Average Cash-on-Cash Return
+      const sumCoC = res.projections.reduce((sum, p) => sum + p.cashOnCash, 0);
+      const avgCoC = sumCoC / res.projections.length;
+      document.getElementById('metric-cash-on-cash-summary').textContent = `Avg 10-Yr CoC: ${avgCoC.toFixed(2)}%`;
 
       // Update Advanced Analytics Cards metrics
       document.getElementById('metric-exit-badge').textContent = `Exit: Year ${inputs.exitYear}`;
@@ -1562,16 +1682,16 @@
         });
       });
 
-      // Watch form updates for real-time recalculations
+      // Watch form updates to mark UI as out of sync
       const form = document.getElementById('calculator-form');
       form.addEventListener('input', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
       form.addEventListener('change', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
       document.getElementById('input-manage-property').addEventListener('change', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
       
       // Dynamic commercial lease-type OER presets
@@ -1580,31 +1700,44 @@
         if (oerField) {
           oerField.value = e.target.value === 'NNN' ? 11 : 40;
         }
-        updateCalculations();
+        markUiOutOfSync(true);
       });
 
       // Storage automation OER presets
       document.getElementById('input-storage-automated').addEventListener('change', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
 
       // Storage market tier changes
       document.getElementById('input-storage-tier').addEventListener('change', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
 
       // Asset Class & Market Tier updates
       document.getElementById('input-comm-class').addEventListener('change', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
       document.getElementById('input-comm-tier').addEventListener('change', () => {
-        updateCalculations();
+        markUiOutOfSync(true);
       });
 
       // Target Year inspector slider handler
       document.getElementById('input-year-inspector').addEventListener('input', () => {
         updateCalculations();
       });
+
+      // Create Proforma Button handler
+      document.getElementById('btn-create-proforma').addEventListener('click', () => {
+        updateCalculations();
+      });
+
+      // Banner Recalculate Button handler
+      const syncBannerBtn = document.getElementById('btn-sync-banner');
+      if (syncBannerBtn) {
+        syncBannerBtn.addEventListener('click', () => {
+          updateCalculations();
+        });
+      }
 
       // Toggle simple mode handler
       document.getElementById('toggle-simple-mode').addEventListener('click', () => {
