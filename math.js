@@ -338,8 +338,8 @@ function calculateProjections(assetType, inputs) {
     // 5. Debt Service
     const currentDebtService = year <= loanTerm ? annualDebtService : 0;
 
-    // 6. Cash Flow (Net of Debt Service and CapEx Reserves)
-    const cashFlow = netOperatingIncome - currentDebtService - capexReserve;
+    // 6. Cash Flow (Net of Debt Service)
+    const cashFlow = netOperatingIncome - currentDebtService;
 
     // We track cash injections if cashFlow is negative:
     let cashInjection = 0;
