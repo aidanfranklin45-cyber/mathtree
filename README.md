@@ -8,7 +8,6 @@ A high-performance, client-side real estate investment analysis and 10-year fina
 - **Monte Carlo 1,000-Run Risk Simulation**: Stochastic market volatility simulation modeling Mean IRR, P5 Downside Risk, P95 Upside Potential, and Probability of Negative Cash Flow with frequency histograms.
 - **Tax Depreciation (MACRS) & BRRRR Refinance**: 27.5/39-year MACRS depreciation schedule, Cost Segregation (80% bonus year 1), tax liability/shield tracking, capital gains tax at exit, and mid-hold cash-out refinance simulations.
 - **4-Deal Comparison Matrix**: Side-by-side comparison across all 4 asset classes with winner highlight badges.
-- **Consolidated Portfolio Aggregator**: Combined multi-property dashboard with blended portfolio IRR, total cash invested, combined debt, and 10-year cash flow stack chart.
 - **Institutional Reporting**: 1-click CSV pro-forma download, print-optimized PDF investment brief, and shareable URL hash links.
 
 ## Live Application

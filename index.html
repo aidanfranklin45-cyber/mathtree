@@ -176,9 +176,6 @@
         <button id="view-mode-comparison" data-view="comparison" class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50">
           4-Deal Matrix
         </button>
-        <button id="view-mode-portfolio" data-view="portfolio" class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50">
-          Portfolio Aggregator
-        </button>
       </div>
     </div>
 
@@ -1033,50 +1030,6 @@
           </div>
         </div>
 
-        <!-- View Panel 5: Consolidated Portfolio Aggregator -->
-        <div id="view-panel-portfolio" class="hidden space-y-6">
-          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-900 pb-3">
-              <div>
-                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                  <span>Consolidated Multi-Asset Portfolio Dashboard</span>
-                </h3>
-                <p class="text-xs text-slate-400">Aggregating saved deals from localStorage into a unified 10-year investment yield</p>
-              </div>
-            </div>
-
-            <!-- Portfolio Metric Cards -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <p class="text-[10px] font-bold text-slate-500 uppercase">Total Portfolio Value</p>
-                <p id="pf-total-value" class="text-base font-extrabold text-white mt-1">$0</p>
-              </div>
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <p class="text-[10px] font-bold text-slate-500 uppercase">Total Cash Invested</p>
-                <p id="pf-total-cash" class="text-base font-extrabold text-brand-400 mt-1">$0</p>
-              </div>
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <p class="text-[10px] font-bold text-slate-500 uppercase">Total Combined Debt</p>
-                <p id="pf-total-debt" class="text-base font-extrabold text-accent-cyan mt-1">$0</p>
-              </div>
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <p class="text-[10px] font-bold text-slate-500 uppercase">Blended Portfolio IRR</p>
-                <p id="pf-blended-irr" class="text-base font-extrabold text-accent-violet mt-1">0.0%</p>
-              </div>
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <p class="text-[10px] font-bold text-slate-500 uppercase">Year 1 Cash Flow</p>
-                <p id="pf-y1-cashflow" class="text-base font-extrabold text-accent-emerald mt-1">$0</p>
-              </div>
-            </div>
-
-            <!-- Portfolio Chart -->
-            <div class="h-64 w-full relative pt-2">
-              <canvas id="portfolio-chart"></canvas>
-            </div>
-          </div>
-        </div>
-
       </section>
 
     </div>
@@ -1805,9 +1758,56 @@
 
     let currentWorkspaceView = 'single';
     let mcChart = null;
-    let pfChart = null;
 
-    // Switch workspace views (Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio Aggregator)
+    // Switch Active Asset Class Tab
+    function setActiveTab(tab) {
+      if (!tab) return;
+
+      // 1. Auto-save current form values for previous activeTab
+      const currentInputs = getInputsFromForm();
+      savePresetValues(activeTab, currentInputs);
+
+      // 2. Set new active tab
+      activeTab = tab;
+
+      // 3. Update tab button styles
+      const tabNames = {
+        'single-family': 'Single-Family',
+        'multi-unit': 'Multi-Unit',
+        'commercial': 'Commercial RE',
+        'storage': 'Storage Units'
+      };
+
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        const btnTab = btn.getAttribute('data-tab');
+        if (btnTab === tab) {
+          btn.className = 'flex-1 min-w-[120px] py-2 px-3 rounded-lg text-xs font-bold tracking-wide transition-all duration-200 bg-brand-500/10 text-brand-400 border border-brand-500/20 shadow-sm flex items-center justify-center space-x-1.5';
+        } else {
+          btn.className = 'flex-1 min-w-[120px] py-2 px-3 rounded-lg text-xs font-bold tracking-wide transition-all duration-200 text-slate-400 hover:text-slate-200 hover:bg-slate-900/30 border border-transparent flex items-center justify-center space-x-1.5';
+        }
+      });
+
+      // 4. Update active tab indicator badge
+      const indicator = document.getElementById('active-tab-indicator');
+      if (indicator) {
+        indicator.textContent = tabNames[tab] || tab;
+      }
+
+      // 5. Update conditional input group display
+      showTabInputs(tab);
+
+      // 6. Load preset / stored values for the new tab
+      const storedValues = loadPresetValues(tab);
+      updateFormFields(storedValues);
+
+      // 7. Update assumptions notes
+      updateAssumptionsNotes(tab);
+
+      // 8. Re-run calculations and UI refresh
+      updateCalculations();
+    }
+
+    // Switch workspace views (Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix)
     function setWorkspaceView(viewMode) {
       currentWorkspaceView = viewMode;
 
@@ -1815,8 +1815,7 @@
         single: document.getElementById('view-panel-single'),
         sensitivity: document.getElementById('view-panel-sensitivity'),
         tax: document.getElementById('view-panel-tax'),
-        comparison: document.getElementById('view-panel-comparison'),
-        portfolio: document.getElementById('view-panel-portfolio')
+        comparison: document.getElementById('view-panel-comparison')
       };
 
       Object.keys(views).forEach(k => {
@@ -2107,62 +2106,6 @@
       `).join('');
     }
 
-    // Render Portfolio Aggregator
-    function renderPortfolioAggregator() {
-      const assetTypes = ['single-family', 'multi-unit', 'commercial', 'storage'];
-      const dealsList = assetTypes.map(t => ({
-        name: t.replace('-', ' ').toUpperCase(),
-        assetType: t,
-        inputs: loadPresetValues(t),
-        results: window.PropertyMath.calculateProjections(t, loadPresetValues(t))
-      }));
-
-      const pf = window.PropertyMath.aggregatePortfolio(dealsList);
-
-      document.getElementById('pf-total-value').textContent = formatCurrency(pf.combinedProjections[0] ? pf.combinedProjections[0].propertyValue : pf.totalPurchasePrice);
-      document.getElementById('pf-total-cash').textContent = formatCurrency(pf.totalCashInvested);
-      document.getElementById('pf-total-debt').textContent = formatCurrency(pf.totalLoanAmount);
-      document.getElementById('pf-blended-irr').textContent = `${pf.portfolioIrr.toFixed(2)}%`;
-      document.getElementById('pf-y1-cashflow').textContent = formatCurrency(pf.combinedProjections[0] ? pf.combinedProjections[0].cashFlow : 0);
-
-      const ctx = document.getElementById('portfolio-chart');
-      if (!ctx) return;
-
-      if (pfChart) pfChart.destroy();
-
-      pfChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: pf.combinedProjections.map(p => `Yr ${p.year}`),
-          datasets: [
-            {
-              label: 'Combined Net Cash Flow',
-              data: pf.combinedProjections.map(p => p.cashFlow),
-              backgroundColor: 'rgba(16, 185, 129, 0.75)',
-              borderRadius: 4
-            },
-            {
-              label: 'Combined NOI',
-              data: pf.combinedProjections.map(p => p.netOperatingIncome),
-              backgroundColor: 'rgba(5, 150, 105, 0.4)',
-              borderRadius: 4
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', weight: '600' } } }
-          },
-          scales: {
-            x: { grid: { color: 'rgba(51, 65, 85, 0.15)' }, ticks: { color: '#64748b' } },
-            y: { grid: { color: 'rgba(51, 65, 85, 0.15)' }, ticks: { color: '#64748b' } }
-          }
-        }
-      });
-    }
-
     // CSV Data Exporter
     function exportToCSV() {
       const inputs = getInputsFromForm();
@@ -2268,8 +2211,6 @@
         renderTaxAndRefinance(inputs, res);
       } else if (currentWorkspaceView === 'comparison') {
         renderComparisonMatrix();
-      } else if (currentWorkspaceView === 'portfolio') {
-        renderPortfolioAggregator();
       }
     };
 
@@ -2277,12 +2218,60 @@
     document.addEventListener('DOMContentLoaded', () => {
       decodeUrlHash();
 
-      // View Mode Buttons
+      // Asset Class Tab Click Handlers
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetTab = btn.getAttribute('data-tab');
+          setActiveTab(targetTab);
+        });
+      });
+
+      // View Mode Buttons (Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix)
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.addEventListener('click', () => {
           const viewMode = btn.getAttribute('data-view');
           setWorkspaceView(viewMode);
         });
+      });
+
+      // Simple Mode Toggle Button
+      const toggleSimpleBtn = document.getElementById('toggle-simple-mode');
+      if (toggleSimpleBtn) {
+        toggleSimpleBtn.addEventListener('click', () => {
+          simpleMode = !simpleMode;
+          syncSimpleModeState();
+          updateCalculations();
+        });
+      }
+
+      // Chart Toggle Buttons (Cash Flow vs Valuation)
+      const btnCashFlow = document.getElementById('chart-btn-cashflow');
+      const btnValuation = document.getElementById('chart-btn-valuation');
+      if (btnCashFlow && btnValuation) {
+        btnCashFlow.addEventListener('click', () => {
+          currentChartType = 'cashflow';
+          btnCashFlow.className = 'px-3 py-1 rounded-md text-xs font-semibold bg-slate-900 text-white shadow-sm transition';
+          btnValuation.className = 'px-3 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition';
+          updateCalculations();
+        });
+        btnValuation.addEventListener('click', () => {
+          currentChartType = 'valuation';
+          btnValuation.className = 'px-3 py-1 rounded-md text-xs font-semibold bg-slate-900 text-white shadow-sm transition';
+          btnCashFlow.className = 'px-3 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition';
+          updateCalculations();
+        });
+      }
+
+      // Year Inspector Slider
+      const sliderYear = document.getElementById('input-year-inspector');
+      if (sliderYear) {
+        sliderYear.addEventListener('input', () => updateCalculations());
+      }
+
+      // All Form Inputs & Selects Real-Time Change / Input Listeners
+      document.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', () => updateCalculations());
+        el.addEventListener('change', () => updateCalculations());
       });
 
       // Target Solver Button
@@ -2300,17 +2289,25 @@
       if (btnShare) btnShare.addEventListener('click', shareDealLink);
 
       // Sensitivity Selectors
-      document.getElementById('sens-row-param').addEventListener('change', () => updateCalculations());
-      document.getElementById('sens-col-param').addEventListener('change', () => updateCalculations());
+      const sensRow = document.getElementById('sens-row-param');
+      if (sensRow) sensRow.addEventListener('change', () => updateCalculations());
+      const sensCol = document.getElementById('sens-col-param');
+      if (sensCol) sensCol.addEventListener('change', () => updateCalculations());
 
       // Monte Carlo Re-Run Button
-      document.getElementById('btn-run-mc').addEventListener('click', () => updateCalculations());
+      const btnMc = document.getElementById('btn-run-mc');
+      if (btnMc) btnMc.addEventListener('click', () => updateCalculations());
 
       // Cost Segregation Checkbox
-      document.getElementById('input-cost-seg').addEventListener('change', () => updateCalculations());
+      const inputCostSeg = document.getElementById('input-cost-seg');
+      if (inputCostSeg) inputCostSeg.addEventListener('change', () => updateCalculations());
 
       // Refinance Recalculate Button
-      document.getElementById('btn-recalc-refi').addEventListener('click', () => updateCalculations());
+      const btnRefi = document.getElementById('btn-recalc-refi');
+      if (btnRefi) btnRefi.addEventListener('click', () => updateCalculations());
+
+      // Initial tab and calculations setup
+      setActiveTab(activeTab);
     });
   </script>
 </body>
