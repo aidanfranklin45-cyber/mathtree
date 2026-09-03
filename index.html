@@ -38,6 +38,38 @@
         linear-gradient(to right, rgba(16, 185, 129, 0.03) 1px, transparent 1px),
         linear-gradient(to bottom, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
     }
+    /* Screen and Print Styles */
+    @media screen {
+      #printable-brief {
+        display: none !important;
+      }
+    }
+    @media print {
+      @page {
+        size: landscape;
+        margin: 0.35in;
+      }
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      header, footer, nav, #calculator-form, .sidebar-section, #view-modes-bar, button, #active-tab-indicator, .no-print, main > div, #deal-auditor-banner {
+        display: none !important;
+      }
+      main {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      #printable-brief {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
   </style>
   <script>
     tailwind.config = {
@@ -132,6 +164,9 @@
   <!-- Main Container -->
   <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
     
+    <!-- Printable Investment Brief (rendered on print) -->
+    <div id="printable-brief"></div>
+
     <!-- Primary Workspace Navigation Bar -->
     <div class="flex flex-col md:flex-row gap-2 justify-between items-stretch md:items-center bg-slate-900/60 p-2 rounded-2xl border border-slate-900 shadow-xl">
       <!-- Asset Class Preset Selector -->
@@ -1050,7 +1085,7 @@
     let activeTab = 'single-family';
     let currentChartType = 'cashflow'; // 'cashflow' or 'valuation'
     let currentChart = null;
-    let simpleMode = true;
+    let simpleMode = false;
 
     function syncSimpleModeState() {
       const lockedFields = [
@@ -1082,51 +1117,6 @@
             el.classList.remove('bg-slate-950/80', 'border-emerald-950', 'text-slate-100');
           }
         });
-        
-        const defaults = { ...defaultPresets[activeTab] };
-        if (activeTab === 'commercial') {
-          const leaseTypeEl = document.getElementById('input-lease-type');
-          if (leaseTypeEl) {
-            defaults.expenseRatio = leaseTypeEl.value === 'NNN' ? 11 : 40;
-          }
-          const assetClass = document.getElementById('input-comm-class').value;
-          const marketTier = document.getElementById('input-comm-tier').value;
-          let standardCap = 6.5;
-          if (assetClass === 'Industrial') {
-            if (marketTier === 'Tier1') standardCap = 5.375;
-            else if (marketTier === 'Tier2') standardCap = 6.25;
-            else standardCap = 7.375;
-          } else if (assetClass === 'Retail') {
-            if (marketTier === 'Tier1') standardCap = 6.375;
-            else if (marketTier === 'Tier2') standardCap = 7.375;
-            else standardCap = 8.75;
-          } else if (assetClass === 'Office') {
-            if (marketTier === 'Tier1') standardCap = 7.0;
-            else if (marketTier === 'Tier2') standardCap = 8.0;
-            else standardCap = 9.25;
-          }
-          defaults.targetCapRate = standardCap;
-        } else if (activeTab === 'storage') {
-          const marketTier = document.getElementById('input-storage-tier').value;
-          let standardCap = 6.5;
-          if (marketTier === 'Tier1') standardCap = 5.5;
-          else if (marketTier === 'Tier2') standardCap = 6.5;
-          else if (marketTier === 'Tier3') standardCap = 7.75;
-          defaults.targetCapRate = standardCap;
-        }
-        if (defaults) {
-          document.getElementById('input-closing-costs').value = defaults.closingCosts ?? 0;
-          const capRateOrApp = (activeTab === 'commercial' || activeTab === 'storage')
-            ? (defaults.targetCapRate ?? '')
-            : (defaults.appreciationRate ?? '');
-          document.getElementById('input-appreciation-rate').value = capRateOrApp;
-          document.getElementById('input-vacancy-rate').value = defaults.vacancyRate ?? '';
-          document.getElementById('input-rent-growth').value = defaults.rentGrowth ?? '';
-          document.getElementById('input-expense-ratio').value = defaults.expenseRatio ?? '';
-          document.getElementById('input-discount-rate').value = defaults.discountRate ?? 8;
-          document.getElementById('input-exit-year').value = defaults.exitYear ?? 10;
-          document.getElementById('input-loan-term').value = defaults.loanTerm ?? '';
-        }
         
         const advAssumptions = document.querySelector('details');
         if (advAssumptions) {
@@ -1793,6 +1783,16 @@
         indicator.textContent = tabNames[tab] || tab;
       }
 
+      // Update Appreciation / Exit Cap Rate label
+      const appLabel = document.getElementById('label-appreciation-rate');
+      if (appLabel) {
+        if (tab === 'commercial' || tab === 'storage') {
+          appLabel.textContent = "Target Exit Cap Rate";
+        } else {
+          appLabel.textContent = "Appreciation Rate";
+        }
+      }
+
       // 5. Update conditional input group display
       showTabInputs(tab);
 
@@ -2136,8 +2136,236 @@
       document.body.removeChild(link);
     }
 
+    // Render Comprehensive Printable Investment Brief
+    function renderPrintableBrief() {
+      const inputs = getInputsFromForm();
+      const res = window.PropertyMath.calculateProjections(activeTab, inputs);
+      const warnings = window.PropertyMath.auditDealRisks(activeTab, inputs, res);
+
+      const tabTitles = {
+        'single-family': 'Single-Family Residential',
+        'multi-unit': `Multi-Unit Residential (${inputs.unitCount || 1} Units)`,
+        'commercial': `Commercial Real Estate (${inputs.commClass || 'Industrial'} • ${inputs.leaseType || 'NNN'})`,
+        'storage': `Storage Facility (${inputs.isAutomated ? 'Automated' : 'Manned'} • ${inputs.storageTier || 'Tier 2'})`
+      };
+
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      // Asset-specific revenue string
+      let revenueSummary = '';
+      if (activeTab === 'single-family') {
+        revenueSummary = `${formatCurrency(inputs.monthlyRent)}/mo (${formatCurrency(inputs.monthlyRent * 12)}/yr)`;
+      } else if (activeTab === 'multi-unit') {
+        revenueSummary = `${inputs.unitCount} Units @ ${formatCurrency(inputs.monthlyRentPerUnit)}/mo (${formatCurrency(inputs.unitCount * inputs.monthlyRentPerUnit * 12)}/yr)`;
+      } else if (activeTab === 'commercial') {
+        revenueSummary = `${formatCurrency(inputs.grossRentAnnual)}/yr (${inputs.gla ? inputs.gla.toLocaleString() + ' sq ft GLA' : ''})`;
+      } else if (activeTab === 'storage') {
+        if (inputs.monthlyRentPerUnit > 0) {
+          revenueSummary = `${inputs.unitCount} Units @ ${formatCurrency(inputs.monthlyRentPerUnit)}/mo (${formatCurrency(inputs.unitCount * inputs.monthlyRentPerUnit * 12)}/yr)`;
+        } else {
+          revenueSummary = `${(inputs.totalSqFt || 0).toLocaleString()} sq ft @ $${(inputs.rentPerSqFt || 0).toFixed(2)}/sq ft/mo (${formatCurrency((inputs.totalSqFt || 0) * (inputs.rentPerSqFt || 0) * 12)}/yr)`;
+        }
+      }
+
+      const container = document.getElementById('printable-brief');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: #0f172a; max-width: 100%; margin: 0 auto; background: #ffffff;">
+          <!-- Brief Header -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 10px; margin-bottom: 14px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 22px; font-weight: 800; color: #059669; letter-spacing: -0.5px;">MathTree</span>
+                <span style="font-size: 10px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Executive Underwriting Brief</span>
+              </div>
+              <h1 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">${tabTitles[activeTab] || activeTab}</h1>
+            </div>
+            <div style="text-align: right; font-size: 10.5px; color: #64748b;">
+              <p style="margin: 0; font-weight: 600;">Underwriting Date: <strong style="color: #0f172a;">${dateStr}</strong></p>
+              <p style="margin: 2px 0 0 0;">Target Hold Period: <strong style="color: #0f172a;">${inputs.exitYear} Years</strong></p>
+            </div>
+          </div>
+
+          <!-- Key Financial Scorecard -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">10-Yr Levered IRR</p>
+              <p style="font-size: 15px; font-weight: 800; color: #059669; margin: 3px 0 0 0;">${res.irr.toFixed(2)}%</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">10-Yr NPV (@${inputs.discountRate}%)</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${formatCurrency(res.npv)}</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">Equity Multiplier</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${res.equityMultiplier.toFixed(2)}x</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">Year 1 Cash Flow</p>
+              <p style="font-size: 15px; font-weight: 800; color: ${res.projections[0].cashFlow >= 0 ? '#059669' : '#e11d48'}; margin: 3px 0 0 0;">${formatCurrency(res.projections[0].cashFlow)}</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">Year 1 Cap Rate</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${res.projections[0].capRate.toFixed(2)}%</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">Year 1 DSCR</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${res.projections[0].dscr !== null ? res.projections[0].dscr.toFixed(2) + 'x' : 'N/A'}</p>
+            </div>
+          </div>
+
+          <!-- 2-Column Underwriting Parameters Table -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+            <!-- Column 1: Acquisition & Financing -->
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
+              <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
+                Acquisition & Financing Structure
+              </div>
+              <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
+                <tbody>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Purchase Price</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.purchasePrice)}</td>
+                  </tr>
+                  ${activeTab === 'single-family' && inputs.arv > 0 ? `
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">After Repair Value (ARV)</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(inputs.arv)}</td>
+                  </tr>` : ''}
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Down Payment (${inputs.downPaymentPercent}%)</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.downPaymentAmount)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Loan Amount (LTV: ${res.ltv.toFixed(1)}%)</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.loanAmount)}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Interest Rate & Loan Term</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.interestRate}% • ${inputs.loanTerm} Years</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Annual Debt Service (P&I)</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.monthlyMortgagePayment * 12)}/yr (${formatCurrency(res.monthlyMortgagePayment)}/mo)</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Rehab & Closing Costs</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">Rehab: ${formatCurrency(inputs.rehabCosts)} • Closing: ${formatCurrency(inputs.closingCosts)}</td>
+                  </tr>
+                  <tr style="background: #f8fafc;">
+                    <td style="padding: 5px 10px; color: #0f172a; font-weight: 800;">Total Initial Cash Invested</td>
+                    <td style="padding: 5px 10px; text-align: right; font-weight: 800; color: #059669;">${formatCurrency(res.initialCashInvested)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Column 2: Operations & Growth -->
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
+              <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
+                Operating & Valuation Assumptions
+              </div>
+              <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
+                <tbody>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Gross Revenue Structure</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${revenueSummary}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Underwritten Vacancy Rate</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.vacancyRate}% (${activeTab === 'multi-unit' ? '5% Floor' : activeTab === 'storage' ? '+5% Concessions' : 'Standard'})</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Operating Expense Ratio (OER)</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.expenseRatio}% of GPI</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Property Management</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.manageProperty ? 'Enabled (Underwritten in OpEx)' : 'Self-Managed'}</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Annual Rent Growth</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.rentGrowth}% / Year</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">${activeTab === 'commercial' || activeTab === 'storage' ? 'Target Exit Cap Rate' : 'Annual Property Appreciation'}</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || inputs.appreciationRate) + '%' : inputs.appreciationRate + '%'}</td>
+                  </tr>
+                  <tr style="background: #f8fafc;">
+                    <td style="padding: 5px 10px; color: #0f172a; font-weight: 800;">Target Discount Rate / Hold</td>
+                    <td style="padding: 5px 10px; text-align: right; font-weight: 800; color: #059669;">${inputs.discountRate}% Discount • ${inputs.exitYear}-Yr Hold</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 10-Year Pro-Forma Cash Flow Table -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 14px;">
+            <div style="background: #0f172a; color: #ffffff; padding: 5px 10px; font-size: 10px; font-weight: 800; text-transform: uppercase;">
+              10-Year Institutional Pro-Forma Forecast
+            </div>
+            <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; text-align: right;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #334155;">
+                  <th style="padding: 5px 6px; text-align: center;">Year</th>
+                  <th style="padding: 5px 6px;">Property Value</th>
+                  <th style="padding: 5px 6px;">Gross Income</th>
+                  <th style="padding: 5px 6px;">Vacancy</th>
+                  <th style="padding: 5px 6px;">OpEx</th>
+                  <th style="padding: 5px 6px;">NOI</th>
+                  <th style="padding: 5px 6px;">Debt Service</th>
+                  <th style="padding: 5px 6px; color: #059669;">Net Cash Flow</th>
+                  <th style="padding: 5px 6px;">CoC %</th>
+                  <th style="padding: 5px 6px;">Cap Rate</th>
+                  <th style="padding: 5px 6px;">Loan Balance</th>
+                  <th style="padding: 5px 6px; color: #059669;">Ending Equity</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${res.projections.map((p, i) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                    <td style="padding: 4px 6px; text-align: center; font-weight: 700; color: #0f172a;">${p.year}</td>
+                    <td style="padding: 4px 6px;">${formatCurrency(p.propertyValue)}</td>
+                    <td style="padding: 4px 6px;">${formatCurrency(p.grossPotentialIncome)}</td>
+                    <td style="padding: 4px 6px; color: #e11d48;">${formatCurrency(p.vacancyLoss)}</td>
+                    <td style="padding: 4px 6px; color: #64748b;">${formatCurrency(p.operatingExpenses)}</td>
+                    <td style="padding: 4px 6px; font-weight: 700; color: #0f172a;">${formatCurrency(p.netOperatingIncome)}</td>
+                    <td style="padding: 4px 6px; color: #64748b;">${formatCurrency(p.debtService)}</td>
+                    <td style="padding: 4px 6px; font-weight: 800; color: ${p.cashFlow >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(p.cashFlow)}</td>
+                    <td style="padding: 4px 6px;">${p.cashOnCash.toFixed(1)}%</td>
+                    <td style="padding: 4px 6px;">${p.capRate.toFixed(2)}%</td>
+                    <td style="padding: 4px 6px; color: #64748b;">${formatCurrency(p.loanBalanceRemaining)}</td>
+                    <td style="padding: 4px 6px; font-weight: 700; color: #059669;">${formatCurrency(p.equity)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Underwriting Audit & Notes -->
+          ${warnings && warnings.length > 0 ? `
+            <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px;">
+              <p style="font-size: 9.5px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 3px 0;">Deal Risk & Underwriting Audit Flags</p>
+              <ul style="margin: 0; padding-left: 16px; font-size: 9px; color: #78350f; line-height: 1.35;">
+                ${warnings.map(w => `<li><strong>${w.title}:</strong> ${w.description}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          <!-- Brief Footer -->
+          <div style="border-top: 1px solid #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8.5px; color: #94a3b8;">
+            <span>MathTree Real Estate Underwriting Platform</span>
+            <span>Confidential Investment Analysis • For Evaluation Purposes Only</span>
+          </div>
+        </div>
+      `;
+    }
+
     // PDF Executive Brief Exporter
     function exportToPDF() {
+      renderPrintableBrief();
       window.print();
     }
 
@@ -2302,9 +2530,21 @@
       const inputCostSeg = document.getElementById('input-cost-seg');
       if (inputCostSeg) inputCostSeg.addEventListener('change', () => updateCalculations());
 
-      // Refinance Recalculate Button
-      const btnRefi = document.getElementById('btn-recalc-refi');
-      if (btnRefi) btnRefi.addEventListener('click', () => updateCalculations());
+      // Reset Button
+      const btnReset = document.getElementById('btn-reset');
+      if (btnReset) {
+        btnReset.addEventListener('click', () => {
+          if (confirm(`Reset ${activeTab.replace('-', ' ').toUpperCase()} model inputs to default baseline values?`)) {
+            localStorage.removeItem(`mathtree_${activeTab}`);
+            const defaults = defaultPresets[activeTab];
+            updateFormFields(defaults);
+            updateCalculations();
+          }
+        });
+      }
+
+      // Print Hook
+      window.addEventListener('beforeprint', renderPrintableBrief);
 
       // Initial tab and calculations setup
       setActiveTab(activeTab);
