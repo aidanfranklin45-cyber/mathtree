@@ -400,6 +400,165 @@ runTest('Storage Valuation - Income Capitalization over multiple years', () => {
   assert.strictEqual(y10.capRate, 6.5); // Reaches target cap rate at Year 10 (exit year)
 });
 
+// 7. Advanced PropTech Modules Tests
+
+runTest('Sensitivity Matrix calculation', () => {
+  const { calculateSensitivityMatrix } = require('./math.js');
+  const baseInputs = {
+    purchasePrice: '300000',
+    downPaymentPercent: '20',
+    interestRate: '6',
+    loanTerm: '30',
+    monthlyRent: '2500',
+    expenseRatio: '35',
+    vacancyRate: '5',
+    appreciationRate: '3'
+  };
+  const matrixRes = calculateSensitivityMatrix('single-family', baseInputs, 'interestRate', [5, 6, 7], 'vacancyRate', [3, 5, 8]);
+  assert.strictEqual(matrixRes.matrix.length, 3);
+  assert.strictEqual(matrixRes.matrix[0].length, 3);
+  assert.ok(typeof matrixRes.matrix[0][0].irr === 'number');
+});
+
+runTest('Monte Carlo Simulation run', () => {
+  const { runMonteCarloSimulation } = require('./math.js');
+  const baseInputs = {
+    purchasePrice: '250000',
+    downPaymentPercent: '20',
+    interestRate: '5.5',
+    loanTerm: '30',
+    monthlyRent: '2000',
+    expenseRatio: '35',
+    vacancyRate: '5',
+    appreciationRate: '3'
+  };
+  const mc = runMonteCarloSimulation('single-family', baseInputs, 100);
+  assert.strictEqual(mc.iterations, 100);
+  assert.ok(typeof mc.meanIrr === 'number');
+  assert.strictEqual(mc.histogramBins.length, 10);
+});
+
+runTest('Tax Depreciation and After-Tax Analysis', () => {
+  const { calculateTaxAndDepreciation } = require('./math.js');
+  const inputs = {
+    purchasePrice: '400000',
+    downPaymentPercent: '20',
+    interestRate: '6',
+    loanTerm: '30',
+    rehabCosts: '20000',
+    monthlyRent: '3200',
+    expenseRatio: '35',
+    taxRate: '24',
+    landPercent: '20'
+  };
+  const baseRes = calculateProjections('single-family', inputs);
+  const taxRes = calculateTaxAndDepreciation('single-family', inputs, baseRes);
+  assert.strictEqual(taxRes.depreciableBasis, (400000 * 0.8) + 20000); // 320k + 20k = 340k
+  assert.strictEqual(taxRes.annualDepreciation, Math.round((340000 / 27.5) * 100) / 100);
+  assert.ok(typeof taxRes.afterTaxIrr === 'number');
+});
+
+runTest('Mid-Hold Refinance & BRRRR Model', () => {
+  const { calculateRefinanceEvent } = require('./math.js');
+  const inputs = {
+    purchasePrice: '200000',
+    downPaymentPercent: '20',
+    interestRate: '6',
+    loanTerm: '30',
+    monthlyRent: '2200',
+    expenseRatio: '35',
+    appreciationRate: '5'
+  };
+  const refiRes = calculateRefinanceEvent('single-family', inputs, 3, 75, 6.5, 30);
+  assert.strictEqual(refiRes.refiYear, 3);
+  assert.ok(refiRes.newLoanAmount > refiRes.oldLoanBalance);
+  assert.ok(refiRes.netCashOut > 0);
+  assert.strictEqual(refiRes.projections.length, 10);
+});
+
+runTest('Target Purchase Price Solver', () => {
+  const { solveTargetPurchasePrice } = require('./math.js');
+  const inputs = {
+    downPaymentPercent: '20',
+    interestRate: '6',
+    loanTerm: '30',
+    monthlyRent: '2500',
+    expenseRatio: '35',
+    vacancyRate: '5',
+    appreciationRate: '3'
+  };
+  const solver = solveTargetPurchasePrice('single-family', inputs, 12);
+  assert.ok(solver.solvedPurchasePrice > 0);
+  assert.ok(Math.abs(solver.solvedResults.irr - 12) < 0.5);
+});
+
+runTest('Portfolio Aggregator', () => {
+  const { aggregatePortfolio } = require('./math.js');
+  const deal1 = {
+    assetType: 'single-family',
+    inputs: { purchasePrice: '200000', downPaymentPercent: '20', interestRate: '6', loanTerm: '30', monthlyRent: '1800' }
+  };
+  const deal2 = {
+    assetType: 'multi-unit',
+    inputs: { purchasePrice: '600000', downPaymentPercent: '25', interestRate: '6.5', loanTerm: '30', unitCount: '4', monthlyRentPerUnit: '1200' }
+  };
+  const pf = aggregatePortfolio([deal1, deal2]);
+  assert.strictEqual(pf.dealCount, 2);
+  assert.strictEqual(pf.totalPurchasePrice, 800000);
+  assert.ok(pf.combinedProjections.length === 10);
+  assert.ok(typeof pf.blendedYear1CoC === 'number');
+  assert.ok(typeof pf.blendedYear1CapRate === 'number');
+  assert.ok(typeof pf.equityMultiple === 'number');
+  assert.ok(pf.portfolioLtv > 0);
+  assert.ok(pf.combinedProjections[0].dscr > 0);
+
+  // Test with quantity multiplier (e.g., 3 single-family units)
+  const dealWithQty = {
+    assetType: 'single-family',
+    quantity: 3,
+    inputs: { purchasePrice: '200000', downPaymentPercent: '20', interestRate: '6', loanTerm: '30', monthlyRent: '1800' }
+  };
+  const pfMulti = aggregatePortfolio([dealWithQty]);
+  assert.strictEqual(pfMulti.totalPurchasePrice, 600000);
+  assert.strictEqual(pfMulti.totalUnitsOrDoors, 3);
+});
+
+runTest('Scenario Variants Generator (Base, Bull, Bear)', () => {
+  const { generateScenarioVariants } = require('./math.js');
+  const baseInputs = {
+    purchasePrice: '300000',
+    downPaymentPercent: '20',
+    interestRate: '6.5',
+    loanTerm: '30',
+    monthlyRent: '2500',
+    vacancyRate: '5',
+    rentGrowthRate: '2',
+    appreciationRate: '3'
+  };
+  const scenarios = generateScenarioVariants('single-family', baseInputs);
+  assert.ok(scenarios.base && scenarios.bull && scenarios.bear);
+  assert.ok(scenarios.bull.results.irr >= scenarios.base.results.irr, 'Bull IRR should be higher or equal to Base');
+  assert.ok(scenarios.bear.results.irr <= scenarios.base.results.irr, 'Bear IRR should be lower or equal to Base');
+  assert.ok(parseFloat(scenarios.bull.inputs.monthlyRent) > parseFloat(scenarios.base.inputs.monthlyRent));
+  assert.ok(parseFloat(scenarios.bear.inputs.monthlyRent) < parseFloat(scenarios.base.inputs.monthlyRent));
+});
+
+runTest('Deal Auditor Risk Detection', () => {
+  const { auditDealRisks } = require('./math.js');
+  const badInputs = {
+    purchasePrice: '500000',
+    downPaymentPercent: '5', // High leverage
+    interestRate: '9', // High interest
+    loanTerm: '30',
+    monthlyRent: '1500', // Low rent -> low DSCR
+    vacancyRate: '10'
+  };
+  const res = calculateProjections('single-family', badInputs);
+  const risks = auditDealRisks('single-family', badInputs, res);
+  assert.ok(risks.length > 0);
+  assert.ok(risks.some(r => r.level === 'danger' || r.level === 'warning'));
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
@@ -409,3 +568,4 @@ if (testsFailed > 0) {
 } else {
   process.exit(0);
 }
+
