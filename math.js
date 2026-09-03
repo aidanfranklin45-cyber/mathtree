@@ -338,8 +338,8 @@ function calculateProjections(assetType, inputs) {
     // 5. Debt Service
     const currentDebtService = year <= loanTerm ? annualDebtService : 0;
 
-    // 6. Cash Flow (Net of Debt Service and CapEx Reserves)
-    const cashFlow = netOperatingIncome - currentDebtService - capexReserve;
+    // 6. Cash Flow (Net Operating Income minus Annual Debt Service)
+    const cashFlow = netOperatingIncome - currentDebtService;
 
     // We track cash injections if cashFlow is negative:
     let cashInjection = 0;
@@ -731,7 +731,7 @@ function calculateRefinanceEvent(assetType, baseInputs, refiYear = 3, refiLtv = 
       // Recalculate post-refi debt service
       p.debtService = Math.round(newAnnualDebtService * 100) / 100;
       p.netOperatingIncome = p.effectiveGrossIncome - p.operatingExpenses;
-      p.cashFlow = Math.round((p.netOperatingIncome - p.debtService - p.capexReserve) * 100) / 100;
+      p.cashFlow = Math.round((p.netOperatingIncome - p.debtService) * 100) / 100;
       
       const newBalance = calculateRemainingBalance(newLoanAmount, refiRate, refiTerm, y - targetYear);
       p.loanBalanceRemaining = Math.round(newBalance * 100) / 100;
@@ -819,6 +819,7 @@ function aggregatePortfolio(dealsList) {
   let totalPurchasePrice = 0;
   let totalCashInvested = 0;
   let totalLoanAmount = 0;
+  let totalUnitsOrDoors = 0;
 
   const combinedProjections = [];
   for (let year = 1; year <= 10; year++) {
@@ -841,28 +842,31 @@ function aggregatePortfolio(dealsList) {
   }
 
   dealsList.forEach(deal => {
+    const qty = (typeof deal.quantity === 'number' && deal.quantity > 0) ? deal.quantity : 1;
+    totalUnitsOrDoors += qty;
     const res = deal.results || calculateProjections(deal.assetType, deal.inputs);
-    totalPurchasePrice += res.purchasePrice;
-    totalCashInvested += res.initialCashInvested;
-    totalLoanAmount += res.loanAmount;
+    totalPurchasePrice += res.purchasePrice * qty;
+    totalCashInvested += res.initialCashInvested * qty;
+    totalLoanAmount += res.loanAmount * qty;
 
     res.projections.forEach((p, idx) => {
       if (combinedProjections[idx]) {
-        combinedProjections[idx].propertyValue += p.propertyValue;
-        combinedProjections[idx].grossPotentialIncome += p.grossPotentialIncome;
-        combinedProjections[idx].effectiveGrossIncome += p.effectiveGrossIncome;
-        combinedProjections[idx].operatingExpenses += p.operatingExpenses;
-        combinedProjections[idx].netOperatingIncome += p.netOperatingIncome;
-        combinedProjections[idx].debtService += p.debtService;
-        combinedProjections[idx].cashFlow += p.cashFlow;
-        combinedProjections[idx].equity += p.equity;
+        combinedProjections[idx].propertyValue += p.propertyValue * qty;
+        combinedProjections[idx].grossPotentialIncome += p.grossPotentialIncome * qty;
+        combinedProjections[idx].effectiveGrossIncome += p.effectiveGrossIncome * qty;
+        combinedProjections[idx].operatingExpenses += p.operatingExpenses * qty;
+        combinedProjections[idx].netOperatingIncome += p.netOperatingIncome * qty;
+        combinedProjections[idx].debtService += p.debtService * qty;
+        combinedProjections[idx].cashFlow += p.cashFlow * qty;
+        combinedProjections[idx].equity += p.equity * qty;
 
-        portfolioIrrFlows[idx] += p.cashFlow + (idx === 9 ? p.equity : 0);
+        portfolioIrrFlows[idx] += (p.cashFlow * qty) + (idx === 9 ? (p.equity * qty) : 0);
       }
     });
   });
 
-  // Round combined projections
+  // Round combined projections & compute per-year portfolio DSCR and CoC
+  let cumulativeCashFlow = 0;
   combinedProjections.forEach(cp => {
     cp.propertyValue = Math.round(cp.propertyValue * 100) / 100;
     cp.grossPotentialIncome = Math.round(cp.grossPotentialIncome * 100) / 100;
@@ -872,17 +876,73 @@ function aggregatePortfolio(dealsList) {
     cp.debtService = Math.round(cp.debtService * 100) / 100;
     cp.cashFlow = Math.round(cp.cashFlow * 100) / 100;
     cp.equity = Math.round(cp.equity * 100) / 100;
+
+    cumulativeCashFlow += cp.cashFlow;
+    cp.cumulativeCashFlow = Math.round(cumulativeCashFlow * 100) / 100;
+    cp.dscr = cp.debtService > 0 ? Math.round((cp.netOperatingIncome / cp.debtService) * 100) / 100 : null;
+    cp.cashOnCash = totalCashInvested > 0 ? Math.round((cp.cashFlow / totalCashInvested) * 10000) / 100 : 0;
   });
 
   const portfolioIrr = calculateIRR(totalCashInvested, portfolioIrrFlows);
+  const blendedYear1CoC = combinedProjections.length > 0 ? combinedProjections[0].cashOnCash : 0;
+  const blendedYear1CapRate = totalPurchasePrice > 0 && combinedProjections.length > 0
+    ? Math.round((combinedProjections[0].netOperatingIncome / totalPurchasePrice) * 10000) / 100
+    : 0;
+  const total10YearCashFlow = Math.round(cumulativeCashFlow * 100) / 100;
+  const finalYearEquity = combinedProjections.length > 0 ? combinedProjections[combinedProjections.length - 1].equity : 0;
+  const equityMultiple = totalCashInvested > 0
+    ? Math.round(((total10YearCashFlow + finalYearEquity) / totalCashInvested) * 100) / 100
+    : 0;
+  const portfolioLtv = totalPurchasePrice > 0
+    ? Math.round((totalLoanAmount / totalPurchasePrice) * 10000) / 100
+    : 0;
 
   return {
     dealCount: dealsList.length,
+    totalUnitsOrDoors,
     totalPurchasePrice: Math.round(totalPurchasePrice * 100) / 100,
     totalCashInvested: Math.round(totalCashInvested * 100) / 100,
     totalLoanAmount: Math.round(totalLoanAmount * 100) / 100,
+    portfolioLtv,
     portfolioIrr: Math.round(portfolioIrr * 100) / 100,
+    blendedYear1CoC,
+    blendedYear1CapRate,
+    total10YearCashFlow,
+    equityMultiple,
     combinedProjections
+  };
+}
+
+/**
+ * Helper to generate Bull, Base, and Bear variants for scenario sensitivity
+ */
+function generateScenarioVariants(assetType, baseInputs) {
+  const base = { ...baseInputs };
+
+  // Bull Case: +8% rent, -1.5% vacancy, +0.5% rent growth, +0.5% appreciation
+  const bull = { ...baseInputs };
+  if (bull.monthlyRent) bull.monthlyRent = Math.round(parseFloat(bull.monthlyRent) * 1.08);
+  if (bull.grossRentMonthly) bull.grossRentMonthly = Math.round(parseFloat(bull.grossRentMonthly) * 1.08);
+  if (bull.monthlyRentPerUnit) bull.monthlyRentPerUnit = Math.round(parseFloat(bull.monthlyRentPerUnit) * 1.08);
+  if (bull.rentPerSqFt) bull.rentPerSqFt = Math.round(parseFloat(bull.rentPerSqFt) * 1.08 * 100) / 100;
+  if (bull.vacancyRate) bull.vacancyRate = Math.max(1, Math.round((parseFloat(bull.vacancyRate) - 1.5) * 10) / 10);
+  if (bull.rentGrowthRate) bull.rentGrowthRate = Math.round((parseFloat(bull.rentGrowthRate) + 0.5) * 10) / 10;
+  if (bull.appreciationRate) bull.appreciationRate = Math.round((parseFloat(bull.appreciationRate) + 0.5) * 10) / 10;
+
+  // Bear Case: -8% rent, +3% vacancy, -0.5% rent growth, +0.5% interest rate, +0.5% exit cap
+  const bear = { ...baseInputs };
+  if (bear.monthlyRent) bear.monthlyRent = Math.round(parseFloat(bear.monthlyRent) * 0.92);
+  if (bear.grossRentMonthly) bear.grossRentMonthly = Math.round(parseFloat(bear.grossRentMonthly) * 0.92);
+  if (bear.monthlyRentPerUnit) bear.monthlyRentPerUnit = Math.round(parseFloat(bear.monthlyRentPerUnit) * 0.92);
+  if (bear.rentPerSqFt) bear.rentPerSqFt = Math.round(parseFloat(bear.rentPerSqFt) * 0.92 * 100) / 100;
+  if (bear.vacancyRate) bear.vacancyRate = Math.min(25, Math.round((parseFloat(bear.vacancyRate) + 3) * 10) / 10);
+  if (bear.rentGrowthRate) bear.rentGrowthRate = Math.max(0, Math.round((parseFloat(bear.rentGrowthRate) - 0.75) * 10) / 10);
+  if (bear.interestRate) bear.interestRate = Math.round((parseFloat(bear.interestRate) + 0.5) * 100) / 100;
+
+  return {
+    base: { inputs: base, results: calculateProjections(assetType, base) },
+    bull: { inputs: bull, results: calculateProjections(assetType, bull) },
+    bear: { inputs: bear, results: calculateProjections(assetType, bear) }
   };
 }
 
@@ -964,6 +1024,7 @@ if (typeof exports !== 'undefined') {
   exports.solveTargetPurchasePrice = solveTargetPurchasePrice;
   exports.aggregatePortfolio = aggregatePortfolio;
   exports.auditDealRisks = auditDealRisks;
+  exports.generateScenarioVariants = generateScenarioVariants;
 }
 if (typeof window !== 'undefined') {
   window.PropertyMath = {
@@ -976,7 +1037,8 @@ if (typeof window !== 'undefined') {
     calculateRefinanceEvent,
     solveTargetPurchasePrice,
     aggregatePortfolio,
-    auditDealRisks
+    auditDealRisks,
+    generateScenarioVariants
   };
 }
 

@@ -506,6 +506,41 @@ runTest('Portfolio Aggregator', () => {
   assert.strictEqual(pf.dealCount, 2);
   assert.strictEqual(pf.totalPurchasePrice, 800000);
   assert.ok(pf.combinedProjections.length === 10);
+  assert.ok(typeof pf.blendedYear1CoC === 'number');
+  assert.ok(typeof pf.blendedYear1CapRate === 'number');
+  assert.ok(typeof pf.equityMultiple === 'number');
+  assert.ok(pf.portfolioLtv > 0);
+  assert.ok(pf.combinedProjections[0].dscr > 0);
+
+  // Test with quantity multiplier (e.g., 3 single-family units)
+  const dealWithQty = {
+    assetType: 'single-family',
+    quantity: 3,
+    inputs: { purchasePrice: '200000', downPaymentPercent: '20', interestRate: '6', loanTerm: '30', monthlyRent: '1800' }
+  };
+  const pfMulti = aggregatePortfolio([dealWithQty]);
+  assert.strictEqual(pfMulti.totalPurchasePrice, 600000);
+  assert.strictEqual(pfMulti.totalUnitsOrDoors, 3);
+});
+
+runTest('Scenario Variants Generator (Base, Bull, Bear)', () => {
+  const { generateScenarioVariants } = require('./math.js');
+  const baseInputs = {
+    purchasePrice: '300000',
+    downPaymentPercent: '20',
+    interestRate: '6.5',
+    loanTerm: '30',
+    monthlyRent: '2500',
+    vacancyRate: '5',
+    rentGrowthRate: '2',
+    appreciationRate: '3'
+  };
+  const scenarios = generateScenarioVariants('single-family', baseInputs);
+  assert.ok(scenarios.base && scenarios.bull && scenarios.bear);
+  assert.ok(scenarios.bull.results.irr >= scenarios.base.results.irr, 'Bull IRR should be higher or equal to Base');
+  assert.ok(scenarios.bear.results.irr <= scenarios.base.results.irr, 'Bear IRR should be lower or equal to Base');
+  assert.ok(parseFloat(scenarios.bull.inputs.monthlyRent) > parseFloat(scenarios.base.inputs.monthlyRent));
+  assert.ok(parseFloat(scenarios.bear.inputs.monthlyRent) < parseFloat(scenarios.base.inputs.monthlyRent));
 });
 
 runTest('Deal Auditor Risk Detection', () => {

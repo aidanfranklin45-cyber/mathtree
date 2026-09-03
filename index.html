@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Google Fonts: Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,9 +106,240 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-brand-500/30 selection:text-brand-200 math-grid">
 
-  <!-- Header -->
-  <header class="border-b border-emerald-950 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+  <!-- ==================== 1. COMPREHENSIVE INSTITUTIONAL LANDING PAGE ==================== -->
+  <div id="view-landing-page" class="flex flex-col min-h-screen bg-slate-950 text-slate-100 selection:bg-brand-500 selection:text-white relative overflow-x-hidden">
+    <!-- Ambient Background Glows -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-brand-600/15 via-accent-cyan/10 to-transparent blur-3xl pointer-events-none -z-10"></div>
+    <div class="absolute top-[800px] right-0 w-[600px] h-[600px] bg-indigo-600/10 blur-3xl pointer-events-none -z-10"></div>
+
+    <!-- Landing Header -->
+    <header class="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/25">
+            <svg class="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 21V12M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" stroke-linecap="round" />
+              <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8M17 10C17 10 15 8 15 6M17 10C17 10 19 8 19 6" stroke-linecap="round" />
+              <circle cx="5" cy="8" r="1.5" fill="currentColor" /><circle cx="9" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="6" r="1.5" fill="currentColor" /><circle cx="19" cy="6" r="1.5" fill="currentColor" />
+            </svg>
+          </div>
+          <div>
+            <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
+            <span class="text-[10px] block text-emerald-400 font-bold uppercase tracking-widest">PropTech Modeling Studio</span>
+          </div>
+        </div>
+
+        <nav class="hidden md:flex items-center space-x-6 text-xs font-semibold text-slate-400">
+          <a href="#landing-features" class="hover:text-white transition">Capabilities</a>
+          <a href="#landing-assets" class="hover:text-white transition">4 Asset Classes</a>
+          <a href="#landing-engine" class="hover:text-white transition">Serverless Engine</a>
+          <a href="#landing-pitchdeck" class="hover:text-white transition">Pitch Deck Studio</a>
+        </nav>
+
+        <div class="flex items-center space-x-2.5">
+          <button id="landing-btn-signin" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800 transition">
+            Sign In
+          </button>
+          <button id="landing-btn-demo" class="px-4 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1.5">
+            <span>⚡ Launch Demo</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 text-center space-y-8 relative">
+      <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 text-emerald-300 text-xs font-bold shadow-inner">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>PropTech 2.0 • Institutional Underwriting & Executive Pitch Deck Studio</span>
+      </div>
+
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] max-w-4xl mx-auto">
+        The Standard in Real Estate Underwriting & <span class="bg-gradient-to-r from-brand-400 via-accent-cyan to-brand-200 bg-clip-text text-transparent">Investor Pitch Decks</span>
+      </h1>
+
+      <p class="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
+        Underwrite Single-Family, Multi-Family, Commercial NNN, and Self-Storage investments with institutional precision. Powered by Supabase Edge Functions for 10-year pro-formas, Monte Carlo risk simulations, and 1-click executive presentation memos.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+        <button id="landing-hero-demo-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-600/30 transition-all transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
+          <span>⚡ Launch Interactive Demo</span>
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+        <button id="landing-hero-signup-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-bold text-slate-200 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-all flex items-center justify-center space-x-2">
+          <span>🔑 Create Free Account</span>
+        </button>
+      </div>
+
+      <!-- Live KPI Spotlight Mockup Card -->
+      <div class="pt-8 max-w-5xl mx-auto">
+        <div class="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 text-left">
+            <div>
+              <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Institutional Pro-Forma Engine</div>
+              <h3 class="text-xl font-black text-white mt-0.5">Westfield Core Industrial Park (10-Year Projections)</h3>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">🟢 DSCR: 1.45x (Healthy)</span>
+              <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-brand-500/10 text-brand-300 border border-brand-500/20">NNN Industrial</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
+            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">10-Year IRR</span>
+              <span class="text-2xl sm:text-3xl font-black text-brand-400 mt-1 block">18.4%</span>
+              <span class="text-[10px] text-emerald-400 mt-0.5 block">↑ +3.2% vs Benchmark</span>
+            </div>
+            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Equity Multiple</span>
+              <span class="text-2xl sm:text-3xl font-black text-accent-cyan mt-1 block">2.85x</span>
+              <span class="text-[10px] text-slate-400 mt-0.5 block">10-Yr Cumulative MOIC</span>
+            </div>
+            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Year 1 CoC Yield</span>
+              <span class="text-2xl sm:text-3xl font-black text-white mt-1 block">12.8%</span>
+              <span class="text-[10px] text-slate-400 mt-0.5 block">$128,400 Net Cash</span>
+            </div>
+            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Loan-to-Value</span>
+              <span class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1 block">68.0%</span>
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Conservative Senior Debt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 Asset Classes Section -->
+    <section id="landing-assets" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-900 space-y-12">
+      <div class="text-center space-y-3 max-w-2xl mx-auto">
+        <span class="text-xs font-bold uppercase tracking-widest text-brand-400">Precision Modeling</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">4 Tailored Property Asset Classes</h2>
+        <p class="text-xs sm:text-sm text-slate-400">Each asset class features bespoke financial mechanics, expense ratios, valuation cap-rates, and friction costs.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- SF -->
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-brand-500/40 transition">
+          <div class="w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-2xl">🏠</div>
+          <h3 class="text-lg font-bold text-white">Single-Family Residential</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Models After Repair Value (ARV), rehabilitation capital, 1% annual maintenance friction, and vacancy leasing turnover.</p>
+          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
+            <li class="flex items-center space-x-1.5"><span class="text-brand-400">✓</span><span>ARV equity creation</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-brand-400">✓</span><span>Turnover friction deduction</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-brand-400">✓</span><span>BRRRR mid-hold cash-out refi</span></li>
+          </ul>
+        </div>
+
+        <!-- Multi-Unit -->
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-accent-cyan/40 transition">
+          <div class="w-12 h-12 rounded-xl bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center text-2xl">🏢</div>
+          <h3 class="text-lg font-bold text-white">Multi-Unit Residential</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Underwrite 2 to 200+ unit multifamily complexes with Fannie Mae economic vacancy floors and dynamic management tiers.</p>
+          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
+            <li class="flex items-center space-x-1.5"><span class="text-accent-cyan">✓</span><span>5% Fannie Mae vacancy floor</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-accent-cyan">✓</span><span>Per-door cash flow metrics</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-accent-cyan">✓</span><span>Dynamic property mgmt scale</span></li>
+          </ul>
+        </div>
+
+        <!-- Commercial -->
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-accent-violet/40 transition">
+          <div class="w-12 h-12 rounded-xl bg-accent-violet/10 border border-accent-violet/20 flex items-center justify-center text-2xl">🏬</div>
+          <h3 class="text-lg font-bold text-white">Commercial Real Estate</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Office, retail, and light industrial under NNN or Gross lease structures with gradual income capitalization valuation stepping.</p>
+          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
+            <li class="flex items-center space-x-1.5"><span class="text-accent-violet">✓</span><span>NNN vs Gross pass-throughs</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-accent-violet">✓</span><span>Linear cap rate stepping</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-accent-violet">✓</span><span>Debt Yield & DSCR covenants</span></li>
+          </ul>
+        </div>
+
+        <!-- Storage -->
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-amber-500/40 transition">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-2xl">📦</div>
+          <h3 class="text-lg font-bold text-white">Storage Facilities</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Self-storage facilities underwritten by unit count or total square footage with automated vs manned operational overhead.</p>
+          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
+            <li class="flex items-center space-x-1.5"><span class="text-amber-400">✓</span><span>Automated vs manned facilities</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-amber-400">✓</span><span>Promotional concessions (5%)</span></li>
+            <li class="flex items-center space-x-1.5"><span class="text-amber-400">✓</span><span>Per-sqft net rent yields</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Platform Capabilities Grid -->
+    <section id="landing-features" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-900 space-y-12">
+      <div class="text-center space-y-3 max-w-2xl mx-auto">
+        <span class="text-xs font-bold uppercase tracking-widest text-emerald-400">Institutional Power</span>
+        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Everything You Need to Close Capital</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div id="landing-engine" class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
+          <div class="text-2xl text-emerald-400">⚡</div>
+          <h4 class="text-base font-bold text-white">Serverless Supabase Edge Engine</h4>
+          <p class="text-xs text-slate-400">Calculates 10-year pro-forma waterfalls, Monte Carlo distributions, and risk checks on Deno serverless edge workers in under 150ms.</p>
+        </div>
+        <div id="landing-pitchdeck" class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
+          <div class="text-2xl text-accent-cyan">🖥️</div>
+          <h4 class="text-base font-bold text-white">Executive Pitch Deck Studio</h4>
+          <p class="text-xs text-slate-400">Generate presentation-ready investment memos with high-impact KPI tiles, risk audit findings, and equity trajectory charts.</p>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
+          <div class="text-2xl text-accent-violet">📊</div>
+          <h4 class="text-base font-bold text-white">Multi-Asset Portfolio Rollup</h4>
+          <p class="text-xs text-slate-400">Roll up multiple properties into a single fund model with customized door/unit scaling, blended IRR, and cumulative cash waterfalls.</p>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
+          <div class="text-2xl text-amber-400">🎲</div>
+          <h4 class="text-base font-bold text-white">1,000-Run Monte Carlo Simulation</h4>
+          <p class="text-xs text-slate-400">Model market volatility across random exit cap rates, rent growths, and interest rates. View Mean IRR, P5 Downside, and P95 Upside.</p>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
+          <div class="text-2xl text-rose-400">📑</div>
+          <h4 class="text-base font-bold text-white">Tax Depreciation (MACRS) & BRRRR</h4>
+          <p class="text-xs text-slate-400">27.5/39-year MACRS depreciation schedule, 80% Year 1 Cost Segregation bonus, capital gains tax at exit, and mid-hold cash-out refi.</p>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
+          <div class="text-2xl text-emerald-400">☁️</div>
+          <h4 class="text-base font-bold text-white">Cloud Sync & Team Accounts</h4>
+          <p class="text-xs text-slate-400">Row-Level Security (RLS) PostgreSQL database ensures all your underwritten deals and custom scenarios are safely synced.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom CTA Banner -->
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+      <div class="bg-gradient-to-tr from-brand-950/60 via-slate-900 to-emerald-950/40 border border-emerald-900/60 p-8 sm:p-12 rounded-3xl space-y-6 shadow-2xl">
+        <h2 class="text-2xl sm:text-4xl font-black text-white tracking-tight">Ready to Underwrite Your Next Deal?</h2>
+        <p class="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">Get started in seconds. No spreadsheet formulas to fix. Pure institutional underwriting precision.</p>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <button id="landing-cta-demo-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-500/25 transition">
+            ⚡ Launch Instant Interactive Demo
+          </button>
+          <button id="landing-cta-signin-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-bold text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700 transition">
+            Sign In to Your Account
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Landing Footer -->
+    <footer class="border-t border-slate-900 py-8 text-center text-xs text-slate-400 space-y-2">
+      <p>© 2026 MathTree PropTech Inc. All rights reserved. Zero-build client-side architecture.</p>
+    </footer>
+  </div>
+
+  <!-- ==================== AUTHENTICATED APP WORKSPACE ==================== -->
+  <div id="app-workspace" class="hidden flex flex-col flex-grow min-h-screen">
+    <!-- Header -->
+    <header class="border-b border-emerald-950 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 relative group">
           <div class="absolute inset-0 rounded-xl bg-brand-400 blur-sm opacity-50 group-hover:opacity-75 transition-opacity"></div>
@@ -132,30 +365,53 @@
         </div>
       </div>
       
-      <div class="flex items-center space-x-2 sm:space-x-3">
-        <button id="btn-share-link" class="px-3 py-1.5 rounded-lg border border-brand-800 bg-brand-950/40 hover:bg-brand-900/50 text-xs font-semibold text-brand-300 transition-all flex items-center space-x-1.5">
+      <div class="flex items-center space-x-1.5 sm:space-x-2.5">
+        <!-- Command Palette Trigger -->
+        <button id="btn-cmd-palette" class="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/70 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-all flex items-center space-x-1.5" title="Open Command Palette (Ctrl+K)">
+          <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <span class="hidden sm:inline">Search</span>
+          <kbd class="hidden md:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-950 border border-slate-800 rounded text-slate-400">⌘K</kbd>
+        </button>
+
+        <!-- Executive Pitch Deck Trigger -->
+        <button id="btn-pitch-deck" class="px-2.5 py-1.5 rounded-lg border border-indigo-900/60 bg-indigo-950/40 hover:bg-indigo-900/50 text-xs font-semibold text-indigo-300 transition-all flex items-center space-x-1.5" title="Investor Presentation Mode">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span class="hidden sm:inline">Pitch Deck</span>
+        </button>
+
+        <!-- Cloud Sync / Supabase Account Button -->
+        <button id="btn-cloud-sync" class="px-2.5 py-1.5 rounded-lg border border-emerald-800/80 bg-emerald-950/40 hover:bg-emerald-900/50 text-xs font-semibold text-emerald-300 transition-all flex items-center space-x-1.5" title="Cloud Sync & Customer Accounts">
+          <span id="cloud-status-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <span id="cloud-btn-text">Cloud Sync</span>
+        </button>
+
+        <button id="btn-share-link" class="px-2.5 py-1.5 rounded-lg border border-brand-800 bg-brand-950/40 hover:bg-brand-900/50 text-xs font-semibold text-brand-300 transition-all flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 100-5.368 3 3 0 000 5.368zm0 8.684a3 3 0 100-5.368 3 3 0 000 5.368z" />
           </svg>
-          <span>Share Link</span>
+          <span class="hidden md:inline">Share</span>
         </button>
-        <button id="btn-export-csv" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-all flex items-center space-x-1.5">
+        <button id="btn-export-csv" class="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-all flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          <span>CSV Export</span>
+          <span class="hidden md:inline">CSV</span>
         </button>
-        <button id="btn-export-pdf" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-all flex items-center space-x-1.5">
+        <button id="btn-export-pdf" class="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-all flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
           </svg>
-          <span>PDF Brief</span>
+          <span class="hidden md:inline">PDF</span>
         </button>
-        <button id="btn-reset" class="px-3 py-1.5 rounded-lg border border-emerald-900 bg-emerald-950/20 hover:bg-emerald-900/30 text-xs font-semibold text-emerald-300 transition-all flex items-center space-x-1.5">
+        <button id="btn-reset" class="px-2.5 py-1.5 rounded-lg border border-emerald-900 bg-emerald-950/20 hover:bg-emerald-900/30 text-xs font-semibold text-emerald-300 transition-all flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.22 8H18" />
           </svg>
-          <span>Reset</span>
+          <span class="hidden md:inline">Reset</span>
         </button>
       </div>
     </div>
@@ -199,8 +455,18 @@
 
       <!-- Advanced Workspace View Switcher -->
       <div class="bg-slate-950/80 p-1 rounded-xl border border-slate-900 flex flex-wrap gap-1">
-        <button id="view-mode-single" data-view="single" class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-white bg-brand-600 shadow-md">
+        <button id="view-mode-dashboard" data-view="dashboard" class="py-2 px-3.5 rounded-lg text-xs font-extrabold transition-all text-white bg-brand-600 shadow-md flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button id="view-mode-single" data-view="single" class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50">
           Modeler
+        </button>
+        <button id="view-mode-portfolio" data-view="portfolio" class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50 flex items-center space-x-1">
+          <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span>Portfolio Studio</span>
         </button>
         <button id="view-mode-sensitivity" data-view="sensitivity" class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50">
           2D & Monte Carlo
@@ -214,9 +480,79 @@
       </div>
     </div>
 
+    <!-- ==================== 2. PERSONALIZED ACCOUNT DASHBOARD ==================== -->
+    <div id="view-panel-dashboard" class="space-y-6">
+      <!-- Greeting Header -->
+      <div class="bg-slate-900/40 border border-slate-900 p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span> 👋
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Welcome to your MathTree Underwriting Studio. Here are your active property models and fund portfolios.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-dash-create-project" class="px-4 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            <span>+ Create New Project</span>
+          </button>
+          <button id="btn-dash-portfolio" class="px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 transition">
+            📊 Portfolio Studio
+          </button>
+          <button id="btn-dash-landing" class="px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-900/50 hover:bg-slate-800 border border-slate-800 transition" title="Return to Landing Page">
+            🌐 Home
+          </button>
+        </div>
+      </div>
+
+      <!-- Portfolio Summary Stat Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Underwritten Projects</span>
+          <span id="dash-stat-projects" class="text-2xl font-black text-white mt-1 block">0</span>
+          <span class="text-[10px] text-brand-400 mt-0.5 block">Active deal models</span>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Portfolio Value</span>
+          <span id="dash-stat-value" class="text-2xl font-black text-emerald-400 mt-1 block">$0</span>
+          <span class="text-[10px] text-slate-400 mt-0.5 block">Combined property value</span>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Blended 10-Yr IRR</span>
+          <span id="dash-stat-irr" class="text-2xl font-black text-accent-cyan mt-1 block">0.0%</span>
+          <span class="text-[10px] text-slate-400 mt-0.5 block">Weighted average return</span>
+        </div>
+        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Equity Invested</span>
+          <span id="dash-stat-equity" class="text-2xl font-black text-white mt-1 block">$0</span>
+          <span class="text-[10px] text-slate-400 mt-0.5 block">Total cash required</span>
+        </div>
+      </div>
+
+      <!-- Projects Section -->
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-900 pb-3">
+          <div>
+            <h3 class="text-base font-extrabold text-white">Your MathTree Projects</h3>
+            <p class="text-xs text-slate-400">Select a project to open its Executive Pitch Deck or jump into the 10-Year Deep Modeler.</p>
+          </div>
+          <div class="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-900 overflow-x-auto max-w-full scrollbar-none" id="dash-filter-container">
+            <button data-dash-filter="all" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap">All</button>
+            <button data-dash-filter="single-family" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Single-Family</button>
+            <button data-dash-filter="multi-unit" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Multi-Unit</button>
+            <button data-dash-filter="commercial" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Commercial</button>
+            <button data-dash-filter="storage" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Storage</button>
+          </div>
+        </div>
+
+        <!-- Projects Cards Grid -->
+        <div id="dash-projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Dynamically populated project cards -->
+        </div>
+      </div>
+    </div>
 
     <!-- Responsive Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div id="modeler-grid-container" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start hidden">
       
       <!-- Left column: Inputs (takes 4 cols on lg, or full width on smaller screens) -->
       <section class="lg:col-span-4 space-y-6">
@@ -242,6 +578,33 @@
             </button>
           </div>
 
+          <!-- Scenario Manager Selector (Base, Bull, Bear, Custom) -->
+          <div class="space-y-2 p-3 rounded-xl border border-slate-900 bg-slate-950/60 shadow-inner">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-accent-cyan"></span>
+                <span>Underwriting Scenario</span>
+              </span>
+              <button type="button" id="btn-save-scenario-modal" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20 transition">
+                + Save Custom
+              </button>
+            </div>
+            <div class="grid grid-cols-3 gap-1 bg-slate-900/60 p-1 rounded-lg border border-slate-900">
+              <button type="button" id="scenario-btn-base" data-scenario="base" class="py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-brand-600 shadow-sm text-center">
+                Base
+              </button>
+              <button type="button" id="scenario-btn-bull" data-scenario="bull" class="py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-emerald-300 hover:bg-slate-900 text-center">
+                Bull 🐂
+              </button>
+              <button type="button" id="scenario-btn-bear" data-scenario="bear" class="py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-rose-300 hover:bg-slate-900 text-center">
+                Bear 🐻
+              </button>
+            </div>
+            <div id="active-scenario-badge" class="text-[10px] text-slate-400 flex items-center justify-between px-1">
+              <span>Current: <strong class="text-brand-300">Base Case</strong> (Target Projections)</span>
+            </div>
+          </div>
+
           <!-- Dynamic Form Inputs Container -->
           <form id="calculator-form" class="space-y-5" onsubmit="return false;">
             
@@ -263,6 +626,8 @@
                   </div>
                   <input type="number" id="input-purchase-price" name="purchasePrice" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="0">
                 </div>
+                <!-- Dynamic Scrubber: Purchase Price -->
+                <input type="range" id="slider-purchase-price" aria-label="Purchase Price range scrubber" min="50000" max="2500000" step="10000" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
               </div>
 
               <!-- Down Payment & Interest Rate (Grouped for grid layout efficiency) -->
@@ -277,6 +642,8 @@
                       <span class="text-slate-500 text-sm">%</span>
                     </div>
                   </div>
+                  <!-- Dynamic Scrubber: Down Payment -->
+                  <input type="range" id="slider-down-payment" aria-label="Down Payment percentage range scrubber" min="0" max="100" step="1" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
                 </div>
 
                 <div class="space-y-1.5">
@@ -287,6 +654,8 @@
                       <span class="text-slate-500 text-sm">%</span>
                     </div>
                   </div>
+                  <!-- Dynamic Scrubber: Interest Rate -->
+                  <input type="range" id="slider-interest-rate" aria-label="Interest Rate percentage range scrubber" min="1" max="15" step="0.125" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
                 </div>
               </div>
             </div>
@@ -314,6 +683,8 @@
                     </div>
                     <input type="number" id="input-monthly-rent" name="monthlyRent" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
                   </div>
+                  <!-- Dynamic Scrubber: Monthly Rent -->
+                  <input type="range" id="slider-monthly-rent" aria-label="Monthly Rent range scrubber" min="500" max="15000" step="50" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
                 </div>
               </div>
 
@@ -331,6 +702,8 @@
                     </div>
                     <input type="number" id="input-monthly-rent-per-unit" name="monthlyRentPerUnit" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
                   </div>
+                  <!-- Dynamic Scrubber: Monthly Rent Per Unit -->
+                  <input type="range" id="slider-monthly-rent-per-unit" aria-label="Monthly Rent per Unit range scrubber" min="300" max="8000" step="25" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
                 </div>
               </div>
 
@@ -496,6 +869,8 @@
                         <span class="text-slate-500 text-sm">%</span>
                       </div>
                     </div>
+                    <!-- Dynamic Scrubber: Vacancy Rate -->
+                    <input type="range" id="slider-vacancy-rate" aria-label="Vacancy Rate percentage range scrubber" min="0" max="25" step="0.5" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
                   </div>
                 </div>
 
@@ -720,7 +1095,7 @@
             </div>
             <div class="flex items-center space-x-4 flex-grow md:max-w-md">
               <span class="text-xs font-bold text-slate-400">Yr 1</span>
-              <input type="range" id="input-year-inspector" min="1" max="10" value="1" class="flex-grow h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-brand-500 focus:outline-none">
+              <input type="range" id="input-year-inspector" aria-label="Forecast year inspector slider" min="1" max="10" value="1" class="flex-grow h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-brand-500 focus:outline-none">
               <span class="text-xs font-bold text-slate-400">Yr 10</span>
               <div class="bg-brand-500/10 border border-brand-500/20 px-3 py-1 rounded-lg text-sm font-extrabold text-brand-400">
                 Year <span id="label-year-inspector">1</span>
@@ -859,12 +1234,12 @@
                 <p class="text-xs text-slate-400">Evaluating IRR returns across variable operational and market parameters</p>
               </div>
               <div class="flex gap-2">
-                <select id="sens-row-param" class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-brand-500">
+                <select id="sens-row-param" aria-label="Sensitivity table Y-Axis parameter" class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-brand-500">
                   <option value="interestRate">Y-Axis: Interest Rate</option>
                   <option value="purchasePrice">Y-Axis: Purchase Price</option>
                   <option value="downPaymentPercent">Y-Axis: Down Payment %</option>
                 </select>
-                <select id="sens-col-param" class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-brand-500">
+                <select id="sens-col-param" aria-label="Sensitivity table X-Axis parameter" class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-brand-500">
                   <option value="targetCapRate">X-Axis: Exit Cap Rate</option>
                   <option value="vacancyRate">X-Axis: Vacancy Rate</option>
                   <option value="rentGrowth">X-Axis: Rent Growth</option>
@@ -945,7 +1320,7 @@
               </div>
               <div class="flex items-center space-x-3 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-900">
                 <label class="text-xs font-bold text-slate-300 flex items-center space-x-2 cursor-pointer">
-                  <input type="checkbox" id="input-cost-seg" class="rounded bg-slate-900 border-slate-800 text-brand-500 focus:ring-brand-500">
+                  <input type="checkbox" id="input-cost-seg" aria-label="Enable Cost Segregation (80% Bonus Yr 1)" class="rounded bg-slate-900 border-slate-800 text-brand-500 focus:ring-brand-500">
                   <span>Enable Cost Segregation (80% Bonus Yr 1)</span>
                 </label>
               </div>
@@ -1006,7 +1381,7 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950/60 p-4 rounded-xl border border-slate-900">
               <div>
-                <label class="text-xs font-semibold text-slate-400">Refinance Year</label>
+                <label for="refi-input-year" class="text-xs font-semibold text-slate-400">Refinance Year</label>
                 <select id="refi-input-year" class="w-full mt-1 bg-slate-900 border border-slate-800 text-xs text-white rounded-lg p-2">
                   <option value="3">Year 3</option>
                   <option value="5" selected>Year 5</option>
@@ -1014,11 +1389,11 @@
                 </select>
               </div>
               <div>
-                <label class="text-xs font-semibold text-slate-400">New Refi LTV (%)</label>
+                <label for="refi-input-ltv" class="text-xs font-semibold text-slate-400">New Refi LTV (%)</label>
                 <input type="number" id="refi-input-ltv" value="75" class="w-full mt-1 bg-slate-900 border border-slate-800 text-xs text-white rounded-lg p-2">
               </div>
               <div>
-                <label class="text-xs font-semibold text-slate-400">New Interest Rate (%)</label>
+                <label for="refi-input-rate" class="text-xs font-semibold text-slate-400">New Interest Rate (%)</label>
                 <input type="number" step="any" id="refi-input-rate" value="6.5" class="w-full mt-1 bg-slate-900 border border-slate-800 text-xs text-white rounded-lg p-2">
               </div>
               <div class="flex items-end">
@@ -1065,17 +1440,582 @@
           </div>
         </div>
 
+        <!-- View Panel 5: Portfolio Studio (Rolled-Up Multi-Asset Aggregator) -->
+        <div id="view-panel-portfolio" class="hidden space-y-6">
+          
+          <!-- Portfolio Header & Actions -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-900 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                  <span class="inline-block w-3 h-3 rounded-full bg-emerald-400 shadow-sm shadow-emerald-500/50"></span>
+                  <span>Multi-Asset Portfolio Aggregator Studio</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Combine properties across asset classes into a blended fund model with aggregate cash flows and debt metrics.</p>
+              </div>
+              <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <button id="btn-export-portfolio-csv" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition flex items-center justify-center space-x-1.5">
+                  <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Export Portfolio CSV</span>
+                </button>
+                <button id="btn-save-portfolio-cloud" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-brand-800 bg-brand-950/60 hover:bg-brand-900/80 text-xs font-bold text-brand-300 transition flex items-center justify-center space-x-1.5">
+                  <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  <span>Save Portfolio</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Portfolio Holdings Table / Selector -->
+            <div>
+              <div class="flex justify-between items-center mb-3">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Included Holdings & Allocation Units</h4>
+                <span class="text-[11px] text-slate-500">Adjust door/unit quantities to simulate fund scaling</span>
+              </div>
+              <div class="overflow-x-auto rounded-xl border border-slate-900">
+                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                  <thead>
+                    <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/80">
+                      <th class="py-3 px-4 w-12 text-center">Include</th>
+                      <th class="py-3 px-4">Asset Class</th>
+                      <th class="py-3 px-4 text-center">Quantity (Doors/Props)</th>
+                      <th class="py-3 px-4">Unit Purchase</th>
+                      <th class="py-3 px-4 text-brand-400 font-bold">Total Allocation</th>
+                      <th class="py-3 px-4">Unit Equity</th>
+                      <th class="py-3 px-4 text-accent-cyan font-bold">Total Cash Required</th>
+                      <th class="py-3 px-4 text-right">Individual IRR</th>
+                    </tr>
+                  </thead>
+                  <tbody id="portfolio-holdings-table-body" class="divide-y divide-slate-900/60 bg-slate-950/40">
+                    <!-- Dynamically rendered holdings list -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Portfolio KPI Summary Cards (6 Luxury Metrics) -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+              <div class="bg-slate-950/80 border border-slate-900 p-3.5 rounded-xl">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Asset Value</span>
+                <span id="pf-metric-total-value" class="text-lg font-extrabold text-white mt-1 block">$0</span>
+                <span id="pf-metric-doors-count" class="text-[10px] text-slate-500 mt-0.5 block">0 doors / assets</span>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-900 p-3.5 rounded-xl">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Equity Required</span>
+                <span id="pf-metric-total-cash" class="text-lg font-extrabold text-emerald-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Initial Cash Invested</span>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-900 p-3.5 rounded-xl">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Blended 10-Yr IRR</span>
+                <span id="pf-metric-irr" class="text-lg font-extrabold text-brand-400 mt-1 block">0.0%</span>
+                <span class="text-[10px] text-emerald-400/80 mt-0.5 block">Annualized Return</span>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-900 p-3.5 rounded-xl">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Blended Yr 1 CoC</span>
+                <span id="pf-metric-coc" class="text-lg font-extrabold text-accent-cyan mt-1 block">0.0%</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Cash-on-Cash Return</span>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-900 p-3.5 rounded-xl">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">10-Yr Equity Multiple</span>
+                <span id="pf-metric-equity-multiple" class="text-lg font-extrabold text-white mt-1 block">0.00x</span>
+                <span id="pf-metric-10yr-cash" class="text-[10px] text-slate-500 mt-0.5 block">Total Cash: $0</span>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-900 p-3.5 rounded-xl">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Portfolio Leverage</span>
+                <span id="pf-metric-ltv" class="text-lg font-extrabold text-slate-200 mt-1 block">0.0% LTV</span>
+                <span id="pf-metric-dscr" class="text-[10px] text-emerald-400 mt-0.5 block">DSCR: 0.00x</span>
+              </div>
+            </div>
+
+            <!-- Portfolio Visual Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+              <div class="lg:col-span-8 bg-slate-950/80 border border-slate-900 p-4 rounded-xl space-y-2">
+                <div class="flex justify-between items-center">
+                  <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">10-Year Aggregated Net Cash Flow Waterfall</h4>
+                  <span class="text-[11px] text-emerald-400 font-semibold">Annual Net Returns ($)</span>
+                </div>
+                <div class="h-64 relative w-full">
+                  <canvas id="portfolio-cashflow-chart"></canvas>
+                </div>
+              </div>
+              <div class="lg:col-span-4 bg-slate-950/80 border border-slate-900 p-4 rounded-xl space-y-2 flex flex-col">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Asset Allocation Breakdown</h4>
+                <div class="flex-grow flex items-center justify-center relative min-h-[220px]">
+                  <canvas id="portfolio-allocation-chart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Aggregated 10-Year Pro-Forma Cash Flow Table -->
+            <div class="space-y-2 pt-2">
+              <div class="flex justify-between items-center">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Rolled-Up 10-Year Portfolio Pro-Forma Statement</h4>
+                <span class="text-[11px] text-slate-500">Includes all operating expenses and debt service</span>
+              </div>
+              <div class="overflow-x-auto rounded-xl border border-slate-900">
+                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                  <thead>
+                    <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/80">
+                      <th class="py-3 px-4">Year</th>
+                      <th class="py-3 px-4">Portfolio Value</th>
+                      <th class="py-3 px-4">Gross Income</th>
+                      <th class="py-3 px-4">Total OpEx</th>
+                      <th class="py-3 px-4 text-white font-semibold">Net Operating Income</th>
+                      <th class="py-3 px-4 text-slate-500">Debt Service</th>
+                      <th class="py-3 px-4 text-emerald-400 font-bold">Net Cash Flow</th>
+                      <th class="py-3 px-4">CoC %</th>
+                      <th class="py-3 px-4">DSCR</th>
+                      <th class="py-3 px-4 text-brand-400 font-bold">Total Equity</th>
+                    </tr>
+                  </thead>
+                  <tbody id="portfolio-proforma-table-body" class="divide-y divide-slate-900/60 bg-slate-950/40">
+                    <!-- Dynamically populated portfolio proforma rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </section>
 
     </div>
   </main>
+  </div> <!-- End #app-workspace -->
 
-  <!-- Footer -->
-  <footer class="mt-auto border-t border-emerald-950 bg-slate-950 py-6 text-center text-xs text-slate-500">
-    <div class="max-w-7xl mx-auto px-4">
-      <p>&copy; 2026 MathTree. Built using advanced client-side PropTech engineering formulas.</p>
+  <!-- Command Palette Modal (Ctrl+K / Cmd+K) -->
+  <div id="cmd-palette-modal" role="dialog" aria-modal="true" aria-label="Command Palette" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+      <div class="p-3.5 border-b border-slate-800 flex items-center space-x-3">
+        <svg class="w-5 h-5 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" id="cmd-palette-input" aria-label="Search commands" placeholder="Type a command or search (e.g. Portfolio, Monte Carlo, Solver)..." class="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none font-medium">
+        <kbd id="cmd-palette-close" aria-label="Close command palette" class="px-2 py-0.5 text-[10px] font-mono bg-slate-950 border border-slate-800 rounded text-slate-400 cursor-pointer hover:text-white">ESC</kbd>
+      </div>
+      <div id="cmd-palette-list" class="overflow-y-auto p-2 space-y-1 text-xs">
+        <!-- Dynamically rendered action items -->
+      </div>
+      <div class="p-2.5 bg-slate-950/60 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-500 px-4">
+        <span>Use <kbd class="text-slate-400 font-mono">↑</kbd> <kbd class="text-slate-400 font-mono">↓</kbd> to navigate</span>
+        <span>Press <kbd class="text-slate-400 font-mono">ENTER</kbd> to select</span>
+      </div>
     </div>
-  </footer>
+  </div>
+
+  <!-- Executive Pitch Deck Modal (Full-Screen Presentation Mode) -->
+  <div id="pitch-deck-modal" role="dialog" aria-modal="true" aria-labelledby="pitch-title" class="fixed inset-0 bg-slate-950 z-50 overflow-y-auto hidden flex flex-col p-4 sm:p-8">
+    <div class="max-w-6xl w-full mx-auto space-y-6 flex-grow flex flex-col">
+      <!-- Pitch Deck Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+            <span class="text-white font-extrabold text-sm">MT</span>
+          </div>
+          <div>
+            <h2 class="text-xl font-extrabold text-white tracking-tight flex items-center space-x-2">
+              <span id="pitch-title">Property Investment Executive Brief</span>
+              <span id="pitch-badge-asset" class="text-xs px-2 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20 uppercase font-semibold">Single-Family</span>
+            </h2>
+            <p class="text-xs text-slate-400">Institutional Pro-Forma & 10-Year Underwriting Summary</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="btn-pitch-open-modeler" aria-label="Open project in 10-Year deep modeler" class="px-3 py-1.5 rounded-lg border border-brand-800 bg-brand-950/60 hover:bg-brand-900/80 text-xs font-bold text-brand-300 transition flex items-center space-x-1.5" title="Jump directly into 10-Year Deep Modeler">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <span>Open in Modeler</span>
+          </button>
+          <button id="btn-pitch-print" aria-label="Print executive pitch deck" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            <span>Print Deck</span>
+          </button>
+          <button id="btn-pitch-close" aria-label="Close pitch deck modal" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-rose-900/40 text-xs font-semibold text-slate-300 hover:text-rose-300 transition flex items-center space-x-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            <span>Close (Esc)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Pitch Hero KPI Tiles -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Acquisition Price</span>
+          <span id="pitch-kpi-price" class="text-xl font-black text-white mt-1 block">$0</span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Initial Equity</span>
+          <span id="pitch-kpi-equity" class="text-xl font-black text-emerald-400 mt-1 block">$0</span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">10-Year IRR</span>
+          <span id="pitch-kpi-irr" class="text-xl font-black text-brand-400 mt-1 block">0.0%</span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Year 1 CoC Yield</span>
+          <span id="pitch-kpi-coc" class="text-xl font-black text-accent-cyan mt-1 block">0.0%</span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Capitalization Rate</span>
+          <span id="pitch-kpi-caprate" class="text-xl font-black text-white mt-1 block">0.0%</span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Payback Horizon</span>
+          <span id="pitch-kpi-breakeven" class="text-xl font-black text-amber-400 mt-1 block">Yr 0</span>
+        </div>
+      </div>
+
+      <!-- Charts & Risk Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow">
+        <!-- Trajectory Chart -->
+        <div class="lg:col-span-8 bg-slate-900/60 border border-slate-800 p-5 rounded-xl flex flex-col space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">10-Year Cash Flow & Equity Trajectory</h4>
+            <span class="text-xs text-brand-400 font-semibold">Cumulative Returns Projection</span>
+          </div>
+          <div class="flex-grow relative min-h-[260px]">
+            <canvas id="pitch-deck-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Risk Auditor & Thesis Notes -->
+        <div class="lg:col-span-4 space-y-4 flex flex-col">
+          <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-2.5">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Underwriting Risk Audit</h4>
+            <div id="pitch-audit-list" class="space-y-2 text-xs">
+              <!-- Dynamically populated risk badges -->
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-2 flex-grow flex flex-col">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Investment Thesis & Notes</h4>
+            <textarea id="pitch-notes" aria-label="Investment Thesis & Notes" class="flex-grow w-full bg-slate-950/80 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand-500 resize-none min-h-[120px]" placeholder="Add deal thesis rationale, strategic location advantages, value-add renovation plans, or lender notes here..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase Cloud Sync & Accounts Modal -->
+  <div id="cloud-sync-modal" role="dialog" aria-modal="true" aria-labelledby="cloud-modal-title" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden space-y-4 p-6">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2">
+          <svg class="w-5 h-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
+          </svg>
+          <h3 id="cloud-modal-title" class="text-sm font-bold text-white">MathTree Cloud Sync & Accounts</h3>
+        </div>
+        <button id="btn-cloud-close" aria-label="Close cloud sync modal" class="text-slate-400 hover:text-white text-xs font-bold">✕</button>
+      </div>
+
+      <!-- Auth State: Logged Out -->
+      <div id="cloud-auth-logged-out" class="space-y-4">
+        <p class="text-xs text-slate-400">Sign in to sync saved deals, custom scenarios, and fund portfolios across your devices via Supabase Cloud.</p>
+        
+        <div class="space-y-3">
+          <div>
+            <label for="cloud-auth-email" class="text-xs font-semibold text-slate-400 block mb-1">Email Address</label>
+            <input type="email" id="cloud-auth-email" placeholder="investor@mathtree.io" class="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+          <div>
+            <label for="cloud-auth-password" class="text-xs font-semibold text-slate-400 block mb-1">Password</label>
+            <input type="password" id="cloud-auth-password" placeholder="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <div id="cloud-auth-msg" class="text-xs hidden p-2 rounded-lg"></div>
+
+        <div class="flex space-x-2 pt-1">
+          <button id="btn-cloud-signin" class="flex-1 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-bold text-white transition">Sign In</button>
+          <button id="btn-cloud-signup" class="flex-1 py-2 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800 text-xs font-bold text-slate-300 transition">Create Account</button>
+        </div>
+      </div>
+
+      <!-- Auth State: Logged In -->
+      <div id="cloud-auth-logged-in" class="space-y-4 hidden">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-emerald-950/20 border border-emerald-900/50">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div>
+              <span id="cloud-user-email" class="text-xs font-bold text-emerald-300 block">user@example.com</span>
+              <span class="text-[10px] text-slate-400 block">Connected to Supabase (Project: mathtree)</span>
+            </div>
+          </div>
+          <button id="btn-cloud-signout" class="text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition">Sign Out</button>
+        </div>
+
+        <!-- Cloud Save Active Deal -->
+        <div class="space-y-2 border-t border-slate-800 pt-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Save Active Deal to Cloud</h4>
+          <div class="flex space-x-2">
+            <input type="text" id="cloud-deal-title" aria-label="Deal Name for saving" placeholder="Deal Name (e.g. 42 Oak St Duplex)" class="flex-grow bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500">
+            <button id="btn-save-deal-cloud" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-bold text-white transition shrink-0">Save Deal</button>
+          </div>
+        </div>
+
+        <!-- Saved Deals List -->
+        <div class="space-y-2 border-t border-slate-800 pt-3">
+          <div class="flex justify-between items-center">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Cloud Saved Deals</h4>
+            <button id="btn-refresh-cloud-deals" class="text-[10px] text-slate-500 hover:text-slate-300">↻ Refresh</button>
+          </div>
+          <div id="cloud-deals-list" class="max-h-40 overflow-y-auto space-y-1 text-xs">
+            <p class="text-slate-500 text-center py-2">No saved deals found in cloud.</p>
+          </div>
+        </div>
+
+        <!-- Saved Portfolios List -->
+        <div class="space-y-2 border-t border-slate-800 pt-3">
+          <div class="flex justify-between items-center">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Cloud Saved Portfolios</h4>
+          </div>
+          <div id="cloud-portfolios-list" class="max-h-32 overflow-y-auto space-y-1 text-xs">
+            <p class="text-slate-500 text-center py-2">No saved portfolios found in cloud.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Scenario Save Modal -->
+  <div id="scenario-save-modal" role="dialog" aria-modal="true" aria-labelledby="scenario-modal-title" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
+        <h3 id="scenario-modal-title" class="text-sm font-bold text-white">Save Custom Scenario</h3>
+        <button id="btn-scenario-modal-close" aria-label="Close save scenario modal" class="text-slate-400 hover:text-white text-xs font-bold">✕</button>
+      </div>
+      <p class="text-xs text-slate-400">Save current parameters as a custom scenario for instant switching.</p>
+      <div class="space-y-1.5">
+        <label for="input-custom-scenario-name" class="text-xs font-semibold text-slate-400">Scenario Name</label>
+        <input type="text" id="input-custom-scenario-name" placeholder="e.g. 10% Below Ask + Seller Concession" class="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500">
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button id="btn-cancel-custom-scenario" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+        <button id="btn-confirm-save-scenario" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-bold text-white">Save Scenario</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Creation Wizard Modal (Connected to Supabase Edge Function) -->
+  <div id="project-wizard-modal" role="dialog" aria-modal="true" aria-labelledby="wizard-modal-title" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] transition-all">
+      <!-- Modal Header & Progress Tracker -->
+      <div class="p-6 border-b border-slate-800/80 bg-slate-950/50">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-black text-sm">
+              ✨
+            </div>
+            <div>
+              <h3 id="wizard-modal-title" class="text-lg font-black text-white tracking-tight">Create New Underwriting Project</h3>
+              <p class="text-xs text-slate-400">Step <span id="wizard-step-num" class="text-brand-400 font-bold">1</span> of 4: <span id="wizard-step-title" class="font-medium text-slate-300">Asset Class & Identity</span></p>
+            </div>
+          </div>
+          <button id="btn-wizard-close" aria-label="Close project creation wizard" class="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>
+        </div>
+
+        <!-- Step Progress Bar -->
+        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden">
+          <div id="wizard-progress-bar" class="bg-gradient-to-r from-brand-500 to-emerald-400 h-full w-1/4 transition-all duration-300 rounded-full"></div>
+        </div>
+      </div>
+
+      <!-- Modal Body Form Steps -->
+      <div class="p-6 overflow-y-auto space-y-6 flex-grow">
+        
+        <!-- Step 1: Asset Class & Identity -->
+        <div id="wizard-step-1" class="space-y-5">
+          <div class="space-y-1.5">
+            <label for="wiz-deal-name" class="text-xs font-bold uppercase tracking-wider text-slate-300">Project / Deal Name</label>
+            <input type="text" id="wiz-deal-name" placeholder="e.g. Highland Industrial Center" value="Highland Industrial Center" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-medium">
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs font-bold uppercase tracking-wider text-slate-300">Select Property Asset Class</label>
+            <div class="grid grid-cols-2 gap-3" id="wiz-asset-selector">
+              <div data-asset="single-family" role="button" tabindex="0" aria-label="Single-Family asset class" class="wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <div class="w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm">🏡</div>
+                <div>
+                  <div class="text-xs font-bold text-white">Single-Family</div>
+                  <div class="text-[10px] text-slate-400">SFR, Turnkey, BRRRR</div>
+                </div>
+              </div>
+              <div data-asset="multi-unit" role="button" tabindex="0" aria-label="Multi-Unit asset class" class="wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <div class="w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm">🏢</div>
+                <div>
+                  <div class="text-xs font-bold text-white">Multi-Unit</div>
+                  <div class="text-[10px] text-slate-400">Duplex to 50+ Units</div>
+                </div>
+              </div>
+              <div data-asset="commercial" role="button" tabindex="0" aria-label="Commercial Real Estate asset class" class="wiz-asset-card p-3.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <div class="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm">🏬</div>
+                <div>
+                  <div class="text-xs font-bold text-white">Commercial RE</div>
+                  <div class="text-[10px] text-slate-400">Retail, Office, Industrial</div>
+                </div>
+              </div>
+              <div data-asset="storage" role="button" tabindex="0" aria-label="Storage Units asset class" class="wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <div class="w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm">📦</div>
+                <div>
+                  <div class="text-xs font-bold text-white">Storage Units</div>
+                  <div class="text-[10px] text-slate-400">Self-storage, Flex Warehouses</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <label for="wiz-location" class="text-xs font-bold uppercase tracking-wider text-slate-300">Location / City</label>
+              <input type="text" id="wiz-location" placeholder="e.g. Austin, TX" value="Austin, TX" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-gla" class="text-xs font-bold uppercase tracking-wider text-slate-300">Gross Leasable Area (GLA sqft)</label>
+              <input type="number" id="wiz-gla" placeholder="e.g. 15000" value="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Capital & Valuation -->
+        <div id="wizard-step-2" class="space-y-5 hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-purchase-price" class="text-xs font-bold uppercase tracking-wider text-slate-300">Purchase Price ($)</label>
+              <input type="number" id="wiz-purchase-price" value="1200000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-down-payment" class="text-xs font-bold uppercase tracking-wider text-slate-300">Down Payment (%)</label>
+              <input type="number" id="wiz-down-payment" value="25" step="0.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-closing-costs" class="text-xs font-bold uppercase tracking-wider text-slate-300">Closing Costs ($)</label>
+              <input type="number" id="wiz-closing-costs" value="24000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-rehab-costs" class="text-xs font-bold uppercase tracking-wider text-slate-300">Initial Rehab / CapEx ($)</label>
+              <input type="number" id="wiz-rehab-costs" value="50000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+
+          <div class="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs">
+            <span class="text-slate-400">Total Upfront Capital Required:</span>
+            <span id="wiz-total-cash-req" class="text-sm font-extrabold text-brand-400">$374,000</span>
+          </div>
+        </div>
+
+        <!-- Step 3: Income & Operations -->
+        <div id="wizard-step-3" class="space-y-5 hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-gross-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Gross Monthly Rent ($)</label>
+              <input type="number" id="wiz-gross-rent" value="12500" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-other-income" class="text-xs font-bold uppercase tracking-wider text-slate-300">Other Monthly Income ($)</label>
+              <input type="number" id="wiz-other-income" value="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-vacancy-rate" class="text-xs font-bold uppercase tracking-wider text-slate-300">Vacancy Rate (%)</label>
+              <input type="number" id="wiz-vacancy-rate" value="5.0" step="0.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-rent-growth" class="text-xs font-bold uppercase tracking-wider text-slate-300">Annual Rent Growth (%)</label>
+              <input type="number" id="wiz-rent-growth" value="3.0" step="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-opex-ratio" class="text-xs font-bold uppercase tracking-wider text-slate-300">Operating Expense Ratio (%)</label>
+              <input type="number" id="wiz-opex-ratio" value="35.0" step="1.0" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-expense-growth" class="text-xs font-bold uppercase tracking-wider text-slate-300">Expense Inflation (%)</label>
+              <input type="number" id="wiz-expense-growth" value="2.5" step="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Debt & Exit Strategy -->
+        <div id="wizard-step-4" class="space-y-5 hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-interest-rate" class="text-xs font-bold uppercase tracking-wider text-slate-300">Senior Debt Interest Rate (%)</label>
+              <input type="number" id="wiz-interest-rate" value="6.5" step="0.125" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-amortization" class="text-xs font-bold uppercase tracking-wider text-slate-300">Amortization Period (Years)</label>
+              <input type="number" id="wiz-amortization" value="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+              <label for="wiz-exit-cap" class="text-xs font-bold uppercase tracking-wider text-slate-300">Target Exit Cap Rate (%)</label>
+              <input type="number" id="wiz-exit-cap" value="6.75" step="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div class="space-y-1.5">
+              <label for="wiz-appreciation" class="text-xs font-bold uppercase tracking-wider text-slate-300">Annual Property Appreciation (%)</label>
+              <input type="number" id="wiz-appreciation" value="3.5" step="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+
+          <div class="p-4 bg-brand-950/30 border border-brand-800/60 rounded-2xl space-y-2">
+            <div class="flex items-center space-x-2 text-xs font-bold text-brand-300">
+              <span>🚀 Supabase Serverless Engine Ready</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed">
+              When submitted, your parameters are transmitted to the <code class="text-brand-400">create-project</code> edge function. MathTree will compute your 10-year pro-forma, Monte Carlo stress-testing, and deliver a presentation-ready Executive Pitch Deck.
+            </p>
+          </div>
+        </div>
+
+        <!-- Serverless Calculating Animation Overlay -->
+        <div id="wizard-loading" class="py-12 flex flex-col items-center justify-center space-y-4 text-center hidden">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-xl shadow-brand-500/30 animate-spin">
+            <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.22 8H18" />
+            </svg>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-base font-extrabold text-white">Underwriting Model in Progress...</h4>
+            <p id="wizard-loading-status" class="text-xs text-slate-400">Executing Supabase Edge Function & generating pitch deck...</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <button id="btn-wizard-back" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition hidden">
+          ← Back
+        </button>
+        <button id="btn-wizard-cancel" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">
+          Cancel
+        </button>
+
+        <div class="flex items-center space-x-2">
+          <button id="btn-wizard-next" class="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-brand-600 hover:bg-brand-500 shadow-lg shadow-brand-600/30 transition flex items-center space-x-1.5">
+            <span>Next Step</span>
+            <span>→</span>
+          </button>
+          <button id="btn-wizard-submit" class="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/25 transition hidden flex items-center space-x-2">
+            <span>⚡ Run Engine & Generate Pitch Deck</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Math Logic Scripts -->
   <script src="math.js?v=3"></script>
@@ -1688,10 +2628,10 @@
           </p>
           <ul class="list-disc pl-4 space-y-1 text-slate-300 text-xs mt-2">
             <li><strong>Standard Baseline OER:</strong> 25% Operating Expense Ratio (OpEx).</li>
-            <li><strong>Frictional Maintenance:</strong> Routine annual maintenance is calculated at 1% of the property value (ARV or purchase price).</li>
-            <li><strong>Turnover Leasing Costs:</strong> Annual turnover frictional penalty calculated as 50% of 1 month's rent scaled by the vacancy rate.</li>
-            <li><strong>CapEx Reserves:</strong> A below-the-line structural reserve of 8% of Gross Scheduled Rent (GSR) with a $500/year minimum floor.</li>
+            <li><strong>Frictional Maintenance:</strong> Routine annual maintenance calculated at 1% of property value (ARV/purchase price).</li>
+            <li><strong>Turnover Leasing Costs:</strong> Annual turnover frictional reserve calculated as 50% of 1 month's rent scaled by vacancy rate.</li>
             <li><strong>Property Management:</strong> 10% of Gross Rent added to OpEx if management is enabled.</li>
+            <li><strong>Institutional Cash Flow:</strong> Levered Cash Flow = Net Operating Income (NOI) minus Annual Debt Service.</li>
           </ul>
         `;
       } else if (tab === 'multi-unit') {
@@ -1704,10 +2644,10 @@
           </p>
           <ul class="list-disc pl-4 space-y-1 text-slate-300 text-xs mt-2">
             <li><strong>Standard Baseline OER:</strong> 39% Operating Expense Ratio (OpEx).</li>
-            <li><strong>Economic Vacancy Floor:</strong> Enforces a regulatory minimum underwriting vacancy rate of 5% (Fannie Mae standard).</li>
-            <li><strong>Property Management:</strong> Dynamic PM fees of 9% for small multi (<= 4 units) or 5% for large complexes (> 4 units) if enabled.</li>
-            <li><strong>Self-Management Underwriting:</strong> Forces a 3% EGI floor as an underwritten management expense if disabled.</li>
-            <li><strong>CapEx Reserves:</strong> Below-the-line structural reserve of $500/unit (<= 4 units) or $300/unit (> 4 units) annually.</li>
+            <li><strong>Economic Vacancy Floor:</strong> Enforces regulatory minimum underwriting vacancy rate of 5% (Fannie Mae standard).</li>
+            <li><strong>Property Management:</strong> Dynamic PM fees of 9% for small multi (<= 4 units) or 5% for complexes (> 4 units) if enabled.</li>
+            <li><strong>Self-Management Underwriting:</strong> 3% EGI floor as underwritten management expense if disabled.</li>
+            <li><strong>Institutional Cash Flow:</strong> Levered Cash Flow = Net Operating Income (NOI) minus Annual Debt Service.</li>
           </ul>
         `;
       } else if (tab === 'commercial') {
@@ -1720,9 +2660,9 @@
           </p>
           <ul class="list-disc pl-4 space-y-1 text-slate-300 text-xs mt-2">
             <li><strong>Lease-Type Sensitive OER:</strong> Baseline OER defaults to 11% for NNN (Triple Net) or 40% for Gross leases.</li>
-            <li><strong>Gradual Cap Rate Valuation:</strong> Property is valued at its purchase price in Year 1. For Years 2-10, the cap rate is gradually stepped (linear interpolation) from the entry yield to the Target Cap Rate at exit, smoothly linking property value to YoY NOI growth.</li>
+            <li><strong>Gradual Cap Rate Valuation:</strong> Property is valued at purchase price in Year 1. For Years 2-10, the cap rate is gradually stepped (linear interpolation) from entry yield to Target Cap Rate at exit, smoothly linking value to YoY NOI growth.</li>
             <li><strong>Property Management:</strong> 3.5% management fee (passed through to tenant under NNN, paid by landlord under Gross).</li>
-            <li><strong>TI / LC Reserves:</strong> Below-the-line tenant improvements and leasing commissions reserve of $1.50 per sq ft of GLA.</li>
+            <li><strong>Institutional Cash Flow:</strong> Levered Cash Flow = Net Operating Income (NOI) minus Annual Debt Service.</li>
           </ul>
         `;
       } else if (tab === 'storage') {
@@ -1735,11 +2675,10 @@
           </p>
           <ul class="list-disc pl-4 space-y-1 text-slate-300 text-xs mt-2">
             <li><strong>Standard Baseline OER:</strong> 34% Operating Expense Ratio (OpEx).</li>
-            <li><strong>Gradual Cap Rate Valuation:</strong> Property is valued at its purchase price in Year 1. For Years 2-10, the cap rate is gradually stepped (linear interpolation) from the entry yield to the Target Cap Rate at exit, smoothly linking property value to YoY NOI growth.</li>
-            <li><strong>Economic Vacancy Concessions:</strong> Adds a 5% promotional concession rate (e.g. first month free) to the vacancy rate.</li>
+            <li><strong>Gradual Cap Rate Valuation:</strong> Property is valued at purchase price in Year 1. For Years 2-10, cap rate is stepped to Target Cap Rate at exit, linking property value to YoY NOI growth.</li>
+            <li><strong>Economic Vacancy Concessions:</strong> Adds a 5% promotional concession rate to the vacancy rate.</li>
             <li><strong>Operating Overhead:</strong> Overhead includes 13% for manned facilities (10% payroll + 3% marketing) or 4% marketing for automated facilities.</li>
-            <li><strong>Property Management:</strong> 6% fee if enabled.</li>
-            <li><strong>CapEx Reserves:</strong> Below-the-line structural reserve of 3% of Effective Gross Income (EGI).</li>
+            <li><strong>Institutional Cash Flow:</strong> Levered Cash Flow = Net Operating Income (NOI) minus Annual Debt Service.</li>
           </ul>
         `;
       }
@@ -1807,36 +2746,51 @@
       updateCalculations();
     }
 
-    // Switch workspace views (Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix)
+    // Switch workspace views (Dashboard, Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio)
     function setWorkspaceView(viewMode) {
       currentWorkspaceView = viewMode;
 
-      const views = {
-        single: document.getElementById('view-panel-single'),
-        sensitivity: document.getElementById('view-panel-sensitivity'),
-        tax: document.getElementById('view-panel-tax'),
-        comparison: document.getElementById('view-panel-comparison')
-      };
+      const dashPanel = document.getElementById('view-panel-dashboard');
+      const modelerGrid = document.getElementById('modeler-grid-container');
 
-      Object.keys(views).forEach(k => {
-        if (views[k]) {
-          if (k === viewMode) {
-            views[k].classList.remove('hidden');
-          } else {
-            views[k].classList.add('hidden');
-          }
+      if (viewMode === 'dashboard') {
+        if (dashPanel) dashPanel.classList.remove('hidden');
+        if (modelerGrid) modelerGrid.classList.add('hidden');
+        if (typeof loadDashboardProjects === 'function') {
+          loadDashboardProjects();
         }
-      });
+      } else {
+        if (dashPanel) dashPanel.classList.add('hidden');
+        if (modelerGrid) modelerGrid.classList.remove('hidden');
+
+        const views = {
+          single: document.getElementById('view-panel-single'),
+          portfolio: document.getElementById('view-panel-portfolio'),
+          sensitivity: document.getElementById('view-panel-sensitivity'),
+          tax: document.getElementById('view-panel-tax'),
+          comparison: document.getElementById('view-panel-comparison')
+        };
+
+        Object.keys(views).forEach(k => {
+          if (views[k]) {
+            if (k === viewMode) {
+              views[k].classList.remove('hidden');
+            } else {
+              views[k].classList.add('hidden');
+            }
+          }
+        });
+
+        updateCalculations();
+      }
 
       document.querySelectorAll('[data-view]').forEach(btn => {
         if (btn.getAttribute('data-view') === viewMode) {
-          btn.className = 'py-2 px-3 rounded-lg text-xs font-bold transition-all text-white bg-brand-600 shadow-md';
+          btn.className = 'py-2 px-3.5 rounded-lg text-xs font-extrabold transition-all text-white bg-brand-600 shadow-md flex items-center space-x-1.5';
         } else {
-          btn.className = 'py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50';
+          btn.className = 'py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50 flex items-center space-x-1';
         }
       });
-
-      updateCalculations();
     }
 
     // Render Deal Auditor Warnings
@@ -2423,6 +3377,1487 @@
       }
     }
 
+    // --- 1. Dynamic Scrubbers (Two-Way Sliders) ---
+    function syncSlidersFromInputs() {
+      const pField = document.getElementById('input-purchase-price');
+      const pSlider = document.getElementById('slider-purchase-price');
+      if (pField && pSlider && pField.value) pSlider.value = pField.value;
+
+      const dpField = document.getElementById('input-down-payment');
+      const dpSlider = document.getElementById('slider-down-payment');
+      if (dpField && dpSlider && dpField.value) dpSlider.value = dpField.value;
+
+      const irField = document.getElementById('input-interest-rate');
+      const irSlider = document.getElementById('slider-interest-rate');
+      if (irField && irSlider && irField.value) irSlider.value = irField.value;
+
+      const mrField = document.getElementById('input-monthly-rent');
+      const mrSlider = document.getElementById('slider-monthly-rent');
+      if (mrField && mrSlider && mrField.value) mrSlider.value = mrField.value;
+
+      const mruField = document.getElementById('input-monthly-rent-per-unit');
+      const mruSlider = document.getElementById('slider-monthly-rent-per-unit');
+      if (mruField && mruSlider && mruField.value) mruSlider.value = mruField.value;
+
+      const vacField = document.getElementById('input-vacancy-rate');
+      const vacSlider = document.getElementById('slider-vacancy-rate');
+      if (vacField && vacSlider && vacField.value) vacSlider.value = vacField.value;
+    }
+
+    function initSliderListeners() {
+      const bind = (sliderId, inputId) => {
+        const slider = document.getElementById(sliderId);
+        const input = document.getElementById(inputId);
+        if (slider && input) {
+          slider.addEventListener('input', () => {
+            input.value = slider.value;
+            updateCalculations();
+          });
+        }
+      };
+      bind('slider-purchase-price', 'input-purchase-price');
+      bind('slider-down-payment', 'input-down-payment');
+      bind('slider-interest-rate', 'input-interest-rate');
+      bind('slider-monthly-rent', 'input-monthly-rent');
+      bind('slider-monthly-rent-per-unit', 'input-monthly-rent-per-unit');
+      bind('slider-vacancy-rate', 'input-vacancy-rate');
+    }
+
+    // --- 2. Scenario Manager (Base, Bull, Bear, Custom) ---
+    let activeScenario = 'base';
+    let baseScenarioCache = {};
+
+    function switchScenario(scenarioKey) {
+      activeScenario = scenarioKey;
+      const currentInputs = getInputsFromForm();
+
+      if (!baseScenarioCache[activeTab] || scenarioKey === 'base') {
+        if (scenarioKey === 'base') {
+          if (baseScenarioCache[activeTab]) {
+            updateFormFields(baseScenarioCache[activeTab]);
+          }
+        } else {
+          baseScenarioCache[activeTab] = { ...currentInputs };
+        }
+      }
+
+      if (scenarioKey === 'bull' || scenarioKey === 'bear') {
+        if (!baseScenarioCache[activeTab]) {
+          baseScenarioCache[activeTab] = { ...currentInputs };
+        }
+        const variants = window.PropertyMath.generateScenarioVariants(activeTab, baseScenarioCache[activeTab]);
+        if (scenarioKey === 'bull' && variants.bull) {
+          updateFormFields(variants.bull.inputs);
+        } else if (scenarioKey === 'bear' && variants.bear) {
+          updateFormFields(variants.bear.inputs);
+        }
+      }
+
+      // Update Scenario UI Buttons
+      const btnBase = document.getElementById('scenario-btn-base');
+      const btnBull = document.getElementById('scenario-btn-bull');
+      const btnBear = document.getElementById('scenario-btn-bear');
+      const badge = document.getElementById('active-scenario-badge');
+
+      [btnBase, btnBull, btnBear].forEach(b => {
+        if (b) b.className = 'py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900 text-center';
+      });
+
+      if (scenarioKey === 'base' && btnBase) {
+        btnBase.className = 'py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-brand-600 shadow-sm text-center';
+        if (badge) badge.innerHTML = `<span>Current: <strong class="text-brand-300">Base Case</strong> (Target Projections)</span>`;
+      } else if (scenarioKey === 'bull' && btnBull) {
+        btnBull.className = 'py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-emerald-600 shadow-sm text-center';
+        if (badge) badge.innerHTML = `<span>Current: <strong class="text-emerald-400">Bull Case 🐂</strong> (+8% Rent, -1.5% Vacancy)</span>`;
+      } else if (scenarioKey === 'bear' && btnBear) {
+        btnBear.className = 'py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-rose-600 shadow-sm text-center';
+        if (badge) badge.innerHTML = `<span>Current: <strong class="text-rose-400">Bear Case 🐻</strong> (-8% Rent, +3% Vacancy, +50bps Rate)</span>`;
+      }
+
+      syncSlidersFromInputs();
+      updateCalculations();
+    }
+
+    // --- 3. Multi-Asset Portfolio Aggregator Studio ---
+    let portfolioDeals = [
+      { id: 'deal-sf', assetType: 'single-family', name: 'Single-Family Rental', quantity: 2, included: true },
+      { id: 'deal-mu', assetType: 'multi-unit', name: 'Multi-Family (4-Plex)', quantity: 1, included: true },
+      { id: 'deal-com', assetType: 'commercial', name: 'Commercial Light Industrial', quantity: 1, included: true },
+      { id: 'deal-store', assetType: 'storage', name: 'Self-Storage Facility', quantity: 1, included: true }
+    ];
+    let portfolioCashflowChart = null;
+    let portfolioAllocationChart = null;
+
+    function renderPortfolioStudio() {
+      // Gather inputs for each deal
+      const dealsToAggregate = portfolioDeals.map(d => {
+        let inputs = loadPresetValues(d.assetType);
+        if (d.assetType === activeTab) {
+          inputs = getInputsFromForm();
+        }
+        const res = window.PropertyMath.calculateProjections(d.assetType, inputs);
+        return {
+          ...d,
+          inputs,
+          results: res
+        };
+      });
+
+      // Filter active included deals
+      const includedDeals = dealsToAggregate.filter(d => d.included);
+      const pfResults = window.PropertyMath.aggregatePortfolio(includedDeals);
+
+      // Render Holdings Table
+      const tbody = document.getElementById('portfolio-holdings-table-body');
+      if (tbody) {
+        tbody.innerHTML = '';
+        dealsToAggregate.forEach(deal => {
+          const res = deal.results;
+          const tr = document.createElement('tr');
+          tr.className = `border-b border-slate-900/40 hover:bg-slate-900/20 font-medium transition ${!deal.included ? 'opacity-40' : ''}`;
+          tr.innerHTML = `
+            <td class="py-3 px-4 text-center">
+              <input type="checkbox" data-deal-toggle="${deal.id}" ${deal.included ? 'checked' : ''} class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-950 border-emerald-900 cursor-pointer">
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-bold text-slate-100">${deal.name}</div>
+              <div class="text-[10px] text-slate-500 capitalize">${deal.assetType.replace('-', ' ')}</div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <div class="inline-flex items-center space-x-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
+                <button type="button" data-deal-decr="${deal.id}" class="w-5 h-5 rounded hover:bg-slate-800 text-slate-400 hover:text-white font-bold text-xs">-</button>
+                <span class="w-6 text-center font-bold text-white text-xs">${deal.quantity}</span>
+                <button type="button" data-deal-incr="${deal.id}" class="w-5 h-5 rounded hover:bg-slate-800 text-slate-400 hover:text-white font-bold text-xs">+</button>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-slate-300">${formatCurrency(res.purchasePrice)}</td>
+            <td class="py-3 px-4 font-bold text-brand-400">${formatCurrency(res.purchasePrice * deal.quantity)}</td>
+            <td class="py-3 px-4 text-slate-300">${formatCurrency(res.initialCashInvested)}</td>
+            <td class="py-3 px-4 font-bold text-accent-cyan">${formatCurrency(res.initialCashInvested * deal.quantity)}</td>
+            <td class="py-3 px-4 text-right font-bold ${res.irr >= 10 ? 'text-emerald-400' : 'text-amber-400'}">${res.irr.toFixed(1)}%</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('[data-deal-toggle]').forEach(chk => {
+          chk.addEventListener('change', (e) => {
+            const id = e.target.getAttribute('data-deal-toggle');
+            const d = portfolioDeals.find(x => x.id === id);
+            if (d) { d.included = e.target.checked; renderPortfolioStudio(); }
+          });
+        });
+        tbody.querySelectorAll('[data-deal-decr]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-deal-decr');
+            const d = portfolioDeals.find(x => x.id === id);
+            if (d && d.quantity > 1) { d.quantity--; renderPortfolioStudio(); }
+          });
+        });
+        tbody.querySelectorAll('[data-deal-incr]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-deal-incr');
+            const d = portfolioDeals.find(x => x.id === id);
+            if (d && d.quantity < 50) { d.quantity++; renderPortfolioStudio(); }
+          });
+        });
+      }
+
+      // Update KPI Scorecards
+      const setEl = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      setEl('pf-metric-total-value', formatCurrency(pfResults.totalPurchasePrice));
+      setEl('pf-metric-doors-count', `${pfResults.totalUnitsOrDoors} units / properties`);
+      setEl('pf-metric-total-cash', formatCurrency(pfResults.totalCashInvested));
+      setEl('pf-metric-irr', `${pfResults.portfolioIrr.toFixed(1)}%`);
+      setEl('pf-metric-coc', `${pfResults.blendedYear1CoC.toFixed(1)}%`);
+      setEl('pf-metric-equity-multiple', `${pfResults.equityMultiple.toFixed(2)}x`);
+      setEl('pf-metric-10yr-cash', `Total Cash: ${formatCurrency(pfResults.total10YearCashFlow)}`);
+      setEl('pf-metric-ltv', `${pfResults.portfolioLtv.toFixed(1)}% LTV`);
+      const yr1Dscr = pfResults.combinedProjections[0] ? pfResults.combinedProjections[0].dscr : null;
+      setEl('pf-metric-dscr', yr1Dscr ? `DSCR: ${yr1Dscr.toFixed(2)}x` : 'DSCR: N/A');
+
+      // Render Pro-Forma Table
+      const pfTableBody = document.getElementById('portfolio-proforma-table-body');
+      if (pfTableBody) {
+        pfTableBody.innerHTML = '';
+        pfResults.combinedProjections.forEach(cp => {
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
+          tr.innerHTML = `
+            <td class="py-3 px-4 font-bold text-slate-100">Year ${cp.year}</td>
+            <td class="py-3 px-4">${formatCurrency(cp.propertyValue)}</td>
+            <td class="py-3 px-4">${formatCurrency(cp.grossPotentialIncome)}</td>
+            <td class="py-3 px-4 text-slate-400">${formatCurrency(cp.operatingExpenses)}</td>
+            <td class="py-3 px-4 font-semibold text-white">${formatCurrency(cp.netOperatingIncome)}</td>
+            <td class="py-3 px-4 text-slate-500">${formatCurrency(cp.debtService)}</td>
+            <td class="py-3 px-4 font-bold ${cp.cashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${formatCurrency(cp.cashFlow)}</td>
+            <td class="py-3 px-4">${cp.cashOnCash.toFixed(1)}%</td>
+            <td class="py-3 px-4 text-slate-300 font-semibold">${cp.dscr ? cp.dscr.toFixed(2) + 'x' : 'N/A'}</td>
+            <td class="py-3 px-4 font-bold text-brand-400">${formatCurrency(cp.equity)}</td>
+          `;
+          pfTableBody.appendChild(tr);
+        });
+      }
+
+      // Render Charts
+      updatePortfolioCharts(pfResults, includedDeals);
+    }
+
+    function updatePortfolioCharts(pfResults, includedDeals) {
+      const cfCanvas = document.getElementById('portfolio-cashflow-chart');
+      if (cfCanvas) {
+        if (portfolioCashflowChart) portfolioCashflowChart.destroy();
+        const ctx = cfCanvas.getContext('2d');
+        portfolioCashflowChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: pfResults.combinedProjections.map(p => `Yr ${p.year}`),
+            datasets: [
+              {
+                label: 'Net Cash Flow ($)',
+                data: pfResults.combinedProjections.map(p => p.cashFlow),
+                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                borderColor: '#10b981',
+                borderWidth: 1,
+                borderRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#94a3b8', font: { size: 11, family: 'Plus Jakarta Sans' } } },
+              tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${formatCurrency(c.parsed.y)}` } }
+            },
+            scales: {
+              x: { grid: { color: 'rgba(15, 23, 42, 0.6)' }, ticks: { color: '#64748b' } },
+              y: {
+                grid: { color: 'rgba(15, 23, 42, 0.6)' },
+                ticks: { color: '#64748b', callback: (v) => '$' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) }
+              }
+            }
+          }
+        });
+      }
+
+      const allocCanvas = document.getElementById('portfolio-allocation-chart');
+      if (allocCanvas) {
+        if (portfolioAllocationChart) portfolioAllocationChart.destroy();
+        const ctx = allocCanvas.getContext('2d');
+        const colors = ['#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#ec4899'];
+        portfolioAllocationChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: includedDeals.map(d => d.name),
+            datasets: [{
+              data: includedDeals.map(d => d.results.purchasePrice * d.quantity),
+              backgroundColor: colors.slice(0, includedDeals.length),
+              borderWidth: 2,
+              borderColor: '#020617'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10, family: 'Plus Jakarta Sans' } } },
+              tooltip: { callbacks: { label: (c) => `${c.label}: ${formatCurrency(c.parsed)}` } }
+            }
+          }
+        });
+      }
+    }
+
+    function exportPortfolioCSV() {
+      const dealsToAggregate = portfolioDeals.filter(d => d.included).map(d => {
+        const inputs = loadPresetValues(d.assetType);
+        return { ...d, inputs, results: window.PropertyMath.calculateProjections(d.assetType, inputs) };
+      });
+      const pf = window.PropertyMath.aggregatePortfolio(dealsToAggregate);
+      let csv = 'Year,Portfolio_Value,Gross_Income,Effective_Gross_Income,OpEx,NOI,Debt_Service,Cash_Flow,Cash_on_Cash_Pct,DSCR,Equity,Cumulative_Cash\n';
+      pf.combinedProjections.forEach(p => {
+        csv += `${p.year},${p.propertyValue},${p.grossPotentialIncome},${p.effectiveGrossIncome},${p.operatingExpenses},${p.netOperatingIncome},${p.debtService},${p.cashFlow},${p.cashOnCash},${p.dscr || ''},${p.equity},${p.cumulativeCashFlow}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mathtree_portfolio_proforma_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // --- 4. Command Palette (Ctrl+K / Cmd+K) ---
+    const commandItems = [
+      { id: 'tab-sf', category: 'Assets', title: 'Single-Family Rental Modeler', icon: '🏠', action: () => { setActiveTab('single-family'); setWorkspaceView('single'); } },
+      { id: 'tab-mu', category: 'Assets', title: 'Multi-Unit Residential Modeler', icon: '🏢', action: () => { setActiveTab('multi-unit'); setWorkspaceView('single'); } },
+      { id: 'tab-com', category: 'Assets', title: 'Commercial Real Estate Modeler', icon: '🏬', action: () => { setActiveTab('commercial'); setWorkspaceView('single'); } },
+      { id: 'tab-store', category: 'Assets', title: 'Storage Facilities Modeler', icon: '📦', action: () => { setActiveTab('storage'); setWorkspaceView('single'); } },
+      { id: 'view-pf', category: 'Workspaces', title: 'Portfolio Aggregator Studio', icon: '📊', action: () => setWorkspaceView('portfolio') },
+      { id: 'view-sens', category: 'Workspaces', title: '2D Sensitivity & Monte Carlo Simulation', icon: '🎲', action: () => setWorkspaceView('sensitivity') },
+      { id: 'view-tax', category: 'Workspaces', title: 'Tax (MACRS) & BRRRR Refinance Studio', icon: '📑', action: () => setWorkspaceView('tax') },
+      { id: 'view-comp', category: 'Workspaces', title: '4-Deal Side-by-Side Comparison Matrix', icon: '⚖️', action: () => setWorkspaceView('comparison') },
+      { id: 'act-pitch', category: 'Presentation', title: 'Executive Pitch Deck Presentation Mode', icon: '🖥️', action: () => openPitchDeck() },
+      { id: 'act-solver', category: 'Tools', title: 'Target IRR Reverse Solver', icon: '🎯', action: () => runTargetIRRSolver() },
+      { id: 'act-sc-bull', category: 'Scenarios', title: 'Switch to Bull Case (+8% Rent, -1.5% Vacancy)', icon: '🐂', action: () => switchScenario('bull') },
+      { id: 'act-sc-bear', category: 'Scenarios', title: 'Switch to Bear Case (-8% Rent, +3% Vacancy)', icon: '🐻', action: () => switchScenario('bear') },
+      { id: 'act-sc-base', category: 'Scenarios', title: 'Reset to Base Target Scenario', icon: '🎯', action: () => switchScenario('base') },
+      { id: 'act-cloud', category: 'Cloud & Accounts', title: 'Cloud Sync & Customer Accounts (Supabase)', icon: '☁️', action: () => openCloudSyncModal() },
+      { id: 'act-json-export', category: 'Backup', title: 'Export JSON Full State Backup', icon: '💾', action: () => exportJSONBackup() },
+      { id: 'act-csv', category: 'Export', title: 'Export Active Deal Pro-Forma (CSV)', icon: '📄', action: () => exportToCSV() },
+      { id: 'act-pdf', category: 'Export', title: 'Export PDF Executive Brief', icon: '🖨️', action: () => exportToPDF() }
+    ];
+
+    let selectedCmdIndex = 0;
+    let filteredCmds = [...commandItems];
+
+    function openCommandPalette() {
+      const modal = document.getElementById('cmd-palette-modal');
+      const input = document.getElementById('cmd-palette-input');
+      if (modal && input) {
+        modal.classList.remove('hidden');
+        input.value = '';
+        filterCommands('');
+        setTimeout(() => input.focus(), 50);
+      }
+    }
+
+    function closeCommandPalette() {
+      const modal = document.getElementById('cmd-palette-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function filterCommands(query) {
+      const q = query.toLowerCase().trim();
+      filteredCmds = commandItems.filter(c => c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q));
+      selectedCmdIndex = 0;
+      renderCommandList();
+    }
+
+    function renderCommandList() {
+      const list = document.getElementById('cmd-palette-list');
+      if (!list) return;
+      if (filteredCmds.length === 0) {
+        list.innerHTML = '<div class="p-4 text-center text-slate-500 text-xs">No matching commands found.</div>';
+        return;
+      }
+      list.innerHTML = filteredCmds.map((cmd, idx) => `
+        <div data-cmd-index="${idx}" class="p-2.5 rounded-xl cursor-pointer flex items-center justify-between transition ${idx === selectedCmdIndex ? 'bg-brand-600 text-white font-bold shadow-md' : 'text-slate-300 hover:bg-slate-800/80'}">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-base">${cmd.icon}</span>
+            <div>
+              <span class="block">${cmd.title}</span>
+              <span class="text-[10px] ${idx === selectedCmdIndex ? 'text-brand-100' : 'text-slate-500'} block">${cmd.category}</span>
+            </div>
+          </div>
+          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded ${idx === selectedCmdIndex ? 'bg-brand-700 text-white' : 'bg-slate-950 text-slate-400'}">↵ Enter</span>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('[data-cmd-index]').forEach(item => {
+        item.addEventListener('click', () => {
+          const idx = parseInt(item.getAttribute('data-cmd-index'));
+          if (filteredCmds[idx]) {
+            closeCommandPalette();
+            filteredCmds[idx].action();
+          }
+        });
+      });
+    }
+
+    // --- 5. Executive Pitch Deck Presentation Mode ---
+    let pitchDeckChart = null;
+    let activePitchDeal = null;
+
+    function openPitchDeck(deal = null) {
+      const modal = document.getElementById('pitch-deck-modal');
+      if (!modal) return;
+
+      activePitchDeal = deal;
+
+      let assetClass = activeTab;
+      let inputs = null;
+      let res = null;
+      let risks = null;
+      let dealTitle = 'Property Investment Executive Brief';
+
+      if (deal) {
+        assetClass = deal.asset_class || deal.assetType || activeTab;
+        dealTitle = deal.name || deal.title || 'Investment Project Brief';
+        inputs = deal.inputs || null;
+
+        if (deal.results) {
+          res = deal.results;
+        } else if (inputs) {
+          res = window.PropertyMath.calculateProjections(assetClass, inputs);
+        }
+
+        if (deal.risks) {
+          risks = deal.risks;
+        } else if (res && inputs) {
+          risks = window.PropertyMath.auditDealRisks(assetClass, inputs, res);
+        }
+      }
+
+      if (!inputs) {
+        inputs = getInputsFromForm();
+      }
+      if (!res) {
+        res = window.PropertyMath.calculateProjections(assetClass, inputs);
+      }
+      if (!risks) {
+        risks = window.PropertyMath.auditDealRisks(assetClass, inputs, res);
+      }
+
+      const setEl = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      setEl('pitch-title', dealTitle);
+      setEl('pitch-badge-asset', assetClass.replace('-', ' ').toUpperCase());
+      setEl('pitch-kpi-price', formatCurrency(res.purchasePrice || (deal && deal.purchase_price) || 0));
+      setEl('pitch-kpi-equity', formatCurrency(res.initialCashInvested || 0));
+      setEl('pitch-kpi-irr', `${(res.irr !== undefined ? res.irr : (deal && deal.irr) || 0).toFixed(1)}%`);
+      setEl('pitch-kpi-coc', `${res.projections && res.projections[0] ? res.projections[0].cashOnCash.toFixed(1) : (deal && deal.cash_on_cash || 0).toFixed(1)}%`);
+      setEl('pitch-kpi-caprate', `${res.projections && res.projections[0] ? res.projections[0].capRate.toFixed(1) : (res.capRate || 0).toFixed(1)}%`);
+      setEl('pitch-kpi-breakeven', res.breakEvenYear && res.breakEvenYear !== 'N/A' ? `Yr ${res.breakEvenYear}` : 'N/A');
+
+      const auditList = document.getElementById('pitch-audit-list');
+      if (auditList) {
+        let listItems = [];
+        if (deal && deal.deck && Array.isArray(deal.deck.highlights) && deal.deck.highlights.length > 0) {
+          listItems = deal.deck.highlights.map(h => ({
+            title: '✨ ' + (h.metric || 'Highlight'),
+            description: h.detail || '',
+            level: 'success'
+          }));
+        } else {
+          listItems = risks;
+        }
+
+        auditList.innerHTML = listItems.map(r => {
+          let badgeColor = r.level === 'danger' ? 'bg-rose-500/10 text-rose-300 border-rose-500/30' : (r.level === 'warning' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30');
+          return `<div class="p-2 rounded-lg border ${badgeColor}"><div class="font-bold">${r.title}</div><div class="text-[11px] opacity-80 mt-0.5">${r.description}</div></div>`;
+        }).join('');
+      }
+
+      // Draw trajectory chart
+      const chartEl = document.getElementById('pitch-deck-chart');
+      if (chartEl && res.projections && res.projections.length > 0) {
+        const ctx = chartEl.getContext('2d');
+        if (pitchDeckChart) pitchDeckChart.destroy();
+        pitchDeckChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: res.projections.map(p => `Yr ${p.year}`),
+            datasets: [
+              {
+                label: 'Property Equity ($)',
+                data: res.projections.map(p => p.equity),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                fill: true,
+                tension: 0.3
+              },
+              {
+                label: 'Cumulative Cash Flow ($)',
+                data: res.projections.map(p => p.cumulativeCashFlow),
+                borderColor: '#06b6d4',
+                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                fill: true,
+                tension: 0.3
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11, family: 'Plus Jakarta Sans' } } } },
+            scales: {
+              x: { grid: { color: 'rgba(15, 23, 42, 0.6)' }, ticks: { color: '#64748b' } },
+              y: { grid: { color: 'rgba(15, 23, 42, 0.6)' }, ticks: { color: '#64748b', callback: (v) => '$' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v) } }
+            }
+          }
+        });
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closePitchDeck() {
+      const modal = document.getElementById('pitch-deck-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function openProjectInModeler(deal) {
+      closePitchDeck();
+      const assetClass = deal.asset_class || deal.assetType || 'single-family';
+      setActiveTab(assetClass);
+      if (deal.inputs) {
+        updateFormFields(deal.inputs);
+      }
+      setWorkspaceView('single');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // --- Page Routing & Dashboard Controller ---
+    function showLandingPage() {
+      const landing = document.getElementById('view-landing-page');
+      const app = document.getElementById('app-workspace');
+      if (landing) landing.classList.remove('hidden');
+      if (app) app.classList.add('hidden');
+      window.location.hash = 'landing';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showAppWorkspace(user = null, initialView = 'dashboard') {
+      const landing = document.getElementById('view-landing-page');
+      const app = document.getElementById('app-workspace');
+      if (landing) landing.classList.add('hidden');
+      if (app) app.classList.remove('hidden');
+
+      const greeting = document.getElementById('dash-greeting-name');
+      if (greeting) {
+        if (user && user.email) {
+          greeting.textContent = user.email.split('@')[0];
+        } else if (currentUser && currentUser.email) {
+          greeting.textContent = currentUser.email.split('@')[0];
+        } else {
+          greeting.textContent = 'Investor';
+        }
+      }
+
+      setWorkspaceView(initialView);
+      window.location.hash = initialView;
+    }
+
+    let activeDashboardProjects = [];
+    let currentDashFilter = 'all';
+
+    const defaultCuratedProjects = [
+      {
+        id: 'demo-p1',
+        name: 'Westfield Industrial Center',
+        asset_class: 'commercial',
+        location: 'Austin, TX',
+        purchase_price: 1200000,
+        irr: 11.44,
+        equity_multiple: 2.14,
+        cash_on_cash: 8.25,
+        cap_rate: 8.0,
+        year1_cashflow: 24756,
+        total_equity: 374000,
+        inputs: {
+          purchasePrice: 1200000,
+          downPaymentPercent: 25,
+          closingCosts: 24000,
+          rehabBudget: 50000,
+          grossRentPerMonth: 12500,
+          otherIncome: 500,
+          vacancyRate: 5.0,
+          annualRentGrowth: 3.0,
+          operatingExpenseRatio: 35.0,
+          expenseGrowthRate: 2.5,
+          interestRate: 6.5,
+          amortizationYears: 30,
+          loanTermYears: 30,
+          targetExitCapRate: 6.75,
+          appreciationRate: 3.5,
+          gla: 15000
+        }
+      },
+      {
+        id: 'demo-p2',
+        name: 'Oakridge 12-Plex Multi-Family',
+        asset_class: 'multi-unit',
+        location: 'Atlanta, GA',
+        purchase_price: 1850000,
+        irr: 14.82,
+        equity_multiple: 2.45,
+        cash_on_cash: 9.15,
+        cap_rate: 6.85,
+        year1_cashflow: 42100,
+        total_equity: 462500,
+        inputs: {
+          purchasePrice: 1850000,
+          downPaymentPercent: 25,
+          closingCosts: 37000,
+          rehabBudget: 75000,
+          grossRentPerMonth: 18000,
+          otherIncome: 800,
+          vacancyRate: 6.0,
+          annualRentGrowth: 3.5,
+          operatingExpenseRatio: 40.0,
+          expenseGrowthRate: 2.5,
+          interestRate: 6.25,
+          amortizationYears: 30,
+          loanTermYears: 30,
+          targetExitCapRate: 6.5,
+          appreciationRate: 4.0,
+          numUnits: 12
+        }
+      },
+      {
+        id: 'demo-p3',
+        name: 'Pecan Grove Self-Storage Hub',
+        asset_class: 'storage',
+        location: 'Phoenix, AZ',
+        purchase_price: 950000,
+        irr: 16.20,
+        equity_multiple: 2.70,
+        cash_on_cash: 11.40,
+        cap_rate: 7.90,
+        year1_cashflow: 31250,
+        total_equity: 285000,
+        inputs: {
+          purchasePrice: 950000,
+          downPaymentPercent: 30,
+          closingCosts: 19000,
+          rehabBudget: 25000,
+          grossRentPerMonth: 11200,
+          otherIncome: 1200,
+          vacancyRate: 7.0,
+          annualRentGrowth: 4.0,
+          operatingExpenseRatio: 32.0,
+          expenseGrowthRate: 2.5,
+          interestRate: 6.75,
+          amortizationYears: 25,
+          loanTermYears: 25,
+          targetExitCapRate: 7.2,
+          appreciationRate: 3.0,
+          totalStorageUnits: 140
+        }
+      },
+      {
+        id: 'demo-p4',
+        name: 'Highland Executive BRRRR',
+        asset_class: 'single-family',
+        location: 'Raleigh, NC',
+        purchase_price: 420000,
+        irr: 13.90,
+        equity_multiple: 2.30,
+        cash_on_cash: 7.80,
+        cap_rate: 6.40,
+        year1_cashflow: 8190,
+        total_equity: 105000,
+        inputs: {
+          purchasePrice: 420000,
+          downPaymentPercent: 20,
+          closingCosts: 8400,
+          rehabBudget: 35000,
+          grossRentPerMonth: 3400,
+          otherIncome: 0,
+          vacancyRate: 4.0,
+          annualRentGrowth: 3.0,
+          operatingExpenseRatio: 30.0,
+          expenseGrowthRate: 2.5,
+          interestRate: 6.5,
+          amortizationYears: 30,
+          loanTermYears: 30,
+          targetExitCapRate: 6.0,
+          appreciationRate: 3.5
+        }
+      }
+    ];
+
+    async function loadDashboardProjects(filter = currentDashFilter) {
+      currentDashFilter = filter;
+
+      let storedDeals = [];
+      try {
+        const raw = localStorage.getItem('mathtree_local_deals');
+        if (raw) storedDeals = JSON.parse(raw);
+      } catch (e) {}
+
+      if (supabaseClient && currentUser) {
+        try {
+          const { data, error } = await supabaseClient.from('deals').select('*').order('created_at', { ascending: false });
+          if (!error && data && data.length > 0) {
+            storedDeals = data.map(d => ({
+              id: d.id,
+              name: d.title || d.name || 'Cloud Underwriting Project',
+              asset_class: d.asset_type || d.asset_class || 'single-family',
+              location: d.location || 'Cloud Sync',
+              purchase_price: d.purchase_price || (d.inputs && d.inputs.purchasePrice) || 0,
+              irr: d.irr || (d.results && d.results.irr) || 0,
+              equity_multiple: d.equity_multiple || (d.results && d.results.equityMultiple) || 0,
+              cash_on_cash: d.cash_on_cash || 0,
+              cap_rate: (d.results && d.results.capRate) || 0,
+              year1_cashflow: (d.results && d.results.projections && d.results.projections[0] ? d.results.projections[0].netCashFlow : 0),
+              total_equity: (d.results && d.results.initialCashInvested) || 0,
+              inputs: d.inputs,
+              results: d.results,
+              deck: d.deck
+            }));
+          }
+        } catch (e) {
+          console.warn('Cloud deals fetch error:', e);
+        }
+      }
+
+      if (!storedDeals || storedDeals.length === 0) {
+        storedDeals = defaultCuratedProjects;
+      }
+
+      activeDashboardProjects = storedDeals;
+
+      const totalProjects = activeDashboardProjects.length;
+      let totalVal = 0;
+      let totalEq = 0;
+      let sumIrr = 0;
+
+      activeDashboardProjects.forEach(d => {
+        totalVal += (d.purchase_price || 0);
+        totalEq += (d.total_equity || (d.purchase_price ? d.purchase_price * 0.25 : 0));
+        sumIrr += (d.irr || 0);
+      });
+
+      const avgIrr = totalProjects > 0 ? (sumIrr / totalProjects) : 0;
+
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setEl('dash-stat-projects', totalProjects);
+      setEl('dash-stat-value', formatCurrency(totalVal));
+      setEl('dash-stat-irr', `${avgIrr.toFixed(1)}%`);
+      setEl('dash-stat-equity', formatCurrency(totalEq));
+      setEl('dash-kpi-total-projects', totalProjects);
+      setEl('dash-kpi-total-value', formatCurrency(totalVal));
+      setEl('dash-kpi-avg-irr', `${avgIrr.toFixed(1)}%`);
+      setEl('dash-kpi-equity', formatCurrency(totalEq));
+
+      const filtered = filter === 'all' ? activeDashboardProjects : activeDashboardProjects.filter(d => (d.asset_class || d.assetType) === filter);
+
+      const grid = document.getElementById('dash-projects-grid');
+      if (!grid) return;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full p-12 text-center bg-slate-950/40 rounded-3xl border border-slate-900 space-y-3">
+            <div class="text-3xl">📂</div>
+            <p class="text-sm font-bold text-slate-300">No projects found in this category.</p>
+            <button onclick="openProjectWizard()" class="text-xs font-bold text-brand-400 hover:text-brand-300">Create your first project →</button>
+          </div>
+        `;
+        return;
+      }
+
+      const assetIcons = {
+        'single-family': '🏡',
+        'multi-unit': '🏢',
+        'commercial': '🏬',
+        'storage': '📦'
+      };
+
+      grid.innerHTML = filtered.map(d => {
+        const aClass = d.asset_class || d.assetType || 'single-family';
+        const icon = assetIcons[aClass] || '🏢';
+        const priceStr = formatCurrency(d.purchase_price || (d.inputs && d.inputs.purchasePrice) || 0);
+        const irrStr = `${(d.irr || 0).toFixed(1)}%`;
+        const emStr = `${(d.equity_multiple || 2.0).toFixed(2)}x`;
+        const cocStr = `${(d.cash_on_cash || (d.year1_cashflow && d.total_equity ? (d.year1_cashflow / d.total_equity * 100) : 8.0)).toFixed(1)}%`;
+        const locStr = d.location || 'United States';
+
+        return `
+          <div class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl flex flex-col justify-between transition group hover:shadow-brand-500/5">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-base shadow-sm">
+                    ${icon}
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-extrabold text-white group-hover:text-brand-400 transition">${d.name}</h4>
+                    <p class="text-[11px] text-slate-400 flex items-center space-x-1">
+                      <span>📍</span>
+                      <span>${locStr}</span>
+                    </p>
+                  </div>
+                </div>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize">
+                  ${aClass.replace('-', ' ')}
+                </span>
+              </div>
+
+              <!-- Deal Metrics Grid -->
+              <div class="grid grid-cols-3 gap-2 bg-slate-950/60 p-3 rounded-xl border border-slate-900 text-center">
+                <div>
+                  <span class="text-[9px] uppercase font-bold text-slate-400 block">Acquisition</span>
+                  <span class="text-xs font-black text-white mt-0.5 block">${priceStr}</span>
+                </div>
+                <div>
+                  <span class="text-[9px] uppercase font-bold text-slate-400 block">10-Yr IRR</span>
+                  <span class="text-xs font-black text-brand-400 mt-0.5 block">${irrStr}</span>
+                </div>
+                <div>
+                  <span class="text-[9px] uppercase font-bold text-slate-400 block">Yr 1 CoC</span>
+                  <span class="text-xs font-black text-accent-cyan mt-0.5 block">${cocStr}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center space-x-2 pt-1 border-t border-slate-900/80">
+              <button onclick="handleProjectCardDeck('${d.id}')" class="flex-1 py-2 px-3 rounded-xl text-xs font-extrabold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center justify-center space-x-1.5 shadow-sm">
+                <span>📈 Pitch Deck</span>
+              </button>
+              <button onclick="handleProjectCardModeler('${d.id}')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-brand-300 hover:text-white bg-brand-950/50 hover:bg-brand-900/60 border border-brand-800/80 transition flex items-center justify-center space-x-1">
+                <span>🛠️ Modeler</span>
+              </button>
+              <button onclick="deleteProjectDeal('${d.id}')" aria-label="Delete Project ${d.name}" class="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 border border-transparent hover:border-rose-900/50 transition" title="Delete Project">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleProjectCardDeck(id) {
+      const deal = activeDashboardProjects.find(p => p.id === id);
+      if (deal) openPitchDeck(deal);
+    }
+
+    function handleProjectCardModeler(id) {
+      const deal = activeDashboardProjects.find(p => p.id === id);
+      if (deal) openProjectInModeler(deal);
+    }
+
+    async function deleteProjectDeal(id) {
+      if (!confirm('Are you sure you want to delete this underwriting project?')) return;
+      if (supabaseClient && currentUser) {
+        try {
+          await supabaseClient.from('deals').delete().eq('id', id);
+        } catch (e) {}
+      }
+      activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch (e) {}
+      loadDashboardProjects();
+    }
+
+    // --- Guided Project Creation Wizard Controller ---
+    let wizardCurrentStep = 1;
+    let wizardSelectedAsset = 'commercial';
+
+    const wizardAssetDefaults = {
+      'single-family': {
+        name: 'Highland Executive SFR',
+        location: 'Raleigh, NC',
+        gla: 2400,
+        price: 450000,
+        down: 20,
+        closing: 9000,
+        rehab: 20000,
+        rent: 3200,
+        other: 0,
+        vacancy: 4.0,
+        rentGrowth: 3.0,
+        opexRatio: 30.0,
+        expenseGrowth: 2.5,
+        rate: 6.5,
+        amort: 30,
+        exitCap: 6.0,
+        apprec: 3.5
+      },
+      'multi-unit': {
+        name: 'Oakridge 12-Plex Multi-Family',
+        location: 'Atlanta, GA',
+        gla: 11000,
+        price: 1850000,
+        down: 25,
+        closing: 37000,
+        rehab: 75000,
+        rent: 18000,
+        other: 800,
+        vacancy: 6.0,
+        rentGrowth: 3.5,
+        opexRatio: 40.0,
+        expenseGrowth: 2.5,
+        rate: 6.25,
+        amort: 30,
+        exitCap: 6.5,
+        apprec: 4.0
+      },
+      'commercial': {
+        name: 'Westfield Industrial Center',
+        location: 'Austin, TX',
+        gla: 15000,
+        price: 1200000,
+        down: 25,
+        closing: 24000,
+        rehab: 50000,
+        rent: 12500,
+        other: 500,
+        vacancy: 5.0,
+        rentGrowth: 3.0,
+        opexRatio: 35.0,
+        expenseGrowth: 2.5,
+        rate: 6.5,
+        amort: 30,
+        exitCap: 6.75,
+        apprec: 3.5
+      },
+      'storage': {
+        name: 'Pecan Grove Self-Storage Hub',
+        location: 'Phoenix, AZ',
+        gla: 22000,
+        price: 950000,
+        down: 30,
+        closing: 19000,
+        rehab: 25000,
+        rent: 11200,
+        other: 1200,
+        vacancy: 7.0,
+        rentGrowth: 4.0,
+        opexRatio: 32.0,
+        expenseGrowth: 2.5,
+        rate: 6.75,
+        amort: 25,
+        exitCap: 7.2,
+        apprec: 3.0
+      }
+    };
+
+    function openProjectWizard() {
+      const modal = document.getElementById('project-wizard-modal');
+      if (!modal) return;
+      setWizardStep(1);
+      modal.classList.remove('hidden');
+    }
+
+    function closeProjectWizard() {
+      const modal = document.getElementById('project-wizard-modal');
+      if (modal) modal.classList.add('hidden');
+      const loader = document.getElementById('wizard-loading');
+      if (loader) loader.classList.add('hidden');
+    }
+
+    function setWizardStep(step) {
+      wizardCurrentStep = step;
+      const stepTitles = {
+        1: 'Asset Class & Identity',
+        2: 'Capital & Valuation',
+        3: 'Income & Operations',
+        4: 'Debt & Exit Strategy'
+      };
+
+      const stepNumEl = document.getElementById('wizard-step-num');
+      const stepTitleEl = document.getElementById('wizard-step-title');
+      const bar = document.getElementById('wizard-progress-bar');
+      if (stepNumEl) stepNumEl.textContent = step;
+      if (stepTitleEl) stepTitleEl.textContent = stepTitles[step] || '';
+      if (bar) bar.style.width = `${step * 25}%`;
+
+      for (let i = 1; i <= 4; i++) {
+        const panel = document.getElementById(`wizard-step-${i}`);
+        if (panel) {
+          if (i === step) panel.classList.remove('hidden');
+          else panel.classList.add('hidden');
+        }
+      }
+
+      const btnBack = document.getElementById('btn-wizard-back');
+      const btnNext = document.getElementById('btn-wizard-next');
+      const btnSubmit = document.getElementById('btn-wizard-submit');
+
+      if (btnBack) {
+        if (step > 1) btnBack.classList.remove('hidden');
+        else btnBack.classList.add('hidden');
+      }
+
+      if (btnNext && btnSubmit) {
+        if (step === 4) {
+          btnNext.classList.add('hidden');
+          btnSubmit.classList.remove('hidden');
+        } else {
+          btnNext.classList.remove('hidden');
+          btnSubmit.classList.add('hidden');
+        }
+      }
+
+      calculateWizardUpfrontCash();
+    }
+
+    function calculateWizardUpfrontCash() {
+      const price = parseFloat(document.getElementById('wiz-purchase-price')?.value) || 0;
+      const downPct = parseFloat(document.getElementById('wiz-down-payment')?.value) || 0;
+      const closing = parseFloat(document.getElementById('wiz-closing-costs')?.value) || 0;
+      const rehab = parseFloat(document.getElementById('wiz-rehab-costs')?.value) || 0;
+      const total = (price * (downPct / 100)) + closing + rehab;
+      const cashEl = document.getElementById('wiz-total-cash-req');
+      if (cashEl) cashEl.textContent = formatCurrency(total);
+    }
+
+    function applyWizardAssetDefaults(assetClass) {
+      wizardSelectedAsset = assetClass;
+      const def = wizardAssetDefaults[assetClass];
+      if (!def) return;
+
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      setVal('wiz-deal-name', def.name);
+      setVal('wiz-location', def.location);
+      setVal('wiz-gla', def.gla);
+      setVal('wiz-purchase-price', def.price);
+      setVal('wiz-down-payment', def.down);
+      setVal('wiz-closing-costs', def.closing);
+      setVal('wiz-rehab-costs', def.rehab);
+      setVal('wiz-gross-rent', def.rent);
+      setVal('wiz-other-income', def.other);
+      setVal('wiz-vacancy-rate', def.vacancy);
+      setVal('wiz-rent-growth', def.rentGrowth);
+      setVal('wiz-opex-ratio', def.opexRatio);
+      setVal('wiz-expense-growth', def.expenseGrowth);
+      setVal('wiz-interest-rate', def.rate);
+      setVal('wiz-amortization', def.amort);
+      setVal('wiz-exit-cap', def.exitCap);
+      setVal('wiz-appreciation', def.apprec);
+
+      calculateWizardUpfrontCash();
+    }
+
+    async function handleWizardSubmit() {
+      const loader = document.getElementById('wizard-loading');
+      const loaderStatus = document.getElementById('wizard-loading-status');
+      for (let i = 1; i <= 4; i++) {
+        const panel = document.getElementById(`wizard-step-${i}`);
+        if (panel) panel.classList.add('hidden');
+      }
+      const btnBack = document.getElementById('btn-wizard-back');
+      const btnSubmit = document.getElementById('btn-wizard-submit');
+      if (btnBack) btnBack.classList.add('hidden');
+      if (btnSubmit) btnSubmit.classList.add('hidden');
+      if (loader) loader.classList.remove('hidden');
+
+      const name = document.getElementById('wiz-deal-name')?.value.trim() || 'New Underwriting Project';
+      const location = document.getElementById('wiz-location')?.value.trim() || 'United States';
+      const gla = parseFloat(document.getElementById('wiz-gla')?.value) || 10000;
+
+      const inputs = {
+        purchasePrice: parseFloat(document.getElementById('wiz-purchase-price')?.value) || 1000000,
+        downPaymentPercent: parseFloat(document.getElementById('wiz-down-payment')?.value) || 25,
+        closingCosts: parseFloat(document.getElementById('wiz-closing-costs')?.value) || 20000,
+        rehabBudget: parseFloat(document.getElementById('wiz-rehab-costs')?.value) || 0,
+        grossRentPerMonth: parseFloat(document.getElementById('wiz-gross-rent')?.value) || 10000,
+        otherIncome: parseFloat(document.getElementById('wiz-other-income')?.value) || 0,
+        vacancyRate: parseFloat(document.getElementById('wiz-vacancy-rate')?.value) || 5,
+        annualRentGrowth: parseFloat(document.getElementById('wiz-rent-growth')?.value) || 3,
+        operatingExpenseRatio: parseFloat(document.getElementById('wiz-opex-ratio')?.value) || 35,
+        expenseGrowthRate: parseFloat(document.getElementById('wiz-expense-growth')?.value) || 2.5,
+        interestRate: parseFloat(document.getElementById('wiz-interest-rate')?.value) || 6.5,
+        amortizationYears: parseFloat(document.getElementById('wiz-amortization')?.value) || 30,
+        loanTermYears: 30,
+        targetExitCapRate: parseFloat(document.getElementById('wiz-exit-cap')?.value) || 6.5,
+        appreciationRate: parseFloat(document.getElementById('wiz-appreciation')?.value) || 3.5,
+        gla: gla
+      };
+
+      const payload = {
+        name: name,
+        asset_class: wizardSelectedAsset,
+        location: location,
+        inputs: inputs
+      };
+
+      let createdDeal = null;
+
+      try {
+        if (loaderStatus) loaderStatus.textContent = 'Calling Supabase Edge Function (create-project)...';
+        const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (edgeRes.ok) {
+          const edgeData = await edgeRes.json();
+          if (edgeData && edgeData.deal) {
+            createdDeal = edgeData.deal;
+          } else if (edgeData && (edgeData.project || edgeData.pitchDeck)) {
+            const p = edgeData.project || {};
+            const deck = edgeData.pitchDeck || {};
+            const m = p.metrics || {};
+            createdDeal = {
+              id: p.id || ('deal-' + Date.now()),
+              name: p.title || name,
+              asset_class: p.asset_type || wizardSelectedAsset,
+              location: location,
+              purchase_price: p.inputs?.purchasePrice || inputs.purchasePrice,
+              irr: m.irr !== undefined ? m.irr : 0,
+              equity_multiple: m.equityMultiplier || 2.0,
+              cash_on_cash: m.year1CoC || 0,
+              cap_rate: m.year1CapRate || 0,
+              year1_cashflow: m.year1CashFlow || 0,
+              total_equity: m.initialCashInvested || 0,
+              inputs: p.inputs || inputs,
+              results: {
+                purchasePrice: inputs.purchasePrice,
+                initialCashInvested: m.initialCashInvested || 0,
+                irr: m.irr || 0,
+                equityMultiple: m.equityMultiplier || 2.0,
+                breakEvenYear: m.breakEvenYear || 'N/A',
+                projections: deck.projections || []
+              },
+              risks: deck.risks || [],
+              deck: {
+                title: deck.title || name,
+                highlights: (deck.highlights || []).map(h => typeof h === 'string' ? { metric: 'Highlight', detail: h } : h)
+              }
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Edge function error, falling back to local engine:', err);
+      }
+
+      if (!createdDeal) {
+        const localResults = window.PropertyMath.calculateProjections(wizardSelectedAsset, inputs);
+        const localRisks = window.PropertyMath.auditDealRisks(wizardSelectedAsset, inputs, localResults);
+        createdDeal = {
+          id: 'deal-' + Date.now(),
+          name: name,
+          asset_class: wizardSelectedAsset,
+          location: location,
+          purchase_price: inputs.purchasePrice,
+          irr: localResults.irr,
+          equity_multiple: localResults.equityMultiple,
+          cash_on_cash: localResults.projections[0] ? localResults.projections[0].cashOnCash : 0,
+          cap_rate: localResults.capRate,
+          year1_cashflow: localResults.projections[0] ? localResults.projections[0].netCashFlow : 0,
+          total_equity: localResults.initialCashInvested,
+          inputs: inputs,
+          results: localResults,
+          risks: localRisks,
+          deck: {
+            title: name,
+            highlights: [
+              { metric: '10-Year IRR', detail: `${localResults.irr.toFixed(1)}% Projected Return` },
+              { metric: 'MOIC Multiple', detail: `${localResults.equityMultiple.toFixed(2)}x Capital Returned` }
+            ]
+          }
+        };
+      }
+
+      activeDashboardProjects.unshift(createdDeal);
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch (e) {}
+
+      closeProjectWizard();
+      loadDashboardProjects();
+
+      openPitchDeck(createdDeal);
+    }
+
+    // --- 6. Supabase Cloud Sync & Accounts ---
+    const SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
+    let supabaseClient = null;
+    let currentUser = null;
+
+    try {
+      if (window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+    } catch(e) { console.warn('Supabase init error', e); }
+
+    function openCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.remove('hidden');
+      checkCloudAuthState();
+    }
+
+    function closeCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function checkCloudAuthState() {
+      if (!supabaseClient) return;
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        currentUser = session ? session.user : null;
+        updateCloudAuthUI();
+        if (currentUser) {
+          fetchCloudDeals();
+          fetchCloudPortfolios();
+        }
+      } catch (err) {
+        console.warn('Auth check error:', err);
+      }
+    }
+
+    function updateCloudAuthUI() {
+      const loggedOutBox = document.getElementById('cloud-auth-logged-out');
+      const loggedInBox = document.getElementById('cloud-auth-logged-in');
+      const statusDot = document.getElementById('cloud-status-dot');
+      const btnText = document.getElementById('cloud-btn-text');
+      const userEmailEl = document.getElementById('cloud-user-email');
+
+      if (currentUser) {
+        if (loggedOutBox) loggedOutBox.classList.add('hidden');
+        if (loggedInBox) loggedInBox.classList.remove('hidden');
+        if (statusDot) {
+          statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/80 animate-pulse';
+        }
+        if (btnText) btnText.textContent = currentUser.email.split('@')[0];
+        if (userEmailEl) userEmailEl.textContent = currentUser.email;
+      } else {
+        if (loggedOutBox) loggedOutBox.classList.remove('hidden');
+        if (loggedInBox) loggedInBox.classList.add('hidden');
+        if (statusDot) {
+          statusDot.className = 'w-2 h-2 rounded-full bg-slate-500';
+        }
+        if (btnText) btnText.textContent = 'Cloud Sync';
+      }
+    }
+
+    async function handleCloudSignIn() {
+      if (!supabaseClient) return;
+      const email = document.getElementById('cloud-auth-email').value;
+      const password = document.getElementById('cloud-auth-password').value;
+      const msg = document.getElementById('cloud-auth-msg');
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (msg) {
+          msg.className = 'text-xs p-2 rounded-lg bg-rose-500/20 text-rose-300 block border border-rose-500/40';
+          msg.textContent = error.message;
+        }
+      } else {
+        currentUser = data.user;
+        updateCloudAuthUI();
+        fetchCloudDeals();
+        fetchCloudPortfolios();
+        if (msg) msg.className = 'hidden';
+      }
+    }
+
+    async function handleCloudSignUp() {
+      if (!supabaseClient) return;
+      const email = document.getElementById('cloud-auth-email').value;
+      const password = document.getElementById('cloud-auth-password').value;
+      const msg = document.getElementById('cloud-auth-msg');
+
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) {
+        if (msg) {
+          msg.className = 'text-xs p-2 rounded-lg bg-rose-500/20 text-rose-300 block border border-rose-500/40';
+          msg.textContent = error.message;
+        }
+      } else {
+        if (msg) {
+          msg.className = 'text-xs p-2 rounded-lg bg-emerald-500/20 text-emerald-300 block border border-emerald-500/40';
+          msg.textContent = 'Account created successfully! Check your email or sign in.';
+        }
+        if (data.user && data.session) {
+          currentUser = data.user;
+          updateCloudAuthUI();
+        }
+      }
+    }
+
+    async function handleCloudSignOut() {
+      if (!supabaseClient) return;
+      await supabaseClient.auth.signOut();
+      currentUser = null;
+      updateCloudAuthUI();
+    }
+
+    async function saveCurrentDealToCloud() {
+      if (!supabaseClient || !currentUser) {
+        openCloudSyncModal();
+        return;
+      }
+      const titleInput = document.getElementById('cloud-deal-title');
+      const title = (titleInput && titleInput.value.trim()) || `${activeTab.toUpperCase()} Deal`;
+      const inputs = getInputsFromForm();
+      const res = window.PropertyMath.calculateProjections(activeTab, inputs);
+
+      const { error } = await supabaseClient.from('deals').insert({
+        user_id: currentUser.id,
+        title: title,
+        asset_type: activeTab,
+        scenario_tag: activeScenario,
+        inputs: inputs,
+        metrics: { irr: res.irr, purchasePrice: res.purchasePrice, initialCash: res.initialCashInvested }
+      });
+
+      if (error) {
+        alert(`Error saving to cloud: ${error.message}`);
+      } else {
+        alert(`Deal "${title}" saved to Supabase Cloud!`);
+        if (titleInput) titleInput.value = '';
+        fetchCloudDeals();
+      }
+    }
+
+    async function fetchCloudDeals() {
+      if (!supabaseClient || !currentUser) return;
+      const list = document.getElementById('cloud-deals-list');
+      if (!list) return;
+
+      const { data: deals, error } = await supabaseClient.from('deals').select('*').order('created_at', { ascending: false });
+      if (error || !deals || deals.length === 0) {
+        list.innerHTML = '<p class="text-slate-500 text-center py-2">No saved deals found in cloud.</p>';
+        return;
+      }
+
+      list.innerHTML = deals.map(d => `
+        <div class="p-2.5 rounded-lg border border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <div>
+            <span class="font-bold text-slate-200 block">${d.title}</span>
+            <span class="text-[10px] text-slate-500 capitalize">${d.asset_type} • IRR: ${d.metrics?.irr ? d.metrics.irr.toFixed(1) + '%' : 'N/A'}</span>
+          </div>
+          <div class="flex space-x-1.5">
+            <button data-load-cloud-deal="${d.id}" class="px-2 py-1 bg-brand-600 hover:bg-brand-500 text-[10px] font-bold text-white rounded">Load</button>
+            <button data-del-cloud-deal="${d.id}" class="px-2 py-1 bg-slate-900 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 text-[10px] rounded">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('[data-load-cloud-deal]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-load-cloud-deal');
+          const d = deals.find(x => x.id === id);
+          if (d) {
+            setActiveTab(d.asset_type);
+            updateFormFields(d.inputs);
+            updateCalculations();
+            closeCloudSyncModal();
+          }
+        });
+      });
+
+      list.querySelectorAll('[data-del-cloud-deal]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-del-cloud-deal');
+          if (confirm('Delete this saved deal from cloud?')) {
+            await supabaseClient.from('deals').delete().eq('id', id);
+            fetchCloudDeals();
+          }
+        });
+      });
+    }
+
+    async function savePortfolioToCloud() {
+      if (!supabaseClient || !currentUser) {
+        openCloudSyncModal();
+        return;
+      }
+      const portfolioName = prompt('Enter a name for this Portfolio Fund (e.g. Pacific Core Fund I):', 'Pacific Core Fund I');
+      if (!portfolioName) return;
+
+      const dealsToSave = portfolioDeals.filter(d => d.included).map(d => ({
+        id: d.id,
+        assetType: d.assetType,
+        name: d.name,
+        quantity: d.quantity,
+        inputs: loadPresetValues(d.assetType)
+      }));
+
+      const pf = window.PropertyMath.aggregatePortfolio(dealsToSave.map(d => ({
+        ...d,
+        results: window.PropertyMath.calculateProjections(d.assetType, d.inputs)
+      })));
+
+      const { error } = await supabaseClient.from('portfolios').insert({
+        user_id: currentUser.id,
+        name: portfolioName,
+        deal_items: dealsToSave,
+        summary_metrics: {
+          totalPurchasePrice: pf.totalPurchasePrice,
+          totalCashInvested: pf.totalCashInvested,
+          portfolioIrr: pf.portfolioIrr,
+          equityMultiple: pf.equityMultiple
+        }
+      });
+
+      if (error) {
+        alert(`Error saving portfolio: ${error.message}`);
+      } else {
+        alert(`Portfolio "${portfolioName}" saved to Supabase Cloud!`);
+        fetchCloudPortfolios();
+      }
+    }
+
+    async function fetchCloudPortfolios() {
+      if (!supabaseClient || !currentUser) return;
+      const list = document.getElementById('cloud-portfolios-list');
+      if (!list) return;
+
+      const { data: pfs, error } = await supabaseClient.from('portfolios').select('*').order('created_at', { ascending: false });
+      if (error || !pfs || pfs.length === 0) {
+        list.innerHTML = '<p class="text-slate-500 text-center py-2">No saved portfolios found in cloud.</p>';
+        return;
+      }
+
+      list.innerHTML = pfs.map(p => `
+        <div class="p-2 rounded-lg border border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <div>
+            <span class="font-bold text-slate-200 block">${p.name}</span>
+            <span class="text-[10px] text-slate-500">${p.deal_items?.length || 0} assets • IRR: ${p.summary_metrics?.portfolioIrr ? p.summary_metrics.portfolioIrr.toFixed(1) + '%' : 'N/A'}</span>
+          </div>
+          <div class="flex space-x-1.5">
+            <button data-load-cloud-pf="${p.id}" class="px-2 py-1 bg-brand-600 hover:bg-brand-500 text-[10px] font-bold text-white rounded">Load</button>
+            <button data-del-cloud-pf="${p.id}" class="px-2 py-1 bg-slate-900 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 text-[10px] rounded">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('[data-load-cloud-pf]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-load-cloud-pf');
+          const p = pfs.find(x => x.id === id);
+          if (p && p.deal_items) {
+            portfolioDeals = p.deal_items.map(item => ({
+              ...item,
+              included: true
+            }));
+            setWorkspaceView('portfolio');
+            renderPortfolioStudio();
+            closeCloudSyncModal();
+          }
+        });
+      });
+
+      list.querySelectorAll('[data-del-cloud-pf]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-del-cloud-pf');
+          if (confirm('Delete this portfolio from cloud?')) {
+            await supabaseClient.from('portfolios').delete().eq('id', id);
+            fetchCloudPortfolios();
+          }
+        });
+      });
+    }
+
+    // --- 7. Full JSON State Backup ---
+    function exportJSONBackup() {
+      const backup = {
+        app: 'MathTree',
+        version: '2.0',
+        timestamp: new Date().toISOString(),
+        presets: {
+          'single-family': loadPresetValues('single-family'),
+          'multi-unit': loadPresetValues('multi-unit'),
+          'commercial': loadPresetValues('commercial'),
+          'storage': loadPresetValues('storage')
+        },
+        portfolioDeals: portfolioDeals
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mathtree_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
     // Main controller override to trigger current workspace view renderers
     const originalUpdateCalculations = updateCalculations;
     updateCalculations = function() {
@@ -2431,8 +4866,11 @@
       const res = window.PropertyMath.calculateProjections(activeTab, inputs);
 
       renderDealAuditor(inputs, res);
+      syncSlidersFromInputs();
 
-      if (currentWorkspaceView === 'sensitivity') {
+      if (currentWorkspaceView === 'portfolio') {
+        renderPortfolioStudio();
+      } else if (currentWorkspaceView === 'sensitivity') {
         renderSensitivityMatrix(inputs);
         renderMonteCarlo(inputs);
       } else if (currentWorkspaceView === 'tax') {
@@ -2454,12 +4892,128 @@
         });
       });
 
-      // View Mode Buttons (Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix)
+      // View Mode Buttons (Modeler, Portfolio Studio, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix)
       document.querySelectorAll('[data-view]').forEach(btn => {
         btn.addEventListener('click', () => {
           const viewMode = btn.getAttribute('data-view');
           setWorkspaceView(viewMode);
         });
+      });
+
+      // Scenario Selector Buttons (Base, Bull, Bear)
+      const btnScBase = document.getElementById('scenario-btn-base');
+      if (btnScBase) btnScBase.addEventListener('click', () => switchScenario('base'));
+      const btnScBull = document.getElementById('scenario-btn-bull');
+      if (btnScBull) btnScBull.addEventListener('click', () => switchScenario('bull'));
+      const btnScBear = document.getElementById('scenario-btn-bear');
+      if (btnScBear) btnScBear.addEventListener('click', () => switchScenario('bear'));
+
+      // Custom Scenario Save Modal
+      const btnOpenSaveSc = document.getElementById('btn-save-scenario-modal');
+      const modalSaveSc = document.getElementById('scenario-save-modal');
+      const btnCloseSc = document.getElementById('btn-scenario-modal-close');
+      const btnCancelSc = document.getElementById('btn-cancel-custom-scenario');
+      const btnConfirmSc = document.getElementById('btn-confirm-save-scenario');
+
+      if (btnOpenSaveSc && modalSaveSc) {
+        btnOpenSaveSc.addEventListener('click', () => modalSaveSc.classList.remove('hidden'));
+        if (btnCloseSc) btnCloseSc.addEventListener('click', () => modalSaveSc.classList.add('hidden'));
+        if (btnCancelSc) btnCancelSc.addEventListener('click', () => modalSaveSc.classList.add('hidden'));
+        if (btnConfirmSc) {
+          btnConfirmSc.addEventListener('click', () => {
+            const scName = document.getElementById('input-custom-scenario-name').value.trim();
+            if (scName) {
+              const currentInputs = getInputsFromForm();
+              localStorage.setItem(`mathtree_custom_${scName}`, JSON.stringify({ assetType: activeTab, inputs: currentInputs }));
+              const badge = document.getElementById('active-scenario-badge');
+              if (badge) badge.innerHTML = `<span>Current: <strong class="text-indigo-400">${scName}</strong></span>`;
+              modalSaveSc.classList.add('hidden');
+              alert(`Scenario "${scName}" saved locally!`);
+            }
+          });
+        }
+      }
+
+      // Initialize Dynamic Slider Listeners
+      initSliderListeners();
+
+      // Portfolio Studio Action Buttons
+      const btnExportPfCsv = document.getElementById('btn-export-portfolio-csv');
+      if (btnExportPfCsv) btnExportPfCsv.addEventListener('click', exportPortfolioCSV);
+      const btnSavePfCloud = document.getElementById('btn-save-portfolio-cloud');
+      if (btnSavePfCloud) btnSavePfCloud.addEventListener('click', savePortfolioToCloud);
+
+      // Command Palette Trigger & Keyboard Listeners (Ctrl+K / Cmd+K)
+      const btnCmdPalette = document.getElementById('btn-cmd-palette');
+      if (btnCmdPalette) btnCmdPalette.addEventListener('click', openCommandPalette);
+      const btnCloseCmd = document.getElementById('cmd-palette-close');
+      if (btnCloseCmd) btnCloseCmd.addEventListener('click', closeCommandPalette);
+
+      const cmdInput = document.getElementById('cmd-palette-input');
+      if (cmdInput) {
+        cmdInput.addEventListener('input', (e) => filterCommands(e.target.value));
+        cmdInput.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedCmdIndex = (selectedCmdIndex + 1) % filteredCmds.length;
+            renderCommandList();
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedCmdIndex = (selectedCmdIndex - 1 + filteredCmds.length) % filteredCmds.length;
+            renderCommandList();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (filteredCmds[selectedCmdIndex]) {
+              closeCommandPalette();
+              filteredCmds[selectedCmdIndex].action();
+            }
+          }
+        });
+      }
+
+      // Executive Pitch Deck Triggers
+      const btnPitch = document.getElementById('btn-pitch-deck');
+      if (btnPitch) btnPitch.addEventListener('click', openPitchDeck);
+      const btnPitchClose = document.getElementById('btn-pitch-close');
+      if (btnPitchClose) btnPitchClose.addEventListener('click', closePitchDeck);
+      const btnPitchPrint = document.getElementById('btn-pitch-print');
+      if (btnPitchPrint) btnPitchPrint.addEventListener('click', () => window.print());
+
+      // Supabase Cloud Sync Triggers
+      const btnCloudSync = document.getElementById('btn-cloud-sync');
+      if (btnCloudSync) btnCloudSync.addEventListener('click', openCloudSyncModal);
+      const btnCloudClose = document.getElementById('btn-cloud-close');
+      if (btnCloudClose) btnCloudClose.addEventListener('click', closeCloudSyncModal);
+
+      const btnCloudSignIn = document.getElementById('btn-cloud-signin');
+      if (btnCloudSignIn) btnCloudSignIn.addEventListener('click', handleCloudSignIn);
+      const btnCloudSignUp = document.getElementById('btn-cloud-signup');
+      if (btnCloudSignUp) btnCloudSignUp.addEventListener('click', handleCloudSignUp);
+      const btnCloudSignOut = document.getElementById('btn-cloud-signout');
+      if (btnCloudSignOut) btnCloudSignOut.addEventListener('click', handleCloudSignOut);
+
+      const btnSaveDealCloud = document.getElementById('btn-save-deal-cloud');
+      if (btnSaveDealCloud) btnSaveDealCloud.addEventListener('click', saveCurrentDealToCloud);
+      const btnRefreshCloudDeals = document.getElementById('btn-refresh-cloud-deals');
+      if (btnRefreshCloudDeals) btnRefreshCloudDeals.addEventListener('click', fetchCloudDeals);
+
+      // Global Keydown Listeners (Cmd+K / Ctrl+K, Escape)
+      window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          const cmdModal = document.getElementById('cmd-palette-modal');
+          if (cmdModal && !cmdModal.classList.contains('hidden')) {
+            closeCommandPalette();
+          } else {
+            openCommandPalette();
+          }
+        } else if (e.key === 'Escape') {
+          closeCommandPalette();
+          closePitchDeck();
+          closeCloudSyncModal();
+          closeProjectWizard();
+          if (modalSaveSc) modalSaveSc.classList.add('hidden');
+        }
       });
 
       // Simple Mode Toggle Button
@@ -2546,8 +5100,131 @@
       // Print Hook
       window.addEventListener('beforeprint', renderPrintableBrief);
 
+      // --- Landing Page Action Triggers ---
+      ['landing-btn-demo', 'landing-hero-demo-btn', 'landing-cta-demo-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAppWorkspace(currentUser, 'dashboard');
+          });
+        }
+      });
+
+      ['landing-btn-signin', 'landing-hero-signup-btn', 'landing-cta-signin-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAppWorkspace(currentUser, 'dashboard');
+            openCloudSyncModal();
+          });
+        }
+      });
+
+      // --- Dashboard Action Triggers ---
+      const btnDashCreate = document.getElementById('btn-dash-create-project');
+      if (btnDashCreate) btnDashCreate.addEventListener('click', openProjectWizard);
+
+      const btnDashPf = document.getElementById('btn-dash-portfolio');
+      if (btnDashPf) btnDashPf.addEventListener('click', () => setWorkspaceView('portfolio'));
+
+      const btnDashLanding = document.getElementById('btn-dash-landing');
+      if (btnDashLanding) btnDashLanding.addEventListener('click', showLandingPage);
+
+      // Dashboard category filter pills
+      document.querySelectorAll('#dash-filter-container button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const filter = btn.getAttribute('data-dash-filter');
+          document.querySelectorAll('#dash-filter-container button').forEach(b => {
+            b.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap';
+          });
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap';
+          loadDashboardProjects(filter);
+        });
+      });
+
+      // --- Pitch Deck Header "Open in Modeler" Button ---
+      const btnPitchOpenMod = document.getElementById('btn-pitch-open-modeler');
+      if (btnPitchOpenMod) {
+        btnPitchOpenMod.addEventListener('click', () => {
+          if (activePitchDeal) {
+            openProjectInModeler(activePitchDeal);
+          } else {
+            closePitchDeck();
+            setWorkspaceView('single');
+          }
+        });
+      }
+
+      // --- Project Creation Wizard Event Listeners ---
+      const btnWizClose = document.getElementById('btn-wizard-close');
+      if (btnWizClose) btnWizClose.addEventListener('click', closeProjectWizard);
+
+      const btnWizCancel = document.getElementById('btn-wizard-cancel');
+      if (btnWizCancel) btnWizCancel.addEventListener('click', closeProjectWizard);
+
+      const btnWizBack = document.getElementById('btn-wizard-back');
+      if (btnWizBack) btnWizBack.addEventListener('click', () => setWizardStep(wizardCurrentStep - 1));
+
+      const btnWizNext = document.getElementById('btn-wizard-next');
+      if (btnWizNext) btnWizNext.addEventListener('click', () => setWizardStep(wizardCurrentStep + 1));
+
+      const btnWizSubmit = document.getElementById('btn-wizard-submit');
+      if (btnWizSubmit) btnWizSubmit.addEventListener('click', handleWizardSubmit);
+
+      // Wizard Asset Card Selection (Click + Keyboard Enter/Space)
+      document.querySelectorAll('.wiz-asset-card').forEach(card => {
+        const selectCard = () => {
+          document.querySelectorAll('.wiz-asset-card').forEach(c => {
+            c.className = 'wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+            const iconBox = c.querySelector('div:first-child');
+            if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm';
+          });
+          card.className = 'wiz-asset-card p-3.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+          const iconBox = card.querySelector('div:first-child');
+          if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm';
+          
+          const asset = card.getAttribute('data-asset');
+          applyWizardAssetDefaults(asset);
+        };
+
+        card.addEventListener('click', selectCard);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectCard();
+          }
+        });
+      });
+
+      // Wizard Capital Inputs live recalculation
+      ['wiz-purchase-price', 'wiz-down-payment', 'wiz-closing-costs', 'wiz-rehab-costs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', calculateWizardUpfrontCash);
+      });
+
+      // Check Cloud Auth state on load
+      checkCloudAuthState();
+
       // Initial tab and calculations setup
       setActiveTab(activeTab);
+      syncSlidersFromInputs();
+
+      // --- Initial Page Navigation & Startup Routing ---
+      const initialHash = window.location.hash;
+      if (initialHash && initialHash.startsWith('#deal=')) {
+        showAppWorkspace(currentUser, 'single');
+      } else if (initialHash === '#modeler') {
+        showAppWorkspace(currentUser, 'single');
+      } else if (initialHash === '#portfolio') {
+        showAppWorkspace(currentUser, 'portfolio');
+      } else if (initialHash === '#dashboard') {
+        showAppWorkspace(currentUser, 'dashboard');
+      } else {
+        // Default entry point is the comprehensive institutional landing page
+        showLandingPage();
+      }
     });
   </script>
 </body>
