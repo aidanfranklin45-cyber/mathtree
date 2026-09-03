@@ -335,101 +335,88 @@
     </footer>
   </div>
 
-  <!-- ==================== AUTHENTICATED APP WORKSPACE ==================== -->
+  <!-- ==================== AUTH SCRIPT ==================== -->
   <script>
-    // =====================================================
-    // index.html — Landing Page Auth Guard
-    // If a session already exists, go straight to dashboard
-    // =====================================================
     const SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
     const { createClient } = window.supabase;
     const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    (async () => {
-      const { data: { session } } = await _supabase.auth.getSession();
-      if (session) {
-        window.location.replace('dashboard.html');
-        return;
-      }
-    })();
+    // If already signed in, go straight to the dashboard
+    _supabase.auth.getSession().then(function(result) {
+      var session = result.data && result.data.session;
+      if (session) window.location.replace('dashboard.html');
+    });
 
-    // Listen for sign-in completions (e.g. magic link callback)
-    _supabase.auth.onAuthStateChange((event, session) => {
+    // On successful sign-in (magic link callback), redirect to dashboard
+    _supabase.auth.onAuthStateChange(function(event, session) {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         window.location.replace('dashboard.html');
       }
     });
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // Wire all CTA buttons to open the auth modal or trigger sign-in
-      function openSignIn() {
-        // Show a simple email magic-link modal
-        showAuthModal();
-      }
-
-      const ctaIds = [
-        'landing-btn-signin',
-        'landing-hero-signup-btn',
-        'landing-cta-signin-btn',
-        'landing-demo-btn'
-      ];
-      ctaIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('click', openSignIn);
+    document.addEventListener('DOMContentLoaded', function() {
+      var ctaIds = ['landing-btn-signin', 'landing-hero-signup-btn', 'landing-cta-signin-btn', 'landing-demo-btn'];
+      ctaIds.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', showAuthModal);
       });
-
-      // Also wire any buttons with data-action="signin" or data-action="signup"
-      document.querySelectorAll('[data-action="signin"],[data-action="signup"]').forEach(el => {
-        el.addEventListener('click', openSignIn);
+      document.querySelectorAll('[data-action="signin"],[data-action="signup"]').forEach(function(el) {
+        el.addEventListener('click', showAuthModal);
       });
     });
 
-    // ---- Minimal Auth Modal ----
     function showAuthModal() {
       if (document.getElementById('_auth-modal')) return;
-      const modal = document.createElement('div');
+      var modal = document.createElement('div');
       modal.id = '_auth-modal';
       modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm';
-      modal.innerHTML = 
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl space-y-5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center">
-                <svg class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V12"/><path d="M8 16l4-4 4 4"/><path d="M6 12l6-10 6 10"/></svg>
-              </div>
-              <span class="font-extrabold text-white text-lg">MathTree</span>
-            </div>
-            <button onclick="document.getElementById('_auth-modal').remove()" class="text-slate-400 hover:text-white">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div>
-            <h2 class="text-xl font-black text-white">Sign in to your account</h2>
-            <p class="text-xs text-slate-400 mt-1">We'll send you a magic link — no password needed.</p>
-          </div>
-          <div class="space-y-3">
-            <input id="_auth-email" type="email" placeholder="your@email.com" autocomplete="email"
-              class="w-full bg-slate-950/80 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
-            <button id="_auth-submit" onclick="sendMagicLink()"
-              class="w-full py-3 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">
-              Send Magic Link ✨
-            </button>
-            <p id="_auth-msg" class="text-xs text-center text-slate-400 hidden"></p>
-          </div>
-          <p class="text-[10px] text-center text-slate-500">By continuing, you agree to MathTree's Terms of Service and Privacy Policy.</p>
-        </div>
-      ;
+      modal.innerHTML = [
+        '<div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-sm mx-4 shadow-2xl space-y-5">',
+          '<div class="flex items-center justify-between">',
+            '<div class="flex items-center space-x-2">',
+              '<div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-700 to-emerald-400 flex items-center justify-center">',
+                '<svg class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
+                  '<path d="M12 21V12"/><path d="M8 16l4-4 4 4"/><path d="M6 12l6-10 6 10"/>',
+                '</svg>',
+              '</div>',
+              '<span class="font-extrabold text-white text-lg">MathTree</span>',
+            '</div>',
+            '<button onclick="document.getElementById(\'_auth-modal\').remove()" class="text-slate-400 hover:text-white">',
+              '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">',
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>',
+              '</svg>',
+            '</button>',
+          '</div>',
+          '<div>',
+            '<h2 class="text-xl font-black text-white">Sign in to your account</h2>',
+            '<p class="text-xs text-slate-400 mt-1">We\'ll send you a magic link — no password needed.</p>',
+          '</div>',
+          '<div class="space-y-3">',
+            '<input id="_auth-email" type="email" placeholder="your@email.com" autocomplete="email"',
+              ' class="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">',
+            '<button id="_auth-submit" onclick="sendMagicLink()"',
+              ' class="w-full py-3 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-emerald-700 to-emerald-500 hover:from-emerald-600 hover:to-emerald-400 shadow-lg transition">',
+              'Send Magic Link ✨',
+            '</button>',
+            '<p id="_auth-msg" class="text-xs text-center text-slate-400 hidden"></p>',
+          '</div>',
+          '<p class="text-[10px] text-center text-slate-500">By continuing, you agree to MathTree\'s Terms of Service.</p>',
+        '</div>'
+      ].join('');
       document.body.appendChild(modal);
-      modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-      setTimeout(() => document.getElementById('_auth-email')?.focus(), 100);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+      setTimeout(function() {
+        var emailEl = document.getElementById('_auth-email');
+        if (emailEl) emailEl.focus();
+      }, 100);
     }
 
     async function sendMagicLink() {
-      const emailEl = document.getElementById('_auth-email');
-      const msgEl = document.getElementById('_auth-msg');
-      const btn = document.getElementById('_auth-submit');
-      const email = emailEl?.value?.trim();
+      var emailEl = document.getElementById('_auth-email');
+      var msgEl = document.getElementById('_auth-msg');
+      var btn = document.getElementById('_auth-submit');
+      var email = emailEl ? emailEl.value.trim() : '';
       if (!email || !email.includes('@')) {
         msgEl.textContent = 'Please enter a valid email address.';
         msgEl.className = 'text-xs text-center text-rose-400';
@@ -438,18 +425,19 @@
       }
       btn.disabled = true;
       btn.textContent = 'Sending...';
-      const { error } = await _supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.origin + '/dashboard.html' }
+      var redirectUrl = window.location.origin + (window.location.pathname.replace('index.html', '')) + 'dashboard.html';
+      var result = await _supabase.auth.signInWithOtp({
+        email: email,
+        options: { emailRedirectTo: redirectUrl }
       });
-      if (error) {
-        msgEl.textContent = error.message;
+      if (result.error) {
+        msgEl.textContent = result.error.message;
         msgEl.className = 'text-xs text-center text-rose-400';
         btn.disabled = false;
         btn.textContent = 'Send Magic Link ✨';
       } else {
         msgEl.textContent = '✅ Check your inbox! Click the link to sign in.';
-        msgEl.className = 'text-xs text-center text-brand-400';
+        msgEl.className = 'text-xs text-center text-emerald-400';
         btn.textContent = 'Email sent!';
       }
       msgEl.classList.remove('hidden');
