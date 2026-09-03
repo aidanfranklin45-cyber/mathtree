@@ -403,45 +403,134 @@
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
     }
 
-    // === Dashboard Data Loader & KPI Aggregator ===
-    async function loadDashboardProjects() {
-      let storedDeals = [];
-      try {
-        const raw = localStorage.getItem('mathtree_local_deals');
-        if (raw) storedDeals = JSON.parse(raw);
-      } catch (e) {}
+    // === Helper: Map Supabase DB record to App Deal Model ===
+    function mapSupabaseDeal(d) {
+      const inputs = d.inputs || {};
+      const m = d.metrics || {};
+      return {
+        id: d.id,
+        name: d.title || d.name || 'Underwriting Project',
+        asset_class: d.asset_type || d.asset_class || 'commercial',
+        status: d.status || 'prospect',
+        location: d.location || 'United States',
+        purchase_price: d.purchase_price || inputs.purchasePrice || 0,
+        irr: d.irr || m.irr || 0,
+        equity_multiple: d.equity_multiple || m.equityMultiplier || 2.0,
+        cash_on_cash: d.cash_on_cash || m.year1CoC || (m.cashOnCash) || 0,
+        year1_cashflow: d.year1_cashflow || m.year1CashFlow || (m.netCashFlow) || 0,
+        total_equity: d.total_equity || m.initialCashInvested || (inputs.purchasePrice ? inputs.purchasePrice * 0.25 : 0),
+        inputs: inputs,
+        deck: d.deck || { title: d.title || d.name, highlights: [] }
+      };
+    }
 
-      if (window._supabase && window._currentUser) {
-        try {
-          const { data, error } = await window._supabase.from('deals').select('*').order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) {
-            storedDeals = data.map(d => ({
-              id: d.id,
-              name: d.title || d.name || 'Cloud Project',
-              asset_class: d.asset_type || d.asset_class || 'commercial',
-              status: d.status || 'prospect',
-              location: d.location || 'United States',
-              purchase_price: d.purchase_price || (d.inputs && d.inputs.purchasePrice) || 0,
-              irr: d.irr || (d.metrics && d.metrics.irr) || 0,
-              equity_multiple: d.equity_multiple || (d.metrics && d.metrics.equityMultiplier) || 2.0,
-              cash_on_cash: d.cash_on_cash || (d.metrics && d.metrics.year1CoC) || 0,
-              year1_cashflow: d.year1_cashflow || (d.metrics && d.metrics.year1CashFlow) || 0,
-              total_equity: d.total_equity || (d.metrics && d.metrics.initialCashInvested) || 0,
-              inputs: d.inputs,
-              deck: d.deck
-            }));
+    // === Helper: Ensure user session is fully loaded ===
+    async function getSupabaseUser() {
+      if (window._currentUser) return window._currentUser;
+      if (!window._supabase) return null;
+      try {
+        const { data } = await window._supabase.auth.getSession();
+        if (data && data.session) {
+          window._currentUser = data.session.user;
+          return window._currentUser;
+        }
+      } catch(e) {}
+      return null;
+    }
+
+    // === Helper: Seed initial starter deals into Supabase for a new user ===
+    async function seedUserStarterDeals(userId) {
+      if (!window._supabase || !userId) return;
+      try {
+        const rows = defaultCuratedProjects.map(p => ({
+          user_id: userId,
+          title: p.name,
+          asset_type: p.asset_class,
+          status: p.status,
+          location: p.location,
+          purchase_price: p.purchase_price,
+          irr: p.irr,
+          equity_multiple: p.equity_multiple,
+          cash_on_cash: p.cash_on_cash,
+          year1_cashflow: p.year1_cashflow,
+          total_equity: p.total_equity,
+          inputs: p.inputs,
+          metrics: {
+            irr: p.irr,
+            equityMultiplier: p.equity_multiple,
+            year1CoC: p.cash_on_cash,
+            year1CashFlow: p.year1_cashflow,
+            initialCashInvested: p.total_equity
           }
-        } catch (e) {
-          console.warn('Cloud deals error:', e);
+        }));
+        await window._supabase.from('deals').insert(rows);
+      } catch(e) {
+        console.warn('Error seeding starter deals:', e);
+      }
+    }
+
+    // === Dynamic Dashboard Data Loader & Supabase Sync ===
+    async function loadDashboardProjects() {
+      const user = await getSupabaseUser();
+      let loadedFromSupabase = false;
+
+      // Update greeting and user email
+      if (user) {
+        const greeting = document.getElementById('dash-greeting-name');
+        if (greeting) {
+          greeting.textContent = (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        }
+        const emailEl = document.getElementById('cloud-user-email');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+      }
+
+      // 1. If signed in with a real Supabase user, fetch DYNAMICALLY from Supabase deals table
+      if (window._supabase && user && !user.demo) {
+        try {
+          const { data, error } = await window._supabase
+            .from('deals')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+
+          if (!error && data) {
+            if (data.length > 0) {
+              activeDashboardProjects = data.map(mapSupabaseDeal);
+              loadedFromSupabase = true;
+            } else {
+              // First time this user signed in: seed initial starter portfolio in Supabase for them
+              await seedUserStarterDeals(user.id);
+              const recheck = await window._supabase.from('deals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+              if (recheck.data && recheck.data.length > 0) {
+                activeDashboardProjects = recheck.data.map(mapSupabaseDeal);
+                loadedFromSupabase = true;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Supabase fetch error, falling back to local deals:', err);
         }
       }
 
-      if (!storedDeals || storedDeals.length === 0) {
-        storedDeals = defaultCuratedProjects;
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(storedDeals));
+      // 2. Fallback to localStorage or default curated projects if not loaded from Supabase
+      if (!loadedFromSupabase) {
+        let storedDeals = [];
+        try {
+          const raw = localStorage.getItem('mathtree_local_deals');
+          if (raw) storedDeals = JSON.parse(raw);
+        } catch (e) {}
+
+        if (!storedDeals || storedDeals.length === 0) {
+          storedDeals = defaultCuratedProjects;
+          localStorage.setItem('mathtree_local_deals', JSON.stringify(storedDeals));
+        }
+        activeDashboardProjects = storedDeals;
       }
 
-      activeDashboardProjects = storedDeals;
+      // Sync local cache
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch(e) {}
 
       // Calculate separate metrics for Owned vs Pipeline
       let ownedVal = 0, ownedCashFlow = 0, ownedEquity = 0, ownedCount = 0;
@@ -488,7 +577,6 @@
       // Render Filtered Project Grid
       renderFilteredGrid();
     }
-
     function setDashboardStatusFilter(status) {
       currentStatusFilter = status;
       const btnAll = document.getElementById('btn-status-all');
@@ -628,24 +716,130 @@
       }).join('');
     }
 
-    function toggleDealStatus(id) {
+    async function toggleDealStatus(id) {
       const deal = activeDashboardProjects.find(p => p.id === id);
       if (!deal) return;
-      deal.status = deal.status === 'owned' ? 'prospect' : 'owned';
+      const nextStatus = deal.status === 'owned' ? 'prospect' : 'owned';
+      deal.status = nextStatus;
       localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
       loadDashboardProjects();
+
+      // Sync to Supabase
+      const user = await getSupabaseUser();
+      if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
+        await window._supabase.from('deals').update({ status: nextStatus }).eq('id', id).eq('user_id', user.id);
+      }
     }
 
-    function deleteProjectDeal(id) {
+    async function deleteProjectDeal(id) {
       if (!confirm('Are you sure you want to delete this project?')) return;
       activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
       localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
       loadDashboardProjects();
+
+      // Delete from Supabase
+      const user = await getSupabaseUser();
+      if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
+        await window._supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+      }
     }
 
     function openProjectPitchDeck(id) {
       const deal = activeDashboardProjects.find(p => p.id === id);
       if (deal) openPitchDeck(deal);
+    }
+
+    
+    // === Guided Wizard Submit: Inserts directly into Supabase & updates dashboard ===
+    async function handleWizardSubmit(e) {
+      if (e && e.preventDefault) e.preventDefault();
+
+      const name = document.getElementById('wiz-deal-name')?.value.trim() || 'New Underwriting Project';
+      const location = document.getElementById('wiz-location')?.value.trim() || 'United States';
+      const assetClass = document.getElementById('wiz-asset-class')?.value || 'commercial';
+      const purchasePrice = parseFloat(document.getElementById('wiz-purchase-price')?.value) || 1000000;
+      const downPaymentPercent = parseFloat(document.getElementById('wiz-down-payment')?.value) || 25;
+      const interestRate = parseFloat(document.getElementById('wiz-interest-rate')?.value) || 6.5;
+      const grossRent = parseFloat(document.getElementById('wiz-gross-rent')?.value) || 12000;
+
+      const inputs = {
+        purchasePrice: purchasePrice,
+        downPaymentPercent: downPaymentPercent,
+        interestRate: interestRate,
+        loanTerm: 25,
+        rehabCosts: parseFloat(document.getElementById('wiz-rehab-costs')?.value) || 0,
+        closingCosts: parseFloat(document.getElementById('wiz-closing-costs')?.value) || (purchasePrice * 0.02),
+        grossRentPerMonth: grossRent,
+        grossRentAnnual: grossRent * 12,
+        monthlyRent: grossRent,
+        vacancyRate: parseFloat(document.getElementById('wiz-vacancy-rate')?.value) || 5,
+        expenseRatio: parseFloat(document.getElementById('wiz-opex-ratio')?.value) || 35,
+        rentGrowth: parseFloat(document.getElementById('wiz-rent-growth')?.value) || 3,
+        targetCapRate: parseFloat(document.getElementById('wiz-exit-cap')?.value) || 6.5
+      };
+
+      const res = window.PropertyMath.calculateProjections(assetClass, inputs);
+      const p1 = res.projections[0] || {};
+
+      let dealId = 'deal-' + Date.now();
+      const user = await getSupabaseUser();
+
+      // Insert directly into Supabase if authenticated
+      if (window._supabase && user && !user.demo) {
+        try {
+          const { data, error } = await window._supabase.from('deals').insert({
+            user_id: user.id,
+            title: name,
+            asset_type: assetClass,
+            status: 'prospect',
+            location: location,
+            purchase_price: purchasePrice,
+            irr: res.irr,
+            equity_multiple: res.equityMultiplier,
+            cash_on_cash: p1.cashOnCash || 0,
+            year1_cashflow: p1.netCashFlow || 0,
+            total_equity: res.initialCashInvested,
+            inputs: inputs,
+            metrics: {
+              irr: res.irr,
+              equityMultiplier: res.equityMultiplier,
+              year1CoC: p1.cashOnCash || 0,
+              year1CashFlow: p1.netCashFlow || 0,
+              initialCashInvested: res.initialCashInvested
+            }
+          }).select().single();
+
+          if (!error && data) {
+            dealId = data.id;
+          }
+        } catch(err) {
+          console.warn('Supabase deal insert error:', err);
+        }
+      }
+
+      const newDeal = {
+        id: dealId,
+        name: name,
+        asset_class: assetClass,
+        status: 'prospect',
+        location: location,
+        purchase_price: purchasePrice,
+        irr: res.irr,
+        equity_multiple: res.equityMultiplier,
+        cash_on_cash: p1.cashOnCash || 0,
+        year1_cashflow: p1.netCashFlow || 0,
+        total_equity: res.initialCashInvested,
+        inputs: inputs
+      };
+
+      activeDashboardProjects.unshift(newDeal);
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch(e) {}
+
+      closeProjectWizard();
+      loadDashboardProjects();
+      openPitchDeck(newDeal);
     }
 
     function openPitchDeck(deal) {

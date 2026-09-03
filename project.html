@@ -4624,21 +4624,51 @@
       return params.get('id');
     }
 
-    function initProjectView() {
+    async function initProjectView() {
       currentLoadedDealId = getDealIdFromUrl();
-      let allDeals = [];
-      try {
-        const raw = localStorage.getItem('mathtree_local_deals');
-        if (raw) allDeals = JSON.parse(raw);
-      } catch(e) {}
+      const user = (window._supabase && (await window._supabase.auth.getSession()).data?.session?.user) || window._currentUser;
 
-      if (!allDeals || allDeals.length === 0) {
-        allDeals = defaultCuratedProjects;
+      // First attempt to load directly from Supabase by UUID
+      if (window._supabase && user && !user.demo && currentLoadedDealId && !currentLoadedDealId.startsWith('proj-') && !currentLoadedDealId.startsWith('demo-')) {
+        try {
+          const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).single();
+          if (!error && data) {
+            currentLoadedDeal = {
+              id: data.id,
+              name: data.title || 'Underwriting Project',
+              asset_class: data.asset_type || 'commercial',
+              status: data.status || 'prospect',
+              location: data.location || 'United States',
+              purchase_price: data.purchase_price || data.inputs?.purchasePrice || 0,
+              irr: data.irr || data.metrics?.irr || 0,
+              equity_multiple: data.equity_multiple || data.metrics?.equityMultiplier || 2.0,
+              cash_on_cash: data.cash_on_cash || data.metrics?.year1CoC || 0,
+              year1_cashflow: data.year1_cashflow || data.metrics?.year1CashFlow || 0,
+              total_equity: data.total_equity || data.metrics?.initialCashInvested || 0,
+              inputs: data.inputs || {},
+              metrics: data.metrics || {}
+            };
+          }
+        } catch(e) {
+          console.warn('Supabase project fetch error:', e);
+        }
       }
 
-      currentLoadedDeal = (currentLoadedDealId && allDeals.find(d => d.id === currentLoadedDealId)) || allDeals[0];
-      if (!currentLoadedDeal) return;
+      if (!currentLoadedDeal) {
+        let allDeals = [];
+        try {
+          const raw = localStorage.getItem('mathtree_local_deals');
+          if (raw) allDeals = JSON.parse(raw);
+        } catch(e) {}
 
+        if (!allDeals || allDeals.length === 0) {
+          allDeals = defaultCuratedProjects;
+        }
+
+        currentLoadedDeal = (currentLoadedDealId && allDeals.find(d => d.id === currentLoadedDealId)) || allDeals[0];
+      }
+
+      if (!currentLoadedDeal) return;
       currentLoadedDealId = currentLoadedDeal.id;
 
       // Update Header Display
@@ -4723,11 +4753,26 @@
       localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
 
       // Also sync to Supabase if authenticated
-      if (window._supabase && window._currentUser && !currentLoadedDeal.id.startsWith('demo-') && !currentLoadedDeal.id.startsWith('proj-')) {
+      const user = window._currentUser;
+      if (window._supabase && user && !user.demo && !currentLoadedDeal.id.startsWith('demo-') && !currentLoadedDeal.id.startsWith('proj-')) {
         window._supabase.from('deals').update({
-          inputs: inputs,
+          title: currentLoadedDeal.name,
           asset_type: activeTab,
-          metrics: { irr: res.irr, purchasePrice: res.purchasePrice, initialCash: res.initialCashInvested }
+          status: currentLoadedDeal.status || 'prospect',
+          purchase_price: res.purchasePrice,
+          irr: res.irr,
+          equity_multiple: res.equityMultiplier,
+          cash_on_cash: res.projections[0]?.cashOnCash || 0,
+          year1_cashflow: res.projections[0]?.netCashFlow || 0,
+          total_equity: res.initialCashInvested,
+          inputs: inputs,
+          metrics: {
+            irr: res.irr,
+            equityMultiplier: res.equityMultiplier,
+            year1CoC: res.projections[0]?.cashOnCash || 0,
+            year1CashFlow: res.projections[0]?.netCashFlow || 0,
+            initialCashInvested: res.initialCashInvested
+          }
         }).eq('id', currentLoadedDeal.id).then(({ error }) => {
           if (error) console.warn('Cloud sync save warning:', error);
         });
