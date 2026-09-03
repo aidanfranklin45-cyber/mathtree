@@ -148,18 +148,18 @@ function calculateIRR(initialCash, cashFlows) {
  * @returns {Object} Standardized calculations and 10-year projection lines
  */
 function calculateProjections(assetType, inputs) {
-  // Common inputs parsing
+  // Common inputs parsing with alias normalization
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
   const downPaymentPercent = parseFloat(inputs.downPaymentPercent) || 0;
   const interestRate = parseFloat(inputs.interestRate) || 0;
-  const loanTerm = parseInt(inputs.loanTerm) || 0;
-  const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
+  const loanTerm = parseInt(inputs.loanTerm) || parseInt(inputs.loanTermYears) || parseInt(inputs.amortizationYears) || 30;
+  const rehabCosts = parseFloat(inputs.rehabCosts) || parseFloat(inputs.rehabBudget) || 0;
   const closingCosts = parseFloat(inputs.closingCosts) || 0;
   const appreciationRate = parseFloat(inputs.appreciationRate) || 0;
   const vacancyRate = parseFloat(inputs.vacancyRate) || 0;
-  const rentGrowth = parseFloat(inputs.rentGrowth) || 0;
-  const expenseRatio = parseFloat(inputs.expenseRatio) || 0; // % of GPI or EGI (we will use GPI)
-  const targetCapRate = parseFloat(inputs.targetCapRate) || parseFloat(inputs.appreciationRate) || 0;
+  const rentGrowth = parseFloat(inputs.rentGrowth) || parseFloat(inputs.annualRentGrowth) || 0;
+  const expenseRatio = parseFloat(inputs.expenseRatio) || parseFloat(inputs.operatingExpenseRatio) || 0;
+  const targetCapRate = parseFloat(inputs.targetCapRate) || parseFloat(inputs.targetExitCapRate) || parseFloat(inputs.exitCapRate) || parseFloat(inputs.appreciationRate) || 0;
   const rawExitYear = parseInt(inputs.exitYear);
   const exitYear = Math.max(1, Math.min(10, isNaN(rawExitYear) ? 10 : rawExitYear));
 
@@ -170,35 +170,36 @@ function calculateProjections(assetType, inputs) {
 
   switch (assetType) {
     case 'single-family':
-      // ARV (After Repair Value) serves as the property value after rehab
       const arv = parseFloat(inputs.arv) || 0;
       initialPropertyValue = arv > 0 ? arv : purchasePrice;
-      const sfRent = parseFloat(inputs.monthlyRent) || 0;
+      const sfRent = parseFloat(inputs.monthlyRent) || parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.rent) || 0;
       year1GrossIncome = sfRent * 12;
       unitCount = 1;
       break;
 
     case 'multi-unit':
-      unitCount = parseInt(inputs.unitCount) || 1;
-      const muRent = parseFloat(inputs.monthlyRentPerUnit) || 0;
+      unitCount = parseInt(inputs.unitCount) || parseInt(inputs.numUnits) || 1;
+      const muRent = parseFloat(inputs.monthlyRentPerUnit) || parseFloat(inputs.rentPerUnit) || (parseFloat(inputs.grossRentPerMonth) && unitCount > 0 ? parseFloat(inputs.grossRentPerMonth) / unitCount : 0) || 0;
       year1GrossIncome = unitCount * muRent * 12;
       break;
 
     case 'commercial':
-      const commRent = parseFloat(inputs.grossRentAnnual) || 0;
+      const commRent = parseFloat(inputs.grossRentAnnual) || (parseFloat(inputs.grossRentPerMonth) ? parseFloat(inputs.grossRentPerMonth) * 12 : 0) || (parseFloat(inputs.grossRentMonthly) ? parseFloat(inputs.grossRentMonthly) * 12 : 0) || (parseFloat(inputs.monthlyRent) ? parseFloat(inputs.monthlyRent) * 12 : 0) || 0;
       year1GrossIncome = commRent;
       unitCount = 1;
       break;
 
     case 'storage':
-      unitCount = parseInt(inputs.unitCount) || parseInt(inputs.storageUnitCount) || 0;
+      unitCount = parseInt(inputs.unitCount) || parseInt(inputs.storageUnitCount) || parseInt(inputs.numUnits) || 0;
       const storageRent = parseFloat(inputs.monthlyRentPerUnit) || parseFloat(inputs.storageRentPerUnit) || 0;
-      const totalSqFt = parseFloat(inputs.totalSqFt) || parseFloat(inputs.storageSqFt) || 0;
+      const totalSqFt = parseFloat(inputs.totalSqFt) || parseFloat(inputs.storageSqFt) || parseFloat(inputs.gla) || 0;
       const rentPerSqFt = parseFloat(inputs.rentPerSqFt) || parseFloat(inputs.storageRentPerSqFt) || 0;
       if (storageRent > 0) {
-        year1GrossIncome = unitCount * storageRent * 12;
+        year1GrossIncome = (unitCount || 1) * storageRent * 12;
       } else if (totalSqFt > 0 && rentPerSqFt > 0) {
         year1GrossIncome = totalSqFt * rentPerSqFt * 12;
+      } else if (inputs.grossRentPerMonth) {
+        year1GrossIncome = parseFloat(inputs.grossRentPerMonth) * 12;
       }
       break;
   }

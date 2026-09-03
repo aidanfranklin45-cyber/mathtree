@@ -1622,20 +1622,21 @@
 
     // Sync input elements with active tab state
     function updateFormFields(values) {
+      if (!values) return;
       // General Common Fields
       document.getElementById('input-purchase-price').value = values.purchasePrice ?? '';
       document.getElementById('input-down-payment').value = values.downPaymentPercent ?? '';
       document.getElementById('input-interest-rate').value = values.interestRate ?? '';
-      document.getElementById('input-loan-term').value = values.loanTerm ?? '';
-      document.getElementById('input-rehab-costs').value = values.rehabCosts ?? '';
+      document.getElementById('input-loan-term').value = values.loanTerm ?? values.loanTermYears ?? values.amortizationYears ?? 30;
+      document.getElementById('input-rehab-costs').value = values.rehabCosts ?? values.rehabBudget ?? 0;
       document.getElementById('input-closing-costs').value = values.closingCosts ?? 0;
       const capRateOrApp = (activeTab === 'commercial' || activeTab === 'storage')
-        ? (values.targetCapRate ?? values.appreciationRate ?? '')
+        ? (values.targetCapRate ?? values.targetExitCapRate ?? values.appreciationRate ?? '')
         : (values.appreciationRate ?? '');
       document.getElementById('input-appreciation-rate').value = capRateOrApp;
       document.getElementById('input-vacancy-rate').value = values.vacancyRate ?? '';
-      document.getElementById('input-rent-growth').value = values.rentGrowth ?? '';
-      document.getElementById('input-expense-ratio').value = values.expenseRatio ?? '';
+      document.getElementById('input-rent-growth').value = values.rentGrowth ?? values.annualRentGrowth ?? 3;
+      document.getElementById('input-expense-ratio').value = values.expenseRatio ?? values.operatingExpenseRatio ?? 35;
       document.getElementById('input-discount-rate').value = values.discountRate ?? 8;
       document.getElementById('input-exit-year').value = values.exitYear ?? 10;
       document.getElementById('input-manage-property').checked = values.manageProperty ?? true;
@@ -1643,21 +1644,23 @@
       // Asset-Specific Fields
       if (activeTab === 'single-family') {
         document.getElementById('input-arv').value = values.arv ?? '';
-        document.getElementById('input-monthly-rent').value = values.monthlyRent ?? '';
+        document.getElementById('input-monthly-rent').value = values.monthlyRent ?? values.grossRentPerMonth ?? '';
       } else if (activeTab === 'multi-unit') {
-        document.getElementById('input-unit-count').value = values.unitCount ?? '';
-        document.getElementById('input-monthly-rent-per-unit').value = values.monthlyRentPerUnit ?? '';
+        const uCount = values.unitCount ?? values.numUnits ?? 1;
+        document.getElementById('input-unit-count').value = uCount;
+        document.getElementById('input-monthly-rent-per-unit').value = values.monthlyRentPerUnit ?? (values.grossRentPerMonth ? Math.round(values.grossRentPerMonth / uCount) : '');
       } else if (activeTab === 'commercial') {
         document.getElementById('input-lease-type').value = values.leaseType ?? 'NNN';
-        document.getElementById('input-gross-rent-annual').value = values.grossRentAnnual ?? '';
+        const annualRent = values.grossRentAnnual || (values.grossRentPerMonth ? values.grossRentPerMonth * 12 : (values.monthlyRent ? values.monthlyRent * 12 : ''));
+        document.getElementById('input-gross-rent-annual').value = annualRent;
         document.getElementById('input-comm-class').value = values.commClass ?? 'Industrial';
         document.getElementById('input-comm-tier').value = values.commTier ?? 'Tier1';
         document.getElementById('input-gla').value = values.gla ?? 15000;
       } else if (activeTab === 'storage') {
-        document.getElementById('input-storage-units').value = values.storageUnitCount ?? '';
-        document.getElementById('input-storage-rent-per-unit').value = values.storageRentPerUnit ?? '';
-        document.getElementById('input-storage-sqft').value = values.storageSqFt ?? '';
-        document.getElementById('input-storage-rent-per-sqft').value = values.storageRentPerSqFt ?? '';
+        document.getElementById('input-storage-units').value = values.storageUnitCount ?? values.unitCount ?? values.numUnits ?? '';
+        document.getElementById('input-storage-rent-per-unit').value = values.storageRentPerUnit ?? values.monthlyRentPerUnit ?? '';
+        document.getElementById('input-storage-sqft').value = values.storageSqFt ?? values.totalSqFt ?? values.gla ?? '';
+        document.getElementById('input-storage-rent-per-sqft').value = values.storageRentPerSqFt ?? values.rentPerSqFt ?? '';
         document.getElementById('input-storage-automated').checked = values.isAutomated ?? false;
         document.getElementById('input-storage-tier').value = values.storageTier ?? 'Tier2';
       }
@@ -3334,40 +3337,42 @@
 
     const defaultCuratedProjects = [
       {
-        id: 'demo-p1',
+        id: 'proj-comm-01',
         name: 'Westfield Industrial Center',
         asset_class: 'commercial',
+        status: 'prospect',
         location: 'Austin, TX',
         purchase_price: 1200000,
-        irr: 11.44,
-        equity_multiple: 2.14,
-        cash_on_cash: 8.25,
-        cap_rate: 8.0,
-        year1_cashflow: 24756,
+        irr: 17.86,
+        equity_multiple: 2.35,
+        cash_on_cash: 10.69,
+        cap_rate: 8.75,
+        year1_cashflow: 32060,
         total_equity: 374000,
         inputs: {
           purchasePrice: 1200000,
           downPaymentPercent: 25,
           closingCosts: 24000,
-          rehabBudget: 50000,
+          rehabCosts: 50000,
+          grossRentAnnual: 150000,
           grossRentPerMonth: 12500,
-          otherIncome: 500,
+          leaseType: 'NNN',
+          commClass: 'Industrial',
+          commTier: 'Tier1',
           vacancyRate: 5.0,
-          annualRentGrowth: 3.0,
-          operatingExpenseRatio: 35.0,
-          expenseGrowthRate: 2.5,
+          rentGrowth: 3.0,
+          expenseRatio: 25.0,
           interestRate: 6.5,
-          amortizationYears: 30,
-          loanTermYears: 30,
-          targetExitCapRate: 6.75,
-          appreciationRate: 3.5,
+          loanTerm: 25,
+          targetCapRate: 7.0,
           gla: 15000
         }
       },
       {
-        id: 'demo-p2',
+        id: 'proj-mu-02',
         name: 'Oakridge 12-Plex Multi-Family',
         asset_class: 'multi-unit',
+        status: 'owned',
         location: 'Atlanta, GA',
         purchase_price: 1850000,
         irr: 14.82,
@@ -3380,80 +3385,75 @@
           purchasePrice: 1850000,
           downPaymentPercent: 25,
           closingCosts: 37000,
-          rehabBudget: 75000,
-          grossRentPerMonth: 18000,
-          otherIncome: 800,
-          vacancyRate: 6.0,
-          annualRentGrowth: 3.5,
-          operatingExpenseRatio: 40.0,
-          expenseGrowthRate: 2.5,
-          interestRate: 6.25,
-          amortizationYears: 30,
-          loanTermYears: 30,
-          targetExitCapRate: 6.5,
-          appreciationRate: 4.0,
-          numUnits: 12
+          rehabCosts: 75000,
+          unitCount: 12,
+          monthlyRentPerUnit: 1450,
+          grossRentPerMonth: 17400,
+          vacancyRate: 5.0,
+          rentGrowth: 3.5,
+          expenseRatio: 40.0,
+          interestRate: 6.0,
+          loanTerm: 30,
+          targetCapRate: 6.2
         }
       },
       {
-        id: 'demo-p3',
+        id: 'proj-store-03',
         name: 'Pecan Grove Self-Storage Hub',
         asset_class: 'storage',
+        status: 'prospect',
         location: 'Phoenix, AZ',
         purchase_price: 950000,
-        irr: 16.20,
+        irr: 18.56,
         equity_multiple: 2.70,
-        cash_on_cash: 11.40,
-        cap_rate: 7.90,
-        year1_cashflow: 31250,
-        total_equity: 285000,
+        cash_on_cash: 11.81,
+        cap_rate: 8.89,
+        year1_cashflow: 28050,
+        total_equity: 261500,
         inputs: {
           purchasePrice: 950000,
-          downPaymentPercent: 30,
+          downPaymentPercent: 25,
           closingCosts: 19000,
-          rehabBudget: 25000,
-          grossRentPerMonth: 11200,
-          otherIncome: 1200,
-          vacancyRate: 7.0,
-          annualRentGrowth: 4.0,
-          operatingExpenseRatio: 32.0,
-          expenseGrowthRate: 2.5,
-          interestRate: 6.75,
-          amortizationYears: 25,
-          loanTermYears: 25,
-          targetExitCapRate: 7.2,
-          appreciationRate: 3.0,
-          totalStorageUnits: 140
+          rehabCosts: 25000,
+          storageUnitCount: 120,
+          storageRentPerUnit: 115,
+          grossRentPerMonth: 13800,
+          vacancyRate: 8.0,
+          rentGrowth: 3.0,
+          expenseRatio: 32.0,
+          interestRate: 6.25,
+          loanTerm: 25,
+          targetCapRate: 7.2,
+          isAutomated: true
         }
       },
       {
-        id: 'demo-p4',
+        id: 'proj-sf-04',
         name: 'Highland Executive BRRRR',
         asset_class: 'single-family',
+        status: 'owned',
         location: 'Raleigh, NC',
         purchase_price: 420000,
         irr: 13.90,
-        equity_multiple: 2.30,
+        equity_multiple: 2.28,
         cash_on_cash: 7.80,
         cap_rate: 6.40,
         year1_cashflow: 8190,
-        total_equity: 105000,
+        total_equity: 127400,
         inputs: {
           purchasePrice: 420000,
           downPaymentPercent: 20,
           closingCosts: 8400,
-          rehabBudget: 35000,
-          grossRentPerMonth: 3400,
-          otherIncome: 0,
-          vacancyRate: 4.0,
-          annualRentGrowth: 3.0,
-          operatingExpenseRatio: 30.0,
-          expenseGrowthRate: 2.5,
-          interestRate: 6.5,
-          amortizationYears: 30,
-          loanTermYears: 30,
-          targetExitCapRate: 6.0,
-          appreciationRate: 3.5
+          rehabCosts: 35000,
+          monthlyRent: 3100,
+          grossRentPerMonth: 3100,
+          arv: 480000,
+          vacancyRate: 5.0,
+          rentGrowth: 3.0,
+          expenseRatio: 35.0,
+          interestRate: 6.75,
+          loanTerm: 30,
+          targetCapRate: 6.5
         }
       }
     ];
