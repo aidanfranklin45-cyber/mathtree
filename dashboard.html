@@ -112,13 +112,27 @@
   <script>
     // =====================================================
     // dashboard.html — Session Guard
-    // Runs before DOM renders. Bounces unauthenticated users.
-    // Uses window globals to avoid const re-declaration with main script.
+    // Passes through if: (1) valid Supabase session, OR
+    //                    (2) demo mode flag set in localStorage
     // =====================================================
     window.SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
     window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
 
     (function() {
+      // Check demo mode first (no Supabase needed)
+      var demoRaw = localStorage.getItem('mathtree_demo_mode');
+      if (demoRaw) {
+        try {
+          var demo = JSON.parse(demoRaw);
+          if (demo && demo.demo) {
+            window._currentUser = { email: demo.email, user_metadata: { full_name: demo.name }, demo: true };
+            window._supabase = null;
+            window._demoMode = true;
+            return; // skip Supabase session check
+          }
+        } catch(e) {}
+      }
+
       const { createClient } = window.supabase;
       const guardClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
       window._supabase = guardClient;
