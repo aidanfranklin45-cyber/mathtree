@@ -110,29 +110,36 @@
        Session guard: bounces unauthenticated users back to index.html
   ===================================================== -->
   <script>
-    const SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
-    const { createClient } = window.supabase;
-    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // =====================================================
+    // dashboard.html — Session Guard
+    // Runs before DOM renders. Bounces unauthenticated users.
+    // Uses window globals to avoid const re-declaration with main script.
+    // =====================================================
+    window.SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
+    window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
 
-    // Session guard — runs synchronously before DOM renders
-    (async () => {
-      const { data: { session } } = await _supabase.auth.getSession();
-      if (!session) {
-        window.location.replace('index.html');
-        return;
-      }
-      // Expose globally for the rest of the app scripts
-      window._currentUser = session.user;
-      window._supabase = _supabase;
+    (function() {
+      const { createClient } = window.supabase;
+      const guardClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      window._supabase = guardClient;
+
+      // Session guard — redirect unauthenticated visitors immediately
+      guardClient.auth.getSession().then(function(result) {
+        const session = result.data && result.data.session;
+        if (!session) {
+          window.location.replace('index.html');
+          return;
+        }
+        window._currentUser = session.user;
+      });
+
+      // Redirect on sign-out
+      guardClient.auth.onAuthStateChange(function(event, session) {
+        if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
+          window.location.replace('index.html');
+        }
+      });
     })();
-
-    // Also listen for sign-out events
-    _supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
-        window.location.replace('index.html');
-      }
-    });
   </script>
   <div id="app-workspace" class="hidden flex flex-col flex-grow min-h-screen">
     <!-- Header -->
@@ -3699,9 +3706,8 @@
 
     // --- Page Routing & Dashboard Controller ---
     function showLandingPage() {
-      // On dashboard.html, "go home" means sign out and return to landing page
+      // On dashboard.html, "go home" means navigate back to the landing page
       window.location.href = 'index.html';
-    });
     }
 
     function showAppWorkspace(user = null, initialView = 'dashboard') {
