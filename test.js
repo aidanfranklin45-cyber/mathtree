@@ -1099,6 +1099,48 @@ runTest('UI Verification: Deal Acquisition Timeline Tracker and Financing Select
   assert.ok(projHtml.includes('Cumulative Paydown'), 'project.html amortization table must include Cumulative Paydown column');
 });
 
+// 49. Yakima County GIS & AddressService Unit Tests
+runTest('AddressService: SQL LIKE term builder and official portal URL generation', () => {
+  const AddressService = require('./address-service.js');
+  assert.ok(AddressService, 'AddressService must export cleanly');
+  assert.ok(AddressService.YAKIMA_GIS_BASE.includes('maps.yakimacounty.us/server/rest/services'), 'Yakima GIS base must point to official server');
+  assert.ok(AddressService.YAKIMA_ASCEND_PORTAL.includes('yes.co.yakima.wa.us/ascend'), 'Yakima Assessor portal must match Ascend Web');
+
+  // Test SQL LIKE builder
+  assert.strictEqual(AddressService.buildSqlLikeTerm('128 N 2nd'), '%128%N%2ND%');
+  assert.strictEqual(AddressService.buildSqlLikeTerm('Summitview Ave'), '%SUMMITVIEW%AVE%');
+  assert.strictEqual(AddressService.buildSqlLikeTerm(''), '%');
+
+  // Test Assessor portal URL generation
+  const urlWithApn = AddressService.getYakimaAssessorPortalUrl('19131922484');
+  assert.ok(urlWithApn.includes('mParcelID=19131922484'), 'Portal URL should contain parcel ID parameter');
+
+  const defaultPortalUrl = AddressService.getYakimaAssessorPortalUrl('');
+  assert.strictEqual(defaultPortalUrl, 'https://yes.co.yakima.wa.us/ascend/');
+});
+
+// 50. UI Verification: Address Autocomplete & Yakima Assessor Card
+runTest('UI Verification: Address Autocomplete and Yakima Assessor Card in dashboard and project', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // Script tags
+  assert.ok(dashHtml.includes('src="address-service.js"'), 'dashboard.html must include address-service.js');
+  assert.ok(projHtml.includes('src="address-service.js"'), 'project.html must include address-service.js');
+
+  // Dashboard Wizard & Modal elements
+  assert.ok(dashHtml.includes('id="wiz-address-dropdown"'), 'dashboard.html must have wiz-address-dropdown');
+  assert.ok(dashHtml.includes('id="wiz-yakima-assessor-card"'), 'dashboard.html must have wiz-yakima-assessor-card');
+  assert.ok(dashHtml.includes('id="wiz-assessor-apn-badge"'), 'dashboard.html must have wiz-assessor-apn-badge');
+  assert.ok(dashHtml.includes('id="wiz-assessor-portal-link"'), 'dashboard.html must have wiz-assessor-portal-link');
+  assert.ok(dashHtml.includes('id="edit-address-dropdown"'), 'dashboard.html must have edit-address-dropdown');
+
+  // Project page elements
+  assert.ok(projHtml.includes('id="header-apn-badge"'), 'project.html must have header-apn-badge');
+  assert.ok(projHtml.includes('id="proj-edit-address-dropdown"'), 'project.html must have proj-edit-address-dropdown');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);

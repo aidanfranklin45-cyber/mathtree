@@ -11,6 +11,7 @@
   <script src="session.js"></script>
   <script src="profile.js"></script>
   <script src="math.js?v=4"></script>
+  <script src="address-service.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -313,13 +314,62 @@
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="space-y-1.5">
-              <label for="wiz-location" class="text-xs font-bold uppercase tracking-wider text-slate-300">Location / City</label>
-              <input type="text" id="wiz-location" placeholder="e.g. Austin, TX" value="Austin, TX" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            <div class="space-y-1.5 relative">
+              <div class="flex items-center justify-between">
+                <label for="wiz-location" class="text-xs font-bold uppercase tracking-wider text-slate-300">Property Location / Address</label>
+                <span class="text-[10px] font-semibold text-emerald-400 flex items-center space-x-1">
+                  <span>🏛️ Yakima County GIS Active</span>
+                </span>
+              </div>
+              <div class="relative">
+                <input type="text" id="wiz-location" oninput="onWizardLocationInput(this.value)" onfocus="onWizardLocationFocus()" autocomplete="off" placeholder="e.g. 128 N 2nd St, Yakima" value="Yakima, WA" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 pr-8">
+                <div id="wiz-location-spinner" class="absolute right-2.5 top-2.5 hidden">
+                  <svg class="animate-spin h-3.5 w-3.5 text-brand-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                </div>
+              </div>
+              <!-- Floating Autocomplete Dropdown -->
+              <div id="wiz-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto hidden"></div>
             </div>
             <div class="space-y-1.5">
               <label for="wiz-gla" class="text-xs font-bold uppercase tracking-wider text-slate-300">Gross Leasable Area (GLA sqft)</label>
               <input type="number" id="wiz-gla" placeholder="e.g. 15000" value="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            </div>
+          </div>
+
+          <!-- Dynamic Yakima County Assessor Live Card in Wizard -->
+          <div id="wiz-yakima-assessor-card" class="hidden p-3.5 bg-emerald-950/25 border border-emerald-900/60 rounded-2xl space-y-2 text-xs">
+            <div class="flex items-center justify-between border-b border-emerald-900/40 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-emerald-400 font-extrabold text-xs">🏛️ Yakima County Assessor Record</span>
+                <span id="wiz-assessor-apn-badge" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono font-bold">APN: --</span>
+              </div>
+              <a id="wiz-assessor-portal-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline flex items-center space-x-1">
+                <span>View Ascend Tax Card ↗</span>
+              </a>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase font-semibold">Assessed Value</span>
+                <span id="wiz-assessor-total-val" class="font-bold text-white">$0</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase font-semibold">Land / Building</span>
+                <span id="wiz-assessor-split-val" class="font-semibold text-slate-300">$0 / $0</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase font-semibold">Lot Size</span>
+                <span id="wiz-assessor-acres" class="font-semibold text-slate-300">0.00 Acres</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase font-semibold">Zoning / Use</span>
+                <span id="wiz-assessor-zoning" class="font-semibold text-slate-300">Commercial</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-emerald-900/30">
+              <span id="wiz-assessor-owner" class="text-[10px] text-slate-400 truncate max-w-[280px]">Owner of Record</span>
+              <button type="button" onclick="applyAssessedValueToWizard()" class="py-1 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition">
+                Apply Value as Purchase Price
+              </button>
             </div>
           </div>
 
@@ -759,9 +809,13 @@
             <label class="text-[11px] font-bold text-slate-400">Project Name</label>
             <input type="text" id="edit-deal-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
-          <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Location</label>
-            <input type="text" id="edit-deal-location" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          <div class="space-y-1 relative">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-slate-400">Location / Street Address</label>
+              <span class="text-[9px] text-emerald-400 font-semibold">🏛️ Yakima GIS</span>
+            </div>
+            <input type="text" id="edit-deal-location" oninput="onEditModalLocationInput(this.value)" autocomplete="off" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            <div id="edit-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto hidden"></div>
           </div>
         </div>
 
@@ -2469,6 +2523,1054 @@
 
     
     // === Investor Profile & Underwriting Hurdle Rate Settings ===
+    
+    // === Address Autocomplete & Yakima County GIS Integration ===
+    let _wizSearchTimeout = null;
+    let _wizAssessorCache = null;
+
+    async function onWizardLocationInput(val) {
+      clearTimeout(_wizSearchTimeout);
+      const dropdown = document.getElementById('wiz-address-dropdown');
+      const spinner = document.getElementById('wiz-location-spinner');
+      if (!dropdown) return;
+
+      if (!val || val.trim().length < 2) {
+        dropdown.classList.add('hidden');
+        dropdown.innerHTML = '';
+        return;
+      }
+
+      if (spinner) spinner.classList.remove('hidden');
+
+      _wizSearchTimeout = setTimeout(async () => {
+        try {
+          if (!window.AddressService) return;
+          const results = await window.AddressService.searchAddresses(val);
+          renderAddressDropdown(results, 'wiz');
+        } catch (err) {
+          console.warn('Address search error:', err);
+        } finally {
+          if (spinner) spinner.classList.add('hidden');
+        }
+      }, 250);
+    }
+    window.onWizardLocationInput = onWizardLocationInput;
+
+    function onWizardLocationFocus() {
+      const val = document.getElementById('wiz-location')?.value;
+      if (val && val.length >= 2) onWizardLocationInput(val);
+    }
+    window.onWizardLocationFocus = onWizardLocationFocus;
+
+    function renderAddressDropdown(results, prefix) {
+      const dropdown = document.getElementById(prefix + '-address-dropdown');
+      if (!dropdown) return;
+
+      if (!results || results.length === 0) {
+        dropdown.innerHTML = '<div class="p-2.5 text-xs text-slate-500 italic">No matching addresses found</div>';
+        dropdown.classList.remove('hidden');
+        return;
+      }
+
+      let html = '';
+      results.forEach((item, idx) => {
+        const isYakima = item.isYakimaCounty;
+        const badge = isYakima
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima County APN: ' + (item.apn || 'Linked') + '</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>';
+
+        html += '<div onclick="selectWizardAddress(' + idx + ', \'' + prefix + '\')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">';
+        html += '  <div class="flex items-center justify-between">';
+        html += '    <span class="text-xs font-bold text-white">' + (item.street || item.formattedAddress) + '</span>';
+        html += '    ' + badge;
+        html += '  </div>';
+        html += '  <p class="text-[11px] text-slate-400">' + item.formattedAddress + '</p>';
+        html += '</div>';
+      });
+
+      dropdown.innerHTML = html;
+      dropdown.classList.remove('hidden');
+
+      // Store results in window cache for selection
+      window['_lastAddressResults_' + prefix] = results;
+    }
+
+    async function selectWizardAddress(idx, prefix) {
+      const results = window['_lastAddressResults_' + prefix];
+      if (!results || !results[idx]) return;
+
+      const item = results[idx];
+      const inputEl = document.getElementById(prefix === 'wiz' ? 'wiz-location' : 'edit-deal-location');
+      if (inputEl) inputEl.value = item.formattedAddress;
+
+      const dropdown = document.getElementById(prefix + '-address-dropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+
+      if (prefix === 'wiz') {
+        // Auto-select Market Tier for Yakima
+        if (item.isYakimaCounty) {
+          const tierEl = document.getElementById('wiz-market-tier');
+          if (tierEl) {
+            tierEl.value = 'Tier 3';
+            if (typeof onWizardClassificationChanged === 'function') onWizardClassificationChanged();
+          }
+        }
+
+        // If APN exists, fetch official Yakima Assessor data
+        if (item.apn && window.AddressService) {
+          const card = document.getElementById('wiz-yakima-assessor-card');
+          if (card) card.classList.remove('hidden');
+
+          const apnBadge = document.getElementById('wiz-assessor-apn-badge');
+          if (apnBadge) apnBadge.textContent = 'APN: ' + item.apn;
+
+          const portalLink = document.getElementById('wiz-assessor-portal-link');
+          if (portalLink) portalLink.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + item.apn;
+
+          const assessorData = await window.AddressService.fetchYakimaAssessorData(item.apn);
+          if (assessorData) {
+            _wizAssessorCache = assessorData;
+            const totalEl = document.getElementById('wiz-assessor-total-val');
+            if (totalEl) totalEl.textContent = ' {
+      const modal = document.getElementById('investor-profile-modal');
+      if (!modal) return;
+      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+
+      const fNameEl = document.getElementById('prof-full-name');
+      if (fNameEl) fNameEl.value = prof.fullName || '';
+
+      const compEl = document.getElementById('prof-company-name');
+      if (compEl) compEl.value = prof.companyName || '';
+
+      const drEl = document.getElementById('prof-discount-rate');
+      if (drEl) drEl.value = prof.discountRate ?? 8.0;
+
+      const eyEl = document.getElementById('prof-exit-year');
+      if (eyEl) eyEl.value = prof.exitYear ?? 10;
+
+      const tierEl = document.getElementById('prof-market-tier');
+      if (tierEl) tierEl.value = prof.marketTier || 'Tier 2';
+
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        r.checked = (r.value === (prof.exitCapTiming || 'amortized'));
+      }
+
+      modal.classList.remove('hidden');
+    }
+    window.openInvestorProfileModal = openInvestorProfileModal;
+
+    function closeInvestorProfileModal() {
+      const modal = document.getElementById('investor-profile-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeInvestorProfileModal = closeInvestorProfileModal;
+
+    function setProfileDiscountRate(rate) {
+      const el = document.getElementById('prof-discount-rate');
+      if (el) el.value = rate;
+    }
+    window.setProfileDiscountRate = setProfileDiscountRate;
+
+    async function saveInvestorProfileForm(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const fullName = document.getElementById('prof-full-name')?.value.trim() || 'Investor';
+      const companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+      const discountRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || 8.0;
+      const exitYear = parseInt(document.getElementById('prof-exit-year')?.value, 10) || 10;
+      const marketTier = document.getElementById('prof-market-tier')?.value || 'Tier 2';
+
+      let exitCapTiming = 'amortized';
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        if (r.checked) { exitCapTiming = r.value; break; }
+      }
+
+      const updates = {
+        fullName,
+        companyName,
+        discountRate,
+        exitYear,
+        marketTier,
+        exitCapTiming
+      };
+
+      if (window.MathTreeProfile) {
+        await window.MathTreeProfile.saveProfile(updates, window._supabase, window._currentUser);
+      }
+
+      // Update greeting in dashboard
+      const greeting = document.getElementById('dash-greeting-name');
+      if (greeting && fullName) {
+        greeting.textContent = fullName.split(' ')[0];
+      }
+
+      closeInvestorProfileModal();
+      await loadDashboardProjects();
+    }
+    window.saveInvestorProfileForm = saveInvestorProfileForm;
+
+    
+    function toggleWizardFinancingFields(type) {
+      const gArm = document.getElementById('wiz-group-arm');
+      const gIo = document.getElementById('wiz-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleWizardFinancingFields = toggleWizardFinancingFields;
+
+    function toggleEditModalFinancing(type) {
+      const gArm = document.getElementById('edit-group-arm');
+      const gIo = document.getElementById('edit-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleEditModalFinancing = toggleEditModalFinancing;
+
+    function openCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function handleCloudSignOut() {
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+        localStorage.removeItem('mathtree_demo_deals');
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
+      if (window.MathTreeSession) {
+        window.MathTreeSession.logout('user', window._supabase);
+      } else {
+        if (window._supabase) window._supabase.auth.signOut();
+        window.location.replace('index.html');
+      }
+    }
+
+    
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set greeting with demo privacy isolation
+      const user = window._currentUser;
+      const heroTitle = document.getElementById('dash-hero-title');
+      const heroSub = document.getElementById('dash-hero-sub');
+      const privacyBadge = document.getElementById('demo-privacy-badge');
+      const greeting = document.getElementById('dash-greeting-name');
+      const emailEl = document.getElementById('cloud-user-email');
+
+      if (user && user.demo) {
+        if (heroTitle) heroTitle.innerHTML = 'Institutional <span class="text-brand-400">Sandbox</span>';
+        if (heroSub) heroSub.textContent = 'Welcome to your isolated modeling sandbox. Explore MathTree\'s pro-forma engine and scenario modeling with synthetic benchmark models. No personal or privileged user data is loaded.';
+        if (privacyBadge) privacyBadge.classList.remove('hidden');
+        if (emailEl) emailEl.textContent = 'Guest Sandbox (No Personal Data)';
+      } else if (user) {
+        if (heroTitle) heroTitle.innerHTML = 'Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>';
+        const freshGreeting = document.getElementById('dash-greeting-name');
+        if (freshGreeting) {
+          freshGreeting.textContent = (user.user_metadata?.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        }
+        if (privacyBadge) privacyBadge.classList.add('hidden');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+      }
+
+      // Load Projects
+      loadDashboardProjects();
+
+            // Wizard Navigation & Actions
+      const btnWizClose = document.getElementById('btn-wizard-close');
+      if (btnWizClose) btnWizClose.addEventListener('click', closeProjectWizard);
+
+      const btnWizCancel = document.getElementById('btn-wizard-cancel');
+      if (btnWizCancel) btnWizCancel.addEventListener('click', closeProjectWizard);
+
+      const btnWizBack = document.getElementById('btn-wizard-back');
+      if (btnWizBack) btnWizBack.addEventListener('click', () => setWizardStep(wizardCurrentStep - 1));
+
+      const btnWizNext = document.getElementById('btn-wizard-next');
+      if (btnWizNext) btnWizNext.addEventListener('click', () => setWizardStep(wizardCurrentStep + 1));
+
+      const btnWizSubmit = document.getElementById('btn-wizard-submit');
+      if (btnWizSubmit) btnWizSubmit.addEventListener('click', handleWizardSubmit);
+
+      // Wizard Asset Card Selection (Click + Keyboard Enter/Space)
+      document.querySelectorAll('.wiz-asset-card').forEach(card => {
+        const selectCard = () => {
+          document.querySelectorAll('.wiz-asset-card').forEach(c => {
+            c.className = 'wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+            const iconBox = c.querySelector('div:first-child');
+            if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm';
+          });
+          card.className = 'wiz-asset-card p-3.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+          const iconBox = card.querySelector('div:first-child');
+          if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm';
+          
+          const asset = card.getAttribute('data-asset') || card.getAttribute('data-wiz-asset');
+          const sel = document.getElementById('wiz-asset-class');
+          if (sel) sel.value = asset;
+          applyWizardAssetDefaults(asset);
+        };
+
+        card.addEventListener('click', selectCard);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectCard();
+          }
+        });
+      });
+
+      // Wizard Capital Inputs live recalculation
+      ['wiz-purchase-price', 'wiz-down-payment', 'wiz-closing-costs', 'wiz-rehab-costs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', calculateWizardUpfrontCash);
+      });
+
+      const wizForm = document.getElementById('project-wizard-form');
+      if (wizForm) wizForm.addEventListener('submit', handleWizardSubmit);
+
+      // Typed delete confirmation input listener
+      const delInput = document.getElementById('delete-confirm-input');
+      if (delInput) {
+        delInput.addEventListener('input', () => {
+          const deal = activeDashboardProjects.find(p => p.id === targetDeleteDealId);
+          const btn = document.getElementById('btn-confirm-delete');
+          if (!deal || !btn) return;
+          const isMatch = delInput.value.trim().toLowerCase() === deal.name.trim().toLowerCase();
+          btn.disabled = !isMatch;
+          if (isMatch) {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/30 transition';
+          } else {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+ + assessorData.totalAssessedValue.toLocaleString();
+
+            const splitEl = document.getElementById('wiz-assessor-split-val');
+            if (splitEl) splitEl.textContent = ' {
+      const modal = document.getElementById('investor-profile-modal');
+      if (!modal) return;
+      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+
+      const fNameEl = document.getElementById('prof-full-name');
+      if (fNameEl) fNameEl.value = prof.fullName || '';
+
+      const compEl = document.getElementById('prof-company-name');
+      if (compEl) compEl.value = prof.companyName || '';
+
+      const drEl = document.getElementById('prof-discount-rate');
+      if (drEl) drEl.value = prof.discountRate ?? 8.0;
+
+      const eyEl = document.getElementById('prof-exit-year');
+      if (eyEl) eyEl.value = prof.exitYear ?? 10;
+
+      const tierEl = document.getElementById('prof-market-tier');
+      if (tierEl) tierEl.value = prof.marketTier || 'Tier 2';
+
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        r.checked = (r.value === (prof.exitCapTiming || 'amortized'));
+      }
+
+      modal.classList.remove('hidden');
+    }
+    window.openInvestorProfileModal = openInvestorProfileModal;
+
+    function closeInvestorProfileModal() {
+      const modal = document.getElementById('investor-profile-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeInvestorProfileModal = closeInvestorProfileModal;
+
+    function setProfileDiscountRate(rate) {
+      const el = document.getElementById('prof-discount-rate');
+      if (el) el.value = rate;
+    }
+    window.setProfileDiscountRate = setProfileDiscountRate;
+
+    async function saveInvestorProfileForm(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const fullName = document.getElementById('prof-full-name')?.value.trim() || 'Investor';
+      const companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+      const discountRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || 8.0;
+      const exitYear = parseInt(document.getElementById('prof-exit-year')?.value, 10) || 10;
+      const marketTier = document.getElementById('prof-market-tier')?.value || 'Tier 2';
+
+      let exitCapTiming = 'amortized';
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        if (r.checked) { exitCapTiming = r.value; break; }
+      }
+
+      const updates = {
+        fullName,
+        companyName,
+        discountRate,
+        exitYear,
+        marketTier,
+        exitCapTiming
+      };
+
+      if (window.MathTreeProfile) {
+        await window.MathTreeProfile.saveProfile(updates, window._supabase, window._currentUser);
+      }
+
+      // Update greeting in dashboard
+      const greeting = document.getElementById('dash-greeting-name');
+      if (greeting && fullName) {
+        greeting.textContent = fullName.split(' ')[0];
+      }
+
+      closeInvestorProfileModal();
+      await loadDashboardProjects();
+    }
+    window.saveInvestorProfileForm = saveInvestorProfileForm;
+
+    
+    function toggleWizardFinancingFields(type) {
+      const gArm = document.getElementById('wiz-group-arm');
+      const gIo = document.getElementById('wiz-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleWizardFinancingFields = toggleWizardFinancingFields;
+
+    function toggleEditModalFinancing(type) {
+      const gArm = document.getElementById('edit-group-arm');
+      const gIo = document.getElementById('edit-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleEditModalFinancing = toggleEditModalFinancing;
+
+    function openCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function handleCloudSignOut() {
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+        localStorage.removeItem('mathtree_demo_deals');
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
+      if (window.MathTreeSession) {
+        window.MathTreeSession.logout('user', window._supabase);
+      } else {
+        if (window._supabase) window._supabase.auth.signOut();
+        window.location.replace('index.html');
+      }
+    }
+
+    
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set greeting with demo privacy isolation
+      const user = window._currentUser;
+      const heroTitle = document.getElementById('dash-hero-title');
+      const heroSub = document.getElementById('dash-hero-sub');
+      const privacyBadge = document.getElementById('demo-privacy-badge');
+      const greeting = document.getElementById('dash-greeting-name');
+      const emailEl = document.getElementById('cloud-user-email');
+
+      if (user && user.demo) {
+        if (heroTitle) heroTitle.innerHTML = 'Institutional <span class="text-brand-400">Sandbox</span>';
+        if (heroSub) heroSub.textContent = 'Welcome to your isolated modeling sandbox. Explore MathTree\'s pro-forma engine and scenario modeling with synthetic benchmark models. No personal or privileged user data is loaded.';
+        if (privacyBadge) privacyBadge.classList.remove('hidden');
+        if (emailEl) emailEl.textContent = 'Guest Sandbox (No Personal Data)';
+      } else if (user) {
+        if (heroTitle) heroTitle.innerHTML = 'Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>';
+        const freshGreeting = document.getElementById('dash-greeting-name');
+        if (freshGreeting) {
+          freshGreeting.textContent = (user.user_metadata?.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        }
+        if (privacyBadge) privacyBadge.classList.add('hidden');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+      }
+
+      // Load Projects
+      loadDashboardProjects();
+
+            // Wizard Navigation & Actions
+      const btnWizClose = document.getElementById('btn-wizard-close');
+      if (btnWizClose) btnWizClose.addEventListener('click', closeProjectWizard);
+
+      const btnWizCancel = document.getElementById('btn-wizard-cancel');
+      if (btnWizCancel) btnWizCancel.addEventListener('click', closeProjectWizard);
+
+      const btnWizBack = document.getElementById('btn-wizard-back');
+      if (btnWizBack) btnWizBack.addEventListener('click', () => setWizardStep(wizardCurrentStep - 1));
+
+      const btnWizNext = document.getElementById('btn-wizard-next');
+      if (btnWizNext) btnWizNext.addEventListener('click', () => setWizardStep(wizardCurrentStep + 1));
+
+      const btnWizSubmit = document.getElementById('btn-wizard-submit');
+      if (btnWizSubmit) btnWizSubmit.addEventListener('click', handleWizardSubmit);
+
+      // Wizard Asset Card Selection (Click + Keyboard Enter/Space)
+      document.querySelectorAll('.wiz-asset-card').forEach(card => {
+        const selectCard = () => {
+          document.querySelectorAll('.wiz-asset-card').forEach(c => {
+            c.className = 'wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+            const iconBox = c.querySelector('div:first-child');
+            if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm';
+          });
+          card.className = 'wiz-asset-card p-3.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+          const iconBox = card.querySelector('div:first-child');
+          if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm';
+          
+          const asset = card.getAttribute('data-asset') || card.getAttribute('data-wiz-asset');
+          const sel = document.getElementById('wiz-asset-class');
+          if (sel) sel.value = asset;
+          applyWizardAssetDefaults(asset);
+        };
+
+        card.addEventListener('click', selectCard);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectCard();
+          }
+        });
+      });
+
+      // Wizard Capital Inputs live recalculation
+      ['wiz-purchase-price', 'wiz-down-payment', 'wiz-closing-costs', 'wiz-rehab-costs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', calculateWizardUpfrontCash);
+      });
+
+      const wizForm = document.getElementById('project-wizard-form');
+      if (wizForm) wizForm.addEventListener('submit', handleWizardSubmit);
+
+      // Typed delete confirmation input listener
+      const delInput = document.getElementById('delete-confirm-input');
+      if (delInput) {
+        delInput.addEventListener('input', () => {
+          const deal = activeDashboardProjects.find(p => p.id === targetDeleteDealId);
+          const btn = document.getElementById('btn-confirm-delete');
+          if (!deal || !btn) return;
+          const isMatch = delInput.value.trim().toLowerCase() === deal.name.trim().toLowerCase();
+          btn.disabled = !isMatch;
+          if (isMatch) {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/30 transition';
+          } else {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+ + Math.round(assessorData.marketLandValue / 1000) + 'k /  {
+      const modal = document.getElementById('investor-profile-modal');
+      if (!modal) return;
+      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+
+      const fNameEl = document.getElementById('prof-full-name');
+      if (fNameEl) fNameEl.value = prof.fullName || '';
+
+      const compEl = document.getElementById('prof-company-name');
+      if (compEl) compEl.value = prof.companyName || '';
+
+      const drEl = document.getElementById('prof-discount-rate');
+      if (drEl) drEl.value = prof.discountRate ?? 8.0;
+
+      const eyEl = document.getElementById('prof-exit-year');
+      if (eyEl) eyEl.value = prof.exitYear ?? 10;
+
+      const tierEl = document.getElementById('prof-market-tier');
+      if (tierEl) tierEl.value = prof.marketTier || 'Tier 2';
+
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        r.checked = (r.value === (prof.exitCapTiming || 'amortized'));
+      }
+
+      modal.classList.remove('hidden');
+    }
+    window.openInvestorProfileModal = openInvestorProfileModal;
+
+    function closeInvestorProfileModal() {
+      const modal = document.getElementById('investor-profile-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeInvestorProfileModal = closeInvestorProfileModal;
+
+    function setProfileDiscountRate(rate) {
+      const el = document.getElementById('prof-discount-rate');
+      if (el) el.value = rate;
+    }
+    window.setProfileDiscountRate = setProfileDiscountRate;
+
+    async function saveInvestorProfileForm(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const fullName = document.getElementById('prof-full-name')?.value.trim() || 'Investor';
+      const companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+      const discountRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || 8.0;
+      const exitYear = parseInt(document.getElementById('prof-exit-year')?.value, 10) || 10;
+      const marketTier = document.getElementById('prof-market-tier')?.value || 'Tier 2';
+
+      let exitCapTiming = 'amortized';
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        if (r.checked) { exitCapTiming = r.value; break; }
+      }
+
+      const updates = {
+        fullName,
+        companyName,
+        discountRate,
+        exitYear,
+        marketTier,
+        exitCapTiming
+      };
+
+      if (window.MathTreeProfile) {
+        await window.MathTreeProfile.saveProfile(updates, window._supabase, window._currentUser);
+      }
+
+      // Update greeting in dashboard
+      const greeting = document.getElementById('dash-greeting-name');
+      if (greeting && fullName) {
+        greeting.textContent = fullName.split(' ')[0];
+      }
+
+      closeInvestorProfileModal();
+      await loadDashboardProjects();
+    }
+    window.saveInvestorProfileForm = saveInvestorProfileForm;
+
+    
+    function toggleWizardFinancingFields(type) {
+      const gArm = document.getElementById('wiz-group-arm');
+      const gIo = document.getElementById('wiz-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleWizardFinancingFields = toggleWizardFinancingFields;
+
+    function toggleEditModalFinancing(type) {
+      const gArm = document.getElementById('edit-group-arm');
+      const gIo = document.getElementById('edit-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleEditModalFinancing = toggleEditModalFinancing;
+
+    function openCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function handleCloudSignOut() {
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+        localStorage.removeItem('mathtree_demo_deals');
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
+      if (window.MathTreeSession) {
+        window.MathTreeSession.logout('user', window._supabase);
+      } else {
+        if (window._supabase) window._supabase.auth.signOut();
+        window.location.replace('index.html');
+      }
+    }
+
+    
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set greeting with demo privacy isolation
+      const user = window._currentUser;
+      const heroTitle = document.getElementById('dash-hero-title');
+      const heroSub = document.getElementById('dash-hero-sub');
+      const privacyBadge = document.getElementById('demo-privacy-badge');
+      const greeting = document.getElementById('dash-greeting-name');
+      const emailEl = document.getElementById('cloud-user-email');
+
+      if (user && user.demo) {
+        if (heroTitle) heroTitle.innerHTML = 'Institutional <span class="text-brand-400">Sandbox</span>';
+        if (heroSub) heroSub.textContent = 'Welcome to your isolated modeling sandbox. Explore MathTree\'s pro-forma engine and scenario modeling with synthetic benchmark models. No personal or privileged user data is loaded.';
+        if (privacyBadge) privacyBadge.classList.remove('hidden');
+        if (emailEl) emailEl.textContent = 'Guest Sandbox (No Personal Data)';
+      } else if (user) {
+        if (heroTitle) heroTitle.innerHTML = 'Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>';
+        const freshGreeting = document.getElementById('dash-greeting-name');
+        if (freshGreeting) {
+          freshGreeting.textContent = (user.user_metadata?.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        }
+        if (privacyBadge) privacyBadge.classList.add('hidden');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+      }
+
+      // Load Projects
+      loadDashboardProjects();
+
+            // Wizard Navigation & Actions
+      const btnWizClose = document.getElementById('btn-wizard-close');
+      if (btnWizClose) btnWizClose.addEventListener('click', closeProjectWizard);
+
+      const btnWizCancel = document.getElementById('btn-wizard-cancel');
+      if (btnWizCancel) btnWizCancel.addEventListener('click', closeProjectWizard);
+
+      const btnWizBack = document.getElementById('btn-wizard-back');
+      if (btnWizBack) btnWizBack.addEventListener('click', () => setWizardStep(wizardCurrentStep - 1));
+
+      const btnWizNext = document.getElementById('btn-wizard-next');
+      if (btnWizNext) btnWizNext.addEventListener('click', () => setWizardStep(wizardCurrentStep + 1));
+
+      const btnWizSubmit = document.getElementById('btn-wizard-submit');
+      if (btnWizSubmit) btnWizSubmit.addEventListener('click', handleWizardSubmit);
+
+      // Wizard Asset Card Selection (Click + Keyboard Enter/Space)
+      document.querySelectorAll('.wiz-asset-card').forEach(card => {
+        const selectCard = () => {
+          document.querySelectorAll('.wiz-asset-card').forEach(c => {
+            c.className = 'wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+            const iconBox = c.querySelector('div:first-child');
+            if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm';
+          });
+          card.className = 'wiz-asset-card p-3.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+          const iconBox = card.querySelector('div:first-child');
+          if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm';
+          
+          const asset = card.getAttribute('data-asset') || card.getAttribute('data-wiz-asset');
+          const sel = document.getElementById('wiz-asset-class');
+          if (sel) sel.value = asset;
+          applyWizardAssetDefaults(asset);
+        };
+
+        card.addEventListener('click', selectCard);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectCard();
+          }
+        });
+      });
+
+      // Wizard Capital Inputs live recalculation
+      ['wiz-purchase-price', 'wiz-down-payment', 'wiz-closing-costs', 'wiz-rehab-costs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', calculateWizardUpfrontCash);
+      });
+
+      const wizForm = document.getElementById('project-wizard-form');
+      if (wizForm) wizForm.addEventListener('submit', handleWizardSubmit);
+
+      // Typed delete confirmation input listener
+      const delInput = document.getElementById('delete-confirm-input');
+      if (delInput) {
+        delInput.addEventListener('input', () => {
+          const deal = activeDashboardProjects.find(p => p.id === targetDeleteDealId);
+          const btn = document.getElementById('btn-confirm-delete');
+          if (!deal || !btn) return;
+          const isMatch = delInput.value.trim().toLowerCase() === deal.name.trim().toLowerCase();
+          btn.disabled = !isMatch;
+          if (isMatch) {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/30 transition';
+          } else {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+ + Math.round(assessorData.marketImprovementValue / 1000) + 'k';
+
+            const acresEl = document.getElementById('wiz-assessor-acres');
+            if (acresEl) acresEl.textContent = assessorData.acres + ' Acres (' + assessorData.sqft.toLocaleString() + ' sqft)';
+
+            const zoningEl = document.getElementById('wiz-assessor-zoning');
+            if (zoningEl) zoningEl.textContent = (assessorData.zoning || 'Standard') + ' • ' + (assessorData.useCode || '').slice(0, 18);
+
+            const ownerEl = document.getElementById('wiz-assessor-owner');
+            if (ownerEl) ownerEl.textContent = 'Owner: ' + (assessorData.owner || 'Of Record');
+
+            // Auto-fill GLA if empty or default
+            const glaEl = document.getElementById('wiz-gla');
+            if (glaEl && (!glaEl.value || glaEl.value === '15000') && assessorData.sqft > 0) {
+              glaEl.value = Math.min(assessorData.sqft, 25000);
+            }
+          }
+        }
+      }
+    }
+    window.selectWizardAddress = selectWizardAddress;
+
+    function applyAssessedValueToWizard() {
+      if (!_wizAssessorCache || !_wizAssessorCache.totalAssessedValue) return;
+      const priceEl = document.getElementById('wiz-purchase-price');
+      if (priceEl) {
+        priceEl.value = _wizAssessorCache.totalAssessedValue;
+        if (typeof updateWizardSummary === 'function') updateWizardSummary();
+        alert('Applied Yakima Assessor Value ( {
+      const modal = document.getElementById('investor-profile-modal');
+      if (!modal) return;
+      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+
+      const fNameEl = document.getElementById('prof-full-name');
+      if (fNameEl) fNameEl.value = prof.fullName || '';
+
+      const compEl = document.getElementById('prof-company-name');
+      if (compEl) compEl.value = prof.companyName || '';
+
+      const drEl = document.getElementById('prof-discount-rate');
+      if (drEl) drEl.value = prof.discountRate ?? 8.0;
+
+      const eyEl = document.getElementById('prof-exit-year');
+      if (eyEl) eyEl.value = prof.exitYear ?? 10;
+
+      const tierEl = document.getElementById('prof-market-tier');
+      if (tierEl) tierEl.value = prof.marketTier || 'Tier 2';
+
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        r.checked = (r.value === (prof.exitCapTiming || 'amortized'));
+      }
+
+      modal.classList.remove('hidden');
+    }
+    window.openInvestorProfileModal = openInvestorProfileModal;
+
+    function closeInvestorProfileModal() {
+      const modal = document.getElementById('investor-profile-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeInvestorProfileModal = closeInvestorProfileModal;
+
+    function setProfileDiscountRate(rate) {
+      const el = document.getElementById('prof-discount-rate');
+      if (el) el.value = rate;
+    }
+    window.setProfileDiscountRate = setProfileDiscountRate;
+
+    async function saveInvestorProfileForm(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const fullName = document.getElementById('prof-full-name')?.value.trim() || 'Investor';
+      const companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+      const discountRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || 8.0;
+      const exitYear = parseInt(document.getElementById('prof-exit-year')?.value, 10) || 10;
+      const marketTier = document.getElementById('prof-market-tier')?.value || 'Tier 2';
+
+      let exitCapTiming = 'amortized';
+      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+      for (const r of timingRadios) {
+        if (r.checked) { exitCapTiming = r.value; break; }
+      }
+
+      const updates = {
+        fullName,
+        companyName,
+        discountRate,
+        exitYear,
+        marketTier,
+        exitCapTiming
+      };
+
+      if (window.MathTreeProfile) {
+        await window.MathTreeProfile.saveProfile(updates, window._supabase, window._currentUser);
+      }
+
+      // Update greeting in dashboard
+      const greeting = document.getElementById('dash-greeting-name');
+      if (greeting && fullName) {
+        greeting.textContent = fullName.split(' ')[0];
+      }
+
+      closeInvestorProfileModal();
+      await loadDashboardProjects();
+    }
+    window.saveInvestorProfileForm = saveInvestorProfileForm;
+
+    
+    function toggleWizardFinancingFields(type) {
+      const gArm = document.getElementById('wiz-group-arm');
+      const gIo = document.getElementById('wiz-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleWizardFinancingFields = toggleWizardFinancingFields;
+
+    function toggleEditModalFinancing(type) {
+      const gArm = document.getElementById('edit-group-arm');
+      const gIo = document.getElementById('edit-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleEditModalFinancing = toggleEditModalFinancing;
+
+    function openCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeCloudSyncModal() {
+      const modal = document.getElementById('cloud-sync-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function handleCloudSignOut() {
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+        localStorage.removeItem('mathtree_demo_deals');
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
+      if (window.MathTreeSession) {
+        window.MathTreeSession.logout('user', window._supabase);
+      } else {
+        if (window._supabase) window._supabase.auth.signOut();
+        window.location.replace('index.html');
+      }
+    }
+
+    
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set greeting with demo privacy isolation
+      const user = window._currentUser;
+      const heroTitle = document.getElementById('dash-hero-title');
+      const heroSub = document.getElementById('dash-hero-sub');
+      const privacyBadge = document.getElementById('demo-privacy-badge');
+      const greeting = document.getElementById('dash-greeting-name');
+      const emailEl = document.getElementById('cloud-user-email');
+
+      if (user && user.demo) {
+        if (heroTitle) heroTitle.innerHTML = 'Institutional <span class="text-brand-400">Sandbox</span>';
+        if (heroSub) heroSub.textContent = 'Welcome to your isolated modeling sandbox. Explore MathTree\'s pro-forma engine and scenario modeling with synthetic benchmark models. No personal or privileged user data is loaded.';
+        if (privacyBadge) privacyBadge.classList.remove('hidden');
+        if (emailEl) emailEl.textContent = 'Guest Sandbox (No Personal Data)';
+      } else if (user) {
+        if (heroTitle) heroTitle.innerHTML = 'Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>';
+        const freshGreeting = document.getElementById('dash-greeting-name');
+        if (freshGreeting) {
+          freshGreeting.textContent = (user.user_metadata?.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        }
+        if (privacyBadge) privacyBadge.classList.add('hidden');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+      }
+
+      // Load Projects
+      loadDashboardProjects();
+
+            // Wizard Navigation & Actions
+      const btnWizClose = document.getElementById('btn-wizard-close');
+      if (btnWizClose) btnWizClose.addEventListener('click', closeProjectWizard);
+
+      const btnWizCancel = document.getElementById('btn-wizard-cancel');
+      if (btnWizCancel) btnWizCancel.addEventListener('click', closeProjectWizard);
+
+      const btnWizBack = document.getElementById('btn-wizard-back');
+      if (btnWizBack) btnWizBack.addEventListener('click', () => setWizardStep(wizardCurrentStep - 1));
+
+      const btnWizNext = document.getElementById('btn-wizard-next');
+      if (btnWizNext) btnWizNext.addEventListener('click', () => setWizardStep(wizardCurrentStep + 1));
+
+      const btnWizSubmit = document.getElementById('btn-wizard-submit');
+      if (btnWizSubmit) btnWizSubmit.addEventListener('click', handleWizardSubmit);
+
+      // Wizard Asset Card Selection (Click + Keyboard Enter/Space)
+      document.querySelectorAll('.wiz-asset-card').forEach(card => {
+        const selectCard = () => {
+          document.querySelectorAll('.wiz-asset-card').forEach(c => {
+            c.className = 'wiz-asset-card p-3.5 rounded-xl border border-slate-800 hover:border-brand-500 bg-slate-950/60 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+            const iconBox = c.querySelector('div:first-child');
+            if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-sm';
+          });
+          card.className = 'wiz-asset-card p-3.5 rounded-xl border-2 border-brand-500 bg-brand-500/10 cursor-pointer transition flex items-center space-x-3 focus:outline-none focus:ring-2 focus:ring-brand-500';
+          const iconBox = card.querySelector('div:first-child');
+          if (iconBox) iconBox.className = 'w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center font-bold text-sm';
+          
+          const asset = card.getAttribute('data-asset') || card.getAttribute('data-wiz-asset');
+          const sel = document.getElementById('wiz-asset-class');
+          if (sel) sel.value = asset;
+          applyWizardAssetDefaults(asset);
+        };
+
+        card.addEventListener('click', selectCard);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectCard();
+          }
+        });
+      });
+
+      // Wizard Capital Inputs live recalculation
+      ['wiz-purchase-price', 'wiz-down-payment', 'wiz-closing-costs', 'wiz-rehab-costs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', calculateWizardUpfrontCash);
+      });
+
+      const wizForm = document.getElementById('project-wizard-form');
+      if (wizForm) wizForm.addEventListener('submit', handleWizardSubmit);
+
+      // Typed delete confirmation input listener
+      const delInput = document.getElementById('delete-confirm-input');
+      if (delInput) {
+        delInput.addEventListener('input', () => {
+          const deal = activeDashboardProjects.find(p => p.id === targetDeleteDealId);
+          const btn = document.getElementById('btn-confirm-delete');
+          if (!deal || !btn) return;
+          const isMatch = delInput.value.trim().toLowerCase() === deal.name.trim().toLowerCase();
+          btn.disabled = !isMatch;
+          if (isMatch) {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/30 transition';
+          } else {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
+ + _wizAssessorCache.totalAssessedValue.toLocaleString() + ') to Purchase Price in Step 2!');
+      }
+    }
+    window.applyAssessedValueToWizard = applyAssessedValueToWizard;
+
+    // Close address dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#wiz-location') && !e.target.closest('#wiz-address-dropdown')) {
+        const d = document.getElementById('wiz-address-dropdown');
+        if (d) d.classList.add('hidden');
+      }
+      if (!e.target.closest('#edit-deal-location') && !e.target.closest('#edit-address-dropdown')) {
+        const d2 = document.getElementById('edit-address-dropdown');
+        if (d2) d2.classList.add('hidden');
+      }
+    });
+
+    async function onEditModalLocationInput(val) {
+      if (!val || val.length < 2) return;
+      if (!window.AddressService) return;
+      const results = await window.AddressService.searchAddresses(val);
+      renderAddressDropdown(results, 'edit');
+    }
+    window.onEditModalLocationInput = onEditModalLocationInput;
+
     function openInvestorProfileModal() {
       const modal = document.getElementById('investor-profile-modal');
       if (!modal) return;

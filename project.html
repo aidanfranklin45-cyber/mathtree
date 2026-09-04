@@ -10,6 +10,7 @@
   <!-- MathTree Session Management (Inactivity Timeout) -->
   <script src="session.js"></script>
   <script src="profile.js"></script>
+  <script src="address-service.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -110,6 +111,9 @@
             <span id="deal-status-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               Prospect
             </span>
+            <a id="header-apn-badge" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="hidden items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-[10px] font-bold hover:border-emerald-700 transition" title="Open official Yakima County Assessor Tax Card">
+              <span>🏛️ <span id="header-apn-text">Yakima APN</span> ↗</span>
+            </a>
             <span id="deal-asset-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize">
               Commercial
             </span>
@@ -1608,9 +1612,13 @@
             <label class="text-[11px] font-bold text-slate-400">Project Name</label>
             <input type="text" id="edit-deal-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
-          <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Location</label>
-            <input type="text" id="edit-deal-location" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          <div class="space-y-1 relative">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-slate-400">Location / Street Address</label>
+              <span class="text-[9px] text-emerald-400 font-semibold">🏛️ Yakima GIS</span>
+            </div>
+            <input type="text" id="edit-deal-location" oninput="onProjEditLocationInput(this.value)" autocomplete="off" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            <div id="proj-edit-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto hidden"></div>
           </div>
         </div>
 
@@ -5055,6 +5063,81 @@
 
     
     // === Investor Profile & Underwriting Hurdle Rate Settings ===
+    
+    // === Address Autocomplete & Yakima County GIS Integration ===
+    async function onProjEditLocationInput(val) {
+      if (!val || val.length < 2) return;
+      if (!window.AddressService) return;
+      const dropdown = document.getElementById('proj-edit-address-dropdown');
+      if (!dropdown) return;
+
+      const results = await window.AddressService.searchAddresses(val);
+      if (!results || results.length === 0) {
+        dropdown.classList.add('hidden');
+        return;
+      }
+
+      let html = '';
+      results.forEach((item, idx) => {
+        const isYakima = item.isYakimaCounty;
+        const badge = isYakima
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima APN: ' + (item.apn || 'Linked') + '</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>';
+
+        html += '<div onclick="selectProjAddress(' + idx + ')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">';
+        html += '  <div class="flex items-center justify-between">';
+        html += '    <span class="text-xs font-bold text-white">' + (item.street || item.formattedAddress) + '</span>';
+        html += '    ' + badge;
+        html += '  </div>';
+        html += '  <p class="text-[11px] text-slate-400">' + item.formattedAddress + '</p>';
+        html += '</div>';
+      });
+
+      dropdown.innerHTML = html;
+      dropdown.classList.remove('hidden');
+      window._lastProjAddressResults = results;
+    }
+    window.onProjEditLocationInput = onProjEditLocationInput;
+
+    async function selectProjAddress(idx) {
+      const results = window._lastProjAddressResults;
+      if (!results || !results[idx]) return;
+
+      const item = results[idx];
+      const locEl = document.getElementById('edit-deal-location');
+      if (locEl) locEl.value = item.formattedAddress;
+
+      const dropdown = document.getElementById('proj-edit-address-dropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+
+      if (item.apn && currentLoadedDeal) {
+        currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
+        currentLoadedDeal.inputs.apn = item.apn;
+        currentLoadedDeal.inputs.county = 'Yakima';
+        updateHeaderApnBadge(item.apn);
+      }
+    }
+    window.selectProjAddress = selectProjAddress;
+
+    function updateHeaderApnBadge(apn) {
+      const badge = document.getElementById('header-apn-badge');
+      const text = document.getElementById('header-apn-text');
+      if (badge && apn) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        badge.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + apn;
+        if (text) text.textContent = 'Yakima APN: ' + apn;
+      }
+    }
+    window.updateHeaderApnBadge = updateHeaderApnBadge;
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#edit-deal-location') && !e.target.closest('#proj-edit-address-dropdown')) {
+        const d = document.getElementById('proj-edit-address-dropdown');
+        if (d) d.classList.add('hidden');
+      }
+    });
+
     function openInvestorProfileModal() {
       const modal = document.getElementById('investor-profile-modal');
       if (!modal) return;
