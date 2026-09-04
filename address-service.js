@@ -21,6 +21,8 @@
   const YAKIMA_GIS_BASE = 'https://maps.yakimacounty.us/server/rest/services';
   const YAKIMA_ADDRESSING_URL = YAKIMA_GIS_BASE + '/Addressing/BuildingAddresses/FeatureServer/0/query';
   const YAKIMA_TAXLOTS_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/2/query';
+  const YAKIMA_CHAR_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/50/query';
+  const YAKIMA_COMM_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/70/query';
   const YAKIMA_ASCEND_PORTAL = 'https://yes.co.yakima.wa.us/ascend/';
   const PHOTON_API_URL = 'https://photon.komoot.io/api/';
 
@@ -184,30 +186,57 @@
     if (!assessorNumber) return null;
 
     const cleanedApn = String(assessorNumber).trim().replace(/[^0-9]/g, '');
-    const params = new URLSearchParams({
+    const queryParams = new URLSearchParams({
       where: "ASSESSOR_N = '" + cleanedApn + "'",
       outFields: '*',
       f: 'json'
-    });
+    }).toString();
 
     try {
-      const response = await fetch(YAKIMA_TAXLOTS_URL + '?' + params.toString());
-      if (!response.ok) throw new Error('Yakima Taxlot error: ' + response.status);
-      const data = await response.json();
+      const [taxlotRes, commRes, charRes] = await Promise.allSettled([
+        fetch(YAKIMA_TAXLOTS_URL + '?' + queryParams).then(r => r.ok ? r.json() : null),
+        fetch(YAKIMA_COMM_URL + '?' + queryParams).then(r => r.ok ? r.json() : null),
+        fetch(YAKIMA_CHAR_URL + '?' + queryParams).then(r => r.ok ? r.json() : null)
+      ]);
 
+      const data = taxlotRes.status === 'fulfilled' ? taxlotRes.value : null;
       if (!data || !data.features || data.features.length === 0) {
         return null;
       }
 
+      const commData = commRes.status === 'fulfilled' ? commRes.value : null;
+      const charData = charRes.status === 'fulfilled' ? charRes.value : null;
+
       const attr = data.features[0].attributes || {};
+      const commAttr = (commData && commData.features && commData.features[0] && commData.features[0].attributes) || {};
+      const charAttr = (charData && charData.features && charData.features[0] && charData.features[0].attributes) || {};
+
       const landVal = parseFloat(attr.MKT_LAND) || 0;
       const impVal = parseFloat(attr.MKT_IMPVT) || 0;
       const totalVal = landVal + impVal;
       const acres = parseFloat(attr.ACRES) || 0;
-      const sqft = Math.round(acres * 43560);
+      const lotSqft = Math.round(acres * 43560);
 
       const owner = [attr.FIRST_NAME, attr.LAST_NAME].filter(Boolean).join(' ') +
         (attr.ORG_NAME ? (attr.FIRST_NAME || attr.LAST_NAME ? ' / ' : '') + attr.ORG_NAME : '');
+
+      // Building specifications & architecture characteristics
+      const rawYearBuilt = commAttr.YEAR_BUILT || (charAttr.YEAR_BLT ? parseInt(charAttr.YEAR_BLT, 10) : null) || null;
+      const rawEffYear = commAttr.EFF_YEAR_B || (charAttr.EFF_YEAR ? parseInt(charAttr.EFF_YEAR, 10) : null) || null;
+      
+      const charFloorSqFt = (parseFloat(charAttr.MAIN_SQFT) || 0) + (parseFloat(charAttr.UPPR_SQFT) || 0) + (parseFloat(charAttr.FN_BSMT_SQ) || 0);
+      const buildingSqFt = parseFloat(commAttr.GROUND_FL_) || (charFloorSqFt > 0 ? charFloorSqFt : null) || null;
+      
+      const stories = commAttr.NUM_STORIE || (charAttr.STORIES ? parseFloat(charAttr.STORIES) : null) || null;
+      const constructionType = commAttr.CONSTRUCTI || (charAttr.BLD_STYLE ? 'Wood Frame / ' + charAttr.BLD_STYLE : null) || 'Standard Frame';
+      const exteriorWall = commAttr.EXT_WALL_T || null;
+      const foundation = commAttr.FOUNDATION || null;
+      const buildingStyle = charAttr.BLD_STYLE || commAttr.BUILDING_T || 'Commercial / Mixed';
+      const hvac = commAttr.HEAT_COOL_ || (commAttr.PCT_HEATED ? `${commAttr.PCT_HEATED}% Heated` : null) || null;
+      const condition = commAttr.CONDITION || charAttr.CONDITION || 'Average';
+      const quality = commAttr.QUALITY || charAttr.QUALITY || 'Average';
+      const bedrooms = charAttr.BEDROOMS ? parseInt(charAttr.BEDROOMS, 10) : null;
+      const bathrooms = charAttr.FULL_BATH ? (parseFloat(charAttr.FULL_BATH) + (parseFloat(charAttr.HALF_BATH || 0) * 0.5)) : null;
 
       return {
         apn: cleanedApn,
@@ -218,7 +247,8 @@
         state: 'WA',
         zip: attr.SITUS_ZIP || '',
         acres: Math.round(acres * 1000) / 1000,
-        sqft,
+        sqft: lotSqft,
+        lotSqft,
         marketLandValue: landVal,
         marketImprovementValue: impVal,
         totalAssessedValue: totalVal,
@@ -230,7 +260,23 @@
         waterSource: attr.WATER_SRC || 'Municipal / District',
         sewerSource: attr.SEWER_SRC || 'Public Sewer',
         assessorPortalUrl: YAKIMA_ASCEND_PORTAL + '?mParcelID=' + cleanedApn,
-        source: 'yakima_county_assessor'
+        source: 'yakima_county_assessor',
+
+        // Building Structural Specs
+        yearBuilt: rawYearBuilt,
+        effectiveYearBuilt: rawEffYear,
+        buildingSqFt: buildingSqFt,
+        grossLivingArea: buildingSqFt,
+        stories: stories,
+        constructionType: constructionType,
+        exteriorWall: exteriorWall,
+        foundation: foundation,
+        buildingStyle: buildingStyle,
+        hvac: hvac,
+        condition: condition,
+        quality: quality,
+        bedrooms: bedrooms,
+        bathrooms: bathrooms
       };
     } catch (err) {
       console.error('Failed to fetch Yakima assessor data:', err);
@@ -383,6 +429,8 @@
     YAKIMA_GIS_BASE,
     YAKIMA_ADDRESSING_URL,
     YAKIMA_TAXLOTS_URL,
+    YAKIMA_CHAR_URL,
+    YAKIMA_COMM_URL,
     YAKIMA_ASCEND_PORTAL,
     buildSqlLikeTerm,
     searchYakimaAddresses,

@@ -442,6 +442,32 @@
             </div>
           </div>
 
+          <!-- Building Specs & Structural Characteristics (from Table 50/70) -->
+          <div id="dossier-bldg-specs-section" class="p-3 bg-slate-950/60 rounded-2xl border border-slate-900 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Building Characteristics & Specs</span>
+              <span id="dossier-bldg-year-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">Year Built: --</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900/60 text-center">
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Bldg Area</span>
+                <span id="dossier-bldg-sqft" class="text-xs font-bold text-slate-200">-- Sq Ft</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Stories</span>
+                <span id="dossier-bldg-stories" class="text-xs font-bold text-slate-200">--</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Condition</span>
+                <span id="dossier-bldg-condition" class="text-xs font-bold text-slate-200">--</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-900/60 text-[10px] text-slate-400">
+              <span id="dossier-bldg-construction" class="truncate">Frame: Standard</span>
+              <span id="dossier-bldg-hvac" class="truncate font-mono text-slate-400">HVAC: Standard</span>
+            </div>
+          </div>
+
           <!-- Ownership, Legal, and Sync Status -->
           <div class="p-3 bg-slate-950/50 rounded-2xl border border-slate-900 space-y-1.5 text-xs">
             <div class="flex items-center justify-between">
@@ -1184,7 +1210,7 @@
               <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
                 <span class="text-[10px] uppercase font-bold text-slate-500 block">Cumulative Cash Flow</span>
                 <span id="wealth-cashflow" class="text-base font-black text-white mt-1 block">$0</span>
-                <span class="text-[10px] text-slate-500 mt-0.5 block">Cash pocketed to date</span>
+                <span id="wealth-cashflow-sub" class="text-[10px] text-slate-500 mt-0.5 block">Cash pocketed to date</span>
               </div>
 
               <!-- Net Portfolio Equity (NAV) -->
@@ -1211,13 +1237,31 @@
 
           <!-- 10-Year Projections Detailed Grid/Table -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
-            <div class="pb-4 border-b border-slate-900 flex justify-between items-center">
+            <div class="pb-4 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <h3 id="forecast-table-title" class="text-sm font-bold text-white tracking-tight">Detailed Forecast Table</h3>
-                <p class="text-xs text-slate-400">Granular breakdowns of financials, equity accumulation, and returns</p>
+                <p id="forecast-table-sub" class="text-xs text-slate-400">Granular breakdowns of financials, equity accumulation, and returns</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <!-- 2026 Stub Period Proration Toggle -->
+                <label class="inline-flex items-center space-x-2 text-xs font-semibold text-slate-300 cursor-pointer bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition" title="Prorate Year 1 for late 2026 closing (e.g. October 2026 = 3 months operating period)">
+                  <input type="checkbox" id="input-prorate-first-year" onchange="updateCalculations()" class="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 w-3.5 h-3.5">
+                  <span class="text-[11px]">Prorate 2026 (Oct–Dec Stub: 3 Mo)</span>
+                </label>
+                <!-- View Mode: Annual Pro-Forma vs Monthly Schedule -->
+                <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+                  <button type="button" id="btn-view-annual" onclick="switchForecastView('annual')" class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition">
+                    📅 Annual Pro-Forma
+                  </button>
+                  <button type="button" id="btn-view-monthly" onclick="switchForecastView('monthly')" class="px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition">
+                    📆 Monthly Schedule (Post-Closing)
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="overflow-x-auto -mx-5 mt-4">
+
+            <!-- Container 1: Annual Pro-Forma Schedule -->
+            <div id="annual-schedule-container" class="overflow-x-auto -mx-5 mt-4">
               <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
                   <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
@@ -1237,6 +1281,31 @@
                 </thead>
                 <tbody id="projection-table-body" class="divide-y divide-slate-900/60">
                   <!-- Dynamically generated projections -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Container 2: Monthly Schedule (Post-Closing) -->
+            <div id="monthly-schedule-container" class="overflow-x-auto -mx-5 mt-4 hidden">
+              <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead>
+                  <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
+                    <th class="py-3 px-5">Month / Date</th>
+                    <th class="py-3 px-4">Operating Yr</th>
+                    <th class="py-3 px-4">Gross Income</th>
+                    <th class="py-3 px-4">Vacancy Loss</th>
+                    <th class="py-3 px-4">OpEx</th>
+                    <th class="py-3 px-4">NOI</th>
+                    <th class="py-3 px-4">Debt Payment</th>
+                    <th class="py-3 px-4">Principal</th>
+                    <th class="py-3 px-4">Interest</th>
+                    <th class="py-3 px-4">Loan Balance</th>
+                    <th class="py-3 px-4">Monthly Net Cash</th>
+                    <th class="py-3 px-4 pr-5">Cumulative Cash</th>
+                  </tr>
+                </thead>
+                <tbody id="monthly-schedule-table-body" class="divide-y divide-slate-900/60">
+                  <!-- Dynamically generated monthly schedule -->
                 </tbody>
               </table>
             </div>
@@ -2516,6 +2585,9 @@
       document.getElementById('input-discount-rate').value = values.discountRate ?? activeProfile.discountRate ?? 8;
       document.getElementById('input-exit-year').value = values.exitYear ?? 10;
       document.getElementById('input-manage-property').checked = values.manageProperty ?? true;
+      if (document.getElementById('input-prorate-first-year')) {
+        document.getElementById('input-prorate-first-year').checked = !!(values.prorateFirstYear);
+      }
       setExitCapTimingUI(values.exitCapTiming || 'amortized');
 
       // Asset-Specific Fields
@@ -2577,7 +2649,9 @@
         discountRate: isNaN(parseFloat(document.getElementById('input-discount-rate').value)) ? 8 : parseFloat(document.getElementById('input-discount-rate').value),
         exitYear: isNaN(parseInt(document.getElementById('input-exit-year').value)) ? 10 : parseInt(document.getElementById('input-exit-year').value),
         exitCapTiming: document.getElementById('input-exit-cap-timing')?.value || 'amortized',
-        manageProperty: document.getElementById('input-manage-property').checked
+        manageProperty: document.getElementById('input-manage-property').checked,
+        prorateFirstYear: !!document.getElementById('input-prorate-first-year')?.checked,
+        firstYearMonths: document.getElementById('input-prorate-first-year')?.checked ? 3 : 12
       };
 
       if (activeTab === 'single-family') {
@@ -2766,10 +2840,13 @@
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
         const calYear = startYr + proj.year - 1;
+        const stubTag = (proj.operatingMonths && proj.operatingMonths < 12)
+          ? `<span class="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded ml-1">Stub: ${proj.operatingMonths} Mo</span>`
+          : '';
         tr.innerHTML = `
           <td class="py-3 px-5">
-            <div class="text-white font-bold text-xs">${calYear}</div>
-            <div class="text-[10px] text-slate-500 font-medium">Year ${proj.year}</div>
+            <div class="text-white font-bold text-xs flex items-center">${calYear} ${stubTag}</div>
+            <div class="text-[10px] text-slate-500 font-medium">Year ${proj.year}${proj.operatingMonths && proj.operatingMonths < 12 ? ` (${proj.operatingMonths} operating months)` : ''}</div>
           </td>
           <td class="py-3.5 px-4">${formatCurrency(proj.propertyValue)}</td>
           <td class="py-3.5 px-4">${formatCurrency(proj.grossPotentialIncome)}</td>
@@ -2829,6 +2906,78 @@
     }
 
 
+
+    let currentForecastView = 'annual';
+    function switchForecastView(view) {
+      currentForecastView = view;
+      const annualBtn = document.getElementById('btn-view-annual');
+      const monthlyBtn = document.getElementById('btn-view-monthly');
+      const annualContainer = document.getElementById('annual-schedule-container');
+      const monthlyContainer = document.getElementById('monthly-schedule-container');
+      const tableTitle = document.getElementById('forecast-table-title');
+      const tableSub = document.getElementById('forecast-table-sub');
+
+      if (view === 'monthly') {
+        if (annualBtn) annualBtn.className = 'px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition';
+        if (monthlyBtn) monthlyBtn.className = 'px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition';
+        if (annualContainer) annualContainer.classList.add('hidden');
+        if (monthlyContainer) monthlyContainer.classList.remove('hidden');
+        if (tableTitle) tableTitle.textContent = 'Granular Month-by-Month Schedule (Post-Closing)';
+        if (tableSub) tableSub.textContent = 'Exact monthly debt service, principal paydown, and net cash distributions starting post-closing';
+        renderMonthlyScheduleTable();
+      } else {
+        if (annualBtn) annualBtn.className = 'px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition';
+        if (monthlyBtn) monthlyBtn.className = 'px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition';
+        if (annualContainer) annualContainer.classList.remove('hidden');
+        if (monthlyContainer) monthlyContainer.classList.add('hidden');
+        const projRows = document.querySelectorAll('#projection-table-body tr').length || 10;
+        if (tableTitle) tableTitle.textContent = `Detailed ${projRows}-Year Forecast Table`;
+        if (tableSub) tableSub.textContent = 'Granular breakdowns of financials, equity accumulation, and returns';
+      }
+    }
+    window.switchForecastView = switchForecastView;
+
+    function renderMonthlyScheduleTable() {
+      const tbody = document.getElementById('monthly-schedule-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const inputs = getInputsFromForm();
+      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, {
+        startDate: inputs.closingDate || '2026-10-01',
+        totalMonths: 24
+      });
+
+      if (!monthlyData || !monthlyData.monthlyProjections) return;
+
+      monthlyData.monthlyProjections.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
+        const isDeficit = m.netCashFlow < 0;
+        const isCumDeficit = m.cumulativeCashFlow < 0;
+
+        tr.innerHTML = `
+          <td class="py-3 px-5">
+            <div class="text-white font-bold text-xs">${m.label}</div>
+            <div class="text-[10px] text-slate-500 font-medium">Month ${m.monthNumber}</div>
+          </td>
+          <td class="py-3.5 px-4 text-slate-400 font-mono">Yr ${m.operatingYear}</td>
+          <td class="py-3.5 px-4">${formatCurrency(m.grossIncome)}</td>
+          <td class="py-3.5 px-4 text-accent-rose/85">${formatCurrency(m.vacancyLoss)}</td>
+          <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.operatingExpenses)}</td>
+          <td class="py-3.5 px-4 text-white font-semibold">${formatCurrency(m.netOperatingIncome)}</td>
+          <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.debtService)}</td>
+          <td class="py-3.5 px-4 text-emerald-400 font-medium">${formatCurrency(m.principalPaid)}</td>
+          <td class="py-3.5 px-4 text-slate-500">${formatCurrency(m.interestPaid)}</td>
+          <td class="py-3.5 px-4 text-slate-400 font-mono">${formatCurrency(m.remainingLoanBalance)}</td>
+          <td class="py-3.5 px-4 font-bold ${isDeficit ? 'text-accent-rose' : 'text-accent-emerald'}">${isDeficit ? '-' : ''}${formatCurrency(Math.abs(m.netCashFlow))}</td>
+          <td class="py-3.5 px-4 pr-5 font-bold ${isCumDeficit ? 'text-accent-rose' : 'text-emerald-400'}">${isCumDeficit ? '-' : ''}${formatCurrency(Math.abs(m.cumulativeCashFlow))}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    window.renderMonthlyScheduleTable = renderMonthlyScheduleTable;
+
     // Controller for Amortization Wealth & Equity Realization Studio
     function updateWealthRealizationStudio(inputs, res) {
       if (!res || !res.projections || res.projections.length === 0) return;
@@ -2877,9 +3026,27 @@
 
       setEl('wealth-debt-paydown', formatCurrency(wealth.principalPaydownEquity));
       setEl('wealth-appreciation', formatCurrency(wealth.appreciationEquity));
-      setEl('wealth-cashflow', formatCurrency(wealth.cumulativeCashFlow));
       setEl('wealth-net-equity', formatCurrency(wealth.totalNetEquity));
       setEl('wealth-net-benefit', formatCurrency(wealth.totalNetBenefit));
+
+      const isDeficit = wealth.isDeficit || wealth.cumulativeCashFlow < 0;
+      const cashFlowEl = document.getElementById('wealth-cashflow');
+      if (cashFlowEl) {
+        if (isDeficit) {
+          cashFlowEl.className = 'text-base font-black text-rose-400 mt-1 block';
+          cashFlowEl.textContent = `-${formatCurrency(Math.abs(wealth.cumulativeCashFlow))}`;
+        } else {
+          cashFlowEl.className = 'text-base font-black text-emerald-400 mt-1 block';
+          cashFlowEl.textContent = formatCurrency(wealth.cumulativeCashFlow);
+        }
+      }
+
+      const cashFlowSub = document.getElementById('wealth-cashflow-sub');
+      if (cashFlowSub) {
+        cashFlowSub.textContent = isDeficit
+          ? 'Deficit funded out-of-pocket'
+          : 'Cash pocketed to date';
+      }
 
       const navSub = document.getElementById('wealth-nav-sub');
       if (navSub) {
@@ -2900,10 +3067,14 @@
         ? `; <strong class="text-emerald-400">${wealth.netProfit >= 0 ? '+' : ''}${formatCurrency(wealth.netProfit)}</strong> net profit over ${formatCurrency(wealth.initialCashInvested)} outlay`
         : '';
 
+      const cashFlowNarrative = isDeficit
+        ? `minus <strong class="text-rose-400">${formatCurrency(wealth.cashDeficit || Math.abs(wealth.cumulativeCashFlow))}</strong> cumulative operating deficit funded out-of-pocket`
+        : `+ ${formatCurrency(wealth.cumulativeCashFlow)} cash pocketed`;
+
       const holdCalYr = startYr + holdYear - 1;
       setHtml(
         'wealth-summary-narrative',
-        `By ${holdCalYr} (Year ${holdYear}), tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, accumulating <strong class="text-emerald-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth (${formatCurrency(wealth.totalNetEquity)} owned equity + ${formatCurrency(wealth.cumulativeCashFlow)} cash pocketed${profitClause}).`
+        `By ${holdCalYr} (Year ${holdYear}), tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, accumulating <strong class="text-emerald-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth (${formatCurrency(wealth.totalNetEquity)} owned equity ${cashFlowNarrative}${profitClause}).`
       );
 
       setHtml('wealth-time-npv', `Hold NPV: <strong class="text-white">${formatCurrency(wealth.holdNpv)}</strong>`);
@@ -3267,6 +3438,9 @@
       updateProjectionsChart(res.projections);
       renderProjectionsTable(res.projections);
       renderAmortizationTable(res.amortizationSchedule, res.projections);
+      if (typeof renderMonthlyScheduleTable === 'function' && currentForecastView === 'monthly') {
+        renderMonthlyScheduleTable();
+      }
     }
 
     // Helper to update dynamic system assumptions notes per tab
@@ -3871,6 +4045,12 @@
                   <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${propLotSizeDisplay}</td>
                   <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Zoning / Land Use</td>
                   <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${propZoningDisplay}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Building Specs & Age</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${rawAssessor.yearBuilt || (deal.inputs && deal.inputs.yearBuilt) ? `Built ${rawAssessor.yearBuilt || deal.inputs.yearBuilt} (${(rawAssessor.buildingSqFt || (deal.inputs && (deal.inputs.buildingSqFt || deal.inputs.gla)) || 0).toLocaleString()} Sq Ft)` : 'Pending Specs'}</td>
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Stories / Construction</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${(rawAssessor.stories || (deal.inputs && deal.inputs.stories) || '1')} Stories • ${(rawAssessor.constructionType || rawAssessor.buildingStyle || (deal.inputs && deal.inputs.constructionType) || 'Standard')}</td>
                 </tr>
                 ${legal ? `
                 <tr style="background: #f8fafc;">
@@ -4752,6 +4932,15 @@
             useCode: '53 - Commercial / Light Industrial',
             owner: 'CASCADE PACIFIC HOLDINGS LLC',
             legalDescription: 'YAKIMA ORIGINAL TOWN S 50 FT LOT 3 & ALL LOT 4 BLK 18',
+            yearBuilt: 1965,
+            effectiveYearBuilt: 1978,
+            buildingSqFt: 36410,
+            stories: 4,
+            constructionType: 'Reinforced Concrete / Steel Frame',
+            exteriorWall: 'Concrete Block / Masonry',
+            hvac: 'Package Heat Pump / AC',
+            condition: 'Good',
+            quality: 'Class B+',
             assessorPortalUrl: 'https://yes.co.yakima.wa.us/ascend/?mParcelID=19131922484'
           }
         }
@@ -5649,6 +5838,21 @@
 
       setEl('dossier-owner-name', owner);
       setEl('dossier-legal-desc', legal);
+
+      // Building Specs & Structural Characteristics (from Table 50/70)
+      const yearBuilt = rawAssessor.yearBuilt || (current.inputs && current.inputs.yearBuilt) || (current.buildingSpecs && current.buildingSpecs.yearBuilt) || '';
+      const bldgSqFt = rawAssessor.buildingSqFt || (current.inputs && (current.inputs.buildingSqFt || current.inputs.gla)) || (current.buildingSpecs && current.buildingSpecs.buildingSqFt) || (current.inputs && current.inputs.totalSqFt) || 0;
+      const stories = rawAssessor.stories || (current.inputs && current.inputs.stories) || (current.buildingSpecs && current.buildingSpecs.stories) || '';
+      const condition = rawAssessor.condition || (current.inputs && current.inputs.condition) || (current.buildingSpecs && current.buildingSpecs.condition) || 'Average';
+      const construction = rawAssessor.constructionType || rawAssessor.buildingStyle || (current.inputs && current.inputs.constructionType) || (current.buildingSpecs && current.buildingSpecs.constructionType) || 'Standard';
+      const hvac = rawAssessor.hvac || (current.inputs && current.inputs.hvac) || (current.buildingSpecs && current.buildingSpecs.hvac) || 'Standard';
+
+      setEl('dossier-bldg-year-pill', yearBuilt ? `Year Built: ${yearBuilt}` : 'Year Built: Pending');
+      setEl('dossier-bldg-sqft', bldgSqFt > 0 ? `${Number(bldgSqFt).toLocaleString()} Sq Ft` : 'Pending Survey');
+      setEl('dossier-bldg-stories', stories ? `${stories} Stories` : '1 Story');
+      setEl('dossier-bldg-condition', condition);
+      setEl('dossier-bldg-construction', `Frame: ${construction}`);
+      setEl('dossier-bldg-hvac', `HVAC: ${hvac}`);
 
       const syncStatusEl = document.getElementById('dossier-sync-status');
       if (syncStatusEl) {

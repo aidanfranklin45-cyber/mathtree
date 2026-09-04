@@ -644,6 +644,8 @@ export function calculateHoldingPeriodWealth(inputs: DealInputs, projections: Pr
     totalNetEquity: Math.round(totalNetEquity * 100) / 100,
     initialCashInvested: Math.round(initialCashInvested * 100) / 100,
     cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
+    isDeficit: cumulativeCashFlow < 0,
+    cashDeficit: cumulativeCashFlow < 0 ? Math.round(Math.abs(cumulativeCashFlow) * 100) / 100 : 0,
     totalNetBenefit: Math.round(totalNetBenefit * 100) / 100,
     totalNetWealth: Math.round(totalNetWealth * 100) / 100,
     netProfit: Math.round(netProfit * 100) / 100,

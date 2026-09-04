@@ -1454,6 +1454,183 @@ runTest('PDF Export: Executive Underwriting Brief renders dedicated County Asses
   assert.ok(dashHtml.includes('CASCADE PACIFIC HOLDINGS LLC'), 'dashboard.html benchmarks must contain Yakima assessor owners');
 });
 
+// 64. Negative Cash Flow Deficit Accounting in Holding Period Wealth Engine
+runTest('Amortization Wealth: Negative Cash Flow directly reduces Net Wealth dollar-for-dollar and tracks out-of-pocket deficit', () => {
+  const inputs = {
+    purchasePrice: 500000,
+    downPaymentPercent: 20,
+    closingCosts: 10000,
+    rehabCosts: 0,
+    discountRate: 8
+  };
+
+  // Mock projections with severe negative cash flow (-$10,000 per year)
+  const mockProjections = [
+    { year: 1, propertyValue: 515000, cashFlow: -10000, cumulativePrincipalPaid: 6500, loanBalanceRemaining: 393500 },
+    { year: 2, propertyValue: 530450, cashFlow: -10000, cumulativePrincipalPaid: 13500, loanBalanceRemaining: 386500 },
+    { year: 3, propertyValue: 546363, cashFlow: -10000, cumulativePrincipalPaid: 21000, loanBalanceRemaining: 379000 }
+  ];
+
+  const mockAmortSchedule = [
+    { year: 1, principalPaid: 6500, interestPaid: 24000, endingBalance: 393500 },
+    { year: 2, principalPaid: 7000, interestPaid: 23500, endingBalance: 386500 },
+    { year: 3, principalPaid: 7500, interestPaid: 23000, endingBalance: 379000 }
+  ];
+
+  const wealthYr3 = PropertyMath.calculateHoldingPeriodWealth(inputs, mockProjections, mockAmortSchedule, 3);
+  assert.ok(wealthYr3, 'Wealth calculation must succeed');
+  assert.strictEqual(wealthYr3.cumulativeCashFlow, -30000, 'Cumulative cash flow should be -$30,000');
+  assert.strictEqual(wealthYr3.isDeficit, true, 'isDeficit flag must be true');
+  assert.strictEqual(wealthYr3.cashDeficit, 30000, 'cashDeficit must track the absolute deficit of $30,000');
+
+  // Owned equity = propertyValue ($546,363) - loanBalance ($379,000) = $167,363
+  const expectedEquity = 546363 - 379000;
+  assert.strictEqual(Math.round(wealthYr3.totalNetEquity), expectedEquity, 'Net equity matches NAV');
+
+  // Total Net Wealth = Net Owned Equity + Cumulative Cash Flow = Net Owned Equity - $30,000
+  const expectedNetWealth = expectedEquity + (-30000);
+  assert.strictEqual(Math.round(wealthYr3.totalNetBenefit), expectedNetWealth, 'Total net benefit must subtract deficit dollar-for-dollar');
+});
+
+// 65. Stub Period Proration (October 2026 Closing -> 3 Operating Months in 2026)
+runTest('Partial-Year Proration: October 2026 closing operates for 3 months in Year 1 with exact 3-month debt service', () => {
+  const annualInputs = {
+    purchasePrice: 1000000,
+    downPaymentPercent: 25,
+    interestRate: 6.0,
+    loanTerm: 30,
+    grossRentAnnual: 120000,
+    vacancyRate: 0,
+    expenseRatio: 20, // $24,000 annual opex
+    prorateFirstYear: false,
+    exitYear: 5
+  };
+
+  const fullYearRes = PropertyMath.calculateProjections('commercial', annualInputs);
+  assert.strictEqual(fullYearRes.projections[0].operatingMonths, 12, 'Default Year 1 has 12 operating months');
+  assert.strictEqual(fullYearRes.projections[0].grossPotentialIncome, 120000, 'Full year gross income is $120,000');
+  assert.strictEqual(fullYearRes.projections[0].operatingExpenses, 24000, 'Full year operating expenses is $24,000');
+
+  // Now test with prorateFirstYear = true and firstYearMonths = 3 (Oct, Nov, Dec 2026)
+  const stubInputs = {
+    ...annualInputs,
+    prorateFirstYear: true,
+    firstYearMonths: 3,
+    closingDate: '2026-10-01'
+  };
+
+  const stubRes = PropertyMath.calculateProjections('commercial', stubInputs);
+  assert.strictEqual(stubRes.isProratedFirstYear, true, 'isProratedFirstYear must be true');
+  assert.strictEqual(stubRes.firstYearOperatingMonths, 3, 'firstYearOperatingMonths must be 3');
+  assert.strictEqual(stubRes.projections[0].operatingMonths, 3, 'Year 1 operatingMonths must be 3');
+
+  // Year 1 Revenue and OpEx should be exactly 3/12 (25%) of annual
+  assert.strictEqual(stubRes.projections[0].grossPotentialIncome, 30000, 'Year 1 gross income should be $30,000 (3 months)');
+  assert.strictEqual(stubRes.projections[0].operatingExpenses, 6000, 'Year 1 operating expenses should be $6,000 (3 months)');
+  assert.strictEqual(stubRes.projections[0].netOperatingIncome, 24000, 'Year 1 NOI should be $24,000 (3 months)');
+
+  // Year 1 Debt Service should be exactly 3 monthly payments
+  const monthlyPayment = PropertyMath.calculateMonthlyPayment(750000, 6.0, 30);
+  const expectedStubDebt = Math.round(monthlyPayment * 3);
+  assert.strictEqual(Math.round(stubRes.projections[0].debtService), expectedStubDebt, 'Year 1 debt service must equal 3 monthly payments');
+
+  // Year 2 should revert to full 12 months
+  assert.strictEqual(stubRes.projections[1].operatingMonths, 12, 'Year 2 operates for full 12 months');
+});
+
+// 66. Granular Monthly Schedule Generation
+runTest('Monthly Schedule Engine: calculateMonthlyProjections generates 24 consecutive months starting post-closing', () => {
+  const inputs = {
+    purchasePrice: 600000,
+    downPaymentPercent: 20,
+    interestRate: 6.5,
+    loanTerm: 30,
+    grossRentAnnual: 72000,
+    vacancyRate: 5,
+    expenseRatio: 30
+  };
+
+  const monthlyRes = PropertyMath.calculateMonthlyProjections('commercial', inputs, {
+    startDate: '2026-10-01',
+    totalMonths: 24
+  });
+
+  assert.ok(monthlyRes, 'calculateMonthlyProjections must return result');
+  assert.strictEqual(monthlyRes.startYear, 2026, 'Start year must be 2026');
+  assert.strictEqual(monthlyRes.startMonth, 10, 'Start month must be 10 (October)');
+  assert.strictEqual(monthlyRes.monthlyProjections.length, 24, 'Must generate exactly 24 monthly rows');
+
+  // Check Month 1: October 2026
+  const m1 = monthlyRes.monthlyProjections[0];
+  assert.strictEqual(m1.monthNumber, 1);
+  assert.strictEqual(m1.calendarYear, 2026);
+  assert.strictEqual(m1.calendarMonth, 10);
+  assert.strictEqual(m1.label, 'Oct 2026');
+  assert.strictEqual(m1.operatingYear, 1);
+  assert.strictEqual(m1.grossIncome, 6000); // 72,000 / 12
+
+  // Check Month 3: December 2026 (End of stub year)
+  const m3 = monthlyRes.monthlyProjections[2];
+  assert.strictEqual(m3.calendarYear, 2026);
+  assert.strictEqual(m3.calendarMonth, 12);
+  assert.strictEqual(m3.label, 'Dec 2026');
+
+  // Check Month 4: January 2027 (Beginning of full year 2027)
+  const m4 = monthlyRes.monthlyProjections[3];
+  assert.strictEqual(m4.calendarYear, 2027);
+  assert.strictEqual(m4.calendarMonth, 1);
+  assert.strictEqual(m4.label, 'Jan 2027');
+
+  // Amortization integrity
+  assert.ok(m1.principalPaid > 0, 'Principal paid must be > 0');
+  assert.ok(m1.interestPaid > 0, 'Interest paid must be > 0');
+  assert.ok(m1.remainingLoanBalance < 480000, 'Loan balance must decrease after Month 1 payment');
+});
+
+// 67. Yakima County GIS Building Specs Integration
+runTest('AddressService: Yakima FeatureServer 50 & 70 integration extracts building characteristics', () => {
+  const AddressService = require('./address-service.js');
+  assert.ok(AddressService.YAKIMA_CHAR_URL, 'YAKIMA_CHAR_URL must be defined');
+  assert.ok(AddressService.YAKIMA_COMM_URL, 'YAKIMA_COMM_URL must be defined');
+  assert.ok(AddressService.fetchYakimaAssessorData, 'fetchYakimaAssessorData must exist');
+});
+
+// 68. UI Elements: Dossier Building Specs, Monthly Schedule, and Proration Toggle
+runTest('UI Verification: project.html features Building Specs Dossier, Monthly View Toggle, and Proration Switch', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // 1. Dossier Building Specs
+  assert.ok(projHtml.includes('id="dossier-bldg-specs-section"'), 'Must have #dossier-bldg-specs-section in dossier card');
+  assert.ok(projHtml.includes('id="dossier-bldg-year-pill"'), 'Must have #dossier-bldg-year-pill');
+  assert.ok(projHtml.includes('id="dossier-bldg-sqft"'), 'Must have #dossier-bldg-sqft');
+  assert.ok(projHtml.includes('id="dossier-bldg-stories"'), 'Must have #dossier-bldg-stories');
+  assert.ok(projHtml.includes('id="dossier-bldg-condition"'), 'Must have #dossier-bldg-condition');
+  assert.ok(projHtml.includes('id="dossier-bldg-construction"'), 'Must have #dossier-bldg-construction');
+  assert.ok(projHtml.includes('id="dossier-bldg-hvac"'), 'Must have #dossier-bldg-hvac');
+
+  // 2. Schedule View Switcher
+  assert.ok(projHtml.includes('id="btn-view-annual"'), 'Must have Annual view button');
+  assert.ok(projHtml.includes('id="btn-view-monthly"'), 'Must have Monthly view button');
+  assert.ok(projHtml.includes('id="annual-schedule-container"'), 'Must have annual-schedule-container');
+  assert.ok(projHtml.includes('id="monthly-schedule-container"'), 'Must have monthly-schedule-container');
+  assert.ok(projHtml.includes('id="monthly-schedule-table-body"'), 'Must have monthly-schedule-table-body');
+  assert.ok(projHtml.includes('window.switchForecastView = switchForecastView'), 'switchForecastView must be exposed');
+  assert.ok(projHtml.includes('window.renderMonthlyScheduleTable = renderMonthlyScheduleTable'), 'renderMonthlyScheduleTable must be exposed');
+
+  // 3. Stub Period Proration Toggle
+  assert.ok(projHtml.includes('id="input-prorate-first-year"'), 'Must have input-prorate-first-year checkbox');
+  assert.ok(projHtml.includes('Prorate 2026 (Oct–Dec Stub: 3 Mo)'), 'Must have label for 2026 stub period');
+
+  // 4. Negative Cash Flow Deficit Transparency
+  assert.ok(projHtml.includes('id="wealth-cashflow-sub"'), 'Must have wealth-cashflow-sub id');
+  assert.ok(projHtml.includes('Deficit funded out-of-pocket'), 'Must distinguish deficit funded out-of-pocket');
+  assert.ok(projHtml.includes('cumulative operating deficit funded out-of-pocket'), 'Narrative must specify deficit funded out-of-pocket');
+
+  // 5. Printable Brief Building Specs Row
+  assert.ok(projHtml.includes('Building Specs & Age'), 'Printable brief must feature Building Specs & Age');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
@@ -1463,5 +1640,6 @@ if (testsFailed > 0) {
 } else {
   process.exit(0);
 }
+
 
 
