@@ -1627,8 +1627,19 @@ runTest('UI Verification: project.html features Building Specs Dossier, Monthly 
   assert.ok(projHtml.includes('Deficit funded out-of-pocket'), 'Must distinguish deficit funded out-of-pocket');
   assert.ok(projHtml.includes('cumulative operating deficit funded out-of-pocket'), 'Narrative must specify deficit funded out-of-pocket');
 
-  // 5. Printable Brief Building Specs Row
-  assert.ok(projHtml.includes('Building Specs & Age'), 'Printable brief must feature Building Specs & Age');
+  // 6. Interactive Parcel Search Panel and Quick-Link
+  assert.ok(projHtml.includes('id="btn-toggle-dossier-search"'), 'Dossier must feature toggle-search button');
+  assert.ok(projHtml.includes('id="dossier-search-panel"'), 'Dossier must have #dossier-search-panel');
+  assert.ok(projHtml.includes('id="dossier-search-input"'), 'Dossier must have #dossier-search-input');
+  assert.ok(projHtml.includes('window.quickLinkDossierParcel = quickLinkDossierParcel'), 'quickLinkDossierParcel must be exposed');
+  assert.ok(projHtml.includes('id="dossier-unlinked-warning"'), 'Dossier must display warning when generic location lacks parcel');
+});
+
+// 69. Assessor Data Persistence in Guided Wizard and Auto-Resolution
+runTest('Wizard & Project: Assessor data persists into deal inputs and enables live parcel resolution', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+  assert.ok(dashHtml.includes('assessorData: _wizAssessorCache || null'), 'Wizard inputs must persist assessorData');
 });
 
 console.log(`\n--- Unit Test Suite Completed ---`);

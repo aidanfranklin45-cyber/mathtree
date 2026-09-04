@@ -2595,6 +2595,7 @@
         primaryApn: _wizAssessorCache?.apn || null,
         totalAcreage: _wizAssessorCache?.packageAcres || _wizAssessorCache?.acres || null,
         totalAssessedValue: _wizAssessorCache?.totalAssessedValue || null,
+        assessorData: _wizAssessorCache || null,
         parcels: window._wizardParcelPackage || (_wizAssessorCache ? [_wizAssessorCache] : []),
         gisSync: {
           lastSyncedAt: new Date().toISOString(),
