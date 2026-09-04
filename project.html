@@ -1301,7 +1301,7 @@
                 <!-- 2026 Stub Period Proration Toggle -->
                 <label class="inline-flex items-center space-x-2 text-xs font-semibold text-slate-300 cursor-pointer bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition" title="Prorate Year 1 for late 2026 closing (e.g. October 2026 = 3 months operating period)">
                   <input type="checkbox" id="input-prorate-first-year" onchange="updateCalculations()" class="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 w-3.5 h-3.5">
-                  <span class="text-[11px]">Prorate 2026 (Octâ€“Dec Stub: 3 Mo)</span>
+                  <span class="text-[11px]">Prorate 2026 (Oct–Dec Stub: 3 Mo)</span>
                 </label>
                 <!-- View Mode: Annual Pro-Forma vs Monthly Schedule -->
                 <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
@@ -2115,10 +2115,98 @@
   </div>
 
 </main>
-  
-    </div>
-  </div>
 
+  <!-- Investor Profile & Underwriting Settings Modal -->
+  <div id="investor-profile-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl my-6">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base shrink-0">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-white">Investor Profile & Settings</h3>
+            <p class="text-xs text-slate-400">Global underwriting benchmarks & opportunity cost parameters</p>
+          </div>
+        </div>
+        <button onclick="closeInvestorProfileModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <form id="investor-profile-form" onsubmit="saveInvestorProfileForm(event)" class="space-y-4">
+        <!-- Investor Identity -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Investor / Sponsor Name</label>
+            <input type="text" id="prof-full-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Alex Morgan">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Fund / Entity Name</label>
+            <input type="text" id="prof-company-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Apex Real Estate Capital">
+          </div>
+        </div>
+
+        <!-- Global Opportunity Cost / Hurdle Rate -->
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-extrabold text-emerald-400">Target Discount Rate / Hurdle Rate (%)</label>
+            <span class="text-[10px] uppercase font-bold text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Opportunity Cost</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Your personal required annual return. This opportunity cost rate is used to discount future cash flows into <strong>Net Present Value (NPV)</strong>. Deals with an IRR above this rate yield positive NPV.
+          </p>
+          <div class="flex items-center space-x-3 pt-1">
+            <div class="relative flex-1">
+              <input type="number" id="prof-discount-rate" min="0" max="50" step="0.1" required class="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400 pr-8">
+              <span class="absolute right-3 top-2.5 text-xs font-bold text-slate-500">%</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button type="button" onclick="setProfileDiscountRate(8.0)" class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700">8% (Core)</button>
+              <button type="button" onclick="setProfileDiscountRate(10.0)" class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700">10% (Growth)</button>
+              <button type="button" onclick="setProfileDiscountRate(12.0)" class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700">12% (Opportunistic)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Default Underwriting Baseline Assumptions -->
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Default Underwriting Assumptions</span>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Default Hold Period (Years)</label>
+              <input type="number" id="prof-exit-year" min="1" max="30" step="1" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Default Market Tier</label>
+              <select id="prof-market-tier" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+                <option value="Tier 1">Tier 1 • Gateway</option>
+                <option value="Tier 2">Tier 2 • Growth</option>
+                <option value="Tier 3">Tier 3 • Tertiary</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Default Exit Cap Rate Method</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label class="flex items-center space-x-2 p-2 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer">
+                <input type="radio" name="prof-exit-cap-timing" value="amortized" class="text-brand-500 focus:ring-brand-500">
+                <span class="text-xs font-semibold text-slate-300">Amortize Spread</span>
+              </label>
+              <label class="flex items-center space-x-2 p-2 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer">
+                <input type="radio" name="prof-exit-cap-timing" value="day1" class="text-brand-500 focus:ring-brand-500">
+                <span class="text-xs font-semibold text-slate-300">Day 1 Shift</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end space-x-3 pt-2">
+          <button type="button" onclick="closeInvestorProfileModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-md shadow-emerald-500/20 transition">
+            Save Preferences
           </button>
         </div>
       </form>
