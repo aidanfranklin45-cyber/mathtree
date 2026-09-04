@@ -265,8 +265,15 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
     }
   }
 
-  const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
-  const loanAmount = Math.max(0, purchasePrice - downPaymentAmount);
+  let loanAmount = 0;
+  let downPaymentAmount = 0;
+  if (inputs.loanAmount !== undefined && !isNaN(parseFloat(String(inputs.loanAmount)))) {
+    loanAmount = Math.max(0, parseFloat(String(inputs.loanAmount)));
+    downPaymentAmount = Math.max(0, purchasePrice - loanAmount);
+  } else {
+    downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
+    loanAmount = Math.max(0, purchasePrice - downPaymentAmount);
+  }
   const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
   const initialEquity = initialPropertyValue - loanAmount;
 

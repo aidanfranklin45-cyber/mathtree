@@ -183,6 +183,120 @@
       </div>
     </div>
 
+    <!-- Deal Acquisition & Investment Milestone Timeline Bar -->
+    <div id="deal-timeline-container" class="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 p-4 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-7 h-7 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-xs border border-brand-500/20">
+            ⏳
+          </div>
+          <div>
+            <h3 class="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center space-x-2">
+              <span>Deal Acquisition & Investment Timeline</span>
+              <span id="deal-stage-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-normal">Underwriting</span>
+            </h3>
+            <p id="deal-stage-description" class="text-[11px] text-slate-400">Financial model active • evaluating returns, cash flows, and downside sensitivity</p>
+          </div>
+        </div>
+        
+        <!-- Quick Stage Actions -->
+        <div class="flex items-center space-x-2">
+          <button type="button" id="btn-prev-stage" onclick="stepDealStage(-1)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition" title="Move to previous stage">← Prev</button>
+          <select id="select-deal-stage" onchange="setDealStage(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:border-brand-500">
+            <option value="screening">1. Screening & Underwriting</option>
+            <option value="loi">2. LOI / Offer Submitted</option>
+            <option value="due_diligence">3. Under Contract & Due Diligence</option>
+            <option value="closing">4. Financing & Closing</option>
+            <option value="owned">5. Owned / Asset Management</option>
+            <option value="disposition">6. Exited / Disposed</option>
+          </select>
+          <button type="button" id="btn-next-stage" onclick="stepDealStage(1)" class="px-3 py-1 rounded-lg text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 border border-emerald-900/50 hover:bg-emerald-950/50 transition flex items-center space-x-1" title="Advance to next stage">
+            <span>Advance</span>
+            <span>➔</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 6-Stage Visual Stepper -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1" id="timeline-stepper-track">
+        <div id="step-screening" onclick="setDealStage('screening')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-brand-500/10 border-brand-500/30 text-brand-300">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 1</span>
+            <span class="w-2 h-2 rounded-full bg-brand-400"></span>
+          </div>
+          <p class="text-xs font-bold text-white">Underwriting</p>
+          <span class="text-[10px] text-slate-400">Model & Returns</span>
+        </div>
+
+        <div id="step-loi" onclick="setDealStage('loi')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 2</span>
+            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+          </div>
+          <p class="text-xs font-bold text-slate-300">LOI Submitted</p>
+          <span class="text-[10px] text-slate-500">Offer Issued</span>
+        </div>
+
+        <div id="step-due_diligence" onclick="setDealStage('due_diligence')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 3</span>
+            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+          </div>
+          <p class="text-xs font-bold text-slate-300">Due Diligence</p>
+          <span class="text-[10px] text-slate-500">PSA Feasibility</span>
+        </div>
+
+        <div id="step-closing" onclick="setDealStage('closing')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 4</span>
+            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+          </div>
+          <p class="text-xs font-bold text-slate-300">Closing & Escrow</p>
+          <span class="text-[10px] text-slate-500">Debt & Settlement</span>
+        </div>
+
+        <div id="step-owned" onclick="setDealStage('owned')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 5</span>
+            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+          </div>
+          <p class="text-xs font-bold text-slate-300">Owned Asset</p>
+          <span class="text-[10px] text-slate-500">Operate & Value-Add</span>
+        </div>
+
+        <div id="step-disposition" onclick="setDealStage('disposition')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 6</span>
+            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+          </div>
+          <p class="text-xs font-bold text-slate-300">Disposition</p>
+          <span class="text-[10px] text-slate-500">Sale / Refinance</span>
+        </div>
+      </div>
+
+      <!-- Milestone Target Dates & Critical Deadlines -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs border-t border-slate-900 bg-slate-950/40 p-2.5 rounded-xl">
+        <div class="flex items-center flex-wrap gap-4 text-[11px]">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-slate-500 font-bold uppercase text-[10px]">LOI Date:</span>
+            <input type="date" id="date-loi" onchange="updateMilestoneDate('loiDate', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-slate-200 text-[11px] focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="text-amber-400 font-bold uppercase text-[10px]">DD Expiration (Go/No-Go):</span>
+            <input type="date" id="date-dd" onchange="updateMilestoneDate('dueDiligenceExpiration', this.value)" class="bg-slate-900 border border-amber-900/60 rounded px-2 py-0.5 text-amber-200 text-[11px] focus:outline-none focus:border-amber-400">
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="text-emerald-400 font-bold uppercase text-[10px]">Target Closing:</span>
+            <input type="date" id="date-closing" onchange="updateMilestoneDate('closingDate', this.value)" class="bg-slate-900 border border-emerald-900/60 rounded px-2 py-0.5 text-emerald-200 text-[11px] focus:outline-none focus:border-emerald-400">
+          </div>
+        </div>
+        <div id="timeline-countdown-pill" class="text-[11px] font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+          <span>Active Pipeline Status</span>
+        </div>
+      </div>
+    </div>
+
+
     <div id="modeler-grid-container" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       
       <!-- Left column: Brief Assumptions Summary (takes 4 cols on lg, or full width on smaller screens) -->
@@ -558,6 +672,41 @@
               </summary>
               <div class="mt-4 space-y-4">
                 
+                <!-- Financing Structure Selector -->
+                <div class="space-y-1.5">
+                  <label for="input-financing-type" class="text-xs font-semibold text-slate-400">Financing Structure</label>
+                  <select id="input-financing-type" name="financingType" onchange="toggleSidebarFinancing(this.value); updateCalculations();" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-xs font-bold text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <option value="fixed" selected>Traditional Fixed-Rate Mortgage</option>
+                    <option value="arm">Adjustable-Rate (ARM / Floating)</option>
+                    <option value="interest_only">Interest-Only (I/O) Loan</option>
+                    <option value="bridge">Bridge / Hard Money Loan</option>
+                    <option value="seller_financing">Seller Financing</option>
+                  </select>
+                </div>
+
+                <!-- Conditional Sidebar ARM & IO Fields -->
+                <div id="sidebar-group-arm" class="hidden grid grid-cols-3 gap-2 p-2.5 bg-slate-950/90 border border-emerald-950 rounded-xl">
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400">Fixed Yrs</label>
+                    <input type="number" id="input-arm-initial" value="5" min="1" max="10" onchange="updateCalculations()" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400">Reset Rate %</label>
+                    <input type="number" id="input-arm-rate" value="7.75" step="0.125" onchange="updateCalculations()" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400">Cap Rate %</label>
+                    <input type="number" id="input-arm-cap" value="9.5" step="0.125" onchange="updateCalculations()" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white">
+                  </div>
+                </div>
+
+                <div id="sidebar-group-io" class="hidden p-2.5 bg-slate-950/90 border border-emerald-950 rounded-xl">
+                  <div class="space-y-1 max-w-xs">
+                    <label class="text-[10px] font-bold text-slate-400">Interest-Only Period (Years)</label>
+                    <input type="number" id="input-io-years" value="3" min="1" max="10" onchange="updateCalculations()" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white">
+                  </div>
+                </div>
+
                 <!-- Loan Term -->
                 <div class="space-y-1.5">
                   <label for="input-loan-term" class="text-xs font-semibold text-slate-400">Loan Term</label>
@@ -1049,11 +1198,13 @@
                     <thead>
                       <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
                         <th class="py-2.5 px-5">Year</th>
+                        <th class="py-2.5 px-4">Rate (%)</th>
                         <th class="py-2.5 px-4">Beginning Balance</th>
                         <th class="py-2.5 px-4">Annual Payment</th>
                         <th class="py-2.5 px-4 text-accent-emerald">Principal Paid</th>
                         <th class="py-2.5 px-4 text-accent-rose">Interest Paid</th>
                         <th class="py-2.5 px-4">Ending Balance</th>
+                        <th class="py-2.5 px-4 text-emerald-400">Cumulative Paydown</th>
                         <th class="py-2.5 px-4 pr-5 text-slate-400">LTV (%)</th>
                       </tr>
                     </thead>
@@ -1579,7 +1730,43 @@
 
         <!-- Debt & Financing Terms -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
+            <div class="flex items-center space-x-2">
+              <label class="text-[10px] font-bold text-slate-500 uppercase">Structure:</label>
+              <select id="edit-deal-financing-type" onchange="toggleEditModalFinancing(this.value)" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-0.5 text-xs font-semibold text-white">
+                <option value="fixed">Traditional Fixed-Rate</option>
+                <option value="arm">Adjustable-Rate (ARM)</option>
+                <option value="interest_only">Interest-Only (I/O)</option>
+                <option value="bridge">Bridge / Hard Money</option>
+                <option value="seller_financing">Seller Financing</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Conditional ARM & IO Fields in Edit Modal -->
+          <div id="edit-group-arm" class="hidden grid grid-cols-3 gap-2 p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-slate-400">Fixed Yrs</label>
+              <input type="number" id="edit-deal-arm-initial" value="5" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-slate-400">Reset Rate %</label>
+              <input type="number" id="edit-deal-arm-rate" value="7.75" step="0.125" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-slate-400">Rate Cap %</label>
+              <input type="number" id="edit-deal-arm-cap" value="9.5" step="0.125" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+          </div>
+
+          <div id="edit-group-io" class="hidden p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl">
+            <div class="space-y-1 max-w-xs">
+              <label class="text-[10px] font-bold text-slate-400">Interest-Only Period (Years)</label>
+              <input type="number" id="edit-deal-io-years" value="3" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Down Payment (%)</label>
@@ -2205,6 +2392,19 @@
       document.getElementById('input-down-payment').value = values.downPaymentPercent ?? '';
       document.getElementById('input-interest-rate').value = values.interestRate ?? '';
       document.getElementById('input-loan-term').value = values.loanTerm ?? values.loanTermYears ?? values.amortizationYears ?? 30;
+      const finType = values.financingType || 'fixed';
+      if (document.getElementById('input-financing-type')) {
+        document.getElementById('input-financing-type').value = finType;
+        toggleSidebarFinancing(finType);
+      }
+      if (document.getElementById('input-arm-initial')) document.getElementById('input-arm-initial').value = values.armInitialYears ?? 5;
+      if (document.getElementById('input-arm-rate')) document.getElementById('input-arm-rate').value = values.armAdjustmentRate ?? 7.75;
+      if (document.getElementById('input-arm-cap')) document.getElementById('input-arm-cap').value = values.armRateCap ?? 9.5;
+      if (document.getElementById('input-io-years')) document.getElementById('input-io-years').value = values.interestOnlyYears ?? 3;
+      if (document.getElementById('date-loi')) document.getElementById('date-loi').value = values.loiDate || '';
+      if (document.getElementById('date-dd')) document.getElementById('date-dd').value = values.dueDiligenceExpiration || '';
+      if (document.getElementById('date-closing')) document.getElementById('date-closing').value = values.closingDate || '';
+      renderDealTimelineUI(values.dealStage || (currentLoadedDeal && currentLoadedDeal.status === 'owned' ? 'owned' : 'screening'));
       document.getElementById('input-rehab-costs').value = values.rehabCosts ?? values.rehabBudget ?? 0;
       document.getElementById('input-closing-costs').value = values.closingCosts ?? 0;
       const capRateOrApp = (activeTab === 'commercial' || activeTab === 'storage')
@@ -2261,6 +2461,15 @@
         downPaymentPercent: parseFloat(document.getElementById('input-down-payment').value) || 0,
         interestRate: parseFloat(document.getElementById('input-interest-rate').value) || 0,
         loanTerm: parseInt(document.getElementById('input-loan-term').value) || 0,
+        financingType: document.getElementById('input-financing-type')?.value || (currentLoadedDeal?.inputs?.financingType || 'fixed'),
+        armInitialYears: parseInt(document.getElementById('input-arm-initial')?.value, 10) || (currentLoadedDeal?.inputs?.armInitialYears || 5),
+        armAdjustmentRate: parseFloat(document.getElementById('input-arm-rate')?.value) || (currentLoadedDeal?.inputs?.armAdjustmentRate || 7.75),
+        armRateCap: parseFloat(document.getElementById('input-arm-cap')?.value) || (currentLoadedDeal?.inputs?.armRateCap || 9.5),
+        interestOnlyYears: parseInt(document.getElementById('input-io-years')?.value, 10) || (currentLoadedDeal?.inputs?.interestOnlyYears || 3),
+        dealStage: currentLoadedDeal?.inputs?.dealStage || currentLoadedDeal?.stage || 'screening',
+        loiDate: document.getElementById('date-loi')?.value || currentLoadedDeal?.inputs?.loiDate || '',
+        dueDiligenceExpiration: document.getElementById('date-dd')?.value || currentLoadedDeal?.inputs?.dueDiligenceExpiration || '',
+        closingDate: document.getElementById('date-closing')?.value || currentLoadedDeal?.inputs?.closingDate || '',
         rehabCosts: parseFloat(document.getElementById('input-rehab-costs').value) || 0,
         closingCosts: parseFloat(document.getElementById('input-closing-costs').value) || 0,
         appreciationRate: parseFloat(document.getElementById('input-appreciation-rate').value) || 0,
@@ -2443,13 +2652,21 @@
         const proj = projections[idx];
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
+        const rateTag = row.isInterestOnly 
+          ? `<span class="text-amber-400 font-bold">${row.appliedRate}% [I/O]</span>` 
+          : (row.isArmAdjusted 
+            ? `<span class="text-cyan-400 font-bold">${row.appliedRate}% [ARM]</span>` 
+            : `<span>${row.appliedRate}%</span>`);
+        const cumPaydown = row.cumulativePrincipalPaid !== undefined ? row.cumulativePrincipalPaid : (proj ? proj.cumulativePrincipalPaid || 0 : 0);
         tr.innerHTML = `
           <td class="py-2.5 px-5 text-slate-100 font-bold">${row.year}</td>
+          <td class="py-2.5 px-4 font-mono">${rateTag}</td>
           <td class="py-2.5 px-4">${formatCurrency(row.beginningBalance)}</td>
-          <td class="py-2.5 px-4">${formatCurrency(row.totalPayment)}</td>
-          <td class="py-2.5 px-4 text-accent-emerald font-semibold">${formatCurrency(row.principalPaid)}</td>
+          <td class="py-2.5 px-4 font-bold text-white">${formatCurrency(row.totalPayment)}</td>
+          <td class="py-2.5 px-4 text-accent-emerald font-bold">${row.isInterestOnly ? '<span class="text-slate-500 font-normal">$0 (I/O)</span>' : formatCurrency(row.principalPaid)}</td>
           <td class="py-2.5 px-4 text-accent-rose font-semibold">${formatCurrency(row.interestPaid)}</td>
           <td class="py-2.5 px-4">${formatCurrency(row.endingBalance)}</td>
+          <td class="py-2.5 px-4 text-emerald-400 font-bold">${formatCurrency(cumPaydown)}</td>
           <td class="py-2.5 px-4 pr-5 text-slate-400 font-bold">${proj ? proj.ltv.toFixed(1) : '0.0'}%</td>
         `;
         tbody.appendChild(tr);
@@ -4923,6 +5140,147 @@
     }
     window.saveInvestorProfileForm = saveInvestorProfileForm;
 
+    
+    // === Deal Acquisition Timeline & Milestone Tracker ===
+    const DEAL_STAGES = ['screening', 'loi', 'due_diligence', 'closing', 'owned', 'disposition'];
+    const STAGE_META = {
+      screening: {
+        label: 'Underwriting',
+        desc: 'Financial model active • evaluating returns, cash flows, and downside sensitivity',
+        badgeClass: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+      },
+      loi: {
+        label: 'LOI Submitted',
+        desc: 'Letter of Intent issued • negotiating price, earnest money deposit (EMD), and inspection contingencies',
+        badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+      },
+      due_diligence: {
+        label: 'Under Contract (DD)',
+        desc: 'PSA executed • 30-60 day feasibility window: lease audits, physical inspections, environmental & title',
+        badgeClass: 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+      },
+      closing: {
+        label: 'Financing & Closing',
+        desc: 'Debt commitment issued • capital calls / equity wired • closing escrow & title recording',
+        badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+      },
+      owned: {
+        label: 'Owned Portfolio Asset',
+        desc: 'Property acquired • executing business plan, CapEx/renovations, tenant leasing & cash distributions',
+        badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      },
+      disposition: {
+        label: 'Exited / Disposed',
+        desc: 'Terminal sale executed or permanent cash-out refinance completed • capital returned to investors',
+        badgeClass: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+      }
+    };
+
+    function renderDealTimelineUI(currentStage) {
+      currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || (currentLoadedDeal?.status === 'owned' ? 'owned' : 'screening');
+      const meta = STAGE_META[currentStage] || STAGE_META['screening'];
+
+      const badgeEl = document.getElementById('deal-stage-badge');
+      if (badgeEl) {
+        badgeEl.textContent = meta.label;
+        badgeEl.className = `px-2 py-0.5 rounded text-[10px] font-extrabold ${meta.badgeClass} uppercase tracking-normal`;
+      }
+
+      const descEl = document.getElementById('deal-stage-description');
+      if (descEl) descEl.textContent = meta.desc;
+
+      const selEl = document.getElementById('select-deal-stage');
+      if (selEl) selEl.value = currentStage;
+
+      const currIdx = DEAL_STAGES.indexOf(currentStage);
+
+      // Update 6-stage stepper items
+      DEAL_STAGES.forEach((st, idx) => {
+        const stepEl = document.getElementById('step-' + st);
+        if (!stepEl) return;
+        if (idx === currIdx) {
+          stepEl.className = 'cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-brand-500/15 border-brand-500/50 text-brand-300 shadow-sm';
+        } else if (idx < currIdx) {
+          stepEl.className = 'cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-emerald-950/20 border-emerald-900/40 text-emerald-400';
+        } else {
+          stepEl.className = 'cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-500 hover:border-slate-700';
+        }
+      });
+
+      // Update countdown pill
+      const countdownEl = document.getElementById('timeline-countdown-pill');
+      if (countdownEl && currentLoadedDeal && currentLoadedDeal.inputs) {
+        const ddDate = currentLoadedDeal.inputs.dueDiligenceExpiration;
+        if (ddDate && (currentStage === 'due_diligence' || currentStage === 'screening' || currentStage === 'loi')) {
+          const diffMs = new Date(ddDate) - new Date();
+          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          if (diffDays > 0) {
+            countdownEl.innerHTML = `<span class="text-amber-400">⚡ ${diffDays} days until DD contingency release</span>`;
+          } else if (diffDays === 0) {
+            countdownEl.innerHTML = `<span class="text-rose-400">⚠️ DD contingency expires TODAY</span>`;
+          } else {
+            countdownEl.innerHTML = `<span class="text-slate-500">DD contingency expired</span>`;
+          }
+        } else if (currentStage === 'owned') {
+          countdownEl.innerHTML = `<span class="text-emerald-400">✓ Active Portfolio Asset</span>`;
+        } else {
+          countdownEl.innerHTML = `<span class="text-slate-400">Stage: ${meta.label}</span>`;
+        }
+      }
+    }
+    window.renderDealTimelineUI = renderDealTimelineUI;
+
+    function setDealStage(stage) {
+      if (!DEAL_STAGES.includes(stage)) return;
+      if (!currentLoadedDeal) return;
+      currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
+      currentLoadedDeal.inputs.dealStage = stage;
+      currentLoadedDeal.stage = stage;
+      if (stage === 'owned') {
+        currentLoadedDeal.status = 'owned';
+      } else if (stage !== 'disposition') {
+        currentLoadedDeal.status = 'prospect';
+      }
+      updateDealStatusUI(currentLoadedDeal.status);
+      renderDealTimelineUI(stage);
+      saveCurrentDealChanges(false);
+    }
+    window.setDealStage = setDealStage;
+
+    function stepDealStage(delta) {
+      const currentStage = (currentLoadedDeal?.inputs?.dealStage) || (currentLoadedDeal?.status === 'owned' ? 'owned' : 'screening');
+      let idx = DEAL_STAGES.indexOf(currentStage);
+      if (idx === -1) idx = 0;
+      const nextIdx = Math.max(0, Math.min(DEAL_STAGES.length - 1, idx + delta));
+      setDealStage(DEAL_STAGES[nextIdx]);
+    }
+    window.stepDealStage = stepDealStage;
+
+    function updateMilestoneDate(field, val) {
+      if (!currentLoadedDeal) return;
+      currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
+      currentLoadedDeal.inputs[field] = val;
+      renderDealTimelineUI();
+      saveCurrentDealChanges(false);
+    }
+    window.updateMilestoneDate = updateMilestoneDate;
+
+    function toggleSidebarFinancing(type) {
+      const gArm = document.getElementById('sidebar-group-arm');
+      const gIo = document.getElementById('sidebar-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleSidebarFinancing = toggleSidebarFinancing;
+
+    function toggleEditModalFinancing(type) {
+      const gArm = document.getElementById('edit-group-arm');
+      const gIo = document.getElementById('edit-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleEditModalFinancing = toggleEditModalFinancing;
+
     function openCloudSyncModal() {
       const modal = document.getElementById('cloud-sync-modal');
       if (modal) modal.classList.remove('hidden');
@@ -5623,6 +5981,11 @@
         closingCosts: numVal('edit-deal-closing-costs', 0),
         exitYear: intVal('edit-deal-exit-year', 10),
         discountRate: numVal('edit-deal-discount-rate', 8),
+        financingType: document.getElementById('edit-deal-financing-type')?.value || 'fixed',
+        armInitialYears: intVal('edit-deal-arm-initial', 5),
+        armAdjustmentRate: numVal('edit-deal-arm-rate', 7.75),
+        armRateCap: numVal('edit-deal-arm-cap', 9.5),
+        interestOnlyYears: intVal('edit-deal-io-years', 3),
         manageProperty: document.getElementById('edit-deal-manage-property') ? document.getElementById('edit-deal-manage-property').checked : true,
         exitCapTiming: document.getElementById('edit-deal-exit-cap-timing')?.value || 'amortized',
         marketTier: document.getElementById('edit-deal-market-tier')?.value || 'Tier 2',
@@ -5762,6 +6125,15 @@
       document.getElementById('edit-deal-appreciation-rate').value = appRate;
 
       document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      const finType = inputs.financingType || 'fixed';
+      if (document.getElementById('edit-deal-financing-type')) {
+        document.getElementById('edit-deal-financing-type').value = finType;
+        toggleEditModalFinancing(finType);
+      }
+      if (document.getElementById('edit-deal-arm-initial')) document.getElementById('edit-deal-arm-initial').value = inputs.armInitialYears ?? 5;
+      if (document.getElementById('edit-deal-arm-rate')) document.getElementById('edit-deal-arm-rate').value = inputs.armAdjustmentRate ?? 7.75;
+      if (document.getElementById('edit-deal-arm-cap')) document.getElementById('edit-deal-arm-cap').value = inputs.armRateCap ?? 9.5;
+      if (document.getElementById('edit-deal-io-years')) document.getElementById('edit-deal-io-years').value = inputs.interestOnlyYears ?? 3;
       document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
       document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
       document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;

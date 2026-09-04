@@ -436,6 +436,40 @@
 
         <!-- Step 4: Debt & Exit Strategy -->
         <div id="wizard-step-4" class="space-y-5 hidden">
+          <div class="space-y-1.5">
+            <label for="wiz-financing-type" class="text-xs font-bold uppercase tracking-wider text-slate-300">Financing Structure / Loan Type</label>
+            <select id="wiz-financing-type" onchange="toggleWizardFinancingFields(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              <option value="fixed" selected>Traditional Fixed-Rate Mortgage</option>
+              <option value="arm">Adjustable-Rate Mortgage (ARM / Floating)</option>
+              <option value="interest_only">Interest-Only (I/O) Loan</option>
+              <option value="bridge">Bridge / Hard Money Loan</option>
+              <option value="seller_financing">Seller Financing</option>
+            </select>
+          </div>
+
+          <!-- Dynamic conditional fields for ARM & Interest-Only -->
+          <div id="wiz-group-arm" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Initial Fixed (Yrs)</label>
+              <input type="number" id="wiz-arm-initial" value="5" min="1" max="10" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Reset Rate (%)</label>
+              <input type="number" id="wiz-arm-rate" value="7.75" step="0.125" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Max Rate Cap (%)</label>
+              <input type="number" id="wiz-arm-cap" value="9.5" step="0.125" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            </div>
+          </div>
+
+          <div id="wiz-group-io" class="hidden p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
+            <div class="space-y-1 max-w-xs">
+              <label class="text-[11px] font-bold text-slate-400">Interest-Only Period (Years)</label>
+              <input type="number" id="wiz-io-years" value="3" min="1" max="10" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="space-y-1.5">
               <label for="wiz-interest-rate" class="text-xs font-bold uppercase tracking-wider text-slate-300">Senior Debt Interest Rate (%)</label>
@@ -847,7 +881,43 @@
 
         <!-- Debt & Financing Terms -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
-          <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
+            <div class="flex items-center space-x-2">
+              <label class="text-[10px] font-bold text-slate-500 uppercase">Structure:</label>
+              <select id="edit-deal-financing-type" onchange="toggleEditModalFinancing(this.value)" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-0.5 text-xs font-semibold text-white">
+                <option value="fixed">Traditional Fixed-Rate</option>
+                <option value="arm">Adjustable-Rate (ARM)</option>
+                <option value="interest_only">Interest-Only (I/O)</option>
+                <option value="bridge">Bridge / Hard Money</option>
+                <option value="seller_financing">Seller Financing</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Conditional ARM & IO Fields in Edit Modal -->
+          <div id="edit-group-arm" class="hidden grid grid-cols-3 gap-2 p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl">
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-slate-400">Fixed Yrs</label>
+              <input type="number" id="edit-deal-arm-initial" value="5" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-slate-400">Reset Rate %</label>
+              <input type="number" id="edit-deal-arm-rate" value="7.75" step="0.125" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[10px] font-bold text-slate-400">Rate Cap %</label>
+              <input type="number" id="edit-deal-arm-cap" value="9.5" step="0.125" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+          </div>
+
+          <div id="edit-group-io" class="hidden p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl">
+            <div class="space-y-1 max-w-xs">
+              <label class="text-[10px] font-bold text-slate-400">Interest-Only Period (Years)</label>
+              <input type="number" id="edit-deal-io-years" value="3" min="1" max="10" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Down Payment (%)</label>
@@ -981,7 +1051,13 @@
           purchasePrice: 1200000,
           downPaymentPercent: 25,
           interestRate: 6.5,
-          loanTerm: 25,
+          loanTerm: parseInt(document.getElementById('wiz-amortization')?.value, 10) || 30,
+        financingType: document.getElementById('wiz-financing-type')?.value || 'fixed',
+        armInitialYears: parseInt(document.getElementById('wiz-arm-initial')?.value, 10) || 5,
+        armAdjustmentRate: parseFloat(document.getElementById('wiz-arm-rate')?.value) || 7.75,
+        armRateCap: parseFloat(document.getElementById('wiz-arm-cap')?.value) || 9.5,
+        interestOnlyYears: parseInt(document.getElementById('wiz-io-years')?.value, 10) || 3,
+        dealStage: 'screening',
           rehabCosts: 50000,
           closingCosts: 24000,
           grossRentAnnual: 150000,
@@ -1396,9 +1472,18 @@
         const classStr = d.property_class || d.inputs?.propertyClass || d.inputs?.commClass || d.inputs?.storageClass || 'Class B';
         const facilityStr = d.facility_type || d.inputs?.facilityType || '';
 
-        const statusBadge = isOwned
-          ? '<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap shrink-0">Owned</span>'
-          : '<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap shrink-0">Prospect</span>';
+        const stageMap = {
+          'screening': { label: 'Underwriting', class: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
+          'loi': { label: 'LOI Submitted', class: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+          'due_diligence': { label: 'Due Diligence', class: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
+          'closing': { label: 'Closing', class: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+          'owned': { label: 'Owned Asset', class: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+          'disposition': { label: 'Exited', class: 'bg-slate-500/10 text-slate-400 border-slate-500/20' }
+        };
+        const currentStage = d.inputs?.dealStage || (isOwned ? 'owned' : 'screening');
+        const stInfo = stageMap[currentStage] || (isOwned ? stageMap['owned'] : stageMap['screening']);
+
+        const statusBadge = `<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${stInfo.class} border whitespace-nowrap shrink-0">${stInfo.label}</span>`;
 
         return `
           <div onclick="navigateToProject(event, '${d.id}')" class="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-hidden w-full">
@@ -1623,6 +1708,11 @@
         closingCosts: numVal('edit-deal-closing-costs', 0),
         exitYear: intVal('edit-deal-exit-year', 10),
         discountRate: numVal('edit-deal-discount-rate', 8),
+        financingType: document.getElementById('edit-deal-financing-type')?.value || 'fixed',
+        armInitialYears: intVal('edit-deal-arm-initial', 5),
+        armAdjustmentRate: numVal('edit-deal-arm-rate', 7.75),
+        armRateCap: numVal('edit-deal-arm-cap', 9.5),
+        interestOnlyYears: intVal('edit-deal-io-years', 3),
         manageProperty: document.getElementById('edit-deal-manage-property') ? document.getElementById('edit-deal-manage-property').checked : true,
         exitCapTiming: document.getElementById('edit-deal-exit-cap-timing')?.value || 'amortized',
         marketTier: document.getElementById('edit-deal-market-tier')?.value || 'Tier 2',
@@ -1794,6 +1884,15 @@
       document.getElementById('edit-deal-appreciation-rate').value = appRate;
 
       document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      const finType = inputs.financingType || 'fixed';
+      if (document.getElementById('edit-deal-financing-type')) {
+        document.getElementById('edit-deal-financing-type').value = finType;
+        toggleEditModalFinancing(finType);
+      }
+      if (document.getElementById('edit-deal-arm-initial')) document.getElementById('edit-deal-arm-initial').value = inputs.armInitialYears ?? 5;
+      if (document.getElementById('edit-deal-arm-rate')) document.getElementById('edit-deal-arm-rate').value = inputs.armAdjustmentRate ?? 7.75;
+      if (document.getElementById('edit-deal-arm-cap')) document.getElementById('edit-deal-arm-cap').value = inputs.armRateCap ?? 9.5;
+      if (document.getElementById('edit-deal-io-years')) document.getElementById('edit-deal-io-years').value = inputs.interestOnlyYears ?? 3;
       document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
       document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
       document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
@@ -2448,6 +2547,23 @@
       await loadDashboardProjects();
     }
     window.saveInvestorProfileForm = saveInvestorProfileForm;
+
+    
+    function toggleWizardFinancingFields(type) {
+      const gArm = document.getElementById('wiz-group-arm');
+      const gIo = document.getElementById('wiz-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleWizardFinancingFields = toggleWizardFinancingFields;
+
+    function toggleEditModalFinancing(type) {
+      const gArm = document.getElementById('edit-group-arm');
+      const gIo = document.getElementById('edit-group-io');
+      if (gArm) gArm.classList.toggle('hidden', type !== 'arm');
+      if (gIo) gIo.classList.toggle('hidden', type !== 'interest_only');
+    }
+    window.toggleEditModalFinancing = toggleEditModalFinancing;
 
     function openCloudSyncModal() {
       const modal = document.getElementById('cloud-sync-modal');

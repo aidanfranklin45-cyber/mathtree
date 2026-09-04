@@ -29,70 +29,132 @@ function calculateRemainingBalance(loanAmount, annualRate, termYears, elapsedYea
   return loanAmount * Math.pow(1 + r, p) - (monthlyPayment * (Math.pow(1 + r, p) - 1) / r);
 }
 
-// Helper to compute a 10-year annual amortization schedule
-function getAnnualAmortization(loanAmount, annualRate, termYears) {
+// Helper to compute a 10-year annual amortization schedule across multiple financing types
+function getAnnualAmortization(loanAmount, annualRate, termYears, options = {}) {
   const schedule = [];
+  const finType = String(options.financingType || 'fixed').toLowerCase();
+  const armInitial = parseInt(options.armInitialYears || 5, 10);
+  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(options.armAdjustmentRate) : (annualRate + 1.5);
+  const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : (annualRate + 4.0);
+  const ioYears = parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : (finType === 'interest_only' ? 3 : 0), 10);
+  const balloonYear = parseInt(options.sellerFinanceBalloon || options.balloonYear || 0, 10);
+
   if (loanAmount <= 0 || termYears <= 0) {
     for (let year = 1; year <= 10; year++) {
       schedule.push({
         year,
+        appliedRate: annualRate,
+        isInterestOnly: false,
+        isArmAdjusted: false,
         beginningBalance: 0,
         totalPayment: 0,
         principalPaid: 0,
         interestPaid: 0,
-        endingBalance: 0
+        endingBalance: 0,
+        cumulativePrincipalPaid: 0
       });
     }
     return schedule;
   }
 
   let currentBalance = loanAmount;
-  const r = annualRate / 100 / 12;
-  const n = termYears * 12;
-  const monthlyPayment = calculateMonthlyPayment(loanAmount, annualRate, termYears);
+  let cumulativePrincipal = 0;
 
   for (let year = 1; year <= 10; year++) {
+    const startBalance = currentBalance;
     let principalPaidThisYear = 0;
     let interestPaidThisYear = 0;
     let totalPaymentThisYear = 0;
-    const startBalance = currentBalance;
 
-    for (let month = 1; month <= 12; month++) {
-      const elapsedMonths = (year - 1) * 12 + month - 1;
-      if (elapsedMonths >= n) {
-        break;
-      }
-      
-      let interestDue = currentBalance * r;
-      let principalDue = monthlyPayment - interestDue;
-      
-      if (r === 0) {
-        interestDue = 0;
-        principalDue = monthlyPayment;
-      }
-
-      if (currentBalance < principalDue) {
-        principalDue = currentBalance;
-      }
-
-      const actualPayment = principalDue + interestDue;
-      totalPaymentThisYear += actualPayment;
-      interestPaidThisYear += interestDue;
-      principalPaidThisYear += principalDue;
-      currentBalance -= principalDue;
+    if (currentBalance <= 0 || year > termYears) {
+      schedule.push({
+        year,
+        appliedRate: annualRate,
+        isInterestOnly: false,
+        isArmAdjusted: false,
+        beginningBalance: 0,
+        totalPayment: 0,
+        principalPaid: 0,
+        interestPaid: 0,
+        endingBalance: 0,
+        cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100
+      });
+      continue;
     }
+
+    // Determine applied rate for this year
+    let yearRate = annualRate;
+    let isArmAdjusted = false;
+    if (finType === 'arm' && year > armInitial) {
+      yearRate = Math.min(armCap, Math.max(0, armAdjRate));
+      isArmAdjusted = true;
+    }
+
+    // Determine if this year is interest-only
+    let isInterestOnly = false;
+    if (finType === 'interest_only' && year <= ioYears) {
+      isInterestOnly = true;
+    } else if (finType === 'bridge') {
+      isInterestOnly = true;
+    } else if (finType === 'seller_financing' && ioYears > 0 && year <= ioYears) {
+      isInterestOnly = true;
+    }
+
+    const r = yearRate / 100 / 12;
+
+    if (isInterestOnly) {
+      const monthlyInterest = currentBalance * r;
+      interestPaidThisYear = monthlyInterest * 12;
+      principalPaidThisYear = 0;
+      totalPaymentThisYear = interestPaidThisYear;
+    } else {
+      let remainingYearsForPayment = termYears - (year - 1);
+      if (finType === 'interest_only') {
+        remainingYearsForPayment = Math.max(1, (termYears - ioYears) - (year - ioYears - 1));
+      }
+      if (remainingYearsForPayment < 1) remainingYearsForPayment = 1;
+
+      const monthlyPayment = calculateMonthlyPayment(currentBalance, yearRate, remainingYearsForPayment);
+
+      for (let month = 1; month <= 12; month++) {
+        let interestDue = currentBalance * r;
+        let principalDue = monthlyPayment - interestDue;
+        if (r === 0) {
+          interestDue = 0;
+          principalDue = monthlyPayment;
+        }
+        if (currentBalance < principalDue) {
+          principalDue = currentBalance;
+        }
+        const actualPayment = principalDue + interestDue;
+        totalPaymentThisYear += actualPayment;
+        interestPaidThisYear += interestDue;
+        principalPaidThisYear += principalDue;
+        currentBalance -= principalDue;
+        if (currentBalance <= 0) break;
+      }
+    }
+
+    cumulativePrincipal += principalPaidThisYear;
 
     schedule.push({
       year,
+      appliedRate: Math.round(yearRate * 100) / 100,
+      isInterestOnly,
+      isArmAdjusted,
       beginningBalance: Math.round(startBalance * 100) / 100,
       totalPayment: Math.round(totalPaymentThisYear * 100) / 100,
       principalPaid: Math.round(principalPaidThisYear * 100) / 100,
       interestPaid: Math.round(interestPaidThisYear * 100) / 100,
-      endingBalance: Math.max(0, Math.round(currentBalance * 100) / 100)
+      endingBalance: Math.max(0, Math.round(currentBalance * 100) / 100),
+      cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100
     });
   }
+
   return schedule;
 }
+
+
 
 // Helper to compute Internal Rate of Return (IRR) using bisection
 function calculateIRR(initialCash, cashFlows) {
@@ -205,13 +267,30 @@ function calculateProjections(assetType, inputs) {
   }
 
   // Debt & Equity calculations
-  const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
-  const loanAmount = Math.max(0, purchasePrice - downPaymentAmount);
+  let loanAmount = 0;
+  let downPaymentAmount = 0;
+  if (inputs.loanAmount !== undefined && !isNaN(parseFloat(inputs.loanAmount))) {
+    loanAmount = Math.max(0, parseFloat(inputs.loanAmount));
+    downPaymentAmount = Math.max(0, purchasePrice - loanAmount);
+  } else {
+    downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
+    loanAmount = Math.max(0, purchasePrice - downPaymentAmount);
+  }
   const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
   const initialEquity = initialPropertyValue - loanAmount;
 
   const monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, loanTerm);
   const annualDebtService = monthlyPayment * 12;
+
+  const finOptions = {
+    financingType: inputs.financingType || 'fixed',
+    armInitialYears: inputs.armInitialYears ?? 5,
+    armAdjustmentRate: inputs.armAdjustmentRate,
+    armRateCap: inputs.armRateCap,
+    interestOnlyYears: inputs.interestOnlyYears,
+    sellerFinanceBalloon: inputs.sellerFinanceBalloon
+  };
+  const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm, finOptions);
 
   const projections = [];
   let currentPropertyValue = initialPropertyValue;
@@ -350,8 +429,12 @@ function calculateProjections(assetType, inputs) {
       }
     }
 
-    // 5. Debt Service
-    const currentDebtService = year <= loanTerm ? annualDebtService : 0;
+    // 5. Debt Service & Amortization
+    const yearAmort = (amortizationSchedule && amortizationSchedule[year - 1]) || {};
+    const currentDebtService = yearAmort.totalPayment !== undefined ? yearAmort.totalPayment : (year <= loanTerm ? annualDebtService : 0);
+    const principalPaid = yearAmort.principalPaid || 0;
+    const interestPaid = yearAmort.interestPaid || 0;
+    const cumulativePrincipalPaid = yearAmort.cumulativePrincipalPaid || 0;
 
     // 6. Cash Flow (Net Operating Income minus Annual Debt Service)
     const cashFlow = netOperatingIncome - currentDebtService;
@@ -373,7 +456,7 @@ function calculateProjections(assetType, inputs) {
     const capRate = currentPropertyValue > 0 ? (netOperatingIncome / currentPropertyValue) * 100 : 0;
 
     // 9. Remaining Loan Balance
-    const remainingLoanBalance = calculateRemainingBalance(loanAmount, interestRate, loanTerm, year);
+    const remainingLoanBalance = yearAmort.endingBalance !== undefined ? yearAmort.endingBalance : calculateRemainingBalance(loanAmount, interestRate, loanTerm, year);
 
     // 10. Equity
     const equity = currentPropertyValue - remainingLoanBalance;
@@ -392,6 +475,14 @@ function calculateProjections(assetType, inputs) {
       operatingExpenses: Math.round(operatingExpenses * 100) / 100,
       netOperatingIncome: Math.round(netOperatingIncome * 100) / 100,
       debtService: Math.round(currentDebtService * 100) / 100,
+      annualDebtService: Math.round(currentDebtService * 100) / 100,
+      principalPaid: Math.round(principalPaid * 100) / 100,
+      interestPaid: Math.round(interestPaid * 100) / 100,
+      cumulativePrincipalPaid: Math.round(cumulativePrincipalPaid * 100) / 100,
+      appliedInterestRate: yearAmort.appliedRate ?? interestRate,
+      isInterestOnly: !!yearAmort.isInterestOnly,
+      isArmAdjusted: !!yearAmort.isArmAdjusted,
+      financingType: finOptions.financingType,
       capexReserve: Math.round(capexReserve * 100) / 100,
       cashFlow: Math.round(cashFlow * 100) / 100,
       netCashFlow: Math.round(cashFlow * 100) / 100,
@@ -402,6 +493,8 @@ function calculateProjections(assetType, inputs) {
       isCoCNotMeaningful,
       capRate: Math.round(capRate * 100) / 100,
       loanBalanceRemaining: Math.round(remainingLoanBalance * 100) / 100,
+      endingDebt: Math.round(remainingLoanBalance * 100) / 100,
+      remainingLoanBalance: Math.round(remainingLoanBalance * 100) / 100,
       equity: Math.round(equity * 100) / 100,
       dscr: dscr !== null ? Math.round(dscr * 100) / 100 : null,
       debtYield: debtYield !== null ? Math.round(debtYield * 100) / 100 : null,
@@ -463,7 +556,6 @@ function calculateProjections(assetType, inputs) {
   }
 
   const acquisitionLtv = purchasePrice > 0 ? (loanAmount / purchasePrice) * 100 : 0;
-  const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm);
 
   const isZeroEquity = initialCashInvested <= 0 && purchasePrice > 0;
   const irrDisplay = isZeroEquity ? "N/M (100% Financed)" : (Math.round(irr * 100) / 100).toFixed(2) + "%";
@@ -472,6 +564,11 @@ function calculateProjections(assetType, inputs) {
 
   return {
     isZeroEquity,
+    financingType: finOptions.financingType,
+    interestOnlyYears: finOptions.interestOnlyYears,
+    armInitialYears: finOptions.armInitialYears,
+    armAdjustmentRate: finOptions.armAdjustmentRate,
+    armRateCap: finOptions.armRateCap,
     irrDisplay,
     equityMultiplierDisplay,
     cashOnCashDisplay: y1CoCDisplay,
@@ -1183,6 +1280,7 @@ function calculateHoldingPeriodWealth(inputs, projections, amortizationSchedule,
 if (typeof exports !== 'undefined') {
   exports.calculateProjections = calculateProjections;
   exports.calculateMonthlyPayment = calculateMonthlyPayment;
+  exports.getAnnualAmortization = getAnnualAmortization;
   exports.calculateRemainingBalance = calculateRemainingBalance;
   exports.calculateSensitivityMatrix = calculateSensitivityMatrix;
   exports.runMonteCarloSimulation = runMonteCarloSimulation;
@@ -1199,6 +1297,7 @@ if (typeof window !== 'undefined') {
   window.PropertyMath = {
     calculateProjections,
     calculateMonthlyPayment,
+    getAnnualAmortization,
     calculateRemainingBalance,
     calculateSensitivityMatrix,
     runMonteCarloSimulation,

@@ -968,6 +968,137 @@ runTest('UI Verification: Discount Rate Input and Investor Profile Modal in dash
   assert.ok(projHtml.includes('id="edit-preview-npv"'), 'project.html must display live NPV preview');
 });
 
+// 45. Interest-Only (I/O) Debt Amortization
+runTest('Interest-Only (I/O) Financing: $0 Principal Paid in initial years, then amortizes', () => {
+  const inputs = {
+    purchasePrice: 1000000,
+    downPaymentPercent: 20,
+    loanAmount: 800000,
+    interestRate: 6.0,
+    loanTerm: 30,
+    financingType: 'interest_only',
+    interestOnlyYears: 3,
+    grossRentAnnual: 120000,
+    expenseRatio: 30
+  };
+
+  const results = calculateProjections('commercial', inputs);
+  assert.strictEqual(results.financingType, 'interest_only');
+  assert.strictEqual(results.interestOnlyYears, 3);
+
+  const p1 = results.projections[0];
+  const p2 = results.projections[1];
+  const p3 = results.projections[2];
+  const p4 = results.projections[3];
+
+  // In Years 1-3, principal paid must be exactly $0
+  assert.strictEqual(p1.isInterestOnly, true);
+  assert.strictEqual(p1.principalPaid, 0);
+  assert.strictEqual(p1.cumulativePrincipalPaid, 0);
+  assert.strictEqual(p1.endingDebt, 800000);
+  // Monthly payment during I/O is 800000 * 0.06 / 12 = 4000; annual = 48000
+  assert.strictEqual(Math.round(p1.annualDebtService), 48000);
+
+  assert.strictEqual(p3.isInterestOnly, true);
+  assert.strictEqual(p3.principalPaid, 0);
+  assert.strictEqual(p3.cumulativePrincipalPaid, 0);
+  assert.strictEqual(p3.endingDebt, 800000);
+
+  // In Year 4 (first amortizing year), principal paid must be > 0 and balance must decrease
+  assert.strictEqual(p4.isInterestOnly, false);
+  assert.ok(p4.principalPaid > 0, 'Principal paid in Year 4 must be positive');
+  assert.ok(p4.endingDebt < 800000, 'Ending debt in Year 4 must be less than original loan');
+  assert.strictEqual(p4.cumulativePrincipalPaid, p4.principalPaid);
+  // Debt service jumps up to amortize remaining $800k over 27 years
+  assert.ok(p4.annualDebtService > 48000, 'Amortizing debt service must exceed interest-only payment');
+});
+
+// 46. Adjustable-Rate Mortgage (ARM) Rate Resets
+runTest('Adjustable-Rate Mortgage (ARM): Rate adjusts after initial period and caps apply', () => {
+  const inputs = {
+    purchasePrice: 1000000,
+    downPaymentPercent: 20,
+    loanAmount: 800000,
+    interestRate: 5.0,
+    loanTerm: 30,
+    financingType: 'arm',
+    armInitialYears: 5,
+    armAdjustmentRate: 8.0,
+    armRateCap: 9.0,
+    grossRentAnnual: 120000,
+    expenseRatio: 30
+  };
+
+  const results = calculateProjections('commercial', inputs);
+  assert.strictEqual(results.financingType, 'arm');
+
+  const p5 = results.projections[4]; // Year 5 (last fixed year)
+  const p6 = results.projections[5]; // Year 6 (first adjusted year)
+
+  assert.strictEqual(p5.appliedInterestRate, 5.0);
+  assert.strictEqual(p5.isArmAdjusted, false);
+
+  assert.strictEqual(p6.appliedInterestRate, 8.0);
+  assert.strictEqual(p6.isArmAdjusted, true);
+  // Higher interest rate at year 6 must result in higher debt service than year 5
+  assert.ok(p6.annualDebtService > p5.annualDebtService, 'Year 6 ARM debt service must increase with higher rate');
+});
+
+// 47. Bridge and Seller Financing Structure Tests
+runTest('Bridge and Seller Financing structures behave correctly', () => {
+  // Bridge loan: full I/O throughout
+  const bridgeInputs = {
+    purchasePrice: 500000,
+    loanAmount: 400000,
+    interestRate: 9.0,
+    loanTerm: 5,
+    financingType: 'bridge',
+    grossRentAnnual: 60000,
+    expenseRatio: 35
+  };
+  const bridgeRes = calculateProjections('commercial', bridgeInputs);
+  assert.strictEqual(bridgeRes.financingType, 'bridge');
+  assert.strictEqual(bridgeRes.projections[0].isInterestOnly, true);
+  assert.strictEqual(bridgeRes.projections[0].principalPaid, 0);
+  assert.strictEqual(bridgeRes.projections[4].principalPaid, 0);
+  assert.strictEqual(bridgeRes.projections[4].endingDebt, 400000);
+
+  // Seller financing: custom rate and terms
+  const sellerInputs = {
+    purchasePrice: 600000,
+    loanAmount: 450000,
+    interestRate: 4.5,
+    loanTerm: 15,
+    financingType: 'seller_financing',
+    grossRentAnnual: 70000,
+    expenseRatio: 30
+  };
+  const sellerRes = calculateProjections('commercial', sellerInputs);
+  assert.strictEqual(sellerRes.financingType, 'seller_financing');
+  assert.strictEqual(sellerRes.projections[0].appliedInterestRate, 4.5);
+  assert.ok(sellerRes.projections[0].principalPaid > 0);
+});
+
+// 48. Deal Timeline & Milestone UI Element Validation
+runTest('UI Verification: Deal Acquisition Timeline Tracker and Financing Selectors in UI', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // Dashboard modal financing selector
+  assert.ok(dashHtml.includes('id="edit-deal-financing-type"'), 'dashboard.html must have edit-deal-financing-type');
+  assert.ok(dashHtml.includes('id="wiz-financing-type"'), 'dashboard.html must have wiz-financing-type in wizard');
+
+  // Project.html timeline stepper & financing controls
+  assert.ok(projHtml.includes('id="deal-timeline-container"'), 'project.html must have deal-timeline-container');
+  assert.ok(projHtml.includes('id="deal-stage-badge"'), 'project.html must have deal-stage-badge');
+  assert.ok(projHtml.includes('id="select-deal-stage"'), 'project.html must have select-deal-stage');
+  assert.ok(projHtml.includes('id="timeline-countdown-pill"'), 'project.html must have timeline-countdown-pill');
+  assert.ok(projHtml.includes('id="input-financing-type"'), 'project.html sidebar must have input-financing-type');
+  assert.ok(projHtml.includes('id="edit-deal-financing-type"'), 'project.html modal must have edit-deal-financing-type');
+  assert.ok(projHtml.includes('Cumulative Paydown'), 'project.html amortization table must include Cumulative Paydown column');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
