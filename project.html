@@ -117,6 +117,9 @@
             </span>
             <span id="deal-facility-type-pill" class="text-[10px] uppercase font-semibold tracking-wider px-2 py-0.5 rounded-md bg-slate-900 text-slate-400 border border-slate-800 hidden">
             </span>
+            <button onclick="openEditDealModalFromProject()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition" title="Edit Underwriting Parameters">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+            </button>
           </div>
           <p id="deal-location-display" class="text-xs text-slate-400 flex items-center space-x-1 mt-0.5">
             <svg class="w-3 h-3 text-slate-500 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -125,8 +128,13 @@
         </div>
       </div>
 
-      <!-- Actions Bar: Pitch Deck, PDF, CSV (Analysis & Presentation Only) -->
+      <!-- Actions Bar: Edit Inputs, Pitch Deck, PDF, CSV -->
       <div class="flex items-center space-x-2">
+        <button id="btn-edit-inputs" onclick="openEditDealModalFromProject()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm" title="Edit Underwriting Baseline Inputs">
+          <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          <span>Edit Inputs</span>
+        </button>
+
         <button id="btn-pitch-deck" onclick="openDealPitchDeck()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm">
           <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
           <span>Pitch Deck</span>
@@ -1399,15 +1407,15 @@
   
   <!-- Edit Project Inputs Modal for project.html -->
   <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl my-8">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base">
+          <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base shrink-0">
             ✎
           </div>
           <div>
             <h3 class="text-base font-extrabold text-white">Edit Project Inputs</h3>
-            <p id="edit-modal-deal-subtitle" class="text-xs text-slate-400">Modify baseline underwriting assumptions</p>
+            <p id="edit-modal-deal-subtitle" class="text-xs text-slate-400">Modify comprehensive baseline underwriting assumptions</p>
           </div>
         </div>
         <button onclick="closeEditDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
@@ -1415,7 +1423,9 @@
 
       <form id="edit-deal-form" novalidate onsubmit="saveEditDealModalFromProject(event)" class="space-y-4">
         <input type="hidden" id="edit-deal-id">
+        <input type="hidden" id="edit-deal-asset-class">
         
+        <!-- Row 1: Name & Location -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Project Name</label>
@@ -1427,6 +1437,7 @@
           </div>
         </div>
 
+        <!-- Row 2: Status & Price -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Portfolio Status</label>
@@ -1441,6 +1452,7 @@
           </div>
         </div>
 
+        <!-- Row 3: Tier, Class, Sub-Type -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Market Tier</label>
@@ -1464,11 +1476,11 @@
           </div>
         </div>
 
-        <!-- Rent & Income Section -->
+        <!-- Revenue, Vacancy & Rent Growth Section -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
-            <span id="edit-rent-hint" class="text-[10px] text-slate-500 italic">Commercial: total annual rent · Multi-Unit/Storage: per-unit monthly</span>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Revenue, Vacancy & Market Dynamics</span>
+            <span id="edit-rent-hint" class="text-[10px] text-slate-500 italic">Live dynamic projection drivers</span>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="edit-rent-inputs-container">
             <div class="space-y-1">
@@ -1480,37 +1492,130 @@
               <input type="number" id="edit-deal-gross-rent-monthly" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
           </div>
+          <div class="grid grid-cols-3 gap-3 pt-1 border-t border-slate-900">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-amber-400">Vacancy Rate (%)</label>
+              <input type="number" id="edit-deal-vacancy-rate" min="0" max="100" step="any" placeholder="5" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Annual Rent Growth (%)</label>
+              <input type="number" id="edit-deal-rent-growth" min="-10" max="30" step="any" placeholder="3" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Appreciation / Exit Cap (%)</label>
+              <input type="number" id="edit-deal-appreciation-rate" min="0" max="30" step="any" placeholder="3.5" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
         </div>
 
-        <!-- Operating Expenses & Debt -->
+        <!-- Operating Expenses, CapEx & Hold Period -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Expense Ratio (%)</label>
             <input type="number" id="edit-deal-opex-ratio" min="0" max="100" step="any" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
           <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Down Payment (%)</label>
-            <input type="number" id="edit-deal-down-payment" min="0" max="100" step="any" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            <label class="text-[11px] font-bold text-slate-400">Rehab Budget ($)</label>
+            <input type="number" id="edit-deal-rehab-costs" min="0" step="any" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
           <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Interest Rate (%)</label>
-            <input type="number" id="edit-deal-interest-rate" min="0" max="30" step="any" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            <label class="text-[11px] font-bold text-slate-400">Closing Costs ($)</label>
+            <input type="number" id="edit-deal-closing-costs" min="0" step="any" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
           <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Loan Term (Yrs)</label>
-            <input type="number" id="edit-deal-loan-term" min="1" max="50" step="any" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            <label class="text-[11px] font-bold text-slate-400">Exit Year (Hold)</label>
+            <input type="number" id="edit-deal-exit-year" min="1" max="10" step="1" placeholder="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
         </div>
 
-        <!-- Live Analysis Preview Pill -->
-        <div id="edit-deal-live-preview" class="px-3.5 py-2.5 bg-slate-950/80 border border-emerald-900/50 rounded-xl flex items-center justify-between text-xs text-slate-300">
-          <span class="text-slate-400 font-semibold">Live Pro-Forma:</span>
-          <div class="flex items-center space-x-3 font-mono text-[11px]">
+        <!-- Debt & Financing Terms -->
+        <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
+          <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Down Payment (%)</label>
+              <input type="number" id="edit-deal-down-payment" min="0" max="100" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Interest Rate (%)</label>
+              <input type="number" id="edit-deal-interest-rate" min="0" max="30" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Loan Term (Yrs)</label>
+              <input type="number" id="edit-deal-loan-term" min="1" max="50" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1 flex flex-col justify-end pb-1.5">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="edit-deal-manage-property" checked class="w-4 h-4 rounded text-brand-500 bg-slate-900 border-slate-800 focus:ring-brand-500 cursor-pointer">
+                <span class="text-xs font-semibold text-slate-300">Property Mgmt</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Asset-Specific Optional Parameters (Commercial, Multi, Storage, SFR) -->
+        <div id="edit-asset-specific-container" class="space-y-2">
+          <!-- Commercial Options -->
+          <div id="edit-asset-group-commercial" class="hidden grid grid-cols-2 gap-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Commercial Lease Type</label>
+              <select id="edit-deal-lease-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+                <option value="NNN">Triple Net (NNN)</option>
+                <option value="Gross">Full Service Gross</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Gross Leasable Area (Sq Ft GLA)</label>
+              <input type="number" id="edit-deal-gla" placeholder="15000" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+
+          <!-- Multi-Unit Options -->
+          <div id="edit-asset-group-multi" class="hidden p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
+            <div class="space-y-1 max-w-xs">
+              <label class="text-[11px] font-bold text-slate-400">Total Apartment Units</label>
+              <input type="number" id="edit-deal-unit-count" min="1" placeholder="4" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+
+          <!-- Storage Options -->
+          <div id="edit-asset-group-storage" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Total Storage Units</label>
+              <input type="number" id="edit-deal-storage-units" min="1" placeholder="100" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Facility Sq Ft</label>
+              <input type="number" id="edit-deal-storage-sqft" placeholder="12000" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1 flex items-center pt-5">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="checkbox" id="edit-deal-storage-automated" class="w-4 h-4 rounded text-brand-500 bg-slate-900 border-slate-800 focus:ring-brand-500 cursor-pointer">
+                <span class="text-xs font-semibold text-slate-300">Automated Facility</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- SFR Options -->
+          <div id="edit-asset-group-sfr" class="hidden p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
+            <div class="space-y-1 max-w-xs">
+              <label class="text-[11px] font-bold text-slate-400">After Repair Value (ARV $)</label>
+              <input type="number" id="edit-deal-arv" min="0" placeholder="Optional ARV" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Analysis Preview Pill with Real-Time Net Cash Flow -->
+        <div id="edit-deal-live-preview" class="px-4 py-3 bg-slate-950/80 border border-emerald-900/50 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+          <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Live Pro-Forma:</span>
+          <div class="flex items-center flex-wrap gap-3 font-mono text-[11px]">
             <span>LTV: <strong id="edit-preview-ltv" class="text-emerald-400 font-bold">75.0%</strong></span>
             <span class="text-slate-700">•</span>
             <span>Loan: <strong id="edit-preview-loan" class="text-slate-100 font-bold">$750,000</strong></span>
             <span class="text-slate-700">•</span>
             <span>Equity: <strong id="edit-preview-equity" class="text-brand-400 font-bold">$250,000</strong></span>
+            <span class="text-slate-700">•</span>
+            <span>Net Cash Flow: <strong id="edit-preview-cashflow" class="text-accent-cyan font-bold">$0/yr</strong></span>
           </div>
         </div>
 
@@ -5162,6 +5267,77 @@
       return null;
     }
 
+    function getEditModalInputs() {
+      const numVal = (elId, fallback) => {
+        const n = parseFloat(document.getElementById(elId)?.value);
+        return isNaN(n) ? fallback : n;
+      };
+      const intVal = (elId, fallback) => {
+        const n = parseInt(document.getElementById(elId)?.value, 10);
+        return isNaN(n) ? fallback : n;
+      };
+
+      const aClass = document.getElementById('edit-deal-asset-class')?.value || (currentLoadedDeal && (currentLoadedDeal.asset_class || currentLoadedDeal.assetType)) || 'commercial';
+      const annualRentVal  = numVal('edit-deal-gross-rent-annual', 0);
+      const monthlyRentVal = numVal('edit-deal-gross-rent-monthly', 0);
+      const appRate        = numVal('edit-deal-appreciation-rate', 3.5);
+
+      const inputs = {
+        purchasePrice: numVal('edit-deal-price', 0),
+        downPaymentPercent: numVal('edit-deal-down-payment', 25),
+        interestRate: numVal('edit-deal-interest-rate', 6.5),
+        loanTerm: intVal('edit-deal-loan-term', 30),
+        expenseRatio: numVal('edit-deal-opex-ratio', 35),
+        operatingExpenseRatio: numVal('edit-deal-opex-ratio', 35),
+        vacancyRate: numVal('edit-deal-vacancy-rate', 5),
+        rentGrowth: numVal('edit-deal-rent-growth', 3),
+        annualRentGrowth: numVal('edit-deal-rent-growth', 3),
+        appreciationRate: appRate,
+        targetCapRate: appRate,
+        targetExitCapRate: appRate,
+        rehabCosts: numVal('edit-deal-rehab-costs', 0),
+        rehabBudget: numVal('edit-deal-rehab-costs', 0),
+        closingCosts: numVal('edit-deal-closing-costs', 0),
+        exitYear: intVal('edit-deal-exit-year', 10),
+        discountRate: numVal('edit-deal-discount-rate', 8),
+        manageProperty: document.getElementById('edit-deal-manage-property') ? document.getElementById('edit-deal-manage-property').checked : true,
+        marketTier: document.getElementById('edit-deal-market-tier')?.value || 'Tier 2',
+        propertyClass: document.getElementById('edit-deal-property-class')?.value || 'Class B',
+        facilityType: document.getElementById('edit-deal-facility-type')?.value?.trim() || ''
+      };
+
+      if (aClass === 'single-family') {
+        if (monthlyRentVal > 0) inputs.monthlyRent = monthlyRentVal;
+        else if (annualRentVal > 0) inputs.monthlyRent = Math.round(annualRentVal / 12);
+        inputs.arv = numVal('edit-deal-arv', 0);
+      } else if (aClass === 'multi-unit') {
+        inputs.unitCount = intVal('edit-deal-unit-count', 4);
+        inputs.numUnits = inputs.unitCount;
+        if (monthlyRentVal > 0) inputs.monthlyRentPerUnit = monthlyRentVal;
+        else if (annualRentVal > 0) inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+      } else if (aClass === 'commercial') {
+        if (annualRentVal > 0) inputs.grossRentAnnual = annualRentVal;
+        else if (monthlyRentVal > 0) inputs.grossRentAnnual = monthlyRentVal * 12;
+        inputs.leaseType = document.getElementById('edit-deal-lease-type')?.value || 'NNN';
+        inputs.gla = numVal('edit-deal-gla', 15000);
+      } else if (aClass === 'storage') {
+        inputs.storageUnitCount = intVal('edit-deal-storage-units', 100);
+        inputs.unitCount = inputs.storageUnitCount;
+        inputs.storageSqFt = numVal('edit-deal-storage-sqft', 10000);
+        inputs.totalSqFt = inputs.storageSqFt;
+        inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? false;
+        if (monthlyRentVal > 0) {
+          inputs.monthlyRentPerUnit = monthlyRentVal;
+          inputs.storageRentPerUnit = monthlyRentVal;
+        } else if (annualRentVal > 0) {
+          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.storageUnitCount);
+          inputs.storageRentPerUnit = inputs.monthlyRentPerUnit;
+        }
+      }
+
+      return inputs;
+    }
+
     function updateEditModalLivePreview() {
       const priceVal = parseFloat(document.getElementById('edit-deal-price')?.value);
       const downVal = parseFloat(document.getElementById('edit-deal-down-payment')?.value);
@@ -5174,10 +5350,24 @@
       const ltvEl = document.getElementById('edit-preview-ltv');
       const loanEl = document.getElementById('edit-preview-loan');
       const equityEl = document.getElementById('edit-preview-equity');
+      const cfEl = document.getElementById('edit-preview-cashflow');
 
       if (ltvEl) ltvEl.textContent = `${ltv.toFixed(1)}%`;
       if (loanEl) loanEl.textContent = formatCurrency(loan);
       if (equityEl) equityEl.textContent = formatCurrency(equity);
+
+      if (cfEl && window.PropertyMath) {
+        try {
+          const aClass = document.getElementById('edit-deal-asset-class')?.value || (currentLoadedDeal && (currentLoadedDeal.asset_class || currentLoadedDeal.assetType)) || 'commercial';
+          const tempInputs = getEditModalInputs();
+          const res = window.PropertyMath.calculateProjections(aClass, tempInputs);
+          if (res && res.projections && res.projections[0]) {
+            const cf = res.projections[0].cashFlow ?? res.projections[0].netCashFlow ?? 0;
+            cfEl.textContent = `${formatCurrency(cf)}/yr`;
+            cfEl.className = cf >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
+          }
+        } catch(e) {}
+      }
     }
 
     function openEditDealModalFromProject() {
@@ -5189,6 +5379,9 @@
       const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
 
       document.getElementById('edit-deal-id').value = currentLoadedDeal.id;
+      if (document.getElementById('edit-deal-asset-class')) {
+        document.getElementById('edit-deal-asset-class').value = aClass;
+      }
       document.getElementById('edit-deal-name').value = currentLoadedDeal.name || '';
       document.getElementById('edit-deal-location').value = currentLoadedDeal.location || '';
       document.getElementById('edit-deal-status').value = currentLoadedDeal.status || 'prospect';
@@ -5198,7 +5391,7 @@
 
       const subTitle = document.getElementById('edit-modal-deal-subtitle');
       if (subTitle) {
-        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Underwriting Baseline Parameters`;
+        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Comprehensive Baseline Underwriting Parameters`;
       }
 
       if (document.getElementById('edit-deal-market-tier')) {
@@ -5211,20 +5404,17 @@
         document.getElementById('edit-deal-facility-type').value = currentLoadedDeal.facility_type || inputs.facilityType || '';
       }
 
-      // Pre-populate rent fields correctly by asset class:
-      // - Annual Gross Rent  → commercial total annual rent
-      // - Monthly Rent/Unit  → per-unit monthly for SFR, multi-unit, and storage (matches analysis panel)
       let preAnnual = 0;
       let preMonthly = 0;
       if (aClass === 'commercial') {
         preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0);
-        preMonthly = 0; // not used for commercial — hide hint
+        preMonthly = 0;
       } else if (aClass === 'single-family') {
         preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
         preAnnual  = preMonthly ? preMonthly * 12 : 0;
       } else if (aClass === 'multi-unit') {
         preMonthly = inputs.monthlyRentPerUnit || 0;
-        preAnnual  = 0; // annual calculated by math engine, not an input here
+        preAnnual  = 0;
       } else if (aClass === 'storage') {
         preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || 0;
         preAnnual  = 0;
@@ -5233,111 +5423,109 @@
       document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
       document.getElementById('edit-deal-gross-rent-monthly').value = preMonthly > 0 ? preMonthly : '';
 
-      document.getElementById('edit-deal-opex-ratio').value   = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      document.getElementById('edit-deal-vacancy-rate').value = inputs.vacancyRate ?? 5;
+      document.getElementById('edit-deal-rent-growth').value = inputs.rentGrowth ?? inputs.annualRentGrowth ?? 3;
+      const appRate = (aClass === 'commercial' || aClass === 'storage')
+        ? (inputs.targetCapRate ?? inputs.targetExitCapRate ?? inputs.appreciationRate ?? 6.5)
+        : (inputs.appreciationRate ?? 3.5);
+      document.getElementById('edit-deal-appreciation-rate').value = appRate;
+
+      document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
       document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
       document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
-      document.getElementById('edit-deal-loan-term').value    = inputs.loanTerm ?? 30;
+      document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
 
-      // Update live calculation preview
+      document.getElementById('edit-deal-rehab-costs').value = inputs.rehabCosts ?? inputs.rehabBudget ?? 0;
+      document.getElementById('edit-deal-closing-costs').value = inputs.closingCosts ?? 0;
+      document.getElementById('edit-deal-exit-year').value = inputs.exitYear ?? 10;
+      
+      const mgmtEl = document.getElementById('edit-deal-manage-property');
+      if (mgmtEl) mgmtEl.checked = inputs.manageProperty !== false;
+
+      // Asset specific fields
+      if (document.getElementById('edit-deal-lease-type')) {
+        document.getElementById('edit-deal-lease-type').value = inputs.leaseType || 'NNN';
+      }
+      if (document.getElementById('edit-deal-gla')) {
+        document.getElementById('edit-deal-gla').value = inputs.gla || 15000;
+      }
+      if (document.getElementById('edit-deal-unit-count')) {
+        document.getElementById('edit-deal-unit-count').value = inputs.unitCount || inputs.numUnits || 4;
+      }
+      if (document.getElementById('edit-deal-storage-units')) {
+        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || 100;
+      }
+      if (document.getElementById('edit-deal-storage-sqft')) {
+        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || 10000;
+      }
+      if (document.getElementById('edit-deal-storage-automated')) {
+        document.getElementById('edit-deal-storage-automated').checked = !!inputs.isAutomated;
+      }
+      if (document.getElementById('edit-deal-arv')) {
+        document.getElementById('edit-deal-arv').value = inputs.arv || '';
+      }
+
+      // Show appropriate asset-specific group
+      ['commercial', 'multi', 'storage', 'sfr'].forEach(t => {
+        const el = document.getElementById(`edit-asset-group-${t}`);
+        if (el) el.classList.add('hidden');
+      });
+      if (aClass === 'commercial') document.getElementById('edit-asset-group-commercial')?.classList.remove('hidden');
+      else if (aClass === 'multi-unit') document.getElementById('edit-asset-group-multi')?.classList.remove('hidden');
+      else if (aClass === 'storage') document.getElementById('edit-asset-group-storage')?.classList.remove('hidden');
+      else if (aClass === 'single-family') document.getElementById('edit-asset-group-sfr')?.classList.remove('hidden');
+
+      // Live Pro-Forma preview update
       updateEditModalLivePreview();
 
       // Bind input events for live reactivity
-      ['edit-deal-price', 'edit-deal-down-payment'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el && !el._previewBound) {
+      document.querySelectorAll('#edit-deal-form input, #edit-deal-form select').forEach(el => {
+        if (!el._previewBound) {
           el.addEventListener('input', updateEditModalLivePreview);
+          el.addEventListener('change', updateEditModalLivePreview);
           el._previewBound = true;
         }
       });
 
       modal.classList.remove('hidden');
     }
+    window.openEditDealModalFromProject = openEditDealModalFromProject;
 
     async function saveEditDealModalFromProject(e) {
       if (e && e.preventDefault) e.preventDefault();
       if (!currentLoadedDeal) return;
 
+      const aClass = document.getElementById('edit-deal-asset-class')?.value || currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
+      const parsedInputs = getEditModalInputs();
+
       currentLoadedDeal.name = document.getElementById('edit-deal-name').value.trim();
       currentLoadedDeal.location = document.getElementById('edit-deal-location').value.trim();
       currentLoadedDeal.status = document.getElementById('edit-deal-status').value;
+      currentLoadedDeal.market_tier = parsedInputs.marketTier;
+      currentLoadedDeal.property_class = parsedInputs.propertyClass;
+      currentLoadedDeal.facility_type = parsedInputs.facilityType;
 
-      const marketTier = document.getElementById('edit-deal-market-tier')?.value || 'Tier 2';
-      const propertyClass = document.getElementById('edit-deal-property-class')?.value || 'Class B';
-      const facilityType = document.getElementById('edit-deal-facility-type')?.value?.trim() || '';
-
-      currentLoadedDeal.market_tier = marketTier;
-      currentLoadedDeal.property_class = propertyClass;
-      currentLoadedDeal.facility_type = facilityType;
-
-      // Zero-safe numeric parser: only falls back when the field is blank or non-numeric.
-      // Using parseFloat(...) || fallback would silently replace legitimate 0 values
-      // (e.g. 0% down = 100% LTV, 0% interest = cash purchase) with the fallback.
-      const numVal = (id, fallback) => {
-        const n = parseFloat(document.getElementById(id)?.value);
-        return isNaN(n) ? fallback : n;
-      };
-      const intVal = (id, fallback) => {
-        const n = parseInt(document.getElementById(id)?.value, 10);
-        return isNaN(n) ? fallback : n;
+      currentLoadedDeal.inputs = {
+        ...(currentLoadedDeal.inputs || {}),
+        ...parsedInputs
       };
 
-      const price = numVal('edit-deal-price', currentLoadedDeal.purchase_price || 1000000);
-      const opex  = numVal('edit-deal-opex-ratio', 35);
-      const down  = numVal('edit-deal-down-payment', 25);
-      const rate  = numVal('edit-deal-interest-rate', 6.5);
-      const term  = intVal('edit-deal-loan-term', 30);
-
-      // Zero-safe rent values: use isNaN guard so a typed 0 isn't treated as "not entered"
-      const annualRentVal  = numVal('edit-deal-gross-rent-annual', 0);
-      const monthlyRentVal = numVal('edit-deal-gross-rent-monthly', 0);
-
-      currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
-      currentLoadedDeal.inputs.purchasePrice = price;
-      currentLoadedDeal.inputs.operatingExpenseRatio = opex;
-      currentLoadedDeal.inputs.expenseRatio = opex;
-      currentLoadedDeal.inputs.downPaymentPercent = down;
-      currentLoadedDeal.inputs.interestRate = rate;
-      currentLoadedDeal.inputs.loanTerm = term;
-      currentLoadedDeal.inputs.marketTier = marketTier;
-      currentLoadedDeal.inputs.propertyClass = propertyClass;
-      currentLoadedDeal.inputs.facilityType = facilityType;
-      currentLoadedDeal.inputs.commTier = marketTier;
-      currentLoadedDeal.inputs.commClass = propertyClass;
-      currentLoadedDeal.inputs.storageTier = marketTier;
-      currentLoadedDeal.inputs.storageClass = propertyClass;
-
-      const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
-      if (aClass === 'single-family') {
-        // Monthly rent is the total rent for the property
-        if (monthlyRentVal > 0) currentLoadedDeal.inputs.monthlyRent = monthlyRentVal;
-        else if (annualRentVal > 0) currentLoadedDeal.inputs.monthlyRent = Math.round(annualRentVal / 12);
-        // else preserve existing value unchanged
-      } else if (aClass === 'multi-unit') {
-        // Monthly rent field = per-unit monthly rent (matches the analysis panel input)
-        if (monthlyRentVal > 0) {
-          currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal;
-        } else if (annualRentVal > 0) {
-          const units = currentLoadedDeal.inputs.unitCount || currentLoadedDeal.inputs.numUnits || 4;
-          currentLoadedDeal.inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / units);
-        }
-        // else preserve existing value unchanged
-      } else if (aClass === 'commercial') {
-        if (annualRentVal > 0) currentLoadedDeal.inputs.grossRentAnnual = annualRentVal;
-        else if (monthlyRentVal > 0) currentLoadedDeal.inputs.grossRentAnnual = monthlyRentVal * 12;
-        // else preserve existing value unchanged
-      } else if (aClass === 'storage') {
-        // Monthly rent field = per-unit monthly rent (matches the analysis panel input)
-        if (monthlyRentVal > 0) {
-          currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal;
-          currentLoadedDeal.inputs.storageRentPerUnit = monthlyRentVal;
-        } else if (annualRentVal > 0) {
-          const units = currentLoadedDeal.inputs.storageUnitCount || currentLoadedDeal.inputs.unitCount || 100;
-          const perUnit = Math.round(annualRentVal / 12 / units);
-          currentLoadedDeal.inputs.monthlyRentPerUnit = perUnit;
-          currentLoadedDeal.inputs.storageRentPerUnit = perUnit;
-        }
-        // else preserve existing value unchanged
-      }
+      // Recalculate metrics via PropertyMath
+      const res = window.PropertyMath.calculateProjections(aClass, currentLoadedDeal.inputs);
+      const p1 = (res.projections && res.projections[0]) || {};
+      currentLoadedDeal.purchase_price = res.purchasePrice;
+      currentLoadedDeal.irr = res.irr;
+      currentLoadedDeal.equity_multiple = res.equityMultiplier;
+      currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
+      currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
+      currentLoadedDeal.total_equity = res.initialCashInvested;
+      currentLoadedDeal.metrics = {
+        irr: res.irr,
+        equityMultiplier: res.equityMultiplier,
+        year1CoC: p1.cashOnCash || 0,
+        year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
+        initialCashInvested: res.initialCashInvested
+      };
 
       // Update UI title and badges
       const titleEl = document.getElementById('deal-title-display');
@@ -5347,11 +5535,11 @@
       if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location}</span>`;
 
       const tierPill = document.getElementById('deal-tier-class-pill');
-      if (tierPill) tierPill.textContent = `${marketTier} • ${propertyClass}`;
+      if (tierPill) tierPill.textContent = `${parsedInputs.marketTier} • ${parsedInputs.propertyClass}`;
       const fPill = document.getElementById('deal-facility-type-pill');
       if (fPill) {
-        if (facilityType) {
-          fPill.textContent = facilityType;
+        if (parsedInputs.facilityType) {
+          fPill.textContent = parsedInputs.facilityType;
           fPill.classList.remove('hidden');
         } else {
           fPill.classList.add('hidden');
@@ -5364,6 +5552,7 @@
       updateCalculations();
       closeEditDealModal();
     }
+    window.saveEditDealModalFromProject = saveEditDealModalFromProject;
 
     async function initProjectView() {
       // Demo Mode: hide assumptions cards grid cleanly

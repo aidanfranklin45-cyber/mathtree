@@ -794,6 +794,47 @@ runTest('Dynamic deal metrics recalculation from inputs resolves stale $0 cash f
   assert.strictEqual(staleDeal.total_equity, 0);
 });
 
+runTest('Comprehensive underwriting baseline parameters (vacancy, rehab, closing costs, rent growth, appreciation, exit year) affect projections', () => {
+  const baseInputs = {
+    purchasePrice: 500000,
+    downPaymentPercent: 20,
+    interestRate: 6.0,
+    loanTerm: 30,
+    monthlyRent: 4000,
+    expenseRatio: 30,
+    vacancyRate: 0,
+    rehabCosts: 0,
+    closingCosts: 0,
+    rentGrowth: 0,
+    appreciationRate: 0,
+    exitYear: 10
+  };
+
+  const underwritingInputs = {
+    ...baseInputs,
+    vacancyRate: 10, // 10% vacancy decreases cash flow
+    rehabCosts: 25000, // increases initial cash invested
+    closingCosts: 10000, // increases initial cash invested
+    rentGrowth: 4, // compound rent growth increases later cash flow
+    appreciationRate: 4, // appreciation increases property value & total equity
+    exitYear: 5
+  };
+
+  const resBase = calculateProjections('single-family', baseInputs);
+  const resUnderwritten = calculateProjections('single-family', underwritingInputs);
+
+  // Initial cash invested includes down payment (100k) + rehab (25k) + closing costs (10k) = 135k
+  assert.strictEqual(resUnderwritten.initialCashInvested, 100000 + 25000 + 10000);
+  assert.strictEqual(resBase.initialCashInvested, 100000);
+
+  // Year 1 cash flow should be lower due to 10% vacancy
+  assert.ok(resUnderwritten.projections[0].cashFlow < resBase.projections[0].cashFlow, 'Vacancy must reduce Year 1 cash flow');
+
+  // Total equity at exit must be higher due to 4% annual appreciation
+  const exitYearIdx = underwritingInputs.exitYear - 1;
+  assert.ok(resUnderwritten.projections[exitYearIdx].propertyValue > baseInputs.purchasePrice, 'Property value at exit must reflect appreciation');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
