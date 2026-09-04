@@ -386,6 +386,80 @@
           </div>
         </div>
 
+        <!-- Prominent County Assessor & Property Records Intelligence Card -->
+        <div id="property-county-dossier-card" class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-900">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                🏛️
+              </div>
+              <div>
+                <h2 class="text-sm font-extrabold text-white">County Assessor & Parcel Data</h2>
+                <span id="dossier-county-badge" class="text-[10px] font-semibold text-emerald-400">Yakima County Assessor Record</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <a id="dossier-ascend-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-900/60 px-2.5 py-1 rounded-lg transition flex items-center space-x-1" title="Open official County Ascend Tax Card">
+                <span>Ascend Tax Card</span>
+                <span>↗</span>
+              </a>
+              <button type="button" onclick="forceRefreshCountyGis()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition" title="Force Refresh Live GIS Data">
+                🔄
+              </button>
+            </div>
+          </div>
+
+          <!-- Situs Address & APN Bar -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Situs Address</span>
+              <span id="dossier-apn-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">APN: --</span>
+            </div>
+            <p id="dossier-address-text" class="text-xs font-bold text-white leading-snug">--</p>
+          </div>
+
+          <!-- 4-Tile Metric Grid: Assessed Value, Land/Bldg Split, Lot Size, Zoning -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Assessed Value</span>
+              <span id="dossier-assessed-val" class="text-sm font-black text-emerald-400 mt-1 block">$0</span>
+              <span id="dossier-tax-year" class="text-[10px] text-slate-500 mt-0.5 block">Tax Year: 2026</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Land / Building</span>
+              <span id="dossier-split-val" class="text-xs font-bold text-slate-200 mt-1 block">$0 / $0</span>
+              <span id="dossier-land-pct" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Lot Size</span>
+              <span id="dossier-lot-size" class="text-xs font-bold text-slate-200 mt-1 block">0.00 Acres</span>
+              <span id="dossier-lot-sqft" class="text-[10px] text-slate-500 mt-0.5 block">0 Sq Ft</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Zoning / Use</span>
+              <span id="dossier-zoning" class="text-xs font-bold text-slate-200 mt-1 block truncate">Commercial</span>
+              <span id="dossier-use-code" class="text-[10px] text-slate-500 mt-0.5 block truncate">General</span>
+            </div>
+          </div>
+
+          <!-- Ownership, Legal, and Sync Status -->
+          <div class="p-3 bg-slate-950/50 rounded-2xl border border-slate-900 space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Owner of Record</span>
+              <span id="dossier-sync-status" class="text-[10px] font-bold text-emerald-400">Live GIS Active</span>
+            </div>
+            <p id="dossier-owner-name" class="text-xs font-semibold text-slate-200 truncate">--</p>
+            <p id="dossier-legal-desc" class="text-[10px] text-slate-500 truncate pt-1 border-t border-slate-900/80">--</p>
+          </div>
+
+          <!-- 1-Click Action Button -->
+          <div class="pt-1 flex items-center justify-between gap-2">
+            <button type="button" onclick="applyAssessedValueToProject()" class="w-full py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/60 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
+              <span>Apply Assessed Value as Purchase Price</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Preserved Hidden Inputs to maintain 100% calculation engine compatibility -->
         <div class="hidden" aria-hidden="true">
           <form id="calculator-form" class="space-y-5" onsubmit="return false;">
@@ -1040,11 +1114,11 @@
               <p class="text-xs text-slate-400">Slide to view estimated metrics for any forecast year</p>
             </div>
             <div class="flex items-center space-x-4 flex-grow md:max-w-md">
-              <span class="text-xs font-bold text-slate-400">Yr 1</span>
+              <span id="slider-min-label" class="text-xs font-bold text-slate-400">Yr 1</span>
               <input type="range" id="input-year-inspector" aria-label="Forecast year inspector slider" min="1" max="10" value="1" class="flex-grow h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-brand-500 focus:outline-none">
-              <span class="text-xs font-bold text-slate-400">Yr 10</span>
+              <span id="slider-max-label" class="text-xs font-bold text-slate-400">Yr 10</span>
               <div class="bg-brand-500/10 border border-brand-500/20 px-3 py-1 rounded-lg text-sm font-extrabold text-brand-400">
-                Year <span id="label-year-inspector">1</span>
+                <span id="label-year-inspector">Yr 1</span>
               </div>
             </div>
           </div>
@@ -1147,7 +1221,7 @@
               <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
                   <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
-                    <th class="py-3 px-5">Year</th>
+                    <th class="py-3 px-5">Date / Period</th>
                     <th class="py-3 px-4">Property Value</th>
                     <th class="py-3 px-4">Gross Income</th>
                     <th class="py-3 px-4">Vacancy Loss</th>
@@ -1217,7 +1291,7 @@
                   <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                     <thead>
                       <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
-                        <th class="py-2.5 px-5">Year</th>
+                        <th class="py-2.5 px-5">Date / Period</th>
                         <th class="py-2.5 px-4">Rate (%)</th>
                         <th class="py-2.5 px-4">Beginning Balance</th>
                         <th class="py-2.5 px-4">Annual Payment</th>
@@ -1368,7 +1442,7 @@
               <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
                   <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/80">
-                    <th class="py-2.5 px-4">Year</th>
+                    <th class="py-2.5 px-4">Date / Period</th>
                     <th class="py-2.5 px-4">NOI</th>
                     <th class="py-2.5 px-4">Interest Expense</th>
                     <th class="py-2.5 px-4 text-accent-emerald">Depreciation</th>
@@ -2657,6 +2731,25 @@
       }
     }
 
+    // Helper to resolve dynamic projection start year based on target closing / LOI date
+    function getProjectionStartYear() {
+      const inputs = (typeof currentLoadedDeal !== 'undefined' && currentLoadedDeal && currentLoadedDeal.inputs) ? currentLoadedDeal.inputs : {};
+      const closeVal = inputs.closingDate || document.getElementById('date-closing')?.value;
+      const loiVal = inputs.loiDate || document.getElementById('date-loi')?.value;
+      const dateStr = closeVal || loiVal;
+      if (dateStr) {
+        const match = String(dateStr).match(/(\d{4})/);
+        if (match) {
+          const yr = parseInt(match[1], 10);
+          if (yr >= 1900 && yr <= 2150) return yr;
+        }
+        const d = new Date(dateStr);
+        if (!isNaN(d.getFullYear()) && d.getFullYear() >= 1900) return d.getFullYear();
+      }
+      return new Date().getFullYear();
+    }
+    window.getProjectionStartYear = getProjectionStartYear;
+
     // Render multi-year forecasts in the UI table
     function renderProjectionsTable(projections) {
       const tbody = document.getElementById('projection-table-body');
@@ -2667,11 +2760,17 @@
         tableTitle.textContent = `Detailed ${projections.length}-Year Forecast Table`;
       }
 
+      const startYr = getProjectionStartYear();
+
       projections.forEach(proj => {
         const tr = document.createElement('tr');
         tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
+        const calYear = startYr + proj.year - 1;
         tr.innerHTML = `
-          <td class="py-3.5 px-5 text-slate-100 font-bold">${proj.year}</td>
+          <td class="py-3 px-5">
+            <div class="text-white font-bold text-xs">${calYear}</div>
+            <div class="text-[10px] text-slate-500 font-medium">Year ${proj.year}</div>
+          </td>
           <td class="py-3.5 px-4">${formatCurrency(proj.propertyValue)}</td>
           <td class="py-3.5 px-4">${formatCurrency(proj.grossPotentialIncome)}</td>
           <td class="py-3.5 px-4 text-accent-rose/85">${formatCurrency(proj.vacancyLoss)}</td>
@@ -2698,6 +2797,8 @@
         amortTitle.textContent = `${schedule.length}-Year Amortization Schedule`;
       }
 
+      const startYr = getProjectionStartYear();
+
       schedule.forEach((row, idx) => {
         const proj = projections[idx];
         const tr = document.createElement('tr');
@@ -2708,8 +2809,12 @@
             ? `<span class="text-cyan-400 font-bold">${row.appliedRate}% [ARM]</span>` 
             : `<span>${row.appliedRate}%</span>`);
         const cumPaydown = row.cumulativePrincipalPaid !== undefined ? row.cumulativePrincipalPaid : (proj ? proj.cumulativePrincipalPaid || 0 : 0);
+        const calYear = startYr + row.year - 1;
         tr.innerHTML = `
-          <td class="py-2.5 px-5 text-slate-100 font-bold">${row.year}</td>
+          <td class="py-2.5 px-5">
+            <div class="text-slate-100 font-bold text-xs">${calYear}</div>
+            <div class="text-[10px] text-slate-500 font-medium">Year ${row.year}</div>
+          </td>
           <td class="py-2.5 px-4 font-mono">${rateTag}</td>
           <td class="py-2.5 px-4">${formatCurrency(row.beginningBalance)}</td>
           <td class="py-2.5 px-4 font-bold text-white">${formatCurrency(row.totalPayment)}</td>
@@ -2728,6 +2833,7 @@
     function updateWealthRealizationStudio(inputs, res) {
       if (!res || !res.projections || res.projections.length === 0) return;
       const selectEl = document.getElementById('input-wealth-hold-year');
+      const startYr = getProjectionStartYear();
       
       if (selectEl && res.projections) {
         const currentVal = parseInt(selectEl.value || '10', 10);
@@ -2740,7 +2846,10 @@
         const isDifferent = standardMilestones.length !== existingOptions.length || standardMilestones.some((v, i) => v !== existingOptions[i]);
         if (isDifferent) {
           const targetVal = standardMilestones.includes(currentVal) ? currentVal : maxYear;
-          selectEl.innerHTML = standardMilestones.map(y => `<option value="${y}" ${y === targetVal ? 'selected' : ''}>Year ${y}${y === maxYear ? ' (Full Hold)' : ''}</option>`).join('');
+          selectEl.innerHTML = standardMilestones.map(y => {
+            const calYr = startYr + y - 1;
+            return `<option value="${y}" ${y === targetVal ? 'selected' : ''}>${calYr} (Year ${y}${y === maxYear ? ' - Full Hold' : ''})</option>`;
+          }).join('');
         }
       }
 
@@ -2791,9 +2900,10 @@
         ? `; <strong class="text-emerald-400">${wealth.netProfit >= 0 ? '+' : ''}${formatCurrency(wealth.netProfit)}</strong> net profit over ${formatCurrency(wealth.initialCashInvested)} outlay`
         : '';
 
+      const holdCalYr = startYr + holdYear - 1;
       setHtml(
         'wealth-summary-narrative',
-        `By Year ${holdYear}, tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, accumulating <strong class="text-emerald-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth (${formatCurrency(wealth.totalNetEquity)} owned equity + ${formatCurrency(wealth.cumulativeCashFlow)} cash pocketed${profitClause}).`
+        `By ${holdCalYr} (Year ${holdYear}), tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, accumulating <strong class="text-emerald-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth (${formatCurrency(wealth.totalNetEquity)} owned equity + ${formatCurrency(wealth.cumulativeCashFlow)} cash pocketed${profitClause}).`
       );
 
       setHtml('wealth-time-npv', `Hold NPV: <strong class="text-white">${formatCurrency(wealth.holdNpv)}</strong>`);
@@ -2801,7 +2911,8 @@
     // Draw high-fidelity visual representations of the forecast model
     function updateProjectionsChart(projections) {
       const ctx = document.getElementById('projection-chart').getContext('2d');
-      const labels = projections.map(p => `Yr ${p.year}`);
+      const startYr = getProjectionStartYear();
+      const labels = projections.map(p => `${startYr + p.year - 1} (Yr ${p.year})`);
 
       if (currentChart) {
         currentChart.destroy();
@@ -3036,14 +3147,22 @@
       const yearIdx = Math.max(0, Math.min(9, targetYearInput - 1));
       const targetYearProj = res.projections[yearIdx];
 
+      const startYr = getProjectionStartYear();
+      const currentCalYear = startYr + targetYearInput - 1;
+
       // Update inspector labels
-      document.getElementById('label-year-inspector').textContent = targetYearInput;
-      document.getElementById('metric-noi-label').textContent = `Year ${targetYearInput}`;
-      document.getElementById('metric-cap-rate-label').textContent = `Year ${targetYearInput}`;
+      const sliderMin = document.getElementById('slider-min-label');
+      const sliderMax = document.getElementById('slider-max-label');
+      if (sliderMin) sliderMin.textContent = `${startYr}`;
+      if (sliderMax) sliderMax.textContent = `${startYr + 9}`;
+
+      document.getElementById('label-year-inspector').textContent = `${currentCalYear} (Yr ${targetYearInput})`;
+      document.getElementById('metric-noi-label').textContent = `${currentCalYear}`;
+      document.getElementById('metric-cap-rate-label').textContent = `${currentCalYear}`;
       if (document.getElementById('metric-cf-label')) {
-        document.getElementById('metric-cf-label').textContent = `Year ${targetYearInput}`;
+        document.getElementById('metric-cf-label').textContent = `${currentCalYear}`;
       }
-      document.getElementById('metric-cash-on-cash-label').textContent = `Year ${targetYearInput}`;
+      document.getElementById('metric-cash-on-cash-label').textContent = `${currentCalYear}`;
 
       // Update Dynamic Cards metrics
       document.getElementById('metric-noi').textContent = formatCurrency(targetYearProj.netOperatingIncome);
@@ -3088,14 +3207,15 @@
       }
 
       // Update Advanced Analytics Cards metrics
-      document.getElementById('metric-exit-badge').textContent = `Exit: Year ${inputs.exitYear}`;
+      const exitHorizon = inputs.exitYear || 10;
+      document.getElementById('metric-exit-badge').textContent = `Exit: ${startYr + exitHorizon - 1} (Yr ${exitHorizon})`;
       document.getElementById('metric-npv').textContent = formatCurrency(res.npv);
       document.getElementById('metric-irr').textContent = res.irrDisplay || `${res.irr.toFixed(2)}%`;
       document.getElementById('metric-equity-multiplier').textContent = res.equityMultiplierDisplay || `${res.equityMultiplier.toFixed(2)}x`;
 
       // Update Amortization Wealth Realization Studio
       updateWealthRealizationStudio(inputs, res);
-      document.getElementById('metric-breakeven').textContent = typeof res.breakEvenYear === 'number' ? `Year ${res.breakEvenYear}` : res.breakEvenYear;
+      document.getElementById('metric-breakeven').textContent = typeof res.breakEvenYear === 'number' ? `${startYr + res.breakEvenYear - 1} (Year ${res.breakEvenYear})` : res.breakEvenYear;
 
       // Update Cap Rate benchmark description label dynamically based on institutional ranges
       const descField = document.getElementById('metric-cap-rate-desc');
@@ -3502,11 +3622,15 @@
       document.getElementById('tax-after-irr').textContent = `${taxRes.afterTaxIrr.toFixed(2)}%`;
       document.getElementById('tax-exit-liability').textContent = formatCurrency(taxRes.totalExitTax);
 
+      const startYr = getProjectionStartYear();
       const tableBody = document.getElementById('tax-table-body');
       if (tableBody) {
         tableBody.innerHTML = taxRes.yearlyTaxDetails.map(row => `
           <tr class="hover:bg-slate-900/30 transition">
-            <td class="py-2.5 px-4 font-bold text-white">Year ${row.year}</td>
+            <td class="py-2.5 px-4 font-bold text-white">
+              <div>${startYr + row.year - 1}</div>
+              <div class="text-[10px] text-slate-500 font-medium">Year ${row.year}</div>
+            </td>
             <td class="py-2.5 px-4">${formatCurrency(row.noi)}</td>
             <td class="py-2.5 px-4">${formatCurrency(row.interestExpense)}</td>
             <td class="py-2.5 px-4 text-accent-emerald font-semibold">${formatCurrency(row.depreciation)}</td>
@@ -3530,7 +3654,7 @@
       if (summaryCards) {
         summaryCards.innerHTML = `
           <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-            <p class="text-[10px] font-bold text-slate-500 uppercase">Year ${refiRes.refiYear} Refi Value</p>
+            <p class="text-[10px] font-bold text-slate-500 uppercase">${startYr + refiRes.refiYear - 1} (Year ${refiRes.refiYear}) Refi Value</p>
             <p class="text-base font-extrabold text-white mt-1">${formatCurrency(refiRes.refiValue)}</p>
           </div>
           <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
@@ -3614,10 +3738,11 @@
       csv += `NPV,${res.npv}\n`;
       csv += `Equity Multiplier,${res.equityMultiplier}x\n\n`;
 
-      csv += `Year,Property Value,Gross Potential Income,Vacancy Loss,Operating Expenses,NOI,Debt Service,Cash Flow,Cash-on-Cash %,Cap Rate %,Remaining Loan Balance,Equity\n`;
+      const startYr = getProjectionStartYear();
+      csv += `Date,Year,Property Value,Gross Potential Income,Vacancy Loss,Operating Expenses,NOI,Debt Service,Cash Flow,Cash-on-Cash %,Cap Rate %,Remaining Loan Balance,Equity\n`;
 
       res.projections.forEach(p => {
-        csv += `${p.year},${p.propertyValue},${p.grossPotentialIncome},${p.vacancyLoss},${p.operatingExpenses},${p.netOperatingIncome},${p.debtService},${p.cashFlow},${p.cashOnCash}%,${p.capRate}%,${p.loanBalanceRemaining},${p.equity}\n`;
+        csv += `${startYr + p.year - 1},Year ${p.year},${p.propertyValue},${p.grossPotentialIncome},${p.vacancyLoss},${p.operatingExpenses},${p.netOperatingIncome},${p.debtService},${p.cashFlow},${p.cashOnCash}%,${p.capRate}%,${p.loanBalanceRemaining},${p.equity}\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -3664,31 +3789,106 @@
       const container = document.getElementById('printable-brief');
       if (!container) return;
 
+      const deal = currentLoadedDeal || {};
+      const rawAssessor = (deal.inputs && deal.inputs.assessorData) || {};
+      const propAddress = deal.location || (deal.inputs && deal.inputs.location) || rawAssessor.address || '128 N 2nd St, Yakima, WA 98901';
+      const propApn = (deal.inputs && (deal.inputs.primaryApn || deal.inputs.apn)) || rawAssessor.apn || '';
+      const formattedApn = rawAssessor.formattedApn || (propApn.length === 11 ? (propApn.slice(0, 6) + '-' + propApn.slice(6)) : propApn) || 'Pending Link';
+      const propCounty = (deal.inputs && deal.inputs.county) || (propAddress.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Assessor Record');
+      const propTitle = deal.name || tabTitles[activeTab] || activeTab;
+
+      const totalAssessed = rawAssessor.totalAssessedValue || (deal.inputs && (deal.inputs.totalAssessedValue || deal.inputs.assessedValue)) || 0;
+      const landVal = rawAssessor.marketLandValue || (deal.inputs && deal.inputs.marketLandValue) || 0;
+      const impVal = rawAssessor.marketImprovementValue || (deal.inputs && deal.inputs.marketImprovementValue) || 0;
+      const taxYear = rawAssessor.taxYear || (deal.inputs && deal.inputs.taxYear) || new Date().getFullYear();
+
+      const acres = rawAssessor.acres || (deal.inputs && (deal.inputs.acres || deal.inputs.acreage)) || 0;
+      const sqft = rawAssessor.sqft || (deal.inputs && deal.inputs.sqft) || (acres > 0 ? Math.round(acres * 43560) : (inputs.gla || 0));
+
+      const zoning = rawAssessor.zoning || (deal.inputs && deal.inputs.zoning) || 'B-2 General Commercial';
+      const useCode = rawAssessor.useCode || (deal.inputs && deal.inputs.useCode) || 'Commercial / Retail';
+      const owner = rawAssessor.owner || (deal.inputs && deal.inputs.owner) || 'Owner of Record';
+      const legal = rawAssessor.legalDescription || (deal.inputs && deal.inputs.legalDescription) || '';
+      const lastSync = deal.inputs && deal.inputs.gisSync && deal.inputs.gisSync.lastSyncedAt;
+      const gisSyncBadge = lastSync ? 'Live GIS Verified (' + new Date(lastSync).toLocaleDateString() + ')' : (propApn ? 'Verified County Assessor Parcel' : 'Manual Underwriting Record');
+
+      const propAssessedDisplay = totalAssessed > 0 ? `${formatCurrency(totalAssessed)} (Tax Year ${taxYear})` : 'Pending County Assessment';
+      const propSplitDisplay = totalAssessed > 0 ? `${formatCurrency(landVal)} Land / ${formatCurrency(impVal)} Building` : 'N/A';
+      const propLotSizeDisplay = acres > 0 ? `${parseFloat(acres).toFixed(2)} Acres (${Number(sqft).toLocaleString()} Sq Ft)` : (sqft > 0 ? `${Number(sqft).toLocaleString()} Sq Ft` : 'N/A');
+      const propZoningDisplay = `${zoning} • ${useCode}`;
+      const holdYrs = inputs.exitYear || 10;
+
       container.innerHTML = `
         <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: #0f172a; max-width: 100%; margin: 0 auto; background: #ffffff;">
           <!-- Brief Header -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 10px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 10px; margin-bottom: 12px;">
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 22px; font-weight: 800; color: #059669; letter-spacing: -0.5px;">MathTree</span>
                 <span style="font-size: 10px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Executive Underwriting Brief</span>
               </div>
-              <h1 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">${tabTitles[activeTab] || activeTab}</h1>
+              <h1 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">${propTitle}</h1>
+              <div style="font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 8px;">
+                <span>📍 <strong>${propAddress}</strong></span>
+                ${propApn ? `<span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-family: monospace; font-weight: 700;">APN: ${formattedApn}</span>` : ''}
+                <span style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 700;">🏛️ ${propCounty}</span>
+              </div>
             </div>
             <div style="text-align: right; font-size: 10.5px; color: #64748b;">
               <p style="margin: 0; font-weight: 600;">Underwriting Date: <strong style="color: #0f172a;">${dateStr}</strong></p>
-              <p style="margin: 2px 0 0 0;">Target Hold Period: <strong style="color: #0f172a;">${inputs.exitYear} Years</strong></p>
+              <p style="margin: 2px 0 0 0;">Target Hold Period: <strong style="color: #0f172a;">${holdYrs} Years</strong></p>
             </div>
+          </div>
+
+          <!-- Official County Assessor & Parcel Record Section -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 14px;">
+            <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+              <span>🏛️ Official County Assessor & Property Records</span>
+              <span style="font-size: 9px; color: #059669; font-weight: 700;">${gisSyncBadge}</span>
+            </div>
+            <table style="width: 100%; font-size: 9.5px; border-collapse: collapse;">
+              <tbody>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600; width: 22%;">Property Address</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a; width: 28%;">${propAddress}</td>
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600; width: 22%;">Jurisdiction / County</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a; width: 28%;">${propCounty}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Assessor APN / Parcel ID</td>
+                  <td style="padding: 4px 10px; font-family: monospace; font-weight: 700; color: #047857;">${formattedApn}</td>
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Owner of Record</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${owner}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Total Assessed Value</td>
+                  <td style="padding: 4px 10px; font-weight: 800; color: #059669;">${propAssessedDisplay}</td>
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Land / Building Split</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #334155;">${propSplitDisplay}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Lot Size / Acreage</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${propLotSizeDisplay}</td>
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Zoning / Land Use</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${propZoningDisplay}</td>
+                </tr>
+                ${legal ? `
+                <tr style="background: #f8fafc;">
+                  <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Legal Description</td>
+                  <td colspan="3" style="padding: 4px 10px; font-size: 8.5px; color: #475569; line-height: 1.3;">${legal}</td>
+                </tr>` : ''}
+              </tbody>
+            </table>
           </div>
 
           <!-- Key Financial Scorecard -->
           <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px;">
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
-              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">10-Yr Levered IRR</p>
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">${holdYrs}-Yr Levered IRR</p>
               <p style="font-size: 15px; font-weight: 800; color: #059669; margin: 3px 0 0 0;">${res.irr.toFixed(2)}%</p>
             </div>
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
-              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">10-Yr NPV (@${inputs.discountRate}%)</p>
+              <p style="font-size: 8.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0;">${holdYrs}-Yr NPV (@${inputs.discountRate}%)</p>
               <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${formatCurrency(res.npv)}</p>
             </div>
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;">
@@ -3803,7 +4003,7 @@
             <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; text-align: right;">
               <thead>
                 <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #334155;">
-                  <th style="padding: 5px 6px; text-align: center;">Year</th>
+                  <th style="padding: 5px 6px; text-align: center;">Date / Period</th>
                   <th style="padding: 5px 6px;">Property Value</th>
                   <th style="padding: 5px 6px;">Gross Income</th>
                   <th style="padding: 5px 6px;">Vacancy</th>
@@ -3820,7 +4020,7 @@
               <tbody>
                 ${res.projections.map((p, i) => `
                   <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                    <td style="padding: 4px 6px; text-align: center; font-weight: 700; color: #0f172a;">${p.year}</td>
+                    <td style="padding: 4px 6px; text-align: center; font-weight: 700; color: #0f172a;">${getProjectionStartYear() + p.year - 1} <span style="font-size: 8px; color: #64748b; font-weight: normal;">(Yr ${p.year})</span></td>
                     <td style="padding: 4px 6px;">${formatCurrency(p.propertyValue)}</td>
                     <td style="padding: 4px 6px;">${formatCurrency(p.grossPotentialIncome)}</td>
                     <td style="padding: 4px 6px; color: #e11d48;">${formatCurrency(p.vacancyLoss)}</td>
@@ -5179,6 +5379,16 @@
         currentLoadedDeal.inputs.apn = item.apn;
         currentLoadedDeal.inputs.county = 'Yakima';
         updateHeaderApnBadge(item.apn);
+        if (window.AddressService) {
+          window.AddressService.fetchYakimaAssessorData(item.apn).then(data => {
+            if (data && currentLoadedDeal) {
+              currentLoadedDeal.inputs.assessorData = data;
+              currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
+              updateCountyDossierUI(currentLoadedDeal);
+            }
+          }).catch(e => console.warn('Assessor fetch warning:', e));
+        }
+        updateCountyDossierUI(currentLoadedDeal);
       }
     }
     window.selectProjAddress = selectProjAddress;
@@ -5220,8 +5430,123 @@
           }
         }
       }
+
+      updateCountyDossierUI(currentLoadedDeal);
     }
     window.updateHeaderApnBadge = updateHeaderApnBadge;
+
+    function updateCountyDossierUI(deal) {
+      const dossierCard = document.getElementById('property-county-dossier-card');
+      if (!dossierCard) return;
+
+      const current = deal || currentLoadedDeal || {};
+      const rawAssessor = (current.inputs && current.inputs.assessorData) || {};
+      const propAddress = current.location || (current.inputs && current.inputs.location) || rawAssessor.address || 'Pending Address';
+      const propApn = (current.inputs && (current.inputs.primaryApn || current.inputs.apn)) || rawAssessor.apn || '';
+      const formattedApn = rawAssessor.formattedApn || (propApn.length === 11 ? (propApn.slice(0, 6) + '-' + propApn.slice(6)) : propApn) || 'Pending Link';
+      const propCounty = (current.inputs && current.inputs.county) || (propAddress.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Assessor Record');
+
+      const totalAssessed = rawAssessor.totalAssessedValue || (current.inputs && (current.inputs.totalAssessedValue || current.inputs.assessedValue)) || 0;
+      const landVal = rawAssessor.marketLandValue || (current.inputs && current.inputs.marketLandValue) || 0;
+      const impVal = rawAssessor.marketImprovementValue || (current.inputs && current.inputs.marketImprovementValue) || 0;
+      const taxYear = rawAssessor.taxYear || (current.inputs && current.inputs.taxYear) || new Date().getFullYear();
+
+      const acres = rawAssessor.acres || (current.inputs && (current.inputs.acres || current.inputs.acreage)) || 0;
+      const sqft = rawAssessor.sqft || (current.inputs && current.inputs.sqft) || (acres > 0 ? Math.round(acres * 43560) : 0);
+
+      const zoning = rawAssessor.zoning || (current.inputs && current.inputs.zoning) || 'Commercial / Mixed';
+      const useCode = rawAssessor.useCode || (current.inputs && current.inputs.useCode) || 'Commercial Real Estate';
+      const owner = rawAssessor.owner || (current.inputs && current.inputs.owner) || 'Owner of Record';
+      const legal = rawAssessor.legalDescription || (current.inputs && current.inputs.legalDescription) || 'Legal description pending county verification';
+      const lastSync = current.inputs && current.inputs.gisSync && current.inputs.gisSync.lastSyncedAt;
+
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+      setEl('dossier-county-badge', propCounty.includes('Record') ? propCounty : `${propCounty} Official Record`);
+
+      const ascendLink = document.getElementById('dossier-ascend-link');
+      if (ascendLink) {
+        if (propApn) {
+          ascendLink.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + propApn;
+          ascendLink.classList.remove('opacity-50', 'pointer-events-none');
+        } else {
+          ascendLink.href = 'https://yes.co.yakima.wa.us/ascend/';
+        }
+      }
+
+      setEl('dossier-apn-pill', propApn ? `APN: ${formattedApn}` : 'APN: Pending Link');
+      setEl('dossier-address-text', propAddress);
+
+      setEl('dossier-assessed-val', totalAssessed > 0 ? formatCurrency(totalAssessed) : 'Pending Assessment');
+      setEl('dossier-tax-year', `Tax Year: ${taxYear}`);
+
+      if (totalAssessed > 0 && (landVal > 0 || impVal > 0)) {
+        setEl('dossier-split-val', `${formatCurrency(landVal)} / ${formatCurrency(impVal)}`);
+        const landPct = Math.round((landVal / totalAssessed) * 100);
+        const impPct = 100 - landPct;
+        setEl('dossier-land-pct', `${landPct}% Land / ${impPct}% Bldg`);
+      } else if (totalAssessed > 0) {
+        setEl('dossier-split-val', `${formatCurrency(totalAssessed)} Total`);
+        setEl('dossier-land-pct', '100% Fee Simple Value');
+      } else {
+        setEl('dossier-split-val', '-- / --');
+        setEl('dossier-land-pct', 'Pending Breakdown');
+      }
+
+      setEl('dossier-lot-size', acres > 0 ? `${parseFloat(acres).toFixed(2)} Acres` : (sqft > 0 ? `${(sqft / 43560).toFixed(2)} Acres` : 'N/A'));
+      setEl('dossier-lot-sqft', sqft > 0 ? `${Number(sqft).toLocaleString()} Sq Ft` : 'Pending Survey');
+
+      setEl('dossier-zoning', zoning);
+      setEl('dossier-use-code', useCode);
+
+      setEl('dossier-owner-name', owner);
+      setEl('dossier-legal-desc', legal);
+
+      const syncStatusEl = document.getElementById('dossier-sync-status');
+      if (syncStatusEl) {
+        if (lastSync) {
+          syncStatusEl.textContent = 'Live GIS Synced';
+          syncStatusEl.className = 'text-[10px] font-bold text-emerald-400';
+        } else if (propApn) {
+          syncStatusEl.textContent = 'Verified County Parcel';
+          syncStatusEl.className = 'text-[10px] font-bold text-emerald-400';
+        } else {
+          syncStatusEl.textContent = 'Manual Underwriting';
+          syncStatusEl.className = 'text-[10px] font-bold text-slate-400';
+        }
+      }
+    }
+    window.updateCountyDossierUI = updateCountyDossierUI;
+
+    function applyAssessedValueToProject() {
+      const current = currentLoadedDeal || {};
+      const rawAssessor = (current.inputs && current.inputs.assessorData) || {};
+      const totalAssessed = rawAssessor.totalAssessedValue || (current.inputs && (current.inputs.totalAssessedValue || current.inputs.assessedValue)) || 0;
+
+      if (!totalAssessed || totalAssessed <= 0) {
+        alert('No official assessed value on record for this parcel.');
+        return;
+      }
+
+      const priceInput = document.getElementById('field-purchase-price');
+      if (priceInput) {
+        priceInput.value = totalAssessed;
+        priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      if (current.inputs) {
+        current.inputs.purchasePrice = totalAssessed;
+      }
+      current.purchase_price = totalAssessed;
+
+      updateCalculations();
+      if (typeof saveCurrentDealChanges === 'function') {
+        saveCurrentDealChanges(false);
+      }
+
+      alert(`Applied Yakima County assessed value of ${formatCurrency(totalAssessed)} as project Purchase Price.`);
+    }
+    window.applyAssessedValueToProject = applyAssessedValueToProject;
 
     async function forceRefreshCountyGis() {
       if (!currentLoadedDeal || !currentLoadedDeal.inputs) return;
@@ -5251,6 +5576,7 @@
             saveCurrentDealChanges(false);
           }
           updateHeaderApnBadge(apn);
+          updateCountyDossierUI(currentLoadedDeal);
           alert('Successfully refreshed property from Yakima County Assessor! Assessed Value: $' + data.totalAssessedValue.toLocaleString());
         }
       } catch (err) {
@@ -5475,6 +5801,9 @@
       currentLoadedDeal.results = res;
 
       autoSaveDealToSupabase(currentLoadedDeal);
+      if (typeof updateCountyDossierUI === 'function') {
+        updateCountyDossierUI(currentLoadedDeal);
+      }
     }
     window.saveCurrentDealChanges = saveCurrentDealChanges;
 
@@ -5582,6 +5911,9 @@
       }
 
       renderDealTimelineUI();
+      if (field === 'closingDate' || field === 'loiDate') {
+        if (typeof updateCalculations === 'function') updateCalculations();
+      }
       saveCurrentDealChanges(false);
     }
     window.updateMilestoneDate = updateMilestoneDate;

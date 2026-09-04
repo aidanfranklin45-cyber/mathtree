@@ -1329,6 +1329,76 @@ runTest('UI Verification: Holding period inputs accept up to 30 years with chips
   assert.ok(dashHtml.includes('id="edit-deal-exit-year" min="1" max="30"'), 'dashboard.html edit-deal-exit-year has max="30"');
 });
 
+// 60. Projection Start Year Dynamic Resolution Logic
+runTest('Projection Start Year: Dynamically resolves from closingDate, loiDate, or current calendar year', () => {
+  function resolveStartYear(dealInputs, formValues = {}) {
+    const inputs = dealInputs || {};
+    const closeVal = inputs.closingDate || formValues.closingDate;
+    const loiVal = inputs.loiDate || formValues.loiDate;
+    const dateStr = closeVal || loiVal;
+    if (dateStr) {
+      const match = String(dateStr).match(/(\d{4})/);
+      if (match) {
+        const yr = parseInt(match[1], 10);
+        if (yr >= 1900 && yr <= 2150) return yr;
+      }
+      const d = new Date(dateStr);
+      if (!isNaN(d.getFullYear()) && d.getFullYear() >= 1900) return d.getFullYear();
+    }
+    return new Date().getFullYear();
+  }
+
+  // Case 1: Target Closing Date provided (YYYY-MM-DD)
+  assert.strictEqual(resolveStartYear({ closingDate: '2026-08-15' }), 2026);
+
+  // Case 2: Target Closing Date in MM/DD/YYYY format
+  assert.strictEqual(resolveStartYear({ closingDate: '07/15/2027' }), 2027);
+
+  // Case 3: LOI Date provided when closing date is absent
+  assert.strictEqual(resolveStartYear({ loiDate: '2025-06-18' }), 2025);
+
+  // Case 4: Target closing date takes precedence over LOI date
+  assert.strictEqual(resolveStartYear({ closingDate: '2028-01-01', loiDate: '2027-12-15' }), 2028);
+
+  // Case 5: Empty values fall back to current calendar year
+  assert.strictEqual(resolveStartYear({}), new Date().getFullYear());
+});
+
+// 61. UI Verification: Calendar Date-First Displays and Headers in project.html
+runTest('UI Verification: project.html displays calendar dates primarily across tables, charts, inspector, and timeline', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // Table Headers updated to "Date / Period"
+  assert.ok(projHtml.includes('<th class="py-3 px-5">Date / Period</th>'), 'Detailed forecast table header is Date / Period');
+  assert.ok(projHtml.includes('<th class="py-2.5 px-5">Date / Period</th>'), 'Amortization table header is Date / Period');
+  assert.ok(projHtml.includes('<th class="py-2.5 px-4">Date / Period</th>'), 'Tax breakdown table header is Date / Period');
+
+  // getProjectionStartYear function defined and exposed globally
+  assert.ok(projHtml.includes('function getProjectionStartYear()'), 'getProjectionStartYear function is defined');
+  assert.ok(projHtml.includes('window.getProjectionStartYear = getProjectionStartYear'), 'getProjectionStartYear exposed on window');
+
+  // Dynamic Inspector & Slider Labels updated with calendar dates
+  assert.ok(projHtml.includes('id="slider-min-label"'), 'Slider has slider-min-label');
+  assert.ok(projHtml.includes('id="slider-max-label"'), 'Slider has slider-max-label');
+  assert.ok(projHtml.includes('currentCalYear = startYr + targetYearInput - 1'), 'Inspector calculates current calendar year');
+
+  // Projections & Amortization tables render calendar year primarily
+  assert.ok(projHtml.includes('calYear = startYr + proj.year - 1'), 'renderProjectionsTable computes calYear');
+  assert.ok(projHtml.includes('calYear = startYr + row.year - 1'), 'renderAmortizationTable computes calYear');
+
+  // Projections Chart X-axis labels use calendar year
+  assert.ok(projHtml.includes('labels = projections.map(p => `${startYr + p.year - 1} (Yr ${p.year})`)'), 'Chart labels use calendar year');
+
+  // Wealth Realization Studio uses calendar year
+  assert.ok(projHtml.includes('calYr = startYr + y - 1'), 'Wealth studio dropdown computes calendar year');
+  assert.ok(projHtml.includes('holdCalYr = startYr + holdYear - 1'), 'Wealth studio narrative computes hold calendar year');
+
+  // Milestone date change triggers recalculation of dates across page
+  assert.ok(projHtml.includes("if (field === 'closingDate' || field === 'loiDate')"), 'updateMilestoneDate checks for date changes');
+  assert.ok(projHtml.includes("if (typeof updateCalculations === 'function') updateCalculations()"), 'updateMilestoneDate triggers updateCalculations');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
