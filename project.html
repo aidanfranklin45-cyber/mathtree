@@ -1383,14 +1383,17 @@
 
         <!-- Rent & Income Section -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
-          <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
+            <span id="edit-rent-hint" class="text-[10px] text-slate-500 italic">Commercial: total annual rent · Multi-Unit/Storage: per-unit monthly</span>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="edit-rent-inputs-container">
             <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Annual Gross Rent ($)</label>
+              <label class="text-[11px] font-bold text-slate-400">Annual Gross Rent ($) <span class="text-slate-600 font-normal">(Commercial)</span></label>
               <input type="number" id="edit-deal-gross-rent-annual" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
             <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Monthly Gross Rent ($)</label>
+              <label class="text-[11px] font-bold text-slate-400">Monthly Rent / Unit ($) <span class="text-slate-600 font-normal">(SFR · Multi · Storage)</span></label>
               <input type="number" id="edit-deal-gross-rent-monthly" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
           </div>
@@ -5002,16 +5005,32 @@
         document.getElementById('edit-deal-facility-type').value = currentLoadedDeal.facility_type || inputs.facilityType || '';
       }
 
-      const grossMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
-      const grossAnnual = inputs.grossRentAnnual || (grossMonthly ? grossMonthly * 12 : 0);
+      // Pre-populate rent fields correctly by asset class:
+      // - Annual Gross Rent  → commercial total annual rent
+      // - Monthly Rent/Unit  → per-unit monthly for SFR, multi-unit, and storage (matches analysis panel)
+      let preAnnual = 0;
+      let preMonthly = 0;
+      if (aClass === 'commercial') {
+        preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0);
+        preMonthly = 0; // not used for commercial — hide hint
+      } else if (aClass === 'single-family') {
+        preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
+        preAnnual  = preMonthly ? preMonthly * 12 : 0;
+      } else if (aClass === 'multi-unit') {
+        preMonthly = inputs.monthlyRentPerUnit || 0;
+        preAnnual  = 0; // annual calculated by math engine, not an input here
+      } else if (aClass === 'storage') {
+        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || 0;
+        preAnnual  = 0;
+      }
 
-      document.getElementById('edit-deal-gross-rent-annual').value = grossAnnual || '';
-      document.getElementById('edit-deal-gross-rent-monthly').value = grossMonthly || '';
+      document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
+      document.getElementById('edit-deal-gross-rent-monthly').value = preMonthly > 0 ? preMonthly : '';
 
-      document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      document.getElementById('edit-deal-opex-ratio').value   = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
       document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
       document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
-      document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
+      document.getElementById('edit-deal-loan-term').value    = inputs.loanTerm ?? 30;
 
       modal.classList.remove('hidden');
     }
@@ -5032,14 +5051,27 @@
       currentLoadedDeal.property_class = propertyClass;
       currentLoadedDeal.facility_type = facilityType;
 
-      const price = parseFloat(document.getElementById('edit-deal-price').value) || currentLoadedDeal.purchase_price || 1000000;
-      const opex = parseFloat(document.getElementById('edit-deal-opex-ratio').value) || 35;
-      const down = parseFloat(document.getElementById('edit-deal-down-payment').value) || 25;
-      const rate = parseFloat(document.getElementById('edit-deal-interest-rate').value) || 6.5;
-      const term = parseInt(document.getElementById('edit-deal-loan-term').value) || 30;
+      // Zero-safe numeric parser: only falls back when the field is blank or non-numeric.
+      // Using parseFloat(...) || fallback would silently replace legitimate 0 values
+      // (e.g. 0% down = 100% LTV, 0% interest = cash purchase) with the fallback.
+      const numVal = (id, fallback) => {
+        const n = parseFloat(document.getElementById(id)?.value);
+        return isNaN(n) ? fallback : n;
+      };
+      const intVal = (id, fallback) => {
+        const n = parseInt(document.getElementById(id)?.value, 10);
+        return isNaN(n) ? fallback : n;
+      };
 
-      const annualRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-annual').value) || 0;
-      const monthlyRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-monthly').value) || 0;
+      const price = numVal('edit-deal-price', currentLoadedDeal.purchase_price || 1000000);
+      const opex  = numVal('edit-deal-opex-ratio', 35);
+      const down  = numVal('edit-deal-down-payment', 25);
+      const rate  = numVal('edit-deal-interest-rate', 6.5);
+      const term  = intVal('edit-deal-loan-term', 30);
+
+      // Zero-safe rent values: use isNaN guard so a typed 0 isn't treated as "not entered"
+      const annualRentVal  = numVal('edit-deal-gross-rent-annual', 0);
+      const monthlyRentVal = numVal('edit-deal-gross-rent-monthly', 0);
 
       currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
       currentLoadedDeal.inputs.purchasePrice = price;
@@ -5058,16 +5090,35 @@
 
       const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
       if (aClass === 'single-family') {
-        currentLoadedDeal.inputs.monthlyRent = monthlyRentVal || (annualRentVal ? Math.round(annualRentVal / 12) : 2500);
+        // Monthly rent is the total rent for the property
+        if (monthlyRentVal > 0) currentLoadedDeal.inputs.monthlyRent = monthlyRentVal;
+        else if (annualRentVal > 0) currentLoadedDeal.inputs.monthlyRent = Math.round(annualRentVal / 12);
+        // else preserve existing value unchanged
       } else if (aClass === 'multi-unit') {
-        const units = currentLoadedDeal.inputs.unitCount || currentLoadedDeal.inputs.numUnits || 4;
-        currentLoadedDeal.inputs.unitCount = units;
-        currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / units) : (currentLoadedDeal.inputs.monthlyRentPerUnit || 1400);
+        // Monthly rent field = per-unit monthly rent (matches the analysis panel input)
+        if (monthlyRentVal > 0) {
+          currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal;
+        } else if (annualRentVal > 0) {
+          const units = currentLoadedDeal.inputs.unitCount || currentLoadedDeal.inputs.numUnits || 4;
+          currentLoadedDeal.inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / units);
+        }
+        // else preserve existing value unchanged
       } else if (aClass === 'commercial') {
-        currentLoadedDeal.inputs.grossRentAnnual = annualRentVal || (monthlyRentVal ? monthlyRentVal * 12 : 120000);
+        if (annualRentVal > 0) currentLoadedDeal.inputs.grossRentAnnual = annualRentVal;
+        else if (monthlyRentVal > 0) currentLoadedDeal.inputs.grossRentAnnual = monthlyRentVal * 12;
+        // else preserve existing value unchanged
       } else if (aClass === 'storage') {
-        currentLoadedDeal.inputs.storageUnitCount = currentLoadedDeal.inputs.storageUnitCount || currentLoadedDeal.inputs.unitCount || 100;
-        currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / currentLoadedDeal.inputs.storageUnitCount) : (currentLoadedDeal.inputs.monthlyRentPerUnit || 120);
+        // Monthly rent field = per-unit monthly rent (matches the analysis panel input)
+        if (monthlyRentVal > 0) {
+          currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal;
+          currentLoadedDeal.inputs.storageRentPerUnit = monthlyRentVal;
+        } else if (annualRentVal > 0) {
+          const units = currentLoadedDeal.inputs.storageUnitCount || currentLoadedDeal.inputs.unitCount || 100;
+          const perUnit = Math.round(annualRentVal / 12 / units);
+          currentLoadedDeal.inputs.monthlyRentPerUnit = perUnit;
+          currentLoadedDeal.inputs.storageRentPerUnit = perUnit;
+        }
+        // else preserve existing value unchanged
       }
 
       // Update UI title and badges

@@ -669,14 +669,17 @@
 
         <!-- Rent & Income Section -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
-          <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
+            <span class="text-[10px] text-slate-500 italic">Commercial: total annual · Multi/Storage: per-unit monthly</span>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="edit-rent-inputs-container">
             <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Annual Gross Rent ($)</label>
+              <label class="text-[11px] font-bold text-slate-400">Annual Gross Rent ($) <span class="text-slate-600 font-normal">(Commercial)</span></label>
               <input type="number" id="edit-deal-gross-rent-annual" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
             <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Monthly Gross Rent ($)</label>
+              <label class="text-[11px] font-bold text-slate-400">Monthly Rent / Unit ($) <span class="text-slate-600 font-normal">(SFR · Multi · Storage)</span></label>
               <input type="number" id="edit-deal-gross-rent-monthly" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
           </div>
@@ -1379,14 +1382,26 @@
       deal.property_class = propertyClass;
       deal.facility_type = facilityType;
 
-      const price = parseFloat(document.getElementById('edit-deal-price').value) || deal.purchase_price || 1000000;
-      const opex = parseFloat(document.getElementById('edit-deal-opex-ratio').value) || 35;
-      const down = parseFloat(document.getElementById('edit-deal-down-payment').value) || 25;
-      const rate = parseFloat(document.getElementById('edit-deal-interest-rate').value) || 6.5;
-      const term = parseInt(document.getElementById('edit-deal-loan-term').value) || 30;
+      // Zero-safe numeric parser: only falls back when the field is blank or non-numeric.
+      // Using parseFloat(...) || fallback silently discards legitimate zero values
+      // (e.g. 0% down = 100% LTV, 0% interest = cash purchase).
+      const numVal = (elId, fallback) => {
+        const n = parseFloat(document.getElementById(elId)?.value);
+        return isNaN(n) ? fallback : n;
+      };
+      const intVal = (elId, fallback) => {
+        const n = parseInt(document.getElementById(elId)?.value, 10);
+        return isNaN(n) ? fallback : n;
+      };
 
-      const annualRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-annual').value) || 0;
-      const monthlyRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-monthly').value) || 0;
+      const price = numVal('edit-deal-price', deal.purchase_price || 1000000);
+      const opex  = numVal('edit-deal-opex-ratio', 35);
+      const down  = numVal('edit-deal-down-payment', 25);
+      const rate  = numVal('edit-deal-interest-rate', 6.5);
+      const term  = intVal('edit-deal-loan-term', 30);
+
+      const annualRentVal  = numVal('edit-deal-gross-rent-annual', 0);
+      const monthlyRentVal = numVal('edit-deal-gross-rent-monthly', 0);
 
       deal.inputs = deal.inputs || {};
       deal.inputs.purchasePrice = price;
@@ -1405,16 +1420,30 @@
 
       const aClass = deal.asset_class || deal.assetType || 'commercial';
       if (aClass === 'single-family') {
-        deal.inputs.monthlyRent = monthlyRentVal || (annualRentVal ? Math.round(annualRentVal / 12) : 2500);
+        if (monthlyRentVal > 0) deal.inputs.monthlyRent = monthlyRentVal;
+        else if (annualRentVal > 0) deal.inputs.monthlyRent = Math.round(annualRentVal / 12);
       } else if (aClass === 'multi-unit') {
-        const units = deal.inputs.unitCount || deal.inputs.numUnits || 4;
-        deal.inputs.unitCount = units;
-        deal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / units) : (deal.inputs.monthlyRentPerUnit || 1400);
+        // Monthly rent field = per-unit monthly rent
+        if (monthlyRentVal > 0) {
+          deal.inputs.monthlyRentPerUnit = monthlyRentVal;
+        } else if (annualRentVal > 0) {
+          const units = deal.inputs.unitCount || deal.inputs.numUnits || 4;
+          deal.inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / units);
+        }
       } else if (aClass === 'commercial') {
-        deal.inputs.grossRentAnnual = annualRentVal || (monthlyRentVal ? monthlyRentVal * 12 : 120000);
+        if (annualRentVal > 0) deal.inputs.grossRentAnnual = annualRentVal;
+        else if (monthlyRentVal > 0) deal.inputs.grossRentAnnual = monthlyRentVal * 12;
       } else if (aClass === 'storage') {
-        deal.inputs.storageUnitCount = deal.inputs.storageUnitCount || deal.inputs.unitCount || 100;
-        deal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / deal.inputs.storageUnitCount) : (deal.inputs.monthlyRentPerUnit || 120);
+        // Monthly rent field = per-unit monthly rent
+        if (monthlyRentVal > 0) {
+          deal.inputs.monthlyRentPerUnit = monthlyRentVal;
+          deal.inputs.storageRentPerUnit = monthlyRentVal;
+        } else if (annualRentVal > 0) {
+          const units = deal.inputs.storageUnitCount || deal.inputs.unitCount || 100;
+          const perUnit = Math.round(annualRentVal / 12 / units);
+          deal.inputs.monthlyRentPerUnit = perUnit;
+          deal.inputs.storageRentPerUnit = perUnit;
+        }
       }
 
       // Recalculate metrics via PropertyMath
