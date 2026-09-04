@@ -177,52 +177,95 @@
 
     <div id="modeler-grid-container" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       
-      <!-- Left column: Parameters Overview (takes 4 cols on lg, or full width on smaller screens) -->
-      <section class="lg:col-span-4 space-y-6">
-        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl space-y-6 shadow-xl backdrop-blur-md">
+      <!-- Left column: Brief Assumptions Summary (takes 4 cols on lg, or full width on smaller screens) -->
+      <section class="lg:col-span-4 space-y-5">
+        
+        <!-- Brief Assumptions Summary Container -->
+        <div class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
+          
+          <!-- Header -->
           <div class="flex items-center justify-between pb-3 border-b border-slate-900">
-            <div>
-              <h2 class="text-sm font-bold tracking-tight text-white flex items-center space-x-2">
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span>Baseline Parameters</span>
-              </h2>
-              <span id="active-tab-indicator" class="text-[10px] font-semibold text-slate-400 capitalize">Commercial Real Estate</span>
+            <div class="flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 font-bold">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <div>
+                <h2 class="text-sm font-extrabold text-white">Deal Assumptions</h2>
+                <span id="active-tab-indicator" class="text-[10px] font-semibold text-slate-400 capitalize">Commercial Real Estate</span>
+              </div>
             </div>
             <button type="button" onclick="openEditDealModalFromProject()" class="text-xs font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2.5 py-1.5 rounded-xl border border-brand-500/20 transition flex items-center space-x-1 shadow-sm">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              <span>Edit Assumptions</span>
+              <span>Edit</span>
             </button>
           </div>
 
-          <!-- Scenario Manager Selector (Base, Bull, Bear, Custom) -->
-          <div class="space-y-2 p-3 rounded-xl border border-slate-900 bg-slate-950/60 shadow-inner">
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-accent-cyan"></span>
-                <span>Underwriting Scenario</span>
-              </span>
-              </span>
-              <button type="button" id="btn-save-scenario-modal" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20 transition">
-                + Save Custom
-              </button>
+          <!-- Underwriting Scenario Selector -->
+          <div class="space-y-1.5 p-2.5 rounded-2xl border border-slate-900 bg-slate-950/60 shadow-inner">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 px-1">
+              <span class="uppercase tracking-wider">Macro Scenario</span>
+              <span id="active-scenario-badge" class="text-brand-300 font-semibold">Base Case</span>
             </div>
-            <div class="grid grid-cols-3 gap-1 bg-slate-900/60 p-1 rounded-lg border border-slate-900">
-              <button type="button" id="scenario-btn-base" data-scenario="base" class="py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-brand-600 shadow-sm text-center">
+            <div class="grid grid-cols-3 gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-900">
+              <button type="button" id="scenario-btn-base" data-scenario="base" class="py-1 px-2 rounded-lg text-[11px] font-bold transition text-white bg-brand-600 shadow-sm text-center">
                 Base
               </button>
-              <button type="button" id="scenario-btn-bull" data-scenario="bull" class="py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-emerald-300 hover:bg-slate-900 text-center">
+              <button type="button" id="scenario-btn-bull" data-scenario="bull" class="py-1 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-emerald-300 text-center">
                 Bull 🐂
               </button>
-              <button type="button" id="scenario-btn-bear" data-scenario="bear" class="py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-slate-400 hover:text-rose-300 hover:bg-slate-900 text-center">
+              <button type="button" id="scenario-btn-bear" data-scenario="bear" class="py-1 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-rose-300 text-center">
                 Bear 🐻
               </button>
             </div>
-            <div id="active-scenario-badge" class="text-[10px] text-slate-400 flex items-center justify-between px-1">
-              <span>Current: <strong class="text-brand-300">Base Case</strong> (Target Projections)</span>
+          </div>
+
+          <!-- Brief Assumptions Summary Cards Grid -->
+          <div class="space-y-2 pt-1">
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Acquisition Price</span>
+                <span id="brief-val-price" class="text-sm font-black text-white mt-1 block">$0</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Gross Revenue</span>
+                <span id="brief-val-rent" class="text-sm font-black text-brand-400 mt-1 block">$0/yr</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Debt & Financing</span>
+                <span id="brief-val-debt" class="text-xs font-bold text-slate-200 mt-1 block">--</span>
+                <span id="brief-val-term" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Operations & Vacancy</span>
+                <span id="brief-val-opex" class="text-xs font-bold text-slate-200 mt-1 block">--</span>
+                <span id="brief-val-structure" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Exit Cap Rate</span>
+                <span id="brief-val-exit" class="text-sm font-black text-accent-cyan mt-1 block">--</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Hold Horizon</span>
+                <span id="brief-val-horizon" class="text-sm font-black text-slate-200 mt-1 block">10 Years</span>
+              </div>
             </div>
           </div>
 
-          <!-- Dynamic Form Inputs Container -->
+          <!-- Edit Button -->
+          <button type="button" onclick="openEditDealModalFromProject()" class="w-full py-2.5 px-3 rounded-xl text-xs font-extrabold text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-center space-x-1.5 shadow-sm">
+            <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <span>Modify Assumptions in Modal</span>
+          </button>
+        </div>
+
+        <!-- Preserved Hidden Inputs to maintain 100% calculation engine compatibility -->
+        <div class="hidden" aria-hidden="true">
           <form id="calculator-form" class="space-y-5" onsubmit="return false;">
             
             <!-- Core Model Inputs -->
@@ -537,12 +580,8 @@
               </div>
             </details>
           </form>
-
-          <!-- System Assumptions Notes -->
-          <div id="system-assumptions-notes" class="text-xs text-slate-300 leading-relaxed space-y-2 bg-emerald-950/15 p-4 rounded-xl border border-emerald-900/40 mt-6 shadow-md shadow-emerald-950/10">
-            <!-- Dynamically populated assumptions notes -->
-          </div>
         </div>
+
       </section>
 
       <!-- Right column: Dashboard (takes 8 cols on lg) -->
@@ -2022,6 +2061,66 @@
     }
 
     // Main controller: performs calculations and updates all components
+    
+    function updateBriefSummaryContainer(inputs) {
+      if (!inputs) return;
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setVal('brief-val-price', formatCurrency(inputs.purchasePrice || 0));
+
+      let rentStr = '$0/yr';
+      if (activeTab === 'single-family') {
+        const mo = inputs.monthlyRent || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
+        rentStr = `${formatCurrency(mo * 12)}/yr (${formatCurrency(mo)}/mo)`;
+      } else if (activeTab === 'multi-unit') {
+        const u = inputs.unitCount || 1;
+        const rpu = inputs.monthlyRentPerUnit || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / u / 12) : 0);
+        rentStr = `${formatCurrency(u * rpu * 12)}/yr (${u} units @ ${formatCurrency(rpu)}/mo)`;
+      } else if (activeTab === 'commercial') {
+        const ann = inputs.grossRentAnnual || (inputs.monthlyRent ? inputs.monthlyRent * 12 : 0);
+        rentStr = `${formatCurrency(ann)}/yr (${formatCurrency(Math.round(ann / 12))}/mo)`;
+      } else if (activeTab === 'storage') {
+        const u = inputs.unitCount || inputs.storageUnitCount || 100;
+        const rpu = inputs.monthlyRentPerUnit || inputs.storageRentPerUnit || 0;
+        const total = (u * rpu * 12) || inputs.grossRentAnnual || 0;
+        rentStr = `${formatCurrency(total)}/yr (${u} units)`;
+      }
+      setVal('brief-val-rent', rentStr);
+
+      const down = inputs.downPaymentPercent ?? 25;
+      const rate = inputs.interestRate ?? 6.5;
+      const term = inputs.loanTerm ?? 30;
+      setVal('brief-val-debt', `${down}% Down • ${rate}% Rate`);
+      setVal('brief-val-term', `${term}-Year Amortization (${100 - down}% LTV)`);
+
+      const opex = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      const vac = inputs.vacancyRate ?? 5;
+      setVal('brief-val-opex', `${opex}% OpEx • ${vac}% Vac`);
+
+      let structStr = 'Standard Lease';
+      if (activeTab === 'commercial') {
+        structStr = `${inputs.leaseType || 'NNN'} Lease`;
+      } else if (activeTab === 'storage') {
+        structStr = inputs.isAutomated ? 'Automated Facility' : 'Staffed Facility';
+      } else if (inputs.manageProperty) {
+        structStr = 'Professional Management';
+      } else {
+        structStr = 'Self-Managed';
+      }
+      setVal('brief-val-structure', structStr);
+
+      const exitCap = inputs.targetCapRate ?? inputs.targetExitCapRate ?? inputs.appreciationRate ?? 7;
+      setVal('brief-val-exit', `${parseFloat(exitCap).toFixed(2)}% Cap Rate`);
+      setVal('brief-val-horizon', `${inputs.exitYear || 10} Years`);
+
+      const assetNames = {
+        'commercial': 'Commercial Real Estate',
+        'multi-unit': 'Multi-Family Residential',
+        'single-family': 'Single-Family Home',
+        'storage': 'Self-Storage Facility'
+      };
+      setVal('active-tab-indicator', assetNames[activeTab] || activeTab);
+    }
+
     function updateCalculations() {
       syncSimpleModeState();
       syncManagementCheckboxState();
@@ -4360,6 +4459,7 @@
       const res = window.PropertyMath.calculateProjections(activeTab, inputs);
 
       renderDealAuditor(inputs, res);
+      updateBriefSummaryContainer(inputs);
       syncSlidersFromInputs();
 
       if (currentWorkspaceView === 'portfolio') {
