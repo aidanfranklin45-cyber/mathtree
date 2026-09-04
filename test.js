@@ -717,6 +717,83 @@ runTest('Amortization Wealth & Holding Period Equity Realization Engine', () => 
   assert.ok(wealthY2.totalNetBenefit > 25000, 'Total net benefit in year 2 exceeds 25k');
 });
 
+runTest('calculateProjections returns identical cashFlow and netCashFlow properties across all projection years', () => {
+  const res = calculateProjections('single-family', {
+    purchasePrice: 250000,
+    downPaymentPercent: 20,
+    monthlyRent: 2000,
+    expenseRatio: 25,
+    interestRate: 6.5,
+    loanTerm: 30
+  });
+
+  assert.ok(res.projections.length === 10);
+  res.projections.forEach((p, idx) => {
+    assert.strictEqual(typeof p.cashFlow, 'number', `Year ${idx + 1} cashFlow must be a number`);
+    assert.strictEqual(typeof p.netCashFlow, 'number', `Year ${idx + 1} netCashFlow must be a number`);
+    assert.strictEqual(p.cashFlow, p.netCashFlow, `Year ${idx + 1} cashFlow and netCashFlow must match exactly`);
+  });
+});
+
+runTest('Commercial 100% financed (0% Down) yields positive annual cash flow and isZeroEquity true', () => {
+  const inputs = {
+    purchasePrice: 300000,
+    downPaymentPercent: 0,
+    interestRate: 6.5,
+    loanTerm: 30,
+    grossRentAnnual: 26400,
+    expenseRatio: 3.5,
+    leaseType: 'NNN'
+  };
+  const res = calculateProjections('commercial', inputs);
+
+  assert.strictEqual(res.isZeroEquity, true);
+  assert.strictEqual(res.downPaymentAmount, 0);
+  assert.strictEqual(res.loanAmount, 300000);
+  assert.strictEqual(res.ltv, 100);
+
+  const y1 = res.projections[0];
+  assert.ok(y1.cashFlow > 0, `Year 1 cashFlow must be positive on financed property, got ${y1.cashFlow}`);
+  assert.strictEqual(y1.cashFlow, y1.netCashFlow);
+  assert.strictEqual(y1.isCoCNotMeaningful, true);
+  assert.strictEqual(y1.cashOnCashDisplay, 'N/M');
+});
+
+runTest('Dynamic deal metrics recalculation from inputs resolves stale $0 cash flow', () => {
+  // Simulate a deal saved in DB or localStorage with stale year1_cashflow: 0
+  const staleDeal = {
+    id: 'deal-test-stale',
+    name: 'Stop and Go Burgers',
+    asset_class: 'commercial',
+    status: 'owned',
+    purchase_price: 300000,
+    year1_cashflow: 0, // stale bug value
+    cash_on_cash: 0,
+    total_equity: 0,
+    inputs: {
+      purchasePrice: 300000,
+      downPaymentPercent: 0,
+      interestRate: 6.5,
+      loanTerm: 30,
+      grossRentAnnual: 26400,
+      expenseRatio: 3.5,
+      leaseType: 'NNN'
+    }
+  };
+
+  // Simulate ensureDynamicDealMetrics function
+  const res = calculateProjections(staleDeal.asset_class, staleDeal.inputs);
+  const p1 = res.projections[0];
+  staleDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
+  staleDeal.cash_on_cash = p1.cashOnCash ?? 0;
+  staleDeal.irr = res.irr;
+  staleDeal.equity_multiple = res.equityMultiplier;
+  staleDeal.total_equity = res.initialCashInvested;
+
+  assert.ok(staleDeal.year1_cashflow > 2000, `Dynamic calculation must revive cash flow from $0 to >$2,000, got ${staleDeal.year1_cashflow}`);
+  assert.strictEqual(staleDeal.total_equity, 0);
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);

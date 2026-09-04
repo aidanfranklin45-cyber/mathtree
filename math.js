@@ -380,6 +380,7 @@ function calculateProjections(assetType, inputs) {
       debtService: Math.round(currentDebtService * 100) / 100,
       capexReserve: Math.round(capexReserve * 100) / 100,
       cashFlow: Math.round(cashFlow * 100) / 100,
+      netCashFlow: Math.round(cashFlow * 100) / 100,
       cashInjection: Math.round(cashInjection * 100) / 100,
       cumulativeCashInvested: Math.round(cumulativeCashInvested * 100) / 100,
       cashOnCash: Math.round(cashOnCash * 100) / 100,
@@ -847,6 +848,7 @@ function aggregatePortfolio(dealsList) {
       netOperatingIncome: 0,
       debtService: 0,
       cashFlow: 0,
+      netCashFlow: 0,
       equity: 0
     });
   }

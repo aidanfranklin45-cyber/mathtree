@@ -4010,7 +4010,7 @@
               equity_multiple: d.equity_multiple || (d.results && d.results.equityMultiple) || 0,
               cash_on_cash: d.cash_on_cash || 0,
               cap_rate: (d.results && d.results.capRate) || 0,
-              year1_cashflow: (d.results && d.results.projections && d.results.projections[0] ? d.results.projections[0].netCashFlow : 0),
+              year1_cashflow: (d.results && d.results.projections && d.results.projections[0] ? (d.results.projections[0].cashFlow ?? d.results.projections[0].netCashFlow ?? 0) : 0),
               total_equity: (d.results && d.results.initialCashInvested) || 0,
               inputs: d.inputs,
               results: d.results,
@@ -4454,7 +4454,7 @@
           equity_multiple: localResults.equityMultiple,
           cash_on_cash: localResults.projections[0] ? localResults.projections[0].cashOnCash : 0,
           cap_rate: localResults.capRate,
-          year1_cashflow: localResults.projections[0] ? localResults.projections[0].netCashFlow : 0,
+          year1_cashflow: localResults.projections[0] ? (localResults.projections[0].cashFlow ?? localResults.projections[0].netCashFlow ?? 0) : 0,
           total_equity: localResults.initialCashInvested,
           inputs: inputs,
           results: localResults,
@@ -5393,7 +5393,7 @@
               irr: data.irr || data.metrics?.irr || 0,
               equity_multiple: data.equity_multiple || data.metrics?.equityMultiplier || 2.0,
               cash_on_cash: data.cash_on_cash || data.metrics?.year1CoC || 0,
-              year1_cashflow: data.year1_cashflow || data.metrics?.year1CashFlow || 0,
+              year1_cashflow: data.year1_cashflow || data.metrics?.year1CashFlow || data.metrics?.netCashFlow || data.metrics?.cashFlow || 0,
               total_equity: data.total_equity || data.metrics?.initialCashInvested || 0,
               inputs: data.inputs || {},
               metrics: data.metrics || {}
@@ -5575,6 +5575,12 @@
               title: deal.name,
               asset_type: deal.asset_class || deal.asset_type,
               status: deal.status || 'prospect',
+              purchase_price: deal.purchase_price,
+              irr: deal.irr,
+              equity_multiple: deal.equity_multiple,
+              cash_on_cash: deal.cash_on_cash,
+              year1_cashflow: deal.year1_cashflow,
+              total_equity: deal.total_equity,
               inputs: deal.inputs,
               metrics: deal.metrics
             }).eq('id', deal.id).eq('user_id', user.id);
@@ -5589,14 +5595,23 @@
       if (!currentLoadedDeal) return;
       const inputs = getInputsFromForm();
       const res = window.PropertyMath.calculateProjections(activeTab, inputs);
+      const p1 = (res.projections && res.projections[0]) || {};
 
       currentLoadedDeal.inputs = inputs;
       currentLoadedDeal.asset_class = activeTab;
       currentLoadedDeal.purchase_price = res.purchasePrice;
       currentLoadedDeal.irr = res.irr;
       currentLoadedDeal.equity_multiple = res.equityMultiplier;
-      currentLoadedDeal.cash_on_cash = res.projections && res.projections[0] ? res.projections[0].cashOnCash : 0;
+      currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
+      currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
       currentLoadedDeal.total_equity = res.initialCashInvested;
+      currentLoadedDeal.metrics = {
+        irr: res.irr,
+        equityMultiplier: res.equityMultiplier,
+        year1CoC: currentLoadedDeal.cash_on_cash,
+        year1CashFlow: currentLoadedDeal.year1_cashflow,
+        initialCashInvested: res.initialCashInvested
+      };
       currentLoadedDeal.results = res;
 
       autoSaveDealToSupabase(currentLoadedDeal);

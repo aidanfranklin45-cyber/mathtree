@@ -888,29 +888,62 @@
       } catch(e) {}
     }
 
+    // === Helper: Dynamically calculate live projections from deal inputs ===
+    function ensureDynamicDealMetrics(d) {
+      if (!d) return d;
+      const aClass = d.asset_class || d.assetType || 'commercial';
+      const inputs = d.inputs;
+      if (typeof window !== 'undefined' && window.PropertyMath && inputs && (inputs.purchasePrice || inputs.monthlyRent || inputs.grossRentAnnual || inputs.storageRentPerUnit || inputs.grossRevenue)) {
+        try {
+          const res = window.PropertyMath.calculateProjections(aClass, inputs);
+          if (res && res.projections && res.projections[0]) {
+            const p1 = res.projections[0];
+            d.purchase_price = res.purchasePrice ?? d.purchase_price;
+            d.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? d.year1_cashflow ?? 0;
+            d.cash_on_cash = p1.cashOnCash ?? d.cash_on_cash ?? 0;
+            d.irr = res.irr ?? d.irr ?? 0;
+            d.equity_multiple = res.equityMultiplier ?? d.equity_multiple ?? 1.0;
+            d.total_equity = res.initialCashInvested ?? d.total_equity ?? 0;
+            d.metrics = {
+              irr: d.irr,
+              equityMultiplier: d.equity_multiple,
+              year1CoC: d.cash_on_cash,
+              year1CashFlow: d.year1_cashflow,
+              initialCashInvested: d.total_equity
+            };
+          }
+        } catch(err) {
+          console.warn('Error dynamically calculating metrics for deal:', d.id, err);
+        }
+      }
+      return d;
+    }
+
     // === Helper: Map Supabase DB record to App Deal Model ===
     function mapSupabaseDeal(d) {
       const inputs = d.inputs || {};
       const m = d.metrics || {};
-      return {
+      const assetClass = d.asset_type || d.asset_class || 'commercial';
+      const deal = {
         id: d.id,
         name: d.title || d.name || 'Underwriting Project',
-        asset_class: d.asset_type || d.asset_class || 'commercial',
+        asset_class: assetClass,
         status: d.status || 'prospect',
         location: d.location || 'United States',
         market_tier: d.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2',
         property_class: d.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B',
         facility_type: d.facility_type || inputs.facilityType || '',
         is_synthetic: !!d.is_synthetic,
-        purchase_price: d.purchase_price || inputs.purchasePrice || 0,
-        irr: d.irr || m.irr || 0,
-        equity_multiple: d.equity_multiple || m.equityMultiplier || 2.0,
-        cash_on_cash: d.cash_on_cash || m.year1CoC || (m.cashOnCash) || 0,
-        year1_cashflow: d.year1_cashflow || m.year1CashFlow || (m.netCashFlow) || 0,
-        total_equity: d.total_equity || m.initialCashInvested || (inputs.purchasePrice ? inputs.purchasePrice * 0.25 : 0),
+        purchase_price: d.purchase_price ?? inputs.purchasePrice ?? 0,
+        irr: d.irr ?? m.irr ?? 0,
+        equity_multiple: d.equity_multiple ?? m.equityMultiplier ?? 2.0,
+        cash_on_cash: d.cash_on_cash ?? m.year1CoC ?? m.cashOnCash ?? 0,
+        year1_cashflow: d.year1_cashflow ?? m.year1CashFlow ?? m.netCashFlow ?? m.cashFlow ?? 0,
+        total_equity: d.total_equity ?? m.initialCashInvested ?? (inputs.purchasePrice ? inputs.purchasePrice * 0.25 : 0),
         inputs: inputs,
         deck: d.deck || { title: d.title || d.name, highlights: [] }
       };
+      return ensureDynamicDealMetrics(deal);
     }
 
     // === Helper: Ensure user session is fully loaded ===
@@ -980,7 +1013,7 @@
             const raw = localStorage.getItem('mathtree_local_deals');
             if (raw) storedDeals = JSON.parse(raw);
           } catch (e) {}
-          activeDashboardProjects = storedDeals || [];
+          activeDashboardProjects = (storedDeals || []).map(mapSupabaseDeal);
         }
 
         // Cache this user's deals locally
@@ -1001,8 +1034,11 @@
             localStorage.setItem('mathtree_demo_deals', JSON.stringify(demoDeals));
           } catch(e) {}
         }
-        activeDashboardProjects = demoDeals;
+        activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
       }
+
+      // Ensure all active projects are dynamically recalculated from inputs
+      activeDashboardProjects = activeDashboardProjects.map(ensureDynamicDealMetrics);
 
       // Sync local cache
       try {
@@ -1121,7 +1157,8 @@
         'storage': '<svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>'
       };
 
-      grid.innerHTML = filtered.map(d => {
+      grid.innerHTML = filtered.map(rawDeal => {
+        const d = ensureDynamicDealMetrics(rawDeal);
         const aClass = d.asset_class || d.assetType || 'single-family';
         const isOwned = d.status === 'owned';
         const icon = assetIcons[aClass] || assetIcons['single-family'];
@@ -1509,17 +1546,18 @@
 
       // Recalculate metrics via PropertyMath
       const res = window.PropertyMath.calculateProjections(aClass, deal.inputs);
+      const p1 = (res.projections && res.projections[0]) || {};
       deal.purchase_price = res.purchasePrice;
       deal.irr = res.irr;
       deal.equity_multiple = res.equityMultiplier;
-      deal.cash_on_cash = res.projections[0]?.cashOnCash || 0;
-      deal.year1_cashflow = res.projections[0]?.netCashFlow || 0;
+      deal.cash_on_cash = p1.cashOnCash || 0;
+      deal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
       deal.total_equity = res.initialCashInvested;
       deal.metrics = {
         irr: res.irr,
         equityMultiplier: res.equityMultiplier,
-        year1CoC: res.projections[0]?.cashOnCash || 0,
-        year1CashFlow: res.projections[0]?.netCashFlow || 0,
+        year1CoC: p1.cashOnCash || 0,
+        year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
         initialCashInvested: res.initialCashInvested
       };
 
@@ -1897,14 +1935,14 @@
             irr: res.irr,
             equity_multiple: res.equityMultiplier,
             cash_on_cash: p1.cashOnCash || 0,
-            year1_cashflow: p1.netCashFlow || 0,
+            year1_cashflow: p1.cashFlow ?? p1.netCashFlow ?? 0,
             total_equity: res.initialCashInvested,
             inputs: inputs,
             metrics: {
               irr: res.irr,
               equityMultiplier: res.equityMultiplier,
               year1CoC: p1.cashOnCash || 0,
-              year1CashFlow: p1.netCashFlow || 0,
+              year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
               initialCashInvested: res.initialCashInvested
             }
           }).select().single();
@@ -1930,7 +1968,7 @@
         irr: res.irr,
         equity_multiple: res.equityMultiplier,
         cash_on_cash: p1.cashOnCash || 0,
-        year1_cashflow: p1.netCashFlow || 0,
+        year1_cashflow: p1.cashFlow ?? p1.netCashFlow ?? 0,
         total_equity: res.initialCashInvested,
         inputs: inputs
       };
