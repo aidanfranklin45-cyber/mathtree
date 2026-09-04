@@ -156,14 +156,17 @@
     <!-- 4 Portfolio & Pipeline Executive KPI Tiles -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       
-      <!-- Owned Portfolio Value -->
+      <!-- Owned Portfolio Value (GAV & Net Equity NAV) -->
       <div class="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-5 rounded-2xl transition">
         <div class="flex items-center justify-between text-slate-400">
-          <span class="text-[10px] font-extrabold uppercase tracking-wider">Owned Portfolio Value</span>
+          <span class="text-[10px] font-extrabold uppercase tracking-wider">Gross Asset Value (GAV)</span>
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
         </div>
         <span id="kpi-owned-value" class="text-2xl font-black text-emerald-400 mt-2 block">$0</span>
-        <span id="kpi-owned-count" class="text-[11px] text-slate-400 mt-0.5 block">0 acquired assets</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900">
+          <span>Net Equity: <strong id="kpi-owned-equity" class="text-slate-200 font-bold">$0</strong></span>
+          <span id="kpi-owned-debt-ltv" class="text-slate-500 font-mono text-[10px]">0% LTV</span>
+        </div>
       </div>
 
       <!-- Owned Cash Flow / Yield -->
@@ -1031,13 +1034,20 @@
 
       const avgPipelineIrr = pipelineCount > 0 ? (sumPipelineIrr / pipelineCount) : 0;
       const avgOwnedYield = ownedEquity > 0 ? ((ownedCashFlow / ownedEquity) * 100) : 0;
+      const ownedDebt = Math.max(0, ownedVal - ownedEquity);
+      const ownedLtv = ownedVal > 0 ? Math.round((ownedDebt / ownedVal) * 100) : 0;
 
       // Update KPI Tiles
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
       setEl('kpi-owned-value', formatCurrency(ownedVal));
-      setEl('kpi-owned-count', `${ownedCount} acquired ${ownedCount === 1 ? 'property' : 'properties'}`);
+      setEl('kpi-owned-equity', formatCurrency(ownedEquity));
+      setEl('kpi-owned-debt-ltv', `${ownedLtv}% LTV • Debt: ${formatCurrency(ownedDebt)}`);
       setEl('kpi-owned-cashflow', `${formatCurrency(ownedCashFlow)}/yr`);
-      setEl('kpi-owned-yield', `${avgOwnedYield.toFixed(1)}% Blended CoC Yield`);
+      if (ownedEquity <= 0 && ownedCashFlow > 0) {
+        setEl('kpi-owned-yield', 'N/M (100% Financed)');
+      } else {
+        setEl('kpi-owned-yield', `${avgOwnedYield.toFixed(1)}% Blended CoC Yield`);
+      }
 
       setEl('kpi-pipeline-value', formatCurrency(pipelineVal));
       setEl('kpi-pipeline-count', `${pipelineCount} active prospective ${pipelineCount === 1 ? 'deal' : 'deals'}`);
@@ -1116,8 +1126,9 @@
         const isOwned = d.status === 'owned';
         const icon = assetIcons[aClass] || assetIcons['single-family'];
         const priceStr = formatCurrency(d.purchase_price || 0);
-        const irrStr = `${(d.irr || 0).toFixed(1)}%`;
-        const cocStr = `${(d.cash_on_cash || 0).toFixed(1)}%`;
+        const isZeroEq = (d.total_equity === 0 || d.inputs?.downPaymentPercent === 0 || d.inputs?.downPaymentPercent === '0') && (d.purchase_price > 0 || d.inputs?.purchasePrice > 0);
+        const irrStr = isZeroEq ? 'N/M' : `${(d.irr || 0).toFixed(1)}%`;
+        const cocStr = isZeroEq ? 'N/M' : `${(d.cash_on_cash || 0).toFixed(1)}%`;
         const cfStr = formatCurrency(d.year1_cashflow || 0);
         const locStr = d.location || 'United States';
         const tierStr = d.market_tier || d.inputs?.marketTier || d.inputs?.commTier || d.inputs?.storageTier || 'Tier 2';
@@ -1198,8 +1209,9 @@
                   <span class="text-xs font-black text-brand-400 mt-0.5 block">${irrStr}</span>
                 </div>
                 <div>
-                  <span class="text-[9px] uppercase font-bold text-slate-500 block">${isOwned ? 'Annual Cash Flow' : 'Yr 1 CoC'}</span>
-                  <span class="text-xs font-black text-accent-cyan mt-0.5 block">${isOwned ? cfStr : cocStr}</span>
+                  <span class="text-[9px] uppercase font-bold text-slate-500 block">${isOwned ? 'Annual Cash Flow' : (isZeroEq ? 'Yr 1 Cash Flow' : 'Yr 1 CoC')}</span>
+                  <span class="text-xs font-black text-accent-cyan mt-0.5 block">${isOwned ? cfStr : (isZeroEq ? cfStr : cocStr)}</span>
+                  ${isZeroEq ? '<span class="text-[8px] text-emerald-400 font-bold block leading-none mt-0.5">100% Financed</span>' : ''}
                 </div>
               </div>
             </div>

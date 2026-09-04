@@ -692,13 +692,16 @@
             <!-- Cash-on-Cash Return Card -->
             <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-accent-emerald/5 group-hover:bg-accent-emerald/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Cash-on-Cash Return</p>
+              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center justify-between">
+                <span>Cash-on-Cash Return</span>
+                <span id="metric-coc-badge" class="hidden text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">100% Financed</span>
+              </p>
               <div class="mt-2 flex items-baseline justify-between">
                 <span id="metric-cash-on-cash" class="text-2xl font-extrabold text-accent-emerald tracking-tight">0.0%</span>
                 <span id="metric-cash-on-cash-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
               <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span>Annual cash flow divided by total invested cash</span>
+                <span id="metric-coc-desc">Annual cash flow divided by total invested cash</span>
               </div>
             </div>
           </div>
@@ -840,6 +843,75 @@
             </div>
             <div class="h-64 md:h-80 w-full relative">
               <canvas id="projection-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Holding Period Wealth & Amortization Equity Realization Studio -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden space-y-4">
+            <div class="pb-3 border-b border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span>Amortization Wealth & Equity Realization</span>
+                </h3>
+                <p class="text-xs text-slate-400">Track realized equity from tenant debt paydown, market appreciation, and cumulative cash flow</p>
+              </div>
+              <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <label for="input-wealth-hold-year" class="text-[11px] font-bold text-slate-400">Hold Period:</label>
+                <select id="input-wealth-hold-year" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500">
+                  <option value="1">Year 1</option>
+                  <option value="2">Year 2</option>
+                  <option value="3">Year 3</option>
+                  <option value="4">Year 4</option>
+                  <option value="5">Year 5</option>
+                  <option value="7">Year 7</option>
+                  <option value="10" selected>Year 10 (Full Hold)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 5 Decomposed Wealth Creation Tiles -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+              <!-- Debt Paydown Equity -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Tenant Debt Paydown</span>
+                <span id="wealth-debt-paydown" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Forced equity savings</span>
+              </div>
+
+              <!-- Market Appreciation Equity -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Appreciation Gain</span>
+                <span id="wealth-appreciation" class="text-base font-black text-cyan-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Asset value growth</span>
+              </div>
+
+              <!-- Cumulative Cash Flow -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Cumulative Cash Flow</span>
+                <span id="wealth-cashflow" class="text-base font-black text-white mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Cash pocketed to date</span>
+              </div>
+
+              <!-- Net Portfolio Equity (NAV) -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Net Owned Equity (NAV)</span>
+                <span id="wealth-net-equity" class="text-base font-black text-brand-400 mt-1 block">$0</span>
+                <span id="wealth-nav-sub" class="text-[10px] text-slate-500 mt-0.5 block">Value minus remaining debt</span>
+              </div>
+
+              <!-- Total Net Benefit -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-emerald-900/60 bg-emerald-950/10">
+                <span class="text-[10px] uppercase font-bold text-emerald-400 block">Total Net Benefit</span>
+                <span id="wealth-net-benefit" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
+                <span id="wealth-roe-sub" class="text-[10px] text-slate-400 mt-0.5 block">Cash + Paydown + Gain</span>
+              </div>
+            </div>
+
+            <!-- Explanatory note -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900 gap-2">
+              <span id="wealth-summary-narrative">By Year 10, tenant mortgage payments pay down <strong class="text-white">$0</strong> of principal while property value rises to <strong class="text-white">$0</strong>.</span>
+              <span id="wealth-time-npv" class="text-slate-400 font-mono text-[10px] shrink-0">Hold NPV: <strong class="text-white">$0</strong></span>
             </div>
           </div>
 
@@ -2008,7 +2080,7 @@
           <td class="py-3.5 px-4 text-white font-semibold">${formatCurrency(proj.netOperatingIncome)}</td>
           <td class="py-3.5 px-4 text-slate-500">${formatCurrency(proj.debtService)}</td>
           <td class="py-3.5 px-4 font-bold ${proj.cashFlow >= 0 ? 'text-accent-emerald' : 'text-accent-rose'}">${formatCurrency(proj.cashFlow)}</td>
-          <td class="py-3.5 px-4">${proj.cashOnCash.toFixed(1)}%</td>
+          <td class="py-3.5 px-4">${proj.isCoCNotMeaningful ? '<span class="text-slate-400 font-bold" title="100% Debt Financed - Zero Initial Outlay">N/M</span>' : proj.cashOnCash.toFixed(1) + '%'}</td>
           <td class="py-3.5 px-4">${proj.capRate.toFixed(1)}%</td>
           <td class="py-3.5 px-4 text-slate-500">${formatCurrency(proj.loanBalanceRemaining)}</td>
           <td class="py-3.5 px-4 pr-5 text-brand-400 font-bold">${formatCurrency(proj.equity)}</td>
@@ -2039,6 +2111,56 @@
       });
     }
 
+
+    // Controller for Amortization Wealth & Equity Realization Studio
+    function updateWealthRealizationStudio(inputs, res) {
+      if (!res || !res.projections || res.projections.length === 0) return;
+      const selectEl = document.getElementById('input-wealth-hold-year');
+      const holdYear = parseInt(selectEl?.value || '10');
+
+      if (!selectEl?._wealthBound) {
+        selectEl?.addEventListener('change', () => {
+          const currentInputs = getInputsFromForm();
+          const currentRes = window.PropertyMath.calculateProjections(activeTab, currentInputs);
+          updateWealthRealizationStudio(currentInputs, currentRes);
+        });
+        selectEl._wealthBound = true;
+      }
+
+      const wealth = window.PropertyMath.calculateHoldingPeriodWealth(
+        inputs,
+        res.projections,
+        res.amortizationSchedule,
+        holdYear
+      );
+      if (!wealth) return;
+
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+      setEl('wealth-debt-paydown', formatCurrency(wealth.principalPaydownEquity));
+      setEl('wealth-appreciation', formatCurrency(wealth.appreciationEquity));
+      setEl('wealth-cashflow', formatCurrency(wealth.cumulativeCashFlow));
+      setEl('wealth-net-equity', formatCurrency(wealth.totalNetEquity));
+      setEl('wealth-net-benefit', formatCurrency(wealth.totalNetBenefit));
+
+      const navSub = document.getElementById('wealth-nav-sub');
+      if (navSub) {
+        navSub.textContent = `${formatCurrency(wealth.propertyValue)} val - ${formatCurrency(wealth.remainingLoanBalance)} debt`;
+      }
+
+      const roeSub = document.getElementById('wealth-roe-sub');
+      if (roeSub) {
+        roeSub.textContent = wealth.roeDisplay !== 'N/M' ? `${wealth.roeDisplay} Return on Equity` : '100% Debt Financed';
+      }
+
+      setHtml(
+        'wealth-summary-narrative',
+        `By Year ${holdYear}, tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, creating <strong class="text-brand-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth.`
+      );
+
+      setHtml('wealth-time-npv', `Hold NPV: <strong class="text-white">${formatCurrency(wealth.holdNpv)}</strong>`);
+    }
     // Draw high-fidelity visual representations of the forecast model
     function updateProjectionsChart(projections) {
       const ctx = document.getElementById('projection-chart').getContext('2d');
@@ -2280,13 +2402,27 @@
       // Update Dynamic Cards metrics
       document.getElementById('metric-noi').textContent = formatCurrency(targetYearProj.netOperatingIncome);
       document.getElementById('metric-cap-rate').textContent = `${targetYearProj.capRate.toFixed(2)}%`;
-      document.getElementById('metric-cash-on-cash').textContent = `${targetYearProj.cashOnCash.toFixed(2)}%`;
+      
+      const cocBadge = document.getElementById('metric-coc-badge');
+      const cocDesc = document.getElementById('metric-coc-desc');
+      if (res.isZeroEquity) {
+        document.getElementById('metric-cash-on-cash').textContent = 'N/M';
+        if (cocBadge) cocBadge.classList.remove('hidden');
+        if (cocDesc) cocDesc.textContent = `Net Cash Flow: ${formatCurrency(targetYearProj.cashFlow)}/yr • 100% Debt Financed`;
+      } else {
+        document.getElementById('metric-cash-on-cash').textContent = `${targetYearProj.cashOnCash.toFixed(2)}%`;
+        if (cocBadge) cocBadge.classList.add('hidden');
+        if (cocDesc) cocDesc.textContent = 'Annual cash flow divided by total invested cash';
+      }
 
       // Update Advanced Analytics Cards metrics
       document.getElementById('metric-exit-badge').textContent = `Exit: Year ${inputs.exitYear}`;
       document.getElementById('metric-npv').textContent = formatCurrency(res.npv);
-      document.getElementById('metric-irr').textContent = `${res.irr.toFixed(2)}%`;
-      document.getElementById('metric-equity-multiplier').textContent = `${res.equityMultiplier.toFixed(2)}x`;
+      document.getElementById('metric-irr').textContent = res.irrDisplay || `${res.irr.toFixed(2)}%`;
+      document.getElementById('metric-equity-multiplier').textContent = res.equityMultiplierDisplay || `${res.equityMultiplier.toFixed(2)}x`;
+
+      // Update Amortization Wealth Realization Studio
+      updateWealthRealizationStudio(inputs, res);
       document.getElementById('metric-breakeven').textContent = typeof res.breakEvenYear === 'number' ? `Year ${res.breakEvenYear}` : res.breakEvenYear;
 
       // Update Cap Rate benchmark description label dynamically based on institutional ranges

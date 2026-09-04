@@ -80,6 +80,8 @@ export interface ProjectionYear {
   netCashFlow: number;
   cumulativeCashFlow: number;
   cashOnCash: number;
+  cashOnCashDisplay?: string;
+  isCoCNotMeaningful?: boolean;
   capRate: number;
   loanBalanceRemaining: number;
   equity: number;
@@ -97,6 +99,10 @@ export interface ProjectionResults {
   npv: number;
   irr: number;
   equityMultiplier: number;
+  equityMultiplierDisplay?: string;
+  irrDisplay?: string;
+  isZeroEquity?: boolean;
+  cashOnCashDisplay?: string;
   breakEvenYear: string | number;
   ltv: number;
   projections: ProjectionYear[];
@@ -336,7 +342,10 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
     }
     cumulativeCashFlow += cashFlow;
 
+    const isZeroInitialCash = cumulativeCashInvested <= 0;
+    const isCoCNotMeaningful = isZeroInitialCash && cashFlow > 0;
     const cashOnCash = cumulativeCashInvested > 0 ? (cashFlow / cumulativeCashInvested) * 100 : 0;
+    const cashOnCashDisplay = isCoCNotMeaningful ? 'N/M' : `${(Math.round(cashOnCash * 100) / 100).toFixed(2)}%`;
     const capRate = currentPropertyValue > 0 ? (netOperatingIncome / currentPropertyValue) * 100 : 0;
     const remainingLoan = calculateRemainingBalance(loanAmount, interestRate, loanTerm, year);
     const equity = currentPropertyValue - remainingLoan;
@@ -356,6 +365,8 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
       netCashFlow: Math.round(cashFlow * 100) / 100,
       cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
       cashOnCash: Math.round(cashOnCash * 100) / 100,
+      cashOnCashDisplay,
+      isCoCNotMeaningful,
       capRate: Math.round(capRate * 100) / 100,
       loanBalanceRemaining: Math.round(remainingLoan * 100) / 100,
       equity: Math.round(equity * 100) / 100,
@@ -408,6 +419,10 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
     equityMultiplier: Math.round(equityMultiplier * 100) / 100,
     breakEvenYear,
     ltv: purchasePrice > 0 ? Math.round((loanAmount / purchasePrice) * 10000) / 100 : 0,
+    isZeroEquity: initialCashInvested <= 0 && purchasePrice > 0,
+    irrDisplay: (initialCashInvested <= 0 && purchasePrice > 0) ? 'N/M (100% Financed)' : `${(Math.round(irr * 100) / 100).toFixed(2)}%`,
+    equityMultiplierDisplay: (initialCashInvested <= 0 && purchasePrice > 0) ? 'N/M (Zero Initial Outlay)' : `${(Math.round(equityMultiplier * 100) / 100).toFixed(2)}x`,
+    cashOnCashDisplay: projections[0]?.cashOnCashDisplay ?? '0.00%',
     projections
   };
 }
@@ -542,3 +557,68 @@ export function getBenchmarkCapRateRange(assetType: string, marketTier: string =
   }
 }
 
+
+export function calculateHoldingPeriodWealth(inputs: DealInputs, projections: ProjectionYear[], _schedule?: any[], holdYear: number = 1) {
+  if (!projections || projections.length === 0) return null;
+  const year = Math.max(1, Math.min(projections.length, parseInt(String(holdYear)) || 1));
+  const yearIdx = year - 1;
+  const proj = projections[yearIdx];
+  const purchasePrice = parseFloat(String(inputs.purchasePrice ?? inputs.price ?? 0)) || 0;
+  const downPaymentPercent = isNaN(parseFloat(String(inputs.downPaymentPercent ?? inputs.down ?? 25))) ? 25 : parseFloat(String(inputs.downPaymentPercent ?? inputs.down ?? 25));
+  const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
+  const rehabCosts = parseFloat(String(inputs.rehabCosts ?? inputs.rehab ?? 0)) || 0;
+  const closingCosts = parseFloat(String(inputs.closingCosts ?? inputs.closing ?? 0)) || 0;
+  const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
+  const initialLoan = Math.max(0, purchasePrice - downPaymentAmount);
+
+  const currentPropertyValue = proj ? proj.propertyValue : purchasePrice;
+  const remainingLoanBalance = proj ? proj.loanBalanceRemaining : initialLoan;
+
+  const principalPaydownEquity = Math.max(0, initialLoan - remainingLoanBalance);
+  const appreciationEquity = Math.max(0, currentPropertyValue - purchasePrice);
+  const totalNetEquity = Math.max(0, currentPropertyValue - remainingLoanBalance);
+
+  let cumulativeCashFlow = 0;
+  for (let i = 0; i <= yearIdx; i++) {
+    cumulativeCashFlow += (projections[i] ? projections[i].cashFlow : 0);
+  }
+
+  const totalNetBenefit = cumulativeCashFlow + principalPaydownEquity + appreciationEquity - initialCashInvested;
+  const prevEquity = yearIdx === 0 ? initialCashInvested : (projections[yearIdx - 1] ? projections[yearIdx - 1].equity : 0);
+  const currentCashFlow = proj ? proj.cashFlow : 0;
+  let roe: number | null = null;
+  let roeDisplay = 'N/M';
+  if (prevEquity > 0) {
+    roe = (currentCashFlow / prevEquity) * 100;
+    roeDisplay = roe.toFixed(2) + '%';
+  } else if (currentCashFlow > 0) {
+    roeDisplay = 'N/M (100% Financed)';
+  }
+
+  const discountRate = isNaN(parseFloat(String(inputs.discountRate))) ? 8 : parseFloat(String(inputs.discountRate));
+  let holdNpv = -initialCashInvested;
+  for (let t = 1; t <= year; t++) {
+    let cf = projections[t - 1] ? projections[t - 1].cashFlow : 0;
+    if (t === year) {
+      cf += (projections[t - 1] ? projections[t - 1].equity : 0);
+    }
+    holdNpv += cf / Math.pow(1 + discountRate / 100, t);
+  }
+
+  return {
+    holdYear: year,
+    propertyValue: Math.round(currentPropertyValue * 100) / 100,
+    initialLoan: Math.round(initialLoan * 100) / 100,
+    remainingLoanBalance: Math.round(remainingLoanBalance * 100) / 100,
+    principalPaydownEquity: Math.round(principalPaydownEquity * 100) / 100,
+    appreciationEquity: Math.round(appreciationEquity * 100) / 100,
+    totalNetEquity: Math.round(totalNetEquity * 100) / 100,
+    initialCashInvested: Math.round(initialCashInvested * 100) / 100,
+    cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
+    totalNetBenefit: Math.round(totalNetBenefit * 100) / 100,
+    currentCashFlow: Math.round(currentCashFlow * 100) / 100,
+    roe: roe !== null ? Math.round(roe * 100) / 100 : null,
+    roeDisplay,
+    holdNpv: Math.round(holdNpv * 100) / 100
+  };
+}

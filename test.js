@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { calculateProjections, calculateMonthlyPayment, calculateRemainingBalance } = require('./math.js');
+const { calculateProjections, calculateMonthlyPayment, calculateRemainingBalance, calculateHoldingPeriodWealth } = require('./math.js');
 
 console.log('--- Starting math.js Unit Test Suite ---\n');
 
@@ -664,6 +664,57 @@ runTest('Pitch Deck - dashboard.html exposes openProjectPitchDeck & openPitchDec
   // Verify modal elements exist
   assert.ok(dashHtml.includes('id="pitch-deck-modal"'), 'Modal element must exist in dashboard.html');
   assert.ok(dashHtml.includes('id="pitch-summary-price"'), 'pitch-summary-price element must exist in dashboard.html');
+});
+
+runTest('Zero Equity (0% Down / 100% LTV) - Institutional N/M Return Standards', () => {
+  const inputs = {
+    purchasePrice: 300000,
+    downPaymentPercent: 0,
+    interestRate: 4.53,
+    loanTerm: 20,
+    monthlyRent: 2600,
+    expenseRatio: 2,
+    vacancyRate: 5,
+    appreciationRate: 3
+  };
+  const results = calculateProjections('single-family', inputs);
+  assert.strictEqual(results.initialCashInvested, 0);
+  assert.strictEqual(results.isZeroEquity, true);
+  assert.strictEqual(results.cashOnCashDisplay, 'N/M');
+  assert.strictEqual(results.projections[0].cashOnCashDisplay, 'N/M');
+  assert.strictEqual(results.projections[0].isCoCNotMeaningful, true);
+  assert.strictEqual(results.irrDisplay, 'N/M (100% Financed)');
+  assert.ok(results.projections[0].cashFlow > 0, 'Positive cash flow with zero cash invested');
+});
+
+runTest('Amortization Wealth & Holding Period Equity Realization Engine', () => {
+  const inputs = {
+    purchasePrice: 300000,
+    downPaymentPercent: 0,
+    interestRate: 4.53,
+    loanTerm: 20,
+    monthlyRent: 2600,
+    expenseRatio: 2,
+    vacancyRate: 5,
+    appreciationRate: 3
+  };
+  const results = calculateProjections('single-family', inputs);
+  const wealthY1 = calculateHoldingPeriodWealth(inputs, results.projections, results.amortizationSchedule, 1);
+  const wealthY2 = calculateHoldingPeriodWealth(inputs, results.projections, results.amortizationSchedule, 2);
+  
+  assert.ok(wealthY1, 'Holding period wealth must return an object');
+  assert.strictEqual(wealthY1.holdYear, 1);
+  assert.strictEqual(wealthY1.propertyValue, 300000); // Year 1 base property value
+  assert.ok(wealthY1.principalPaydownEquity > 9000, 'Principal paid down in year 1 exceeds 9k');
+  assert.ok(Math.abs(wealthY1.totalNetEquity - (wealthY1.propertyValue - wealthY1.remainingLoanBalance)) < 0.01);
+  assert.ok(Math.abs(wealthY1.totalNetBenefit - (wealthY1.cumulativeCashFlow + wealthY1.principalPaydownEquity + wealthY1.appreciationEquity - wealthY1.initialCashInvested)) < 0.01);
+  assert.ok(wealthY1.totalNetBenefit > 10000, 'Total net benefit in year 1 exceeds 10k');
+
+  // Year 2 has 3% appreciation (309,000)
+  assert.strictEqual(wealthY2.holdYear, 2);
+  assert.strictEqual(wealthY2.propertyValue, 309000);
+  assert.strictEqual(wealthY2.appreciationEquity, 9000);
+  assert.ok(wealthY2.totalNetBenefit > 25000, 'Total net benefit in year 2 exceeds 25k');
 });
 
 console.log(`\n--- Unit Test Suite Completed ---`);

@@ -350,7 +350,10 @@ function calculateProjections(assetType, inputs) {
     }
 
     // 7. Cash-on-Cash Return
+    const isZeroInitialCash = cumulativeCashInvested <= 0;
+    const isCoCNotMeaningful = isZeroInitialCash && cashFlow > 0;
     const cashOnCash = cumulativeCashInvested > 0 ? (cashFlow / cumulativeCashInvested) * 100 : 0;
+    const cashOnCashDisplay = isCoCNotMeaningful ? "N/M" : (Math.round(cashOnCash * 100) / 100).toFixed(2) + "%";
 
     // 8. Capitalization Rate
     const capRate = currentPropertyValue > 0 ? (netOperatingIncome / currentPropertyValue) * 100 : 0;
@@ -380,6 +383,8 @@ function calculateProjections(assetType, inputs) {
       cashInjection: Math.round(cashInjection * 100) / 100,
       cumulativeCashInvested: Math.round(cumulativeCashInvested * 100) / 100,
       cashOnCash: Math.round(cashOnCash * 100) / 100,
+      cashOnCashDisplay,
+      isCoCNotMeaningful,
       capRate: Math.round(capRate * 100) / 100,
       loanBalanceRemaining: Math.round(remainingLoanBalance * 100) / 100,
       equity: Math.round(equity * 100) / 100,
@@ -445,7 +450,16 @@ function calculateProjections(assetType, inputs) {
   const acquisitionLtv = purchasePrice > 0 ? (loanAmount / purchasePrice) * 100 : 0;
   const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm);
 
+  const isZeroEquity = initialCashInvested <= 0 && purchasePrice > 0;
+  const irrDisplay = isZeroEquity ? "N/M (100% Financed)" : (Math.round(irr * 100) / 100).toFixed(2) + "%";
+  const equityMultiplierDisplay = isZeroEquity ? "N/M (Zero Initial Outlay)" : (Math.round(equityMultiplier * 100) / 100).toFixed(2) + "x";
+  const y1CoCDisplay = projections[0] ? projections[0].cashOnCashDisplay : "0.00%";
+
   return {
+    isZeroEquity,
+    irrDisplay,
+    equityMultiplierDisplay,
+    cashOnCashDisplay: y1CoCDisplay,
     purchasePrice: Math.round(purchasePrice * 100) / 100,
     downPaymentAmount: Math.round(downPaymentAmount * 100) / 100,
     loanAmount: Math.max(0, Math.round(loanAmount * 100) / 100),
@@ -1066,6 +1080,85 @@ function getBenchmarkCapRateRange(assetType, marketTier = 'Tier2', propertyClass
   }
 }
 
+/**
+ * 9. Decomposed Amortization Wealth & Holding Period Equity Realization
+ */
+function calculateHoldingPeriodWealth(inputs, projections, amortizationSchedule, holdYear = 1) {
+  if (!projections || projections.length === 0) return null;
+  const year = Math.max(1, Math.min(projections.length, parseInt(holdYear) || 1));
+  const yearIdx = year - 1;
+  const proj = projections[yearIdx];
+  const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
+  const downPaymentPercent = isNaN(parseFloat(inputs.downPaymentPercent)) ? 25 : parseFloat(inputs.downPaymentPercent);
+  const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
+  const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
+  const closingCosts = parseFloat(inputs.closingCosts) || 0;
+  const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
+  const initialLoan = Math.max(0, purchasePrice - downPaymentAmount);
+
+  const currentPropertyValue = proj ? proj.propertyValue : purchasePrice;
+  const remainingLoanBalance = proj ? proj.loanBalanceRemaining : initialLoan;
+
+  // 1. Principal Amortization Paydown (Forced Savings by Tenant)
+  const principalPaydownEquity = Math.max(0, initialLoan - remainingLoanBalance);
+
+  // 2. Appreciation Equity Gain
+  const appreciationEquity = Math.max(0, currentPropertyValue - purchasePrice);
+
+  // 3. Current Net Portfolio Equity (NAV)
+  const totalNetEquity = Math.max(0, currentPropertyValue - remainingLoanBalance);
+
+  // 4. Cumulative Net Cash Flow to Date
+  let cumulativeCashFlow = 0;
+  for (let i = 0; i <= yearIdx; i++) {
+    cumulativeCashFlow += (projections[i] ? projections[i].cashFlow : 0);
+  }
+
+  // 5. Total Net Benefit (Total Wealth Created)
+  // Net Benefit = Cumulative Cash Flow + Principal Paid Down + Market Appreciation - Initial Cash Outlay
+  const totalNetBenefit = cumulativeCashFlow + principalPaydownEquity + appreciationEquity - initialCashInvested;
+
+  // 6. Return on Accumulated Equity (ROE)
+  const prevEquity = yearIdx === 0 ? initialCashInvested : (projections[yearIdx - 1] ? projections[yearIdx - 1].equity : 0);
+  const currentCashFlow = proj ? proj.cashFlow : 0;
+  let roe = null;
+  let roeDisplay = 'N/M';
+  if (prevEquity > 0) {
+    roe = (currentCashFlow / prevEquity) * 100;
+    roeDisplay = roe.toFixed(2) + '%';
+  } else if (currentCashFlow > 0) {
+    roeDisplay = 'N/M (100% Financed)';
+  }
+
+  // 7. Time-weighted NPV up to this hold year
+  const discountRate = isNaN(parseFloat(inputs.discountRate)) ? 8 : parseFloat(inputs.discountRate);
+  let holdNpv = -initialCashInvested;
+  for (let t = 1; t <= year; t++) {
+    let cf = projections[t - 1] ? projections[t - 1].cashFlow : 0;
+    if (t === year) {
+      cf += (projections[t - 1] ? projections[t - 1].equity : 0);
+    }
+    holdNpv += cf / Math.pow(1 + discountRate / 100, t);
+  }
+
+  return {
+    holdYear: year,
+    propertyValue: Math.round(currentPropertyValue * 100) / 100,
+    initialLoan: Math.round(initialLoan * 100) / 100,
+    remainingLoanBalance: Math.round(remainingLoanBalance * 100) / 100,
+    principalPaydownEquity: Math.round(principalPaydownEquity * 100) / 100,
+    appreciationEquity: Math.round(appreciationEquity * 100) / 100,
+    totalNetEquity: Math.round(totalNetEquity * 100) / 100,
+    initialCashInvested: Math.round(initialCashInvested * 100) / 100,
+    cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
+    totalNetBenefit: Math.round(totalNetBenefit * 100) / 100,
+    currentCashFlow: Math.round(currentCashFlow * 100) / 100,
+    roe: roe !== null ? Math.round(roe * 100) / 100 : null,
+    roeDisplay,
+    holdNpv: Math.round(holdNpv * 100) / 100
+  };
+}
+
 // Export functions for ES Modules environment, and attach to global scope for standard browser environment.
 if (typeof exports !== 'undefined') {
   exports.calculateProjections = calculateProjections;
@@ -1080,6 +1173,7 @@ if (typeof exports !== 'undefined') {
   exports.auditDealRisks = auditDealRisks;
   exports.generateScenarioVariants = generateScenarioVariants;
   exports.getBenchmarkCapRateRange = getBenchmarkCapRateRange;
+  exports.calculateHoldingPeriodWealth = calculateHoldingPeriodWealth;
 }
 if (typeof window !== 'undefined') {
   window.PropertyMath = {
@@ -1094,6 +1188,7 @@ if (typeof window !== 'undefined') {
     aggregatePortfolio,
     auditDealRisks,
     generateScenarioVariants,
-    getBenchmarkCapRateRange
+    getBenchmarkCapRateRange,
+    calculateHoldingPeriodWealth
   };
 }
