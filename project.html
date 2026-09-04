@@ -1419,6 +1419,18 @@
           </div>
         </div>
 
+        <!-- Live Analysis Preview Pill -->
+        <div id="edit-deal-live-preview" class="px-3.5 py-2.5 bg-slate-950/80 border border-emerald-900/50 rounded-xl flex items-center justify-between text-xs text-slate-300">
+          <span class="text-slate-400 font-semibold">Live Pro-Forma:</span>
+          <div class="flex items-center space-x-3 font-mono text-[11px]">
+            <span>LTV: <strong id="edit-preview-ltv" class="text-emerald-400 font-bold">75.0%</strong></span>
+            <span class="text-slate-700">•</span>
+            <span>Loan: <strong id="edit-preview-loan" class="text-slate-100 font-bold">$750,000</strong></span>
+            <span class="text-slate-700">•</span>
+            <span>Equity: <strong id="edit-preview-equity" class="text-brand-400 font-bold">$250,000</strong></span>
+          </div>
+        </div>
+
         <div class="flex items-center space-x-3 pt-3 border-t border-slate-800">
           <button type="button" onclick="closeEditDealModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
             Cancel
@@ -4974,6 +4986,24 @@
       return null;
     }
 
+    function updateEditModalLivePreview() {
+      const priceVal = parseFloat(document.getElementById('edit-deal-price')?.value);
+      const downVal = parseFloat(document.getElementById('edit-deal-down-payment')?.value);
+      const price = isNaN(priceVal) ? 0 : priceVal;
+      const downPercent = isNaN(downVal) ? 25 : Math.max(0, Math.min(100, downVal));
+      const ltv = 100 - downPercent;
+      const loan = Math.round(price * (ltv / 100));
+      const equity = Math.round(price * (downPercent / 100));
+
+      const ltvEl = document.getElementById('edit-preview-ltv');
+      const loanEl = document.getElementById('edit-preview-loan');
+      const equityEl = document.getElementById('edit-preview-equity');
+
+      if (ltvEl) ltvEl.textContent = `${ltv.toFixed(1)}%`;
+      if (loanEl) loanEl.textContent = formatCurrency(loan);
+      if (equityEl) equityEl.textContent = formatCurrency(equity);
+    }
+
     function openEditDealModalFromProject() {
       if (!currentLoadedDeal) return;
       const modal = document.getElementById('edit-deal-modal');
@@ -5031,6 +5061,18 @@
       document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
       document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
       document.getElementById('edit-deal-loan-term').value    = inputs.loanTerm ?? 30;
+
+      // Update live calculation preview
+      updateEditModalLivePreview();
+
+      // Bind input events for live reactivity
+      ['edit-deal-price', 'edit-deal-down-payment'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el._previewBound) {
+          el.addEventListener('input', updateEditModalLivePreview);
+          el._previewBound = true;
+        }
+      });
 
       modal.classList.remove('hidden');
     }
