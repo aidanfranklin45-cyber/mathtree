@@ -631,6 +631,41 @@ runTest('MathTreeSession - Logout clears session storage and triggers signOut', 
   assert.strictEqual(signOutCalled, true);
 });
 
+runTest('Pitch Deck - project.html exposes openDealPitchDeck & openPitchDeck globally and matches buttons', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('project.html', 'utf8');
+
+  // Verify header button exists with ID and onclick handler
+  assert.ok(projHtml.includes('id="btn-pitch-deck"'), 'Header pitch deck button should have id="btn-pitch-deck"');
+  assert.ok(projHtml.includes('onclick="openDealPitchDeck()"'), 'Header button calls openDealPitchDeck()');
+
+  // Verify global window attachment for openDealPitchDeck
+  assert.ok(projHtml.includes('window.openDealPitchDeck = openDealPitchDeck'), 'openDealPitchDeck must be attached to window');
+  assert.ok(projHtml.includes('window.openPitchDeck = openPitchDeck'), 'openPitchDeck must be attached to window');
+  assert.ok(projHtml.includes('window.closePitchDeck = closePitchDeck'), 'closePitchDeck must be attached to window');
+
+  // Verify modal elements exist
+  assert.ok(projHtml.includes('id="pitch-deck-modal"'), 'Modal element must exist in project.html');
+  assert.ok(projHtml.includes('id="btn-pitch-close"'), 'Close button must exist in project.html modal');
+});
+
+runTest('Pitch Deck - dashboard.html exposes openProjectPitchDeck & openPitchDeck globally with propagation protection', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('dashboard.html', 'utf8');
+
+  // Verify card dropdown pitch deck button stops propagation
+  assert.ok(dashHtml.includes("event.stopPropagation(); openProjectPitchDeck('${d.id}')"), 'Dashboard card pitch deck button stops event bubbling');
+
+  // Verify openProjectPitchDeck and openPitchDeck are attached to window
+  assert.ok(dashHtml.includes('window.openProjectPitchDeck = openProjectPitchDeck'), 'openProjectPitchDeck must be attached to window');
+  assert.ok(dashHtml.includes('window.openPitchDeck = openPitchDeck'), 'openPitchDeck must be attached to window');
+  assert.ok(dashHtml.includes('window.closePitchDeck = closePitchDeck'), 'closePitchDeck must be attached to window');
+
+  // Verify modal elements exist
+  assert.ok(dashHtml.includes('id="pitch-deck-modal"'), 'Modal element must exist in dashboard.html');
+  assert.ok(dashHtml.includes('id="pitch-summary-price"'), 'pitch-summary-price element must exist in dashboard.html');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);

@@ -1152,7 +1152,7 @@
                         <svg class="w-3.5 h-3.5 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         <span>Edit Project Inputs</span>
                       </button>
-                      <button onclick="openProjectPitchDeck('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
+                      <button onclick="event.stopPropagation(); openProjectPitchDeck('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
                         <svg class="w-3.5 h-3.5 text-accent-cyan shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
                         <span>Pitch Deck</span>
                       </button>
@@ -1488,9 +1488,10 @@
 
     function openProjectPitchDeck(id) {
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
-      const deal = activeDashboardProjects.find(p => p.id === id);
+      const deal = activeDashboardProjects.find(p => String(p.id) === String(id));
       if (deal) openPitchDeck(deal);
     }
+    window.openProjectPitchDeck = openProjectPitchDeck;
 
     
     
@@ -1854,23 +1855,29 @@
 
     function openPitchDeck(deal) {
       const modal = document.getElementById('pitch-deck-modal');
-      if (!modal) return;
+      if (!modal || !deal) return;
+
+      const price = deal.purchase_price ?? deal.inputs?.purchasePrice ?? 0;
+      const irr = deal.irr ?? deal.metrics?.irr ?? 0;
+      const em = deal.equity_multiple ?? deal.metrics?.equity_multiple ?? 2.0;
+      const coc = deal.cash_on_cash ?? deal.metrics?.cash_on_cash ?? 0;
+
       document.getElementById('pitch-title').textContent = deal.name || 'Executive Pitch Deck';
-      document.getElementById('pitch-summary-price').textContent = formatCurrency(deal.purchase_price || 0);
-      document.getElementById('pitch-summary-irr').textContent = (deal.irr || 0).toFixed(1) + '%';
-      document.getElementById('pitch-summary-em').textContent = (deal.equity_multiple || 2.0).toFixed(2) + 'x';
-      document.getElementById('pitch-summary-coc').textContent = (deal.cash_on_cash || 0).toFixed(1) + '%';
+      document.getElementById('pitch-summary-price').textContent = formatCurrency(price);
+      document.getElementById('pitch-summary-irr').textContent = Number(irr).toFixed(1) + '%';
+      document.getElementById('pitch-summary-em').textContent = Number(em).toFixed(2) + 'x';
+      document.getElementById('pitch-summary-coc').textContent = Number(coc).toFixed(1) + '%';
 
       const btnModeler = document.getElementById('btn-pitch-open-modeler');
       if (btnModeler) {
-        btnModeler.onclick = () => { window.location.href = 'project.html?id=' + deal.id; };
+        btnModeler.onclick = () => { window.location.href = 'project.html?id=' + encodeURIComponent(deal.id); };
       }
 
       const list = document.getElementById('pitch-highlights-list');
       if (list) {
         const h = [
-          'Acquisition of ' + deal.name + ' at ' + formatCurrency(deal.purchase_price || 0),
-          'Projected 10-Year Internal Rate of Return (IRR) of ' + (deal.irr || 0).toFixed(1) + '%',
+          'Acquisition of ' + (deal.name || 'Target Asset') + ' at ' + formatCurrency(price),
+          'Projected 10-Year Internal Rate of Return (IRR) of ' + Number(irr).toFixed(1) + '%',
           'Status: ' + (deal.status === 'owned' ? 'Acquired / Owned Asset' : 'Pipeline Prospect')
         ];
         list.innerHTML = h.map(item => '<div class="p-2.5 rounded-xl bg-slate-900/80 text-xs text-slate-300">✓ ' + item + '</div>').join('');
@@ -1883,6 +1890,13 @@
       const modal = document.getElementById('pitch-deck-modal');
       if (modal) modal.classList.add('hidden');
     }
+    window.openPitchDeck = openPitchDeck;
+    window.closePitchDeck = closePitchDeck;
+
+    // Close pitch deck on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePitchDeck();
+    });
 
     function openCloudSyncModal() {
       const modal = document.getElementById('cloud-sync-modal');
