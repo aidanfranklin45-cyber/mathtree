@@ -417,7 +417,7 @@ function calculateProjections(assetType, inputs) {
         } else {
           let currentCapRate = targetCapRate;
           if (targetCapRate > 0) {
-            const tExit = exitYear > 1 ? exitYear : 10;
+            const tExit = exitYear > 1 ? exitYear : holdingPeriod;
             if (year <= tExit) {
               currentCapRate = entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate);
             } else {

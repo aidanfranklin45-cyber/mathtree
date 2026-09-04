@@ -807,12 +807,23 @@
                     </div>
                   </div>
                   <div class="space-y-1.5">
-                    <label for="input-exit-year" class="text-xs font-semibold text-slate-400">Exit Year</label>
+                    <div class="flex items-center justify-between">
+                      <label for="input-exit-year" class="text-xs font-semibold text-slate-400">Holding Period (1–30 Yrs)</label>
+                      <span id="holding-period-pill" class="text-[10px] text-brand-400 font-mono font-bold">10 Yrs</span>
+                    </div>
                     <div class="relative rounded-lg shadow-sm">
-                      <input type="number" min="1" max="10" id="input-exit-year" name="exitYear" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="10">
+                      <input type="number" min="1" max="30" id="input-exit-year" name="exitYear" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="10">
                       <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-xs">Yrs</span>
                       </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1 pt-1">
+                      <button type="button" onclick="setHoldPeriod(3)" class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-brand-500/50 transition">3Y</button>
+                      <button type="button" onclick="setHoldPeriod(5)" class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-brand-500/50 transition">5Y</button>
+                      <button type="button" onclick="setHoldPeriod(10)" class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-brand-500/50 transition">10Y</button>
+                      <button type="button" onclick="setHoldPeriod(15)" class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-brand-500/50 transition">15Y</button>
+                      <button type="button" onclick="setHoldPeriod(20)" class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-brand-500/50 transition">20Y</button>
+                      <button type="button" onclick="setHoldPeriod(30)" class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-brand-500/50 transition">30Y</button>
                     </div>
                   </div>
                 </div>
@@ -1128,7 +1139,7 @@
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
             <div class="pb-4 border-b border-slate-900 flex justify-between items-center">
               <div>
-                <h3 class="text-sm font-bold text-white tracking-tight">Detailed 10-Year Forecast Table</h3>
+                <h3 id="forecast-table-title" class="text-sm font-bold text-white tracking-tight">Detailed Forecast Table</h3>
                 <p class="text-xs text-slate-400">Granular breakdowns of financials, equity accumulation, and returns</p>
               </div>
             </div>
@@ -1201,7 +1212,7 @@
 
               <!-- Amortization Table -->
               <div>
-                <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">10-Year Amortization Forecast</h4>
+                <h4 id="amortization-table-title" class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Amortization Forecast</h4>
                 <div class="overflow-x-auto -mx-5">
                   <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                     <thead>
@@ -1714,7 +1725,7 @@
           </div>
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Exit Year (Hold)</label>
-            <input type="number" id="edit-deal-exit-year" min="1" max="10" step="1" placeholder="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            <input type="number" id="edit-deal-exit-year" min="1" max="30" step="1" placeholder="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
           <div class="space-y-1 col-span-2 sm:col-span-1">
             <label class="text-[11px] font-bold text-emerald-400" title="Investor Opportunity Cost / Hurdle Rate for NPV">Discount Rate (%)</label>
@@ -2056,7 +2067,7 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Default Hold Period (Years)</label>
-              <input type="number" id="prof-exit-year" min="1" max="10" step="1" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <input type="number" id="prof-exit-year" min="1" max="30" step="1" required class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Default Market Tier</label>
