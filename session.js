@@ -83,6 +83,8 @@
       try {
         storage.removeItem(STORAGE_KEY_LAST_ACTIVITY);
         storage.removeItem(STORAGE_KEY_DEMO);
+        storage.removeItem('mathtree_local_deals');
+        storage.removeItem('mathtree_demo_deals');
       } catch (e) {}
     }
   }

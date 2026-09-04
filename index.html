@@ -173,21 +173,10 @@
           </div>
         </a>
 
-        <!-- Live Status Pill -->
-        <div class="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-[#0D111A] border border-[#1E2230] text-[11px] font-medium text-slate-300 shadow-inner">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span class="font-mono-numbers text-emerald-400 font-semibold">Supabase Edge: Active</span>
-          <span class="text-slate-500">•</span>
-          <span class="text-slate-400 font-mono-numbers text-[10px]">&lt;150ms</span>
-        </div>
       </div>
 
       <!-- Navigation Links -->
       <nav class="hidden md:flex items-center space-x-8 text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <a href="#landing-hero" class="hover:text-emerald-400 transition-colors">Terminal</a>
         <a href="#landing-assets" class="hover:text-emerald-400 transition-colors">Asset Classes</a>
         <a href="#landing-engine" class="hover:text-emerald-400 transition-colors">Risk Engine</a>
         <a href="#landing-deck-studio" class="hover:text-emerald-400 transition-colors">Deck Studio</a>
@@ -265,12 +254,12 @@
           <div class="space-y-1">
             <div class="flex items-center space-x-2">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono-numbers uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                LIVE TERMINAL PRO-FORMA
+                LIVE PRO-FORMA PREVIEW
               </span>
               <span class="text-xs text-slate-400 font-mono-numbers">• Class A Industrial Logistics Hub</span>
             </div>
             <h3 class="text-2xl font-black text-white tracking-tight flex items-center space-x-2">
-              <span>Westfield Core Industrial Park</span>
+              <span>Benchmark Alpha: Class-A Industrial Facility</span>
             </h3>
           </div>
 
@@ -424,13 +413,13 @@
           </div>
         </div>
 
-        <!-- Terminal Quick Action Ribbon -->
+        <!-- Deal Quick Action Ribbon -->
         <div class="mt-6 pt-4 border-t border-[#1E2230] flex flex-wrap items-center justify-between gap-3 text-xs">
           <div class="flex items-center space-x-2 text-slate-400 text-[11px]">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>Edge Engine Latency: <strong class="text-slate-200 font-mono-numbers">114ms</strong></span>
-            <span class="text-slate-600">•</span>
             <span>Deterministic Cash Flow Model</span>
+            <span class="text-slate-600">•</span>
+            <span>Instant Amortization &amp; Waterfall Solvers</span>
           </div>
           <div class="flex items-center space-x-2">
             <button id="hero-card-launch-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center space-x-1 shadow-md shadow-emerald-600/20">
@@ -1203,7 +1192,7 @@
             </span>
             <span class="text-xs text-slate-400">• Confidentially Generated</span>
           </div>
-          <h3 class="text-xl font-black text-white">Westfield Core Industrial Park</h3>
+          <h3 class="text-xl font-black text-white">Benchmark Alpha: Class-A Industrial Facility</h3>
         </div>
         <button onclick="closeSampleMemoModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#131824] transition">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1396,10 +1385,13 @@
     // Demo Sandbox Launcher (1-click institutional access)
     function launchDemoSandbox() {
       if (window.MathTreeSession) window.MathTreeSession.recordActivity();
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+      } catch(e) {}
       localStorage.setItem('mathtree_demo_mode', JSON.stringify({
         demo: true,
-        email: 'institutional.demo@mathtree.io',
-        name: 'Demo Principal Underwriter'
+        email: 'sandbox-guest@mathtree.internal',
+        name: 'Institutional Sandbox'
       }));
       window.location.href = 'dashboard.html';
     }
