@@ -899,6 +899,75 @@ runTest('Exit Cap Rate Calculation Method: Amortize Over Hold Period vs Day 1 Im
   assert.ok(resDay1.projections[0].propertyValue < resAmortized.projections[0].propertyValue, 'Day 1 shift with higher exit cap immediately adjusts Year 1 valuation');
 });
 
+// 42. Global Investor Profile & Hurdle Rate (Opportunity Cost) Resolution
+runTest('Global Investor Profile & Hurdle Rate Hierarchy', () => {
+  const Profile = require('./profile.js');
+  assert.ok(Profile, 'Profile module should export cleanly');
+  assert.strictEqual(Profile.DEFAULT_PROFILE.discountRate, 8.0, 'Default hurdle rate should be 8.0%');
+  assert.strictEqual(Profile.DEFAULT_PROFILE.exitYear, 10, 'Default hold period should be 10 years');
+  assert.strictEqual(Profile.DEFAULT_PROFILE.exitCapTiming, 'amortized', 'Default exit cap timing should be amortized');
+
+  // Hierarchy test: Deal-level override takes top precedence
+  const dealOverride = Profile.resolveHurdleRate(12.5, { discountRate: 10.0 });
+  assert.strictEqual(dealOverride, 12.5, 'Deal-level discount rate must override profile setting');
+
+  // Hierarchy test: Profile hurdle rate takes precedence when deal rate not specified
+  const profileRate = Profile.resolveHurdleRate(undefined, { discountRate: 10.0 });
+  assert.strictEqual(profileRate, 10.0, 'Profile setting must apply when deal rate is undefined');
+
+  // Hierarchy test: Baseline fallback to 8.0% when both are empty
+  const defaultRate = Profile.resolveHurdleRate(undefined, null);
+  assert.strictEqual(defaultRate, 8.0, 'Fallback to 8.0% when neither deal nor profile specified');
+});
+
+// 43. Target Discount Rate / Hurdle Rate (Opportunity Cost) NPV Sensitivity
+runTest('Target Discount Rate (Opportunity Cost) impacts Net Present Value (NPV)', () => {
+  const baseDeal = {
+    purchasePrice: 1000000,
+    downPaymentPercent: 25,
+    interestRate: 6.0,
+    loanTerm: 30,
+    grossRentAnnual: 120000,
+    expenseRatio: 35,
+    exitYear: 10,
+    targetCapRate: 7.0
+  };
+
+  // Run with 8% discount rate (Core Hurdle)
+  const res8 = calculateProjections('commercial', { ...baseDeal, discountRate: 8 });
+  // Run with 12% discount rate (High Opportunity Cost Hurdle)
+  const res12 = calculateProjections('commercial', { ...baseDeal, discountRate: 12 });
+  // Run with 6% discount rate (Low Cost of Capital)
+  const res6 = calculateProjections('commercial', { ...baseDeal, discountRate: 6 });
+
+  assert.ok(typeof res8.npv === 'number', 'NPV should be calculated');
+  assert.ok(typeof res12.npv === 'number', 'NPV should be calculated');
+  assert.ok(typeof res6.npv === 'number', 'NPV should be calculated');
+
+  // Higher discount rate (higher required hurdle / opportunity cost) means future cash flows are worth less today (lower NPV)
+  assert.ok(res6.npv > res8.npv, 'Lower discount rate yields higher NPV');
+  assert.ok(res8.npv > res12.npv, 'Higher discount rate yields lower NPV');
+});
+
+// 44. UI Modal & Input Integrity for Global Profile & Deal Discount Rate
+runTest('UI Verification: Discount Rate Input and Investor Profile Modal in dashboard & project', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // Check dashboard.html
+  assert.ok(dashHtml.includes('id="btn-open-investor-profile"'), 'dashboard.html must have Profile button in header');
+  assert.ok(dashHtml.includes('id="investor-profile-modal"'), 'dashboard.html must have Investor Profile modal');
+  assert.ok(dashHtml.includes('id="edit-deal-discount-rate"'), 'dashboard.html must have edit-deal-discount-rate input');
+  assert.ok(dashHtml.includes('id="edit-preview-npv"'), 'dashboard.html must display live NPV preview');
+
+  // Check project.html
+  assert.ok(projHtml.includes('id="btn-open-investor-profile"'), 'project.html must have Profile button in header');
+  assert.ok(projHtml.includes('id="investor-profile-modal"'), 'project.html must have Investor Profile modal');
+  assert.ok(projHtml.includes('id="edit-deal-discount-rate"'), 'project.html must have edit-deal-discount-rate input');
+  assert.ok(projHtml.includes('id="edit-preview-npv"'), 'project.html must display live NPV preview');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
@@ -908,4 +977,5 @@ if (testsFailed > 0) {
 } else {
   process.exit(0);
 }
+
 
