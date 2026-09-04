@@ -5388,6 +5388,96 @@
       }
     };
 
+    // Immediate Auto-Save to Supabase via Edge Function & Database
+    async function autoSaveDealToSupabase(deal) {
+      if (!deal) return;
+      
+      // 1. Immediately persist to localStorage
+      try {
+        let allDeals = [];
+        const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
+        const storageKey = isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
+        const raw = localStorage.getItem(storageKey) || localStorage.getItem('mathtree_local_deals');
+        if (raw) allDeals = JSON.parse(raw);
+        const idx = allDeals.findIndex(d => d.id === deal.id);
+        if (idx !== -1) allDeals[idx] = deal;
+        else allDeals.unshift(deal);
+        localStorage.setItem(storageKey, JSON.stringify(allDeals));
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
+      } catch(e) {}
+
+      // 2. If authenticated and not demo, immediately modify via Edge Function and Supabase
+      const user = window._currentUser;
+      if (user && !user.demo && deal.id && !deal.id.startsWith('demo-') && !deal.id.startsWith('proj-')) {
+        try {
+          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              id: deal.id,
+              name: deal.name,
+              asset_class: deal.asset_class || deal.asset_type,
+              status: deal.status || 'prospect',
+              location: deal.location,
+              inputs: deal.inputs
+            })
+          }).catch(err => console.warn('Edge auto-save warning:', err));
+
+          if (window._supabase) {
+            await window._supabase.from('deals').update({
+              title: deal.name,
+              asset_type: deal.asset_class || deal.asset_type,
+              status: deal.status || 'prospect',
+              purchase_price: deal.purchase_price,
+              irr: deal.irr,
+              equity_multiple: deal.equity_multiple,
+              cash_on_cash: deal.cash_on_cash,
+              year1_cashflow: deal.year1_cashflow,
+              total_equity: deal.total_equity,
+              inputs: deal.inputs,
+              metrics: deal.metrics
+            }).eq('id', deal.id).eq('user_id', user.id);
+          }
+        } catch(err) {
+          console.warn('Auto-save error:', err);
+        }
+      }
+    }
+    window.autoSaveDealToSupabase = autoSaveDealToSupabase;
+
+    function saveCurrentDealChanges(showAlert = false) {
+      if (!currentLoadedDeal) return;
+      const formInputs = typeof getInputsFromForm === 'function' ? getInputsFromForm() : {};
+      const res = window.PropertyMath.calculateProjections(activeTab, formInputs);
+      const p1 = (res.projections && res.projections[0]) || {};
+
+      currentLoadedDeal.inputs = {
+        ...(currentLoadedDeal.inputs || {}),
+        ...formInputs
+      };
+      currentLoadedDeal.asset_class = activeTab;
+      currentLoadedDeal.purchase_price = res.purchasePrice;
+      currentLoadedDeal.irr = res.irr;
+      currentLoadedDeal.equity_multiple = res.equityMultiplier;
+      currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
+      currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
+      currentLoadedDeal.total_equity = res.initialCashInvested;
+      currentLoadedDeal.metrics = {
+        irr: res.irr,
+        equityMultiplier: res.equityMultiplier,
+        year1CoC: currentLoadedDeal.cash_on_cash,
+        year1CashFlow: currentLoadedDeal.year1_cashflow,
+        initialCashInvested: res.initialCashInvested
+      };
+      currentLoadedDeal.results = res;
+
+      autoSaveDealToSupabase(currentLoadedDeal);
+    }
+    window.saveCurrentDealChanges = saveCurrentDealChanges;
+
     function renderDealTimelineUI(currentStage) {
       currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || (currentLoadedDeal?.status === 'owned' ? 'owned' : 'screening');
       const meta = STAGE_META[currentStage] || STAGE_META['screening'];
@@ -5418,6 +5508,16 @@
           stepEl.className = 'cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-500 hover:border-slate-700';
         }
       });
+
+      // Synchronize date inputs
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        const loiEl = document.getElementById('date-loi');
+        const ddEl = document.getElementById('date-dd');
+        const closeEl = document.getElementById('date-closing');
+        if (loiEl && currentLoadedDeal.inputs.loiDate !== undefined) loiEl.value = currentLoadedDeal.inputs.loiDate;
+        if (ddEl && currentLoadedDeal.inputs.dueDiligenceExpiration !== undefined) ddEl.value = currentLoadedDeal.inputs.dueDiligenceExpiration;
+        if (closeEl && currentLoadedDeal.inputs.closingDate !== undefined) closeEl.value = currentLoadedDeal.inputs.closingDate;
+      }
 
       // Update countdown pill
       const countdownEl = document.getElementById('timeline-countdown-pill');
@@ -5472,6 +5572,15 @@
       if (!currentLoadedDeal) return;
       currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
       currentLoadedDeal.inputs[field] = val;
+
+      if (field === 'loiDate' && document.getElementById('date-loi')) {
+        document.getElementById('date-loi').value = val;
+      } else if (field === 'dueDiligenceExpiration' && document.getElementById('date-dd')) {
+        document.getElementById('date-dd').value = val;
+      } else if (field === 'closingDate' && document.getElementById('date-closing')) {
+        document.getElementById('date-closing').value = val;
+      }
+
       renderDealTimelineUI();
       saveCurrentDealChanges(false);
     }
@@ -6641,88 +6750,6 @@
 
       const label = next === 'owned' ? 'Acquired / Owned Asset' : 'Pipeline Prospect';
       alert(`Deal status updated to: ${label}`);
-    }
-
-    // Immediate Auto-Save to Supabase via Edge Function & Database
-    async function autoSaveDealToSupabase(deal) {
-      if (!deal) return;
-      
-      // 1. Immediately persist to localStorage
-      try {
-        let allDeals = [];
-        const raw = localStorage.getItem('mathtree_local_deals');
-        if (raw) allDeals = JSON.parse(raw);
-        const idx = allDeals.findIndex(d => d.id === deal.id);
-        if (idx !== -1) allDeals[idx] = deal;
-        else allDeals.unshift(deal);
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
-      } catch(e) {}
-
-      // 2. If authenticated and not demo, immediately modify via Edge Function and Supabase
-      const user = window._currentUser;
-      if (user && !user.demo && deal.id && !deal.id.startsWith('demo-') && !deal.id.startsWith('proj-')) {
-        try {
-          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-              id: deal.id,
-              name: deal.name,
-              asset_class: deal.asset_class || deal.asset_type,
-              status: deal.status || 'prospect',
-              location: deal.location,
-              inputs: deal.inputs
-            })
-          }).catch(err => console.warn('Edge auto-save warning:', err));
-
-          if (window._supabase) {
-            await window._supabase.from('deals').update({
-              title: deal.name,
-              asset_type: deal.asset_class || deal.asset_type,
-              status: deal.status || 'prospect',
-              purchase_price: deal.purchase_price,
-              irr: deal.irr,
-              equity_multiple: deal.equity_multiple,
-              cash_on_cash: deal.cash_on_cash,
-              year1_cashflow: deal.year1_cashflow,
-              total_equity: deal.total_equity,
-              inputs: deal.inputs,
-              metrics: deal.metrics
-            }).eq('id', deal.id).eq('user_id', user.id);
-          }
-        } catch(err) {
-          console.warn('Auto-save error:', err);
-        }
-      }
-    }
-
-    function saveCurrentDealChanges(showAlert = false) {
-      if (!currentLoadedDeal) return;
-      const inputs = getInputsFromForm();
-      const res = window.PropertyMath.calculateProjections(activeTab, inputs);
-      const p1 = (res.projections && res.projections[0]) || {};
-
-      currentLoadedDeal.inputs = inputs;
-      currentLoadedDeal.asset_class = activeTab;
-      currentLoadedDeal.purchase_price = res.purchasePrice;
-      currentLoadedDeal.irr = res.irr;
-      currentLoadedDeal.equity_multiple = res.equityMultiplier;
-      currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
-      currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
-      currentLoadedDeal.total_equity = res.initialCashInvested;
-      currentLoadedDeal.metrics = {
-        irr: res.irr,
-        equityMultiplier: res.equityMultiplier,
-        year1CoC: currentLoadedDeal.cash_on_cash,
-        year1CashFlow: currentLoadedDeal.year1_cashflow,
-        initialCashInvested: res.initialCashInvested
-      };
-      currentLoadedDeal.results = res;
-
-      autoSaveDealToSupabase(currentLoadedDeal);
     }
 
     // Close pitch deck on Escape key
