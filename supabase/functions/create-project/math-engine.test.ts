@@ -81,3 +81,30 @@ Deno.test("math-engine - Negative and Zero Edge Cases", () => {
   assertEquals(negRes.purchasePrice, 0);
   assertEquals(negRes.loanAmount, 0);
 });
+
+Deno.test("math-engine - Dynamic Holding Periods (1 to 30 Years)", () => {
+  const baseInput = {
+    purchasePrice: 500000,
+    downPaymentPercent: 20,
+    interestRate: 6.0,
+    loanTerm: 30,
+    monthlyRent: 3500
+  };
+
+  // Default is 10 years
+  const defaultRes = calculateProjections("single-family", baseInput);
+  assertEquals(defaultRes.projections.length, 10);
+
+  // 15-Year hold
+  const hold15Res = calculateProjections("single-family", { ...baseInput, holdingPeriod: 15 });
+  assertEquals(hold15Res.projections.length, 15);
+  assertEquals(hold15Res.projections[14].year, 15);
+
+  // 30-Year hold with 15-year loan payoff
+  const hold30Res = calculateProjections("single-family", { ...baseInput, loanTerm: 15, holdingPeriod: 30 });
+  assertEquals(hold30Res.projections.length, 30);
+  assertEquals(hold30Res.projections[29].debtService, 0);
+  assertEquals(hold30Res.projections[29].loanBalanceRemaining, 0);
+  assertEquals(hold30Res.projections[29].equity, hold30Res.projections[29].propertyValue);
+});
+

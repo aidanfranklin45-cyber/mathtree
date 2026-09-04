@@ -2623,6 +2623,22 @@
     }
     window.setModalExitCapTimingUI = setModalExitCapTimingUI;
 
+    function setHoldPeriod(yrs) {
+      const el = document.getElementById('input-exit-year');
+      if (el) {
+        el.value = yrs;
+        const pill = document.getElementById('holding-period-pill');
+        if (pill) pill.textContent = yrs + ' Yrs';
+        if (currentLoadedDeal && currentLoadedDeal.inputs) {
+          currentLoadedDeal.inputs.exitYear = yrs;
+          currentLoadedDeal.inputs.holdingPeriod = yrs;
+          if (typeof saveCurrentDealChanges === 'function') saveCurrentDealChanges(false);
+        }
+        updateCalculations();
+      }
+    }
+    window.setHoldPeriod = setHoldPeriod;
+
     // Toggle conditional input group displays
     function showTabInputs(tab) {
       document.getElementById('group-single-family').classList.add('hidden');
@@ -2641,10 +2657,15 @@
       }
     }
 
-    // Render 10-year forecasts in the UI table
+    // Render multi-year forecasts in the UI table
     function renderProjectionsTable(projections) {
       const tbody = document.getElementById('projection-table-body');
       tbody.innerHTML = '';
+
+      const tableTitle = document.getElementById('forecast-table-title');
+      if (tableTitle && projections) {
+        tableTitle.textContent = `Detailed ${projections.length}-Year Forecast Table`;
+      }
 
       projections.forEach(proj => {
         const tr = document.createElement('tr');
@@ -2667,10 +2688,15 @@
       });
     }
 
-    // Render 10-year amortization schedule in the UI table
+    // Render multi-year amortization schedule in the UI table
     function renderAmortizationTable(schedule, projections) {
       const tbody = document.getElementById('amortization-table-body');
       tbody.innerHTML = '';
+
+      const amortTitle = document.getElementById('amortization-table-title');
+      if (amortTitle && schedule) {
+        amortTitle.textContent = `${schedule.length}-Year Amortization Schedule`;
+      }
 
       schedule.forEach((row, idx) => {
         const proj = projections[idx];
@@ -2702,7 +2728,23 @@
     function updateWealthRealizationStudio(inputs, res) {
       if (!res || !res.projections || res.projections.length === 0) return;
       const selectEl = document.getElementById('input-wealth-hold-year');
-      const holdYear = parseInt(selectEl?.value || '10');
+      
+      if (selectEl && res.projections) {
+        const currentVal = parseInt(selectEl.value || '10', 10);
+        const maxYear = res.projections.length;
+        const standardMilestones = [1, 2, 3, 5, 7, 10, 15, 20, 25, 30].filter(y => y <= maxYear);
+        if (!standardMilestones.includes(maxYear)) standardMilestones.push(maxYear);
+        standardMilestones.sort((a, b) => a - b);
+
+        const existingOptions = Array.from(selectEl.options).map(o => parseInt(o.value, 10));
+        const isDifferent = standardMilestones.length !== existingOptions.length || standardMilestones.some((v, i) => v !== existingOptions[i]);
+        if (isDifferent) {
+          const targetVal = standardMilestones.includes(currentVal) ? currentVal : maxYear;
+          selectEl.innerHTML = standardMilestones.map(y => `<option value="${y}" ${y === targetVal ? 'selected' : ''}>Year ${y}${y === maxYear ? ' (Full Hold)' : ''}</option>`).join('');
+        }
+      }
+
+      const holdYear = parseInt(selectEl?.value || String(res.projections.length));
 
       if (!selectEl?._wealthBound) {
         selectEl?.addEventListener('change', () => {
@@ -2858,7 +2900,13 @@
           scales: {
             x: {
               grid: { color: 'rgba(51, 65, 85, 0.15)' },
-              ticks: { color: '#64748b', font: { family: 'Inter', weight: '500' } }
+              ticks: {
+                color: '#64748b',
+                font: { family: 'Inter', weight: '500' },
+                autoSkip: true,
+                maxTicksLimit: 15,
+                maxRotation: 0
+              }
             },
             y: {
               grid: { color: 'rgba(51, 65, 85, 0.15)' },

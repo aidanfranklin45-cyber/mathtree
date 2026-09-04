@@ -29,9 +29,13 @@ export interface DealInputs {
   targetCapRate?: number | string;
   targetExitCapRate?: number | string;
   exitCap?: number | string;
+  loanAmount?: number | string;
   exitYear?: number | string;
   holdingPeriod?: number | string;
   holdYears?: number | string;
+  exitCapTiming?: string;
+  exitCapMethod?: string;
+  exitCapSpreadMethod?: string;
   discountRate?: number | string;
   otherIncome?: number | string;
 

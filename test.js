@@ -1218,6 +1218,117 @@ runTest('UI Verification: 30-Day GIS Cache Sync Badge and Force-Refresh Controll
   assert.ok(projHtml.includes('isGisDataStale'), 'project.html must check isGisDataStale');
 });
 
+const PropertyMath = require('./math.js');
+
+// 55. Dynamic Holding Period: Default 10-Year Backwards Compatibility
+runTest('Holding Period: Defaults to 10 years when omitted across single-family and commercial', () => {
+  const sfInputs = {
+    purchasePrice: 400000,
+    downPaymentPercent: 20,
+    interestRate: 6.5,
+    loanTerm: 30,
+    monthlyRent: 2800,
+    vacancyRate: 5,
+    expenseRatio: 30
+  };
+  const res = PropertyMath.calculateProjections('single-family', sfInputs);
+  assert.strictEqual(res.projections.length, 10, 'Projections default to 10 years');
+  assert.strictEqual(res.amortizationSchedule.length, 10, 'Amortization schedule defaults to 10 years');
+});
+
+// 56. Dynamic Holding Period: 15-Year Horizon Generates 15 Projection Rows
+runTest('Holding Period: 15-Year horizon generates 15 projection rows and terminal equity', () => {
+  const sfInputs = {
+    purchasePrice: 500000,
+    downPaymentPercent: 25,
+    interestRate: 6.0,
+    loanTerm: 30,
+    monthlyRent: 3500,
+    holdingPeriod: 15
+  };
+  const res = PropertyMath.calculateProjections('single-family', sfInputs);
+  assert.strictEqual(res.projections.length, 15, 'Projections array contains 15 years');
+  assert.strictEqual(res.projections[14].year, 15, 'Year 15 exists as final year');
+  assert.ok(res.projections[14].equity > res.projections[0].equity, 'Equity increases by Year 15');
+});
+
+// 57. Dynamic Holding Period: 30-Year Hold with 15-Year Loan Amortization Payoff
+runTest('Holding Period: 30-Year hold with 15-year loan zeroes debt service after year 15', () => {
+  const inputs = {
+    purchasePrice: 600000,
+    downPaymentPercent: 20,
+    interestRate: 5.5,
+    loanTerm: 15, // 15-year mortgage
+    monthlyRent: 4500,
+    holdingPeriod: 30
+  };
+  const res = PropertyMath.calculateProjections('single-family', inputs);
+  assert.strictEqual(res.projections.length, 30, 'Generates full 30-year projection');
+  
+  // Year 15 has active mortgage payment
+  assert.ok(res.projections[14].debtService > 0, 'Year 15 has active debt service');
+  assert.ok(res.projections[14].loanBalanceRemaining >= 0, 'Year 15 loan is paid down');
+
+  // Years 16 to 30 must have $0 debt service and $0 remaining balance
+  for (let y = 16; y <= 30; y++) {
+    const proj = res.projections[y - 1];
+    assert.strictEqual(proj.debtService, 0, `Year ${y} debt service is zero post-payoff`);
+    assert.strictEqual(proj.loanBalanceRemaining, 0, `Year ${y} loan balance is zero`);
+    assert.strictEqual(proj.equity, proj.propertyValue, `Year ${y} equity equals 100% of property value`);
+    assert.strictEqual(proj.cashFlow, proj.netOperatingIncome, `Year ${y} cash flow equals full NOI`);
+  }
+});
+
+// 58. Dynamic Holding Period: 27.5-Year Residential MACRS Tax Depreciation Exhaustion
+runTest('Holding Period: 27.5-Year MACRS residential depreciation exhausts in Year 28 and zeroes in Years 29-30', () => {
+  const inputs = {
+    purchasePrice: 1000000,
+    downPaymentPercent: 25,
+    interestRate: 6.0,
+    loanTerm: 30,
+    monthlyRent: 8000,
+    holdingPeriod: 30,
+    landValuePercent: 20, // $200k land, $800k depreciable building
+    marginalTaxRate: 35,
+    costSegregation: false
+  };
+  const baseRes = PropertyMath.calculateProjections('multi-unit', inputs);
+  const taxRes = PropertyMath.calculateTaxAndDepreciation('multi-unit', inputs, baseRes);
+
+  assert.strictEqual(taxRes.yearlyTaxDetails.length, 30, 'Tax details generated for all 30 years');
+
+  // Total depreciable basis is $800,000. Annual straight-line is $800,000 / 27.5 = $29,090.91
+  // Years 1 through 27 have full depreciation
+  assert.strictEqual(taxRes.yearlyTaxDetails[0].depreciation, 29090.91);
+  assert.strictEqual(taxRes.yearlyTaxDetails[26].depreciation, 29090.91);
+
+  // Year 28 has the remaining half-year ($14,545.45)
+  assert.strictEqual(taxRes.yearlyTaxDetails[27].depreciation, 14545.45);
+
+  // Years 29 and 30 must have $0 depreciation (fully exhausted)
+  assert.strictEqual(taxRes.yearlyTaxDetails[28].depreciation, 0, 'Year 29 depreciation is $0');
+  assert.strictEqual(taxRes.yearlyTaxDetails[29].depreciation, 0, 'Year 30 depreciation is $0');
+});
+
+// 59. UI Verification: 30-Year Holding Period Controls, Chips, and Titles
+runTest('UI Verification: Holding period inputs accept up to 30 years with chips and table title updates', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+
+  // project.html verification
+  assert.ok(projHtml.includes('id="input-exit-year" name="exitYear"'), 'project.html has input-exit-year');
+  assert.ok(projHtml.includes('max="30" id="input-exit-year"'), 'input-exit-year has max="30"');
+  assert.ok(projHtml.includes('setHoldPeriod(30)'), 'project.html includes 30Y preset chip');
+  assert.ok(projHtml.includes('id="holding-period-pill"'), 'project.html has holding-period-pill');
+  assert.ok(projHtml.includes('id="forecast-table-title"'), 'project.html has forecast-table-title');
+  assert.ok(projHtml.includes('id="amortization-table-title"'), 'project.html has amortization-table-title');
+
+  // dashboard.html verification
+  assert.ok(dashHtml.includes('id="prof-exit-year" min="1" max="30"'), 'dashboard.html prof-exit-year has max="30"');
+  assert.ok(dashHtml.includes('id="edit-deal-exit-year" min="1" max="30"'), 'dashboard.html edit-deal-exit-year has max="30"');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
