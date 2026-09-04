@@ -1145,15 +1145,8 @@
       // Update isolated storage
       saveActiveDealsToStorage();
 
-      // Await database write if connected
-      const user = await getSupabaseUser();
-      if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
-        try {
-          await window._supabase.from('deals').update({ status: nextStatus }).eq('id', id).eq('user_id', user.id);
-        } catch(err) {
-          console.warn('Status update error:', err);
-        }
-      }
+      // Immediately sync via Edge Function and Database
+      await syncDealViaEdgeFunction(deal);
 
       // Re-load and re-render grid
       await loadDashboardProjects();
@@ -1316,30 +1309,55 @@
 
       saveActiveDealsToStorage();
 
-      // Sync update to Supabase
+      // Immediately sync update to Supabase via Edge Function & Database
+      await syncDealViaEdgeFunction(deal);
+
+      closeEditDealModal();
+      await loadDashboardProjects();
+    }
+
+    async function syncDealViaEdgeFunction(deal) {
+      if (!deal) return;
       const user = await getSupabaseUser();
-      if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
+      if (user && !user.demo && deal.id && !deal.id.startsWith('proj-') && !deal.id.startsWith('demo-')) {
         try {
-          await window._supabase.from('deals').update({
-            title: deal.name,
-            location: deal.location,
-            status: deal.status,
-            purchase_price: res.purchasePrice,
-            irr: res.irr,
-            equity_multiple: res.equityMultiplier,
-            cash_on_cash: deal.cash_on_cash,
-            year1_cashflow: deal.year1_cashflow,
-            total_equity: deal.total_equity,
-            inputs: deal.inputs,
-            metrics: deal.metrics
-          }).eq('id', id).eq('user_id', user.id);
+          // 1. Edge Function immediate modify
+          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              id: deal.id,
+              name: deal.name,
+              asset_class: deal.asset_class,
+              status: deal.status,
+              location: deal.location,
+              inputs: deal.inputs
+            })
+          }).catch(e => console.warn('Edge modify sync warning:', e));
+
+          // 2. Direct Supabase DB immediate modify
+          if (window._supabase) {
+            await window._supabase.from('deals').update({
+              title: deal.name,
+              location: deal.location,
+              status: deal.status,
+              purchase_price: deal.purchase_price,
+              irr: deal.irr,
+              equity_multiple: deal.equity_multiple,
+              cash_on_cash: deal.cash_on_cash,
+              year1_cashflow: deal.year1_cashflow,
+              total_equity: deal.total_equity,
+              inputs: deal.inputs,
+              metrics: deal.metrics
+            }).eq('id', deal.id).eq('user_id', user.id);
+          }
         } catch(err) {
           console.warn('Supabase update deal error:', err);
         }
       }
-
-      closeEditDealModal();
-      await loadDashboardProjects();
     }
 
     function openProjectPitchDeck(id) {

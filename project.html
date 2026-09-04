@@ -5067,7 +5067,57 @@
       alert(`Deal status updated to: ${label}`);
     }
 
-    function saveCurrentDealChanges(showAlert = true) {
+    // Immediate Auto-Save to Supabase via Edge Function & Database
+    async function autoSaveDealToSupabase(deal) {
+      if (!deal) return;
+      
+      // 1. Immediately persist to localStorage
+      try {
+        let allDeals = [];
+        const raw = localStorage.getItem('mathtree_local_deals');
+        if (raw) allDeals = JSON.parse(raw);
+        const idx = allDeals.findIndex(d => d.id === deal.id);
+        if (idx !== -1) allDeals[idx] = deal;
+        else allDeals.unshift(deal);
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
+      } catch(e) {}
+
+      // 2. If authenticated and not demo, immediately modify via Edge Function and Supabase
+      const user = window._currentUser;
+      if (user && !user.demo && deal.id && !deal.id.startsWith('demo-') && !deal.id.startsWith('proj-')) {
+        try {
+          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              id: deal.id,
+              name: deal.name,
+              asset_class: deal.asset_class || deal.asset_type,
+              status: deal.status || 'prospect',
+              location: deal.location,
+              inputs: deal.inputs
+            })
+          }).catch(err => console.warn('Edge auto-save warning:', err));
+
+          if (window._supabase) {
+            await window._supabase.from('deals').update({
+              title: deal.name,
+              asset_type: deal.asset_class || deal.asset_type,
+              status: deal.status || 'prospect',
+              inputs: deal.inputs,
+              metrics: deal.metrics
+            }).eq('id', deal.id).eq('user_id', user.id);
+          }
+        } catch(err) {
+          console.warn('Auto-save error:', err);
+        }
+      }
+    }
+
+    function saveCurrentDealChanges(showAlert = false) {
       if (!currentLoadedDeal) return;
       const inputs = getInputsFromForm();
       const res = window.PropertyMath.calculateProjections(activeTab, inputs);
@@ -5081,51 +5131,7 @@
       currentLoadedDeal.total_equity = res.initialCashInvested;
       currentLoadedDeal.results = res;
 
-      const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
-      const storageKey = isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
-      let allDeals = [];
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) allDeals = JSON.parse(raw);
-      } catch(e) {}
-
-      const idx = allDeals.findIndex(d => d.id === currentLoadedDeal.id);
-      if (idx !== -1) {
-        allDeals[idx] = currentLoadedDeal;
-      } else {
-        allDeals.push(currentLoadedDeal);
-      }
-      localStorage.setItem(storageKey, JSON.stringify(allDeals));
-
-      // Also sync to Supabase if authenticated
-      const user = window._currentUser;
-      if (window._supabase && user && !user.demo && !currentLoadedDeal.id.startsWith('demo-') && !currentLoadedDeal.id.startsWith('proj-')) {
-        window._supabase.from('deals').update({
-          title: currentLoadedDeal.name,
-          asset_type: activeTab,
-          status: currentLoadedDeal.status || 'prospect',
-          purchase_price: res.purchasePrice,
-          irr: res.irr,
-          equity_multiple: res.equityMultiplier,
-          cash_on_cash: res.projections[0]?.cashOnCash || 0,
-          year1_cashflow: res.projections[0]?.netCashFlow || 0,
-          total_equity: res.initialCashInvested,
-          inputs: inputs,
-          metrics: {
-            irr: res.irr,
-            equityMultiplier: res.equityMultiplier,
-            year1CoC: res.projections[0]?.cashOnCash || 0,
-            year1CashFlow: res.projections[0]?.netCashFlow || 0,
-            initialCashInvested: res.initialCashInvested
-          }
-        }).eq('id', currentLoadedDeal.id).then(({ error }) => {
-          if (error) console.warn('Cloud sync save warning:', error);
-        });
-      }
-
-      if (showAlert) {
-        alert('Changes saved successfully! Return to Dashboard to see updated portfolio metrics.');
-      }
+      autoSaveDealToSupabase(currentLoadedDeal);
     }
 
     function openDealPitchDeck() {
