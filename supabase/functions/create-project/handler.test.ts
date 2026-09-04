@@ -109,3 +109,33 @@ Deno.test("create-project - Guided Wizard Payload (Client Alignment)", async () 
   assert(Array.isArray(data.pitchDeck.risks));
   assertEquals(data.pitchDeck.projections.length, 10);
 });
+
+Deno.test("create-project - Immediate Modify / Update with ID", async () => {
+  const updatePayload = {
+    id: "f845a947-6df1-4a7b-a2c3-111111111111",
+    name: "Updated Logistics Facility",
+    asset_class: "commercial",
+    status: "owned",
+    location: "Austin, TX",
+    inputs: {
+      purchasePrice: 1500000,
+      downPaymentPercent: 25,
+      grossRentPerMonth: 15000,
+      operatingExpenseRatio: 25
+    }
+  };
+
+  const req = new Request("https://localhost/functions/v1/create-project", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updatePayload)
+  });
+
+  const res = await handleRequest(req);
+  assertEquals(res.status, 200);
+  const data = await res.json();
+  assertEquals(data.success, true);
+  assertEquals(data.deal.name, "Updated Logistics Facility");
+  assertEquals(data.deal.purchase_price, 1500000);
+});
+

@@ -126,17 +126,12 @@
         </div>
       </div>
 
-      <!-- Actions Bar: Status Toggle, Edit, Pitch Deck, PDF, CSV, Save -->
+      <!-- Actions Bar: Back to Dashboard, Pitch Deck, PDF, CSV (Analysis & Presentation Only) -->
       <div class="flex items-center space-x-2">
-        <button id="btn-toggle-deal-status" onclick="toggleCurrentDealStatus()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-          <span id="status-toggle-label">Move to Owned</span>
-        </button>
-
-        <button onclick="openEditDealModalFromProject()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-          <span>Edit Inputs</span>
-        </button>
+        <a href="dashboard.html" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:bg-slate-800 transition flex items-center space-x-1.5 shadow-sm">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+          <span>Dashboard</span>
+        </a>
 
         <button onclick="openDealPitchDeck()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm">
           <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
@@ -151,11 +146,6 @@
         <button onclick="exportToCSV()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:bg-slate-800 transition flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
           <span>CSV</span>
-        </button>
-
-        <button onclick="saveCurrentDealChanges()" class="px-4 py-1.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition flex items-center space-x-1.5">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-          <span>Save Changes</span>
         </button>
       </div>
     </div>
@@ -191,7 +181,7 @@
       <section class="lg:col-span-4 space-y-5">
         
         <!-- Brief Assumptions Summary Container -->
-        <div class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
+        <div id="brief-assumptions-container" class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
           
           <!-- Header -->
           <div class="flex items-center justify-between pb-3 border-b border-slate-900">
@@ -204,10 +194,7 @@
                 <span id="active-tab-indicator" class="text-[10px] font-semibold text-slate-400 capitalize">Commercial Real Estate</span>
               </div>
             </div>
-            <button type="button" onclick="openEditDealModalFromProject()" class="text-xs font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2.5 py-1.5 rounded-xl border border-brand-500/20 transition flex items-center space-x-1 shadow-sm">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-              <span>Edit</span>
-            </button>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">Viewing Mode</span>
           </div>
 
           <!-- Underwriting Scenario Selector -->
@@ -230,7 +217,7 @@
           </div>
 
           <!-- Brief Assumptions Summary Cards Grid -->
-          <div class="space-y-2 pt-1">
+          <div id="brief-assumptions-cards-grid" class="space-y-2 pt-1">
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
                 <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Acquisition Price</span>
@@ -266,12 +253,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Edit Button -->
-          <button type="button" onclick="openEditDealModalFromProject()" class="w-full py-2.5 px-3 rounded-xl text-xs font-extrabold text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-center space-x-1.5 shadow-sm">
-            <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            <span>Modify Assumptions in Modal</span>
-          </button>
         </div>
 
         <!-- Preserved Hidden Inputs to maintain 100% calculation engine compatibility -->
@@ -4282,7 +4263,7 @@
     }
 
     async function saveCurrentDealToCloud() {
-      if (!supabaseClient || !currentUser) {
+      if (!supabaseClient || !currentUser || currentUser.demo) {
         openCloudSyncModal();
         return;
       }
@@ -4310,7 +4291,7 @@
     }
 
     async function fetchCloudDeals() {
-      if (!supabaseClient || !currentUser) return;
+      if (!supabaseClient || !currentUser || currentUser.demo) return;
       const list = document.getElementById('cloud-deals-list');
       if (!list) return;
 
@@ -4358,7 +4339,7 @@
     }
 
     async function savePortfolioToCloud() {
-      if (!supabaseClient || !currentUser) {
+      if (!supabaseClient || !currentUser || currentUser.demo) {
         openCloudSyncModal();
         return;
       }
@@ -4399,7 +4380,7 @@
     }
 
     async function fetchCloudPortfolios() {
-      if (!supabaseClient || !currentUser) return;
+      if (!supabaseClient || !currentUser || currentUser.demo) return;
       const list = document.getElementById('cloud-portfolios-list');
       if (!list) return;
 
@@ -4936,6 +4917,12 @@
     }
 
     async function initProjectView() {
+      // Demo Mode: hide assumptions cards grid cleanly
+      if (window._demoMode || (window._currentUser && window._currentUser.demo) || localStorage.getItem('mathtree_demo_mode')) {
+        const cardsGrid = document.getElementById('brief-assumptions-cards-grid');
+        if (cardsGrid) cardsGrid.classList.add('hidden');
+      }
+
       currentLoadedDealId = getDealIdFromUrl();
       const user = (window._supabase && (await window._supabase.auth.getSession()).data?.session?.user) || window._currentUser;
 

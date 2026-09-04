@@ -129,24 +129,48 @@ export async function handleRequest(req: Request): Promise<Response> {
     if (userId && supabaseUrl && supabaseServiceKey) {
       try {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        const { data, error } = await supabase
-          .from("deals")
-          .insert({
-            user_id: userId,
-            title: formattedTitle,
-            asset_type: assetType,
-            scenario_tag: "base",
-            inputs: rawInputs,
-            metrics: pitchDeck.summary,
-            notes: strategyNotes
-          })
-          .select()
-          .single();
+        const dealId = String(payload.id ?? payload.dealId ?? "").trim();
+        const isUpdate = dealId && !dealId.startsWith("demo-") && !dealId.startsWith("proj-");
 
+        let query;
+        if (isUpdate) {
+          query = supabase
+            .from("deals")
+            .update({
+              title: formattedTitle,
+              asset_type: assetType,
+              scenario_tag: "base",
+              inputs: rawInputs,
+              metrics: pitchDeck.summary,
+              notes: strategyNotes,
+              status: String(payload.status || "prospect")
+            })
+            .eq("id", dealId)
+            .eq("user_id", userId)
+            .select()
+            .single();
+        } else {
+          query = supabase
+            .from("deals")
+            .insert({
+              user_id: userId,
+              title: formattedTitle,
+              asset_type: assetType,
+              scenario_tag: "base",
+              inputs: rawInputs,
+              metrics: pitchDeck.summary,
+              notes: strategyNotes,
+              status: String(payload.status || "prospect")
+            })
+            .select()
+            .single();
+        }
+
+        const { data, error } = await query;
         if (!error && data) {
           savedDeal = data;
         } else if (error) {
-          console.error("Database insert error:", error);
+          console.error("Database deal persist error:", error);
         }
       } catch (dbErr) {
         console.error("Database client execution error:", dbErr);
