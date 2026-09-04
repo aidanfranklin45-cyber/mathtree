@@ -1399,6 +1399,61 @@ runTest('UI Verification: project.html displays calendar dates primarily across 
   assert.ok(projHtml.includes("if (typeof updateCalculations === 'function') updateCalculations()"), 'updateMilestoneDate triggers updateCalculations');
 });
 
+// 62. UI Verification: Prominent County Assessor & Property Records Dossier Card in project.html
+runTest('UI Verification: Prominent County Assessor Dossier Card and 1-click controls in project.html', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // Dossier Card Container & Core Elements
+  assert.ok(projHtml.includes('id="property-county-dossier-card"'), 'project.html must have #property-county-dossier-card');
+  assert.ok(projHtml.includes('id="dossier-county-badge"'), 'Card must have #dossier-county-badge');
+  assert.ok(projHtml.includes('id="dossier-ascend-link"'), 'Card must have #dossier-ascend-link pointing to Ascend Tax Card');
+  assert.ok(projHtml.includes('id="dossier-apn-pill"'), 'Card must have #dossier-apn-pill');
+  assert.ok(projHtml.includes('id="dossier-address-text"'), 'Card must have #dossier-address-text');
+  assert.ok(projHtml.includes('id="dossier-assessed-val"'), 'Card must have #dossier-assessed-val');
+  assert.ok(projHtml.includes('id="dossier-tax-year"'), 'Card must have #dossier-tax-year');
+  assert.ok(projHtml.includes('id="dossier-split-val"'), 'Card must have #dossier-split-val');
+  assert.ok(projHtml.includes('id="dossier-land-pct"'), 'Card must have #dossier-land-pct');
+  assert.ok(projHtml.includes('id="dossier-lot-size"'), 'Card must have #dossier-lot-size');
+  assert.ok(projHtml.includes('id="dossier-lot-sqft"'), 'Card must have #dossier-lot-sqft');
+  assert.ok(projHtml.includes('id="dossier-zoning"'), 'Card must have #dossier-zoning');
+  assert.ok(projHtml.includes('id="dossier-use-code"'), 'Card must have #dossier-use-code');
+  assert.ok(projHtml.includes('id="dossier-owner-name"'), 'Card must have #dossier-owner-name');
+  assert.ok(projHtml.includes('id="dossier-legal-desc"'), 'Card must have #dossier-legal-desc');
+  assert.ok(projHtml.includes('id="dossier-sync-status"'), 'Card must have #dossier-sync-status');
+
+  // 1-Click Action Button & Global Controller Functions
+  assert.ok(projHtml.includes('applyAssessedValueToProject()'), 'Card must have 1-click applyAssessedValueToProject button');
+  assert.ok(projHtml.includes('function updateCountyDossierUI('), 'updateCountyDossierUI must be defined');
+  assert.ok(projHtml.includes('window.updateCountyDossierUI = updateCountyDossierUI'), 'updateCountyDossierUI must be exposed globally');
+  assert.ok(projHtml.includes('function applyAssessedValueToProject('), 'applyAssessedValueToProject must be defined');
+  assert.ok(projHtml.includes('window.applyAssessedValueToProject = applyAssessedValueToProject'), 'applyAssessedValueToProject must be exposed globally');
+});
+
+// 63. PDF Underwriting Brief: Clean County Assessor & Parcel Details Section
+runTest('PDF Export: Executive Underwriting Brief renders dedicated County Assessor & Property Records section', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  // Printable Brief County Section
+  assert.ok(projHtml.includes('Official County Assessor & Property Records'), 'Printable brief must include Official County Assessor & Property Records header');
+  assert.ok(projHtml.includes('gisSyncBadge'), 'Printable brief must include live GIS sync badge');
+  assert.ok(projHtml.includes('Assessor APN / Parcel ID'), 'Printable brief must format Assessor APN / Parcel ID');
+  assert.ok(projHtml.includes('Total Assessed Value'), 'Printable brief must format Total Assessed Value');
+  assert.ok(projHtml.includes('Land / Building Split'), 'Printable brief must format Land / Building Split');
+  assert.ok(projHtml.includes('Lot Size / Acreage'), 'Printable brief must format Lot Size / Acreage');
+  assert.ok(projHtml.includes('Zoning / Land Use'), 'Printable brief must format Zoning / Land Use');
+  assert.ok(projHtml.includes('Owner of Record'), 'Printable brief must format Owner of Record');
+  assert.ok(projHtml.includes('Legal Description'), 'Printable brief must format Legal Description');
+
+  // Synthetic Benchmarks enrichment in both project.html and dashboard.html
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+  assert.ok(projHtml.includes("apn: '19131922484'"), 'project.html benchmarks must contain Yakima APNs');
+  assert.ok(dashHtml.includes("apn: '19131922484'"), 'dashboard.html benchmarks must contain Yakima APNs');
+  assert.ok(projHtml.includes('CASCADE PACIFIC HOLDINGS LLC'), 'project.html benchmarks must contain Yakima assessor owners');
+  assert.ok(dashHtml.includes('CASCADE PACIFIC HOLDINGS LLC'), 'dashboard.html benchmarks must contain Yakima assessor owners');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
