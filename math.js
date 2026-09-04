@@ -316,22 +316,36 @@ function calculateProjections(assetType, inputs) {
 
     // Commercial and Storage valuation capitalization mechanism
     if (assetType === 'commercial' || assetType === 'storage') {
-      if (year === 1) {
-        currentPropertyValue = initialPropertyValue;
-      } else {
-        let currentCapRate = targetCapRate;
-        if (targetCapRate > 0) {
-          const tExit = exitYear > 1 ? exitYear : 10;
-          if (year <= tExit) {
-            currentCapRate = entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate);
-          } else {
-            currentCapRate = targetCapRate;
-          }
-        }
+      const exitCapTiming = String(inputs.exitCapTiming || inputs.exitCapMethod || inputs.exitCapSpreadMethod || 'amortized').toLowerCase();
+      const isDay1Force = exitCapTiming === 'day1' || exitCapTiming === 'immediate';
+
+      if (isDay1Force) {
+        // Force the exit cap rate spread onto the property on Day 1
+        const currentCapRate = targetCapRate > 0 ? targetCapRate : entryCapRate;
         if (currentCapRate > 0 && netOperatingIncome > 0) {
           currentPropertyValue = netOperatingIncome / (currentCapRate / 100);
         } else {
           currentPropertyValue = initialPropertyValue;
+        }
+      } else {
+        // Amortize spread over the course of the exit time period (default)
+        if (year === 1) {
+          currentPropertyValue = initialPropertyValue;
+        } else {
+          let currentCapRate = targetCapRate;
+          if (targetCapRate > 0) {
+            const tExit = exitYear > 1 ? exitYear : 10;
+            if (year <= tExit) {
+              currentCapRate = entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate);
+            } else {
+              currentCapRate = targetCapRate;
+            }
+          }
+          if (currentCapRate > 0 && netOperatingIncome > 0) {
+            currentPropertyValue = netOperatingIncome / (currentCapRate / 100);
+          } else {
+            currentPropertyValue = initialPropertyValue;
+          }
         }
       }
     }

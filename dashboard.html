@@ -720,6 +720,25 @@
           </div>
         </div>
 
+        <!-- Exit Cap Rate Spread Method -->
+        <div class="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold text-slate-300">Exit Cap Rate Calculation Method</label>
+            <span id="edit-modal-timing-badge" class="text-[10px] font-semibold text-emerald-400">Amortized Over Hold Period</span>
+          </div>
+          <input type="hidden" id="edit-deal-exit-cap-timing" value="amortized">
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="edit-btn-timing-amortized" onclick="setModalExitCapTiming('amortized')" class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm" title="Spread expands/compresses linearly over hold period to exit year">
+              <span>Amortize Spread</span>
+              <span class="text-[10px] font-normal text-slate-400">Amortize spread over hold period</span>
+            </button>
+            <button type="button" id="edit-btn-timing-day1" onclick="setModalExitCapTiming('day1')" class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white" title="Force full exit cap rate spread onto property on Day 1">
+              <span>Day 1 Shift</span>
+              <span class="text-[10px] font-normal text-slate-500">Force spread onto Day 1</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Debt & Financing Terms -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
           <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
@@ -1497,6 +1516,7 @@
         exitYear: intVal('edit-deal-exit-year', 10),
         discountRate: numVal('edit-deal-discount-rate', 8),
         manageProperty: document.getElementById('edit-deal-manage-property') ? document.getElementById('edit-deal-manage-property').checked : true,
+        exitCapTiming: document.getElementById('edit-deal-exit-cap-timing')?.value || 'amortized',
         marketTier: document.getElementById('edit-deal-market-tier')?.value || 'Tier 2',
         propertyClass: document.getElementById('edit-deal-property-class')?.value || 'Class B',
         facilityType: document.getElementById('edit-deal-facility-type')?.value?.trim() || ''
@@ -1566,6 +1586,36 @@
       }
     }
 
+    function setModalExitCapTiming(mode) {
+      const timing = (mode === 'day1' || mode === 'immediate') ? 'day1' : 'amortized';
+      setModalExitCapTimingUI(timing);
+      updateEditModalLivePreview();
+    }
+    window.setModalExitCapTiming = setModalExitCapTiming;
+
+    function setModalExitCapTimingUI(timing) {
+      const isDay1 = (timing === 'day1' || timing === 'immediate');
+      const input = document.getElementById('edit-deal-exit-cap-timing');
+      if (input) input.value = isDay1 ? 'day1' : 'amortized';
+
+      const btnAmort = document.getElementById('edit-btn-timing-amortized');
+      const btnDay1 = document.getElementById('edit-btn-timing-day1');
+      const badge = document.getElementById('edit-modal-timing-badge');
+
+      if (btnAmort && btnDay1) {
+        if (isDay1) {
+          btnDay1.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm";
+          btnAmort.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white";
+          if (badge) badge.textContent = "Day 1 Shift";
+        } else {
+          btnAmort.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm";
+          btnDay1.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white";
+          if (badge) badge.textContent = "Amortized Over Hold Period";
+        }
+      }
+    }
+    window.setModalExitCapTimingUI = setModalExitCapTimingUI;
+
     function openEditDealModal(dealId) {
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
       const deal = activeDashboardProjects.find(p => p.id === dealId);
@@ -1576,6 +1626,8 @@
 
       const inputs = deal.inputs || {};
       const aClass = deal.asset_class || deal.assetType || 'commercial';
+
+      setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
 
       document.getElementById('edit-deal-id').value = deal.id;
       document.getElementById('edit-deal-asset-class').value = aClass;

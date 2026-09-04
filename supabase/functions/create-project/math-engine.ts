@@ -322,15 +322,25 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
     }
 
     if (normalizedAsset === 'commercial' || normalizedAsset === 'storage') {
-      if (year === 1) currentPropertyValue = initialPropertyValue;
-      else {
-        const tExit = exitYear > 1 ? exitYear : 10;
-        const currentCapRate = year <= tExit
-          ? entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate)
-          : targetCapRate;
+      const exitCapTiming = String(inputs.exitCapTiming ?? inputs.exitCapMethod ?? inputs.exitCapSpreadMethod ?? 'amortized').toLowerCase();
+      const isDay1Force = exitCapTiming === 'day1' || exitCapTiming === 'immediate';
+
+      if (isDay1Force) {
+        const currentCapRate = targetCapRate > 0 ? targetCapRate : entryCapRate;
         currentPropertyValue = (currentCapRate > 0 && netOperatingIncome > 0)
           ? (netOperatingIncome / (currentCapRate / 100))
           : initialPropertyValue;
+      } else {
+        if (year === 1) currentPropertyValue = initialPropertyValue;
+        else {
+          const tExit = exitYear > 1 ? exitYear : 10;
+          const currentCapRate = year <= tExit
+            ? entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate)
+            : targetCapRate;
+          currentPropertyValue = (currentCapRate > 0 && netOperatingIncome > 0)
+            ? (netOperatingIncome / (currentCapRate / 100))
+            : initialPropertyValue;
+        }
       }
     }
 

@@ -862,6 +862,43 @@ runTest('Comprehensive underwriting baseline parameters (vacancy, rehab, closing
   assert.ok(resUnderwritten.projections[exitYearIdx].propertyValue > baseInputs.purchasePrice, 'Property value at exit must reflect appreciation');
 });
 
+runTest('Exit Cap Rate Calculation Method: Amortize Over Hold Period vs Day 1 Immediate Shift', () => {
+  const baseCommercial = {
+    purchasePrice: 1000000,
+    downPaymentPercent: 25,
+    interestRate: 6.0,
+    loanTerm: 30,
+    grossRentAnnual: 100000,
+    expenseRatio: 30,
+    targetCapRate: 8.0, // Exit cap rate (higher than going-in cap rate of 7.0%)
+    exitYear: 5
+  };
+
+  // 1. Amortized Spread Method (Default)
+  const resAmortized = calculateProjections('commercial', {
+    ...baseCommercial,
+    exitCapTiming: 'amortized'
+  });
+
+  // Year 1 property value equals purchase price ($1,000,000) under amortized mode
+  assert.strictEqual(resAmortized.projections[0].propertyValue, 1000000);
+  assert.strictEqual(resAmortized.projections[0].capRate, 7.0);
+
+  // Year 5 (Exit Year) cap rate reaches target exit cap rate (8.0%)
+  assert.strictEqual(resAmortized.projections[4].capRate, 8.0);
+
+  // 2. Day 1 Immediate Shift Method
+  const resDay1 = calculateProjections('commercial', {
+    ...baseCommercial,
+    exitCapTiming: 'day1'
+  });
+
+  // Year 1 property value immediately reflects the exit cap rate ($70,000 NOI / 8.0% = $875,000)
+  assert.strictEqual(resDay1.projections[0].capRate, 8.0);
+  assert.strictEqual(resDay1.projections[0].propertyValue, 875000);
+  assert.ok(resDay1.projections[0].propertyValue < resAmortized.projections[0].propertyValue, 'Day 1 shift with higher exit cap immediately adjusts Year 1 valuation');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);

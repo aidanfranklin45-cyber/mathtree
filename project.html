@@ -652,6 +652,26 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- Exit Cap Rate Spread Method Toggle (Commercial / Storage) -->
+                <div id="container-exit-cap-timing" class="border-t border-emerald-950/40 pt-3 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-400">Exit Cap Spread Timing</label>
+                    <span id="exit-cap-timing-badge" class="text-[10px] text-emerald-400 font-mono font-bold">Amortized</span>
+                  </div>
+                  <input type="hidden" id="input-exit-cap-timing" name="exitCapTiming" value="amortized">
+                  <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/90 border border-emerald-950 rounded-xl">
+                    <button type="button" id="btn-timing-amortized" onclick="setExitCapTiming('amortized')" class="py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 bg-brand-500/20 text-brand-300 border border-brand-500/40 shadow-sm" title="Spread amortized linearly over hold period to exit year">
+                      <span>Amortized</span>
+                    </button>
+                    <button type="button" id="btn-timing-day1" onclick="setExitCapTiming('day1')" class="py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 bg-slate-900 text-slate-400 border border-slate-800 hover:text-white" title="Force exit cap rate spread on Day 1">
+                      <span>Day 1 Shift</span>
+                    </button>
+                  </div>
+                  <p id="exit-cap-timing-hint" class="text-[10px] text-slate-500 leading-tight">
+                    Spread amortized linearly across hold period.
+                  </p>
+                </div>
               </div>
             </details>
           </form>
@@ -1528,6 +1548,25 @@
           </div>
         </div>
 
+        <!-- Exit Cap Rate Spread Method -->
+        <div class="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold text-slate-300">Exit Cap Rate Calculation Method</label>
+            <span id="edit-modal-timing-badge" class="text-[10px] font-semibold text-emerald-400">Amortized Over Hold Period</span>
+          </div>
+          <input type="hidden" id="edit-deal-exit-cap-timing" value="amortized">
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="edit-btn-timing-amortized" onclick="setModalExitCapTiming('amortized')" class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm" title="Spread expands/compresses linearly over hold period to exit year">
+              <span>Amortize Spread</span>
+              <span class="text-[10px] font-normal text-slate-400">Amortize spread over hold period</span>
+            </button>
+            <button type="button" id="edit-btn-timing-day1" onclick="setModalExitCapTiming('day1')" class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white" title="Force full exit cap rate spread onto property on Day 1">
+              <span>Day 1 Shift</span>
+              <span class="text-[10px] font-normal text-slate-500">Force spread onto Day 1</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Debt & Financing Terms -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
           <span class="text-[10px] uppercase font-bold text-slate-400 block">Debt & Financing Parameters</span>
@@ -2069,6 +2108,7 @@
       document.getElementById('input-discount-rate').value = values.discountRate ?? 8;
       document.getElementById('input-exit-year').value = values.exitYear ?? 10;
       document.getElementById('input-manage-property').checked = values.manageProperty ?? true;
+      setExitCapTimingUI(values.exitCapTiming || 'amortized');
 
       // Asset-Specific Fields
       if (activeTab === 'single-family') {
@@ -2119,6 +2159,7 @@
         expenseRatio: parseFloat(document.getElementById('input-expense-ratio').value) || 0,
         discountRate: isNaN(parseFloat(document.getElementById('input-discount-rate').value)) ? 8 : parseFloat(document.getElementById('input-discount-rate').value),
         exitYear: isNaN(parseInt(document.getElementById('input-exit-year').value)) ? 10 : parseInt(document.getElementById('input-exit-year').value),
+        exitCapTiming: document.getElementById('input-exit-cap-timing')?.value || 'amortized',
         manageProperty: document.getElementById('input-manage-property').checked
       };
 
@@ -2166,6 +2207,78 @@
 
       return inputs;
     }
+
+    function setExitCapTiming(mode) {
+      const timing = (mode === 'day1' || mode === 'immediate') ? 'day1' : 'amortized';
+      const input = document.getElementById('input-exit-cap-timing');
+      if (input) input.value = timing;
+      setExitCapTimingUI(timing);
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.exitCapTiming = timing;
+        saveCurrentDealChanges(false);
+      }
+      updateCalculations();
+    }
+    window.setExitCapTiming = setExitCapTiming;
+
+    function setExitCapTimingUI(timing) {
+      const isDay1 = (timing === 'day1' || timing === 'immediate');
+      const input = document.getElementById('input-exit-cap-timing');
+      if (input) input.value = isDay1 ? 'day1' : 'amortized';
+
+      const btnAmort = document.getElementById('btn-timing-amortized');
+      const btnDay1 = document.getElementById('btn-timing-day1');
+      const badge = document.getElementById('exit-cap-timing-badge');
+      const hint = document.getElementById('exit-cap-timing-hint');
+      const yearVal = document.getElementById('input-exit-year')?.value || 10;
+      const hintYear = document.getElementById('exit-cap-hint-year');
+      if (hintYear) hintYear.textContent = yearVal;
+
+      if (btnAmort && btnDay1) {
+        if (isDay1) {
+          btnDay1.className = "py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 bg-brand-500/20 text-brand-300 border border-brand-500/40 shadow-sm";
+          btnAmort.className = "py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 bg-slate-900 text-slate-400 border border-slate-800 hover:text-white";
+          if (badge) badge.textContent = "Day 1 Shift";
+          if (hint) hint.textContent = "Full exit cap rate spread forced onto property on Day 1.";
+        } else {
+          btnAmort.className = "py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 bg-brand-500/20 text-brand-300 border border-brand-500/40 shadow-sm";
+          btnDay1.className = "py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 bg-slate-900 text-slate-400 border border-slate-800 hover:text-white";
+          if (badge) badge.textContent = "Amortized";
+          if (hint) hint.textContent = `Spread amortized linearly over hold period to Year ${yearVal}.`;
+        }
+      }
+    }
+    window.setExitCapTimingUI = setExitCapTimingUI;
+
+    function setModalExitCapTiming(mode) {
+      const timing = (mode === 'day1' || mode === 'immediate') ? 'day1' : 'amortized';
+      setModalExitCapTimingUI(timing);
+      updateEditModalLivePreview();
+    }
+    window.setModalExitCapTiming = setModalExitCapTiming;
+
+    function setModalExitCapTimingUI(timing) {
+      const isDay1 = (timing === 'day1' || timing === 'immediate');
+      const input = document.getElementById('edit-deal-exit-cap-timing');
+      if (input) input.value = isDay1 ? 'day1' : 'amortized';
+
+      const btnAmort = document.getElementById('edit-btn-timing-amortized');
+      const btnDay1 = document.getElementById('edit-btn-timing-day1');
+      const badge = document.getElementById('edit-modal-timing-badge');
+
+      if (btnAmort && btnDay1) {
+        if (isDay1) {
+          btnDay1.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm";
+          btnAmort.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white";
+          if (badge) badge.textContent = "Day 1 Shift";
+        } else {
+          btnAmort.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm";
+          btnDay1.className = "py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white";
+          if (badge) badge.textContent = "Amortized Over Hold Period";
+        }
+      }
+    }
+    window.setModalExitCapTimingUI = setModalExitCapTimingUI;
 
     // Toggle conditional input group displays
     function showTabInputs(tab) {
@@ -2747,13 +2860,16 @@
         indicator.textContent = tabNames[tab] || tab;
       }
 
-      // Update Appreciation / Exit Cap Rate label
+      // Update Appreciation / Exit Cap Rate label & Exit Cap Timing toggle
       const appLabel = document.getElementById('label-appreciation-rate');
+      const timingContainer = document.getElementById('container-exit-cap-timing');
       if (appLabel) {
         if (tab === 'commercial' || tab === 'storage') {
           appLabel.textContent = "Target Exit Cap Rate";
+          if (timingContainer) timingContainer.classList.remove('hidden');
         } else {
           appLabel.textContent = "Appreciation Rate";
+          if (timingContainer) timingContainer.classList.add('hidden');
         }
       }
 
@@ -5310,6 +5426,7 @@
         exitYear: intVal('edit-deal-exit-year', 10),
         discountRate: numVal('edit-deal-discount-rate', 8),
         manageProperty: document.getElementById('edit-deal-manage-property') ? document.getElementById('edit-deal-manage-property').checked : true,
+        exitCapTiming: document.getElementById('edit-deal-exit-cap-timing')?.value || 'amortized',
         marketTier: document.getElementById('edit-deal-market-tier')?.value || 'Tier 2',
         propertyClass: document.getElementById('edit-deal-property-class')?.value || 'Class B',
         facilityType: document.getElementById('edit-deal-facility-type')?.value?.trim() || ''
@@ -5391,6 +5508,7 @@
       if (document.getElementById('edit-deal-asset-class')) {
         document.getElementById('edit-deal-asset-class').value = aClass;
       }
+      setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
       document.getElementById('edit-deal-name').value = currentLoadedDeal.name || '';
       document.getElementById('edit-deal-location').value = currentLoadedDeal.location || '';
       document.getElementById('edit-deal-status').value = currentLoadedDeal.status || 'prospect';
