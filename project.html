@@ -1330,7 +1330,7 @@
         <button onclick="closeEditDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
       </div>
 
-      <form id="edit-deal-form" onsubmit="saveEditDealModalFromProject(event)" class="space-y-4">
+      <form id="edit-deal-form" novalidate onsubmit="saveEditDealModalFromProject(event)" class="space-y-4">
         <input type="hidden" id="edit-deal-id">
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1420,7 +1420,7 @@
           <button type="button" onclick="closeEditDealModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
             Cancel
           </button>
-          <button type="submit" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">
+          <button type="submit" formnovalidate class="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">
             Save & Recalculate
           </button>
         </div>
