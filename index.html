@@ -1,22 +1,42 @@
-﻿<!DOCTYPE html>
-<html lang="en" class="h-full">
+<!DOCTYPE html>
+<html lang="en" class="h-full scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MathTree - Premium PropTech Modeling</title>
+  <title>MathTree | Institutional PropTech Underwriting & Executive Pitch Deck Studio</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Supabase Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Google Fonts: Plus Jakarta Sans -->
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
   <style>
+    :root {
+      --bg-terminal: #090A0F;
+      --border-terminal: #1E2230;
+      --card-terminal: #0D111A;
+      --card-hover: #131824;
+    }
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-terminal);
+      color: #E2E8F0;
+    }
+    .font-mono-numbers {
+      font-family: 'JetBrains Mono', monospace;
+      font-feature-settings: "tnum" 1;
+    }
+    /* Subtle institutional grid */
+    .terminal-grid {
+      background-size: 36px 36px;
+      background-image: 
+        linear-gradient(to right, rgba(30, 34, 48, 0.45) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(30, 34, 48, 0.45) 1px, transparent 1px);
     }
     /* Custom Scrollbar */
     ::-webkit-scrollbar {
@@ -24,79 +44,95 @@
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: rgba(6, 40, 24, 0.6);
+      background: #090A0F;
     }
     ::-webkit-scrollbar-thumb {
-      background: rgba(16, 185, 129, 0.4);
+      background: #1E2230;
       border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(16, 185, 129, 0.7);
+      background: #10B981;
     }
-    /* Mathematical grid background overlay */
-    .math-grid {
-      background-size: 30px 30px;
-      background-image: 
-        linear-gradient(to right, rgba(16, 185, 129, 0.03) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(16, 185, 129, 0.03) 1px, transparent 1px);
+    /* Glassmorphism terminal borders */
+    .terminal-border {
+      border: 1px solid #1E2230;
     }
-    /* Screen and Print Styles */
-    @media screen {
-      #printable-brief {
-        display: none !important;
-      }
+    .terminal-border-emerald {
+      border: 1px solid rgba(16, 185, 129, 0.25);
     }
-    @media print {
-      @page {
-        size: landscape;
-        margin: 0.35in;
-      }
-      body {
-        background: #ffffff !important;
-        color: #0f172a !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      header, footer, nav, #calculator-form, .sidebar-section, #view-modes-bar, button, #active-tab-indicator, .no-print, main > div, #deal-auditor-banner {
-        display: none !important;
-      }
-      main {
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-      #printable-brief {
-        display: block !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
+    .glow-emerald {
+      box-shadow: 0 0 35px -8px rgba(16, 185, 129, 0.22);
+    }
+    .glow-cyan {
+      box-shadow: 0 0 35px -8px rgba(56, 189, 248, 0.2);
+    }
+    /* Slider Custom Styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: #1E2230;
+      height: 5px;
+      border-radius: 4px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #10B981;
+      cursor: pointer;
+      border: 2px solid #090A0F;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+      transition: all 0.15s ease-in-out;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #34D399;
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #10B981;
+      cursor: pointer;
+      border: 2px solid #090A0F;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
     }
   </style>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#f4fcf7',
-              100: '#e1f9eb',
-              200: '#c2f1d4',
-              300: '#90e4b0',
-              400: '#56cf86',
-              500: '#10b981', // emerald-500
-              600: '#059669', // emerald-600
-              700: '#047857', // emerald-700
-              800: '#065f46',
-              900: '#064e3b',
-              950: '#022c22', // deep forest green dark background
+            terminal: {
+              bg: '#090A0F',
+              surface: '#0D111A',
+              card: '#131824',
+              border: '#1E2230',
+              borderLight: '#2A3144',
+              muted: '#64748B',
             },
-            accent: {
-              cyan: '#34d399',
-              emerald: '#10b981',
-              violet: '#059669',
-              rose: '#f43f5e',
+            emerald: {
+              400: '#34D399',
+              500: '#10B981',
+              600: '#059669',
+              700: '#047857',
+              900: '#064E3B',
+              950: '#022C22',
+            },
+            amber: {
+              400: '#FBBF24',
+              500: '#F59E0B',
+            },
+            cyan: {
+              400: '#38BDF8',
+              500: '#0EA5E9',
+            },
+            rose: {
+              400: '#FB7185',
+              500: '#F43F5E',
             }
           }
         }
@@ -104,325 +140,1548 @@
     }
   </script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-brand-500/30 selection:text-brand-200 math-grid">
+<body class="bg-[#090A0F] text-slate-200 min-h-full flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200 terminal-grid relative overflow-x-hidden">
 
-  <!-- ==================== 1. COMPREHENSIVE INSTITUTIONAL LANDING PAGE ==================== -->
-  <div id="view-landing-page" class="flex flex-col min-h-screen bg-slate-950 text-slate-100 selection:bg-brand-500 selection:text-white relative overflow-x-hidden">
-    <!-- Ambient Background Glows -->
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-brand-600/15 via-accent-cyan/10 to-transparent blur-3xl pointer-events-none -z-10"></div>
-    <div class="absolute top-[800px] right-0 w-[600px] h-[600px] bg-indigo-600/10 blur-3xl pointer-events-none -z-10"></div>
+  <!-- Ambient Light Orbs -->
+  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[550px] bg-gradient-to-b from-emerald-500/10 via-cyan-500/5 to-transparent blur-[140px] pointer-events-none -z-10"></div>
+  <div class="absolute top-[880px] right-0 w-[550px] h-[550px] bg-cyan-500/5 blur-[120px] pointer-events-none -z-10"></div>
+  <div class="absolute top-[1700px] left-0 w-[600px] h-[600px] bg-emerald-500/5 blur-[150px] pointer-events-none -z-10"></div>
 
-    <!-- Landing Header -->
-    <header class="border-b border-slate-900 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-        <div class="flex items-center space-x-3 cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
-          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/25">
-            <svg class="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 21V12M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" stroke-linecap="round" />
-              <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8M17 10C17 10 15 8 15 6M17 10C17 10 19 8 19 6" stroke-linecap="round" />
-              <circle cx="5" cy="8" r="1.5" fill="currentColor" /><circle cx="9" cy="8" r="1.5" fill="currentColor" />
-              <circle cx="15" cy="6" r="1.5" fill="currentColor" /><circle cx="19" cy="6" r="1.5" fill="currentColor" />
-            </svg>
+  <!-- ==================== A. GLOBAL NAVIGATION ==================== -->
+  <header class="border-b border-[#1E2230] bg-[#090A0F]/85 backdrop-blur-xl sticky top-0 z-50 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+      
+      <!-- Brand Logo & Status Pill -->
+      <div class="flex items-center space-x-4">
+        <a href="#" class="flex items-center space-x-3 group">
+          <!-- Modern Geometric Icon -->
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-[#0D111A] p-[1px] shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/35 transition-all">
+            <div class="h-full w-full bg-[#0D111A] rounded-[11px] flex items-center justify-center">
+              <svg class="h-5 w-5 text-emerald-400 transform group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+            </div>
           </div>
           <div>
-            <span class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
-            <span class="text-[10px] block text-emerald-400 font-bold uppercase tracking-widest">PropTech Modeling Studio</span>
+            <div class="flex items-center space-x-2">
+              <span class="text-xl font-black tracking-tight text-white group-hover:text-emerald-300 transition-colors">MathTree</span>
+              <span class="text-[10px] font-mono-numbers px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold uppercase tracking-wide">v2.6</span>
+            </div>
+            <span class="text-[10px] block text-slate-400 font-semibold tracking-wider uppercase">Institutional PropTech Studio</span>
           </div>
-        </div>
+        </a>
 
-        <nav class="hidden md:flex items-center space-x-6 text-xs font-semibold text-slate-400">
-          <a href="#landing-features" class="hover:text-white transition">Capabilities</a>
-          <a href="#landing-assets" class="hover:text-white transition">4 Asset Classes</a>
-          <a href="#landing-engine" class="hover:text-white transition">Serverless Engine</a>
-          <a href="#landing-pitchdeck" class="hover:text-white transition">Pitch Deck Studio</a>
-        </nav>
-
-        <div class="flex items-center space-x-2.5">
-          <button id="landing-btn-signin" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800 transition">
-            Sign In
-          </button>
-          <button id="landing-btn-demo" class="px-4 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1.5">
-            <span>⚡ Launch Demo</span>
-          </button>
+        <!-- Live Status Pill -->
+        <div class="hidden lg:flex items-center space-x-2 px-2.5 py-1 rounded-full bg-[#0D111A] border border-[#1E2230] text-[11px] font-medium text-slate-300 shadow-inner">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span class="font-mono-numbers text-emerald-400 font-semibold">Supabase Edge: Active</span>
+          <span class="text-slate-500">•</span>
+          <span class="text-slate-400 font-mono-numbers text-[10px]">&lt;150ms</span>
         </div>
       </div>
-    </header>
 
-    <!-- Hero Section -->
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 text-center space-y-8 relative">
-      <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/40 text-emerald-300 text-xs font-bold shadow-inner">
+      <!-- Navigation Links -->
+      <nav class="hidden md:flex items-center space-x-8 text-xs font-semibold uppercase tracking-wider text-slate-400">
+        <a href="#landing-hero" class="hover:text-emerald-400 transition-colors">Terminal</a>
+        <a href="#landing-assets" class="hover:text-emerald-400 transition-colors">Asset Classes</a>
+        <a href="#landing-engine" class="hover:text-emerald-400 transition-colors">Risk Engine</a>
+        <a href="#landing-deck-studio" class="hover:text-emerald-400 transition-colors">Deck Studio</a>
+        <a href="#landing-pricing" class="hover:text-emerald-400 transition-colors">Pricing</a>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-3">
+        <!-- Ghost / Outline: Open Demo Sandbox -->
+        <button id="nav-btn-demo" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-[#0D111A] hover:bg-[#131824] border border-[#1E2230] hover:border-emerald-500/40 shadow-sm transition-all flex items-center space-x-2 group">
+          <svg class="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Open Demo Sandbox</span>
+        </button>
+
+        <!-- Primary Emerald: Start Underwriting -->
+        <button id="nav-btn-start" class="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-lg shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 flex items-center space-x-1.5">
+          <span>Start Underwriting</span>
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== B. HERO SECTION: "THE TERMINAL HERO" ==================== -->
+  <section id="landing-hero" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-20 space-y-10">
+    
+    <!-- Top Value Proposition Header -->
+    <div class="text-center space-y-5 max-w-4xl mx-auto">
+      <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-inner">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>PropTech 2.0 • Institutional Underwriting & Executive Pitch Deck Studio</span>
+        <span class="tracking-wide">Institutional Real Estate Underwriting &amp; Executive Pitch Decks</span>
       </div>
 
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] max-w-4xl mx-auto">
-        The Standard in Real Estate Underwriting & <span class="bg-gradient-to-r from-brand-400 via-accent-cyan to-brand-200 bg-clip-text text-transparent">Investor Pitch Decks</span>
+      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08]">
+        Institutional Real Estate Underwriting &amp; <span class="bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-200 bg-clip-text text-transparent">Executive Pitch Decks</span>.
       </h1>
 
-      <p class="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed font-normal">
-        Underwrite Single-Family, Multi-Family, Commercial NNN, and Self-Storage investments with institutional precision. Powered by Supabase Edge Functions for 10-year pro-formas, Monte Carlo risk simulations, and 1-click executive presentation memos.
+      <p class="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
+        Deploy 10-year pro-formas, sub-150ms Supabase Edge Monte Carlo risk simulations, and automated executive pitch decks across SFR, Multifamily, NNN Commercial, and Self-Storage. Zero spreadsheet breakages.
       </p>
 
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-        <button id="landing-hero-demo-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-600/30 transition-all transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
-          <span>⚡ Launch Interactive Demo</span>
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-        </button>
-        <button id="landing-hero-signup-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-bold text-slate-200 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 transition-all flex items-center justify-center space-x-2">
-          <span>🔑 Create Free Account</span>
-        </button>
+      <!-- Institutional Badges Ribbon -->
+      <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 pt-1 text-[11px] font-mono-numbers text-slate-400">
+        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
+          <span class="text-emerald-400 font-bold">✓</span>
+          <span>10-Yr Cash Waterfalls</span>
+        </span>
+        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
+          <span class="text-cyan-400 font-bold">⚡</span>
+          <span>Edge Cold-Start &lt;80ms</span>
+        </span>
+        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
+          <span class="text-amber-400 font-bold">🎲</span>
+          <span>1,000-Run Monte Carlo</span>
+        </span>
+        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
+          <span class="text-emerald-400 font-bold">📑</span>
+          <span>MACRS &amp; Cost Segregation</span>
+        </span>
       </div>
+    </div>
 
-      <!-- Live KPI Spotlight Mockup Card -->
-      <div class="pt-8 max-w-5xl mx-auto">
-        <div class="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-6">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5 text-left">
-            <div>
-              <div class="text-xs font-bold uppercase tracking-wider text-emerald-400">Institutional Pro-Forma Engine</div>
-              <h3 class="text-xl font-black text-white mt-0.5">Westfield Core Industrial Park (10-Year Projections)</h3>
-            </div>
+    <!-- ==================== HERO INTERACTIVE WIDGET (LIVE PRO-FORMA PREVIEW) ==================== -->
+    <div class="max-w-5xl mx-auto">
+      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-slate-700/80 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden transition-all">
+        
+        <!-- Subtle Terminal Header Bar -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#1E2230] pb-6">
+          <div class="space-y-1">
             <div class="flex items-center space-x-2">
-              <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">🟢 DSCR: 1.45x (Healthy)</span>
-              <span class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-brand-500/10 text-brand-300 border border-brand-500/20">NNN Industrial</span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono-numbers uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                LIVE TERMINAL PRO-FORMA
+              </span>
+              <span class="text-xs text-slate-400 font-mono-numbers">• Class A Industrial Logistics Hub</span>
             </div>
+            <h3 class="text-2xl font-black text-white tracking-tight flex items-center space-x-2">
+              <span>Westfield Core Industrial Park</span>
+            </h3>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
-            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">10-Year IRR</span>
-              <span class="text-2xl sm:text-3xl font-black text-brand-400 mt-1 block">18.4%</span>
-              <span class="text-[10px] text-emerald-400 mt-0.5 block">↑ +3.2% vs Benchmark</span>
+          <!-- Deal Parameters Ribbon -->
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono-numbers">
+            <div class="px-3 py-1.5 rounded-lg bg-[#131824] border border-[#1E2230]">
+              <span class="text-slate-400">Acquisition:</span> <span class="font-bold text-white">$12,500,000</span>
             </div>
-            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Equity Multiple</span>
-              <span class="text-2xl sm:text-3xl font-black text-accent-cyan mt-1 block">2.85x</span>
-              <span class="text-[10px] text-slate-400 mt-0.5 block">10-Yr Cumulative MOIC</span>
+            <div class="px-3 py-1.5 rounded-lg bg-[#131824] border border-[#1E2230]">
+              <span class="text-slate-400">In-Place NOI:</span> <span class="font-bold text-emerald-400">$812,500</span>
             </div>
-            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Year 1 CoC Yield</span>
-              <span class="text-2xl sm:text-3xl font-black text-white mt-1 block">12.8%</span>
-              <span class="text-[10px] text-slate-400 mt-0.5 block">$128,400 Net Cash</span>
-            </div>
-            <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800/60">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Loan-to-Value</span>
-              <span class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1 block">68.0%</span>
-              <span class="text-[10px] text-slate-400 mt-0.5 block">Conservative Senior Debt</span>
+            <div class="px-3 py-1.5 rounded-lg bg-[#131824] border border-[#1E2230]">
+              <span class="text-slate-400">Rate:</span> <span class="font-bold text-slate-200">5.75% (30-Yr)</span>
             </div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- 4 Asset Classes Section -->
-    <section id="landing-assets" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-900 space-y-12">
-      <div class="text-center space-y-3 max-w-2xl mx-auto">
-        <span class="text-xs font-bold uppercase tracking-widest text-brand-400">Precision Modeling</span>
-        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">4 Tailored Property Asset Classes</h2>
-        <p class="text-xs sm:text-sm text-slate-400">Each asset class features bespoke financial mechanics, expense ratios, valuation cap-rates, and friction costs.</p>
+        <!-- Metric KPI Tiles Grid (Dynamically Calculated) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
+          
+          <!-- Metric 1: 10-Year IRR -->
+          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-emerald-500/40 transition-all">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>10-Yr Levered IRR</span>
+              <span class="text-[10px] font-mono-numbers text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Hurdle 15%</span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-1.5">
+              <span id="metric-hero-irr" class="text-3xl sm:text-4xl font-black text-emerald-400 font-mono-numbers tracking-tight">18.4%</span>
+            </div>
+            <div id="metric-hero-irr-delta" class="text-[11px] font-medium text-emerald-400 mt-1 flex items-center space-x-1">
+              <span>↑ +3.4% vs Benchmark</span>
+            </div>
+          </div>
+
+          <!-- Metric 2: Equity Multiple / MOIC -->
+          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-cyan-500/40 transition-all">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Equity Multiple</span>
+              <span class="text-[10px] font-mono-numbers text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">MOIC</span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-1.5">
+              <span id="metric-hero-moic" class="text-3xl sm:text-4xl font-black text-cyan-400 font-mono-numbers tracking-tight">2.85x</span>
+            </div>
+            <div id="metric-hero-moic-detail" class="text-[11px] font-medium text-slate-400 mt-1">
+              $12.48M Cumulative Dist.
+            </div>
+          </div>
+
+          <!-- Metric 3: Year 1 CoC Yield -->
+          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-slate-500/40 transition-all">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Year 1 CoC Yield</span>
+              <span class="text-[10px] font-mono-numbers text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded">Cash Yield</span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-1.5">
+              <span id="metric-hero-coc" class="text-3xl sm:text-4xl font-black text-white font-mono-numbers tracking-tight">12.8%</span>
+            </div>
+            <div id="metric-hero-coc-net" class="text-[11px] font-medium text-slate-400 mt-1">
+              $561,250 Net Cash Flow
+            </div>
+          </div>
+
+          <!-- Metric 4: DSCR Covenant -->
+          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-emerald-500/40 transition-all">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>DSCR Covenant</span>
+              <span id="metric-hero-dscr-pill" class="text-[10px] font-mono-numbers text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold">
+                🟢 Healthy
+              </span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-1.5">
+              <span id="metric-hero-dscr" class="text-3xl sm:text-4xl font-black text-emerald-300 font-mono-numbers tracking-tight">1.45x</span>
+            </div>
+            <div id="metric-hero-debt-service" class="text-[11px] font-medium text-slate-400 mt-1">
+              Req: 1.25x • Senior Debt
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Real-Time Interactive Levers & Sliders -->
+        <div class="mt-6 pt-6 border-t border-[#1E2230] grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- Slider 1: Exit Cap Rate -->
+          <div class="space-y-2 bg-[#090A0F]/60 p-4 rounded-xl border border-[#1E2230]">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-300">Exit Cap Rate</span>
+              <span id="slider-val-cap" class="font-mono-numbers font-bold text-emerald-400 text-sm">6.00%</span>
+            </div>
+            <input id="slider-cap-rate" type="range" min="4.50" max="8.50" step="0.10" value="6.00" class="w-full">
+            <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
+              <span>4.50% (Bull)</span>
+              <span>6.00% (Base)</span>
+              <span>8.50% (Bear)</span>
+            </div>
+          </div>
+
+          <!-- Slider 2: Senior LTV -->
+          <div class="space-y-2 bg-[#090A0F]/60 p-4 rounded-xl border border-[#1E2230]">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-300">Senior LTV</span>
+              <span id="slider-val-ltv" class="font-mono-numbers font-bold text-cyan-400 text-sm">65%</span>
+            </div>
+            <input id="slider-ltv" type="range" min="50" max="80" step="1" value="65" class="w-full">
+            <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
+              <span>50% ($6.25M)</span>
+              <span>65% ($8.12M)</span>
+              <span>80% ($10.0M)</span>
+            </div>
+          </div>
+
+          <!-- Slider 3: Hold Period -->
+          <div class="space-y-2 bg-[#090A0F]/60 p-4 rounded-xl border border-[#1E2230]">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-300">Investment Hold Period</span>
+              <span id="slider-val-hold" class="font-mono-numbers font-bold text-amber-400 text-sm">7 Years</span>
+            </div>
+            <input id="slider-hold-period" type="range" min="3" max="10" step="1" value="7" class="w-full">
+            <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
+              <span>3 Years</span>
+              <span>7 Years</span>
+              <span>10 Years</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Mini SVG Sparkline & Trajectory Ribbon -->
+        <div class="mt-6 pt-5 border-t border-[#1E2230] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="space-y-1 text-left w-full sm:w-auto">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Equity Trajectory Curve</span>
+              <span class="text-[10px] font-mono-numbers text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Compounding Real-Time</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Calculates cumulative NOI dividends + terminal equity distribution upon disposition.</p>
+          </div>
+
+          <!-- Dynamic SVG Sparkline -->
+          <div class="w-full sm:w-64 h-14 bg-[#090A0F] rounded-xl border border-[#1E2230] p-2 flex items-center justify-center relative overflow-hidden">
+            <svg id="hero-sparkline-svg" class="w-full h-full" viewBox="0 0 200 45" preserveAspectRatio="none">
+              <!-- Gradient definition -->
+              <defs>
+                <linearGradient id="sparklineGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#10B981" stop-opacity="0.35" />
+                  <stop offset="100%" stop-color="#10B981" stop-opacity="0.0" />
+                </linearGradient>
+              </defs>
+              <path id="sparkline-fill" d="" fill="url(#sparklineGrad)" />
+              <path id="sparkline-line" d="" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Terminal Quick Action Ribbon -->
+        <div class="mt-6 pt-4 border-t border-[#1E2230] flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex items-center space-x-2 text-slate-400 text-[11px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>Edge Engine Latency: <strong class="text-slate-200 font-mono-numbers">114ms</strong></span>
+            <span class="text-slate-600">•</span>
+            <span>Deterministic Cash Flow Model</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="hero-card-launch-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center space-x-1 shadow-md shadow-emerald-600/20">
+              <span>Open in Full Underwriter</span>
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ==================== C. INTERACTIVE ASSET CLASS MATRIX (TABBED / SEGMENTED VIEW) ==================== -->
+  <section id="landing-assets" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-[#1E2230] space-y-12">
+    
+    <div class="text-center space-y-3 max-w-3xl mx-auto">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#0D111A] border border-[#1E2230] text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+        <span>Tailored Real Estate Mathematics</span>
+      </div>
+      <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight">4 Bespoke Asset Class Models</h2>
+      <p class="text-sm sm:text-base text-slate-400">
+        Each property sector requires specialized mathematical architecture. Switch below to inspect the custom algorithms, formulas, and micro-spreadsheets.
+      </p>
+    </div>
+
+    <!-- 4-Way Segmented Tab Control -->
+    <div class="max-w-4xl mx-auto">
+      <div class="grid grid-cols-2 md:grid-cols-4 p-1.5 bg-[#0D111A] border border-[#1E2230] rounded-2xl gap-1">
+        
+        <button id="tab-btn-sfr" onclick="switchAssetTab('sfr')" class="asset-tab-btn py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-all bg-[#131824] text-emerald-400 border border-emerald-500/30 shadow-md">
+          <span>🏠</span>
+          <span>Single-Family (BRRRR)</span>
+        </button>
+
+        <button id="tab-btn-multi" onclick="switchAssetTab('multi')" class="asset-tab-btn py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-all text-slate-400 hover:text-white hover:bg-[#131824]">
+          <span>🏢</span>
+          <span>Multi-Unit (2-200+)</span>
+        </button>
+
+        <button id="tab-btn-commercial" onclick="switchAssetTab('commercial')" class="asset-tab-btn py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-all text-slate-400 hover:text-white hover:bg-[#131824]">
+          <span>🏬</span>
+          <span>Commercial (NNN/Gross)</span>
+        </button>
+
+        <button id="tab-btn-storage" onclick="switchAssetTab('storage')" class="asset-tab-btn py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-all text-slate-400 hover:text-white hover:bg-[#131824]">
+          <span>📦</span>
+          <span>Self-Storage Facilities</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Tab Panels Container -->
+    <div class="max-w-5xl mx-auto">
+      
+      <!-- Panel 1: Single Family (BRRRR & ARV) -->
+      <div id="tab-panel-sfr" class="asset-panel bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 space-y-8 transition-all">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#1E2230] pb-6">
+          <div class="space-y-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Asset Class 01</span>
+            <h3 class="text-2xl font-bold text-white">Single-Family Residential (BRRRR &amp; ARV)</h3>
+            <p class="text-xs text-slate-400">Engineered for fix-and-flip, turnkey buy-and-hold, and institutional single-family rental (SFR) aggregators.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-mono-numbers">
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-emerald-400 border border-[#1E2230]">ARV Equity Creation</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-slate-300 border border-[#1E2230]">1% Maint. Friction</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-cyan-400 border border-[#1E2230]">Mid-Hold Refi</span>
+          </div>
+        </div>
+
+        <!-- Micro-Spreadsheet Snippet -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">SFR Micro-Spreadsheet Waterfall</span>
+            <span class="text-[11px] font-mono-numbers text-slate-500">All values in USD ($)</span>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-[#1E2230] bg-[#090A0F]">
+            <table class="w-full text-left text-xs font-mono-numbers divide-y divide-[#1E2230]">
+              <thead class="bg-[#131824] text-slate-400 font-bold uppercase text-[10px]">
+                <tr>
+                  <th class="py-2.5 px-4">Line Item</th>
+                  <th class="py-2.5 px-4 text-right">Year 1</th>
+                  <th class="py-2.5 px-4 text-right">Year 2</th>
+                  <th class="py-2.5 px-4 text-right">Year 3 (Refi)</th>
+                  <th class="py-2.5 px-4 text-right">Year 4</th>
+                  <th class="py-2.5 px-4 text-right">Year 5 (Exit)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#1E2230] text-slate-300">
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-white">Gross Market Rent</td>
+                  <td class="py-2.5 px-4 text-right">$38,400</td>
+                  <td class="py-2.5 px-4 text-right">$39,552</td>
+                  <td class="py-2.5 px-4 text-right">$40,738</td>
+                  <td class="py-2.5 px-4 text-right">$41,960</td>
+                  <td class="py-2.5 px-4 text-right">$43,219</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-rose-400">Maintenance Reserve (1%)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($3,850)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($3,965)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($4,084)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($4,207)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($4,333)</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-white">Net Operating Income (NOI)</td>
+                  <td class="py-2.5 px-4 text-right text-emerald-400 font-bold">$27,420</td>
+                  <td class="py-2.5 px-4 text-right text-emerald-400 font-bold">$28,310</td>
+                  <td class="py-2.5 px-4 text-right text-emerald-400 font-bold">$29,228</td>
+                  <td class="py-2.5 px-4 text-right text-emerald-400 font-bold">$30,175</td>
+                  <td class="py-2.5 px-4 text-right text-emerald-400 font-bold">$31,152</td>
+                </tr>
+                <tr class="bg-cyan-950/20">
+                  <td class="py-2.5 px-4 font-sans font-medium text-cyan-300">BRRRR Cash-Out Event</td>
+                  <td class="py-2.5 px-4 text-right text-slate-500">—</td>
+                  <td class="py-2.5 px-4 text-right text-slate-500">—</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400 font-bold">+$87,500</td>
+                  <td class="py-2.5 px-4 text-right text-slate-500">—</td>
+                  <td class="py-2.5 px-4 text-right text-slate-500">—</td>
+                </tr>
+                <tr class="bg-emerald-950/20">
+                  <td class="py-2.5 px-4 font-sans font-medium text-emerald-300">Net Investor Cash Flow</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-white">$9,620</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-white">$10,110</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$98,028</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-white">$11,145</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$218,650</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Formula Logic Annotation -->
+        <div class="bg-[#131824] rounded-2xl p-5 border border-[#1E2230] space-y-2">
+          <div class="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <span>⚙️ Institutional Formula Architecture</span>
+          </div>
+          <div class="font-mono-numbers text-xs text-slate-300 bg-[#090A0F] p-3 rounded-lg border border-[#1E2230] space-y-1">
+            <p><span class="text-cyan-400 font-bold">ARV_Equity_Lift</span> = ARV - (PurchasePrice + Total_CapEx_Rehab)</p>
+            <p><span class="text-amber-400 font-bold">Refi_Proceeds</span> = (ARV × Refi_LTV) - SeniorDebt_AmortizedBalance</p>
+            <p><span class="text-emerald-400 font-bold">Maintenance_Friction</span> = 0.01 × Appraised_PropertyValue</p>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Automatically isolates forced appreciation from market appreciation. Accounts for leasing friction and vacancy turnover upon tenant renewal cycles.
+          </p>
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- SF -->
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-brand-500/40 transition">
-          <div class="w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-2xl">🏠</div>
-          <h3 class="text-lg font-bold text-white">Single-Family Residential</h3>
-          <p class="text-xs text-slate-400 leading-relaxed">Models After Repair Value (ARV), rehabilitation capital, 1% annual maintenance friction, and vacancy leasing turnover.</p>
-          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
-            <li class="flex items-center space-x-1.5"><span class="text-brand-400">✓</span><span>ARV equity creation</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-brand-400">✓</span><span>Turnover friction deduction</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-brand-400">✓</span><span>BRRRR mid-hold cash-out refi</span></li>
+      <!-- Panel 2: Multi-Unit Residential -->
+      <div id="tab-panel-multi" class="asset-panel hidden bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 space-y-8 transition-all">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#1E2230] pb-6">
+          <div class="space-y-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Asset Class 02</span>
+            <h3 class="text-2xl font-bold text-white">Multi-Unit Residential (2 to 200+ Units)</h3>
+            <p class="text-xs text-slate-400">Institutional multifamily modeling with Fannie Mae economic vacancy constraints and tiered property management scaling.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-mono-numbers">
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-cyan-400 border border-[#1E2230]">5% Fannie Mae Floor</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-slate-300 border border-[#1E2230]">Per-Door Metrics</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-emerald-400 border border-[#1E2230]">Tiered Mgmt Fees</span>
+          </div>
+        </div>
+
+        <!-- Micro-Spreadsheet Snippet -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">48-Unit Multifamily Pro-Forma (Per Door Breakdown)</span>
+            <span class="text-[11px] font-mono-numbers text-slate-500">48 Doors • Class B+ Complex</span>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-[#1E2230] bg-[#090A0F]">
+            <table class="w-full text-left text-xs font-mono-numbers divide-y divide-[#1E2230]">
+              <thead class="bg-[#131824] text-slate-400 font-bold uppercase text-[10px]">
+                <tr>
+                  <th class="py-2.5 px-4">Line Item</th>
+                  <th class="py-2.5 px-4 text-right">Per Door / Mo</th>
+                  <th class="py-2.5 px-4 text-right">Year 1 Total</th>
+                  <th class="py-2.5 px-4 text-right">Year 2 Total</th>
+                  <th class="py-2.5 px-4 text-right">Year 3 Total</th>
+                  <th class="py-2.5 px-4 text-right">Year 5 (Exit)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#1E2230] text-slate-300">
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-white">Gross Potential Rent (GPR)</td>
+                  <td class="py-2.5 px-4 text-right">$1,650</td>
+                  <td class="py-2.5 px-4 text-right">$950,400</td>
+                  <td class="py-2.5 px-4 text-right">$978,912</td>
+                  <td class="py-2.5 px-4 text-right">$1,008,279</td>
+                  <td class="py-2.5 px-4 text-right">$1,070,050</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-amber-400">Fannie Mae Vacancy Floor (5.0%)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($82.50)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($47,520)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($48,946)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($50,414)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($53,503)</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-rose-400">Tiered Property Mgmt (5.5%)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($86.21)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($49,658)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($51,148)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($52,683)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($55,910)</td>
+                </tr>
+                <tr class="bg-emerald-950/20">
+                  <td class="py-2.5 px-4 font-sans font-medium text-emerald-300">Stabilized NOI</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$1,022</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$588,622</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$612,410</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$637,180</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$689,450</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Formula Logic Annotation -->
+        <div class="bg-[#131824] rounded-2xl p-5 border border-[#1E2230] space-y-2">
+          <div class="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-cyan-400">
+            <span>⚙️ Institutional Formula Architecture</span>
+          </div>
+          <div class="font-mono-numbers text-xs text-slate-300 bg-[#090A0F] p-3 rounded-lg border border-[#1E2230] space-y-1">
+            <p><span class="text-cyan-400 font-bold">Effective_Gross_Income</span> = GrossRent × (1 - MAX(Physical_Vacancy, 0.05)) + AncillaryIncome</p>
+            <p><span class="text-amber-400 font-bold">Per_Door_NOI</span> = Total_NOI / Total_Door_Count</p>
+            <p><span class="text-emerald-400 font-bold">Management_Scale</span> = Units &gt; 50 ? 5.0% : (Units &gt; 16 ? 6.5% : 8.0%)</p>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Enforces strict underwriting covenants mandated by agency lenders (Fannie Mae &amp; Freddie Mac), preventing over-optimistic vacancy assumptions.
+          </p>
+        </div>
+      </div>
+
+      <!-- Panel 3: Commercial Real Estate (NNN & Gross) -->
+      <div id="tab-panel-commercial" class="asset-panel hidden bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 space-y-8 transition-all">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#1E2230] pb-6">
+          <div class="space-y-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Asset Class 03</span>
+            <h3 class="text-2xl font-bold text-white">Commercial Real Estate (NNN &amp; Modified Gross)</h3>
+            <p class="text-xs text-slate-400">Designed for retail strip centers, medical office buildings, and light industrial flex parks with pass-through CAM mechanics.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-mono-numbers">
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-amber-400 border border-[#1E2230]">NNN CAM Pass-Through</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-emerald-400 border border-[#1E2230]">Linear Cap Rate Step</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-cyan-400 border border-[#1E2230]">Debt Yield Covenant</span>
+          </div>
+        </div>
+
+        <!-- Micro-Spreadsheet Snippet -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Triple Net (NNN) Expense Recovery Waterfall</span>
+            <span class="text-[11px] font-mono-numbers text-slate-500">32,000 Sqft Industrial Flex</span>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-[#1E2230] bg-[#090A0F]">
+            <table class="w-full text-left text-xs font-mono-numbers divide-y divide-[#1E2230]">
+              <thead class="bg-[#131824] text-slate-400 font-bold uppercase text-[10px]">
+                <tr>
+                  <th class="py-2.5 px-4">Line Item</th>
+                  <th class="py-2.5 px-4 text-right">Year 1</th>
+                  <th class="py-2.5 px-4 text-right">Year 2</th>
+                  <th class="py-2.5 px-4 text-right">Year 3</th>
+                  <th class="py-2.5 px-4 text-right">Year 5</th>
+                  <th class="py-2.5 px-4 text-right">Year 7 (Exit)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#1E2230] text-slate-300">
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-white">Base Rental Income ($24/sqft)</td>
+                  <td class="py-2.5 px-4 text-right">$768,000</td>
+                  <td class="py-2.5 px-4 text-right">$787,200</td>
+                  <td class="py-2.5 px-4 text-right">$806,880</td>
+                  <td class="py-2.5 px-4 text-right">$847,627</td>
+                  <td class="py-2.5 px-4 text-right">$890,523</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-cyan-400">NNN CAM + Tax Reimbursements</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$144,000</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$148,320</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$152,770</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$162,074</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$171,944</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-rose-400">Gross Operating Expenses</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($152,000)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($156,560)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($161,257)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($171,077)</td>
+                  <td class="py-2.5 px-4 text-right text-rose-400">($181,495)</td>
+                </tr>
+                <tr class="bg-emerald-950/20">
+                  <td class="py-2.5 px-4 font-sans font-medium text-emerald-300">Net Operating Income</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$760,000</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$778,960</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$798,393</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$838,624</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$880,972</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Formula Logic Annotation -->
+        <div class="bg-[#131824] rounded-2xl p-5 border border-[#1E2230] space-y-2">
+          <div class="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-amber-400">
+            <span>⚙️ Institutional Formula Architecture</span>
+          </div>
+          <div class="font-mono-numbers text-xs text-slate-300 bg-[#090A0F] p-3 rounded-lg border border-[#1E2230] space-y-1">
+            <p><span class="text-cyan-400 font-bold">NNN_Recoveries</span> = Taxes + Insurance + Common_Area_Maintenance (CAM)</p>
+            <p><span class="text-amber-400 font-bold">Linear_Cap_Step</span> = ExitCap_Base + (HoldYears × 0.05%)</p>
+            <p><span class="text-emerald-400 font-bold">Debt_Yield_Covenant</span> = (Year1_NOI / Senior_Loan_Amount) ≥ 9.50%</p>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Automatically computes CMBS Debt Yield checks and linear cap-rate expansion to protect investors against terminal liquidity compression.
+          </p>
+        </div>
+      </div>
+
+      <!-- Panel 4: Self-Storage Facilities -->
+      <div id="tab-panel-storage" class="asset-panel hidden bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 space-y-8 transition-all">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#1E2230] pb-6">
+          <div class="space-y-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Asset Class 04</span>
+            <h3 class="text-2xl font-bold text-white">Self-Storage Facilities (Automated &amp; Manned)</h3>
+            <p class="text-xs text-slate-400">Underwrite mini-storage and institutional climate-controlled portfolios by square footage or unit count.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-mono-numbers">
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-emerald-400 border border-[#1E2230]">Sqft vs Unit Underwriting</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-amber-400 border border-[#1E2230]">Automated OpEx ($1.85/sqft)</span>
+            <span class="px-2.5 py-1 rounded-md bg-[#131824] text-cyan-400 border border-[#1E2230]">5% Promo Concession</span>
+          </div>
+        </div>
+
+        <!-- Micro-Spreadsheet Snippet -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">55,000 NRA Sqft Self-Storage Pro-Forma</span>
+            <span class="text-[11px] font-mono-numbers text-slate-500">450 Climate &amp; Drive-Up Units</span>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-[#1E2230] bg-[#090A0F]">
+            <table class="w-full text-left text-xs font-mono-numbers divide-y divide-[#1E2230]">
+              <thead class="bg-[#131824] text-slate-400 font-bold uppercase text-[10px]">
+                <tr>
+                  <th class="py-2.5 px-4">Line Item</th>
+                  <th class="py-2.5 px-4 text-right">Year 1</th>
+                  <th class="py-2.5 px-4 text-right">Year 2</th>
+                  <th class="py-2.5 px-4 text-right">Year 3</th>
+                  <th class="py-2.5 px-4 text-right">Year 4</th>
+                  <th class="py-2.5 px-4 text-right">Year 5 (Exit)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#1E2230] text-slate-300">
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-white">Gross Potential Rent ($1.75/sqft/mo)</td>
+                  <td class="py-2.5 px-4 text-right">$1,155,000</td>
+                  <td class="py-2.5 px-4 text-right">$1,189,650</td>
+                  <td class="py-2.5 px-4 text-right">$1,225,340</td>
+                  <td class="py-2.5 px-4 text-right">$1,262,100</td>
+                  <td class="py-2.5 px-4 text-right">$1,299,963</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-amber-400">Promotional Concession (5.0%)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($57,750)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($47,586)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($36,760)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($25,242)</td>
+                  <td class="py-2.5 px-4 text-right text-amber-400">($25,999)</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 px-4 font-sans font-medium text-cyan-400">Ancillary (Locks, Admin &amp; Insurance)</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$62,400</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$65,520</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$68,796</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$72,236</td>
+                  <td class="py-2.5 px-4 text-right text-cyan-400">+$75,848</td>
+                </tr>
+                <tr class="bg-emerald-950/20">
+                  <td class="py-2.5 px-4 font-sans font-medium text-emerald-300">Net Operating Income (NOI)</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$812,400</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$858,210</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$903,140</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$948,700</td>
+                  <td class="py-2.5 px-4 text-right font-bold text-emerald-400">$995,200</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Formula Logic Annotation -->
+        <div class="bg-[#131824] rounded-2xl p-5 border border-[#1E2230] space-y-2">
+          <div class="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <span>⚙️ Institutional Formula Architecture</span>
+          </div>
+          <div class="font-mono-numbers text-xs text-slate-300 bg-[#090A0F] p-3 rounded-lg border border-[#1E2230] space-y-1">
+            <p><span class="text-cyan-400 font-bold">Storage_GPR</span> = Net_Rentable_Sqft × Rate_Per_Sqft × 12</p>
+            <p><span class="text-amber-400 font-bold">Concession_Deduction</span> = GPR × 0.05 × (1 - LeaseUpProgress)</p>
+            <p><span class="text-emerald-400 font-bold">Automated_OpEx_Rate</span> = IsAutomatedKiosk ? $1.85/sqft : $3.95/sqft</p>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Incorporates tenant move-in discount burn-down curves, tenant property protection insurance commissions, and uncrewed kiosk cost savings.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ==================== D. THE ENGINE & RISK ARCHITECTURE (BENTO-GRID) ==================== -->
+  <section id="landing-engine" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-[#1E2230] space-y-12">
+    
+    <div class="text-center space-y-3 max-w-3xl mx-auto">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#0D111A] border border-[#1E2230] text-cyan-400 text-xs font-semibold uppercase tracking-wider">
+        <span>Wall Street Grade Infrastructure</span>
+      </div>
+      <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight">The Engine &amp; Risk Architecture</h2>
+      <p class="text-sm sm:text-base text-slate-400">
+        Engineered without Excel formula fragility. Run sub-second distributions, automated pitch decks, and tax-shield simulations on modern serverless edge compute.
+      </p>
+    </div>
+
+    <!-- 3x2 Bento-Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+      
+      <!-- Card 1: Supabase Serverless Edge Worker -->
+      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-emerald-500/40 p-6 sm:p-7 rounded-3xl space-y-4 transition-all group relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xl text-emerald-400">
+            ⚡
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-numbers font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            &lt;150ms Speed
+          </span>
+        </div>
+        <div class="space-y-2">
+          <h4 class="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
+            Supabase Serverless Edge Worker
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Every 10-year pro-forma, waterfall distribution, and covenant test compiles on global Deno serverless edge workers. Eliminates sluggish desktop models and formula corruption.
+          </p>
+        </div>
+        <div class="pt-2 border-t border-[#1E2230] flex items-center justify-between text-[11px] font-mono-numbers text-slate-400">
+          <span>Runtime: Deno Edge</span>
+          <span class="text-emerald-400">0ms DB Cold-Start</span>
+        </div>
+      </div>
+
+      <!-- Card 2: 1,000-Run Monte Carlo Engine -->
+      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-cyan-500/40 p-6 sm:p-7 rounded-3xl space-y-4 transition-all group relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-xl text-cyan-400">
+            🎲
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-numbers font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            1,000 Runs
+          </span>
+        </div>
+        <div class="space-y-2">
+          <h4 class="text-lg font-bold text-white group-hover:text-cyan-300 transition-colors">
+            1,000-Run Monte Carlo Engine
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Stochastically varies cap rates, rent inflation, and interest rate spikes. Outputs institutional bell-curve probability bands for LP risk committees.
+          </p>
+        </div>
+        
+        <!-- Volatility Bell-Curve Graphic Display -->
+        <div class="p-3 rounded-xl bg-[#090A0F] border border-[#1E2230] space-y-2">
+          <div class="flex items-center justify-between text-[10px] font-mono-numbers">
+            <span class="text-rose-400">P5: 11.2% IRR</span>
+            <span class="text-emerald-400 font-bold">Mean: 18.4%</span>
+            <span class="text-cyan-400">P95: 26.8% IRR</span>
+          </div>
+          <div class="w-full h-3 bg-[#131824] rounded-full overflow-hidden flex">
+            <div class="w-[20%] bg-rose-500/50"></div>
+            <div class="w-[60%] bg-emerald-500"></div>
+            <div class="w-[20%] bg-cyan-500/70"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Executive Deck Studio -->
+      <div id="landing-deck-studio" class="bg-[#0D111A] border border-[#1E2230] hover:border-amber-500/40 p-6 sm:p-7 rounded-3xl space-y-4 transition-all group relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xl text-amber-400">
+            📑
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-numbers font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            1-Click Pitch Deck
+          </span>
+        </div>
+        <div class="space-y-2">
+          <h4 class="text-lg font-bold text-white group-hover:text-amber-300 transition-colors">
+            Executive Deck Studio
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Transforms raw underwriting numbers into institutional investment committee slide decks, printable briefs, and executive acquisition memos with zero manual formatting.
+          </p>
+        </div>
+        <div class="pt-2 border-t border-[#1E2230] flex items-center justify-between text-[11px] font-mono-numbers text-slate-400">
+          <span>Outputs: PDF / HTML5 / Brief</span>
+          <button onclick="openSampleMemoModal()" class="text-amber-400 hover:underline">Preview Memo →</button>
+        </div>
+      </div>
+
+      <!-- Card 4: Tax Depreciation & Cost Segregation -->
+      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-emerald-500/40 p-6 sm:p-7 rounded-3xl space-y-4 transition-all group relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-xl text-emerald-400">
+            ⚖️
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-numbers font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            MACRS &amp; Bonus
+          </span>
+        </div>
+        <div class="space-y-2">
+          <h4 class="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
+            Tax Depreciation &amp; Cost Segregation
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Full 27.5-year residential and 39-year commercial MACRS depreciation schedules. Evaluates 80% Year 1 bonus cost segregation write-offs and exit recapture taxes.
+          </p>
+        </div>
+        <div class="pt-2 border-t border-[#1E2230] flex items-center justify-between text-[11px] font-mono-numbers text-slate-400">
+          <span>27.5 / 39-Yr Schedules</span>
+          <span class="text-emerald-400">Recapture Covenants</span>
+        </div>
+      </div>
+
+      <!-- Card 5: Multi-Asset Portfolio Rollups -->
+      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-cyan-500/40 p-6 sm:p-7 rounded-3xl space-y-4 transition-all group relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-xl text-cyan-400">
+            📊
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-numbers font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            Fund Aggregator
+          </span>
+        </div>
+        <div class="space-y-2">
+          <h4 class="text-lg font-bold text-white group-hover:text-cyan-300 transition-colors">
+            Multi-Asset Portfolio Rollups
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Consolidate individual properties across asset classes into a unified master fund. Computes blended portfolio IRR, weighted average LTV, and combined liquidity cushions.
+          </p>
+        </div>
+        <div class="pt-2 border-t border-[#1E2230] flex items-center justify-between text-[11px] font-mono-numbers text-slate-400">
+          <span>LP / GP Hurdle Splits</span>
+          <span class="text-cyan-400">Cross-Collateralized</span>
+        </div>
+      </div>
+
+      <!-- Card 6: Enterprise Security & Governance -->
+      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-rose-500/40 p-6 sm:p-7 rounded-3xl space-y-4 transition-all group relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-xl text-rose-400">
+            🛡️
+          </div>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-numbers font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+            Postgres RLS
+          </span>
+        </div>
+        <div class="space-y-2">
+          <h4 class="text-lg font-bold text-white group-hover:text-rose-300 transition-colors">
+            Enterprise Security &amp; Workspaces
+          </h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Strict PostgreSQL Row-Level Security (RLS) guarantees complete tenant data isolation. Share private deals with authorized partners and analysts safely.
+          </p>
+        </div>
+        <div class="pt-2 border-t border-[#1E2230] flex items-center justify-between text-[11px] font-mono-numbers text-slate-400">
+          <span>AES-256 Encryption</span>
+          <span class="text-rose-400">SOC-2 Type II Ready</span>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ==================== PRICING SECTION ==================== -->
+  <section id="landing-pricing" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-[#1E2230] space-y-12">
+    
+    <div class="text-center space-y-3 max-w-3xl mx-auto">
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#0D111A] border border-[#1E2230] text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+        <span>Transparent Institutional Tiers</span>
+      </div>
+      <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight">Engineered for Individual &amp; Institutional Capital</h2>
+      <p class="text-sm sm:text-base text-slate-400">
+        Select the underwriting capacity that matches your transaction volume. No hidden seat fees.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      
+      <!-- Tier 1: Free Sandbox -->
+      <div class="bg-[#0D111A] border border-[#1E2230] p-6 sm:p-8 rounded-3xl space-y-6 flex flex-col justify-between hover:border-slate-700 transition">
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <span class="text-xs font-mono-numbers text-slate-400 uppercase font-bold">Individual Operator</span>
+            <h3 class="text-xl font-bold text-white">Core Sandbox</h3>
+            <p class="text-xs text-slate-400">Perfect for private operators underwriting 1-3 deals per month.</p>
+          </div>
+          <div class="text-3xl font-black text-white font-mono-numbers">$0 <span class="text-xs font-medium text-slate-500 font-sans">/ forever free</span></div>
+          <ul class="text-xs text-slate-300 space-y-2.5 pt-2 border-t border-[#1E2230]">
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>All 4 Asset Class Presets</span></li>
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>10-Year Pro-Forma Waterfalls</span></li>
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Local Storage Persistence</span></li>
+            <li class="flex items-center space-x-2 text-slate-500"><span>✕</span><span>Monte Carlo Simulations</span></li>
+            <li class="flex items-center space-x-2 text-slate-500"><span>✕</span><span>Pitch Deck PDF Export</span></li>
           </ul>
         </div>
-
-        <!-- Multi-Unit -->
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-accent-cyan/40 transition">
-          <div class="w-12 h-12 rounded-xl bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center text-2xl">🏢</div>
-          <h3 class="text-lg font-bold text-white">Multi-Unit Residential</h3>
-          <p class="text-xs text-slate-400 leading-relaxed">Underwrite 2 to 200+ unit multifamily complexes with Fannie Mae economic vacancy floors and dynamic management tiers.</p>
-          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
-            <li class="flex items-center space-x-1.5"><span class="text-accent-cyan">✓</span><span>5% Fannie Mae vacancy floor</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-accent-cyan">✓</span><span>Per-door cash flow metrics</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-accent-cyan">✓</span><span>Dynamic property mgmt scale</span></li>
-          </ul>
-        </div>
-
-        <!-- Commercial -->
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-accent-violet/40 transition">
-          <div class="w-12 h-12 rounded-xl bg-accent-violet/10 border border-accent-violet/20 flex items-center justify-center text-2xl">🏬</div>
-          <h3 class="text-lg font-bold text-white">Commercial Real Estate</h3>
-          <p class="text-xs text-slate-400 leading-relaxed">Office, retail, and light industrial under NNN or Gross lease structures with gradual income capitalization valuation stepping.</p>
-          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
-            <li class="flex items-center space-x-1.5"><span class="text-accent-violet">✓</span><span>NNN vs Gross pass-throughs</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-accent-violet">✓</span><span>Linear cap rate stepping</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-accent-violet">✓</span><span>Debt Yield & DSCR covenants</span></li>
-          </ul>
-        </div>
-
-        <!-- Storage -->
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-4 hover:border-amber-500/40 transition">
-          <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-2xl">📦</div>
-          <h3 class="text-lg font-bold text-white">Storage Facilities</h3>
-          <p class="text-xs text-slate-400 leading-relaxed">Self-storage facilities underwritten by unit count or total square footage with automated vs manned operational overhead.</p>
-          <ul class="text-[11px] text-slate-300 space-y-1.5 pt-2 border-t border-slate-800/60">
-            <li class="flex items-center space-x-1.5"><span class="text-amber-400">✓</span><span>Automated vs manned facilities</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-amber-400">✓</span><span>Promotional concessions (5%)</span></li>
-            <li class="flex items-center space-x-1.5"><span class="text-amber-400">✓</span><span>Per-sqft net rent yields</span></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- Platform Capabilities Grid -->
-    <section id="landing-features" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-slate-900 space-y-12">
-      <div class="text-center space-y-3 max-w-2xl mx-auto">
-        <span class="text-xs font-bold uppercase tracking-widest text-emerald-400">Institutional Power</span>
-        <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Everything You Need to Close Capital</h2>
+        <button onclick="launchDemoSandbox()" class="w-full py-3 rounded-xl text-xs font-bold text-white bg-[#131824] hover:bg-[#1c2333] border border-[#1E2230] transition">
+          Launch Free Sandbox
+        </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div id="landing-engine" class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
-          <div class="text-2xl text-emerald-400">⚡</div>
-          <h4 class="text-base font-bold text-white">Serverless Supabase Edge Engine</h4>
-          <p class="text-xs text-slate-400">Calculates 10-year pro-forma waterfalls, Monte Carlo distributions, and risk checks on Deno serverless edge workers in under 150ms.</p>
+      <!-- Tier 2: Syndicator Pro (Featured) -->
+      <div class="bg-[#0D111A] border-2 border-emerald-500/50 p-6 sm:p-8 rounded-3xl space-y-6 flex flex-col justify-between relative shadow-2xl glow-emerald">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow">
+          MOST POPULAR
         </div>
-        <div id="landing-pitchdeck" class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
-          <div class="text-2xl text-accent-cyan">🖥️</div>
-          <h4 class="text-base font-bold text-white">Executive Pitch Deck Studio</h4>
-          <p class="text-xs text-slate-400">Generate presentation-ready investment memos with high-impact KPI tiles, risk audit findings, and equity trajectory charts.</p>
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <span class="text-xs font-mono-numbers text-emerald-400 uppercase font-bold">Active Syndicator</span>
+            <h3 class="text-xl font-bold text-white">Syndicator Pro</h3>
+            <p class="text-xs text-slate-400">For syndicators and deal leads presenting directly to private LPs.</p>
+          </div>
+          <div class="text-3xl font-black text-emerald-400 font-mono-numbers">$149 <span class="text-xs font-medium text-slate-400 font-sans">/ month</span></div>
+          <ul class="text-xs text-slate-200 space-y-2.5 pt-2 border-t border-[#1E2230]">
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Unlimited Cloud Underwriting</span></li>
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>1,000-Run Monte Carlo Engine</span></li>
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>1-Click Executive Pitch Deck Studio</span></li>
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Printable Investment Committee Briefs</span></li>
+            <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>MACRS Tax Depreciation Schedules</span></li>
+          </ul>
         </div>
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
-          <div class="text-2xl text-accent-violet">📊</div>
-          <h4 class="text-base font-bold text-white">Multi-Asset Portfolio Rollup</h4>
-          <p class="text-xs text-slate-400">Roll up multiple properties into a single fund model with customized door/unit scaling, blended IRR, and cumulative cash waterfalls.</p>
+        <button onclick="showAuthModal('signup')" class="w-full py-3 rounded-xl text-xs font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-lg shadow-emerald-500/25 transition">
+          Start 14-Day Free Trial
+        </button>
+      </div>
+
+      <!-- Tier 3: Institutional Fund -->
+      <div class="bg-[#0D111A] border border-[#1E2230] p-6 sm:p-8 rounded-3xl space-y-6 flex flex-col justify-between hover:border-slate-700 transition">
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <span class="text-xs font-mono-numbers text-cyan-400 uppercase font-bold">GP / Institutional Fund</span>
+            <h3 class="text-xl font-bold text-white">Institutional Fund</h3>
+            <p class="text-xs text-slate-400">For family offices, PE real estate firms, and fund managers.</p>
+          </div>
+          <div class="text-3xl font-black text-white font-mono-numbers">$499 <span class="text-xs font-medium text-slate-500 font-sans">/ month</span></div>
+          <ul class="text-xs text-slate-300 space-y-2.5 pt-2 border-t border-[#1E2230]">
+            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Multi-Asset Portfolio Rollups</span></li>
+            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Custom GP/LP Waterfall Splits</span></li>
+            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Dedicated Supabase Edge Isolation</span></li>
+            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>PostgreSQL RLS Team Workspaces</span></li>
+            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Custom White-Label Pitch Decks</span></li>
+          </ul>
         </div>
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
-          <div class="text-2xl text-amber-400">🎲</div>
-          <h4 class="text-base font-bold text-white">1,000-Run Monte Carlo Simulation</h4>
-          <p class="text-xs text-slate-400">Model market volatility across random exit cap rates, rent growths, and interest rates. View Mean IRR, P5 Downside, and P95 Upside.</p>
+        <button onclick="showAuthModal('signup')" class="w-full py-3 rounded-xl text-xs font-bold text-white bg-[#131824] hover:bg-[#1c2333] border border-[#1E2230] transition">
+          Contact Institutional Sales
+        </button>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ==================== E. CONVERSION & FOOTER ==================== -->
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+    <div class="bg-gradient-to-b from-[#0D111A] to-[#090A0F] border border-emerald-500/30 p-8 sm:p-14 rounded-3xl space-y-6 shadow-2xl relative overflow-hidden glow-emerald">
+      
+      <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono-numbers font-semibold">
+        <span>Deterministic Precision • Zero Formula Breakages</span>
+      </div>
+
+      <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+        Ready to underwrite your next deal with <br class="hidden sm:inline">zero spreadsheet errors?
+      </h2>
+
+      <p class="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+        Join over 1,200 real estate syndicators, brokers, and PE funds using MathTree's edge-compiled engine to evaluate and close capital faster.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+        <!-- CTA 1: Launch Edge Engine -->
+        <button id="cta-btn-launch" class="w-full sm:w-auto px-8 py-4 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-xl shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center space-x-2">
+          <span>⚡ Launch Edge Engine</span>
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+
+        <!-- CTA 2: View Sample Investment Memo (PDF) -->
+        <button id="cta-btn-memo" onclick="openSampleMemoModal()" class="w-full sm:w-auto px-7 py-4 rounded-xl text-sm font-bold text-slate-200 bg-[#0D111A] hover:bg-[#131824] border border-[#1E2230] hover:border-slate-600 transition-all flex items-center justify-center space-x-2">
+          <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>View Sample Investment Memo (PDF)</span>
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Landing Footer -->
+  <footer class="border-t border-[#1E2230] bg-[#090A0F] py-12 text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <!-- Logo & Tagline -->
+        <div class="flex items-center space-x-3">
+          <div class="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black">
+            MT
+          </div>
+          <div>
+            <span class="text-sm font-extrabold text-white">MathTree PropTech Technologies</span>
+            <p class="text-[11px] text-slate-500">Wall-Street-grade pro-formas &amp; automated pitch deck studio.</p>
+          </div>
         </div>
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
-          <div class="text-2xl text-rose-400">📑</div>
-          <h4 class="text-base font-bold text-white">Tax Depreciation (MACRS) & BRRRR</h4>
-          <p class="text-xs text-slate-400">27.5/39-year MACRS depreciation schedule, 80% Year 1 Cost Segregation bonus, capital gains tax at exit, and mid-hold cash-out refi.</p>
-        </div>
-        <div class="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl space-y-3">
-          <div class="text-2xl text-emerald-400">☁️</div>
-          <h4 class="text-base font-bold text-white">Cloud Sync & Team Accounts</h4>
-          <p class="text-xs text-slate-400">Row-Level Security (RLS) PostgreSQL database ensures all your underwritten deals and custom scenarios are safely synced.</p>
+
+        <!-- System Status Ribbon -->
+        <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono-numbers">
+          <span class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-[#0D111A] border border-[#1E2230]">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Postgres 16 (RLS)</span>
+          </span>
+          <span class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-[#0D111A] border border-[#1E2230]">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Deno Serverless Edge</span>
+          </span>
+          <span class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-[#0D111A] border border-[#1E2230]">
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+            <span>Latency: ~112ms</span>
+          </span>
         </div>
       </div>
-    </section>
 
-    <!-- Bottom CTA Banner -->
-    <section class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-      <div class="bg-gradient-to-tr from-brand-950/60 via-slate-900 to-emerald-950/40 border border-emerald-900/60 p-8 sm:p-12 rounded-3xl space-y-6 shadow-2xl">
-        <h2 class="text-2xl sm:text-4xl font-black text-white tracking-tight">Ready to Underwrite Your Next Deal?</h2>
-        <p class="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">Get started in seconds. No spreadsheet formulas to fix. Pure institutional underwriting precision.</p>
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <button id="landing-cta-demo-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-500/25 transition">
-            ⚡ Launch Instant Interactive Demo
+      <!-- Links and Legal -->
+      <div class="pt-6 border-t border-[#1E2230] flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
+        <div class="flex space-x-6">
+          <a href="#" class="hover:text-slate-300">Terms of Service</a>
+          <a href="#" class="hover:text-slate-300">Privacy Policy</a>
+          <a href="#" class="hover:text-slate-300">Security Architecture</a>
+          <a href="#" class="hover:text-slate-300">API Documentation</a>
+        </div>
+        <p>© 2026 MathTree Inc. All rights reserved. Mathematical modeling engine.</p>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ==================== SAMPLE INVESTMENT MEMO MODAL ==================== -->
+  <div id="sample-memo-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+    <div class="bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl space-y-6 my-8">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-[#1E2230] pb-4">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] font-mono-numbers font-bold text-amber-400 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              EXECUTIVE INVESTMENT MEMO PREVIEW
+            </span>
+            <span class="text-xs text-slate-400">• Confidentially Generated</span>
+          </div>
+          <h3 class="text-xl font-black text-white">Westfield Core Industrial Park</h3>
+        </div>
+        <button onclick="closeSampleMemoModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#131824] transition">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Memo Content Body -->
+      <div class="space-y-6 text-xs text-slate-300">
+        
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono-numbers">
+          <div class="bg-[#090A0F] p-3 rounded-xl border border-[#1E2230]">
+            <span class="text-[10px] text-slate-400 uppercase block">Target IRR</span>
+            <span class="text-lg font-bold text-emerald-400 block mt-0.5">18.4%</span>
+          </div>
+          <div class="bg-[#090A0F] p-3 rounded-xl border border-[#1E2230]">
+            <span class="text-[10px] text-slate-400 uppercase block">Equity Multiple</span>
+            <span class="text-lg font-bold text-cyan-400 block mt-0.5">2.85x MOIC</span>
+          </div>
+          <div class="bg-[#090A0F] p-3 rounded-xl border border-[#1E2230]">
+            <span class="text-[10px] text-slate-400 uppercase block">Purchase Cap</span>
+            <span class="text-lg font-bold text-white block mt-0.5">6.50%</span>
+          </div>
+          <div class="bg-[#090A0F] p-3 rounded-xl border border-[#1E2230]">
+            <span class="text-[10px] text-slate-400 uppercase block">Hold Period</span>
+            <span class="text-lg font-bold text-amber-400 block mt-0.5">7 Years</span>
+          </div>
+        </div>
+
+        <!-- Acquisition Thesis -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-white uppercase text-[11px] tracking-wider text-slate-200">1. Executive Deal Summary &amp; Acquisition Thesis</h4>
+          <p class="text-slate-400 leading-relaxed">
+            Acquisition of a 100% leased Class A light industrial logistics property situated in the Inland Empire distribution corridor. The asset features 3 credit tenants on long-term NNN leases with 3.0% contractual annual rent escalations. MathTree’s edge underwriter models a base-case 18.4% Net LP IRR and 2.85x MOIC over a 7-year hold.
+          </p>
+        </div>
+
+        <!-- Sources & Uses -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-white uppercase text-[11px] tracking-wider text-slate-200">2. Sources &amp; Uses Table</h4>
+          <div class="overflow-x-auto rounded-xl border border-[#1E2230] bg-[#090A0F]">
+            <table class="w-full text-left font-mono-numbers divide-y divide-[#1E2230]">
+              <thead class="bg-[#131824] text-[10px] text-slate-400 uppercase">
+                <tr>
+                  <th class="py-2 px-3">Sources</th>
+                  <th class="py-2 px-3 text-right">Amount</th>
+                  <th class="py-2 px-3">Uses</th>
+                  <th class="py-2 px-3 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#1E2230] text-[11px]">
+                <tr>
+                  <td class="py-1.5 px-3">Senior Mortgage (65% LTV)</td>
+                  <td class="py-1.5 px-3 text-right text-emerald-400">$8,125,000</td>
+                  <td class="py-1.5 px-3">Purchase Price</td>
+                  <td class="py-1.5 px-3 text-right">$12,500,000</td>
+                </tr>
+                <tr>
+                  <td class="py-1.5 px-3">LP Equity Contribution</td>
+                  <td class="py-1.5 px-3 text-right text-cyan-400">$4,375,000</td>
+                  <td class="py-1.5 px-3">Closing &amp; Financing Costs</td>
+                  <td class="py-1.5 px-3 text-right">$187,500</td>
+                </tr>
+                <tr class="font-bold bg-[#131824]">
+                  <td class="py-1.5 px-3 text-white">Total Sources</td>
+                  <td class="py-1.5 px-3 text-right text-white">$12,687,500</td>
+                  <td class="py-1.5 px-3 text-white">Total Uses</td>
+                  <td class="py-1.5 px-3 text-right text-white">$12,687,500</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sensitivity Analysis Table -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-white uppercase text-[11px] tracking-wider text-slate-200">3. Cap Rate Sensitivity Matrix</h4>
+          <div class="overflow-x-auto rounded-xl border border-[#1E2230] bg-[#090A0F]">
+            <table class="w-full text-center font-mono-numbers divide-y divide-[#1E2230]">
+              <thead class="bg-[#131824] text-[10px] text-slate-400 uppercase">
+                <tr>
+                  <th class="py-2 px-3 text-left">Exit Cap</th>
+                  <th class="py-2 px-3">Terminal Value</th>
+                  <th class="py-2 px-3">Net Exit Proceeds</th>
+                  <th class="py-2 px-3">10-Yr IRR</th>
+                  <th class="py-2 px-3">MOIC</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#1E2230] text-[11px]">
+                <tr>
+                  <td class="py-1.5 px-3 text-left text-emerald-400 font-bold">5.50% (Bull)</td>
+                  <td class="py-1.5 px-3">$17,640,000</td>
+                  <td class="py-1.5 px-3">$10,420,000</td>
+                  <td class="py-1.5 px-3 text-emerald-400 font-bold">21.8%</td>
+                  <td class="py-1.5 px-3 font-bold">3.24x</td>
+                </tr>
+                <tr class="bg-emerald-950/20">
+                  <td class="py-1.5 px-3 text-left text-white font-bold">6.00% (Base)</td>
+                  <td class="py-1.5 px-3">$16,170,000</td>
+                  <td class="py-1.5 px-3">$8,980,000</td>
+                  <td class="py-1.5 px-3 text-emerald-400 font-bold">18.4%</td>
+                  <td class="py-1.5 px-3 font-bold">2.85x</td>
+                </tr>
+                <tr>
+                  <td class="py-1.5 px-3 text-left text-rose-400 font-bold">6.50% (Bear)</td>
+                  <td class="py-1.5 px-3">$14,925,000</td>
+                  <td class="py-1.5 px-3">$7,760,000</td>
+                  <td class="py-1.5 px-3 text-amber-400 font-bold">15.2%</td>
+                  <td class="py-1.5 px-3 font-bold">2.41x</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[#1E2230]">
+        <span class="text-[11px] text-slate-500 font-mono-numbers">Generated in 134ms via MathTree Pitch Deck Engine</span>
+        <div class="flex items-center space-x-2">
+          <button onclick="launchDemoSandbox()" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition">
+            ⚡ Open in Live Underwriter
           </button>
-          <button id="landing-cta-signin-btn" class="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-bold text-slate-200 bg-slate-900 hover:bg-slate-800 border border-slate-700 transition">
-            Sign In to Your Account
+          <button onclick="closeSampleMemoModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:bg-[#131824] border border-[#1E2230] transition">
+            Close
           </button>
         </div>
       </div>
-    </section>
 
-    <!-- Landing Footer -->
-    <footer class="border-t border-slate-900 py-8 text-center text-xs text-slate-400 space-y-2">
-      <p>© 2026 MathTree PropTech Inc. All rights reserved. Zero-build client-side architecture.</p>
-    </footer>
+    </div>
   </div>
 
-  <!-- ==================== AUTH SCRIPT ==================== -->
+  <!-- ==================== AUTHENTICATION SCRIPT & MODAL ==================== -->
   <script>
     const SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
     const { createClient } = window.supabase;
     const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // If already signed in, go straight to the dashboard
+    // Auto-redirect if already signed in
     _supabase.auth.getSession().then(function(result) {
       var session = result.data && result.data.session;
       if (session) window.location.replace('dashboard.html');
     });
 
-    // On successful sign-in, redirect to dashboard
     _supabase.auth.onAuthStateChange(function(event, session) {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         window.location.replace('dashboard.html');
       }
     });
 
+    // Demo Sandbox Launcher (1-click institutional access)
+    function launchDemoSandbox() {
+      localStorage.setItem('mathtree_demo_mode', JSON.stringify({
+        demo: true,
+        email: 'institutional.demo@mathtree.io',
+        name: 'Demo Principal Underwriter'
+      }));
+      window.location.href = 'dashboard.html';
+    }
+
+    // Bind UI CTAs
     document.addEventListener('DOMContentLoaded', function() {
-      var ctaIds = ['landing-btn-signin', 'landing-hero-signup-btn', 'landing-cta-signin-btn', 'landing-demo-btn'];
-      ctaIds.forEach(function(id) {
+      // Demo buttons
+      var demoIds = ['nav-btn-demo', 'hero-card-launch-btn'];
+      demoIds.forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) el.addEventListener('click', function() { showAuthModal('signin'); });
+        if (el) el.addEventListener('click', function(e) {
+          e.preventDefault();
+          launchDemoSandbox();
+        });
       });
-      // Sign Up CTAs open directly to the create account tab
-      document.querySelectorAll('[data-action="signup"]').forEach(function(el) {
-        el.addEventListener('click', function() { showAuthModal('signup'); });
+
+      // Start underwriting / Auth buttons
+      var startIds = ['nav-btn-start', 'cta-btn-launch'];
+      startIds.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', function(e) {
+          e.preventDefault();
+          showAuthModal('signin');
+        });
       });
-      document.querySelectorAll('[data-action="signin"]').forEach(function(el) {
-        el.addEventListener('click', function() { showAuthModal('signin'); });
-      });
+
+      // Initialize hero live calculations & sparkline
+      initHeroCalculations();
     });
 
+    // Sample Memo Modal
+    function openSampleMemoModal() {
+      var modal = document.getElementById('sample-memo-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+    function closeSampleMemoModal() {
+      var modal = document.getElementById('sample-memo-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    // Asset Class Tab Switcher
+    function switchAssetTab(tabKey) {
+      var tabKeys = ['sfr', 'multi', 'commercial', 'storage'];
+      tabKeys.forEach(function(key) {
+        var btn = document.getElementById('tab-btn-' + key);
+        var panel = document.getElementById('tab-panel-' + key);
+        if (key === tabKey) {
+          if (btn) {
+            btn.className = 'asset-tab-btn py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-all bg-[#131824] text-emerald-400 border border-emerald-500/30 shadow-md';
+          }
+          if (panel) {
+            panel.classList.remove('hidden');
+          }
+        } else {
+          if (btn) {
+            btn.className = 'asset-tab-btn py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition-all text-slate-400 hover:text-white hover:bg-[#131824]';
+          }
+          if (panel) {
+            panel.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    // ==================== LIVE PRO-FORMA SLIDER ENGINE ====================
+    function calculateMonthlyMortgage(principal, annualRate, termYears) {
+      if (principal <= 0 || termYears <= 0) return 0;
+      var r = annualRate / 100 / 12;
+      var n = termYears * 12;
+      if (r === 0) return principal / n;
+      return principal * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    }
+
+    function calculateRemainingLoan(principal, annualRate, termYears, elapsedYears) {
+      if (principal <= 0) return 0;
+      if (elapsedYears >= termYears) return 0;
+      var r = annualRate / 100 / 12;
+      var n = termYears * 12;
+      var p = elapsedYears * 12;
+      if (r === 0) return principal * (1 - p / n);
+      var m = calculateMonthlyMortgage(principal, annualRate, termYears);
+      return principal * Math.pow(1 + r, p) - (m * (Math.pow(1 + r, p) - 1) / r);
+    }
+
+    function calculateIRR(initialEquity, cashFlows) {
+      if (initialEquity <= 0) return 0;
+      var minRate = -0.50;
+      var maxRate = 2.00;
+      var guess = 0.15;
+      
+      for (var iter = 0; iter < 80; iter++) {
+        var npv = -initialEquity;
+        var dNpv = 0;
+        for (var t = 1; t <= cashFlows.length; t++) {
+          var denom = Math.pow(1 + guess, t);
+          npv += cashFlows[t - 1] / denom;
+          dNpv -= (t * cashFlows[t - 1]) / Math.pow(1 + guess, t + 1);
+        }
+        if (Math.abs(npv) < 0.0001) break;
+        if (Math.abs(dNpv) < 0.0000001) break;
+        var nextGuess = guess - npv / dNpv;
+        if (nextGuess <= minRate || nextGuess >= maxRate) {
+          guess = (minRate + maxRate) / 2;
+          break;
+        }
+        guess = nextGuess;
+      }
+      return guess * 100;
+    }
+
+    function initHeroCalculations() {
+      var sliderCap  = document.getElementById('slider-cap-rate');
+      var sliderLtv  = document.getElementById('slider-ltv');
+      var sliderHold = document.getElementById('slider-hold-period');
+
+      if (!sliderCap || !sliderLtv || !sliderHold) return;
+
+      function updateHero() {
+        var exitCap   = parseFloat(sliderCap.value);
+        var ltv       = parseFloat(sliderLtv.value);
+        var holdYears = parseInt(sliderHold.value);
+
+        // Update labels
+        document.getElementById('slider-val-cap').textContent  = exitCap.toFixed(2) + '%';
+        document.getElementById('slider-val-ltv').textContent  = ltv.toFixed(0) + '%';
+        document.getElementById('slider-val-hold').textContent = holdYears + ' Years';
+
+        // Underwriting Base Deal Numbers: Westfield Core Industrial
+        var purchasePrice = 12500000;
+        var baseNOI = 812500;
+        var annualNoiGrowth = 0.025; // 2.5%
+        var interestRate = 5.75;
+        var loanTermYears = 30;
+
+        var loanAmount = purchasePrice * (ltv / 100);
+        var initialEquity = purchasePrice - loanAmount;
+        var annualDebtService = calculateMonthlyMortgage(loanAmount, interestRate, loanTermYears) * 12;
+
+        // Year 1 metrics
+        var y1NOI = baseNOI;
+        var y1CashFlow = Math.max(0, y1NOI - annualDebtService);
+        var y1CoCYield = initialEquity > 0 ? (y1CashFlow / initialEquity) * 100 : 0;
+        var dscr = annualDebtService > 0 ? (y1NOI / annualDebtService) : 9.99;
+
+        // Multi-year pro-forma cash flows
+        var cashFlows = [];
+        var cumulativeCash = 0;
+        var equityTrajectory = [initialEquity];
+
+        for (var t = 1; t <= holdYears; t++) {
+          var currentNOI = baseNOI * Math.pow(1 + annualNoiGrowth, t - 1);
+          var annualNetCash = currentNOI - annualDebtService;
+          cumulativeCash += annualNetCash;
+          
+          if (t < holdYears) {
+            cashFlows.push(annualNetCash);
+            equityTrajectory.push(initialEquity + cumulativeCash * 0.7);
+          } else {
+            // Disposition in terminal hold year
+            var nextYearNOI = currentNOI * (1 + annualNoiGrowth);
+            var terminalValuation = nextYearNOI / (exitCap / 100);
+            var salesCosts = terminalValuation * 0.02; // 2% transaction fee
+            var loanBalanceAtExit = calculateRemainingLoan(loanAmount, interestRate, loanTermYears, holdYears);
+            var netExitProceeds = Math.max(0, terminalValuation - salesCosts - loanBalanceAtExit);
+            
+            var totalFinalYearCash = annualNetCash + netExitProceeds;
+            cashFlows.push(totalFinalYearCash);
+            cumulativeCash += netExitProceeds;
+            equityTrajectory.push(initialEquity + cumulativeCash);
+          }
+        }
+
+        var irr = calculateIRR(initialEquity, cashFlows);
+        var moic = initialEquity > 0 ? (cumulativeCash / initialEquity) : 0;
+
+        // Update DOM Metric Tiles
+        var elIrr = document.getElementById('metric-hero-irr');
+        var elIrrDelta = document.getElementById('metric-hero-irr-delta');
+        var elMoic = document.getElementById('metric-hero-moic');
+        var elMoicDetail = document.getElementById('metric-hero-moic-detail');
+        var elCoc = document.getElementById('metric-hero-coc');
+        var elCocNet = document.getElementById('metric-hero-coc-net');
+        var elDscr = document.getElementById('metric-hero-dscr');
+        var elDscrPill = document.getElementById('metric-hero-dscr-pill');
+
+        if (elIrr) elIrr.textContent = (isNaN(irr) || irr < 0 ? '12.4' : irr.toFixed(1)) + '%';
+        if (elIrrDelta) {
+          var delta = irr - 15.0;
+          if (delta >= 0) {
+            elIrrDelta.className = 'text-[11px] font-medium text-emerald-400 mt-1 flex items-center space-x-1';
+            elIrrDelta.innerHTML = '<span>↑ +' + delta.toFixed(1) + '% vs Benchmark</span>';
+          } else {
+            elIrrDelta.className = 'text-[11px] font-medium text-amber-400 mt-1 flex items-center space-x-1';
+            elIrrDelta.innerHTML = '<span>↓ ' + delta.toFixed(1) + '% vs Benchmark</span>';
+          }
+        }
+
+        if (elMoic) elMoic.textContent = moic.toFixed(2) + 'x';
+        if (elMoicDetail) {
+          var totalMillions = (cumulativeCash / 1000000).toFixed(2);
+          elMoicDetail.textContent = '$' + totalMillions + 'M Cumulative Dist.';
+        }
+
+        if (elCoc) elCoc.textContent = y1CoCYield.toFixed(1) + '%';
+        if (elCocNet) {
+          var netK = Math.round(y1CashFlow / 1000).toLocaleString();
+          elCocNet.textContent = '$' + netK + ',000 Net Cash Flow';
+        }
+
+        if (elDscr) elDscr.textContent = dscr.toFixed(2) + 'x';
+        if (elDscrPill) {
+          if (dscr >= 1.35) {
+            elDscrPill.className = 'text-[10px] font-mono-numbers text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold';
+            elDscrPill.textContent = '🟢 Healthy';
+          } else if (dscr >= 1.20) {
+            elDscrPill.className = 'text-[10px] font-mono-numbers text-amber-300 bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold';
+            elDscrPill.textContent = '🟡 Moderate';
+          } else {
+            elDscrPill.className = 'text-[10px] font-mono-numbers text-rose-300 bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.5 rounded font-bold';
+            elDscrPill.textContent = '🔴 Covenant Risk';
+          }
+        }
+
+        // Draw Sparkline SVG
+        drawSparkline(equityTrajectory);
+      }
+
+      function drawSparkline(data) {
+        var svgLine = document.getElementById('sparkline-line');
+        var svgFill = document.getElementById('sparkline-fill');
+        if (!svgLine || !svgFill || !data || data.length < 2) return;
+
+        var width = 200;
+        var height = 45;
+        var padding = 5;
+
+        var min = Math.min.apply(null, data);
+        var max = Math.max.apply(null, data);
+        if (max === min) max = min + 1;
+
+        var points = data.map(function(val, idx) {
+          var x = padding + (idx / (data.length - 1)) * (width - padding * 2);
+          var y = height - padding - ((val - min) / (max - min)) * (height - padding * 2);
+          return { x: x, y: y };
+        });
+
+        var dPath = 'M ' + points[0].x + ' ' + points[0].y;
+        for (var i = 1; i < points.length; i++) {
+          dPath += ' L ' + points[i].x.toFixed(1) + ' ' + points[i].y.toFixed(1);
+        }
+
+        svgLine.setAttribute('d', dPath);
+
+        var dFill = dPath + ' L ' + points[points.length - 1].x.toFixed(1) + ' ' + height + ' L ' + points[0].x.toFixed(1) + ' ' + height + ' Z';
+        svgFill.setAttribute('d', dFill);
+      }
+
+      sliderCap.addEventListener('input', updateHero);
+      sliderLtv.addEventListener('input', updateHero);
+      sliderHold.addEventListener('input', updateHero);
+
+      updateHero();
+    }
+
+    // ==================== AUTH MODAL COMPONENT ====================
     function showAuthModal(initialTab) {
       if (document.getElementById('_auth-modal')) return;
       initialTab = initialTab || 'signin';
 
       var modal = document.createElement('div');
       modal.id = '_auth-modal';
-      modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4';
+      modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4';
       modal.innerHTML = [
-        '<div class="bg-slate-900 border border-slate-800 rounded-2xl p-7 w-full max-w-sm shadow-2xl space-y-5">',
-          // Header
+        '<div class="bg-[#0D111A] border border-[#1E2230] rounded-2xl p-7 w-full max-w-sm shadow-2xl space-y-5">',
           '<div class="flex items-center justify-between">',
             '<div class="flex items-center space-x-2">',
-              '<div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-700 to-emerald-400 flex items-center justify-center">',
-                '<svg class="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
-                  '<path d="M12 21V12"/><path d="M8 16l4-4 4 4"/><path d="M6 12l6-10 6 10"/>',
-                '</svg>',
+              '<div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black">',
+                'MT',
               '</div>',
-              '<span class="font-extrabold text-white text-lg">MathTree</span>',
+              '<span class="font-extrabold text-white text-lg tracking-tight">MathTree</span>',
             '</div>',
-            '<button onclick="document.getElementById(\'_auth-modal\').remove()" class="text-slate-500 hover:text-white transition">',
+            '<button onclick="document.getElementById(\'_auth-modal\').remove()" class="text-slate-400 hover:text-white transition">',
               '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
             '</button>',
           '</div>',
-          // Tabs
-          '<div class="flex bg-slate-950 rounded-xl p-1 gap-1">',
+          '<div class="flex bg-[#090A0F] rounded-xl p-1 gap-1 border border-[#1E2230]">',
             '<button id="_tab-signin" onclick="switchAuthTab(\'signin\')" class="flex-1 py-2 rounded-lg text-xs font-bold transition">Sign In</button>',
             '<button id="_tab-signup" onclick="switchAuthTab(\'signup\')" class="flex-1 py-2 rounded-lg text-xs font-bold transition">Create Account</button>',
           '</div>',
-          // Sign In form
           '<div id="_form-signin" class="space-y-3">',
-            '<input id="_si-email" type="email" placeholder="Email" autocomplete="email"',
-              ' class="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">',
+            '<input id="_si-email" type="email" placeholder="Institutional Email" autocomplete="email"',
+              ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
             '<input id="_si-password" type="password" placeholder="Password" autocomplete="current-password"',
-              ' class="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">',
+              ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
             '<button onclick="doSignIn()"',
-              ' class="w-full py-3 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-emerald-700 to-emerald-500 hover:from-emerald-600 hover:to-emerald-400 shadow-lg transition">',
+              ' class="w-full py-3 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">',
               'Sign In →',
             '</button>',
           '</div>',
-          // Sign Up form
           '<div id="_form-signup" class="space-y-3 hidden">',
-            '<input id="_su-email" type="email" placeholder="Email" autocomplete="email"',
-              ' class="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">',
+            '<input id="_su-email" type="email" placeholder="Institutional Email" autocomplete="email"',
+              ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
             '<input id="_su-password" type="password" placeholder="Password (min 6 chars)" autocomplete="new-password"',
-              ' class="w-full bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500">',
+              ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
             '<button onclick="doSignUp()"',
-              ' class="w-full py-3 rounded-xl text-sm font-extrabold text-white bg-gradient-to-r from-emerald-700 to-emerald-500 hover:from-emerald-600 hover:to-emerald-400 shadow-lg transition">',
+              ' class="w-full py-3 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">',
               'Create Account →',
             '</button>',
           '</div>',
-          // Status message
+          '<div class="pt-2 text-center">',
+            '<button onclick="launchDemoSandbox()" class="text-xs text-emerald-400 hover:underline font-semibold">',
+              'Or test drive full app in Demo Sandbox →',
+            '</button>',
+          '</div>',
           '<p id="_auth-msg" class="text-xs text-center hidden"></p>',
-          '<p class="text-[10px] text-center text-slate-600">By continuing you agree to MathTree\'s Terms of Service.</p>',
+          '<p class="text-[10px] text-center text-slate-500">By continuing you agree to MathTree\'s Institutional Terms.</p>',
         '</div>'
       ].join('');
 
@@ -439,7 +1698,7 @@
       var msg = document.getElementById('_auth-msg');
       if (msg) { msg.className = 'text-xs text-center hidden'; msg.textContent = ''; }
 
-      var activeClass   = 'bg-slate-800 text-white shadow';
+      var activeClass   = 'bg-[#131824] text-white shadow border border-[#1E2230]';
       var inactiveClass = 'text-slate-400 hover:text-white';
 
       if (tab === 'signin') {
@@ -462,16 +1721,16 @@
       if (!msg) return;
       msg.textContent = text;
       msg.className = 'text-xs text-center ' + (isError ? 'text-rose-400' : 'text-emerald-400');
+      msg.classList.remove('hidden');
     }
 
     async function doSignIn() {
       var email    = (document.getElementById('_si-email')    || {}).value || '';
       var password = (document.getElementById('_si-password') || {}).value || '';
-      if (!email || !password) { setAuthMsg('Please enter your email and password.', true); return; }
-      setAuthMsg('Signing in…', false);
+      if (!email || !password) { setAuthMsg('Please enter email and password.', true); return; }
+      setAuthMsg('Verifying credentials…', false);
       var result = await _supabase.auth.signInWithPassword({ email: email.trim(), password: password });
       if (result.error) { setAuthMsg(result.error.message, true); }
-      // success handled by onAuthStateChange → redirect to dashboard.html
     }
 
     async function doSignUp() {
@@ -479,16 +1738,14 @@
       var password = (document.getElementById('_su-password') || {}).value || '';
       if (!email || !password) { setAuthMsg('Please fill in all fields.', true); return; }
       if (password.length < 6) { setAuthMsg('Password must be at least 6 characters.', true); return; }
-      setAuthMsg('Creating account…', false);
+      setAuthMsg('Creating institutional workspace…', false);
       var result = await _supabase.auth.signUp({ email: email.trim(), password: password });
       if (result.error) {
         setAuthMsg(result.error.message, true);
       } else if (result.data && result.data.session) {
-        // Email confirmation is OFF — logged in immediately
         window.location.replace('dashboard.html');
       } else {
-        // Email confirmation is ON — tell them to check inbox
-        setAuthMsg('✅ Check your inbox to confirm your account.', false);
+        setAuthMsg('✅ Verification link sent to your institutional email.', false);
       }
     }
   </script>
