@@ -925,11 +925,11 @@
                 <span id="wealth-nav-sub" class="text-[10px] text-slate-500 mt-0.5 block">Value minus remaining debt</span>
               </div>
 
-              <!-- Total Net Benefit -->
+              <!-- Total Net Wealth -->
               <div class="bg-slate-950/60 p-3.5 rounded-xl border border-emerald-900/60 bg-emerald-950/10">
-                <span class="text-[10px] uppercase font-bold text-emerald-400 block">Total Net Benefit</span>
+                <span class="text-[10px] uppercase font-bold text-emerald-400 block">Total Net Wealth</span>
                 <span id="wealth-net-benefit" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
-                <span id="wealth-roe-sub" class="text-[10px] text-slate-400 mt-0.5 block">Cash + Paydown + Gain</span>
+                <span id="wealth-roe-sub" class="text-[10px] text-slate-400 mt-0.5 block">Net Equity + Cash Flow</span>
               </div>
             </div>
 
@@ -2273,12 +2273,21 @@
 
       const roeSub = document.getElementById('wealth-roe-sub');
       if (roeSub) {
-        roeSub.textContent = wealth.roeDisplay !== 'N/M' ? `${wealth.roeDisplay} Return on Equity` : '100% Debt Financed';
+        if (wealth.initialCashInvested > 0) {
+          const profitSign = wealth.netProfit >= 0 ? '+' : '';
+          roeSub.textContent = `NAV + Cash (${profitSign}${formatCurrency(wealth.netProfit)} profit)`;
+        } else {
+          roeSub.textContent = 'NAV + Cash (100% Financed)';
+        }
       }
+
+      const profitClause = wealth.initialCashInvested > 0
+        ? `; <strong class="text-emerald-400">${wealth.netProfit >= 0 ? '+' : ''}${formatCurrency(wealth.netProfit)}</strong> net profit over ${formatCurrency(wealth.initialCashInvested)} outlay`
+        : '';
 
       setHtml(
         'wealth-summary-narrative',
-        `By Year ${holdYear}, tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, creating <strong class="text-brand-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth.`
+        `By Year ${holdYear}, tenant mortgage payments pay down <strong class="text-emerald-400">${formatCurrency(wealth.principalPaydownEquity)}</strong> of principal while property value reaches <strong class="text-white">${formatCurrency(wealth.propertyValue)}</strong>, accumulating <strong class="text-emerald-400">${formatCurrency(wealth.totalNetBenefit)}</strong> in total net wealth (${formatCurrency(wealth.totalNetEquity)} owned equity + ${formatCurrency(wealth.cumulativeCashFlow)} cash pocketed${profitClause}).`
       );
 
       setHtml('wealth-time-npv', `Hold NPV: <strong class="text-white">${formatCurrency(wealth.holdNpv)}</strong>`);

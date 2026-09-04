@@ -583,7 +583,12 @@ export function calculateHoldingPeriodWealth(inputs: DealInputs, projections: Pr
     cumulativeCashFlow += (projections[i] ? projections[i].cashFlow : 0);
   }
 
-  const totalNetBenefit = cumulativeCashFlow + principalPaydownEquity + appreciationEquity - initialCashInvested;
+  // 5. Total Net Wealth Position & Net Profit
+  // Total Net Wealth = Net Owned Equity (NAV) + Cumulative Cash Flow
+  const totalNetWealth = totalNetEquity + cumulativeCashFlow;
+  const netProfit = totalNetWealth - initialCashInvested;
+  const totalNetBenefit = totalNetWealth;
+
   const prevEquity = yearIdx === 0 ? initialCashInvested : (projections[yearIdx - 1] ? projections[yearIdx - 1].equity : 0);
   const currentCashFlow = proj ? proj.cashFlow : 0;
   let roe: number | null = null;
@@ -616,6 +621,8 @@ export function calculateHoldingPeriodWealth(inputs: DealInputs, projections: Pr
     initialCashInvested: Math.round(initialCashInvested * 100) / 100,
     cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
     totalNetBenefit: Math.round(totalNetBenefit * 100) / 100,
+    totalNetWealth: Math.round(totalNetWealth * 100) / 100,
+    netProfit: Math.round(netProfit * 100) / 100,
     currentCashFlow: Math.round(currentCashFlow * 100) / 100,
     roe: roe !== null ? Math.round(roe * 100) / 100 : null,
     roeDisplay,

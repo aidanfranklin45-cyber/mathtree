@@ -707,14 +707,41 @@ runTest('Amortization Wealth & Holding Period Equity Realization Engine', () => 
   assert.strictEqual(wealthY1.propertyValue, 300000); // Year 1 base property value
   assert.ok(wealthY1.principalPaydownEquity > 9000, 'Principal paid down in year 1 exceeds 9k');
   assert.ok(Math.abs(wealthY1.totalNetEquity - (wealthY1.propertyValue - wealthY1.remainingLoanBalance)) < 0.01);
-  assert.ok(Math.abs(wealthY1.totalNetBenefit - (wealthY1.cumulativeCashFlow + wealthY1.principalPaydownEquity + wealthY1.appreciationEquity - wealthY1.initialCashInvested)) < 0.01);
-  assert.ok(wealthY1.totalNetBenefit > 10000, 'Total net benefit in year 1 exceeds 10k');
+  assert.ok(Math.abs(wealthY1.totalNetBenefit - (wealthY1.totalNetEquity + wealthY1.cumulativeCashFlow)) < 0.01);
+  assert.strictEqual(wealthY1.totalNetWealth, wealthY1.totalNetBenefit);
+  assert.strictEqual(wealthY1.netProfit, wealthY1.totalNetWealth - wealthY1.initialCashInvested);
+  assert.ok(wealthY1.totalNetBenefit > 10000, 'Total net wealth in year 1 exceeds 10k');
 
   // Year 2 has 3% appreciation (309,000)
   assert.strictEqual(wealthY2.holdYear, 2);
   assert.strictEqual(wealthY2.propertyValue, 309000);
   assert.strictEqual(wealthY2.appreciationEquity, 9000);
   assert.ok(wealthY2.totalNetBenefit > 25000, 'Total net benefit in year 2 exceeds 25k');
+  assert.strictEqual(wealthY2.totalNetBenefit, wealthY2.totalNetEquity + wealthY2.cumulativeCashFlow);
+});
+
+runTest('Amortization Wealth: Total Net Wealth equals Net Owned Equity plus Cumulative Cash Flow with capital outlay profit tracking', () => {
+  // Scenario matching user: $300k property, $12k closing/rehab, 0% down
+  const inputs = {
+    purchasePrice: 300000,
+    downPaymentPercent: 0,
+    interestRate: 6.5,
+    loanTerm: 30,
+    grossRentAnnual: 36000,
+    expenseRatio: 10,
+    closingCosts: 12000
+  };
+
+  const res = calculateProjections('commercial', inputs);
+  const wealth = calculateHoldingPeriodWealth(inputs, res.projections, res.amortizationSchedule, 1);
+
+  // Total Net Wealth must strictly equal Net Owned Equity + Cumulative Cash Flow
+  assert.strictEqual(wealth.totalNetWealth, Math.round((wealth.totalNetEquity + wealth.cumulativeCashFlow) * 100) / 100);
+  assert.strictEqual(wealth.totalNetBenefit, wealth.totalNetWealth);
+
+  // Net Profit must strictly equal Total Net Wealth minus Initial Cash Invested ($12k)
+  assert.strictEqual(wealth.netProfit, Math.round((wealth.totalNetWealth - wealth.initialCashInvested) * 100) / 100);
+  assert.ok(wealth.totalNetWealth > wealth.netProfit, 'Total net wealth exceeds net profit by initial cash invested');
 });
 
 runTest('calculateProjections returns identical cashFlow and netCashFlow properties across all projection years', () => {
