@@ -1,12 +1,7 @@
-﻿# MathTree Project Overview & System Directives
-
-## 1. Multi-Asset PropTech Modeling Engine
-A high-performance client-side and serverless PropTech modeling engine that computes 10-year pro-forma projections, IRR, NPV, Debt Service, Tax Depreciation, Sensitivity, and Monte Carlo risk distributions across four property asset classes:
-- Single-Family Residential
-- Multi-Unit Residential
-- Commercial Real Estate
-- Storage Facilities
-
+﻿---
+trigger: always_on
+description: Combined operational rules, mathematical graph invariants, database protocols, and tiered context selection for Math Tree.
+globs: "**/*"
 ---
 
 # AGENT OPERATIONAL RULES & SYSTEM DIRECTIVES (MATH TREE)
