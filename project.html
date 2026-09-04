@@ -114,6 +114,11 @@
             <a id="header-apn-badge" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="hidden items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-[10px] font-bold hover:border-emerald-700 transition" title="Open official Yakima County Assessor Tax Card">
               <span>🏛️ <span id="header-apn-text">Yakima APN</span> ↗</span>
             </a>
+            <div id="header-gis-sync-badge" class="hidden items-center space-x-1.5 text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span id="header-gis-sync-text">GIS Synced Today</span>
+              <button onclick="forceRefreshCountyGis()" class="text-emerald-400 hover:text-white font-bold ml-1" title="Force Refresh from Yakima County GIS">🔄</button>
+            </div>
             <span id="deal-asset-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize">
               Commercial
             </span>
@@ -5122,14 +5127,79 @@
     function updateHeaderApnBadge(apn) {
       const badge = document.getElementById('header-apn-badge');
       const text = document.getElementById('header-apn-text');
+      const syncBadge = document.getElementById('header-gis-sync-badge');
+      const syncText = document.getElementById('header-gis-sync-text');
+
       if (badge && apn) {
         badge.classList.remove('hidden');
         badge.classList.add('flex');
         badge.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + apn;
-        if (text) text.textContent = 'Yakima APN: ' + apn;
+        
+        // Multi-parcel count badge
+        const parcels = currentLoadedDeal?.inputs?.parcels;
+        const parcelCount = Array.isArray(parcels) && parcels.length > 1 ? ' (' + parcels.length + ' Parcels)' : '';
+        if (text) text.textContent = 'Yakima APN: ' + apn + parcelCount;
+      }
+
+      // 30-Day Cache Freshness Badge
+      if (syncBadge && currentLoadedDeal?.inputs) {
+        const lastSync = currentLoadedDeal.inputs.gisSync?.lastSyncedAt;
+        syncBadge.classList.remove('hidden');
+        syncBadge.classList.add('flex');
+
+        if (!lastSync) {
+          syncText.textContent = 'GIS Sync Pending';
+        } else {
+          const isStale = window.AddressService ? window.AddressService.isGisDataStale(lastSync, 30) : false;
+          const diffDays = Math.floor((Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 0) {
+            syncText.textContent = 'GIS Synced Today';
+          } else if (!isStale) {
+            syncText.textContent = 'GIS Synced ' + diffDays + 'd ago';
+          } else {
+            syncText.innerHTML = '<span class="text-amber-400 font-bold">GIS Sync Due (>30d)</span>';
+          }
+        }
       }
     }
     window.updateHeaderApnBadge = updateHeaderApnBadge;
+
+    async function forceRefreshCountyGis() {
+      if (!currentLoadedDeal || !currentLoadedDeal.inputs) return;
+      const apn = currentLoadedDeal.inputs.primaryApn || currentLoadedDeal.inputs.apn;
+      if (!apn || !window.AddressService) {
+        alert('No Yakima County APN linked to this property.');
+        return;
+      }
+
+      const syncText = document.getElementById('header-gis-sync-text');
+      if (syncText) syncText.textContent = 'Querying County...';
+
+      try {
+        const data = await window.AddressService.fetchYakimaAssessorData(apn);
+        if (data) {
+          currentLoadedDeal.inputs.assessorData = data;
+          currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
+          currentLoadedDeal.inputs.acreage = data.acres;
+          currentLoadedDeal.inputs.gisSync = {
+            lastSyncedAt: new Date().toISOString(),
+            syncSource: 'yakima_arcgis',
+            status: 'active',
+            manualRefresh: true
+          };
+
+          if (typeof saveCurrentDealChanges === 'function') {
+            saveCurrentDealChanges(false);
+          }
+          updateHeaderApnBadge(apn);
+          alert('Successfully refreshed property from Yakima County Assessor! Assessed Value: $' + data.totalAssessedValue.toLocaleString());
+        }
+      } catch (err) {
+        console.error('Manual GIS refresh error:', err);
+        alert('Failed to refresh from county server: ' + err.message);
+      }
+    }
+    window.forceRefreshCountyGis = forceRefreshCountyGis;
 
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#edit-deal-location') && !e.target.closest('#proj-edit-address-dropdown')) {

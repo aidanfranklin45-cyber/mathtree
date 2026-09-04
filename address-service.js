@@ -250,6 +250,135 @@
     return YAKIMA_ASCEND_PORTAL;
   }
 
+
+  /**
+   * 6. Detect Nearby Parcels Owned by the Same Entity (Multi-Parcel Package Detection)
+   * Searches the same 6-digit section/block (RTS) for companion parcels with matching owner.
+   */
+  async function detectNearbySameOwnerParcels(primaryApn, ownerName) {
+    if (!primaryApn) return [];
+    const cleanApn = String(primaryApn).trim().replace(/[^0-9]/g, '');
+    if (cleanApn.length < 6) return [];
+
+    const prefix = cleanApn.slice(0, 6);
+    let whereClause = "ASSESSOR_N LIKE '" + prefix + "%' AND ASSESSOR_N <> '" + cleanApn + "'";
+
+    if (ownerName && typeof ownerName === 'string' && ownerName.trim().length > 2) {
+      const cleanOwner = ownerName.trim().toUpperCase().replace(/'/g, "''").replace(/[^A-Z0-9\s]/g, '');
+      const ownerTerms = cleanOwner.split(/\s+/).filter(w => w.length > 2);
+      if (ownerTerms.length > 0) {
+        // Match either ORG_NAME or LAST_NAME containing primary owner term
+        const term = ownerTerms[0];
+        whereClause += " AND (UPPER(ORG_NAME) LIKE '%" + term + "%' OR UPPER(LAST_NAME) LIKE '%" + term + "%')";
+      }
+    }
+
+    const params = new URLSearchParams({
+      where: whereClause,
+      outFields: 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ACRES,MKT_LAND,MKT_IMPVT,USE_CODE,ORG_NAME,FIRST_NAME,LAST_NAME,LEGAL',
+      f: 'json',
+      resultRecordCount: '15'
+    });
+
+    try {
+      const response = await fetch(YAKIMA_TAXLOTS_URL + '?' + params.toString());
+      if (!response.ok) return [];
+      const data = await response.json();
+      if (!data || !data.features) return [];
+
+      return data.features.map(f => {
+        const a = f.attributes || {};
+        const landVal = parseFloat(a.MKT_LAND) || 0;
+        const impVal = parseFloat(a.MKT_IMPVT) || 0;
+        const totalVal = landVal + impVal;
+        const acres = parseFloat(a.ACRES) || 0;
+        const apn = String(a.ASSESSOR_N || '').trim();
+
+        const owner = [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ') +
+          (a.ORG_NAME ? (a.FIRST_NAME || a.LAST_NAME ? ' / ' : '') + a.ORG_NAME : '');
+
+        return {
+          apn,
+          formattedApn: apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn,
+          address: a.SITUS_ADDR ? (a.SITUS_ADDR + ', ' + (a.SITUS_CITY || 'Yakima')) : 'Adjacent Parcel',
+          street: a.SITUS_ADDR || 'Adjacent Parcel',
+          city: a.SITUS_CITY || 'Yakima',
+          state: 'WA',
+          zip: a.SITUS_ZIP || '',
+          acres: Math.round(acres * 1000) / 1000,
+          sqft: Math.round(acres * 43560),
+          marketLandValue: landVal,
+          marketImprovementValue: impVal,
+          totalAssessedValue: totalVal,
+          useCode: a.USE_CODE || 'Complementary Parcel',
+          owner: owner || 'Same Owner of Record',
+          legalDescription: a.LEGAL || '',
+          isPrimary: false,
+          included: false
+        };
+      });
+    } catch (err) {
+      console.warn('Failed to detect nearby same-owner parcels:', err);
+      return [];
+    }
+  }
+
+  /**
+   * 7. Aggregate Multiple Parcels into a Combined Acquisition Package
+   */
+  function aggregateParcelPackage(parcelsList) {
+    if (!Array.isArray(parcelsList) || parcelsList.length === 0) {
+      return {
+        totalParcels: 0,
+        totalAcres: 0,
+        totalSqFt: 0,
+        totalLandValue: 0,
+        totalImprovementValue: 0,
+        totalAssessedValue: 0,
+        parcels: []
+      };
+    }
+
+    const activeParcels = parcelsList.filter(p => p && p.included !== false);
+
+    let totalAcres = 0;
+    let totalLand = 0;
+    let totalImp = 0;
+
+    activeParcels.forEach(p => {
+      totalAcres += parseFloat(p.acres) || 0;
+      totalLand += parseFloat(p.marketLandValue) || 0;
+      totalImp += parseFloat(p.marketImprovementValue) || 0;
+    });
+
+    const totalVal = totalLand + totalImp;
+    const totalSqFt = Math.round(totalAcres * 43560);
+
+    return {
+      totalParcels: activeParcels.length,
+      totalAcres: Math.round(totalAcres * 1000) / 1000,
+      totalSqFt,
+      totalLandValue: Math.round(totalLand),
+      totalImprovementValue: Math.round(totalImp),
+      totalAssessedValue: Math.round(totalVal),
+      parcels: activeParcels
+    };
+  }
+
+  /**
+   * 8. 30-Day Cache Freshness Validator
+   * Ensures active deals ping the GIS server only once every 30 days.
+   */
+  function isGisDataStale(lastSyncedAt, daysThreshold = 30) {
+    if (!lastSyncedAt) return true;
+    const syncedTime = new Date(lastSyncedAt).getTime();
+    if (isNaN(syncedTime)) return true;
+    const now = Date.now();
+    const ageMs = now - syncedTime;
+    const maxAgeMs = daysThreshold * 24 * 60 * 60 * 1000;
+    return ageMs > maxAgeMs;
+  }
+
   return {
     YAKIMA_GIS_BASE,
     YAKIMA_ADDRESSING_URL,
@@ -260,6 +389,9 @@
     searchNationwideAddresses,
     searchAddresses,
     fetchYakimaAssessorData,
-    getYakimaAssessorPortalUrl
+    getYakimaAssessorPortalUrl,
+    detectNearbySameOwnerParcels,
+    aggregateParcelPackage,
+    isGisDataStale
   };
 }));

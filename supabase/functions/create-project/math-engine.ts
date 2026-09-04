@@ -30,6 +30,8 @@ export interface DealInputs {
   targetExitCapRate?: number | string;
   exitCap?: number | string;
   exitYear?: number | string;
+  holdingPeriod?: number | string;
+  holdYears?: number | string;
   discountRate?: number | string;
   otherIncome?: number | string;
 
@@ -205,8 +207,9 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
   const expenseRatio = Math.max(0, parseFloat(String(inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? inputs.opexRatio ?? 0)) || 0);
   const targetCapRate = parseFloat(String(inputs.targetCapRate ?? inputs.targetExitCapRate ?? inputs.exitCap ?? appreciationRate)) || appreciationRate || 0;
 
-  const rawExitYear = parseInt(String(inputs.exitYear));
-  const exitYear = Math.max(1, Math.min(10, isNaN(rawExitYear) ? 10 : rawExitYear));
+  const rawExitYear = parseInt(String(inputs.exitYear !== undefined ? inputs.exitYear : (inputs.holdingPeriod !== undefined ? inputs.holdingPeriod : inputs.holdYears)));
+  const exitYear = Math.max(1, Math.min(30, isNaN(rawExitYear) ? 10 : rawExitYear));
+  const holdingPeriod = exitYear;
   const otherIncomeAnnual = Math.max(0, parseFloat(String(inputs.otherIncome ?? 0)) || 0) * 12;
 
   let initialPropertyValue = purchasePrice;
@@ -287,7 +290,7 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
   let cumulativeCashFlow = 0;
   let entryCapRate = targetCapRate;
 
-  for (let year = 1; year <= 10; year++) {
+  for (let year = 1; year <= holdingPeriod; year++) {
     if (year > 1) {
       currentGrossIncome *= (1 + rentGrowth / 100);
       if (normalizedAsset !== 'commercial' && normalizedAsset !== 'storage') {
@@ -340,7 +343,7 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
       } else {
         if (year === 1) currentPropertyValue = initialPropertyValue;
         else {
-          const tExit = exitYear > 1 ? exitYear : 10;
+          const tExit = exitYear > 1 ? exitYear : holdingPeriod;
           const currentCapRate = year <= tExit
             ? entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate)
             : targetCapRate;
@@ -521,7 +524,7 @@ export function auditDealRisks(
     risks.push({
       level: 'info',
       title: 'Extended Payback Horizon',
-      description: `Cumulative cash-flow break-even is ${res.breakEvenYear === 'N/A' ? 'unreached within 10 years' : `Year ${res.breakEvenYear}`}.`
+      description: `Cumulative cash-flow break-even is ${res.breakEvenYear === 'N/A' ? `unreached within ${res.projections.length} years` : `Year ${res.breakEvenYear}`}.`
     });
   }
 

@@ -1141,6 +1141,83 @@ runTest('UI Verification: Address Autocomplete and Yakima Assessor Card in dashb
   assert.ok(projHtml.includes('id="proj-edit-address-dropdown"'), 'project.html must have proj-edit-address-dropdown');
 });
 
+// 51. Multi-Parcel Package Aggregation Math
+runTest('AddressService: aggregateParcelPackage mathematical summation of multi-parcel acquisitions', () => {
+  const AddressService = require('./address-service.js');
+  const parcels = [
+    { apn: '19131922484', acres: 0.54, marketLandValue: 120000, marketImprovementValue: 180000, included: true },
+    { apn: '19131922485', acres: 0.25, marketLandValue: 50000, marketImprovementValue: 0, included: true },
+    { apn: '19131922486', acres: 0.40, marketLandValue: 75000, marketImprovementValue: 25000, included: false } // excluded
+  ];
+
+  const pkg = AddressService.aggregateParcelPackage(parcels);
+  assert.strictEqual(pkg.totalParcels, 2, 'Only included parcels counted in package');
+  assert.strictEqual(pkg.totalAcres, 0.79, 'Combined acreage correctly summed');
+  assert.strictEqual(pkg.totalSqFt, Math.round(0.79 * 43560), 'Combined sqft calculated from acres');
+  assert.strictEqual(pkg.totalLandValue, 170000, 'Combined land value summed');
+  assert.strictEqual(pkg.totalImprovementValue, 180000, 'Combined improvement value summed');
+  assert.strictEqual(pkg.totalAssessedValue, 350000, 'Combined assessed value summed');
+  assert.strictEqual(pkg.parcels.length, 2, 'Parcels array contains active parcels');
+
+  // Test empty/null edge case
+  const emptyPkg = AddressService.aggregateParcelPackage([]);
+  assert.strictEqual(emptyPkg.totalParcels, 0);
+  assert.strictEqual(emptyPkg.totalAssessedValue, 0);
+});
+
+// 52. 30-Day GIS Cache Freshness TTL Validator
+runTest('AddressService: isGisDataStale correctly enforces 30-day cache retention', () => {
+  const AddressService = require('./address-service.js');
+
+  // Never synced or null
+  assert.strictEqual(AddressService.isGisDataStale(null), true, 'Null timestamp is stale');
+  assert.strictEqual(AddressService.isGisDataStale(undefined), true, 'Undefined timestamp is stale');
+  assert.strictEqual(AddressService.isGisDataStale('invalid-date'), true, 'Invalid date string is stale');
+
+  // Synced today (0 days old)
+  const today = new Date().toISOString();
+  assert.strictEqual(AddressService.isGisDataStale(today), false, 'Synced today is fresh');
+
+  // Synced 15 days ago (fresh, under 30 days)
+  const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+  assert.strictEqual(AddressService.isGisDataStale(fifteenDaysAgo), false, '15 days ago is fresh');
+
+  // Synced 31 days ago (stale, over 30 days)
+  const thirtyOneDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+  assert.strictEqual(AddressService.isGisDataStale(thirtyOneDaysAgo), true, '31 days ago is stale');
+
+  // Custom threshold (e.g. 7 days)
+  const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+  assert.strictEqual(AddressService.isGisDataStale(tenDaysAgo, 7), true, '10 days ago is stale when threshold is 7');
+  assert.strictEqual(AddressService.isGisDataStale(tenDaysAgo, 14), false, '10 days ago is fresh when threshold is 14');
+});
+
+// 53. UI Verification: Multi-Parcel Panel in dashboard.html
+runTest('UI Verification: Multi-Parcel Acquisition Panel and Package Aggregators in dashboard.html', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+
+  assert.ok(dashHtml.includes('id="wiz-multi-parcel-panel"'), 'dashboard.html must contain wiz-multi-parcel-panel');
+  assert.ok(dashHtml.includes('id="wiz-multi-parcel-list"'), 'dashboard.html must contain wiz-multi-parcel-list');
+  assert.ok(dashHtml.includes('id="wiz-pkg-count"'), 'dashboard.html must contain wiz-pkg-count');
+  assert.ok(dashHtml.includes('id="wiz-pkg-total-acres"'), 'dashboard.html must contain wiz-pkg-total-acres');
+  assert.ok(dashHtml.includes('id="wiz-pkg-total-assessed"'), 'dashboard.html must contain wiz-pkg-total-assessed');
+  assert.ok(dashHtml.includes('detectNearbySameOwnerParcels'), 'dashboard.html must call detectNearbySameOwnerParcels');
+  assert.ok(dashHtml.includes('aggregateParcelPackage'), 'dashboard.html must call aggregateParcelPackage');
+  assert.ok(dashHtml.includes('applyAssessedValueToWizard'), 'dashboard.html must have applyAssessedValueToWizard function');
+});
+
+// 54. UI Verification: 30-Day GIS Cache Sync Badge and Force-Refresh in project.html
+runTest('UI Verification: 30-Day GIS Cache Sync Badge and Force-Refresh Controller in project.html', () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+
+  assert.ok(projHtml.includes('id="header-gis-sync-badge"'), 'project.html must have header-gis-sync-badge');
+  assert.ok(projHtml.includes('id="header-gis-sync-text"'), 'project.html must have header-gis-sync-text');
+  assert.ok(projHtml.includes('forceRefreshCountyGis'), 'project.html must have forceRefreshCountyGis function');
+  assert.ok(projHtml.includes('isGisDataStale'), 'project.html must check isGisDataStale');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);

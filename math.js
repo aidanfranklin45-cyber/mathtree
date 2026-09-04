@@ -29,7 +29,7 @@ function calculateRemainingBalance(loanAmount, annualRate, termYears, elapsedYea
   return loanAmount * Math.pow(1 + r, p) - (monthlyPayment * (Math.pow(1 + r, p) - 1) / r);
 }
 
-// Helper to compute a 10-year annual amortization schedule across multiple financing types
+// Helper to compute an annual amortization schedule across multiple financing types (up to 30 years)
 function getAnnualAmortization(loanAmount, annualRate, termYears, options = {}) {
   const schedule = [];
   const finType = String(options.financingType || 'fixed').toLowerCase();
@@ -38,9 +38,11 @@ function getAnnualAmortization(loanAmount, annualRate, termYears, options = {}) 
   const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : (annualRate + 4.0);
   const ioYears = parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : (finType === 'interest_only' ? 3 : 0), 10);
   const balloonYear = parseInt(options.sellerFinanceBalloon || options.balloonYear || 0, 10);
+  const holdYears = parseInt(options.holdingPeriod || options.exitYear || options.holdYears || 10, 10);
+  const maxYears = Math.max(1, Math.min(30, isNaN(holdYears) ? 10 : holdYears));
 
   if (loanAmount <= 0 || termYears <= 0) {
-    for (let year = 1; year <= 10; year++) {
+    for (let year = 1; year <= maxYears; year++) {
       schedule.push({
         year,
         appliedRate: annualRate,
@@ -60,7 +62,7 @@ function getAnnualAmortization(loanAmount, annualRate, termYears, options = {}) 
   let currentBalance = loanAmount;
   let cumulativePrincipal = 0;
 
-  for (let year = 1; year <= 10; year++) {
+  for (let year = 1; year <= maxYears; year++) {
     const startBalance = currentBalance;
     let principalPaidThisYear = 0;
     let interestPaidThisYear = 0;
@@ -222,8 +224,9 @@ function calculateProjections(assetType, inputs) {
   const rentGrowth = parseFloat(inputs.rentGrowth) || parseFloat(inputs.annualRentGrowth) || 0;
   const expenseRatio = parseFloat(inputs.expenseRatio) || parseFloat(inputs.operatingExpenseRatio) || 0;
   const targetCapRate = parseFloat(inputs.targetCapRate) || parseFloat(inputs.targetExitCapRate) || parseFloat(inputs.exitCapRate) || parseFloat(inputs.appreciationRate) || 0;
-  const rawExitYear = parseInt(inputs.exitYear);
-  const exitYear = Math.max(1, Math.min(10, isNaN(rawExitYear) ? 10 : rawExitYear));
+  const rawExitYear = parseInt(inputs.exitYear !== undefined ? inputs.exitYear : (inputs.holdingPeriod !== undefined ? inputs.holdingPeriod : inputs.holdYears));
+  const exitYear = Math.max(1, Math.min(30, isNaN(rawExitYear) ? 10 : rawExitYear));
+  const holdingPeriod = exitYear;
 
   // Asset-specific initializations
   let initialPropertyValue = purchasePrice;
@@ -288,7 +291,8 @@ function calculateProjections(assetType, inputs) {
     armAdjustmentRate: inputs.armAdjustmentRate,
     armRateCap: inputs.armRateCap,
     interestOnlyYears: inputs.interestOnlyYears,
-    sellerFinanceBalloon: inputs.sellerFinanceBalloon
+    sellerFinanceBalloon: inputs.sellerFinanceBalloon,
+    holdingPeriod: holdingPeriod
   };
   const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm, finOptions);
 
@@ -299,7 +303,7 @@ function calculateProjections(assetType, inputs) {
   let purchaseCapRate = 0;
   let entryCapRate = targetCapRate;
 
-  for (let year = 1; year <= 10; year++) {
+  for (let year = 1; year <= holdingPeriod; year++) {
     // 1. Property Value appreciation & Rent growth
     if (year > 1) {
       currentGrossIncome = currentGrossIncome * (1 + rentGrowth / 100);
@@ -752,40 +756,47 @@ function calculateTaxAndDepreciation(assetType, inputs, baseResults) {
     year1Depreciation = bonusYr1 + straightLineYr1;
   }
 
+  const numYears = (baseResults && baseResults.projections) ? baseResults.projections.length : Math.max(1, Math.min(30, parseInt(inputs.holdingPeriod || inputs.exitYear || inputs.holdYears || 10, 10)));
+
   const yearlyTaxDetails = [];
   const afterTaxCashFlows = [];
   let accumDepreciation = 0;
 
-  for (let year = 1; year <= 10; year++) {
-    const proj = baseResults.projections[year - 1];
-    const amort = baseResults.amortizationSchedule[year - 1];
-    const interestExpense = amort ? amort.interestPaid : 0;
+  for (let year = 1; year <= numYears; year++) {
+    const proj = baseResults.projections[year - 1] || {};
+    const amort = (baseResults.amortizationSchedule && baseResults.amortizationSchedule[year - 1]) || {};
+    const interestExpense = amort ? (amort.interestPaid || 0) : 0;
     
-    const depForYear = (year === 1 && enableCostSeg) ? year1Depreciation : annualDepreciation;
+    let depForYear = (year === 1 && enableCostSeg) ? year1Depreciation : annualDepreciation;
+    if (accumDepreciation + depForYear > totalDepreciableBasis) {
+      depForYear = Math.max(0, totalDepreciableBasis - accumDepreciation);
+    }
     accumDepreciation += depForYear;
 
     // Taxable Income = NOI - Interest Expense - Depreciation
-    const taxableIncome = proj.netOperatingIncome - interestExpense - depForYear;
+    const noi = proj.netOperatingIncome || 0;
+    const cf = proj.cashFlow !== undefined ? proj.cashFlow : (noi - (amort.totalPayment || 0));
+    const taxableIncome = noi - interestExpense - depForYear;
     const taxLiability = taxableIncome * (taxRate / 100); // negative means tax shield / savings
-    const afterTaxCashFlow = proj.cashFlow - taxLiability;
+    const afterTaxCashFlow = cf - taxLiability;
 
     afterTaxCashFlows.push(afterTaxCashFlow);
 
     yearlyTaxDetails.push({
       year,
-      noi: proj.netOperatingIncome,
+      noi: noi,
       interestExpense: Math.round(interestExpense * 100) / 100,
       depreciation: Math.round(depForYear * 100) / 100,
       taxableIncome: Math.round(taxableIncome * 100) / 100,
       taxLiability: Math.round(taxLiability * 100) / 100,
-      preTaxCashFlow: proj.cashFlow,
+      preTaxCashFlow: cf,
       afterTaxCashFlow: Math.round(afterTaxCashFlow * 100) / 100
     });
   }
 
   // After-Tax Exit Analysis at exitYear
-  const rawExitYear = parseInt(inputs.exitYear);
-  const exitYear = Math.max(1, Math.min(10, isNaN(rawExitYear) ? 10 : rawExitYear));
+  const rawExitYear = parseInt(inputs.exitYear !== undefined ? inputs.exitYear : (inputs.holdingPeriod !== undefined ? inputs.holdingPeriod : inputs.holdYears));
+  const exitYear = Math.max(1, Math.min(numYears, isNaN(rawExitYear) ? numYears : rawExitYear));
   const exitProj = baseResults.projections[exitYear - 1];
   const exitValue = exitProj ? exitProj.propertyValue : purchasePrice;
   const exitLoanBalance = exitProj ? exitProj.loanBalanceRemaining : 0;
@@ -847,7 +858,7 @@ function calculateRefinanceEvent(assetType, baseInputs, refiYear = 3, refiLtv = 
   const updatedProjections = JSON.parse(JSON.stringify(baseRes.projections));
   let updatedCashInvested = baseRes.initialCashInvested;
 
-  for (let y = 1; y <= 10; y++) {
+  for (let y = 1; y <= updatedProjections.length; y++) {
     const p = updatedProjections[y - 1];
     if (y === targetYear) {
       // Cash out distribution at refi year
@@ -948,8 +959,17 @@ function aggregatePortfolio(dealsList) {
   let totalLoanAmount = 0;
   let totalUnitsOrDoors = 0;
 
+  let maxHold = 10;
+  dealsList.forEach(deal => {
+    const hold = parseInt(deal.inputs?.holdingPeriod || deal.inputs?.exitYear || deal.inputs?.holdYears || 10, 10);
+    if (!isNaN(hold) && hold > maxHold) maxHold = Math.min(30, hold);
+    if (deal.results && deal.results.projections && deal.results.projections.length > maxHold) {
+      maxHold = Math.min(30, deal.results.projections.length);
+    }
+  });
+
   const combinedProjections = [];
-  for (let year = 1; year <= 10; year++) {
+  for (let year = 1; year <= maxHold; year++) {
     combinedProjections.push({
       year,
       propertyValue: 0,
@@ -965,7 +985,7 @@ function aggregatePortfolio(dealsList) {
   }
 
   const portfolioIrrFlows = [];
-  for (let year = 1; year <= 10; year++) {
+  for (let year = 1; year <= maxHold; year++) {
     portfolioIrrFlows.push(0);
   }
 
@@ -988,7 +1008,7 @@ function aggregatePortfolio(dealsList) {
         combinedProjections[idx].cashFlow += p.cashFlow * qty;
         combinedProjections[idx].equity += p.equity * qty;
 
-        portfolioIrrFlows[idx] += (p.cashFlow * qty) + (idx === 9 ? (p.equity * qty) : 0);
+        portfolioIrrFlows[idx] += (p.cashFlow * qty) + (idx === (maxHold - 1) ? (p.equity * qty) : 0);
       }
     });
   });
