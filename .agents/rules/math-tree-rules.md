@@ -6,64 +6,39 @@ globs: "**/*"
 
 # AGENT OPERATIONAL RULES & SYSTEM DIRECTIVES (MATH TREE)
 
-## 1. ARCHITECTURAL INVARIANTS & DOMAIN LOGIC RULES
+---
+trigger: always_on
+description: Core architectural constraints, context limits, and execution standards for Math Tree.
+globs: "**/*"
+---
 
-### Directed Acyclic Graph (DAG) & Dependency Invariants (Strict Rule)
-- NEVER allow circular prerequisite dependencies within the skill tree. Every node addition or edge mutation must preserve the DAG structure.
-- Hardcoded curriculum sequences or static grade-level progressions are strictly forbidden. Mastery state, unlockable branches, and adaptive recommendation paths MUST be resolved dynamically via the tree engine and user mastery state.
-- Never hardcode dynamic exercise values, randomized coefficients, or tolerance thresholds as magic numbers in frontend UI components. All math problem generation parameters, seed ranges, and precision tolerances must come from domain configs or the database layer.
-- If a prerequisite node, edge dependency, or skill definition is missing or corrupt, throw a descriptive domain exception (`PrerequisiteResolutionError`) rather than falling back to an unverified static tree.
+# AGENT OPERATIONAL RULES (MATH TREE)
 
-### Execution Standards
-- All node evaluation and adaptive pathing functions must accept explicit user context, mastery vectors, and tree topology parameters.
-- Mathematical precision: Enforce symbolic or arbitrary-precision math libraries where applicable; do not use standard floating-point arithmetic for operations requiring exact fractions or algebraic equivalence checks.
-- Before completing any task touching the curriculum tree or recommendation engine, verify that no static progression maps, hardcoded problem answers, or cycle-inducing edges were introduced.
+## 1. ARCHITECTURAL INVARIANTS
+- **Strict DAG:** No circular prerequisite dependencies; mutations must preserve DAG integrity[cite: 1]. Missing dependencies must throw `PrerequisiteResolutionError`[cite: 1].
+- **Dynamic Curriculum:** Never hardcode grade levels, fixed progression maps, or problem solutions[cite: 1]. Resolve sequences dynamically via user mastery state and tree topology[cite: 1].
+- **Precision:** Use symbolic/arbitrary-precision libraries for algebraic equivalence and exact fractions—no raw floating-point calculations[cite: 1].
+- **Separation of Concerns:** Keep the graph solver and state machine decoupled from the visual layer (KaTeX/SVG/Canvas)[cite: 1]. Dynamic problem generator parameters must come from configs/database, never magic numbers[cite: 1].
 
 ---
 
-## 2. CONTEXT SELECTION & TOKEN OPTIMIZATION PROTOCOL
-
-Optimize context efficiency by gathering only the information necessary to resolve the prompt.
-
-- **Default to Focused Search:** Use targeted search tools (`grep`, `rg`, file/symbol search) to pinpoint relevant code rather than loading broad tree modules or directory trees.
-- **Targeted Context Reading:** Read only the relevant files or nodes related to the task (e.g., node renderer, tree visualizer, problem generator). Avoid bundling unrelated domain subtrees.
-- **Dependency Tracing (Graphify):** Use Graphify strictly when tracing cross-file tree node models, RPC endpoints, or database relations, scoped strictly to 1–2 hops.
-- **Full Bundling (Repomix):** Do not run full repository bundling tools unless explicitly requested for multi-file architectural refactors.
-- **Re-indexing:** Do not re-index context for localized UI edits, KaTeX/LaTeX formatting tweaks, or isolated CSS adjustments.
-
-### Rule Execution Matrix
-1. **Bug fix from a stack trace or isolated math renderer/UI tweak?** → **TIER 1** — Inspect 1 file / 1 function directly.
-2. **Feature requiring knowledge of an edge table, node schema, or RPC?** → **TIER 2** — Grep schema or run a localized 1-hop Graphify query.
-3. **Curriculum engine or platform-wide overhaul?** → **TIER 3** — Filtered Repomix bundle (only on explicit user request).
-
-### Re-Indexing Policy
-- **Minor Changes:** Do NOT re-index for CSS, KaTeX styling, minor bug fixes, or UI tweaks.
-- **Major Changes:** Execute `npm run refresh-context` ONLY after adding new curriculum modules, major database schemas, or new core routing systems.
+## 2. CONTEXT & TOKEN OPTIMIZATION
+- **Targeted Reading:** Inspect only the specific file or function relevant to the task[cite: 1]. Do not inspect broad directories or unrelated subtrees[cite: 1].
+- **Search Scope:** Pinpoint code using `grep` or symbol search[cite: 1]. Use Graphify strictly for multi-file models or RPCs limited to 1–2 hops[cite: 1].
+- **Bundling & Re-indexing:** Forbid full repository bundling (Repomix) and re-indexing (`npm run refresh-context`) unless explicitly requested by the user[cite: 1]. Never re-index for CSS, KaTeX styling, or isolated UI tweaks[cite: 1].
+- **Impasse Breaker:** If a tool call or script fails with the identical error twice, HALT immediately[cite: 1]. Do not attempt a third execution without user input or modified parameters[cite: 1].
 
 ---
 
-## 3. IMPASSE DETECTOR & LOOP CIRCUIT BREAKER
-- **Threshold:** If any tool call or script fails with the exact same error twice in a row, HALT immediately. Do NOT run it a 3rd time without altering inputs or verifying assumptions.
+## 3. STRICT TEST & EXECUTION PROTOCOL
+- **No Global Test Suites:** NEVER execute global test commands (`npm test`, `vitest run`, `jest`)[cite: 1]. Running the full suite is forbidden unless explicitly directed by the user.
+- **Single-File Targeting:** Run tests exclusively against the single file corresponding to the modified code using minimal output flags:
+  - Example: `npx vitest run test/unit/dag-cycle.test.ts --reporter=dot`
+- **Zero-Test Scope:** Do not run automated tests for CSS, styling, KaTeX formatting, or simple UI copy changes[cite: 1]. Verify via local dev server logs only[cite: 1].
+- **Trunk Commits:** When atomic logic passes local checks, commit with a concise message and push directly to `main` without triggering CI bottlenecks[cite: 1].
 
 ---
 
-## 4. PRACTICAL WORKFLOW & TRUNK-BASED INTEGRATION
-
-- **Iterate Locally First:** Edit files, verify layout/tree renders locally, and inspect client/server logs directly. Do NOT run full integration test suites for localized styling tweaks, LaTeX equation rendering adjustments, or simple UI copy changes. Run targeted tests (e.g., node traversal unit tests, DAG cycle validation suites) when altering core tree engines, mastery calculators, or database RPCs.
-- **Commit When the "Contract" Passes:** Once a discrete task (such as DAG cycle detection, a specific tree visualization layout, or a problem-generation step) passes verification, commit the change as a single atomic commit with a clear, descriptive message.
-- **Push on Verified Task Completion (High Velocity, No CI Bottlenecks):** Push verified commits directly to `main` (or merge short-lived branches) as soon as the task passes local checks to maintain rapid delivery.
-- **Deployment Protocol:** Run project-specific build and deploy commands (e.g., framework build/deploy or edge function synchronization) from the Math Tree workspace root only after successful local smoke testing.
-
----
-
-## 5. DATABASE PROTOCOL (Supabase MCP)
-- **Project ID:** `bgexwcepwbxvhxbpblhd`
-- Always use the Supabase MCP server (`execute_sql`, `list_tables`) as the primary database interface for tree relations, user mastery records, and problem stores.
-- Verify all schema changes, RLS policy adjustments, or edge constraint modifications with an immediate follow-up query.
-
----
-
-## 6. PROJECT REFERENCE & BOUNDARIES
-- **Domain:** Interactive mathematical knowledge graph, prerequisite tree engine, dynamic problem generation, and mastery tracking.
-- **Core Entities:** `nodes` (skills/topics), `edges` (prerequisites/dependencies), `user_mastery` (progress/state), `problem_templates` (generators).
-- Maintain clean separation between the mathematical graph solver/state machine and the visual rendering layer (e.g., SVG/Canvas/KaTeX).
+## 4. DATABASE INTERACTION
+- **Database Schema:** Reference local types (`supabase/types.ts`) or existing migration files first to inspect schema structures; avoid running schema inspection commands (`list_tables`) via MCP[cite: 1].
+- **Execution:** Execute targeted DDL/DML queries via Supabase MCP (`execute_sql`) only when updating tree relations, mastery records, or problem stores[cite: 1]. Verify alterations with a single, targeted `SELECT` query[cite: 1].

@@ -217,8 +217,9 @@
       const acres = parseFloat(attr.ACRES) || 0;
       const lotSqft = Math.round(acres * 43560);
 
-      const owner = [attr.FIRST_NAME, attr.LAST_NAME].filter(Boolean).join(' ') +
-        (attr.ORG_NAME ? (attr.FIRST_NAME || attr.LAST_NAME ? ' / ' : '') + attr.ORG_NAME : '');
+      const names = [attr.FIRST_NAME, attr.LAST_NAME].map(s => s ? String(s).trim() : '').filter(Boolean);
+      const org = attr.ORG_NAME ? String(attr.ORG_NAME).trim() : '';
+      const owner = names.length > 0 ? (names.join(' ') + (org ? ' / ' + org : '')) : (org || 'Owner of Record');
 
       // Building specifications & architecture characteristics
       const rawYearBuilt = commAttr.YEAR_BUILT || (charAttr.YEAR_BLT ? parseInt(charAttr.YEAR_BLT, 10) : null) || null;
@@ -238,14 +239,22 @@
       const bedrooms = charAttr.BEDROOMS ? parseInt(charAttr.BEDROOMS, 10) : null;
       const bathrooms = charAttr.FULL_BATH ? (parseFloat(charAttr.FULL_BATH) + (parseFloat(charAttr.HALF_BATH || 0) * 0.5)) : null;
 
+      const cleanZone = (s) => (s && typeof s === 'string' && s.trim() && s.trim() !== 'N/A') ? s.trim() : null;
+      const resolvedZoning = cleanZone(attr.CYAK_ZONG) || cleanZone(attr.CNY_ZONE) || cleanZone(attr.CNYZONE) || cleanZone(attr.UG_ZONING) || cleanZone(attr.UAZO_ZONE) || 'Commercial / Mixed';
+
+      const situsStreet = attr.SITUS_ADDR ? String(attr.SITUS_ADDR).trim() : '';
+      const situsCity = attr.SITUS_CITY ? String(attr.SITUS_CITY).trim() : 'Yakima';
+      const situsZip = attr.SITUS_ZIP ? String(attr.SITUS_ZIP).trim() : '';
+      const cleanAddress = situsStreet ? `${situsStreet}, ${situsCity}, WA${situsZip ? ' ' + situsZip : ''}` : 'Yakima, WA';
+
       return {
         apn: cleanedApn,
         formattedApn: cleanedApn.length === 11 ? (cleanedApn.slice(0, 6) + '-' + cleanedApn.slice(6)) : cleanedApn,
-        address: [attr.SITUS_ADDR, attr.SITUS_CITY, 'WA', attr.SITUS_ZIP].filter(Boolean).join(', '),
-        street: attr.SITUS_ADDR || '',
-        city: attr.SITUS_CITY || 'Yakima',
+        address: cleanAddress,
+        street: situsStreet,
+        city: situsCity,
         state: 'WA',
-        zip: attr.SITUS_ZIP || '',
+        zip: situsZip,
         acres: Math.round(acres * 1000) / 1000,
         sqft: lotSqft,
         lotSqft,
@@ -253,10 +262,10 @@
         marketImprovementValue: impVal,
         totalAssessedValue: totalVal,
         taxYear: attr.TAX_YEAR || new Date().getFullYear(),
-        zoning: attr.CNY_ZONE || attr.CYAK_ZONG || attr.UG_ZONING || attr.UAZO_ZONE || 'Standard',
-        useCode: attr.USE_CODE || 'General Commercial / Residential',
-        owner: owner || 'Owner of Record',
-        legalDescription: attr.LEGAL || '',
+        zoning: resolvedZoning,
+        useCode: attr.USE_CODE ? String(attr.USE_CODE).trim() : 'General Commercial / Residential',
+        owner: owner,
+        legalDescription: attr.LEGAL ? String(attr.LEGAL).trim() : '',
         waterSource: attr.WATER_SRC || 'Municipal / District',
         sewerSource: attr.SEWER_SRC || 'Public Sewer',
         assessorPortalUrl: YAKIMA_ASCEND_PORTAL + '?mParcelID=' + cleanedApn,

@@ -631,39 +631,37 @@ runTest('MathTreeSession - Logout clears session storage and triggers signOut', 
   assert.strictEqual(signOutCalled, true);
 });
 
-runTest('Pitch Deck - project.html exposes openDealPitchDeck & openPitchDeck globally and matches buttons', () => {
+runTest('Header Simplification - project.html has compact dropdown menu and no pitch deck button', () => {
   const fs = require('fs');
   const projHtml = fs.readFileSync('project.html', 'utf8');
 
-  // Verify header button exists with ID and onclick handler
-  assert.ok(projHtml.includes('id="btn-pitch-deck"'), 'Header pitch deck button should have id="btn-pitch-deck"');
-  assert.ok(projHtml.includes('onclick="openDealPitchDeck()"'), 'Header button calls openDealPitchDeck()');
+  // Compact kebab dropdown must exist
+  assert.ok(projHtml.includes('id="project-header-menu"'), 'Compact dropdown must have id="project-header-menu"');
+  assert.ok(projHtml.includes('toggleProjectHeaderMenu'), 'Header must call toggleProjectHeaderMenu');
 
-  // Verify global window attachment for openDealPitchDeck
-  assert.ok(projHtml.includes('window.openDealPitchDeck = openDealPitchDeck'), 'openDealPitchDeck must be attached to window');
-  assert.ok(projHtml.includes('window.openPitchDeck = openPitchDeck'), 'openPitchDeck must be attached to window');
-  assert.ok(projHtml.includes('window.closePitchDeck = closePitchDeck'), 'closePitchDeck must be attached to window');
+  // Pitch deck button and modal must be gone
+  assert.ok(!projHtml.includes('id="btn-pitch-deck"'), 'Pitch deck button must be removed from header');
+  assert.ok(!projHtml.includes('id="pitch-deck-modal"'), 'Pitch deck modal must be removed from project.html');
 
-  // Verify modal elements exist
-  assert.ok(projHtml.includes('id="pitch-deck-modal"'), 'Modal element must exist in project.html');
-  assert.ok(projHtml.includes('id="btn-pitch-close"'), 'Close button must exist in project.html modal');
+  // PDF and CSV must be in the dropdown
+  assert.ok(projHtml.includes('exportToPDF()'), 'Print PDF action must exist in project.html');
+  assert.ok(projHtml.includes('exportToCSV()'), 'Download CSV action must exist in project.html');
 });
 
-runTest('Pitch Deck - dashboard.html exposes openProjectPitchDeck & openPitchDeck globally with propagation protection', () => {
+runTest('Deal Card Exports - dashboard.html has PDF/CSV in card dropdown and no pitch-deck-modal', () => {
   const fs = require('fs');
   const dashHtml = fs.readFileSync('dashboard.html', 'utf8');
 
-  // Verify card dropdown pitch deck button stops propagation
-  assert.ok(dashHtml.includes("event.stopPropagation(); openProjectPitchDeck('${d.id}')"), 'Dashboard card pitch deck button stops event bubbling');
+  // Card dropdown must have PDF and CSV export buttons with propagation guard
+  assert.ok(dashHtml.includes("event.stopPropagation(); exportDashboardDealPDF"), 'Dashboard card PDF button stops event bubbling');
+  assert.ok(dashHtml.includes('window.exportDashboardDealPDF'), 'exportDashboardDealPDF must be attached to window');
+  assert.ok(dashHtml.includes('window.exportDashboardDealCSV'), 'exportDashboardDealCSV must be attached to window');
 
-  // Verify openProjectPitchDeck and openPitchDeck are attached to window
-  assert.ok(dashHtml.includes('window.openProjectPitchDeck = openProjectPitchDeck'), 'openProjectPitchDeck must be attached to window');
-  assert.ok(dashHtml.includes('window.openPitchDeck = openPitchDeck'), 'openPitchDeck must be attached to window');
-  assert.ok(dashHtml.includes('window.closePitchDeck = closePitchDeck'), 'closePitchDeck must be attached to window');
+  // printable-brief div must exist for renderDashboardPrintableBrief
+  assert.ok(dashHtml.includes('id="printable-brief"'), 'printable-brief container must exist in dashboard.html');
 
-  // Verify modal elements exist
-  assert.ok(dashHtml.includes('id="pitch-deck-modal"'), 'Modal element must exist in dashboard.html');
-  assert.ok(dashHtml.includes('id="pitch-summary-price"'), 'pitch-summary-price element must exist in dashboard.html');
+  // Pitch deck modal must be gone
+  assert.ok(!dashHtml.includes('id="pitch-deck-modal"'), 'pitch-deck-modal must be removed from dashboard.html');
 });
 
 runTest('Zero Equity (0% Down / 100% LTV) - Institutional N/M Return Standards', () => {
@@ -1640,6 +1638,26 @@ runTest('Wizard & Project: Assessor data persists into deal inputs and enables l
   const fs = require('fs');
   const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
   assert.ok(dashHtml.includes('assessorData: _wizAssessorCache || null'), 'Wizard inputs must persist assessorData');
+  assert.ok(dashHtml.includes('owner: _wizAssessorCache?.owner || null'), 'Wizard inputs must persist owner');
+});
+
+runTest('Live County Assessor: Auto-hydrates Owner of Record, Building Characteristics, and 1-click parcel resolution', async () => {
+  const fs = require('fs');
+  const projHtml = fs.readFileSync('./project.html', 'utf8');
+  
+  // Verify 2239 Longfibre Rd sample parcel chip and warning banner buttons exist
+  assert.ok(projHtml.includes("quickLinkDossierParcel('19133143417'"), 'project.html must include 1-click quick-link for 2239 Longfibre Rd (APN 19133143417)');
+  assert.ok(projHtml.includes('2239 LONGFIBRE RD'), 'project.html must feature 2239 Longfibre Rd sample parcel chip');
+  assert.ok(projHtml.includes('id="dossier-unlinked-warning"'), 'Warning banner exists for unlinked generic locations');
+
+  // Verify auto-hydration triggers when owner is missing or default
+  assert.ok(projHtml.includes("rawAssessor.owner === 'Owner of Record'"), 'updateCountyDossierUI auto-fetches when owner is Owner of Record');
+  assert.ok(projHtml.includes('fetchYakimaAssessorData(propApn)'), 'updateCountyDossierUI calls fetchYakimaAssessorData');
+
+  // Verify AddressService parsing for AMJ Valley Mall / 2239 Longfibre Rd
+  const AddressServiceCode = fs.readFileSync('./address-service.js', 'utf8');
+  assert.ok(AddressServiceCode.includes('attr.ORG_NAME'), 'AddressService parses organization owner name');
+  assert.ok(AddressServiceCode.includes('CYAK_ZONG'), 'AddressService resolves CYAK_ZONG zoning');
 });
 
 console.log(`\n--- Unit Test Suite Completed ---`);
