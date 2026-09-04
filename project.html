@@ -3535,13 +3535,14 @@
     let activeDashboardProjects = [];
     let currentDashFilter = 'all';
 
-    const defaultCuratedProjects = [
+    const defaultSyntheticBenchmarks = [
       {
-        id: 'proj-comm-01',
-        name: 'Westfield Industrial Center',
+        id: 'bench-comm-01',
+        name: 'Benchmark Alpha: Class-A Industrial Facility',
         asset_class: 'commercial',
         status: 'prospect',
-        location: 'Austin, TX',
+        location: 'Synthetic Model • Generic Metro',
+        is_synthetic: true,
         purchase_price: 1200000,
         irr: 17.86,
         equity_multiple: 2.35,
@@ -3569,11 +3570,12 @@
         }
       },
       {
-        id: 'proj-mu-02',
-        name: 'Oakridge 12-Plex Multi-Family',
+        id: 'bench-mu-02',
+        name: 'Benchmark Beta: 12-Unit Multifamily Value-Add',
         asset_class: 'multi-unit',
         status: 'owned',
-        location: 'Atlanta, GA',
+        location: 'Synthetic Model • Generic Metro',
+        is_synthetic: true,
         purchase_price: 1850000,
         irr: 14.82,
         equity_multiple: 2.45,
@@ -3598,11 +3600,12 @@
         }
       },
       {
-        id: 'proj-store-03',
-        name: 'Pecan Grove Self-Storage Hub',
+        id: 'bench-store-03',
+        name: 'Benchmark Delta: Automated Self-Storage Facility',
         asset_class: 'storage',
         status: 'prospect',
-        location: 'Phoenix, AZ',
+        location: 'Synthetic Model • Generic Metro',
+        is_synthetic: true,
         purchase_price: 950000,
         irr: 18.56,
         equity_multiple: 2.70,
@@ -3628,11 +3631,12 @@
         }
       },
       {
-        id: 'proj-sf-04',
-        name: 'Highland Executive BRRRR',
+        id: 'bench-sf-04',
+        name: 'Benchmark Gamma: Single-Family BRRRR Case',
         asset_class: 'single-family',
         status: 'owned',
-        location: 'Raleigh, NC',
+        location: 'Synthetic Model • Generic Metro',
+        is_synthetic: true,
         purchase_price: 420000,
         irr: 13.90,
         equity_multiple: 2.28,
@@ -3658,12 +3662,17 @@
       }
     ];
 
+    function getActiveStorageKey() {
+      const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
+      return isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
+    }
+
     async function loadDashboardProjects(filter = currentDashFilter) {
       currentDashFilter = filter;
 
       let storedDeals = [];
       try {
-        const raw = localStorage.getItem('mathtree_local_deals');
+        const raw = localStorage.getItem(getActiveStorageKey());
         if (raw) storedDeals = JSON.parse(raw);
       } catch (e) {}
 
@@ -3830,7 +3839,7 @@
       }
       activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
       try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+        localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
       } catch (e) {}
       loadDashboardProjects();
     }
@@ -3841,8 +3850,8 @@
 
     const wizardAssetDefaults = {
       'single-family': {
-        name: 'Highland Executive SFR',
-        location: 'Raleigh, NC',
+        name: 'Benchmark Gamma: Single-Family BRRRR Case',
+        location: 'Synthetic Model • Generic Metro',
         gla: 2400,
         price: 450000,
         down: 20,
@@ -3860,8 +3869,8 @@
         apprec: 3.5
       },
       'multi-unit': {
-        name: 'Oakridge 12-Plex Multi-Family',
-        location: 'Atlanta, GA',
+        name: 'Benchmark Beta: 12-Unit Multifamily Value-Add',
+        location: 'Synthetic Model • Generic Metro',
         gla: 11000,
         price: 1850000,
         down: 25,
@@ -3879,8 +3888,8 @@
         apprec: 4.0
       },
       'commercial': {
-        name: 'Westfield Industrial Center',
-        location: 'Austin, TX',
+        name: 'Benchmark Alpha: Class-A Industrial Facility',
+        location: 'Synthetic Model • Generic Metro',
         gla: 15000,
         price: 1200000,
         down: 25,
@@ -3898,8 +3907,8 @@
         apprec: 3.5
       },
       'storage': {
-        name: 'Pecan Grove Self-Storage Hub',
-        location: 'Phoenix, AZ',
+        name: 'Benchmark Delta: Automated Self-Storage Facility',
+        location: 'Synthetic Model • Generic Metro',
         gla: 22000,
         price: 950000,
         down: 30,
@@ -4142,7 +4151,7 @@
 
       activeDashboardProjects.unshift(createdDeal);
       try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+        localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
       } catch (e) {}
 
       closeProjectWizard();
@@ -4956,16 +4965,18 @@
         }
       }
 
-      // 2. Fallback to localStorage or curated defaults
+      // 2. Fallback to isolated storage or synthetic benchmark defaults
       if (!currentLoadedDeal) {
+        const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
+        const storageKey = isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
         let allDeals = [];
         try {
-          const raw = localStorage.getItem('mathtree_local_deals');
+          const raw = localStorage.getItem(storageKey);
           if (raw) allDeals = JSON.parse(raw);
         } catch(e) {}
 
         if (!allDeals || allDeals.length === 0) {
-          allDeals = defaultCuratedProjects;
+          allDeals = defaultSyntheticBenchmarks;
         }
 
         currentLoadedDeal = (currentLoadedDealId && allDeals.find(d => d.id === currentLoadedDealId)) || allDeals[0];
@@ -5083,9 +5094,11 @@
       currentLoadedDeal.total_equity = res.initialCashInvested;
       currentLoadedDeal.results = res;
 
+      const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
+      const storageKey = isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
       let allDeals = [];
       try {
-        const raw = localStorage.getItem('mathtree_local_deals');
+        const raw = localStorage.getItem(storageKey);
         if (raw) allDeals = JSON.parse(raw);
       } catch(e) {}
 
@@ -5095,7 +5108,7 @@
       } else {
         allDeals.push(currentLoadedDeal);
       }
-      localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
+      localStorage.setItem(storageKey, JSON.stringify(allDeals));
 
       // Also sync to Supabase if authenticated
       const user = window._currentUser;

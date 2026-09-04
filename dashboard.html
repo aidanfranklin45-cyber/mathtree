@@ -272,7 +272,7 @@
         <div id="wizard-step-1" class="space-y-5">
           <div class="space-y-1.5">
             <label for="wiz-deal-name" class="text-xs font-bold uppercase tracking-wider text-slate-300">Project / Deal Name</label>
-            <input type="text" id="wiz-deal-name" placeholder="e.g. Highland Industrial Center" value="Highland Industrial Center" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-medium">
+            <input type="text" id="wiz-deal-name" placeholder="e.g. Industrial Logistics Center Alpha" value="Industrial Facility Model Alpha" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-medium">
           </div>
 
           <input type="hidden" id="wiz-asset-class" value="commercial">
@@ -657,13 +657,14 @@
     let currentAssetFilter = 'all';  // 'all' | 'single-family' | 'multi-unit' | 'commercial' | 'storage'
     let activeDashboardProjects = [];
 
-    const defaultCuratedProjects = [
+    const defaultSyntheticBenchmarks = [
       {
-        id: 'proj-comm-01',
-        name: 'Westfield Industrial Center',
+        id: 'bench-comm-01',
+        name: 'Benchmark Alpha: Class-A Industrial Facility',
         asset_class: 'commercial',
         status: 'prospect', // Underwriting prospect
-        location: 'Austin, TX',
+        location: 'Synthetic Pro-Forma • Generic Metro',
+        is_synthetic: true,
         purchase_price: 1200000,
         irr: 17.86,
         equity_multiple: 2.35,
@@ -674,7 +675,7 @@
           purchasePrice: 1200000,
           downPaymentPercent: 25,
           interestRate: 6.5,
-          loanTerm: parseFloat(document.getElementById('wiz-amortization')?.value) || 25,
+          loanTerm: 25,
           rehabCosts: 50000,
           closingCosts: 24000,
           grossRentAnnual: 150000,
@@ -686,11 +687,12 @@
         }
       },
       {
-        id: 'proj-mu-02',
-        name: 'Oakridge 12-Plex Multi-Family',
+        id: 'bench-mu-02',
+        name: 'Benchmark Beta: 12-Unit Multifamily Value-Add',
         asset_class: 'multi-unit',
         status: 'owned', // Currently owned portfolio asset
-        location: 'Atlanta, GA',
+        location: 'Synthetic Pro-Forma • Generic Metro',
+        is_synthetic: true,
         purchase_price: 1850000,
         irr: 14.82,
         equity_multiple: 2.45,
@@ -710,11 +712,37 @@
         }
       },
       {
-        id: 'proj-store-03',
-        name: 'Pecan Grove Self-Storage Hub',
+        id: 'bench-sf-03',
+        name: 'Benchmark Gamma: Single-Family BRRRR Case',
+        asset_class: 'single-family',
+        status: 'owned', // Currently owned portfolio asset
+        location: 'Synthetic Pro-Forma • Generic Metro',
+        is_synthetic: true,
+        purchase_price: 420000,
+        irr: 13.90,
+        equity_multiple: 2.28,
+        cash_on_cash: 7.80,
+        year1_cashflow: 8190,
+        total_equity: 127400,
+        inputs: {
+          purchasePrice: 420000,
+          downPaymentPercent: 20,
+          interestRate: 6.75,
+          loanTerm: 30,
+          rehabCosts: 35000,
+          monthlyRent: 3100,
+          operatingExpenseRatio: 35,
+          targetExitCapRate: 6.5,
+          vacancyRate: 5
+        }
+      },
+      {
+        id: 'bench-store-04',
+        name: 'Benchmark Delta: Automated Self-Storage Facility',
         asset_class: 'storage',
         status: 'prospect', // Underwriting prospect
-        location: 'Phoenix, AZ',
+        location: 'Synthetic Pro-Forma • Generic Metro',
+        is_synthetic: true,
         purchase_price: 950000,
         irr: 18.56,
         equity_multiple: 2.70,
@@ -733,36 +761,24 @@
           vacancyRate: 8,
           isAutomated: true
         }
-      },
-      {
-        id: 'proj-sf-04',
-        name: 'Highland Executive BRRRR',
-        asset_class: 'single-family',
-        status: 'owned', // Currently owned portfolio asset
-        location: 'Raleigh, NC',
-        purchase_price: 420000,
-        irr: 13.90,
-        equity_multiple: 2.28,
-        cash_on_cash: 7.80,
-        year1_cashflow: 8190,
-        total_equity: 127400,
-        inputs: {
-          purchasePrice: 420000,
-          downPaymentPercent: 20,
-          interestRate: 6.75,
-          loanTerm: 30,
-          rehabCosts: 35000,
-          monthlyRent: 3100,
-          operatingExpenseRatio: 35,
-          targetExitCapRate: 6.5,
-          vacancyRate: 5
-        }
       }
     ];
 
     function formatCurrency(val) {
       if (!val || isNaN(val)) return '$0';
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    }
+
+    // === Isolated Storage Key Selector ===
+    function getActiveStorageKey() {
+      const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
+      return isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
+    }
+
+    function saveActiveDealsToStorage() {
+      try {
+        localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
+      } catch(e) {}
     }
 
     // === Helper: Map Supabase DB record to App Deal Model ===
@@ -775,6 +791,7 @@
         asset_class: d.asset_type || d.asset_class || 'commercial',
         status: d.status || 'prospect',
         location: d.location || 'United States',
+        is_synthetic: !!d.is_synthetic,
         purchase_price: d.purchase_price || inputs.purchasePrice || 0,
         irr: d.irr || m.irr || 0,
         equity_multiple: d.equity_multiple || m.equityMultiplier || 2.0,
@@ -800,50 +817,34 @@
       return null;
     }
 
-    // === Helper: Seed initial starter deals into Supabase for a new user ===
-    async function seedUserStarterDeals(userId) {
-      if (!window._supabase || !userId) return;
-      try {
-        const rows = defaultCuratedProjects.map(p => ({
-          user_id: userId,
-          title: p.name,
-          asset_type: p.asset_class,
-          status: p.status,
-          location: p.location,
-          purchase_price: p.purchase_price,
-          irr: p.irr,
-          equity_multiple: p.equity_multiple,
-          cash_on_cash: p.cash_on_cash,
-          year1_cashflow: p.year1_cashflow,
-          total_equity: p.total_equity,
-          inputs: p.inputs,
-          metrics: {
-            irr: p.irr,
-            equityMultiplier: p.equity_multiple,
-            year1CoC: p.cash_on_cash,
-            year1CashFlow: p.year1_cashflow,
-            initialCashInvested: p.total_equity
-          }
-        }));
-        await window._supabase.from('deals').insert(rows);
-      } catch(e) {
-        console.warn('Error seeding starter deals:', e);
-      }
-    }
-
     // === Dynamic Dashboard Data Loader & Supabase Sync ===
     async function loadDashboardProjects() {
       const user = await getSupabaseUser();
       let loadedFromSupabase = false;
 
-      // Update greeting and user email
+      // Update greeting and user email with privacy controls
       if (user) {
-        const greeting = document.getElementById('dash-greeting-name');
-        if (greeting) {
-          greeting.textContent = (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        const heroTitle = document.getElementById('dash-hero-title');
+        const heroSub = document.getElementById('dash-hero-sub');
+        const privacyBadge = document.getElementById('demo-privacy-badge');
+
+        if (user.demo) {
+          if (heroTitle) heroTitle.innerHTML = 'Institutional <span class="text-brand-400">Sandbox</span>';
+          if (heroSub) heroSub.textContent = 'Welcome to your isolated modeling sandbox. Explore MathTree\'s pro-forma engine and scenario modeling with synthetic benchmark models. No personal or privileged user data is loaded.';
+          if (privacyBadge) privacyBadge.classList.remove('hidden');
+        } else {
+          if (heroTitle) heroTitle.innerHTML = 'Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>';
+          const greeting = document.getElementById('dash-greeting-name');
+          if (greeting) {
+            greeting.textContent = (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+          }
+          if (privacyBadge) privacyBadge.classList.add('hidden');
         }
+
         const emailEl = document.getElementById('cloud-user-email');
-        if (emailEl && user.email) emailEl.textContent = user.email;
+        if (emailEl) {
+          emailEl.textContent = user.demo ? 'Guest Sandbox (No Personal Data)' : (user.email || 'investor@mathtree.io');
+        }
       }
 
       // 1. If signed in with a real Supabase user, fetch DYNAMICALLY from Supabase deals table
@@ -856,42 +857,46 @@
             .order('created_at', { ascending: false });
 
           if (!error && data) {
-            if (data.length > 0) {
-              activeDashboardProjects = data.map(mapSupabaseDeal);
-              loadedFromSupabase = true;
-            } else {
-              // First time this user signed in: seed initial starter portfolio in Supabase for them
-              await seedUserStarterDeals(user.id);
-              const recheck = await window._supabase.from('deals').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-              if (recheck.data && recheck.data.length > 0) {
-                activeDashboardProjects = recheck.data.map(mapSupabaseDeal);
-                loadedFromSupabase = true;
-              }
-            }
+            activeDashboardProjects = data.map(mapSupabaseDeal);
+            loadedFromSupabase = true;
           }
         } catch (err) {
           console.warn('Supabase fetch error, falling back to local deals:', err);
         }
-      }
 
-      // 2. Fallback to localStorage or default curated projects if not loaded from Supabase
-      if (!loadedFromSupabase) {
-        let storedDeals = [];
+        if (!loadedFromSupabase) {
+          let storedDeals = [];
+          try {
+            const raw = localStorage.getItem('mathtree_local_deals');
+            if (raw) storedDeals = JSON.parse(raw);
+          } catch (e) {}
+          activeDashboardProjects = storedDeals || [];
+        }
+
+        // Cache this user's deals locally
         try {
-          const raw = localStorage.getItem('mathtree_local_deals');
-          if (raw) storedDeals = JSON.parse(raw);
+          localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+        } catch(e) {}
+      } else {
+        // 2. DEMO MODE: STRICTLY ISOLATED TO mathtree_demo_deals (NEVER READS mathtree_local_deals)
+        let demoDeals = [];
+        try {
+          const raw = localStorage.getItem('mathtree_demo_deals');
+          if (raw) demoDeals = JSON.parse(raw);
         } catch (e) {}
 
-        if (!storedDeals || storedDeals.length === 0) {
-          storedDeals = defaultCuratedProjects;
-          localStorage.setItem('mathtree_local_deals', JSON.stringify(storedDeals));
+        if (!demoDeals || demoDeals.length === 0) {
+          demoDeals = JSON.parse(JSON.stringify(defaultSyntheticBenchmarks));
+          try {
+            localStorage.setItem('mathtree_demo_deals', JSON.stringify(demoDeals));
+          } catch(e) {}
         }
-        activeDashboardProjects = storedDeals;
+        activeDashboardProjects = demoDeals;
       }
 
       // Sync local cache
       try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+        localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
       } catch(e) {}
 
       // Calculate separate metrics for Owned vs Pipeline
@@ -1037,7 +1042,10 @@
                 <div class="flex items-center space-x-2 shrink-0">
                   <div class="flex flex-col items-end gap-1">
                     ${statusBadge}
-                    <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 capitalize">${aClass.replace('-', ' ')}</span>
+                    <div class="flex items-center space-x-1">
+                      ${d.is_synthetic ? '<span class="text-[8px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">Synthetic Benchmark</span>' : ''}
+                      <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 capitalize">${aClass.replace('-', ' ')}</span>
+                    </div>
                   </div>
 
                   <!-- Dropdown Menu Trigger -->
@@ -1134,10 +1142,8 @@
       const nextStatus = deal.status === 'owned' ? 'prospect' : 'owned';
       deal.status = nextStatus;
       
-      // Update local storage
-      try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-      } catch(e) {}
+      // Update isolated storage
+      saveActiveDealsToStorage();
 
       // Await database write if connected
       const user = await getSupabaseUser();
@@ -1192,9 +1198,7 @@
       const id = targetDeleteDealId;
 
       activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
-      try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-      } catch(e) {}
+      saveActiveDealsToStorage();
 
       const user = await getSupabaseUser();
       if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
@@ -1310,9 +1314,7 @@
         initialCashInvested: res.initialCashInvested
       };
 
-      try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-      } catch(e) {}
+      saveActiveDealsToStorage();
 
       // Sync update to Supabase
       const user = await getSupabaseUser();
@@ -1354,8 +1356,8 @@
 
     const wizardAssetDefaults = {
       'single-family': {
-        name: 'Highland Executive SFR',
-        location: 'Raleigh, NC',
+        name: 'Benchmark Gamma: Single-Family BRRRR Case',
+        location: 'Synthetic Model • Generic Metro',
         gla: 2400,
         price: 450000,
         down: 20,
@@ -1373,8 +1375,8 @@
         apprec: 3.5
       },
       'multi-unit': {
-        name: 'Oakridge 12-Plex Multi-Family',
-        location: 'Atlanta, GA',
+        name: 'Benchmark Beta: 12-Unit Multifamily Value-Add',
+        location: 'Synthetic Model • Generic Metro',
         gla: 11000,
         price: 1850000,
         down: 25,
@@ -1392,8 +1394,8 @@
         apprec: 4.0
       },
       'commercial': {
-        name: 'Westfield Industrial Center',
-        location: 'Austin, TX',
+        name: 'Benchmark Alpha: Class-A Industrial Facility',
+        location: 'Synthetic Model • Generic Metro',
         gla: 15000,
         price: 1200000,
         down: 25,
@@ -1411,8 +1413,8 @@
         apprec: 3.5
       },
       'storage': {
-        name: 'Pecan Grove Self-Storage Hub',
-        location: 'Phoenix, AZ',
+        name: 'Benchmark Delta: Automated Self-Storage Facility',
+        location: 'Synthetic Model • Generic Metro',
         gla: 22000,
         price: 950000,
         down: 30,
@@ -1613,9 +1615,7 @@
       };
 
       activeDashboardProjects.unshift(newDeal);
-      try {
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-      } catch(e) {}
+      saveActiveDealsToStorage();
 
       closeProjectWizard();
       loadDashboardProjects();
@@ -1665,11 +1665,15 @@
     }
 
     function handleCloudSignOut() {
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+        localStorage.removeItem('mathtree_demo_deals');
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
       if (window.MathTreeSession) {
         window.MathTreeSession.logout('user', window._supabase);
       } else {
         if (window._supabase) window._supabase.auth.signOut();
-        localStorage.removeItem('mathtree_demo_mode');
         window.location.replace('index.html');
       }
     }
@@ -1677,14 +1681,28 @@
     
 
     document.addEventListener('DOMContentLoaded', () => {
-      // Set greeting
+      // Set greeting with demo privacy isolation
       const user = window._currentUser;
+      const heroTitle = document.getElementById('dash-hero-title');
+      const heroSub = document.getElementById('dash-hero-sub');
+      const privacyBadge = document.getElementById('demo-privacy-badge');
       const greeting = document.getElementById('dash-greeting-name');
-      if (greeting && user) {
-        greeting.textContent = (user.user_metadata?.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
-      }
       const emailEl = document.getElementById('cloud-user-email');
-      if (emailEl && user && user.email) emailEl.textContent = user.email;
+
+      if (user && user.demo) {
+        if (heroTitle) heroTitle.innerHTML = 'Institutional <span class="text-brand-400">Sandbox</span>';
+        if (heroSub) heroSub.textContent = 'Welcome to your isolated modeling sandbox. Explore MathTree\'s pro-forma engine and scenario modeling with synthetic benchmark models. No personal or privileged user data is loaded.';
+        if (privacyBadge) privacyBadge.classList.remove('hidden');
+        if (emailEl) emailEl.textContent = 'Guest Sandbox (No Personal Data)';
+      } else if (user) {
+        if (heroTitle) heroTitle.innerHTML = 'Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>';
+        const freshGreeting = document.getElementById('dash-greeting-name');
+        if (freshGreeting) {
+          freshGreeting.textContent = (user.user_metadata?.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+        }
+        if (privacyBadge) privacyBadge.classList.add('hidden');
+        if (emailEl && user.email) emailEl.textContent = user.email;
+      }
 
       // Load Projects
       loadDashboardProjects();
