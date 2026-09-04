@@ -6043,10 +6043,10 @@
             if (window.AddressService.aggregateParcelPackage) {
               const pkg = window.AddressService.aggregateParcelPackage(deal.inputs.parcels);
               deal.inputs.totalAssessedValue = pkg.totalAssessedValue;
-              deal.inputs.marketLandValue = pkg.marketLandValue;
-              deal.inputs.marketImprovementValue = pkg.marketImprovementValue;
-              deal.inputs.acres = pkg.acres;
-              deal.inputs.sqft = pkg.sqft;
+              deal.inputs.marketLandValue = pkg.totalLandValue ?? pkg.marketLandValue;
+              deal.inputs.marketImprovementValue = pkg.totalImprovementValue ?? pkg.marketImprovementValue;
+              deal.inputs.acres = pkg.totalAcres ?? pkg.acres;
+              deal.inputs.sqft = pkg.totalSqFt ?? pkg.sqft;
             }
 
             if (typeof autoSaveDealToSupabase === 'function') {
@@ -6123,8 +6123,13 @@
 
       if (window.AddressService && window.AddressService.aggregateParcelPackage) {
         const pkg = window.AddressService.aggregateParcelPackage(parcels);
+        const acresVal = (pkg.totalAcres ?? pkg.acres ?? 0);
+        const landVal = (pkg.totalLandValue ?? pkg.marketLandValue ?? 0);
+        const impVal = (pkg.totalImprovementValue ?? pkg.marketImprovementValue ?? 0);
+        const sqftVal = (pkg.totalSqFt ?? pkg.sqft ?? 0);
+
         if (sumVal) {
-          sumVal.textContent = '$' + pkg.totalAssessedValue.toLocaleString() + ' (' + pkg.acres + ' Acres • ' + pkg.totalParcels + ' Parcels)';
+          sumVal.textContent = '$' + pkg.totalAssessedValue.toLocaleString() + ' (' + acresVal + ' Acres • ' + pkg.totalParcels + ' Parcels)';
         }
         const apnPill = document.getElementById('dossier-apn-pill');
         if (apnPill && pkg.totalParcels > 1) {
@@ -6137,11 +6142,15 @@
         }
         const splitEl = document.getElementById('dossier-split-val');
         if (splitEl) {
-          splitEl.textContent = '$' + pkg.marketLandValue.toLocaleString() + ' / $' + pkg.marketImprovementValue.toLocaleString();
+          splitEl.textContent = '$' + landVal.toLocaleString() + ' / $' + impVal.toLocaleString();
         }
         const lotEl = document.getElementById('dossier-lot-size');
         if (lotEl) {
-          lotEl.textContent = pkg.acres + ' Acres';
+          lotEl.textContent = acresVal + ' Acres';
+        }
+        const lotSqftEl = document.getElementById('dossier-lot-sqft');
+        if (lotSqftEl && sqftVal > 0) {
+          lotSqftEl.textContent = sqftVal.toLocaleString() + ' Sq Ft';
         }
       }
     }
@@ -6157,10 +6166,10 @@
       if (window.AddressService && window.AddressService.aggregateParcelPackage) {
         const pkg = window.AddressService.aggregateParcelPackage(currentLoadedDeal.inputs.parcels);
         currentLoadedDeal.inputs.totalAssessedValue = pkg.totalAssessedValue;
-        currentLoadedDeal.inputs.marketLandValue = pkg.marketLandValue;
-        currentLoadedDeal.inputs.marketImprovementValue = pkg.marketImprovementValue;
-        currentLoadedDeal.inputs.acres = pkg.acres;
-        currentLoadedDeal.inputs.sqft = pkg.sqft;
+        currentLoadedDeal.inputs.marketLandValue = pkg.totalLandValue ?? pkg.marketLandValue;
+        currentLoadedDeal.inputs.marketImprovementValue = pkg.totalImprovementValue ?? pkg.marketImprovementValue;
+        currentLoadedDeal.inputs.acres = pkg.totalAcres ?? pkg.acres;
+        currentLoadedDeal.inputs.sqft = pkg.totalSqFt ?? pkg.sqft;
       }
 
       renderProjectMultiParcelUI(currentLoadedDeal);

@@ -21,6 +21,41 @@
     ::-webkit-scrollbar-track { background: rgba(6, 40, 24, 0.6); }
     ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.7); }
+
+    @media screen {
+      #printable-brief { display: none !important; }
+    }
+    @media print {
+      @page {
+        size: letter landscape;
+        margin: 0.35in;
+      }
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      header, footer, nav, button, .no-print,
+      #investor-profile-modal, #cloud-sync-modal, #project-wizard-modal, #delete-deal-modal,
+      main {
+        display: none !important;
+      }
+      #printable-brief {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      .avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
   </style>
   <script>
     tailwind.config = {
@@ -118,6 +153,10 @@
 
       <!-- User Account & Actions -->
       <div class="flex items-center space-x-3">
+        <button id="btn-export-portfolio-pdf" onclick="exportDashboardPortfolioPDF()" class="flex items-center space-x-2 py-1.5 px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Export Portfolio & Pipeline Executive Brief (PDF)">
+          <svg class="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          <span>Export Portfolio (PDF)</span>
+        </button>
         <button id="btn-open-investor-profile" onclick="openInvestorProfileModal()" class="flex items-center space-x-2 py-1.5 px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Investor Profile & Underwriting Hurdle Rate">
           <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
           <span>Profile & Settings</span>
@@ -152,6 +191,10 @@
         </p>
       </div>
       <div class="flex items-center gap-3">
+        <button onclick="exportDashboardPortfolioPDF()" class="px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center space-x-2 shadow-lg" title="Print Executive Portfolio & Pipeline Brief">
+          <svg class="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          <span>Export Portfolio (PDF)</span>
+        </button>
         <button id="btn-dash-create-project" onclick="openProjectWizard()" class="px-5 py-3 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition flex items-center space-x-2">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
           <span>+ Create New Project</span>
@@ -2672,6 +2715,106 @@
     }
     window.exportDashboardDealPDF = exportDashboardDealPDF;
 
+    function exportDashboardPortfolioPDF() {
+      const deals = activeDashboardProjects || [];
+      if (deals.length === 0) {
+        alert('No deals in portfolio to export.');
+        return;
+      }
+      const container = document.getElementById('printable-brief');
+      if (!container) return;
+
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+      const sponsor = prof.companyName || prof.fullName || 'MathTree Real Estate Underwriting';
+
+      let totalValue = 0;
+      let totalEquity = 0;
+      let totalCashFlow = 0;
+
+      const dealRows = deals.map(d => {
+        const aClass = d.asset_class || d.asset_type || 'commercial';
+        const defaultData = (typeof wizardAssetDefaults !== 'undefined' && wizardAssetDefaults[aClass]) || {};
+        const inputs = Object.assign({}, defaultData, d.inputs || {});
+        if (!inputs.purchasePrice && d.purchase_price) inputs.purchasePrice = d.purchase_price;
+        const res = window.PropertyMath.calculateProjections(aClass, inputs);
+        const p1 = res.projections[0] || {};
+        totalValue += (inputs.purchasePrice || 0);
+        totalEquity += (res.initialCashInvested || 0);
+        totalCashFlow += (p1.cashFlow || 0);
+
+        return `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 6px 8px; font-weight: 700; color: #0f172a;">${d.name || d.title || 'Untitled Deal'}</td>
+            <td style="padding: 6px 8px; text-transform: capitalize; color: #475569;">${aClass}</td>
+            <td style="padding: 6px 8px; color: #64748b;">${d.location || 'Yakima, WA'}</td>
+            <td style="padding: 6px 8px; font-weight: 600;">${formatCurrency(inputs.purchasePrice || 0)}</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: #059669;">${res.irrDisplay || (res.irr ? res.irr.toFixed(2) + '%' : 'N/A')}</td>
+            <td style="padding: 6px 8px; font-weight: 700; color: ${p1.cashFlow >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(p1.cashFlow || 0)}</td>
+            <td style="padding: 6px 8px;">${res.equityMultiple ? res.equityMultiple.toFixed(2) + 'x' : 'N/A'}</td>
+            <td style="padding: 6px 8px; text-transform: capitalize; font-weight: 700; color: #334155;">${d.status || 'Prospect'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 20px; color: #0f172a; max-width: 1000px; margin: 0 auto; line-height: 1.4;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
+            <div>
+              <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 1px;">Executive Portfolio Underwriting Summary</div>
+              <h1 style="font-size: 22px; font-weight: 900; margin: 4px 0 0 0; color: #0f172a;">${sponsor}</h1>
+              <p style="font-size: 11px; color: #64748b; margin: 2px 0 0 0;">Active Property Pipeline & Underwriting Portfolio</p>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #64748b;">
+              <p style="margin: 0; font-weight: 600;">Report Date: <strong style="color: #0f172a;">${dateStr}</strong></p>
+              <p style="margin: 2px 0 0 0;">Total Assets: <strong style="color: #0f172a;">${deals.length} Properties</strong></p>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+            <div style="border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
+              <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Acquisition Pipeline</span>
+              <p style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 2px 0 0 0;">${formatCurrency(totalValue)}</p>
+            </div>
+            <div style="border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
+              <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Initial Equity Required</span>
+              <p style="font-size: 18px; font-weight: 900; color: #059669; margin: 2px 0 0 0;">${formatCurrency(totalEquity)}</p>
+            </div>
+            <div style="border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
+              <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Combined Year 1 Cash Flow</span>
+              <p style="font-size: 18px; font-weight: 900; color: ${totalCashFlow >= 0 ? '#059669' : '#e11d48'}; margin: 2px 0 0 0;">${formatCurrency(totalCashFlow)}</p>
+            </div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
+            <thead>
+              <tr style="background: #0f172a; color: #ffffff; text-align: left;">
+                <th style="padding: 6px 8px;">Property Name</th>
+                <th style="padding: 6px 8px;">Asset Class</th>
+                <th style="padding: 6px 8px;">Location</th>
+                <th style="padding: 6px 8px;">Acquisition Price</th>
+                <th style="padding: 6px 8px;">10-Yr IRR</th>
+                <th style="padding: 6px 8px;">Yr 1 Cash Flow</th>
+                <th style="padding: 6px 8px;">Equity Multiple</th>
+                <th style="padding: 6px 8px;">Deal Stage</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dealRows}
+            </tbody>
+          </table>
+
+          <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8;">
+            <span>MathTree Real Estate Modeling Engine</span>
+            <span>Confidential Portfolio Brief • Generated for Executive Review</span>
+          </div>
+        </div>
+      `;
+
+      window.print();
+    }
+    window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF;
+
     function openProjectPitchDeck(id) {
       exportDashboardDealPDF(id);
     }
@@ -3573,7 +3716,7 @@
       }
     });
   </script>
-  <!-- Hidden container for printable executive brief (used by exportDashboardDealPDF) -->
-  <div id="printable-brief" class="hidden"></div>
+  <!-- Container for printable executive brief (controlled via @media print) -->
+  <div id="printable-brief"></div>
 </body>
 </html>

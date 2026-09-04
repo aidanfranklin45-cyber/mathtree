@@ -412,9 +412,13 @@
     return {
       totalParcels: activeParcels.length,
       totalAcres: Math.round(totalAcres * 1000) / 1000,
+      acres: Math.round(totalAcres * 1000) / 1000,
       totalSqFt,
+      sqft: totalSqFt,
       totalLandValue: Math.round(totalLand),
+      marketLandValue: Math.round(totalLand),
       totalImprovementValue: Math.round(totalImp),
+      marketImprovementValue: Math.round(totalImp),
       totalAssessedValue: Math.round(totalVal),
       parcels: activeParcels
     };
