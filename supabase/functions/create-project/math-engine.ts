@@ -56,6 +56,15 @@ export interface DealInputs {
   storageRentPerUnit?: number | string;
   storageSqFt?: number | string;
   storageRentPerSqFt?: number | string;
+
+  // Institutional Classification
+  marketTier?: string;
+  propertyClass?: string;
+  facilityType?: string;
+  commTier?: string;
+  commClass?: string;
+  storageTier?: string;
+  storageClass?: string;
 }
 
 export interface ProjectionYear {
@@ -495,5 +504,41 @@ export function auditDealRisks(
   }
 
   return risks;
+}
+
+export function getBenchmarkCapRateRange(assetType: string, marketTier: string = 'Tier2', propertyClass: string = 'ClassB', subType: string = ''): { min: number; max: number } {
+  const tier = String(marketTier || 'Tier2').replace(/[^a-zA-Z0-9]/g, '');
+  const pClass = String(propertyClass || 'ClassB').replace(/[^a-zA-Z0-9]/g, '');
+  const sub = String(subType || '').toLowerCase();
+
+  if (assetType === 'commercial') {
+    const isIndustrial = sub.includes('industrial') || sub.includes('logistics') || sub.includes('warehouse');
+    const isOffice = sub.includes('office') || sub.includes('medical');
+    if (isIndustrial) {
+      if (tier.includes('1')) return pClass.includes('A') ? { min: 4.75, max: 5.50 } : (pClass.includes('B') ? { min: 5.25, max: 6.00 } : { min: 6.00, max: 7.00 });
+      if (tier.includes('2')) return pClass.includes('A') ? { min: 5.50, max: 6.25 } : (pClass.includes('B') ? { min: 6.00, max: 6.75 } : { min: 6.75, max: 7.75 });
+      return pClass.includes('A') ? { min: 6.25, max: 7.00 } : (pClass.includes('B') ? { min: 6.75, max: 7.75 } : { min: 7.50, max: 8.75 });
+    } else if (isOffice) {
+      if (tier.includes('1')) return pClass.includes('A') ? { min: 6.25, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.00 } : { min: 8.00, max: 9.50 });
+      if (tier.includes('2')) return pClass.includes('A') ? { min: 7.00, max: 8.00 } : (pClass.includes('B') ? { min: 7.75, max: 8.75 } : { min: 8.75, max: 10.00 });
+      return pClass.includes('A') ? { min: 8.00, max: 9.00 } : (pClass.includes('B') ? { min: 8.75, max: 9.75 } : { min: 9.50, max: 11.00 });
+    } else {
+      if (tier.includes('1')) return pClass.includes('A') ? { min: 5.75, max: 6.50 } : (pClass.includes('B') ? { min: 6.25, max: 7.25 } : { min: 7.00, max: 8.25 });
+      if (tier.includes('2')) return pClass.includes('A') ? { min: 6.50, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.00 } : { min: 7.75, max: 9.00 });
+      return pClass.includes('A') ? { min: 7.25, max: 8.25 } : (pClass.includes('B') ? { min: 7.75, max: 8.75 } : { min: 8.50, max: 10.00 });
+    }
+  } else if (assetType === 'multi-unit') {
+    if (tier.includes('1')) return pClass.includes('A') ? { min: 4.50, max: 5.25 } : (pClass.includes('B') ? { min: 5.00, max: 5.75 } : { min: 5.75, max: 6.50 });
+    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.00, max: 5.75 } : (pClass.includes('B') ? { min: 5.50, max: 6.50 } : { min: 6.25, max: 7.25 });
+    return pClass.includes('A') ? { min: 5.75, max: 6.75 } : (pClass.includes('B') ? { min: 6.50, max: 7.50 } : { min: 7.25, max: 8.50 });
+  } else if (assetType === 'storage') {
+    if (tier.includes('1')) return pClass.includes('A') ? { min: 5.00, max: 5.75 } : (pClass.includes('B') ? { min: 5.50, max: 6.50 } : { min: 6.25, max: 7.25 });
+    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.75, max: 6.50 } : (pClass.includes('B') ? { min: 6.25, max: 7.25 } : { min: 7.00, max: 8.00 });
+    return pClass.includes('A') ? { min: 6.75, max: 7.75 } : (pClass.includes('B') ? { min: 7.25, max: 8.25 } : { min: 7.75, max: 9.00 });
+  } else {
+    if (tier.includes('1')) return pClass.includes('A') ? { min: 4.50, max: 5.50 } : { min: 5.25, max: 6.50 };
+    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.25, max: 6.25 } : { min: 6.00, max: 7.25 };
+    return pClass.includes('A') ? { min: 6.00, max: 7.25 } : { min: 7.00, max: 8.50 };
+  }
 }
 

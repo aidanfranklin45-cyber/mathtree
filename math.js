@@ -1001,7 +1001,20 @@ function auditDealRisks(assetType, inputs, results) {
     });
   }
 
-  // Check 5: Healthy Metrics Confirmation
+  // Check 5: Cap Rate Benchmark Spread
+  const marketTier = inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier2';
+  const propClass = inputs.propertyClass || inputs.commClass || inputs.storageClass || 'ClassB';
+  const benchmarkRange = getBenchmarkCapRateRange(assetType, marketTier, propClass, inputs.facilityType || '');
+  const exitCap = parseFloat(inputs.targetCapRate || inputs.targetExitCapRate || inputs.exitCapRate || 0);
+  if (exitCap > 0 && benchmarkRange && exitCap < (benchmarkRange.min - 0.5)) {
+    warnings.push({
+      level: 'warning',
+      title: 'Aggressive Exit Cap Rate Assumption',
+      description: `Exit cap rate (${exitCap.toFixed(2)}%) is priced more aggressively than typical institutional ranges (${benchmarkRange.min.toFixed(2)}% - ${benchmarkRange.max.toFixed(2)}%) for ${marketTier} ${propClass} assets.`
+    });
+  }
+
+  // Check 6: Healthy Metrics Confirmation
   if (warnings.length === 0) {
     warnings.push({
       level: 'success',
@@ -1011,6 +1024,46 @@ function auditDealRisks(assetType, inputs, results) {
   }
 
   return warnings;
+}
+
+/**
+ * 8. Institutional Market Benchmark Ranges
+ */
+function getBenchmarkCapRateRange(assetType, marketTier = 'Tier2', propertyClass = 'ClassB', subType = '') {
+  const tier = String(marketTier || 'Tier2').replace(/[^a-zA-Z0-9]/g, '');
+  const pClass = String(propertyClass || 'ClassB').replace(/[^a-zA-Z0-9]/g, '');
+  const sub = String(subType || '').toLowerCase();
+
+  if (assetType === 'commercial') {
+    const isIndustrial = sub.includes('industrial') || sub.includes('logistics') || sub.includes('warehouse');
+    const isOffice = sub.includes('office') || sub.includes('medical');
+    if (isIndustrial) {
+      if (tier.includes('1')) return pClass.includes('A') ? { min: 4.75, max: 5.50 } : (pClass.includes('B') ? { min: 5.25, max: 6.00 } : { min: 6.00, max: 7.00 });
+      if (tier.includes('2')) return pClass.includes('A') ? { min: 5.50, max: 6.25 } : (pClass.includes('B') ? { min: 6.00, max: 6.75 } : { min: 6.75, max: 7.75 });
+      return pClass.includes('A') ? { min: 6.25, max: 7.00 } : (pClass.includes('B') ? { min: 6.75, max: 7.75 } : { min: 7.50, max: 8.75 });
+    } else if (isOffice) {
+      if (tier.includes('1')) return pClass.includes('A') ? { min: 6.25, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.00 } : { min: 8.00, max: 9.50 });
+      if (tier.includes('2')) return pClass.includes('A') ? { min: 7.00, max: 8.00 } : (pClass.includes('B') ? { min: 7.75, max: 8.75 } : { min: 8.75, max: 10.00 });
+      return pClass.includes('A') ? { min: 8.00, max: 9.00 } : (pClass.includes('B') ? { min: 8.75, max: 9.75 } : { min: 9.50, max: 11.00 });
+    } else { // Retail / General CRE
+      if (tier.includes('1')) return pClass.includes('A') ? { min: 5.75, max: 6.50 } : (pClass.includes('B') ? { min: 6.25, max: 7.25 } : { min: 7.00, max: 8.25 });
+      if (tier.includes('2')) return pClass.includes('A') ? { min: 6.50, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.00 } : { min: 7.75, max: 9.00 });
+      return pClass.includes('A') ? { min: 7.25, max: 8.25 } : (pClass.includes('B') ? { min: 7.75, max: 8.75 } : { min: 8.50, max: 10.00 });
+    }
+  } else if (assetType === 'multi-unit') {
+    if (tier.includes('1')) return pClass.includes('A') ? { min: 4.50, max: 5.25 } : (pClass.includes('B') ? { min: 5.00, max: 5.75 } : { min: 5.75, max: 6.50 });
+    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.00, max: 5.75 } : (pClass.includes('B') ? { min: 5.50, max: 6.50 } : { min: 6.25, max: 7.25 });
+    return pClass.includes('A') ? { min: 5.75, max: 6.75 } : (pClass.includes('B') ? { min: 6.50, max: 7.50 } : { min: 7.25, max: 8.50 });
+  } else if (assetType === 'storage') {
+    if (tier.includes('1')) return pClass.includes('A') ? { min: 5.00, max: 5.75 } : (pClass.includes('B') ? { min: 5.50, max: 6.50 } : { min: 6.25, max: 7.25 });
+    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.75, max: 6.50 } : (pClass.includes('B') ? { min: 6.25, max: 7.25 } : { min: 7.00, max: 8.00 });
+    return pClass.includes('A') ? { min: 6.75, max: 7.75 } : (pClass.includes('B') ? { min: 7.25, max: 8.25 } : { min: 7.75, max: 9.00 });
+  } else {
+    // Single-family
+    if (tier.includes('1')) return pClass.includes('A') ? { min: 4.50, max: 5.50 } : { min: 5.25, max: 6.50 };
+    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.25, max: 6.25 } : { min: 6.00, max: 7.25 };
+    return pClass.includes('A') ? { min: 6.00, max: 7.25 } : { min: 7.00, max: 8.50 };
+  }
 }
 
 // Export functions for ES Modules environment, and attach to global scope for standard browser environment.
@@ -1026,6 +1079,7 @@ if (typeof exports !== 'undefined') {
   exports.aggregatePortfolio = aggregatePortfolio;
   exports.auditDealRisks = auditDealRisks;
   exports.generateScenarioVariants = generateScenarioVariants;
+  exports.getBenchmarkCapRateRange = getBenchmarkCapRateRange;
 }
 if (typeof window !== 'undefined') {
   window.PropertyMath = {
@@ -1039,7 +1093,7 @@ if (typeof window !== 'undefined') {
     solveTargetPurchasePrice,
     aggregatePortfolio,
     auditDealRisks,
-    generateScenarioVariants
+    generateScenarioVariants,
+    getBenchmarkCapRateRange
   };
 }
-

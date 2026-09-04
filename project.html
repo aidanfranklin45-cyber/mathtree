@@ -118,6 +118,11 @@
             <span id="deal-asset-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize">
               Commercial
             </span>
+            <span id="deal-tier-class-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+              Tier 1 • Class A
+            </span>
+            <span id="deal-facility-type-pill" class="text-[10px] uppercase font-semibold tracking-wider px-2 py-0.5 rounded-md bg-slate-900 text-slate-400 border border-slate-800 hidden">
+            </span>
           </div>
           <p id="deal-location-display" class="text-xs text-slate-400 flex items-center space-x-1 mt-0.5">
             <svg class="w-3 h-3 text-slate-500 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -128,7 +133,7 @@
 
       <!-- Actions Bar: Pitch Deck, PDF, CSV (Analysis & Presentation Only) -->
       <div class="flex items-center space-x-2">
-        <button onclick="openDealPitchDeck()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm">
+        <button id="btn-pitch-deck" onclick="openDealPitchDeck()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm">
           <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
           <span>Pitch Deck</span>
         </button>
@@ -312,6 +317,33 @@
               
               <!-- Single-Family specific -->
               <div id="group-single-family" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <label for="input-sf-tier" class="text-xs font-semibold text-slate-400">Market Tier</label>
+                    <select id="input-sf-tier" name="marketTier" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Tier 1">Tier 1 (Gateway)</option>
+                      <option value="Tier 2" selected>Tier 2 (Growth)</option>
+                      <option value="Tier 3">Tier 3 (Tertiary)</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label for="input-sf-class" class="text-xs font-semibold text-slate-400">Property Class</label>
+                    <select id="input-sf-class" name="propertyClass" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Class A">Class A (Trophy/New)</option>
+                      <option value="Class B" selected>Class B (Value-Add)</option>
+                      <option value="Class C">Class C (Workforce)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <label for="input-sf-type" class="text-xs font-semibold text-slate-400">Strategy / Sub-Type</label>
+                  <select id="input-sf-type" name="facilityType" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <option value="Turnkey Single-Family Rental">Turnkey Single-Family Rental</option>
+                    <option value="BRRRR Value-Add Single-Family" selected>BRRRR Value-Add Single-Family</option>
+                    <option value="New Construction Spec SFR">New Construction Spec SFR</option>
+                    <option value="Single-Family Fix & Flip">Single-Family Fix & Flip</option>
+                  </select>
+                </div>
                 <div class="space-y-1.5">
                   <label for="input-arv" class="text-xs font-semibold text-slate-400">After Repair Value (ARV)</label>
                   <div class="relative rounded-lg shadow-sm">
@@ -336,6 +368,33 @@
 
               <!-- Multi-Unit specific -->
               <div id="group-multi-unit" class="space-y-4 hidden">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <label for="input-multi-tier" class="text-xs font-semibold text-slate-400">Market Tier</label>
+                    <select id="input-multi-tier" name="marketTier" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Tier 1">Tier 1 (Gateway)</option>
+                      <option value="Tier 2" selected>Tier 2 (Growth)</option>
+                      <option value="Tier 3">Tier 3 (Tertiary)</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label for="input-multi-class" class="text-xs font-semibold text-slate-400">Property Class</label>
+                    <select id="input-multi-class" name="propertyClass" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Class A">Class A (Institutional)</option>
+                      <option value="Class B" selected>Class B (Value-Add)</option>
+                      <option value="Class C">Class C (Workforce)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="space-y-1.5">
+                  <label for="input-multi-type" class="text-xs font-semibold text-slate-400">Community Style</label>
+                  <select id="input-multi-type" name="facilityType" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <option value="Garden-Style Community" selected>Garden-Style Community</option>
+                    <option value="Mid / High-Rise Apartments">Mid / High-Rise Apartments</option>
+                    <option value="Duplex / Triplex / Quadplex (2-4 Units)">Duplex / Quadplex (2-4 Units)</option>
+                    <option value="Build-to-Rent (BTR) Community">Build-to-Rent (BTR)</option>
+                  </select>
+                </div>
                 <div class="space-y-1.5">
                   <label for="input-unit-count" class="text-xs font-semibold text-slate-400">Number of Units</label>
                   <input type="number" id="input-unit-count" name="unitCount" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
@@ -357,25 +416,34 @@
               <div id="group-commercial" class="space-y-4 hidden">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
-                    <label for="input-comm-class" class="text-xs font-semibold text-slate-400">Asset Class</label>
-                    <select id="input-comm-class" name="commClass" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
-                      <option value="Industrial">Industrial</option>
-                      <option value="Retail">Retail Strip</option>
-                      <option value="Office">Office Class A</option>
+                    <label for="input-comm-class" class="text-xs font-semibold text-slate-400">Facility Type</label>
+                    <select id="input-comm-class" name="commClass" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Industrial" selected>Industrial Logistics</option>
+                      <option value="Retail">Retail Strip Center</option>
+                      <option value="Office">Office / Medical</option>
+                      <option value="Flex">Flex / Light R&D</option>
                     </select>
                   </div>
                   <div class="space-y-1.5">
-                    <label for="input-comm-tier" class="text-xs font-semibold text-slate-400">Market Tier</label>
-                    <select id="input-comm-tier" name="commTier" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
-                      <option value="Tier1">Tier 1 (Gateway)</option>
-                      <option value="Tier2">Tier 2 (Growth)</option>
-                      <option value="Tier3">Tier 3 (Tertiary)</option>
+                    <label for="input-comm-building-class" class="text-xs font-semibold text-slate-400">Building Class</label>
+                    <select id="input-comm-building-class" name="propertyClass" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Class A" selected>Class A (Trophy/Spec)</option>
+                      <option value="Class B">Class B (Value-Add)</option>
+                      <option value="Class C">Class C (Workforce)</option>
                     </select>
                   </div>
                 </div>
                 <div class="space-y-1.5">
+                  <label for="input-comm-tier" class="text-xs font-semibold text-slate-400">Market Tier</label>
+                  <select id="input-comm-tier" name="commTier" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <option value="Tier 1" selected>Tier 1 (Gateway)</option>
+                    <option value="Tier 2">Tier 2 (Growth)</option>
+                    <option value="Tier 3">Tier 3 (Tertiary)</option>
+                  </select>
+                </div>
+                <div class="space-y-1.5">
                   <label for="input-lease-type" class="text-xs font-semibold text-slate-400">Lease Type</label>
-                  <select id="input-lease-type" name="leaseType" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                  <select id="input-lease-type" name="leaseType" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
                     <option value="NNN">Triple Net (NNN)</option>
                     <option value="Gross">Gross / Modified</option>
                   </select>
@@ -401,17 +469,36 @@
               <div id="group-storage" class="space-y-4 hidden">
                 <!-- Automation Switch -->
                 <div class="flex items-center space-x-3 p-2.5 rounded-lg border border-emerald-950/60 bg-emerald-950/5">
-                  <input type="checkbox" id="input-storage-automated" name="isAutomated" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-950 border-emerald-900 cursor-pointer">
+                  <input type="checkbox" id="input-storage-automated" name="isAutomated" onchange="updateCalculations()" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-950 border-emerald-900 cursor-pointer">
                   <label for="input-storage-automated" class="text-xs font-semibold text-slate-300 cursor-pointer select-none">
                     Automated / Remote Facility
                   </label>
                 </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <label for="input-storage-tier" class="text-xs font-semibold text-slate-400">Market Tier</label>
+                    <select id="input-storage-tier" name="storageTier" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Tier 1" selected>Tier 1 (Primary)</option>
+                      <option value="Tier 2">Tier 2 (Secondary)</option>
+                      <option value="Tier 3">Tier 3 (Tertiary)</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1.5">
+                    <label for="input-storage-class" class="text-xs font-semibold text-slate-400">Facility Class</label>
+                    <select id="input-storage-class" name="storageClass" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <option value="Class A" selected>Class A (Climate / Multi-story)</option>
+                      <option value="Class B">Class B (Drive-Up Standard)</option>
+                      <option value="Class C">Class C (Gravel / RV / Uncovered)</option>
+                    </select>
+                  </div>
+                </div>
                 <div class="space-y-1.5">
-                  <label for="input-storage-tier" class="text-xs font-semibold text-slate-400">Market Tier</label>
-                  <select id="input-storage-tier" name="storageTier" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
-                    <option value="Tier1">Tier 1 (Primary)</option>
-                    <option value="Tier2">Tier 2 (Secondary)</option>
-                    <option value="Tier3">Tier 3 (Tertiary)</option>
+                  <label for="input-storage-type" class="text-xs font-semibold text-slate-400">Facility Type</label>
+                  <select id="input-storage-type" name="facilityType" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <option value="Climate-Controlled (Multi-Story)" selected>Climate-Controlled (Multi-Story)</option>
+                    <option value="Drive-Up Standard (Single-Story)">Drive-Up Standard (Single-Story)</option>
+                    <option value="Outdoor / RV & Boat Parking">Outdoor / RV & Boat Parking</option>
+                    <option value="Hybrid Flex Facility">Hybrid Flex Facility</option>
                   </select>
                 </div>
                 <div class="space-y-1.5">
@@ -1271,6 +1358,29 @@
           </div>
         </div>
 
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Market Tier</label>
+            <select id="edit-deal-market-tier" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <option value="Tier 1">Tier 1 • Gateway</option>
+              <option value="Tier 2">Tier 2 • Growth</option>
+              <option value="Tier 3">Tier 3 • Tertiary</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Property Class</label>
+            <select id="edit-deal-property-class" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <option value="Class A">Class A (Trophy/Spec)</option>
+              <option value="Class B">Class B (Value-Add)</option>
+              <option value="Class C">Class C (Workforce)</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Facility Sub-Type</label>
+            <input type="text" id="edit-deal-facility-type" placeholder="e.g. Industrial Warehouse" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
         <!-- Rent & Income Section -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
           <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
@@ -1368,7 +1478,7 @@
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             <span>Print Deck</span>
           </button>
-          <button id="btn-pitch-close" aria-label="Close pitch deck modal" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-rose-900/40 text-xs font-semibold text-slate-300 hover:text-rose-300 transition flex items-center space-x-1.5">
+          <button id="btn-pitch-close" onclick="closePitchDeck()" aria-label="Close pitch deck modal" class="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-rose-900/40 text-xs font-semibold text-slate-300 hover:text-rose-300 transition flex items-center space-x-1.5">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             <span>Close (Esc)</span>
           </button>
@@ -1761,16 +1871,23 @@
       if (activeTab === 'single-family') {
         document.getElementById('input-arv').value = values.arv ?? '';
         document.getElementById('input-monthly-rent').value = values.monthlyRent ?? values.grossRentPerMonth ?? '';
+        if (document.getElementById('input-sf-tier')) document.getElementById('input-sf-tier').value = values.marketTier || 'Tier 2';
+        if (document.getElementById('input-sf-class')) document.getElementById('input-sf-class').value = values.propertyClass || 'Class B';
+        if (document.getElementById('input-sf-type')) document.getElementById('input-sf-type').value = values.facilityType || 'BRRRR Value-Add Single-Family';
       } else if (activeTab === 'multi-unit') {
         const uCount = values.unitCount ?? values.numUnits ?? 1;
         document.getElementById('input-unit-count').value = uCount;
         document.getElementById('input-monthly-rent-per-unit').value = values.monthlyRentPerUnit ?? (values.grossRentPerMonth ? Math.round(values.grossRentPerMonth / uCount) : '');
+        if (document.getElementById('input-multi-tier')) document.getElementById('input-multi-tier').value = values.marketTier || 'Tier 2';
+        if (document.getElementById('input-multi-class')) document.getElementById('input-multi-class').value = values.propertyClass || 'Class B';
+        if (document.getElementById('input-multi-type')) document.getElementById('input-multi-type').value = values.facilityType || 'Garden-Style Community';
       } else if (activeTab === 'commercial') {
         document.getElementById('input-lease-type').value = values.leaseType ?? 'NNN';
         const annualRent = values.grossRentAnnual || (values.grossRentPerMonth ? values.grossRentPerMonth * 12 : (values.monthlyRent ? values.monthlyRent * 12 : ''));
         document.getElementById('input-gross-rent-annual').value = annualRent;
         document.getElementById('input-comm-class').value = values.commClass ?? 'Industrial';
-        document.getElementById('input-comm-tier').value = values.commTier ?? 'Tier1';
+        document.getElementById('input-comm-tier').value = values.marketTier || values.commTier || 'Tier 1';
+        if (document.getElementById('input-comm-building-class')) document.getElementById('input-comm-building-class').value = values.propertyClass || 'Class A';
         document.getElementById('input-gla').value = values.gla ?? 15000;
       } else if (activeTab === 'storage') {
         document.getElementById('input-storage-units').value = values.storageUnitCount ?? values.unitCount ?? values.numUnits ?? '';
@@ -1778,7 +1895,9 @@
         document.getElementById('input-storage-sqft').value = values.storageSqFt ?? values.totalSqFt ?? values.gla ?? '';
         document.getElementById('input-storage-rent-per-sqft').value = values.storageRentPerSqFt ?? values.rentPerSqFt ?? '';
         document.getElementById('input-storage-automated').checked = values.isAutomated ?? false;
-        document.getElementById('input-storage-tier').value = values.storageTier ?? 'Tier2';
+        document.getElementById('input-storage-tier').value = values.marketTier || values.storageTier || 'Tier 2';
+        if (document.getElementById('input-storage-class')) document.getElementById('input-storage-class').value = values.propertyClass || values.storageClass || 'Class A';
+        if (document.getElementById('input-storage-type')) document.getElementById('input-storage-type').value = values.facilityType || 'Climate-Controlled (Multi-Story)';
       }
     }
 
@@ -1803,14 +1922,23 @@
       if (activeTab === 'single-family') {
         inputs.arv = parseFloat(document.getElementById('input-arv').value) || 0;
         inputs.monthlyRent = parseFloat(document.getElementById('input-monthly-rent').value) || 0;
+        inputs.marketTier = document.getElementById('input-sf-tier')?.value || 'Tier 2';
+        inputs.propertyClass = document.getElementById('input-sf-class')?.value || 'Class B';
+        inputs.facilityType = document.getElementById('input-sf-type')?.value || 'BRRRR Value-Add Single-Family';
       } else if (activeTab === 'multi-unit') {
         inputs.unitCount = parseInt(document.getElementById('input-unit-count').value) || 0;
         inputs.monthlyRentPerUnit = parseFloat(document.getElementById('input-monthly-rent-per-unit').value) || 0;
+        inputs.marketTier = document.getElementById('input-multi-tier')?.value || 'Tier 2';
+        inputs.propertyClass = document.getElementById('input-multi-class')?.value || 'Class B';
+        inputs.facilityType = document.getElementById('input-multi-type')?.value || 'Garden-Style Community';
       } else if (activeTab === 'commercial') {
         inputs.leaseType = document.getElementById('input-lease-type').value || 'NNN';
         inputs.grossRentAnnual = parseFloat(document.getElementById('input-gross-rent-annual').value) || 0;
         inputs.commClass = document.getElementById('input-comm-class').value || 'Industrial';
-        inputs.commTier = document.getElementById('input-comm-tier').value || 'Tier1';
+        inputs.commTier = document.getElementById('input-comm-tier').value || 'Tier 1';
+        inputs.marketTier = inputs.commTier;
+        inputs.propertyClass = document.getElementById('input-comm-building-class')?.value || 'Class A';
+        inputs.facilityType = inputs.commClass;
         inputs.gla = parseFloat(document.getElementById('input-gla').value) || 15000;
         inputs.targetCapRate = inputs.appreciationRate;
       } else if (activeTab === 'storage') {
@@ -1819,7 +1947,11 @@
         inputs.totalSqFt = parseFloat(document.getElementById('input-storage-sqft').value) || 0;
         inputs.rentPerSqFt = parseFloat(document.getElementById('input-storage-rent-per-sqft').value) || 0;
         inputs.isAutomated = document.getElementById('input-storage-automated').checked;
-        inputs.storageTier = document.getElementById('input-storage-tier').value || 'Tier2';
+        inputs.storageTier = document.getElementById('input-storage-tier').value || 'Tier 2';
+        inputs.marketTier = inputs.storageTier;
+        inputs.storageClass = document.getElementById('input-storage-class')?.value || 'Class A';
+        inputs.propertyClass = inputs.storageClass;
+        inputs.facilityType = document.getElementById('input-storage-type')?.value || 'Climate-Controlled (Multi-Story)';
         inputs.targetCapRate = inputs.appreciationRate;
         
         // Match expected inputs in math.js storage mapping
@@ -2148,34 +2280,40 @@
       document.getElementById('metric-equity-multiplier').textContent = `${res.equityMultiplier.toFixed(2)}x`;
       document.getElementById('metric-breakeven').textContent = typeof res.breakEvenYear === 'number' ? `Year ${res.breakEvenYear}` : res.breakEvenYear;
 
-      // Update Cap Rate benchmark description label dynamically based on CRE CBRE ranges
+      // Update Cap Rate benchmark description label dynamically based on institutional ranges
       const descField = document.getElementById('metric-cap-rate-desc');
       if (descField) {
+        let marketTier = 'Tier 2';
+        let propertyClass = 'Class B';
+        let facilityType = '';
+        let sourceName = 'Institutional Benchmark';
+
         if (activeTab === 'commercial') {
-          const assetClass = document.getElementById('input-comm-class').value;
-          const marketTier = document.getElementById('input-comm-tier').value;
-          let range = "";
-          if (assetClass === 'Industrial') {
-            if (marketTier === 'Tier1') range = "5.00% - 5.75%";
-            else if (marketTier === 'Tier2') range = "5.75% - 6.75%";
-            else range = "6.75% - 8.00%+";
-          } else if (assetClass === 'Retail') {
-            if (marketTier === 'Tier1') range = "6.00% - 6.75%";
-            else if (marketTier === 'Tier2') range = "6.75% - 8.00%";
-            else range = "8.00% - 9.50%+";
-          } else if (assetClass === 'Office') {
-            if (marketTier === 'Tier1') range = "6.50% - 7.50%";
-            else if (marketTier === 'Tier2') range = "7.50% - 8.50%";
-            else range = "8.50% - 10.00%+";
-          }
-          descField.innerHTML = `CBRE Benchmark Range: <span class="text-brand-400 font-bold">${range}</span>`;
+          marketTier = document.getElementById('input-comm-tier')?.value || 'Tier 1';
+          propertyClass = document.getElementById('input-comm-building-class')?.value || 'Class A';
+          facilityType = document.getElementById('input-comm-class')?.value || 'Industrial';
+          sourceName = 'CBRE Market Benchmark';
         } else if (activeTab === 'storage') {
-          const marketTier = document.getElementById('input-storage-tier').value;
-          let range = "";
-          if (marketTier === 'Tier1') range = "5.00% - 6.00%";
-          else if (marketTier === 'Tier2') range = "6.00% - 7.00%";
-          else range = "7.25% - 8.25%+";
-          descField.innerHTML = `Industry Benchmark Range: <span class="text-brand-400 font-bold">${range}</span>`;
+          marketTier = document.getElementById('input-storage-tier')?.value || 'Tier 2';
+          propertyClass = document.getElementById('input-storage-class')?.value || 'Class A';
+          facilityType = document.getElementById('input-storage-type')?.value || 'Climate-Controlled';
+          sourceName = 'Self-Storage Industry Benchmark';
+        } else if (activeTab === 'multi-unit') {
+          marketTier = document.getElementById('input-multi-tier')?.value || 'Tier 2';
+          propertyClass = document.getElementById('input-multi-class')?.value || 'Class B';
+          facilityType = document.getElementById('input-multi-type')?.value || 'Garden-Style';
+          sourceName = 'Fannie Mae / Freddie Mac Benchmark';
+        } else if (activeTab === 'single-family') {
+          marketTier = document.getElementById('input-sf-tier')?.value || 'Tier 2';
+          propertyClass = document.getElementById('input-sf-class')?.value || 'Class B';
+          facilityType = document.getElementById('input-sf-type')?.value || 'SFR';
+          sourceName = 'SFR Market Index Benchmark';
+        }
+
+        if (window.PropertyMath && window.PropertyMath.getBenchmarkCapRateRange) {
+          const rangeObj = window.PropertyMath.getBenchmarkCapRateRange(activeTab, marketTier, propertyClass, facilityType);
+          const rangeStr = `${rangeObj.min.toFixed(2)}% - ${rangeObj.max.toFixed(2)}%`;
+          descField.innerHTML = `${sourceName}: <span class="text-brand-400 font-bold">${rangeStr}</span> <span class="text-slate-500 text-[10px]">(${marketTier} • ${propertyClass})</span>`;
         } else {
           descField.textContent = "Annual NOI divided by property value";
         }
@@ -3352,6 +3490,19 @@
     // --- 5. Executive Pitch Deck Presentation Mode ---
     let pitchDeckChart = null;
     let activePitchDeal = null;
+    let currentLoadedDealId = null;
+    let currentLoadedDeal = null;
+
+    function openDealPitchDeck() {
+      openPitchDeck(currentLoadedDeal || null);
+    }
+    window.openDealPitchDeck = openDealPitchDeck;
+
+    function closeEditDealModal() {
+      const modal = document.getElementById('edit-deal-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeEditDealModal = closeEditDealModal;
 
     function openPitchDeck(deal = null) {
       const modal = document.getElementById('pitch-deck-modal');
@@ -3469,6 +3620,8 @@
       const modal = document.getElementById('pitch-deck-modal');
       if (modal) modal.classList.add('hidden');
     }
+    window.openPitchDeck = openPitchDeck;
+    window.closePitchDeck = closePitchDeck;
 
     function openProjectInModeler(deal) {
       closePitchDeck();
@@ -4806,8 +4959,8 @@
 
       
     // === Property Detail Auto-Loader & Sync Controller ===
-    let currentLoadedDealId = null;
-    let currentLoadedDeal = null;
+    currentLoadedDealId = null;
+    currentLoadedDeal = null;
 
     function getDealIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
@@ -4839,6 +4992,16 @@
         subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Underwriting Baseline Parameters`;
       }
 
+      if (document.getElementById('edit-deal-market-tier')) {
+        document.getElementById('edit-deal-market-tier').value = currentLoadedDeal.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2';
+      }
+      if (document.getElementById('edit-deal-property-class')) {
+        document.getElementById('edit-deal-property-class').value = currentLoadedDeal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B';
+      }
+      if (document.getElementById('edit-deal-facility-type')) {
+        document.getElementById('edit-deal-facility-type').value = currentLoadedDeal.facility_type || inputs.facilityType || '';
+      }
+
       const grossMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
       const grossAnnual = inputs.grossRentAnnual || (grossMonthly ? grossMonthly * 12 : 0);
 
@@ -4853,11 +5016,6 @@
       modal.classList.remove('hidden');
     }
 
-    function closeEditDealModal() {
-      const modal = document.getElementById('edit-deal-modal');
-      if (modal) modal.classList.add('hidden');
-    }
-
     async function saveEditDealModalFromProject(e) {
       if (e && e.preventDefault) e.preventDefault();
       if (!currentLoadedDeal) return;
@@ -4865,6 +5023,14 @@
       currentLoadedDeal.name = document.getElementById('edit-deal-name').value.trim();
       currentLoadedDeal.location = document.getElementById('edit-deal-location').value.trim();
       currentLoadedDeal.status = document.getElementById('edit-deal-status').value;
+
+      const marketTier = document.getElementById('edit-deal-market-tier')?.value || 'Tier 2';
+      const propertyClass = document.getElementById('edit-deal-property-class')?.value || 'Class B';
+      const facilityType = document.getElementById('edit-deal-facility-type')?.value?.trim() || '';
+
+      currentLoadedDeal.market_tier = marketTier;
+      currentLoadedDeal.property_class = propertyClass;
+      currentLoadedDeal.facility_type = facilityType;
 
       const price = parseFloat(document.getElementById('edit-deal-price').value) || currentLoadedDeal.purchase_price || 1000000;
       const opex = parseFloat(document.getElementById('edit-deal-opex-ratio').value) || 35;
@@ -4882,6 +5048,13 @@
       currentLoadedDeal.inputs.downPaymentPercent = down;
       currentLoadedDeal.inputs.interestRate = rate;
       currentLoadedDeal.inputs.loanTerm = term;
+      currentLoadedDeal.inputs.marketTier = marketTier;
+      currentLoadedDeal.inputs.propertyClass = propertyClass;
+      currentLoadedDeal.inputs.facilityType = facilityType;
+      currentLoadedDeal.inputs.commTier = marketTier;
+      currentLoadedDeal.inputs.commClass = propertyClass;
+      currentLoadedDeal.inputs.storageTier = marketTier;
+      currentLoadedDeal.inputs.storageClass = propertyClass;
 
       const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
       if (aClass === 'single-family') {
@@ -4903,6 +5076,18 @@
 
       const locEl = document.getElementById('deal-location-display');
       if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location}</span>`;
+
+      const tierPill = document.getElementById('deal-tier-class-pill');
+      if (tierPill) tierPill.textContent = `${marketTier} • ${propertyClass}`;
+      const fPill = document.getElementById('deal-facility-type-pill');
+      if (fPill) {
+        if (facilityType) {
+          fPill.textContent = facilityType;
+          fPill.classList.remove('hidden');
+        } else {
+          fPill.classList.add('hidden');
+        }
+      }
 
       updateDealStatusUI(currentLoadedDeal.status);
       updateFormFields(currentLoadedDeal.inputs);
@@ -4932,6 +5117,9 @@
               asset_class: data.asset_type || 'commercial',
               status: data.status || 'prospect',
               location: data.location || 'United States',
+              market_tier: data.market_tier || data.inputs?.marketTier || data.inputs?.commTier || data.inputs?.storageTier || 'Tier 2',
+              property_class: data.property_class || data.inputs?.propertyClass || data.inputs?.commClass || data.inputs?.storageClass || 'Class B',
+              facility_type: data.facility_type || data.inputs?.facilityType || '',
               purchase_price: data.purchase_price || data.inputs?.purchasePrice || 0,
               irr: data.irr || data.metrics?.irr || 0,
               equity_multiple: data.equity_multiple || data.metrics?.equityMultiplier || 2.0,
@@ -4980,6 +5168,23 @@
       const assetPill = document.getElementById('deal-asset-pill');
       if (assetPill) assetPill.textContent = aType.replace('-', ' ');
 
+      const rawInputs = currentLoadedDeal.inputs || {};
+      const tier = currentLoadedDeal.market_tier || rawInputs.marketTier || rawInputs.commTier || rawInputs.storageTier || 'Tier 2';
+      const pClass = currentLoadedDeal.property_class || rawInputs.propertyClass || rawInputs.commClass || rawInputs.storageClass || 'Class B';
+      const fType = currentLoadedDeal.facility_type || rawInputs.facilityType || '';
+
+      const tierPill = document.getElementById('deal-tier-class-pill');
+      if (tierPill) tierPill.textContent = `${tier} • ${pClass}`;
+      const fPill = document.getElementById('deal-facility-type-pill');
+      if (fPill) {
+        if (fType) {
+          fPill.textContent = fType;
+          fPill.classList.remove('hidden');
+        } else {
+          fPill.classList.add('hidden');
+        }
+      }
+
       const lockedBadgeText = document.getElementById('locked-asset-text');
       if (lockedBadgeText) {
         const readableMap = {
@@ -5009,7 +5214,6 @@
 
       // Normalize inputs: merge with default presets to guarantee no empty/zero fields
       const baseDefaults = defaultPresets[aType] || defaultPresets['commercial'];
-      const rawInputs = currentLoadedDeal.inputs || {};
       currentLoadedDeal.inputs = {
         ...baseDefaults,
         ...rawInputs,
@@ -5130,8 +5334,15 @@
     }
 
     function openDealPitchDeck() {
-      if (currentLoadedDeal) openPitchDeck(currentLoadedDeal);
+      openPitchDeck(currentLoadedDeal || null);
     }
+    window.openDealPitchDeck = openDealPitchDeck;
+    window.closeEditDealModal = closeEditDealModal;
+
+    // Close pitch deck on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePitchDeck();
+    });
 
     // --- Guaranteed Startup Routing for project.html ---
       await initProjectView();

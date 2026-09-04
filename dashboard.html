@@ -320,6 +320,50 @@
               <input type="number" id="wiz-gla" placeholder="e.g. 15000" value="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
             </div>
           </div>
+
+          <!-- Facility & Institutional Market Classification -->
+          <div class="p-4 bg-slate-950/70 border border-slate-800/90 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-brand-400 font-bold text-xs">🏛️</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Market & Facility Classification</span>
+              </div>
+              <span id="wiz-benchmark-cap-hint" class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Benchmark Cap: 4.75% - 5.50%</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="space-y-1.5">
+                <label for="wiz-market-tier" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Market Tier</label>
+                <select id="wiz-market-tier" onchange="onWizardClassificationChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option value="Tier 1" selected>Tier 1 • Primary / Gateway</option>
+                  <option value="Tier 2">Tier 2 • Secondary / Growth</option>
+                  <option value="Tier 3">Tier 3 • Tertiary / Regional</option>
+                </select>
+              </div>
+
+              <div class="space-y-1.5">
+                <label for="wiz-property-class" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Property Class</label>
+                <select id="wiz-property-class" onchange="onWizardClassificationChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option value="Class A" selected>Class A • Institutional / Trophy</option>
+                  <option value="Class B">Class B • Value-Add / Core-Plus</option>
+                  <option value="Class C">Class C • Workforce / Opportunity</option>
+                </select>
+              </div>
+
+              <div class="space-y-1.5">
+                <label for="wiz-facility-type" id="wiz-facility-type-label" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Facility Sub-Type</label>
+                <select id="wiz-facility-type" onchange="onWizardClassificationChanged()" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                  <option value="Industrial Logistics / Warehouse">Industrial Logistics / Warehouse</option>
+                  <option value="Retail Strip / Center">Retail Strip / Center</option>
+                  <option value="Class-A Office / Medical">Class-A Office / Medical</option>
+                  <option value="Flex / R&D Facility">Flex / R&D Facility</option>
+                </select>
+              </div>
+            </div>
+            <p id="wiz-classification-guidance" class="text-[11px] text-slate-400 italic">
+              Primary Gateway Metro (High Liquidity, Low Cap Rates) • Trophy/Institutional Quality
+            </p>
+          </div>
         </div>
 
         <!-- Step 2: Capital & Valuation -->
@@ -600,6 +644,29 @@
           </div>
         </div>
 
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Market Tier</label>
+            <select id="edit-deal-market-tier" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <option value="Tier 1">Tier 1 • Gateway</option>
+              <option value="Tier 2">Tier 2 • Growth</option>
+              <option value="Tier 3">Tier 3 • Tertiary</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Property Class</label>
+            <select id="edit-deal-property-class" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <option value="Class A">Class A (Trophy/Spec)</option>
+              <option value="Class B">Class B (Value-Add)</option>
+              <option value="Class C">Class C (Workforce)</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Facility Sub-Type</label>
+            <input type="text" id="edit-deal-facility-type" placeholder="e.g. Industrial Warehouse" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
         <!-- Rent & Income Section -->
         <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
           <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
@@ -664,6 +731,9 @@
         asset_class: 'commercial',
         status: 'prospect', // Underwriting prospect
         location: 'Synthetic Pro-Forma • Generic Metro',
+        market_tier: 'Tier 1',
+        property_class: 'Class A',
+        facility_type: 'Industrial Logistics / Warehouse',
         is_synthetic: true,
         purchase_price: 1200000,
         irr: 17.86,
@@ -683,7 +753,12 @@
           leaseType: 'NNN',
           operatingExpenseRatio: 25,
           targetExitCapRate: 7.0,
-          vacancyRate: 5
+          vacancyRate: 5,
+          marketTier: 'Tier 1',
+          propertyClass: 'Class A',
+          facilityType: 'Industrial Logistics / Warehouse',
+          commTier: 'Tier1',
+          commClass: 'Industrial'
         }
       },
       {
@@ -692,6 +767,9 @@
         asset_class: 'multi-unit',
         status: 'owned', // Currently owned portfolio asset
         location: 'Synthetic Pro-Forma • Generic Metro',
+        market_tier: 'Tier 2',
+        property_class: 'Class B',
+        facility_type: 'Garden-Style Community',
         is_synthetic: true,
         purchase_price: 1850000,
         irr: 14.82,
@@ -708,7 +786,10 @@
           monthlyRentPerUnit: 1450,
           operatingExpenseRatio: 40,
           targetExitCapRate: 6.2,
-          vacancyRate: 5
+          vacancyRate: 5,
+          marketTier: 'Tier 2',
+          propertyClass: 'Class B',
+          facilityType: 'Garden-Style Community'
         }
       },
       {
@@ -717,6 +798,9 @@
         asset_class: 'single-family',
         status: 'owned', // Currently owned portfolio asset
         location: 'Synthetic Pro-Forma • Generic Metro',
+        market_tier: 'Tier 2',
+        property_class: 'Class B',
+        facility_type: 'BRRRR Value-Add Single-Family',
         is_synthetic: true,
         purchase_price: 420000,
         irr: 13.90,
@@ -733,7 +817,10 @@
           monthlyRent: 3100,
           operatingExpenseRatio: 35,
           targetExitCapRate: 6.5,
-          vacancyRate: 5
+          vacancyRate: 5,
+          marketTier: 'Tier 2',
+          propertyClass: 'Class B',
+          facilityType: 'BRRRR Value-Add Single-Family'
         }
       },
       {
@@ -742,6 +829,9 @@
         asset_class: 'storage',
         status: 'prospect', // Underwriting prospect
         location: 'Synthetic Pro-Forma • Generic Metro',
+        market_tier: 'Tier 1',
+        property_class: 'Class A',
+        facility_type: 'Climate-Controlled (Multi-Story)',
         is_synthetic: true,
         purchase_price: 950000,
         irr: 18.56,
@@ -759,7 +849,12 @@
           operatingExpenseRatio: 32,
           targetExitCapRate: 7.2,
           vacancyRate: 8,
-          isAutomated: true
+          isAutomated: true,
+          marketTier: 'Tier 1',
+          propertyClass: 'Class A',
+          facilityType: 'Climate-Controlled (Multi-Story)',
+          storageTier: 'Tier1',
+          storageClass: 'ClassA'
         }
       }
     ];
@@ -791,6 +886,9 @@
         asset_class: d.asset_type || d.asset_class || 'commercial',
         status: d.status || 'prospect',
         location: d.location || 'United States',
+        market_tier: d.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2',
+        property_class: d.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B',
+        facility_type: d.facility_type || inputs.facilityType || '',
         is_synthetic: !!d.is_synthetic,
         purchase_price: d.purchase_price || inputs.purchasePrice || 0,
         irr: d.irr || m.irr || 0,
@@ -1013,6 +1111,9 @@
         const cocStr = `${(d.cash_on_cash || 0).toFixed(1)}%`;
         const cfStr = formatCurrency(d.year1_cashflow || 0);
         const locStr = d.location || 'United States';
+        const tierStr = d.market_tier || d.inputs?.marketTier || d.inputs?.commTier || d.inputs?.storageTier || 'Tier 2';
+        const classStr = d.property_class || d.inputs?.propertyClass || d.inputs?.commClass || d.inputs?.storageClass || 'Class B';
+        const facilityStr = d.facility_type || d.inputs?.facilityType || '';
 
         const statusBadge = isOwned
           ? '<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap shrink-0">Owned</span>'
@@ -1029,6 +1130,7 @@
                     ${icon}
                   </div>
                   <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 bg-slate-950/80 px-2 py-0.5 rounded-md border border-slate-800/80 whitespace-nowrap truncate">${aClass.replace('-', ' ')}</span>
+                  <span class="text-[9px] font-bold text-slate-300 bg-slate-950/80 px-1.5 py-0.5 rounded-md border border-slate-800/80 whitespace-nowrap shrink-0">${tierStr} • ${classStr}</span>
                   ${d.is_synthetic ? '<span class="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap shrink-0">Benchmark</span>' : ''}
                 </div>
 
@@ -1072,7 +1174,7 @@
                 </h4>
                 <p class="text-[11px] text-slate-400 flex items-center space-x-1">
                   <svg class="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  <span class="truncate">${locStr}</span>
+                  <span class="truncate">${locStr}${facilityStr ? ` • ${facilityStr}` : ''}</span>
                 </p>
               </div>
 
@@ -1230,6 +1332,16 @@
         subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Underwriting Baseline Parameters`;
       }
 
+      if (document.getElementById('edit-deal-market-tier')) {
+        document.getElementById('edit-deal-market-tier').value = deal.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2';
+      }
+      if (document.getElementById('edit-deal-property-class')) {
+        document.getElementById('edit-deal-property-class').value = deal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B';
+      }
+      if (document.getElementById('edit-deal-facility-type')) {
+        document.getElementById('edit-deal-facility-type').value = deal.facility_type || inputs.facilityType || '';
+      }
+
       const grossMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
       const grossAnnual = inputs.grossRentAnnual || (grossMonthly ? grossMonthly * 12 : 0);
 
@@ -1259,6 +1371,14 @@
       deal.location = document.getElementById('edit-deal-location').value.trim();
       deal.status = document.getElementById('edit-deal-status').value;
 
+      const marketTier = document.getElementById('edit-deal-market-tier')?.value || 'Tier 2';
+      const propertyClass = document.getElementById('edit-deal-property-class')?.value || 'Class B';
+      const facilityType = document.getElementById('edit-deal-facility-type')?.value?.trim() || '';
+
+      deal.market_tier = marketTier;
+      deal.property_class = propertyClass;
+      deal.facility_type = facilityType;
+
       const price = parseFloat(document.getElementById('edit-deal-price').value) || deal.purchase_price || 1000000;
       const opex = parseFloat(document.getElementById('edit-deal-opex-ratio').value) || 35;
       const down = parseFloat(document.getElementById('edit-deal-down-payment').value) || 25;
@@ -1275,6 +1395,13 @@
       deal.inputs.downPaymentPercent = down;
       deal.inputs.interestRate = rate;
       deal.inputs.loanTerm = term;
+      deal.inputs.marketTier = marketTier;
+      deal.inputs.propertyClass = propertyClass;
+      deal.inputs.facilityType = facilityType;
+      deal.inputs.commTier = marketTier;
+      deal.inputs.commClass = propertyClass;
+      deal.inputs.storageTier = marketTier;
+      deal.inputs.storageClass = propertyClass;
 
       const aClass = deal.asset_class || deal.assetType || 'commercial';
       if (aClass === 'single-family') {
@@ -1375,6 +1502,15 @@
       'single-family': {
         name: 'Benchmark Gamma: Single-Family BRRRR Case',
         location: 'Synthetic Model • Generic Metro',
+        marketTier: 'Tier 2',
+        propertyClass: 'Class B',
+        facilityType: 'BRRRR Value-Add Single-Family',
+        subTypes: [
+          'Turnkey Single-Family Rental',
+          'BRRRR Value-Add Single-Family',
+          'New Construction Spec SFR',
+          'Single-Family Fix & Flip'
+        ],
         gla: 2400,
         price: 450000,
         down: 20,
@@ -1394,6 +1530,15 @@
       'multi-unit': {
         name: 'Benchmark Beta: 12-Unit Multifamily Value-Add',
         location: 'Synthetic Model • Generic Metro',
+        marketTier: 'Tier 2',
+        propertyClass: 'Class B',
+        facilityType: 'Garden-Style Community',
+        subTypes: [
+          'Garden-Style Community',
+          'Mid / High-Rise Apartments',
+          'Duplex / Triplex / Quadplex (2-4 Units)',
+          'Build-to-Rent (BTR) Community'
+        ],
         gla: 11000,
         price: 1850000,
         down: 25,
@@ -1413,6 +1558,15 @@
       'commercial': {
         name: 'Benchmark Alpha: Class-A Industrial Facility',
         location: 'Synthetic Model • Generic Metro',
+        marketTier: 'Tier 1',
+        propertyClass: 'Class A',
+        facilityType: 'Industrial Logistics / Warehouse',
+        subTypes: [
+          'Industrial Logistics / Warehouse',
+          'Retail Strip / Center',
+          'Class-A Office / Medical',
+          'Flex / R&D Facility'
+        ],
         gla: 15000,
         price: 1200000,
         down: 25,
@@ -1432,6 +1586,15 @@
       'storage': {
         name: 'Benchmark Delta: Automated Self-Storage Facility',
         location: 'Synthetic Model • Generic Metro',
+        marketTier: 'Tier 1',
+        propertyClass: 'Class A',
+        facilityType: 'Climate-Controlled (Multi-Story)',
+        subTypes: [
+          'Climate-Controlled (Multi-Story)',
+          'Drive-Up Standard (Single-Story)',
+          'Outdoor / RV & Boat Parking',
+          'Hybrid Flex Facility'
+        ],
         gla: 22000,
         price: 950000,
         down: 30,
@@ -1520,6 +1683,33 @@
       if (cashEl) cashEl.textContent = formatCurrency(total);
     }
 
+    function onWizardClassificationChanged() {
+      updateWizardBenchmarkHint();
+    }
+
+    function updateWizardBenchmarkHint() {
+      const asset = wizardSelectedAsset || 'commercial';
+      const tier = document.getElementById('wiz-market-tier')?.value || 'Tier 2';
+      const pClass = document.getElementById('wiz-property-class')?.value || 'Class B';
+      const fType = document.getElementById('wiz-facility-type')?.value || '';
+
+      const hintEl = document.getElementById('wiz-benchmark-cap-hint');
+      const guidanceEl = document.getElementById('wiz-classification-guidance');
+
+      if (window.PropertyMath && window.PropertyMath.getBenchmarkCapRateRange) {
+        const range = window.PropertyMath.getBenchmarkCapRateRange(asset, tier, pClass, fType);
+        if (hintEl && range) {
+          hintEl.textContent = `Market Cap: ${range.min.toFixed(2)}% - ${range.max.toFixed(2)}%`;
+        }
+      }
+
+      if (guidanceEl) {
+        const tierDesc = tier.includes('1') ? 'Primary Gateway Metro (High Liquidity, Low Cap Rates)' : (tier.includes('2') ? 'Secondary Growth Metro (Core-Plus Yields)' : 'Tertiary / Regional Market (High Yield Spread)');
+        const classDesc = pClass.includes('A') ? 'Trophy/Institutional Quality' : (pClass.includes('B') ? 'Value-Add / Core-Plus' : 'Workforce Housing / Opportunity');
+        guidanceEl.textContent = `${tierDesc} • ${classDesc}`;
+      }
+    }
+
     function applyWizardAssetDefaults(assetClass) {
       wizardSelectedAsset = assetClass;
       const sel = document.getElementById('wiz-asset-class');
@@ -1531,6 +1721,15 @@
       setVal('wiz-deal-name', def.name);
       setVal('wiz-location', def.location);
       setVal('wiz-gla', def.gla);
+
+      const subTypeSelect = document.getElementById('wiz-facility-type');
+      if (subTypeSelect && def.subTypes) {
+        subTypeSelect.innerHTML = def.subTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        subTypeSelect.value = def.facilityType || def.subTypes[0];
+      }
+      setVal('wiz-market-tier', def.marketTier || 'Tier 2');
+      setVal('wiz-property-class', def.propertyClass || 'Class B');
+
       setVal('wiz-purchase-price', def.price);
       setVal('wiz-down-payment', def.down);
       setVal('wiz-closing-costs', def.closing);
@@ -1547,6 +1746,7 @@
       setVal('wiz-appreciation', def.apprec);
 
       calculateWizardUpfrontCash();
+      updateWizardBenchmarkHint();
     }
 
     // === Guided Wizard Submit: Inserts directly into Supabase & updates dashboard ===
@@ -1560,6 +1760,9 @@
       const downPaymentPercent = parseFloat(document.getElementById('wiz-down-payment')?.value) || 25;
       const interestRate = parseFloat(document.getElementById('wiz-interest-rate')?.value) || 6.5;
       const grossRent = parseFloat(document.getElementById('wiz-gross-rent')?.value) || 12000;
+      const marketTier = document.getElementById('wiz-market-tier')?.value || 'Tier 2';
+      const propertyClass = document.getElementById('wiz-property-class')?.value || 'Class B';
+      const facilityType = document.getElementById('wiz-facility-type')?.value || '';
 
       const inputs = {
         purchasePrice: purchasePrice,
@@ -1574,7 +1777,14 @@
         vacancyRate: parseFloat(document.getElementById('wiz-vacancy-rate')?.value) || 5,
         expenseRatio: parseFloat(document.getElementById('wiz-opex-ratio')?.value) || 35,
         rentGrowth: parseFloat(document.getElementById('wiz-rent-growth')?.value) || 3,
-        targetCapRate: parseFloat(document.getElementById('wiz-exit-cap')?.value) || 6.5
+        targetCapRate: parseFloat(document.getElementById('wiz-exit-cap')?.value) || 6.5,
+        marketTier: marketTier,
+        propertyClass: propertyClass,
+        facilityType: facilityType,
+        commTier: marketTier,
+        commClass: propertyClass,
+        storageTier: marketTier,
+        storageClass: propertyClass
       };
 
       const res = window.PropertyMath.calculateProjections(assetClass, inputs);
@@ -1622,6 +1832,9 @@
         asset_class: assetClass,
         status: 'prospect',
         location: location,
+        market_tier: marketTier,
+        property_class: propertyClass,
+        facility_type: facilityType,
         purchase_price: purchasePrice,
         irr: res.irr,
         equity_multiple: res.equityMultiplier,
