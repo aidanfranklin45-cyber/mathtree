@@ -116,11 +116,16 @@
         </div>
       </div>
 
-      <!-- Actions Bar: Status Toggle, Pitch Deck, PDF, CSV, Save -->
+      <!-- Actions Bar: Status Toggle, Edit, Pitch Deck, PDF, CSV, Save -->
       <div class="flex items-center space-x-2">
         <button id="btn-toggle-deal-status" onclick="toggleCurrentDealStatus()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
           <span id="status-toggle-label">Move to Owned</span>
+        </button>
+
+        <button onclick="openEditDealModalFromProject()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 transition flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          <span>Edit Inputs</span>
         </button>
 
         <button onclick="openDealPitchDeck()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm">
@@ -152,13 +157,13 @@
 
     <!-- Analytics View Switcher Bar for THIS Property -->
     <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/40 p-2 rounded-2xl border border-slate-900">
-      <!-- Asset Type Preset (locked to or selectable for this deal) -->
-      <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-900">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2">Asset Type:</span>
-        <button id="tab-single-family" data-tab="single-family" class="py-1 px-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">Single-Family</button>
-        <button id="tab-multi-unit" data-tab="multi-unit" class="py-1 px-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">Multi-Unit</button>
-        <button id="tab-commercial" data-tab="commercial" class="py-1 px-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">Commercial</button>
-        <button id="tab-storage" data-tab="storage" class="py-1 px-2.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">Storage</button>
+      <!-- Locked Asset Class Indicator (Permanent asset type lock) -->
+      <div class="flex items-center space-x-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-900">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Asset Class:</span>
+        <span id="locked-asset-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize flex items-center space-x-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+          <span id="locked-asset-text">Commercial Real Estate</span>
+        </span>
       </div>
 
       <!-- Analysis Studio Sub-Tabs -->
@@ -172,27 +177,20 @@
 
     <div id="modeler-grid-container" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       
-      <!-- Left column: Inputs (takes 4 cols on lg, or full width on smaller screens) -->
+      <!-- Left column: Parameters Overview (takes 4 cols on lg, or full width on smaller screens) -->
       <section class="lg:col-span-4 space-y-6">
         <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl space-y-6 shadow-xl backdrop-blur-md">
           <div class="flex items-center justify-between pb-3 border-b border-slate-900">
-            <h2 class="text-md font-bold tracking-tight text-white flex items-center space-x-2">
-              <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-500"></span>
-              <span>Model Parameters</span>
-            </h2>
-            <span id="active-tab-indicator" class="text-xs font-semibold px-2 py-0.5 bg-brand-500/10 text-brand-400 border border-brand-500/20 rounded-md capitalize">Single-Family</span>
-          </div>
-
-          <!-- Simple Mode Toggle -->
-          <div class="flex items-center justify-between p-3 rounded-lg border border-emerald-950/40 bg-emerald-950/10">
-            <div class="flex items-center space-x-2">
-              <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span class="text-xs font-bold text-slate-300">Lock Assumptions (Simple Mode)</span>
+            <div>
+              <h2 class="text-sm font-bold tracking-tight text-white flex items-center space-x-2">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span>Baseline Parameters</span>
+              </h2>
+              <span id="active-tab-indicator" class="text-[10px] font-semibold text-slate-400 capitalize">Commercial Real Estate</span>
             </div>
-            <button id="toggle-simple-mode" class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-brand-500" role="switch" aria-checked="true">
-              <span id="toggle-simple-knob" class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-4"></span>
+            <button type="button" onclick="openEditDealModalFromProject()" class="text-xs font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 px-2.5 py-1.5 rounded-xl border border-brand-500/20 transition flex items-center space-x-1 shadow-sm">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              <span>Edit Assumptions</span>
             </button>
           </div>
 
@@ -202,6 +200,7 @@
               <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
                 <span class="w-1.5 h-1.5 rounded-full bg-accent-cyan"></span>
                 <span>Underwriting Scenario</span>
+              </span>
               </span>
               <button type="button" id="btn-save-scenario-modal" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20 transition">
                 + Save Custom
@@ -242,10 +241,10 @@
                   <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <span class="text-slate-500 text-sm">$</span>
                   </div>
-                  <input type="number" id="input-purchase-price" name="purchasePrice" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="0">
+                  <input type="number" id="input-purchase-price" name="purchasePrice" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="0" readonly style="cursor: default;">
                 </div>
                 <!-- Dynamic Scrubber: Purchase Price -->
-                <input type="range" id="slider-purchase-price" aria-label="Purchase Price range scrubber" min="50000" max="2500000" step="10000" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
+                <input type="range" id="slider-purchase-price" aria-label="Purchase Price range scrubber" min="50000" max="2500000" step="10000" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
               </div>
 
               <!-- Down Payment & Interest Rate (Grouped for grid layout efficiency) -->
@@ -255,25 +254,25 @@
                     <span>Down Payment</span>
                   </label>
                   <div class="relative rounded-lg shadow-sm">
-                    <input type="number" step="any" id="input-down-payment" name="downPaymentPercent" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="20">
+                    <input type="number" step="any" id="input-down-payment" name="downPaymentPercent" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="20" readonly style="cursor: default;">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-sm">%</span>
                     </div>
                   </div>
                   <!-- Dynamic Scrubber: Down Payment -->
-                  <input type="range" id="slider-down-payment" aria-label="Down Payment percentage range scrubber" min="0" max="100" step="1" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
+                  <input type="range" id="slider-down-payment" aria-label="Down Payment percentage range scrubber" min="0" max="100" step="1" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
 
                 <div class="space-y-1.5">
                   <label for="input-interest-rate" class="text-xs font-semibold text-slate-400">Interest Rate</label>
                   <div class="relative rounded-lg shadow-sm">
-                    <input type="number" step="any" id="input-interest-rate" name="interestRate" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <input type="number" step="any" id="input-interest-rate" name="interestRate" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-sm">%</span>
                     </div>
                   </div>
                   <!-- Dynamic Scrubber: Interest Rate -->
-                  <input type="range" id="slider-interest-rate" aria-label="Interest Rate percentage range scrubber" min="1" max="15" step="0.125" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
+                  <input type="range" id="slider-interest-rate" aria-label="Interest Rate percentage range scrubber" min="1" max="15" step="0.125" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
               </div>
             </div>
@@ -290,7 +289,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-sm">$</span>
                     </div>
-                    <input type="number" id="input-arv" name="arv" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <input type="number" id="input-arv" name="arv" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                   </div>
                 </div>
                 <div class="space-y-1.5">
@@ -299,10 +298,10 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-sm">$</span>
                     </div>
-                    <input type="number" id="input-monthly-rent" name="monthlyRent" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <input type="number" id="input-monthly-rent" name="monthlyRent" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                   </div>
                   <!-- Dynamic Scrubber: Monthly Rent -->
-                  <input type="range" id="slider-monthly-rent" aria-label="Monthly Rent range scrubber" min="500" max="15000" step="50" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
+                  <input type="range" id="slider-monthly-rent" aria-label="Monthly Rent range scrubber" min="500" max="15000" step="50" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
               </div>
 
@@ -310,7 +309,7 @@
               <div id="group-multi-unit" class="space-y-4 hidden">
                 <div class="space-y-1.5">
                   <label for="input-unit-count" class="text-xs font-semibold text-slate-400">Number of Units</label>
-                  <input type="number" id="input-unit-count" name="unitCount" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                  <input type="number" id="input-unit-count" name="unitCount" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                 </div>
                 <div class="space-y-1.5">
                   <label for="input-monthly-rent-per-unit" class="text-xs font-semibold text-slate-400">Monthly Rent per Unit</label>
@@ -318,10 +317,10 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-sm">$</span>
                     </div>
-                    <input type="number" id="input-monthly-rent-per-unit" name="monthlyRentPerUnit" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <input type="number" id="input-monthly-rent-per-unit" name="monthlyRentPerUnit" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                   </div>
                   <!-- Dynamic Scrubber: Monthly Rent Per Unit -->
-                  <input type="range" id="slider-monthly-rent-per-unit" aria-label="Monthly Rent per Unit range scrubber" min="300" max="8000" step="25" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
+                  <input type="range" id="slider-monthly-rent-per-unit" aria-label="Monthly Rent per Unit range scrubber" min="300" max="8000" step="25" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
               </div>
 
@@ -359,12 +358,12 @@
                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">$</span>
                       </div>
-                      <input type="number" id="input-gross-rent-annual" name="grossRentAnnual" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" id="input-gross-rent-annual" name="grossRentAnnual" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     </div>
                   </div>
                   <div class="space-y-1.5">
                     <label for="input-gla" class="text-xs font-semibold text-slate-400">GLA (Sq Ft)</label>
-                    <input type="number" id="input-gla" name="gla" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="15000">
+                    <input type="number" id="input-gla" name="gla" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="15000" readonly style="cursor: default;">
                   </div>
                 </div>
               </div>
@@ -388,7 +387,7 @@
                 </div>
                 <div class="space-y-1.5">
                   <label for="input-storage-units" class="text-xs font-semibold text-slate-400">Number of Units</label>
-                  <input type="number" id="input-storage-units" name="storageUnitCount" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                  <input type="number" id="input-storage-units" name="storageUnitCount" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                 </div>
                 <div class="space-y-1.5">
                   <label for="input-storage-rent-per-unit" class="text-xs font-semibold text-slate-400">Monthly Rent per Unit</label>
@@ -396,7 +395,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-sm">$</span>
                     </div>
-                    <input type="number" id="input-storage-rent-per-unit" name="storageRentPerUnit" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <input type="number" id="input-storage-rent-per-unit" name="storageRentPerUnit" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                   </div>
                 </div>
                 <div class="border-t border-emerald-950/30 my-2 pt-2">
@@ -404,11 +403,11 @@
                   <div class="grid grid-cols-2 gap-2">
                     <div class="space-y-1">
                       <label for="input-storage-sqft" class="text-[10px] font-semibold text-slate-400">Total Sq Ft</label>
-                      <input type="number" id="input-storage-sqft" name="storageSqFt" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-1.5 px-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" id="input-storage-sqft" name="storageSqFt" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-1.5 px-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     </div>
                     <div class="space-y-1">
                       <label for="input-storage-rent-per-sqft" class="text-[10px] font-semibold text-slate-400">Monthly Rent/Sq Ft</label>
-                      <input type="number" step="any" id="input-storage-rent-per-sqft" name="storageRentPerSqFt" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-1.5 px-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" step="any" id="input-storage-rent-per-sqft" name="storageRentPerSqFt" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-1.5 px-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     </div>
                   </div>
                 </div>
@@ -439,7 +438,7 @@
                 <div class="space-y-1.5">
                   <label for="input-loan-term" class="text-xs font-semibold text-slate-400">Loan Term</label>
                   <div class="relative rounded-lg shadow-sm">
-                    <input type="number" id="input-loan-term" name="loanTerm" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                    <input type="number" id="input-loan-term" name="loanTerm" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                       <span class="text-slate-500 text-xs">Yrs</span>
                     </div>
@@ -454,7 +453,7 @@
                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">$</span>
                       </div>
-                      <input type="number" id="input-rehab-costs" name="rehabCosts" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" id="input-rehab-costs" name="rehabCosts" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     </div>
                   </div>
                   <div class="space-y-1.5">
@@ -463,7 +462,7 @@
                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">$</span>
                       </div>
-                      <input type="number" id="input-closing-costs" name="closingCosts" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" id="input-closing-costs" name="closingCosts" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     </div>
                   </div>
                 </div>
@@ -473,7 +472,7 @@
                   <div class="space-y-1.5">
                     <label for="input-appreciation-rate" id="label-appreciation-rate" class="text-xs font-semibold text-slate-400">Appreciation</label>
                     <div class="relative rounded-lg shadow-sm">
-                      <input type="number" step="any" id="input-appreciation-rate" name="appreciationRate" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" step="any" id="input-appreciation-rate" name="appreciationRate" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                       <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">%</span>
                       </div>
@@ -482,13 +481,13 @@
                   <div class="space-y-1.5">
                     <label for="input-vacancy-rate" class="text-xs font-semibold text-slate-400">Vacancy Rate</label>
                     <div class="relative rounded-lg shadow-sm">
-                      <input type="number" step="any" id="input-vacancy-rate" name="vacancyRate" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" step="any" id="input-vacancy-rate" name="vacancyRate" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                       <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">%</span>
                       </div>
                     </div>
                     <!-- Dynamic Scrubber: Vacancy Rate -->
-                    <input type="range" id="slider-vacancy-rate" aria-label="Vacancy Rate percentage range scrubber" min="0" max="25" step="0.5" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1">
+                    <input type="range" id="slider-vacancy-rate" aria-label="Vacancy Rate percentage range scrubber" min="0" max="25" step="0.5" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                   </div>
                 </div>
 
@@ -497,7 +496,7 @@
                   <div class="space-y-1.5">
                     <label for="input-rent-growth" class="text-xs font-semibold text-slate-400">Rent Growth</label>
                     <div class="relative rounded-lg shadow-sm">
-                      <input type="number" step="any" id="input-rent-growth" name="rentGrowth" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" step="any" id="input-rent-growth" name="rentGrowth" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                       <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">%</span>
                       </div>
@@ -506,7 +505,7 @@
                   <div class="space-y-1.5">
                     <label for="input-expense-ratio" class="text-xs font-semibold text-slate-400">Expense Ratio</label>
                     <div class="relative rounded-lg shadow-sm">
-                      <input type="number" step="any" id="input-expense-ratio" name="expenseRatio" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+                      <input type="number" step="any" id="input-expense-ratio" name="expenseRatio" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                       <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                         <span class="text-slate-500 text-sm">%</span>
                       </div>
@@ -1202,6 +1201,98 @@
       </section>
 
     </div>
+  
+  <!-- Edit Project Inputs Modal for project.html -->
+  <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl my-8">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base">
+            ✎
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-white">Edit Project Inputs</h3>
+            <p id="edit-modal-deal-subtitle" class="text-xs text-slate-400">Modify baseline underwriting assumptions</p>
+          </div>
+        </div>
+        <button onclick="closeEditDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <form id="edit-deal-form" onsubmit="saveEditDealModalFromProject(event)" class="space-y-4">
+        <input type="hidden" id="edit-deal-id">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Project Name</label>
+            <input type="text" id="edit-deal-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Location</label>
+            <input type="text" id="edit-deal-location" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Portfolio Status</label>
+            <select id="edit-deal-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <option value="prospect">Pipeline Prospect</option>
+              <option value="owned">Owned Portfolio Asset</option>
+            </select>
+          </div>
+          <div class="space-y-1 sm:col-span-2">
+            <label class="text-[11px] font-bold text-slate-400">Acquisition Price ($)</label>
+            <input type="number" id="edit-deal-price" required min="1" step="1000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <!-- Rent & Income Section -->
+        <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="edit-rent-inputs-container">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Annual Gross Rent ($)</label>
+              <input type="number" id="edit-deal-gross-rent-annual" min="0" step="500" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Monthly Gross Rent ($)</label>
+              <input type="number" id="edit-deal-gross-rent-monthly" min="0" step="50" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Operating Expenses & Debt -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Expense Ratio (%)</label>
+            <input type="number" id="edit-deal-opex-ratio" min="5" max="95" step="0.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Down Payment (%)</label>
+            <input type="number" id="edit-deal-down-payment" min="0" max="100" step="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Interest Rate (%)</label>
+            <input type="number" id="edit-deal-interest-rate" min="0" max="25" step="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Loan Term (Yrs)</label>
+            <input type="number" id="edit-deal-loan-term" min="1" max="40" step="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeEditDealModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">
+            Save & Recalculate
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   </main>
   </div> <!-- End #app-workspace -->
 
@@ -4284,7 +4375,7 @@
     };
 
     // DOM Initialization & Event Listeners
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       decodeUrlHash();
 
       // Asset Class Tab Click Handlers
@@ -4621,14 +4712,111 @@
 
     function getDealIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
-      return params.get('id');
+      const urlId = params.get('id');
+      if (urlId) return urlId;
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#deal=')) return hash.substring(6);
+      return null;
+    }
+
+    function openEditDealModalFromProject() {
+      if (!currentLoadedDeal) return;
+      const modal = document.getElementById('edit-deal-modal');
+      if (!modal) return;
+
+      const inputs = currentLoadedDeal.inputs || {};
+      const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
+
+      document.getElementById('edit-deal-id').value = currentLoadedDeal.id;
+      document.getElementById('edit-deal-name').value = currentLoadedDeal.name || '';
+      document.getElementById('edit-deal-location').value = currentLoadedDeal.location || '';
+      document.getElementById('edit-deal-status').value = currentLoadedDeal.status || 'prospect';
+
+      const price = currentLoadedDeal.purchase_price || inputs.purchasePrice || 0;
+      document.getElementById('edit-deal-price').value = price;
+
+      const subTitle = document.getElementById('edit-modal-deal-subtitle');
+      if (subTitle) {
+        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Underwriting Baseline Parameters`;
+      }
+
+      const grossMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
+      const grossAnnual = inputs.grossRentAnnual || (grossMonthly ? grossMonthly * 12 : 0);
+
+      document.getElementById('edit-deal-gross-rent-annual').value = grossAnnual || '';
+      document.getElementById('edit-deal-gross-rent-monthly').value = grossMonthly || '';
+
+      document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
+      document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
+      document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeEditDealModal() {
+      const modal = document.getElementById('edit-deal-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function saveEditDealModalFromProject(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (!currentLoadedDeal) return;
+
+      currentLoadedDeal.name = document.getElementById('edit-deal-name').value.trim();
+      currentLoadedDeal.location = document.getElementById('edit-deal-location').value.trim();
+      currentLoadedDeal.status = document.getElementById('edit-deal-status').value;
+
+      const price = parseFloat(document.getElementById('edit-deal-price').value) || currentLoadedDeal.purchase_price || 1000000;
+      const opex = parseFloat(document.getElementById('edit-deal-opex-ratio').value) || 35;
+      const down = parseFloat(document.getElementById('edit-deal-down-payment').value) || 25;
+      const rate = parseFloat(document.getElementById('edit-deal-interest-rate').value) || 6.5;
+      const term = parseInt(document.getElementById('edit-deal-loan-term').value) || 30;
+
+      const annualRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-annual').value) || 0;
+      const monthlyRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-monthly').value) || 0;
+
+      currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
+      currentLoadedDeal.inputs.purchasePrice = price;
+      currentLoadedDeal.inputs.operatingExpenseRatio = opex;
+      currentLoadedDeal.inputs.expenseRatio = opex;
+      currentLoadedDeal.inputs.downPaymentPercent = down;
+      currentLoadedDeal.inputs.interestRate = rate;
+      currentLoadedDeal.inputs.loanTerm = term;
+
+      const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
+      if (aClass === 'single-family') {
+        currentLoadedDeal.inputs.monthlyRent = monthlyRentVal || (annualRentVal ? Math.round(annualRentVal / 12) : 2500);
+      } else if (aClass === 'multi-unit') {
+        const units = currentLoadedDeal.inputs.unitCount || currentLoadedDeal.inputs.numUnits || 4;
+        currentLoadedDeal.inputs.unitCount = units;
+        currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / units) : (currentLoadedDeal.inputs.monthlyRentPerUnit || 1400);
+      } else if (aClass === 'commercial') {
+        currentLoadedDeal.inputs.grossRentAnnual = annualRentVal || (monthlyRentVal ? monthlyRentVal * 12 : 120000);
+      } else if (aClass === 'storage') {
+        currentLoadedDeal.inputs.storageUnitCount = currentLoadedDeal.inputs.storageUnitCount || currentLoadedDeal.inputs.unitCount || 100;
+        currentLoadedDeal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / currentLoadedDeal.inputs.storageUnitCount) : (currentLoadedDeal.inputs.monthlyRentPerUnit || 120);
+      }
+
+      // Update UI title and badges
+      const titleEl = document.getElementById('deal-title-display');
+      if (titleEl) titleEl.textContent = currentLoadedDeal.name;
+
+      const locEl = document.getElementById('deal-location-display');
+      if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location}</span>`;
+
+      updateDealStatusUI(currentLoadedDeal.status);
+      updateFormFields(currentLoadedDeal.inputs);
+      saveCurrentDealChanges(false);
+      updateCalculations();
+      closeEditDealModal();
     }
 
     async function initProjectView() {
       currentLoadedDealId = getDealIdFromUrl();
       const user = (window._supabase && (await window._supabase.auth.getSession()).data?.session?.user) || window._currentUser;
 
-      // First attempt to load directly from Supabase by UUID
+      // 1. First attempt to load directly from Supabase by UUID
       if (window._supabase && user && !user.demo && currentLoadedDealId && !currentLoadedDealId.startsWith('proj-') && !currentLoadedDealId.startsWith('demo-')) {
         try {
           const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).single();
@@ -4654,6 +4842,7 @@
         }
       }
 
+      // 2. Fallback to localStorage or curated defaults
       if (!currentLoadedDeal) {
         let allDeals = [];
         try {
@@ -4671,6 +4860,9 @@
       if (!currentLoadedDeal) return;
       currentLoadedDealId = currentLoadedDeal.id;
 
+      const aType = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
+      activeTab = aType;
+
       // Update Header Display
       const titleEl = document.getElementById('deal-title-display');
       if (titleEl) titleEl.textContent = currentLoadedDeal.name;
@@ -4679,19 +4871,48 @@
       if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location || 'United States'}</span>`;
 
       const assetPill = document.getElementById('deal-asset-pill');
-      if (assetPill) assetPill.textContent = (currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial').replace('-', ' ');
+      if (assetPill) assetPill.textContent = aType.replace('-', ' ');
+
+      const lockedBadgeText = document.getElementById('locked-asset-text');
+      if (lockedBadgeText) {
+        const readableMap = {
+          'commercial': 'Commercial Real Estate',
+          'multi-unit': 'Multi-Family Residential',
+          'single-family': 'Single-Family Home',
+          'storage': 'Self-Storage Facility'
+        };
+        lockedBadgeText.textContent = readableMap[aType] || aType.replace('-', ' ');
+      }
+
+      const activeIndicator = document.getElementById('active-tab-indicator');
+      if (activeIndicator) {
+        const readableMap = {
+          'commercial': 'Commercial Real Estate',
+          'multi-unit': 'Multi-Family Residential',
+          'single-family': 'Single-Family Home',
+          'storage': 'Self-Storage Facility'
+        };
+        activeIndicator.textContent = readableMap[aType] || aType.replace('-', ' ');
+      }
 
       updateDealStatusUI(currentLoadedDeal.status || 'prospect');
 
-      // Set active asset tab & populate fields
-      const aType = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
-      setActiveTab(aType);
+      // Lock inputs view strictly to this property's asset class
+      showTabInputs(aType);
 
-      if (currentLoadedDeal.inputs) {
-        updateFormFields(currentLoadedDeal.inputs);
-        syncSlidersFromInputs();
-      }
+      // Normalize inputs: merge with default presets to guarantee no empty/zero fields
+      const baseDefaults = defaultPresets[aType] || defaultPresets['commercial'];
+      const rawInputs = currentLoadedDeal.inputs || {};
+      currentLoadedDeal.inputs = {
+        ...baseDefaults,
+        ...rawInputs,
+        purchasePrice: rawInputs.purchasePrice || currentLoadedDeal.purchase_price || baseDefaults.purchasePrice
+      };
 
+      // Set form fields with valid property values
+      updateFormFields(currentLoadedDeal.inputs);
+
+      // Trigger calculation and update all models & forecast table
       updateCalculations();
     }
 
@@ -4713,13 +4934,23 @@
       }
     }
 
-    function toggleCurrentDealStatus() {
+    async function toggleCurrentDealStatus() {
       if (!currentLoadedDeal) return;
       const current = currentLoadedDeal.status || 'prospect';
       const next = current === 'owned' ? 'prospect' : 'owned';
       currentLoadedDeal.status = next;
       updateDealStatusUI(next);
       saveCurrentDealChanges(false);
+
+      const user = window._currentUser;
+      if (window._supabase && user && !user.demo && !currentLoadedDeal.id.startsWith('proj-') && !currentLoadedDeal.id.startsWith('demo-')) {
+        try {
+          await window._supabase.from('deals').update({ status: next }).eq('id', currentLoadedDeal.id).eq('user_id', user.id);
+        } catch(e) {
+          console.warn('Error updating status in Supabase:', e);
+        }
+      }
+
       const label = next === 'owned' ? 'Acquired / Owned Asset' : 'Pipeline Prospect';
       alert(`Deal status updated to: ${label}`);
     }
@@ -4787,18 +5018,8 @@
       if (currentLoadedDeal) openPitchDeck(currentLoadedDeal);
     }
 
-    // --- Initial Page Navigation & Startup Routing ---
-      const initialHash = window.location.hash;
-      if (initialHash && initialHash.startsWith('#deal=')) {
-        initProjectView();
-      } else if (initialHash === '#modeler') {
-        showAppWorkspace(currentUser, 'single');
-      } else if (initialHash === '#portfolio') {
-        showAppWorkspace(currentUser, 'portfolio');
-      } else {
-        // Default on dashboard.html is always the dashboard view
-        showAppWorkspace(currentUser, 'dashboard');
-      }
+    // --- Guaranteed Startup Routing for project.html ---
+      await initProjectView();
     });
   </script>
 </body>

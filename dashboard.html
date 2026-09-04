@@ -285,6 +285,136 @@
     </div>
   </div>
 
+  <!-- Typed Delete Confirmation Modal -->
+  <div id="typed-delete-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+      <div class="flex items-start justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 font-black">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-white">Delete Project</h3>
+            <p class="text-xs text-rose-400 font-semibold mt-0.5">Permanent Deletion</p>
+          </div>
+        </div>
+        <button onclick="closeTypedDeleteModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <div class="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+        <p class="text-xs text-slate-300 leading-relaxed">
+          This action <strong class="text-rose-400 font-bold">cannot be undone</strong>. All underwriting models, pro-forma forecasts, and return metrics will be permanently deleted.
+        </p>
+        <div class="space-y-1.5 pt-1">
+          <label class="text-[11px] font-bold text-slate-400 block">
+            To confirm, type <span id="delete-modal-project-name" class="text-emerald-400 font-mono font-bold select-all"></span> below:
+          </label>
+          <input type="text" id="delete-confirm-input" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500" placeholder="Type project name to confirm">
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 pt-2">
+        <button onclick="closeTypedDeleteModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+          Cancel
+        </button>
+        <button id="btn-confirm-delete" disabled onclick="executeTypedDelete()" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition">
+          Delete Forever
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Project Inputs Modal -->
+  <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl my-8">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base">
+            ✎
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-white">Edit Project Inputs</h3>
+            <p id="edit-modal-deal-subtitle" class="text-xs text-slate-400">Modify baseline assumptions & parameters</p>
+          </div>
+        </div>
+        <button onclick="closeEditDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <form id="edit-deal-form" onsubmit="saveEditDealModal(event)" class="space-y-4">
+        <input type="hidden" id="edit-deal-id">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Project Name</label>
+            <input type="text" id="edit-deal-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Location</label>
+            <input type="text" id="edit-deal-location" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Portfolio Status</label>
+            <select id="edit-deal-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+              <option value="prospect">Pipeline Prospect</option>
+              <option value="owned">Owned Portfolio Asset</option>
+            </select>
+          </div>
+          <div class="space-y-1 sm:col-span-2">
+            <label class="text-[11px] font-bold text-slate-400">Acquisition Price ($)</label>
+            <input type="number" id="edit-deal-price" required min="1" step="1000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <!-- Rent & Income Section -->
+        <div class="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-3">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block">Revenue & Rent Assumptions</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="edit-rent-inputs-container">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Annual Gross Rent ($)</label>
+              <input type="number" id="edit-deal-gross-rent-annual" min="0" step="500" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Monthly Gross Rent ($)</label>
+              <input type="number" id="edit-deal-gross-rent-monthly" min="0" step="50" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- Operating Expenses & Debt -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Expense Ratio (%)</label>
+            <input type="number" id="edit-deal-opex-ratio" min="5" max="95" step="0.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Down Payment (%)</label>
+            <input type="number" id="edit-deal-down-payment" min="0" max="100" step="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Interest Rate (%)</label>
+            <input type="number" id="edit-deal-interest-rate" min="0" max="25" step="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-400">Loan Term (Yrs)</label>
+            <input type="number" id="edit-deal-loan-term" min="1" max="40" step="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeEditDealModal()" class="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">
+            Save & Recalculate
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 
 
   <!-- Math Logic Scripts -->
@@ -651,27 +781,56 @@
           ? '<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Owned Asset</span>'
           : '<span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Prospect / Pipeline</span>';
 
-        const toggleBtnLabel = isOwned ? 'Move to Pipeline' : 'Mark as Owned';
-
         return `
-          <div class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl flex flex-col justify-between transition group hover:shadow-brand-500/5">
+          <div class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl flex flex-col justify-between transition group hover:shadow-brand-500/5 relative">
             <div class="space-y-4">
               <div class="flex items-start justify-between gap-2">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+                  <div class="w-10 h-10 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner shrink-0">
                     ${icon}
                   </div>
                   <div>
                     <h4 class="text-sm font-extrabold text-white group-hover:text-brand-400 transition">${d.name}</h4>
                     <p class="text-[11px] text-slate-400 flex items-center space-x-1 mt-0.5">
-                      <svg class="w-3 h-3 text-slate-500 inline mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                      <span>${locStr}</span>
+                      <svg class="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      <span class="truncate">${locStr}</span>
                     </p>
                   </div>
                 </div>
-                <div class="flex flex-col items-end gap-1">
-                  ${statusBadge}
-                  <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 capitalize">${aClass.replace('-', ' ')}</span>
+
+                <!-- Right Header: Status + 3-Dots Menu -->
+                <div class="flex items-center space-x-2 shrink-0">
+                  <div class="flex flex-col items-end gap-1">
+                    ${statusBadge}
+                    <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 capitalize">${aClass.replace('-', ' ')}</span>
+                  </div>
+
+                  <!-- Dropdown Menu Trigger -->
+                  <div class="relative">
+                    <button onclick="toggleCardMenu(event, '${d.id}')" aria-label="Deal Actions" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/></svg>
+                    </button>
+                    <!-- Dropdown Options -->
+                    <div id="card-menu-${d.id}" class="card-dropdown-menu hidden absolute right-0 top-8 w-52 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-30">
+                      <button onclick="toggleDealStatus('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                        <span>${isOwned ? 'Move to Pipeline (Prospect)' : 'Mark as Acquired (Owned)'}</span>
+                      </button>
+                      <button onclick="openEditDealModal('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        <span>Edit Project Inputs</span>
+                      </button>
+                      <button onclick="openProjectPitchDeck('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-accent-cyan shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                        <span>Pitch Deck</span>
+                      </button>
+                      <div class="my-1 border-t border-slate-800"></div>
+                      <button onclick="openTypedDeleteModal('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 transition">
+                        <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <span>Delete Project</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -692,23 +851,11 @@
               </div>
             </div>
 
-            <!-- Action Buttons: Open dedicated project view -->
-            <div class="space-y-2 pt-2 border-t border-slate-900/80">
+            <!-- Clean Action Button: Dedicated Property Analysis View -->
+            <div class="pt-2 border-t border-slate-900/80">
               <a href="project.html?id=${d.id}" class="w-full py-2.5 px-4 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-lg shadow-emerald-500/10 transition flex items-center justify-center space-x-1.5">
                 <span>Open Analysis & Modeler →</span>
               </a>
-
-              <div class="flex items-center space-x-1.5">
-                <button onclick="toggleDealStatus('${d.id}')" class="flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold text-slate-400 hover:text-white bg-slate-950/50 hover:bg-slate-800 border border-slate-800 transition">
-                  ${toggleBtnLabel}
-                </button>
-                <button onclick="openProjectPitchDeck('${d.id}')" class="py-1.5 px-2.5 rounded-lg text-[11px] font-bold text-slate-400 hover:text-white bg-slate-950/50 hover:bg-slate-800 border border-slate-800 transition">
-                  Pitch Deck
-                </button>
-                <button onclick="deleteProjectDeal('${d.id}')" aria-label="Delete ${d.name}" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 transition" title="Delete">
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                </button>
-              </div>
             </div>
 
           </div>
@@ -716,35 +863,243 @@
       }).join('');
     }
 
+    // --- Dropdown Menu Controller ---
+    function toggleCardMenu(e, id) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      const targetMenu = document.getElementById(`card-menu-${id}`);
+      const isAlreadyOpen = targetMenu && !targetMenu.classList.contains('hidden');
+
+      // Close all menus
+      document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
+
+      if (!isAlreadyOpen && targetMenu) {
+        targetMenu.classList.remove('hidden');
+      }
+    }
+
+    // Close menus on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.card-dropdown-menu') && !e.target.closest('button[aria-label="Deal Actions"]')) {
+        document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    // --- Status Toggle: Reliable persistence & race-condition fix ---
     async function toggleDealStatus(id) {
+      document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
       const deal = activeDashboardProjects.find(p => p.id === id);
       if (!deal) return;
       const nextStatus = deal.status === 'owned' ? 'prospect' : 'owned';
       deal.status = nextStatus;
-      localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-      loadDashboardProjects();
+      
+      // Update local storage
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch(e) {}
 
-      // Sync to Supabase
+      // Await database write if connected
       const user = await getSupabaseUser();
       if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
-        await window._supabase.from('deals').update({ status: nextStatus }).eq('id', id).eq('user_id', user.id);
+        try {
+          await window._supabase.from('deals').update({ status: nextStatus }).eq('id', id).eq('user_id', user.id);
+        } catch(err) {
+          console.warn('Status update error:', err);
+        }
       }
+
+      // Re-load and re-render grid
+      await loadDashboardProjects();
     }
 
-    async function deleteProjectDeal(id) {
-      if (!confirm('Are you sure you want to delete this project?')) return;
-      activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
-      localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-      loadDashboardProjects();
+    // --- Typed Delete Confirmation Modal Controller ---
+    let targetDeleteDealId = null;
 
-      // Delete from Supabase
+    function openTypedDeleteModal(id) {
+      document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
+      const deal = activeDashboardProjects.find(p => p.id === id);
+      if (!deal) return;
+
+      targetDeleteDealId = id;
+      const nameEl = document.getElementById('delete-modal-project-name');
+      if (nameEl) nameEl.textContent = `"${deal.name}"`;
+
+      const inputEl = document.getElementById('delete-confirm-input');
+      if (inputEl) {
+        inputEl.value = '';
+        inputEl.placeholder = `Type "${deal.name}" to confirm`;
+      }
+
+      const btn = document.getElementById('btn-confirm-delete');
+      if (btn) {
+        btn.disabled = true;
+        btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+      }
+
+      const modal = document.getElementById('typed-delete-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeTypedDeleteModal() {
+      const modal = document.getElementById('typed-delete-modal');
+      if (modal) modal.classList.add('hidden');
+      targetDeleteDealId = null;
+    }
+
+    async function executeTypedDelete() {
+      if (!targetDeleteDealId) return;
+      const id = targetDeleteDealId;
+
+      activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch(e) {}
+
       const user = await getSupabaseUser();
       if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
-        await window._supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+        try {
+          await window._supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+        } catch(err) {
+          console.warn('Supabase delete error:', err);
+        }
       }
+
+      closeTypedDeleteModal();
+      await loadDashboardProjects();
+    }
+
+    // --- Edit Project Inputs Modal Controller ---
+    function openEditDealModal(id) {
+      document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
+      const deal = activeDashboardProjects.find(p => p.id === id);
+      if (!deal) return;
+
+      const modal = document.getElementById('edit-deal-modal');
+      if (!modal) return;
+
+      const inputs = deal.inputs || {};
+      const aClass = deal.asset_class || deal.assetType || 'commercial';
+
+      document.getElementById('edit-deal-id').value = deal.id;
+      document.getElementById('edit-deal-name').value = deal.name || '';
+      document.getElementById('edit-deal-location').value = deal.location || '';
+      document.getElementById('edit-deal-status').value = deal.status || 'prospect';
+
+      const price = deal.purchase_price || inputs.purchasePrice || 0;
+      document.getElementById('edit-deal-price').value = price;
+
+      const subTitle = document.getElementById('edit-modal-deal-subtitle');
+      if (subTitle) {
+        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Underwriting Baseline Parameters`;
+      }
+
+      const grossMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
+      const grossAnnual = inputs.grossRentAnnual || (grossMonthly ? grossMonthly * 12 : 0);
+
+      document.getElementById('edit-deal-gross-rent-annual').value = grossAnnual || '';
+      document.getElementById('edit-deal-gross-rent-monthly').value = grossMonthly || '';
+
+      document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
+      document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
+      document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeEditDealModal() {
+      const modal = document.getElementById('edit-deal-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function saveEditDealModal(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const id = document.getElementById('edit-deal-id').value;
+      const deal = activeDashboardProjects.find(p => p.id === id);
+      if (!deal) return;
+
+      deal.name = document.getElementById('edit-deal-name').value.trim();
+      deal.location = document.getElementById('edit-deal-location').value.trim();
+      deal.status = document.getElementById('edit-deal-status').value;
+
+      const price = parseFloat(document.getElementById('edit-deal-price').value) || deal.purchase_price || 1000000;
+      const opex = parseFloat(document.getElementById('edit-deal-opex-ratio').value) || 35;
+      const down = parseFloat(document.getElementById('edit-deal-down-payment').value) || 25;
+      const rate = parseFloat(document.getElementById('edit-deal-interest-rate').value) || 6.5;
+      const term = parseInt(document.getElementById('edit-deal-loan-term').value) || 30;
+
+      const annualRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-annual').value) || 0;
+      const monthlyRentVal = parseFloat(document.getElementById('edit-deal-gross-rent-monthly').value) || 0;
+
+      deal.inputs = deal.inputs || {};
+      deal.inputs.purchasePrice = price;
+      deal.inputs.operatingExpenseRatio = opex;
+      deal.inputs.expenseRatio = opex;
+      deal.inputs.downPaymentPercent = down;
+      deal.inputs.interestRate = rate;
+      deal.inputs.loanTerm = term;
+
+      const aClass = deal.asset_class || deal.assetType || 'commercial';
+      if (aClass === 'single-family') {
+        deal.inputs.monthlyRent = monthlyRentVal || (annualRentVal ? Math.round(annualRentVal / 12) : 2500);
+      } else if (aClass === 'multi-unit') {
+        const units = deal.inputs.unitCount || deal.inputs.numUnits || 4;
+        deal.inputs.unitCount = units;
+        deal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / units) : (deal.inputs.monthlyRentPerUnit || 1400);
+      } else if (aClass === 'commercial') {
+        deal.inputs.grossRentAnnual = annualRentVal || (monthlyRentVal ? monthlyRentVal * 12 : 120000);
+      } else if (aClass === 'storage') {
+        deal.inputs.storageUnitCount = deal.inputs.storageUnitCount || deal.inputs.unitCount || 100;
+        deal.inputs.monthlyRentPerUnit = monthlyRentVal ? Math.round(monthlyRentVal / deal.inputs.storageUnitCount) : (deal.inputs.monthlyRentPerUnit || 120);
+      }
+
+      // Recalculate metrics via PropertyMath
+      const res = window.PropertyMath.calculateProjections(aClass, deal.inputs);
+      deal.purchase_price = res.purchasePrice;
+      deal.irr = res.irr;
+      deal.equity_multiple = res.equityMultiplier;
+      deal.cash_on_cash = res.projections[0]?.cashOnCash || 0;
+      deal.year1_cashflow = res.projections[0]?.netCashFlow || 0;
+      deal.total_equity = res.initialCashInvested;
+      deal.metrics = {
+        irr: res.irr,
+        equityMultiplier: res.equityMultiplier,
+        year1CoC: res.projections[0]?.cashOnCash || 0,
+        year1CashFlow: res.projections[0]?.netCashFlow || 0,
+        initialCashInvested: res.initialCashInvested
+      };
+
+      try {
+        localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+      } catch(e) {}
+
+      // Sync update to Supabase
+      const user = await getSupabaseUser();
+      if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
+        try {
+          await window._supabase.from('deals').update({
+            title: deal.name,
+            location: deal.location,
+            status: deal.status,
+            purchase_price: res.purchasePrice,
+            irr: res.irr,
+            equity_multiple: res.equityMultiplier,
+            cash_on_cash: deal.cash_on_cash,
+            year1_cashflow: deal.year1_cashflow,
+            total_equity: deal.total_equity,
+            inputs: deal.inputs,
+            metrics: deal.metrics
+          }).eq('id', id).eq('user_id', user.id);
+        } catch(err) {
+          console.warn('Supabase update deal error:', err);
+        }
+      }
+
+      closeEditDealModal();
+      await loadDashboardProjects();
     }
 
     function openProjectPitchDeck(id) {
+      document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
       const deal = activeDashboardProjects.find(p => p.id === id);
       if (deal) openPitchDeck(deal);
     }
@@ -923,6 +1278,23 @@
 
       const wizForm = document.getElementById('project-wizard-form');
       if (wizForm) wizForm.addEventListener('submit', handleWizardSubmit);
+
+      // Typed delete confirmation input listener
+      const delInput = document.getElementById('delete-confirm-input');
+      if (delInput) {
+        delInput.addEventListener('input', () => {
+          const deal = activeDashboardProjects.find(p => p.id === targetDeleteDealId);
+          const btn = document.getElementById('btn-confirm-delete');
+          if (!deal || !btn) return;
+          const isMatch = delInput.value.trim().toLowerCase() === deal.name.trim().toLowerCase();
+          btn.disabled = !isMatch;
+          if (isMatch) {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/30 transition';
+          } else {
+            btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+          }
+        });
+      }
     });
   </script>
 </body>
