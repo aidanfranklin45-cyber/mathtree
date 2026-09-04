@@ -662,46 +662,63 @@
         <!-- View Panel 1: Single Deal Modeler (Default) -->
         <div id="view-panel-single" class="space-y-6">
           <!-- Live-Updating Metrics cards -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- NOI Card -->
             <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-brand-500/5 group-hover:bg-brand-500/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Net Operating Income (NOI)</p>
+              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Net Operating Income</p>
               <div class="mt-2 flex items-baseline justify-between">
                 <span id="metric-noi" class="text-2xl font-extrabold text-white tracking-tight">$0</span>
                 <span id="metric-noi-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
               <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span>Gross income minus vacancy & operating expenses</span>
+                <span>Revenue minus vacancy & OpEx</span>
               </div>
             </div>
 
             <!-- Cap Rate Card -->
             <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-accent-cyan/5 group-hover:bg-accent-cyan/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Capitalization Rate</p>
+              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Cap Rate Yield</p>
               <div class="mt-2 flex items-baseline justify-between">
                 <span id="metric-cap-rate" class="text-2xl font-extrabold text-accent-cyan tracking-tight">0.0%</span>
                 <span id="metric-cap-rate-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
               <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span id="metric-cap-rate-desc">Annual NOI divided by property value</span>
+                <span id="metric-cap-rate-desc">Annual NOI / property value</span>
+              </div>
+            </div>
+
+            <!-- Net Cash Flow (Take-Home Pocket Cash) Card -->
+            <div class="bg-slate-900/40 border border-emerald-950/80 p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-800/60 transition duration-300 bg-gradient-to-br from-slate-900/80 via-slate-900/40 to-emerald-950/20 shadow-lg shadow-emerald-950/20">
+              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors"></div>
+              <p class="text-xs font-semibold tracking-wider text-emerald-400 uppercase flex items-center justify-between">
+                <span>Net Cash Flow</span>
+                <span id="metric-cf-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Take-Home</span>
+              </p>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span id="metric-cash-flow" class="text-2xl font-black text-emerald-400 tracking-tight">$0/yr</span>
+                <span id="metric-cf-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
+              </div>
+              <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+                <span>Pocketed cash after mortgage</span>
+                <span id="metric-cf-mo" class="font-mono text-emerald-300 font-bold">+$0/mo</span>
               </div>
             </div>
 
             <!-- Cash-on-Cash Return Card -->
             <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
-              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-accent-emerald/5 group-hover:bg-accent-emerald/10 transition-colors"></div>
+              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-slate-500/5 group-hover:bg-slate-500/10 transition-colors"></div>
               <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center justify-between">
-                <span>Cash-on-Cash Return</span>
+                <span>Cash-on-Cash</span>
                 <span id="metric-coc-badge" class="hidden text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">100% Financed</span>
               </p>
               <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cash-on-cash" class="text-2xl font-extrabold text-accent-emerald tracking-tight">0.0%</span>
+                <span id="metric-cash-on-cash" class="text-2xl font-extrabold text-slate-200 tracking-tight">0.0%</span>
                 <span id="metric-cash-on-cash-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
               <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span id="metric-coc-desc">Annual cash flow divided by total invested cash</span>
+                <span id="metric-coc-desc">Annual cash flow / cash invested</span>
               </div>
             </div>
           </div>
@@ -2397,22 +2414,51 @@
       document.getElementById('label-year-inspector').textContent = targetYearInput;
       document.getElementById('metric-noi-label').textContent = `Year ${targetYearInput}`;
       document.getElementById('metric-cap-rate-label').textContent = `Year ${targetYearInput}`;
+      if (document.getElementById('metric-cf-label')) {
+        document.getElementById('metric-cf-label').textContent = `Year ${targetYearInput}`;
+      }
       document.getElementById('metric-cash-on-cash-label').textContent = `Year ${targetYearInput}`;
 
       // Update Dynamic Cards metrics
       document.getElementById('metric-noi').textContent = formatCurrency(targetYearProj.netOperatingIncome);
       document.getElementById('metric-cap-rate').textContent = `${targetYearProj.capRate.toFixed(2)}%`;
+
+      // Update Net Cash Flow Card
+      const cfEl = document.getElementById('metric-cash-flow');
+      const cfMoEl = document.getElementById('metric-cf-mo');
+      const cfStatusEl = document.getElementById('metric-cf-status');
+      if (cfEl) {
+        cfEl.textContent = `${formatCurrency(targetYearProj.cashFlow)}/yr`;
+        if (targetYearProj.cashFlow >= 0) {
+          cfEl.className = 'text-2xl font-black text-emerald-400 tracking-tight';
+          if (cfStatusEl) {
+            cfStatusEl.textContent = 'Take-Home';
+            cfStatusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          }
+        } else {
+          cfEl.className = 'text-2xl font-black text-rose-400 tracking-tight';
+          if (cfStatusEl) {
+            cfStatusEl.textContent = 'Cash Deficit';
+            cfStatusEl.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20';
+          }
+        }
+      }
+      if (cfMoEl) {
+        const mo = targetYearProj.cashFlow / 12;
+        cfMoEl.textContent = `${mo >= 0 ? '+' : ''}${formatCurrency(mo)}/mo`;
+        cfMoEl.className = mo >= 0 ? 'font-mono text-emerald-300 font-bold' : 'font-mono text-rose-300 font-bold';
+      }
       
       const cocBadge = document.getElementById('metric-coc-badge');
       const cocDesc = document.getElementById('metric-coc-desc');
       if (res.isZeroEquity) {
         document.getElementById('metric-cash-on-cash').textContent = 'N/M';
         if (cocBadge) cocBadge.classList.remove('hidden');
-        if (cocDesc) cocDesc.textContent = `Net Cash Flow: ${formatCurrency(targetYearProj.cashFlow)}/yr • 100% Debt Financed`;
+        if (cocDesc) cocDesc.textContent = '100% financed (zero initial cash outlay)';
       } else {
         document.getElementById('metric-cash-on-cash').textContent = `${targetYearProj.cashOnCash.toFixed(2)}%`;
         if (cocBadge) cocBadge.classList.add('hidden');
-        if (cocDesc) cocDesc.textContent = 'Annual cash flow divided by total invested cash';
+        if (cocDesc) cocDesc.textContent = 'Annual cash flow / initial cash';
       }
 
       // Update Advanced Analytics Cards metrics
