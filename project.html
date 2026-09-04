@@ -7,6 +7,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- MathTree Session Management (Inactivity Timeout) -->
+  <script src="session.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -57,6 +59,12 @@
     window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
 
     (function() {
+      // Check inactivity timeout first
+      if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
+        window.MathTreeSession.logout('timeout');
+        return;
+      }
+
       var demoRaw = localStorage.getItem('mathtree_demo_mode');
       if (demoRaw) {
         try {
@@ -65,6 +73,7 @@
             window._currentUser = { email: demo.email, user_metadata: { full_name: demo.name }, demo: true };
             window._supabase = null;
             window._demoMode = true;
+            if (window.MathTreeSession) window.MathTreeSession.startWatcher(null);
             return;
           }
         } catch(e) {}
@@ -79,6 +88,7 @@
           return;
         }
         window._currentUser = session.user;
+        if (window.MathTreeSession) window.MathTreeSession.startWatcher(guardClient);
       });
       guardClient.auth.onAuthStateChange(function(event, session) {
         if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
@@ -4253,9 +4263,13 @@
     }
 
     async function handleCloudSignOut() {
-      if (!supabaseClient) return;
-      await supabaseClient.auth.signOut();
-      window.location.replace('index.html');
+      if (window.MathTreeSession) {
+        window.MathTreeSession.logout('user', supabaseClient);
+      } else {
+        if (supabaseClient) await supabaseClient.auth.signOut();
+        localStorage.removeItem('mathtree_demo_mode');
+        window.location.replace('index.html');
+      }
     }
 
     async function saveCurrentDealToCloud() {

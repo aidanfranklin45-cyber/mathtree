@@ -10,6 +10,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Supabase Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- MathTree Session Management (Inactivity Timeout) -->
+  <script src="session.js"></script>
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1342,20 +1344,58 @@
     const { createClient } = window.supabase;
     const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Auto-redirect if already signed in
+    // Timeout notice check
+    (function checkTimeoutNotice() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('reason') === 'timeout') {
+          var banner = document.createElement('div');
+          banner.id = 'timeout-notification-banner';
+          banner.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-[99999] max-w-md w-11/12 bg-amber-500/15 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-2xl text-xs flex items-center justify-between shadow-2xl shadow-amber-950/40 backdrop-blur-md transition-all';
+          banner.innerHTML = [
+            '<div class="flex items-center space-x-2.5">',
+            '  <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">',
+            '    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />',
+            '  </svg>',
+            '  <span>You were automatically signed out after <strong>30 minutes of inactivity</strong>.</span>',
+            '</div>',
+            '<button onclick="this.parentElement.remove()" class="text-amber-400/80 hover:text-amber-200 ml-3 font-bold text-sm leading-none p-1">✕</button>'
+          ].join('');
+          document.body.appendChild(banner);
+          if (window.history && window.history.replaceState) {
+            var cleanUrl = window.location.pathname + window.location.hash;
+            window.history.replaceState(null, '', cleanUrl);
+          }
+        }
+      } catch (e) {}
+    })();
+
+    // Auto-redirect if already signed in and active
     _supabase.auth.getSession().then(function(result) {
       var session = result.data && result.data.session;
-      if (session) window.location.replace('dashboard.html');
+      if (session) {
+        if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
+          window.MathTreeSession.logout('timeout', _supabase);
+          return;
+        }
+        window.location.replace('dashboard.html');
+      }
     });
 
     _supabase.auth.onAuthStateChange(function(event, session) {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+        if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
+          window.MathTreeSession.logout('timeout', _supabase);
+          return;
+        }
+        if (window.MathTreeSession) window.MathTreeSession.recordActivity();
         window.location.replace('dashboard.html');
       }
     });
 
     // Demo Sandbox Launcher (1-click institutional access)
     function launchDemoSandbox() {
+      if (window.MathTreeSession) window.MathTreeSession.recordActivity();
       localStorage.setItem('mathtree_demo_mode', JSON.stringify({
         demo: true,
         email: 'institutional.demo@mathtree.io',
@@ -1730,7 +1770,11 @@
       if (!email || !password) { setAuthMsg('Please enter email and password.', true); return; }
       setAuthMsg('Verifying credentials…', false);
       var result = await _supabase.auth.signInWithPassword({ email: email.trim(), password: password });
-      if (result.error) { setAuthMsg(result.error.message, true); }
+      if (result.error) {
+        setAuthMsg(result.error.message, true);
+      } else {
+        if (window.MathTreeSession) window.MathTreeSession.recordActivity();
+      }
     }
 
     async function doSignUp() {
@@ -1743,6 +1787,7 @@
       if (result.error) {
         setAuthMsg(result.error.message, true);
       } else if (result.data && result.data.session) {
+        if (window.MathTreeSession) window.MathTreeSession.recordActivity();
         window.location.replace('dashboard.html');
       } else {
         setAuthMsg('✅ Verification link sent to your institutional email.', false);

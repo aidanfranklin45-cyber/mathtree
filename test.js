@@ -559,6 +559,78 @@ runTest('Deal Auditor Risk Detection', () => {
   assert.ok(risks.some(r => r.level === 'danger' || r.level === 'warning'));
 });
 
+// 8. Session & Inactivity Timeout Tests
+
+runTest('MathTreeSession - Activity recording & remaining time', () => {
+  const store = {};
+  global.localStorage = {
+    getItem: (k) => store[k] || null,
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; }
+  };
+  const MathTreeSession = require('./session.js');
+
+  MathTreeSession.recordActivity();
+  const last = MathTreeSession.getLastActivity();
+  assert.ok(last > 0);
+  assert.strictEqual(MathTreeSession.isTimedOut(), false);
+
+  const remaining = MathTreeSession.getRemainingTime();
+  assert.ok(remaining > 0 && remaining <= 30 * 60 * 1000);
+});
+
+runTest('MathTreeSession - Timeout detection after 30 minutes', () => {
+  const store = {};
+  global.localStorage = {
+    getItem: (k) => store[k] || null,
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; }
+  };
+  const MathTreeSession = require('./session.js');
+
+  // Set activity to 31 minutes ago
+  const thirtyOneMinAgo = Date.now() - (31 * 60 * 1000);
+  store['mathtree_last_activity'] = String(thirtyOneMinAgo);
+
+  assert.strictEqual(MathTreeSession.isTimedOut(), true);
+  assert.strictEqual(MathTreeSession.getRemainingTime(), 0);
+
+  // Set activity to 20 minutes ago
+  const twentyMinAgo = Date.now() - (20 * 60 * 1000);
+  store['mathtree_last_activity'] = String(twentyMinAgo);
+
+  assert.strictEqual(MathTreeSession.isTimedOut(), false);
+  const remaining = MathTreeSession.getRemainingTime();
+  assert.ok(remaining > 9 * 60 * 1000 && remaining <= 10 * 60 * 1000 + 1000);
+});
+
+runTest('MathTreeSession - Logout clears session storage and triggers signOut', () => {
+  const store = {
+    'mathtree_last_activity': String(Date.now()),
+    'mathtree_demo_mode': JSON.stringify({ demo: true })
+  };
+  global.localStorage = {
+    getItem: (k) => store[k] || null,
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; }
+  };
+  let signOutCalled = false;
+  const mockSupabase = {
+    auth: {
+      signOut: () => {
+        signOutCalled = true;
+        return Promise.resolve();
+      }
+    }
+  };
+  const MathTreeSession = require('./session.js');
+  MathTreeSession.logout('timeout', mockSupabase);
+
+  assert.strictEqual(store['mathtree_last_activity'], undefined);
+  assert.strictEqual(store['mathtree_demo_mode'], undefined);
+  assert.strictEqual(signOutCalled, true);
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);
