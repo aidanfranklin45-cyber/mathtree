@@ -1660,6 +1660,34 @@ runTest('Live County Assessor: Auto-hydrates Owner of Record, Building Character
   assert.ok(AddressServiceCode.includes('CYAK_ZONG'), 'AddressService resolves CYAK_ZONG zoning');
 });
 
+runTest('Portfolio & Pipeline Command Center: Executive PDF Brief, Sector Diversification & Assessor Cross-Audit', () => {
+  const fs = require('fs');
+  const dashHtml = fs.readFileSync('./dashboard.html', 'utf8');
+
+  // 1. Verify global functions attached to window
+  assert.ok(dashHtml.includes('window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF'), 'exportDashboardPortfolioPDF must be attached to window');
+  assert.ok(dashHtml.includes('window.renderDashboardPortfolioBrief = renderDashboardPortfolioBrief'), 'renderDashboardPortfolioBrief must be attached to window');
+
+  // 2. Verify media print stylesheet
+  assert.ok(dashHtml.includes('@media print'), 'dashboard.html must have @media print stylesheet');
+  assert.ok(dashHtml.includes('size: letter landscape'), 'Print styling must specify letter landscape');
+  assert.ok(dashHtml.includes('#printable-brief {'), 'Print styling must target #printable-brief');
+
+  // 3. Verify Export buttons in header and hero
+  assert.ok(dashHtml.includes('id="btn-export-portfolio-pdf"'), 'Header must contain btn-export-portfolio-pdf');
+  assert.ok(dashHtml.includes('exportDashboardPortfolioPDF()'), 'Hero or header must call exportDashboardPortfolioPDF()');
+
+  // 4. Verify beforeprint handler
+  assert.ok(dashHtml.includes("window.addEventListener('beforeprint'"), 'dashboard.html must listen to beforeprint');
+
+  // 5. Verify portfolio brief components inside renderDashboardPortfolioBrief
+  assert.ok(dashHtml.includes('Sector Diversification & Asset Allocation Matrix'), 'Portfolio brief must contain Sector Diversification Matrix');
+  assert.ok(dashHtml.includes('Owned Operating Holdings — Performance & Equity Register'), 'Portfolio brief must contain Owned Operating Holdings table');
+  assert.ok(dashHtml.includes('Acquisition Pipeline — Prospect Underwriting Register'), 'Portfolio brief must contain Acquisition Pipeline table');
+  assert.ok(dashHtml.includes('County Assessor & Structural Characteristics Cross-Verification Audit'), 'Portfolio brief must contain County Assessor Audit table');
+  assert.ok(dashHtml.includes('Portfolio Underwriting Audit & Risk Flags'), 'Portfolio brief must contain Portfolio Audit & Risk Flags');
+});
+
 console.log(`\n--- Unit Test Suite Completed ---`);
 console.log(`Passed: ${testsPassed}`);
 console.log(`Failed: ${testsFailed}`);

@@ -2682,7 +2682,9 @@
       `;
     }
 
-    // PDF Executive Brief Exporter
+        let _isPrintingSingleDeal = false;
+
+    // PDF Executive Brief Exporter (Single Property Deep-Dive)
     function exportDashboardDealPDF(id) {
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
       const deal = getDashboardDealById(id);
@@ -2690,6 +2692,8 @@
         alert('Unable to find deal for PDF export.');
         return;
       }
+
+      _isPrintingSingleDeal = true;
 
       const aClass = deal.asset_class || 'commercial';
       const defaultData = (typeof wizardAssetDefaults !== 'undefined' && wizardAssetDefaults[aClass]) || {};
@@ -2715,105 +2719,492 @@
     }
     window.exportDashboardDealPDF = exportDashboardDealPDF;
 
-    function exportDashboardPortfolioPDF() {
-      const deals = activeDashboardProjects || [];
-      if (deals.length === 0) {
-        alert('No deals in portfolio to export.');
-        return;
-      }
+    // === Comprehensive Portfolio & Pipeline Executive PDF Brief Renderer ===
+    function renderDashboardPortfolioBrief() {
       const container = document.getElementById('printable-brief');
       if (!container) return;
 
+      const deals = (typeof activeDashboardProjects !== 'undefined' && activeDashboardProjects) || [];
+      const owned = deals.filter(d => d.status === 'owned');
+      const pipeline = deals.filter(d => d.status !== 'owned');
+
+      const invName = (document.getElementById('dash-greeting-name')?.textContent || 'Investor').trim();
+      const prof = (typeof window.MathTreeProfile !== 'undefined' && window.MathTreeProfile.getProfile) ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+      const compName = (prof.companyName || document.getElementById('prof-company-name')?.value || 'MathTree Real Estate Capital').trim();
+      const hurdleRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || (prof.discountRate || 10.0);
       const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
-      const sponsor = prof.companyName || prof.fullName || 'MathTree Real Estate Underwriting';
 
-      let totalValue = 0;
-      let totalEquity = 0;
-      let totalCashFlow = 0;
+      // Calculate owned aggregates
+      let ownedGAV = 0, ownedEquity = 0, ownedDebt = 0, ownedCashFlow = 0, ownedNoi = 0, ownedDebtService = 0;
+      let ownedUnits = 0, ownedCommercialSqFt = 0, ownedAcres = 0;
 
-      const dealRows = deals.map(d => {
-        const aClass = d.asset_class || d.asset_type || 'commercial';
-        const defaultData = (typeof wizardAssetDefaults !== 'undefined' && wizardAssetDefaults[aClass]) || {};
-        const inputs = Object.assign({}, defaultData, d.inputs || {});
-        if (!inputs.purchasePrice && d.purchase_price) inputs.purchasePrice = d.purchase_price;
-        const res = window.PropertyMath.calculateProjections(aClass, inputs);
-        const p1 = res.projections[0] || {};
-        totalValue += (inputs.purchasePrice || 0);
-        totalEquity += (res.initialCashInvested || 0);
-        totalCashFlow += (p1.cashFlow || 0);
+      const ownedDetails = owned.map(d => {
+        const price = d.purchase_price || 0;
+        const eq = d.total_equity || (price * 0.25);
+        const debt = Math.max(0, price - eq);
+        const cf = d.year1_cashflow || 0;
+        const inp = d.inputs || {};
+        const aClass = d.asset_class || 'commercial';
+        const rawAssessor = inp.assessorData || {};
 
-        return `
-          <tr style="border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 6px 8px; font-weight: 700; color: #0f172a;">${d.name || d.title || 'Untitled Deal'}</td>
-            <td style="padding: 6px 8px; text-transform: capitalize; color: #475569;">${aClass}</td>
-            <td style="padding: 6px 8px; color: #64748b;">${d.location || 'Yakima, WA'}</td>
-            <td style="padding: 6px 8px; font-weight: 600;">${formatCurrency(inputs.purchasePrice || 0)}</td>
-            <td style="padding: 6px 8px; font-weight: 700; color: #059669;">${res.irrDisplay || (res.irr ? res.irr.toFixed(2) + '%' : 'N/A')}</td>
-            <td style="padding: 6px 8px; font-weight: 700; color: ${p1.cashFlow >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(p1.cashFlow || 0)}</td>
-            <td style="padding: 6px 8px;">${res.equityMultiple ? res.equityMultiple.toFixed(2) + 'x' : 'N/A'}</td>
-            <td style="padding: 6px 8px; text-transform: capitalize; font-weight: 700; color: #334155;">${d.status || 'Prospect'}</td>
-          </tr>
-        `;
-      }).join('');
+        let noi = 0, debtService = 0, dscr = null, capRate = d.cap_rate || 0;
+        if (window.PropertyMath) {
+          try {
+            const res = window.PropertyMath.calculateProjections(aClass, inp);
+            if (res && res.projections && res.projections[0]) {
+              const p0 = res.projections[0];
+              noi = p0.netOperatingIncome || 0;
+              debtService = p0.debtService || 0;
+              dscr = p0.dscr;
+              capRate = p0.capRate || capRate;
+            }
+          } catch(e) {}
+        }
+
+        ownedGAV += price;
+        ownedEquity += eq;
+        ownedDebt += debt;
+        ownedCashFlow += cf;
+        ownedNoi += noi;
+        ownedDebtService += debtService;
+
+        if (aClass === 'multi-unit') ownedUnits += (inp.unitCount || 0);
+        else if (aClass === 'single-family') ownedUnits += 1;
+        else if (aClass === 'storage') ownedUnits += (inp.unitCount || 0);
+
+        const bldgSqFt = rawAssessor.buildingSqFt || inp.buildingSqFt || inp.gla || inp.totalSqFt || 0;
+        if (aClass === 'commercial' || aClass === 'storage') ownedCommercialSqFt += bldgSqFt;
+        const acres = rawAssessor.acres || inp.acres || 0;
+        ownedAcres += acres;
+
+        const apn = inp.primaryApn || inp.apn || rawAssessor.apn || 'Pending Link';
+        const county = inp.county || rawAssessor.county || (d.location && d.location.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Record');
+
+        return {
+          id: d.id,
+          name: d.name,
+          location: d.location,
+          assetClass: aClass,
+          facilityType: d.facility_type || inp.facilityType || (aClass === 'commercial' ? 'Commercial Real Estate' : aClass),
+          price,
+          equity: eq,
+          debt,
+          cashFlow: cf,
+          coc: eq > 0 ? ((cf / eq) * 100) : 0,
+          noi,
+          debtService,
+          dscr,
+          capRate,
+          apn,
+          county,
+          acres,
+          bldgSqFt,
+          yearBuilt: rawAssessor.yearBuilt || inp.yearBuilt || 'N/A',
+          zoning: rawAssessor.zoning || inp.zoning || 'Commercial / Mixed',
+          owner: rawAssessor.owner || inp.owner || 'Owner of Record'
+        };
+      });
+
+      // Calculate pipeline aggregates
+      let pipelineVolume = 0, pipelineEquity = 0, sumPipelineIrr = 0, pipelineYear1CF = 0, pipelineNoi = 0;
+      let pipelineUnits = 0, pipelineCommercialSqFt = 0, pipelineAcres = 0;
+
+      const pipelineDetails = pipeline.map(d => {
+        const price = d.purchase_price || 0;
+        const eq = d.total_equity || (price * 0.25);
+        const debt = Math.max(0, price - eq);
+        const cf = d.year1_cashflow || 0;
+        const irr = d.irr || 0;
+        const inp = d.inputs || {};
+        const aClass = d.asset_class || 'commercial';
+        const rawAssessor = inp.assessorData || {};
+
+        let noi = 0, debtService = 0, dscr = null, capRate = d.cap_rate || 0;
+        if (window.PropertyMath) {
+          try {
+            const res = window.PropertyMath.calculateProjections(aClass, inp);
+            if (res && res.projections && res.projections[0]) {
+              const p0 = res.projections[0];
+              noi = p0.netOperatingIncome || 0;
+              debtService = p0.debtService || 0;
+              dscr = p0.dscr;
+              capRate = p0.capRate || capRate;
+            }
+          } catch(e) {}
+        }
+
+        pipelineVolume += price;
+        pipelineEquity += eq;
+        pipelineYear1CF += cf;
+        sumPipelineIrr += irr;
+        pipelineNoi += noi;
+
+        if (aClass === 'multi-unit') pipelineUnits += (inp.unitCount || 0);
+        else if (aClass === 'single-family') pipelineUnits += 1;
+        else if (aClass === 'storage') pipelineUnits += (inp.unitCount || 0);
+
+        const bldgSqFt = rawAssessor.buildingSqFt || inp.buildingSqFt || inp.gla || inp.totalSqFt || 0;
+        if (aClass === 'commercial' || aClass === 'storage') pipelineCommercialSqFt += bldgSqFt;
+        const acres = rawAssessor.acres || inp.acres || 0;
+        pipelineAcres += acres;
+
+        const apn = inp.primaryApn || inp.apn || rawAssessor.apn || 'Pending Link';
+        const county = inp.county || rawAssessor.county || (d.location && d.location.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Record');
+
+        return {
+          id: d.id,
+          name: d.name,
+          location: d.location,
+          assetClass: aClass,
+          facilityType: d.facility_type || inp.facilityType || (aClass === 'commercial' ? 'Commercial Logistics' : aClass),
+          price,
+          equity: eq,
+          debt,
+          cashFlow: cf,
+          coc: eq > 0 ? ((cf / eq) * 100) : 0,
+          irr,
+          noi,
+          debtService,
+          dscr,
+          capRate,
+          ltv: price > 0 ? Math.round((debt / price) * 100) : 0,
+          rate: inp.interestRate || inp.rate || 6.5,
+          term: inp.loanTerm || inp.amort || 30,
+          stage: inp.dealStage || 'screening',
+          holdYrs: inp.exitYear || 10,
+          apn,
+          county,
+          acres,
+          bldgSqFt,
+          yearBuilt: rawAssessor.yearBuilt || inp.yearBuilt || 'N/A',
+          zoning: rawAssessor.zoning || inp.zoning || 'Commercial / Mixed',
+          owner: rawAssessor.owner || inp.owner || 'Owner of Record'
+        };
+      });
+
+      const totalPortfolioVolume = ownedGAV + pipelineVolume;
+      const totalPortfolioDeals = deals.length;
+      const blendedOwnedLtv = ownedGAV > 0 ? Math.round((ownedDebt / ownedGAV) * 100) : 0;
+      const blendedOwnedYield = ownedEquity > 0 ? ((ownedCashFlow / ownedEquity) * 100) : 0;
+      const avgPipelineIrr = pipeline.length > 0 ? (sumPipelineIrr / pipeline.length) : 0;
+
+      // Sector Diversification Breakdown
+      const sectors = [
+        { id: 'commercial', label: 'Commercial / Industrial', icon: '🏢' },
+        { id: 'single-family', label: 'Single-Family Residential', icon: '🏠' },
+        { id: 'multi-unit', label: 'Multi-Family (Multi-Unit)', icon: '🏬' },
+        { id: 'storage', label: 'Self-Storage Facilities', icon: '📦' }
+      ];
+
+      const sectorRows = sectors.map(sec => {
+        const matching = deals.filter(d => (d.asset_class || 'commercial') === sec.id);
+        const count = matching.length;
+        const val = matching.reduce((sum, d) => sum + (d.purchase_price || 0), 0);
+        const cf = matching.reduce((sum, d) => sum + (d.year1_cashflow || 0), 0);
+        const avgIrr = count > 0 ? (matching.reduce((sum, d) => sum + (d.irr || 0), 0) / count) : 0;
+        const pctOfTotal = totalPortfolioVolume > 0 ? ((val / totalPortfolioVolume) * 100).toFixed(1) : '0.0';
+        return { ...sec, count, val, cf, avgIrr, pctOfTotal };
+      });
+
+      // Audit Warnings Aggregation
+      const portfolioFlags = [];
+      deals.forEach(d => {
+        if ((d.year1_cashflow || 0) < 0) {
+          portfolioFlags.push({
+            deal: d.name,
+            severity: 'warn',
+            title: 'Negative Cash Flow Alert',
+            desc: `Year 1 underwritten cash flow is ${formatCurrency(d.year1_cashflow)} (CoC: ${(d.cash_on_cash || 0).toFixed(1)}%). Operating deficit requires working capital reserve or principal amortization restructuring.`
+          });
+        }
+        const inp = d.inputs || {};
+        const apn = inp.primaryApn || inp.apn || (inp.assessorData && inp.assessorData.apn);
+        if (!apn || apn === 'Pending Link' || apn === 'Pending') {
+          portfolioFlags.push({
+            deal: d.name,
+            severity: 'info',
+            title: 'Assessor Parcel Unlinked',
+            desc: `Property has not been linked to an official County Assessor APN parcel. Official tax assessment and GIS structural records are unverified.`
+          });
+        }
+        if (d.status !== 'owned' && d.irr && d.irr < hurdleRate) {
+          portfolioFlags.push({
+            deal: d.name,
+            severity: 'warn',
+            title: 'Return Below Hurdle Rate',
+            desc: `Projected 10-Yr IRR (${d.irr.toFixed(1)}%) is below investor hurdle rate of ${hurdleRate.toFixed(1)}%. Model yields negative Net Present Value (NPV).`
+          });
+        }
+      });
 
       container.innerHTML = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 20px; color: #0f172a; max-width: 1000px; margin: 0 auto; line-height: 1.4;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: #0f172a; max-width: 100%; margin: 0 auto; background: #ffffff; padding: 6px 10px;">
+          <!-- Brief Header -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 10px; margin-bottom: 12px;">
             <div>
-              <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 1px;">Executive Portfolio Underwriting Summary</div>
-              <h1 style="font-size: 22px; font-weight: 900; margin: 4px 0 0 0; color: #0f172a;">${sponsor}</h1>
-              <p style="font-size: 11px; color: #64748b; margin: 2px 0 0 0;">Active Property Pipeline & Underwriting Portfolio</p>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px; font-weight: 800; color: #059669; letter-spacing: -0.5px;">MathTree</span>
+                <span style="font-size: 10px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Portfolio & Pipeline Command Center</span>
+              </div>
+              <h1 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">Executive Portfolio & Acquisition Pipeline Underwriting Brief</h1>
+              <div style="font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 10px;">
+                <span>👤 Sponsor / Investor: <strong style="color: #0f172a;">${invName}</strong></span>
+                <span>🏢 Entity / Fund: <strong style="color: #0f172a;">${compName}</strong></span>
+                <span>🎯 Target Hurdle Rate: <strong style="color: #059669;">${hurdleRate.toFixed(1)}% / yr</strong></span>
+              </div>
             </div>
-            <div style="text-align: right; font-size: 11px; color: #64748b;">
+            <div style="text-align: right; font-size: 10px; color: #64748b;">
               <p style="margin: 0; font-weight: 600;">Report Date: <strong style="color: #0f172a;">${dateStr}</strong></p>
-              <p style="margin: 2px 0 0 0;">Total Assets: <strong style="color: #0f172a;">${deals.length} Properties</strong></p>
+              <p style="margin: 2px 0 0 0;">Underwritten Assets: <strong style="color: #0f172a;">${totalPortfolioDeals} (${owned.length} Owned, ${pipeline.length} Pipeline)</strong></p>
+              <p style="margin: 2px 0 0 0;">Total Real Estate Capital: <strong style="color: #059669;">${formatCurrency(totalPortfolioVolume)}</strong></p>
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
-            <div style="border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
-              <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Acquisition Pipeline</span>
-              <p style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 2px 0 0 0;">${formatCurrency(totalValue)}</p>
+          <!-- 6 Executive KPI Tiles -->
+          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+              <p style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Owned Gross Value (GAV)</p>
+              <p style="font-size: 15px; font-weight: 800; color: #059669; margin: 2px 0 0 0;">${formatCurrency(ownedGAV)}</p>
+              <p style="font-size: 8px; color: #64748b; margin: 2px 0 0 0;">Net Equity: <strong>${formatCurrency(ownedEquity)}</strong></p>
             </div>
-            <div style="border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
-              <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Initial Equity Required</span>
-              <p style="font-size: 18px; font-weight: 900; color: #059669; margin: 2px 0 0 0;">${formatCurrency(totalEquity)}</p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+              <p style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Owned Debt & Leverage</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 2px 0 0 0;">${formatCurrency(ownedDebt)}</p>
+              <p style="font-size: 8px; color: #64748b; margin: 2px 0 0 0;">Blended LTV: <strong>${blendedOwnedLtv}%</strong></p>
             </div>
-            <div style="border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 14px; border-radius: 8px;">
-              <span style="font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase;">Combined Year 1 Cash Flow</span>
-              <p style="font-size: 18px; font-weight: 900; color: ${totalCashFlow >= 0 ? '#059669' : '#e11d48'}; margin: 2px 0 0 0;">${formatCurrency(totalCashFlow)}</p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+              <p style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Owned Net Cash Flow</p>
+              <p style="font-size: 15px; font-weight: 800; color: ${ownedCashFlow >= 0 ? '#059669' : '#e11d48'}; margin: 2px 0 0 0;">${formatCurrency(ownedCashFlow)}/yr</p>
+              <p style="font-size: 8px; color: #64748b; margin: 2px 0 0 0;">CoC Yield: <strong>${blendedOwnedYield > 0 ? blendedOwnedYield.toFixed(1) + '%' : 'N/M'}</strong></p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+              <p style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Pipeline Deal Volume</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0284c7; margin: 2px 0 0 0;">${formatCurrency(pipelineVolume)}</p>
+              <p style="font-size: 8px; color: #64748b; margin: 2px 0 0 0;">Active Prospects: <strong>${pipeline.length} ${pipeline.length === 1 ? 'Deal' : 'Deals'}</strong></p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+              <p style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Target Pipeline Return</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0284c7; margin: 2px 0 0 0;">${avgPipelineIrr > 0 ? avgPipelineIrr.toFixed(1) + '%' : 'N/A'}</p>
+              <p style="font-size: 8px; color: #64748b; margin: 2px 0 0 0;">Weighted 10-Yr Levered IRR</p>
+            </div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 9px;">
+              <p style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Physical Footprint</p>
+              <p style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 2px 0 0 0;">${(ownedAcres + pipelineAcres) > 0 ? (ownedAcres + pipelineAcres).toFixed(2) + ' Ac' : 'Active Footprint'}</p>
+              <p style="font-size: 8px; color: #64748b; margin: 2px 0 0 0;">${ownedUnits + pipelineUnits > 0 ? (ownedUnits + pipelineUnits) + ' Units • ' : ''}${(ownedCommercialSqFt + pipelineCommercialSqFt).toLocaleString()} Sq Ft</p>
             </div>
           </div>
 
-          <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
-            <thead>
-              <tr style="background: #0f172a; color: #ffffff; text-align: left;">
-                <th style="padding: 6px 8px;">Property Name</th>
-                <th style="padding: 6px 8px;">Asset Class</th>
-                <th style="padding: 6px 8px;">Location</th>
-                <th style="padding: 6px 8px;">Acquisition Price</th>
-                <th style="padding: 6px 8px;">10-Yr IRR</th>
-                <th style="padding: 6px 8px;">Yr 1 Cash Flow</th>
-                <th style="padding: 6px 8px;">Equity Multiple</th>
-                <th style="padding: 6px 8px;">Deal Stage</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${dealRows}
-            </tbody>
-          </table>
+          <!-- Sector Diversification Matrix -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+            <div style="background: #f1f5f9; padding: 4px 8px; font-size: 9.5px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
+              Sector Diversification & Asset Allocation Matrix
+            </div>
+            <table style="width: 100%; font-size: 9px; border-collapse: collapse; text-align: right;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #334155;">
+                  <th style="padding: 4px 8px; text-align: left;">Asset Class / Sector</th>
+                  <th style="padding: 4px 8px;">Deals</th>
+                  <th style="padding: 4px 8px;">Aggregate Valuation</th>
+                  <th style="padding: 4px 8px;">Portfolio Weight</th>
+                  <th style="padding: 4px 8px;">Annual Cash Flow</th>
+                  <th style="padding: 4px 8px;">Weighted Target IRR</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sectorRows.map((r, i) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                    <td style="padding: 3px 8px; text-align: left; font-weight: 700; color: #0f172a;">${r.icon} ${r.label}</td>
+                    <td style="padding: 3px 8px; font-weight: 600;">${r.count}</td>
+                    <td style="padding: 3px 8px; font-weight: 700; color: #0f172a;">${formatCurrency(r.val)}</td>
+                    <td style="padding: 3px 8px; font-weight: 600;">${r.pctOfTotal}%</td>
+                    <td style="padding: 3px 8px; font-weight: 700; color: ${r.cf >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(r.cf)}/yr</td>
+                    <td style="padding: 3px 8px; font-weight: 700; color: #059669;">${r.avgIrr > 0 ? r.avgIrr.toFixed(1) + '%' : 'N/A'}</td>
+                  </tr>
+                `).join('')}
+                <tr style="background: #f1f5f9; border-top: 1.5px solid #cbd5e1; font-weight: 800;">
+                  <td style="padding: 4px 8px; text-align: left; color: #0f172a;">Total Underwritten Portfolio</td>
+                  <td style="padding: 4px 8px;">${totalPortfolioDeals}</td>
+                  <td style="padding: 4px 8px; color: #059669;">${formatCurrency(totalPortfolioVolume)}</td>
+                  <td style="padding: 4px 8px;">100.0%</td>
+                  <td style="padding: 4px 8px; color: ${ownedCashFlow + pipelineYear1CF >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(ownedCashFlow + pipelineYear1CF)}/yr</td>
+                  <td style="padding: 4px 8px; color: #059669;">${avgPipelineIrr > 0 ? avgPipelineIrr.toFixed(1) + '%' : 'N/A'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8;">
-            <span>MathTree Real Estate Modeling Engine</span>
-            <span>Confidential Portfolio Brief • Generated for Executive Review</span>
+          <!-- Owned Assets Register Table -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+            <div style="background: #064e3b; color: #ffffff; padding: 4px 8px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+              <span>🏛️ Owned Operating Holdings — Performance & Equity Register (${ownedDetails.length} ${ownedDetails.length === 1 ? 'Asset' : 'Assets'})</span>
+              <span style="font-size: 8.5px; background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 4px;">In-Place GAV: ${formatCurrency(ownedGAV)}</span>
+            </div>
+            ${ownedDetails.length > 0 ? `
+              <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; text-align: right;">
+                <thead>
+                  <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #334155;">
+                    <th style="padding: 4px 6px; text-align: left;">Property Name & Location</th>
+                    <th style="padding: 4px 6px; text-align: center;">Assessor APN</th>
+                    <th style="padding: 4px 6px; text-align: left;">Strategy / Class</th>
+                    <th style="padding: 4px 6px;">Cost Basis</th>
+                    <th style="padding: 4px 6px;">Annual NOI</th>
+                    <th style="padding: 4px 6px;">Debt Service</th>
+                    <th style="padding: 4px 6px; color: #059669;">Net Cash Flow</th>
+                    <th style="padding: 4px 6px;">CoC Yield</th>
+                    <th style="padding: 4px 6px;">Cap Rate</th>
+                    <th style="padding: 4px 6px;">Debt Balance</th>
+                    <th style="padding: 4px 6px; color: #059669;">Net Equity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${ownedDetails.map((d, i) => `
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                      <td style="padding: 4px 6px; text-align: left;">
+                        <strong style="color: #0f172a; font-size: 9px; display: block;">${d.name}</strong>
+                        <span style="color: #64748b; font-size: 8px;">${d.location}</span>
+                      </td>
+                      <td style="padding: 4px 6px; text-align: center; font-family: monospace; font-weight: 700; color: #047857;">${d.apn}</td>
+                      <td style="padding: 4px 6px; text-align: left; color: #475569; font-weight: 600;">${d.facilityType}</td>
+                      <td style="padding: 4px 6px; font-weight: 700; color: #0f172a;">${formatCurrency(d.price)}</td>
+                      <td style="padding: 4px 6px; font-weight: 600;">${formatCurrency(d.noi)}</td>
+                      <td style="padding: 4px 6px; color: #64748b;">${formatCurrency(d.debtService)}</td>
+                      <td style="padding: 4px 6px; font-weight: 800; color: ${d.cashFlow >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(d.cashFlow)}</td>
+                      <td style="padding: 4px 6px; font-weight: 700; color: #059669;">${d.coc.toFixed(1)}%</td>
+                      <td style="padding: 4px 6px;">${d.capRate ? d.capRate.toFixed(1) + '%' : 'N/A'}</td>
+                      <td style="padding: 4px 6px; color: #64748b;">${formatCurrency(d.debt)}</td>
+                      <td style="padding: 4px 6px; font-weight: 800; color: #059669;">${formatCurrency(d.equity)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : `
+              <div style="padding: 10px; font-size: 9px; color: #64748b; text-align: center;">No active properties currently recorded in owned portfolio.</div>
+            `}
+          </div>
+
+          <!-- Acquisition Pipeline Table -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+            <div style="background: #0369a1; color: #ffffff; padding: 4px 8px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+              <span>🎯 Acquisition Pipeline — Prospect Underwriting Register (${pipelineDetails.length} ${pipelineDetails.length === 1 ? 'Opportunity' : 'Opportunities'})</span>
+              <span style="font-size: 8.5px; background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 4px;">Pipeline Volume: ${formatCurrency(pipelineVolume)}</span>
+            </div>
+            ${pipelineDetails.length > 0 ? `
+              <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; text-align: right;">
+                <thead>
+                  <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #334155;">
+                    <th style="padding: 4px 6px; text-align: left;">Opportunity Name & Address</th>
+                    <th style="padding: 4px 6px; text-align: center;">Assessor APN</th>
+                    <th style="padding: 4px 6px; text-align: left;">Facility / Strategy</th>
+                    <th style="padding: 4px 6px;">Target Price</th>
+                    <th style="padding: 4px 6px; color: #0284c7;">10-Yr IRR</th>
+                    <th style="padding: 4px 6px;">Yr 1 Cash Flow</th>
+                    <th style="padding: 4px 6px;">Yr 1 CoC</th>
+                    <th style="padding: 4px 6px;">Projected NOI</th>
+                    <th style="padding: 4px 6px;">Debt & LTV</th>
+                    <th style="padding: 4px 6px; text-align: center;">Stage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pipelineDetails.map((d, i) => `
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                      <td style="padding: 4px 6px; text-align: left;">
+                        <strong style="color: #0f172a; font-size: 9px; display: block;">${d.name}</strong>
+                        <span style="color: #64748b; font-size: 8px;">${d.location}</span>
+                      </td>
+                      <td style="padding: 4px 6px; text-align: center; font-family: monospace; font-weight: 700; color: #047857;">${d.apn}</td>
+                      <td style="padding: 4px 6px; text-align: left; color: #475569; font-weight: 600;">${d.facilityType}</td>
+                      <td style="padding: 4px 6px; font-weight: 700; color: #0f172a;">${formatCurrency(d.price)}</td>
+                      <td style="padding: 4px 6px; font-weight: 800; color: #0284c7; font-size: 9.5px;">${d.irr.toFixed(1)}%</td>
+                      <td style="padding: 4px 6px; font-weight: 700; color: ${d.cashFlow >= 0 ? '#059669' : '#e11d48'};">${formatCurrency(d.cashFlow)}</td>
+                      <td style="padding: 4px 6px; font-weight: 700; color: ${d.coc >= 0 ? '#059669' : '#e11d48'};">${d.coc.toFixed(1)}%</td>
+                      <td style="padding: 4px 6px; font-weight: 600;">${formatCurrency(d.noi)}</td>
+                      <td style="padding: 4px 6px; color: #475569;">${formatCurrency(d.debt)} (${d.ltv}%)</td>
+                      <td style="padding: 4px 6px; text-align: center;">
+                        <span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 1px 5px; border-radius: 3px; font-size: 7.5px; font-weight: 700; text-transform: uppercase;">${d.stage}</span>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : `
+              <div style="padding: 10px; font-size: 9px; color: #64748b; text-align: center;">No prospective acquisition opportunities currently in pipeline.</div>
+            `}
+          </div>
+
+          <!-- County Assessor & Building Specs Cross-Verification Table -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 12px;">
+            <div style="background: #334155; color: #ffffff; padding: 4px 8px; font-size: 9.5px; font-weight: 800; text-transform: uppercase;">
+              🏛️ County Assessor & Structural Characteristics Cross-Verification Audit
+            </div>
+            <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #334155;">
+                  <th style="padding: 4px 6px; width: 22%;">Property & Location</th>
+                  <th style="padding: 4px 6px; width: 14%;">Assessor APN</th>
+                  <th style="padding: 4px 6px; width: 18%;">Owner of Record</th>
+                  <th style="padding: 4px 6px; width: 15%;">Assessed Value</th>
+                  <th style="padding: 4px 6px; width: 12%;">Parcel Area</th>
+                  <th style="padding: 4px 6px; width: 19%;">Structural Specs & Zoning</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${[...ownedDetails, ...pipelineDetails].map((d, i) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; background: ${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                    <td style="padding: 4px 6px;">
+                      <strong style="color: #0f172a; font-size: 9px; display: block;">${d.name}</strong>
+                      <span style="color: #64748b; font-size: 8px;">${d.location}</span>
+                    </td>
+                    <td style="padding: 4px 6px; font-family: monospace; font-weight: 700; color: #047857;">${d.apn}</td>
+                    <td style="padding: 4px 6px; font-weight: 700; color: #0f172a;">${d.owner}</td>
+                    <td style="padding: 4px 6px; font-weight: 700; color: #059669;">${formatCurrency(d.price)}</td>
+                    <td style="padding: 4px 6px; color: #334155;">${d.acres > 0 ? d.acres.toFixed(2) + ' Acres' : 'Pending Survey'}</td>
+                    <td style="padding: 4px 6px; color: #334155;">
+                      <span>Built ${d.yearBuilt} • ${d.bldgSqFt ? d.bldgSqFt.toLocaleString() + ' Sq Ft' : 'N/A'}</span><br>
+                      <span style="font-size: 7.5px; color: #64748b;">Zoning: ${d.zoning}</span>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Portfolio Risk & Underwriting Audit Flags -->
+          ${portfolioFlags.length > 0 ? `
+            <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px;">
+              <p style="font-size: 9px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 3px 0;">Portfolio Underwriting Audit & Risk Flags</p>
+              <ul style="margin: 0; padding-left: 14px; font-size: 8.5px; color: #78350f; line-height: 1.35;">
+                ${portfolioFlags.map(f => `<li><strong>${f.deal}:</strong> ${f.desc}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+
+          <!-- Brief Footer -->
+          <div style="border-top: 1px solid #cbd5e1; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8;">
+            <span>MathTree Real Estate Underwriting & Portfolio Studio</span>
+            <span>Confidential Institutional Underwriting Report • Generated for ${invName} • ${dateStr}</span>
           </div>
         </div>
       `;
+    }
+    window.renderDashboardPortfolioBrief = renderDashboardPortfolioBrief;
 
+    function exportDashboardPortfolioPDF() {
+      _isPrintingSingleDeal = false;
+      renderDashboardPortfolioBrief();
       window.print();
     }
     window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF;
+
+    // Automatic print interception: if user presses Ctrl+P / browser print, render the full portfolio brief
+    window.addEventListener('beforeprint', () => {
+      if (!_isPrintingSingleDeal) {
+        renderDashboardPortfolioBrief();
+      }
+    });
+    window.addEventListener('afterprint', () => {
+      _isPrintingSingleDeal = false;
+    });
+
 
     function openProjectPitchDeck(id) {
       exportDashboardDealPDF(id);
