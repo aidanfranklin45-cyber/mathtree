@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8">
@@ -124,17 +124,17 @@
               <span>Austin, TX</span>
             </p>
             <span id="deal-tier-class-pill" class="text-[10px] text-slate-400 font-medium hidden sm:inline">
-              â€¢ Tier 1 â€¢ Class A
+              • Tier 1 • Class A
             </span>
             <span id="deal-facility-type-pill" class="text-[10px] text-slate-400 font-medium hidden sm:inline">
             </span>
             <a id="header-apn-badge" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="hidden items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-[10px] font-semibold hover:border-emerald-700 transition" title="Open official Yakima County Assessor Tax Card">
-              <span>ðŸ›ï¸ <span id="header-apn-text">Yakima APN</span> â†—</span>
+              <span>🏛️ <span id="header-apn-text">Yakima APN</span> ↗</span>
             </a>
             <div id="header-gis-sync-badge" class="hidden items-center space-x-1 text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               <span id="header-gis-sync-text">GIS Synced</span>
-              <button onclick="forceRefreshCountyGis()" class="text-emerald-400 hover:text-white font-bold ml-0.5" title="Force Refresh from Yakima County GIS">ðŸ”„</button>
+              <button onclick="forceRefreshCountyGis()" class="text-emerald-400 hover:text-white font-bold ml-0.5" title="Force Refresh from Yakima County GIS">🔄</button>
             </div>
           </div>
         </div>
@@ -201,20 +201,20 @@
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
         <div class="flex items-center space-x-2.5">
           <div class="w-7 h-7 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center font-bold text-xs border border-brand-500/20">
-            â³
+            ⏳
           </div>
           <div>
             <h3 class="text-xs font-black uppercase tracking-wider text-slate-200 flex items-center space-x-2">
               <span>Deal Acquisition & Investment Timeline</span>
               <span id="deal-stage-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-normal">Underwriting</span>
             </h3>
-            <p id="deal-stage-description" class="text-[11px] text-slate-400">Financial model active â€¢ evaluating returns, cash flows, and downside sensitivity</p>
+            <p id="deal-stage-description" class="text-[11px] text-slate-400">Financial model active • evaluating returns, cash flows, and downside sensitivity</p>
           </div>
         </div>
         
         <!-- Quick Stage Actions -->
         <div class="flex items-center space-x-2">
-          <button type="button" id="btn-prev-stage" onclick="stepDealStage(-1)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition" title="Move to previous stage">â† Prev</button>
+          <button type="button" id="btn-prev-stage" onclick="stepDealStage(-1)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition" title="Move to previous stage">← Prev</button>
           <select id="select-deal-stage" onchange="setDealStage(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:border-brand-500">
             <option value="screening">1. Screening & Underwriting</option>
             <option value="loi">2. LOI / Offer Submitted</option>
@@ -225,7 +225,7 @@
           </select>
           <button type="button" id="btn-next-stage" onclick="stepDealStage(1)" class="px-3 py-1 rounded-lg text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 border border-emerald-900/50 hover:bg-emerald-950/50 transition flex items-center space-x-1" title="Advance to next stage">
             <span>Advance</span>
-            <span>âž”</span>
+            <span>➔</span>
           </button>
         </div>
       </div>
@@ -343,10 +343,10 @@
                 Base
               </button>
               <button type="button" id="scenario-btn-bull" data-scenario="bull" class="py-1 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-emerald-300 text-center">
-                Bull ðŸ‚
+                Bull 🐂
               </button>
               <button type="button" id="scenario-btn-bear" data-scenario="bear" class="py-1 px-2 rounded-lg text-[11px] font-bold transition text-slate-400 hover:text-rose-300 text-center">
-                Bear ðŸ»
+                Bear 🐻
               </button>
             </div>
           </div>
@@ -395,7 +395,7 @@
           <div class="flex items-center justify-between pb-3 border-b border-slate-900">
             <div class="flex items-center space-x-2.5">
               <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
-                ðŸ›ï¸
+                🏛️
               </div>
               <div>
                 <h2 class="text-sm font-extrabold text-white">County Assessor & Parcel Data</h2>
@@ -405,10 +405,10 @@
             <div class="flex items-center space-x-1.5">
               <a id="dossier-ascend-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-900/60 px-2.5 py-1 rounded-lg transition flex items-center space-x-1" title="Open official County Ascend Tax Card">
                 <span>Ascend Tax Card</span>
-                <span>â†—</span>
+                <span>↗</span>
               </a>
               <button type="button" onclick="forceRefreshCountyGis()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition" title="Force Refresh Live GIS Data">
-                ðŸ”„
+                🔄
               </button>
             </div>
           </div>
@@ -420,18 +420,14 @@
               <div class="flex items-center space-x-1.5">
                 <span id="dossier-apn-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">APN: --</span>
                 <button type="button" onclick="toggleDossierSearch()" id="btn-toggle-dossier-search" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 px-2 py-0.5 rounded transition flex items-center space-x-1" title="Link or change official parcel">
-                  <span>ðŸ” Link Parcel</span>
+                  <span>🔍 Link Parcel</span>
                 </button>
               </div>
             </div>
             <p id="dossier-address-text" class="text-xs font-bold text-white leading-snug">--</p>
-            <div id="dossier-unlinked-warning" class="hidden text-[11px] text-amber-400/90 pt-1.5 border-t border-slate-900 flex flex-wrap items-center justify-between gap-1.5">
-              <span>âš ï¸ Generic location ('Yakima, WA') needs a parcel link to load owner & specs:</span>
-              <div class="flex items-center space-x-1.5">
-                <button type="button" onclick="quickLinkDossierParcel('19133143417', '2239 LONGFIBRE RD, YAKIMA, WA 98903')" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 hover:bg-emerald-500/30 text-[10px]">âš¡ 2239 Longfibre Rd</button>
-                <button type="button" onclick="quickLinkDossierParcel('19131922484', '128 N 2ND ST, YAKIMA, WA 98901')" class="px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 font-bold border border-brand-500/30 hover:bg-brand-500/30 text-[10px]">âš¡ 128 N 2nd St</button>
-                <button type="button" onclick="toggleDossierSearch(true)" class="underline font-bold text-brand-400 hover:text-brand-300 text-[10px] ml-1">Search â†’</button>
-              </div>
+            <div id="dossier-unlinked-warning" class="hidden text-[11px] text-amber-400/90 pt-1 border-t border-slate-900 flex items-center justify-between">
+              <span>⚠️ Generic location ('Yakima, WA') needs a specific parcel to load owner & tax records.</span>
+              <button type="button" onclick="toggleDossierSearch(true)" class="underline font-bold text-brand-400 hover:text-brand-300 ml-1">Link Parcel →</button>
             </div>
           </div>
 
@@ -439,7 +435,7 @@
           <div id="dossier-search-panel" class="hidden p-3 bg-slate-950 border border-brand-500/30 rounded-2xl space-y-2 text-xs">
             <div class="flex items-center justify-between">
               <span class="text-[10px] font-bold text-brand-400 uppercase tracking-wider">Link Official Yakima County Parcel</span>
-              <button type="button" onclick="toggleDossierSearch(false)" class="text-slate-500 hover:text-white text-xs">âœ•</button>
+              <button type="button" onclick="toggleDossierSearch(false)" class="text-slate-500 hover:text-white text-xs">✕</button>
             </div>
             <div class="relative">
               <input type="text" id="dossier-search-input" oninput="onDossierSearchInput(this.value)" placeholder="Enter Yakima street address or 11-digit APN..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500">
@@ -449,25 +445,21 @@
             <div class="pt-1">
               <span class="text-[9px] text-slate-500 block mb-1 uppercase font-bold">Sample County Parcels:</span>
               <div class="grid grid-cols-2 gap-1.5 text-[10px]">
-                <button type="button" onclick="quickLinkDossierParcel('19133143417', '2239 LONGFIBRE RD, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
-                  <strong class="text-white block truncate">2239 Longfibre Rd</strong>
-                  <span class="text-emerald-400 text-[9px]">Commercial Lube â€¢ APN: 191331-43417</span>
-                </button>
                 <button type="button" onclick="quickLinkDossierParcel('19131922484', '128 N 2ND ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
                   <strong class="text-white block truncate">128 N 2nd St</strong>
-                  <span class="text-slate-500 text-[9px]">Commercial / Gov â€¢ APN: 191319-22484</span>
+                  <span class="text-slate-500 text-[9px]">Commercial / Gov • APN: 191319-22484</span>
                 </button>
                 <button type="button" onclick="quickLinkDossierParcel('18132621455', '414 S 8TH ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
                   <strong class="text-white block truncate">414 S 8th St</strong>
-                  <span class="text-slate-500 text-[9px]">12-Unit Multifamily â€¢ APN: 181326-21455</span>
+                  <span class="text-slate-500 text-[9px]">12-Unit Multifamily • APN: 181326-21455</span>
                 </button>
                 <button type="button" onclick="quickLinkDossierParcel('19133034401', '2405 S 1ST ST, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
                   <strong class="text-white block truncate">2405 S 1st St</strong>
-                  <span class="text-slate-500 text-[9px]">Light Industrial â€¢ APN: 191330-34401</span>
+                  <span class="text-slate-500 text-[9px]">Light Industrial • APN: 191330-34401</span>
                 </button>
-                <button type="button" onclick="quickLinkDossierParcel('18132644405', '1502 S 18TH AVE, YAKIMA, WA 98902')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition col-span-2">
+                <button type="button" onclick="quickLinkDossierParcel('18132644405', '1502 S 18TH AVE, YAKIMA, WA 98902')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
                   <strong class="text-white block truncate">1502 S 18th Ave</strong>
-                  <span class="text-slate-500 text-[9px]">Single-Family BRRRR â€¢ APN: 181326-44405</span>
+                  <span class="text-slate-500 text-[9px]">Single-Family BRRRR • APN: 181326-44405</span>
                 </button>
               </div>
             </div>
@@ -554,7 +546,7 @@
                 <label for="input-purchase-price" class="text-xs font-semibold text-slate-400 flex justify-between items-center">
                   <span>Purchase Price</span>
                   <button type="button" id="btn-target-solver" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20 transition flex items-center space-x-1">
-                    <span>ðŸŽ¯ Target IRR Solver</span>
+                    <span>🎯 Target IRR Solver</span>
                   </button>
                 </label>
                 <div class="relative rounded-lg shadow-sm">
@@ -963,7 +955,7 @@
                   </div>
                   <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
-                      <label for="input-exit-year" class="text-xs font-semibold text-slate-400">Holding Period (1â€“30 Yrs)</label>
+                      <label for="input-exit-year" class="text-xs font-semibold text-slate-400">Holding Period (1–30 Yrs)</label>
                       <span id="holding-period-pill" class="text-[10px] text-brand-400 font-mono font-bold">10 Yrs</span>
                     </div>
                     <div class="relative rounded-lg shadow-sm">
@@ -1096,7 +1088,7 @@
               <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
                 <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
                   <span>NPV</span>
-                  <span class="text-slate-600 cursor-help" title="Net Present Value: Discounted cash flows + exit equity minus initial investment.">â“˜</span>
+                  <span class="text-slate-600 cursor-help" title="Net Present Value: Discounted cash flows + exit equity minus initial investment.">ⓘ</span>
                 </p>
                 <div class="mt-1 flex items-baseline justify-between">
                   <span id="metric-npv" class="text-xl font-extrabold text-white tracking-tight">$0</span>
@@ -1108,7 +1100,7 @@
               <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
                 <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
                   <span>IRR</span>
-                  <span class="text-slate-600 cursor-help" title="Internal Rate of Return: Annualized rate of return of the investment.">â“˜</span>
+                  <span class="text-slate-600 cursor-help" title="Internal Rate of Return: Annualized rate of return of the investment.">ⓘ</span>
                 </p>
                 <div class="mt-1 flex items-baseline justify-between">
                   <span id="metric-irr" class="text-xl font-extrabold text-accent-violet tracking-tight">0.0%</span>
@@ -1120,7 +1112,7 @@
               <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
                 <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
                   <span>Equity Multiplier</span>
-                  <span class="text-slate-600 cursor-help" title="Equity Multiplier: Total returns divided by initial cash invested (also known as MOIC).">â“˜</span>
+                  <span class="text-slate-600 cursor-help" title="Equity Multiplier: Total returns divided by initial cash invested (also known as MOIC).">ⓘ</span>
                 </p>
                 <div class="mt-1 flex items-baseline justify-between">
                   <span id="metric-equity-multiplier" class="text-xl font-extrabold text-accent-cyan tracking-tight">0.00x</span>
@@ -1132,7 +1124,7 @@
               <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
                 <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
                   <span>Break-Even Year</span>
-                  <span class="text-slate-600 cursor-help" title="Break-Even Year: The year when cumulative cash flow becomes positive.">â“˜</span>
+                  <span class="text-slate-600 cursor-help" title="Break-Even Year: The year when cumulative cash flow becomes positive.">ⓘ</span>
                 </p>
                 <div class="mt-1 flex items-baseline justify-between">
                   <span id="metric-breakeven" class="text-xl font-extrabold text-accent-emerald tracking-tight">N/A</span>
@@ -1159,7 +1151,7 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="space-y-2">
                   <p class="font-semibold text-accent-violet flex items-center gap-1">
-                    <span>âš¡</span>
+                    <span>⚡</span>
                     <span>Internal Rate of Return (IRR)</span>
                   </p>
                   <p class="text-slate-400">
@@ -1168,7 +1160,7 @@
                 </div>
                 <div class="space-y-2">
                   <p class="font-semibold text-white flex items-center gap-1">
-                    <span>ðŸ’¸</span>
+                    <span>💸</span>
                     <span>Net Present Value (NPV)</span>
                   </p>
                   <p class="text-slate-400">
@@ -1306,10 +1298,10 @@
                 <!-- View Mode: Annual Pro-Forma vs Monthly Schedule -->
                 <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
                   <button type="button" id="btn-view-annual" onclick="switchForecastView('annual')" class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition">
-                    ðŸ“… Annual Pro-Forma
+                    📅 Annual Pro-Forma
                   </button>
                   <button type="button" id="btn-view-monthly" onclick="switchForecastView('monthly')" class="px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition">
-                    ðŸ“† Monthly Schedule (Post-Closing)
+                    📆 Monthly Schedule (Post-Closing)
                   </button>
                 </div>
               </div>
@@ -1486,7 +1478,7 @@
                 <p class="text-xs text-slate-400">Stochastic market volatility model (Rent Growth, Appreciation & Vacancy Shocks)</p>
               </div>
               <button id="btn-run-mc" class="px-3 py-1.5 rounded-lg border border-accent-violet/40 bg-accent-violet/20 hover:bg-accent-violet/30 text-xs font-bold text-accent-violet transition flex items-center space-x-1.5">
-                <span>ðŸŽ² Re-Run 1,000 Runs</span>
+                <span>🎲 Re-Run 1,000 Runs</span>
               </button>
             </div>
 
@@ -1806,14 +1798,14 @@
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base shrink-0">
-            âœŽ
+            ✎
           </div>
           <div>
             <h3 class="text-base font-extrabold text-white">Edit Project Inputs</h3>
             <p id="edit-modal-deal-subtitle" class="text-xs text-slate-400">Modify comprehensive baseline underwriting assumptions</p>
           </div>
         </div>
-        <button onclick="closeEditDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">âœ•</button>
+        <button onclick="closeEditDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
       </div>
 
       <form id="edit-deal-form" novalidate onsubmit="saveEditDealModalFromProject(event)" class="space-y-4">
@@ -1829,7 +1821,7 @@
           <div class="space-y-1 relative">
             <div class="flex items-center justify-between">
               <label class="text-[11px] font-bold text-slate-400">Location / Street Address</label>
-              <span class="text-[9px] text-emerald-400 font-semibold">ðŸ›ï¸ Yakima GIS</span>
+              <span class="text-[9px] text-emerald-400 font-semibold">🏛️ Yakima GIS</span>
             </div>
             <input type="text" id="edit-deal-location" oninput="onProjEditLocationInput(this.value)" autocomplete="off" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             <div id="proj-edit-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto hidden"></div>
@@ -1856,9 +1848,9 @@
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Market Tier</label>
             <select id="edit-deal-market-tier" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-              <option value="Tier 1">Tier 1 â€¢ Gateway</option>
-              <option value="Tier 2">Tier 2 â€¢ Growth</option>
-              <option value="Tier 3">Tier 3 â€¢ Tertiary</option>
+              <option value="Tier 1">Tier 1 • Gateway</option>
+              <option value="Tier 2">Tier 2 • Growth</option>
+              <option value="Tier 3">Tier 3 • Tertiary</option>
             </select>
           </div>
           <div class="space-y-1">
@@ -1887,7 +1879,7 @@
               <input type="number" id="edit-deal-gross-rent-annual" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
             <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Monthly Rent / Unit ($) <span class="text-slate-600 font-normal">(SFR Â· Multi Â· Storage)</span></label>
+              <label class="text-[11px] font-bold text-slate-400">Monthly Rent / Unit ($) <span class="text-slate-600 font-normal">(SFR · Multi · Storage)</span></label>
               <input type="number" id="edit-deal-gross-rent-monthly" min="0" step="any" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
           </div>
@@ -2068,13 +2060,13 @@
           <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Live Pro-Forma:</span>
           <div class="flex items-center flex-wrap gap-3 font-mono text-[11px]">
             <span>LTV: <strong id="edit-preview-ltv" class="text-emerald-400 font-bold">75.0%</strong></span>
-            <span class="text-slate-700">â€¢</span>
+            <span class="text-slate-700">•</span>
             <span>Loan: <strong id="edit-preview-loan" class="text-slate-100 font-bold">$750,000</strong></span>
-            <span class="text-slate-700">â€¢</span>
+            <span class="text-slate-700">•</span>
             <span>Equity: <strong id="edit-preview-equity" class="text-brand-400 font-bold">$250,000</strong></span>
-            <span class="text-slate-700">â€¢</span>
+            <span class="text-slate-700">•</span>
             <span>Net Cash Flow: <strong id="edit-preview-cashflow" class="text-accent-cyan font-bold">$0/yr</strong></span>
-            <span class="text-slate-700">â€¢</span>
+            <span class="text-slate-700">•</span>
             <span>NPV: <strong id="edit-preview-npv" class="text-emerald-400 font-bold">$0</strong></span>
           </div>
         </div>
@@ -2108,14 +2100,13 @@
         <!-- Dynamically rendered action items -->
       </div>
       <div class="p-2.5 bg-slate-950/60 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-500 px-4">
-        <span>Use <kbd class="text-slate-400 font-mono">â†‘</kbd> <kbd class="text-slate-400 font-mono">â†“</kbd> to navigate</span>
+        <span>Use <kbd class="text-slate-400 font-mono">↑</kbd> <kbd class="text-slate-400 font-mono">↓</kbd> to navigate</span>
         <span>Press <kbd class="text-slate-400 font-mono">ENTER</kbd> to select</span>
       </div>
     </div>
   </div>
 
 </main>
-
   <!-- Investor Profile & Underwriting Settings Modal -->
   <div id="investor-profile-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl my-6">
@@ -2223,7 +2214,7 @@
           </svg>
           <h3 id="cloud-modal-title" class="text-sm font-bold text-white">MathTree Cloud Sync & Accounts</h3>
         </div>
-        <button id="btn-cloud-close" aria-label="Close cloud sync modal" class="text-slate-400 hover:text-white text-xs font-bold">âœ•</button>
+        <button id="btn-cloud-close" aria-label="Close cloud sync modal" class="text-slate-400 hover:text-white text-xs font-bold">✕</button>
       </div>
 
       <!-- Auth State: Logged Out -->
@@ -2237,7 +2228,7 @@
           </div>
           <div>
             <label for="cloud-auth-password" class="text-xs font-semibold text-slate-400 block mb-1">Password</label>
-            <input type="password" id="cloud-auth-password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" class="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500">
+            <input type="password" id="cloud-auth-password" placeholder="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500">
           </div>
         </div>
 
@@ -2275,7 +2266,7 @@
         <div class="space-y-2 border-t border-slate-800 pt-3">
           <div class="flex justify-between items-center">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Cloud Saved Deals</h4>
-            <button id="btn-refresh-cloud-deals" class="text-[10px] text-slate-500 hover:text-slate-300">â†» Refresh</button>
+            <button id="btn-refresh-cloud-deals" class="text-[10px] text-slate-500 hover:text-slate-300">↻ Refresh</button>
           </div>
           <div id="cloud-deals-list" class="max-h-40 overflow-y-auto space-y-1 text-xs">
             <p class="text-slate-500 text-center py-2">No saved deals found in cloud.</p>
@@ -2300,7 +2291,7 @@
     <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-slate-800 pb-2.5">
         <h3 id="scenario-modal-title" class="text-sm font-bold text-white">Save Custom Scenario</h3>
-        <button id="btn-scenario-modal-close" aria-label="Close save scenario modal" class="text-slate-400 hover:text-white text-xs font-bold">âœ•</button>
+        <button id="btn-scenario-modal-close" aria-label="Close save scenario modal" class="text-slate-400 hover:text-white text-xs font-bold">✕</button>
       </div>
       <p class="text-xs text-slate-400">Save current parameters as a custom scenario for instant switching.</p>
       <div class="space-y-1.5">
@@ -2987,43 +2978,7 @@
 
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
-      // Warning banner if location is generic or APN is pending
-      const unlinkedWarn = document.getElementById('dossier-unlinked-warning');
-      if (unlinkedWarn) {
-        if (!propApn && (propAddress === 'Yakima, WA' || propAddress.toLowerCase() === 'yakima' || !/\d+/.test(propAddress))) {
-          unlinkedWarn.classList.remove('hidden');
-        } else {
-          unlinkedWarn.classList.add('hidden');
-        }
-      }
 
-      // Auto-fetch if APN is present but assessor data is missing/empty
-      if (propApn && (!rawAssessor || !rawAssessor.owner || rawAssessor.owner === 'Owner of Record')) {
-        if (window.AddressService && !dossierCard._isAutoFetching) {
-          dossierCard._isAutoFetching = true;
-          window.AddressService.fetchYakimaAssessorData(propApn).then(data => {
-            dossierCard._isAutoFetching = false;
-            if (data) {
-              current.inputs = current.inputs || {};
-              current.inputs.assessorData = data;
-              current.inputs.totalAssessedValue = data.totalAssessedValue;
-              if (typeof saveCurrentDealChanges === 'function') saveCurrentDealChanges(false);
-              updateCountyDossierUI(current);
-            }
-          }).catch(() => { dossierCard._isAutoFetching = false; });
-        }
-      } else if (!propApn && propAddress && propAddress.toLowerCase().includes('yakima') && /\d+/.test(propAddress)) {
-        // Auto-search if address contains street digits in Yakima
-        if (window.AddressService && !dossierCard._isAutoSearching) {
-          dossierCard._isAutoSearching = true;
-          window.AddressService.searchYakimaAddresses(propAddress).then(results => {
-            dossierCard._isAutoSearching = false;
-            if (results && results.length > 0 && results[0].apn) {
-              quickLinkDossierParcel(results[0].apn, results[0].formattedAddress);
-            }
-          }).catch(() => { dossierCard._isAutoSearching = false; });
-        }
-      }
       const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
 
       setEl('wealth-debt-paydown', formatCurrency(wealth.principalPaydownEquity));
@@ -3265,12 +3220,12 @@
       const down = inputs.downPaymentPercent ?? 25;
       const rate = inputs.interestRate ?? 6.5;
       const term = inputs.loanTerm ?? 30;
-      setVal('brief-val-debt', `${down}% Down â€¢ ${rate}% Rate`);
+      setVal('brief-val-debt', `${down}% Down • ${rate}% Rate`);
       setVal('brief-val-term', `${term}-Year Amortization (${100 - down}% LTV)`);
 
       const opex = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
       const vac = inputs.vacancyRate ?? 5;
-      setVal('brief-val-opex', `${opex}% OpEx â€¢ ${vac}% Vac`);
+      setVal('brief-val-opex', `${opex}% OpEx • ${vac}% Vac`);
 
       let structStr = 'Standard Lease';
       if (activeTab === 'commercial') {
@@ -3423,7 +3378,7 @@
         if (window.PropertyMath && window.PropertyMath.getBenchmarkCapRateRange) {
           const rangeObj = window.PropertyMath.getBenchmarkCapRateRange(activeTab, marketTier, propertyClass, facilityType);
           const rangeStr = `${rangeObj.min.toFixed(2)}% - ${rangeObj.max.toFixed(2)}%`;
-          descField.innerHTML = `${sourceName}: <span class="text-brand-400 font-bold">${rangeStr}</span> <span class="text-slate-500 text-[10px]">(${marketTier} â€¢ ${propertyClass})</span>`;
+          descField.innerHTML = `${sourceName}: <span class="text-brand-400 font-bold">${rangeStr}</span> <span class="text-slate-500 text-[10px]">(${marketTier} • ${propertyClass})</span>`;
         } else {
           descField.textContent = "Annual NOI divided by property value";
         }
@@ -3642,16 +3597,16 @@
 
       const html = warnings.map(w => {
         let borderClass = 'border-amber-500/40 bg-amber-500/10 text-amber-300';
-        let icon = 'âš ï¸';
+        let icon = '⚠️';
         if (w.level === 'danger') {
           borderClass = 'border-rose-500/40 bg-rose-500/10 text-rose-300';
-          icon = 'ðŸš¨';
+          icon = '🚨';
         } else if (w.level === 'success') {
           borderClass = 'border-brand-500/40 bg-brand-500/10 text-brand-300';
-          icon = 'âœ…';
+          icon = '✅';
         } else if (w.level === 'info') {
           borderClass = 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300';
-          icon = 'â„¹ï¸';
+          icon = 'ℹ️';
         }
         return `
           <div class="p-3 rounded-xl border ${borderClass} flex items-start space-x-2 text-xs">
@@ -3879,8 +3834,8 @@
         { label: 'Initial Cash Invested', key: res => formatCurrency(res.initialCashInvested) },
         { label: 'Year 1 NOI', key: res => formatCurrency(res.projections[0].netOperatingIncome) },
         { label: 'Year 1 Cap Rate', key: res => `${res.projections[0].capRate.toFixed(2)}%` },
-        { label: 'Year 1 Cash Flow', key: (res, type) => `${formatCurrency(res.projections[0].cashFlow)} ${type === maxCashflowType ? 'ðŸ’°' : ''}` },
-        { label: '10-Year IRR', key: (res, type) => `<span class="font-extrabold ${type === maxIrrType ? 'text-accent-violet' : ''}">${res.irr.toFixed(2)}% ${type === maxIrrType ? 'ðŸ† Best IRR' : ''}</span>` },
+        { label: 'Year 1 Cash Flow', key: (res, type) => `${formatCurrency(res.projections[0].cashFlow)} ${type === maxCashflowType ? '💰' : ''}` },
+        { label: '10-Year IRR', key: (res, type) => `<span class="font-extrabold ${type === maxIrrType ? 'text-accent-violet' : ''}">${res.irr.toFixed(2)}% ${type === maxIrrType ? '🏆 Best IRR' : ''}</span>` },
         { label: '10-Year NPV', key: res => formatCurrency(res.npv) },
         { label: 'Equity Multiplier', key: res => `${res.equityMultiplier.toFixed(2)}x` },
         { label: 'Year 1 DSCR', key: res => res.projections[0].dscr !== null ? `${res.projections[0].dscr.toFixed(2)}x` : 'N/A' },
@@ -3940,8 +3895,8 @@
       const tabTitles = {
         'single-family': 'Single-Family Residential',
         'multi-unit': `Multi-Unit Residential (${inputs.unitCount || 1} Units)`,
-        'commercial': `Commercial Real Estate (${inputs.commClass || 'Industrial'} â€¢ ${inputs.leaseType || 'NNN'})`,
-        'storage': `Storage Facility (${inputs.isAutomated ? 'Automated' : 'Manned'} â€¢ ${inputs.storageTier || 'Tier 2'})`
+        'commercial': `Commercial Real Estate (${inputs.commClass || 'Industrial'} • ${inputs.leaseType || 'NNN'})`,
+        'storage': `Storage Facility (${inputs.isAutomated ? 'Automated' : 'Manned'} • ${inputs.storageTier || 'Tier 2'})`
       };
 
       const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -3991,7 +3946,7 @@
       const propAssessedDisplay = totalAssessed > 0 ? `${formatCurrency(totalAssessed)} (Tax Year ${taxYear})` : 'Pending County Assessment';
       const propSplitDisplay = totalAssessed > 0 ? `${formatCurrency(landVal)} Land / ${formatCurrency(impVal)} Building` : 'N/A';
       const propLotSizeDisplay = acres > 0 ? `${parseFloat(acres).toFixed(2)} Acres (${Number(sqft).toLocaleString()} Sq Ft)` : (sqft > 0 ? `${Number(sqft).toLocaleString()} Sq Ft` : 'N/A');
-      const propZoningDisplay = `${zoning} â€¢ ${useCode}`;
+      const propZoningDisplay = `${zoning} • ${useCode}`;
       const holdYrs = inputs.exitYear || 10;
 
       container.innerHTML = `
@@ -4005,9 +3960,9 @@
               </div>
               <h1 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 4px 0 0 0;">${propTitle}</h1>
               <div style="font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 8px;">
-                <span>ðŸ“ <strong>${propAddress}</strong></span>
+                <span>📍 <strong>${propAddress}</strong></span>
                 ${propApn ? `<span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-family: monospace; font-weight: 700;">APN: ${formattedApn}</span>` : ''}
-                <span style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 700;">ðŸ›ï¸ ${propCounty}</span>
+                <span style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 700;">🏛️ ${propCounty}</span>
               </div>
             </div>
             <div style="text-align: right; font-size: 10.5px; color: #64748b;">
@@ -4019,7 +3974,7 @@
           <!-- Official County Assessor & Parcel Record Section -->
           <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 14px;">
             <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
-              <span>ðŸ›ï¸ Official County Assessor & Property Records</span>
+              <span>🏛️ Official County Assessor & Property Records</span>
               <span style="font-size: 9px; color: #059669; font-weight: 700;">${gisSyncBadge}</span>
             </div>
             <table style="width: 100%; font-size: 9.5px; border-collapse: collapse;">
@@ -4052,7 +4007,7 @@
                   <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Building Specs & Age</td>
                   <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${rawAssessor.yearBuilt || (deal.inputs && deal.inputs.yearBuilt) ? `Built ${rawAssessor.yearBuilt || deal.inputs.yearBuilt} (${(rawAssessor.buildingSqFt || (deal.inputs && (deal.inputs.buildingSqFt || deal.inputs.gla)) || 0).toLocaleString()} Sq Ft)` : 'Pending Specs'}</td>
                   <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Stories / Construction</td>
-                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${(rawAssessor.stories || (deal.inputs && deal.inputs.stories) || '1')} Stories â€¢ ${(rawAssessor.constructionType || rawAssessor.buildingStyle || (deal.inputs && deal.inputs.constructionType) || 'Standard')}</td>
+                  <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${(rawAssessor.stories || (deal.inputs && deal.inputs.stories) || '1')} Stories • ${(rawAssessor.constructionType || rawAssessor.buildingStyle || (deal.inputs && deal.inputs.constructionType) || 'Standard')}</td>
                 </tr>
                 ${legal ? `
                 <tr style="background: #f8fafc;">
@@ -4119,7 +4074,7 @@
                   </tr>
                   <tr style="border-bottom: 1px solid #f1f5f9;">
                     <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Interest Rate & Loan Term</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.interestRate}% â€¢ ${inputs.loanTerm} Years</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.interestRate}% • ${inputs.loanTerm} Years</td>
                   </tr>
                   <tr style="border-bottom: 1px solid #f1f5f9;">
                     <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Annual Debt Service (P&I)</td>
@@ -4127,7 +4082,7 @@
                   </tr>
                   <tr style="border-bottom: 1px solid #f1f5f9;">
                     <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Rehab & Closing Costs</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">Rehab: ${formatCurrency(inputs.rehabCosts)} â€¢ Closing: ${formatCurrency(inputs.closingCosts)}</td>
+                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">Rehab: ${formatCurrency(inputs.rehabCosts)} • Closing: ${formatCurrency(inputs.closingCosts)}</td>
                   </tr>
                   <tr style="background: #f8fafc;">
                     <td style="padding: 5px 10px; color: #0f172a; font-weight: 800;">Total Initial Cash Invested</td>
@@ -4170,7 +4125,7 @@
                   </tr>
                   <tr style="background: #f8fafc;">
                     <td style="padding: 5px 10px; color: #0f172a; font-weight: 800;">Target Discount Rate / Hold</td>
-                    <td style="padding: 5px 10px; text-align: right; font-weight: 800; color: #059669;">${inputs.discountRate}% Discount â€¢ ${inputs.exitYear}-Yr Hold</td>
+                    <td style="padding: 5px 10px; text-align: right; font-weight: 800; color: #059669;">${inputs.discountRate}% Discount • ${inputs.exitYear}-Yr Hold</td>
                   </tr>
                 </tbody>
               </table>
@@ -4233,13 +4188,29 @@
           <!-- Brief Footer -->
           <div style="border-top: 1px solid #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8.5px; color: #94a3b8;">
             <span>MathTree Real Estate Underwriting Platform</span>
-            <span>Confidential Investment Analysis â€¢ For Evaluation Purposes Only</span>
+            <span>Confidential Investment Analysis • For Evaluation Purposes Only</span>
           </div>
         </div>
       `;
     }
 
     // PDF Executive Brief Exporter
+    
+    function toggleProjectHeaderMenu(event) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('project-header-menu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+    window.toggleProjectHeaderMenu = toggleProjectHeaderMenu;
+
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('project-header-menu-container');
+      const menu = document.getElementById('project-header-menu');
+      if (container && menu && !container.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
     function exportToPDF() {
       renderPrintableBrief();
       window.print();
@@ -4390,10 +4361,10 @@
         if (badge) badge.innerHTML = `<span>Current: <strong class="text-brand-300">Base Case</strong> (Target Projections)</span>`;
       } else if (scenarioKey === 'bull' && btnBull) {
         btnBull.className = 'py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-emerald-600 shadow-sm text-center';
-        if (badge) badge.innerHTML = `<span>Current: <strong class="text-emerald-400">Bull Case ðŸ‚</strong> (+8% Rent, -1.5% Vacancy)</span>`;
+        if (badge) badge.innerHTML = `<span>Current: <strong class="text-emerald-400">Bull Case 🐂</strong> (+8% Rent, -1.5% Vacancy)</span>`;
       } else if (scenarioKey === 'bear' && btnBear) {
         btnBear.className = 'py-1.5 px-2 rounded-md text-[11px] font-bold transition-all text-white bg-rose-600 shadow-sm text-center';
-        if (badge) badge.innerHTML = `<span>Current: <strong class="text-rose-400">Bear Case ðŸ»</strong> (-8% Rent, +3% Vacancy, +50bps Rate)</span>`;
+        if (badge) badge.innerHTML = `<span>Current: <strong class="text-rose-400">Bear Case 🐻</strong> (-8% Rent, +3% Vacancy, +50bps Rate)</span>`;
       }
 
       syncSlidersFromInputs();
@@ -4613,24 +4584,24 @@
 
     // --- 4. Command Palette (Ctrl+K / Cmd+K) ---
     const commandItems = [
-      { id: 'tab-sf', category: 'Assets', title: 'Single-Family Rental Modeler', icon: 'ðŸ ', action: () => { setActiveTab('single-family'); setWorkspaceView('single'); } },
-      { id: 'tab-mu', category: 'Assets', title: 'Multi-Unit Residential Modeler', icon: 'ðŸ¢', action: () => { setActiveTab('multi-unit'); setWorkspaceView('single'); } },
-      { id: 'tab-com', category: 'Assets', title: 'Commercial Real Estate Modeler', icon: 'ðŸ¬', action: () => { setActiveTab('commercial'); setWorkspaceView('single'); } },
-      { id: 'tab-store', category: 'Assets', title: 'Storage Facilities Modeler', icon: 'ðŸ“¦', action: () => { setActiveTab('storage'); setWorkspaceView('single'); } },
+      { id: 'tab-sf', category: 'Assets', title: 'Single-Family Rental Modeler', icon: '🏠', action: () => { setActiveTab('single-family'); setWorkspaceView('single'); } },
+      { id: 'tab-mu', category: 'Assets', title: 'Multi-Unit Residential Modeler', icon: '🏢', action: () => { setActiveTab('multi-unit'); setWorkspaceView('single'); } },
+      { id: 'tab-com', category: 'Assets', title: 'Commercial Real Estate Modeler', icon: '🏬', action: () => { setActiveTab('commercial'); setWorkspaceView('single'); } },
+      { id: 'tab-store', category: 'Assets', title: 'Storage Facilities Modeler', icon: '📦', action: () => { setActiveTab('storage'); setWorkspaceView('single'); } },
       { id: 'view-pf', category: 'Workspaces', title: 'Portfolio Aggregator Studio', icon: '', action: () => setWorkspaceView('portfolio') },
-      { id: 'view-sens', category: 'Workspaces', title: '2D Sensitivity & Monte Carlo Simulation', icon: 'ðŸŽ²', action: () => setWorkspaceView('sensitivity') },
-      { id: 'view-tax', category: 'Workspaces', title: 'Tax (MACRS) & BRRRR Refinance Studio', icon: 'ðŸ“‘', action: () => setWorkspaceView('tax') },
-      { id: 'view-comp', category: 'Workspaces', title: '4-Deal Side-by-Side Comparison Matrix', icon: 'âš–ï¸', action: () => setWorkspaceView('comparison') },
-      { id: 'act-pitch', category: 'Presentation', title: 'Executive Pitch Deck Presentation Mode', icon: 'ðŸ–¥ï¸', action: () => openPitchDeck() },
-      { id: 'act-solver', category: 'Tools', title: 'Target IRR Reverse Solver', icon: 'ðŸŽ¯', action: () => runTargetIRRSolver() },
-      { id: 'act-sc-bull', category: 'Scenarios', title: 'Switch to Bull Case (+8% Rent, -1.5% Vacancy)', icon: 'ðŸ‚', action: () => switchScenario('bull') },
-      { id: 'act-sc-bear', category: 'Scenarios', title: 'Switch to Bear Case (-8% Rent, +3% Vacancy)', icon: 'ðŸ»', action: () => switchScenario('bear') },
-      { id: 'act-sc-base', category: 'Scenarios', title: 'Reset to Base Target Scenario', icon: 'ðŸŽ¯', action: () => switchScenario('base') },
-      { id: 'act-profile', category: 'Profile & Settings', title: 'Investor Profile & Hurdle Rate Settings', icon: 'ðŸ‘¤', action: () => openInvestorProfileModal() },
-      { id: 'act-cloud', category: 'Cloud & Accounts', title: 'Cloud Sync & Customer Accounts (Supabase)', icon: 'â˜ï¸', action: () => openCloudSyncModal() },
-      { id: 'act-json-export', category: 'Backup', title: 'Export JSON Full State Backup', icon: 'ðŸ’¾', action: () => exportJSONBackup() },
-      { id: 'act-csv', category: 'Export', title: 'Export Active Deal Pro-Forma (CSV)', icon: 'ðŸ“„', action: () => exportToCSV() },
-      { id: 'act-pdf', category: 'Export', title: 'Export PDF Executive Brief', icon: 'ðŸ–¨ï¸', action: () => exportToPDF() }
+      { id: 'view-sens', category: 'Workspaces', title: '2D Sensitivity & Monte Carlo Simulation', icon: '🎲', action: () => setWorkspaceView('sensitivity') },
+      { id: 'view-tax', category: 'Workspaces', title: 'Tax (MACRS) & BRRRR Refinance Studio', icon: '📑', action: () => setWorkspaceView('tax') },
+      { id: 'view-comp', category: 'Workspaces', title: '4-Deal Side-by-Side Comparison Matrix', icon: '⚖️', action: () => setWorkspaceView('comparison') },
+      { id: 'act-pitch', category: 'Presentation', title: 'Executive Pitch Deck Presentation Mode', icon: '🖥️', action: () => openPitchDeck() },
+      { id: 'act-solver', category: 'Tools', title: 'Target IRR Reverse Solver', icon: '🎯', action: () => runTargetIRRSolver() },
+      { id: 'act-sc-bull', category: 'Scenarios', title: 'Switch to Bull Case (+8% Rent, -1.5% Vacancy)', icon: '🐂', action: () => switchScenario('bull') },
+      { id: 'act-sc-bear', category: 'Scenarios', title: 'Switch to Bear Case (-8% Rent, +3% Vacancy)', icon: '🐻', action: () => switchScenario('bear') },
+      { id: 'act-sc-base', category: 'Scenarios', title: 'Reset to Base Target Scenario', icon: '🎯', action: () => switchScenario('base') },
+      { id: 'act-profile', category: 'Profile & Settings', title: 'Investor Profile & Hurdle Rate Settings', icon: '👤', action: () => openInvestorProfileModal() },
+      { id: 'act-cloud', category: 'Cloud & Accounts', title: 'Cloud Sync & Customer Accounts (Supabase)', icon: '☁️', action: () => openCloudSyncModal() },
+      { id: 'act-json-export', category: 'Backup', title: 'Export JSON Full State Backup', icon: '💾', action: () => exportJSONBackup() },
+      { id: 'act-csv', category: 'Export', title: 'Export Active Deal Pro-Forma (CSV)', icon: '📄', action: () => exportToCSV() },
+      { id: 'act-pdf', category: 'Export', title: 'Export PDF Executive Brief', icon: '🖨️', action: () => exportToPDF() }
     ];
 
     let selectedCmdIndex = 0;
@@ -4675,7 +4646,7 @@
               <span class="text-[10px] ${idx === selectedCmdIndex ? 'text-brand-100' : 'text-slate-500'} block">${cmd.category}</span>
             </div>
           </div>
-          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded ${idx === selectedCmdIndex ? 'bg-brand-700 text-white' : 'bg-slate-950 text-slate-400'}">â†µ Enter</span>
+          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded ${idx === selectedCmdIndex ? 'bg-brand-700 text-white' : 'bg-slate-950 text-slate-400'}">↵ Enter</span>
         </div>
       `).join('');
 
@@ -4696,33 +4667,7 @@
     let currentLoadedDealId = null;
     let currentLoadedDeal = null;
 
-    
-    function toggleProjectHeaderMenu(event) {
-      if (event) event.stopPropagation();
-      const menu = document.getElementById('project-header-menu');
-      if (menu) menu.classList.toggle('hidden');
-    }
-    window.toggleProjectHeaderMenu = toggleProjectHeaderMenu;
-
-    document.addEventListener('click', (e) => {
-      const menu = document.getElementById('project-header-menu');
-      const container = document.getElementById('project-header-menu-container');
-      if (menu && !menu.classList.contains('hidden')) {
-        if (!container || !container.contains(e.target)) {
-          menu.classList.add('hidden');
-        }
-      }
-    });
-
-    // Pitch deck stubs for backward compatibility
-    function openDealPitchDeck() {}
-    function openPitchDeck() {}
-    function closePitchDeck() {}
-    window.openDealPitchDeck = openDealPitchDeck;
-    window.openPitchDeck = openPitchDeck;
-    window.closePitchDeck = closePitchDeck;
-
-    function _oldOpenDealPitchDeck() {
+    function openDealPitchDeck() {
       openPitchDeck(currentLoadedDeal || null);
     }
     window.openDealPitchDeck = openDealPitchDeck;
@@ -4788,7 +4733,7 @@
         let listItems = [];
         if (deal && deal.deck && Array.isArray(deal.deck.highlights) && deal.deck.highlights.length > 0) {
           listItems = deal.deck.highlights.map(h => ({
-            title: 'âœ¨ ' + (h.metric || 'Highlight'),
+            title: '✨ ' + (h.metric || 'Highlight'),
             description: h.detail || '',
             level: 'success'
           }));
@@ -5254,9 +5199,9 @@
       if (filtered.length === 0) {
         grid.innerHTML = `
           <div class="col-span-full p-12 text-center bg-slate-950/40 rounded-3xl border border-slate-900 space-y-3">
-            <div class="text-3xl">ðŸ“</div>
+            <div class="text-3xl">📁</div>
             <p class="text-sm font-bold text-slate-300">No projects found in this category.</p>
-            <button onclick="openProjectWizard()" class="text-xs font-bold text-brand-400 hover:text-brand-300">Create your first project â†’</button>
+            <button onclick="openProjectWizard()" class="text-xs font-bold text-brand-400 hover:text-brand-300">Create your first project →</button>
           </div>
         `;
         return;
@@ -5366,7 +5311,7 @@
     const wizardAssetDefaults = {
       'single-family': {
         name: 'Benchmark Gamma: Single-Family BRRRR Case',
-        location: 'Synthetic Model â€¢ Generic Metro',
+        location: 'Synthetic Model • Generic Metro',
         gla: 2400,
         price: 450000,
         down: 20,
@@ -5385,7 +5330,7 @@
       },
       'multi-unit': {
         name: 'Benchmark Beta: 12-Unit Multifamily Value-Add',
-        location: 'Synthetic Model â€¢ Generic Metro',
+        location: 'Synthetic Model • Generic Metro',
         gla: 11000,
         price: 1850000,
         down: 25,
@@ -5404,7 +5349,7 @@
       },
       'commercial': {
         name: 'Benchmark Alpha: Class-A Industrial Facility',
-        location: 'Synthetic Model â€¢ Generic Metro',
+        location: 'Synthetic Model • Generic Metro',
         gla: 15000,
         price: 1200000,
         down: 25,
@@ -5423,7 +5368,7 @@
       },
       'storage': {
         name: 'Benchmark Delta: Automated Self-Storage Facility',
-        location: 'Synthetic Model â€¢ Generic Metro',
+        location: 'Synthetic Model • Generic Metro',
         gla: 22000,
         price: 950000,
         down: 30,
@@ -5710,7 +5655,7 @@
       results.forEach((item, idx) => {
         const isYakima = item.isYakimaCounty;
         const badge = isYakima
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ðŸ›ï¸ Yakima APN: ' + (item.apn || 'Linked') + '</span>'
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima APN: ' + (item.apn || 'Linked') + '</span>'
           : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>';
 
         html += '<div onclick="selectProjAddress(' + idx + ')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">';
@@ -5793,7 +5738,7 @@
         dd.innerHTML = `
           <div onclick="quickLinkDossierParcel('${cleanApn}', '${val.trim()}')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-emerald-400">ðŸ›ï¸ Fetch Assessor Record for APN: ${cleanApn}</span>
+              <span class="text-xs font-bold text-emerald-400">🏛️ Fetch Assessor Record for APN: ${cleanApn}</span>
               <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Direct APN</span>
             </div>
             <p class="text-[11px] text-slate-400">Click to fetch official ownership, valuation & specs</p>
@@ -5814,7 +5759,7 @@
       results.forEach((item, idx) => {
         const isYakima = item.isYakimaCounty;
         const badge = isYakima
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ðŸ›ï¸ Yakima APN: ' + (item.apn || 'Linked') + '</span>'
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima APN: ' + (item.apn || 'Linked') + '</span>'
           : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>';
 
         html += `<div onclick="selectDossierAddress(${idx})" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">
@@ -5949,67 +5894,6 @@
       const rawAssessor = (current.inputs && current.inputs.assessorData) || {};
       const propAddress = current.location || (current.inputs && current.inputs.location) || rawAssessor.address || 'Pending Address';
       const propApn = (current.inputs && (current.inputs.primaryApn || current.inputs.apn)) || rawAssessor.apn || '';
-
-      // Warning banner if location is generic city name or APN is pending
-      const unlinkedWarn = document.getElementById('dossier-unlinked-warning');
-      if (unlinkedWarn) {
-        if (!propApn && (propAddress === 'Yakima, WA' || propAddress.toLowerCase() === 'yakima' || !/\d+/.test(propAddress))) {
-          unlinkedWarn.classList.remove('hidden');
-        } else {
-          unlinkedWarn.classList.add('hidden');
-        }
-      }
-
-      // Auto-fetch if APN is present but assessor data is missing/incomplete
-      if (propApn && (!rawAssessor || !rawAssessor.owner || rawAssessor.owner === 'Owner of Record' || !rawAssessor.marketLandValue)) {
-        if (window.AddressService && !dossierCard._isAutoFetching) {
-          dossierCard._isAutoFetching = true;
-          window.AddressService.fetchYakimaAssessorData(propApn).then(data => {
-            dossierCard._isAutoFetching = false;
-            if (data) {
-              current.inputs = current.inputs || {};
-              current.inputs.assessorData = data;
-              current.inputs.totalAssessedValue = data.totalAssessedValue;
-              current.inputs.marketLandValue = data.marketLandValue;
-              current.inputs.marketImprovementValue = data.marketImprovementValue;
-              current.inputs.acres = data.acres;
-              current.inputs.sqft = data.sqft;
-              current.inputs.yearBuilt = data.yearBuilt;
-              current.inputs.buildingSqFt = data.buildingSqFt;
-              current.inputs.stories = data.stories;
-              current.inputs.constructionType = data.constructionType;
-              current.inputs.condition = data.condition;
-              current.inputs.hvac = data.hvac;
-              current.inputs.zoning = data.zoning;
-              current.inputs.useCode = data.useCode;
-              current.inputs.owner = data.owner;
-              current.inputs.legalDescription = data.legalDescription;
-              current.inputs.gisSync = {
-                lastSyncedAt: new Date().toISOString(),
-                syncSource: 'yakima_arcgis',
-                status: 'active'
-              };
-              if (typeof autoSaveDealToSupabase === 'function') autoSaveDealToSupabase(current);
-              updateCountyDossierUI(current);
-              if (typeof updateHeaderApnBadge === 'function') updateHeaderApnBadge(propApn);
-            }
-          }).catch(err => {
-            dossierCard._isAutoFetching = false;
-            console.warn('County auto-fetch warning:', err);
-          });
-        }
-      } else if (!propApn && propAddress && propAddress.toLowerCase().includes('yakima') && /\d+/.test(propAddress)) {
-        // Auto-search if address contains street digits in Yakima
-        if (window.AddressService && !dossierCard._isAutoSearching) {
-          dossierCard._isAutoSearching = true;
-          window.AddressService.searchYakimaAddresses(propAddress).then(results => {
-            dossierCard._isAutoSearching = false;
-            if (results && results.length > 0 && results[0].apn) {
-              quickLinkDossierParcel(results[0].apn, results[0].formattedAddress);
-            }
-          }).catch(() => { dossierCard._isAutoSearching = false; });
-        }
-      }
       const formattedApn = rawAssessor.formattedApn || (propApn.length === 11 ? (propApn.slice(0, 6) + '-' + propApn.slice(6)) : propApn) || 'Pending Link';
       const propCounty = (current.inputs && current.inputs.county) || (propAddress.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Assessor Record');
 
@@ -6054,7 +5938,7 @@
         setEl('dossier-land-pct', `${landPct}% Land / ${impPct}% Bldg`);
       } else if (totalAssessed > 0) {
         setEl('dossier-split-val', `${formatCurrency(totalAssessed)} Total`);
-        setEl('dossier-land-pct', '');
+        setEl('dossier-land-pct', '100% Fee Simple Value');
       } else {
         setEl('dossier-split-val', '-- / --');
         setEl('dossier-land-pct', 'Pending Breakdown');
@@ -6160,21 +6044,7 @@
         if (data) {
           currentLoadedDeal.inputs.assessorData = data;
           currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
-          currentLoadedDeal.inputs.marketLandValue = data.marketLandValue;
-          currentLoadedDeal.inputs.marketImprovementValue = data.marketImprovementValue;
-          currentLoadedDeal.inputs.acres = data.acres;
           currentLoadedDeal.inputs.acreage = data.acres;
-          currentLoadedDeal.inputs.sqft = data.sqft;
-          currentLoadedDeal.inputs.yearBuilt = data.yearBuilt;
-          currentLoadedDeal.inputs.buildingSqFt = data.buildingSqFt;
-          currentLoadedDeal.inputs.stories = data.stories;
-          currentLoadedDeal.inputs.constructionType = data.constructionType;
-          currentLoadedDeal.inputs.condition = data.condition;
-          currentLoadedDeal.inputs.hvac = data.hvac;
-          currentLoadedDeal.inputs.zoning = data.zoning;
-          currentLoadedDeal.inputs.useCode = data.useCode;
-          currentLoadedDeal.inputs.owner = data.owner;
-          currentLoadedDeal.inputs.legalDescription = data.legalDescription;
           currentLoadedDeal.inputs.gisSync = {
             lastSyncedAt: new Date().toISOString(),
             syncSource: 'yakima_arcgis',
@@ -6182,15 +6052,12 @@
             manualRefresh: true
           };
 
-          if (typeof autoSaveDealToSupabase === 'function') {
-            autoSaveDealToSupabase(currentLoadedDeal);
-          }
           if (typeof saveCurrentDealChanges === 'function') {
             saveCurrentDealChanges(false);
           }
           updateHeaderApnBadge(apn);
           updateCountyDossierUI(currentLoadedDeal);
-          alert('Successfully refreshed property from Yakima County Assessor!\n\nOwner of Record: ' + (data.owner || 'Of Record') + '\nAssessed Value: $' + data.totalAssessedValue.toLocaleString() + '\nBuilt: ' + (data.yearBuilt || 'N/A') + ' (' + (data.buildingSqFt ? data.buildingSqFt.toLocaleString() + ' sq ft' : 'N/A') + ')');
+          alert('Successfully refreshed property from Yakima County Assessor! Assessed Value: $' + data.totalAssessedValue.toLocaleString());
         }
       } catch (err) {
         console.error('Manual GIS refresh error:', err);
@@ -6297,32 +6164,32 @@
     const STAGE_META = {
       screening: {
         label: 'Underwriting',
-        desc: 'Financial model active â€¢ evaluating returns, cash flows, and downside sensitivity',
+        desc: 'Financial model active • evaluating returns, cash flows, and downside sensitivity',
         badgeClass: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
       },
       loi: {
         label: 'LOI Submitted',
-        desc: 'Letter of Intent issued â€¢ negotiating price, earnest money deposit (EMD), and inspection contingencies',
+        desc: 'Letter of Intent issued • negotiating price, earnest money deposit (EMD), and inspection contingencies',
         badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
       },
       due_diligence: {
         label: 'Under Contract (DD)',
-        desc: 'PSA executed â€¢ 30-60 day feasibility window: lease audits, physical inspections, environmental & title',
+        desc: 'PSA executed • 30-60 day feasibility window: lease audits, physical inspections, environmental & title',
         badgeClass: 'bg-rose-500/10 text-rose-400 border-rose-500/20'
       },
       closing: {
         label: 'Financing & Closing',
-        desc: 'Debt commitment issued â€¢ capital calls / equity wired â€¢ closing escrow & title recording',
+        desc: 'Debt commitment issued • capital calls / equity wired • closing escrow & title recording',
         badgeClass: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
       },
       owned: {
         label: 'Owned Portfolio Asset',
-        desc: 'Property acquired â€¢ executing business plan, CapEx/renovations, tenant leasing & cash distributions',
+        desc: 'Property acquired • executing business plan, CapEx/renovations, tenant leasing & cash distributions',
         badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
       },
       disposition: {
         label: 'Exited / Disposed',
-        desc: 'Terminal sale executed or permanent cash-out refinance completed â€¢ capital returned to investors',
+        desc: 'Terminal sale executed or permanent cash-out refinance completed • capital returned to investors',
         badgeClass: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
       }
     };
@@ -6469,14 +6336,14 @@
           const diffMs = new Date(ddDate) - new Date();
           const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
           if (diffDays > 0) {
-            countdownEl.innerHTML = `<span class="text-amber-400">âš¡ ${diffDays} days until DD contingency release</span>`;
+            countdownEl.innerHTML = `<span class="text-amber-400">⚡ ${diffDays} days until DD contingency release</span>`;
           } else if (diffDays === 0) {
-            countdownEl.innerHTML = `<span class="text-rose-400">âš ï¸ DD contingency expires TODAY</span>`;
+            countdownEl.innerHTML = `<span class="text-rose-400">⚠️ DD contingency expires TODAY</span>`;
           } else {
             countdownEl.innerHTML = `<span class="text-slate-500">DD contingency expired</span>`;
           }
         } else if (currentStage === 'owned') {
-          countdownEl.innerHTML = `<span class="text-emerald-400">âœ“ Active Portfolio Asset</span>`;
+          countdownEl.innerHTML = `<span class="text-emerald-400">✓ Active Portfolio Asset</span>`;
         } else {
           countdownEl.innerHTML = `<span class="text-slate-400">Stage: ${meta.label}</span>`;
         }
@@ -6696,11 +6563,11 @@
         <div class="p-2.5 rounded-lg border border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <div>
             <span class="font-bold text-slate-200 block">${d.title}</span>
-            <span class="text-[10px] text-slate-500 capitalize">${d.asset_type} â€¢ IRR: ${d.metrics?.irr ? d.metrics.irr.toFixed(1) + '%' : 'N/A'}</span>
+            <span class="text-[10px] text-slate-500 capitalize">${d.asset_type} • IRR: ${d.metrics?.irr ? d.metrics.irr.toFixed(1) + '%' : 'N/A'}</span>
           </div>
           <div class="flex space-x-1.5">
             <button data-load-cloud-deal="${d.id}" class="px-2 py-1 bg-brand-600 hover:bg-brand-500 text-[10px] font-bold text-white rounded">Load</button>
-            <button data-del-cloud-deal="${d.id}" class="px-2 py-1 bg-slate-900 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 text-[10px] rounded">âœ•</button>
+            <button data-del-cloud-deal="${d.id}" class="px-2 py-1 bg-slate-900 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 text-[10px] rounded">✕</button>
           </div>
         </div>
       `).join('');
@@ -6785,11 +6652,11 @@
         <div class="p-2 rounded-lg border border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <div>
             <span class="font-bold text-slate-200 block">${p.name}</span>
-            <span class="text-[10px] text-slate-500">${p.deal_items?.length || 0} assets â€¢ IRR: ${p.summary_metrics?.portfolioIrr ? p.summary_metrics.portfolioIrr.toFixed(1) + '%' : 'N/A'}</span>
+            <span class="text-[10px] text-slate-500">${p.deal_items?.length || 0} assets • IRR: ${p.summary_metrics?.portfolioIrr ? p.summary_metrics.portfolioIrr.toFixed(1) + '%' : 'N/A'}</span>
           </div>
           <div class="flex space-x-1.5">
             <button data-load-cloud-pf="${p.id}" class="px-2 py-1 bg-brand-600 hover:bg-brand-500 text-[10px] font-bold text-white rounded">Load</button>
-            <button data-del-cloud-pf="${p.id}" class="px-2 py-1 bg-slate-900 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 text-[10px] rounded">âœ•</button>
+            <button data-del-cloud-pf="${p.id}" class="px-2 py-1 bg-slate-900 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 text-[10px] rounded">✕</button>
           </div>
         </div>
       `).join('');
@@ -7351,7 +7218,7 @@
 
       const subTitle = document.getElementById('edit-modal-deal-subtitle');
       if (subTitle) {
-        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} â€¢ Comprehensive Baseline Underwriting Parameters`;
+        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Comprehensive Baseline Underwriting Parameters`;
       }
 
       if (document.getElementById('edit-deal-market-tier')) {
@@ -7508,7 +7375,7 @@
       if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location}</span>`;
 
       const tierPill = document.getElementById('deal-tier-class-pill');
-      if (tierPill) tierPill.textContent = `${parsedInputs.marketTier} â€¢ ${parsedInputs.propertyClass}`;
+      if (tierPill) tierPill.textContent = `${parsedInputs.marketTier} • ${parsedInputs.propertyClass}`;
       const fPill = document.getElementById('deal-facility-type-pill');
       if (fPill) {
         if (parsedInputs.facilityType) {
@@ -7607,7 +7474,7 @@
       const fType = currentLoadedDeal.facility_type || rawInputs.facilityType || '';
 
       const tierPill = document.getElementById('deal-tier-class-pill');
-      if (tierPill) tierPill.textContent = `${tier} â€¢ ${pClass}`;
+      if (tierPill) tierPill.textContent = `${tier} • ${pClass}`;
       const fPill = document.getElementById('deal-facility-type-pill');
       if (fPill) {
         if (fType) {
@@ -7662,9 +7529,6 @@
       // Render County Assessor & Parcel Dossier Card
       if (typeof updateCountyDossierUI === 'function') {
         updateCountyDossierUI(currentLoadedDeal);
-      }
-      if (typeof updateHeaderApnBadge === 'function') {
-        updateHeaderApnBadge(currentLoadedDeal.inputs.primaryApn || currentLoadedDeal.inputs.apn);
       }
     }
 
