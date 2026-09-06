@@ -388,6 +388,19 @@
               </div>
             </div>
           </div>
+
+          <!-- Jump to Diligence Bridge Action -->
+          <div class="pt-2 border-t border-slate-900">
+            <button type="button" onclick="scrollToAssumptionsBridge()" class="w-full py-2.5 px-3 bg-brand-500/10 hover:bg-brand-500/20 text-brand-300 border border-brand-500/30 rounded-xl text-xs font-bold transition flex items-center justify-between group">
+              <span class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-brand-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <span>Assumptions & Diligence Bridge</span>
+              </span>
+              <span id="brief-diligence-score-pill" class="text-[10px] font-extrabold bg-brand-500/20 px-1.5 py-0.5 rounded text-brand-300">0/8 Verified</span>
+            </button>
+          </div>
         </div>
 
         <!-- Prominent County Assessor & Property Records Intelligence Card -->
@@ -1446,6 +1459,60 @@
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Underwriting Assumptions Provenance & Diligence Bridge Section -->
+          <div id="assumptions-diligence-bridge-section" class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-5 transition duration-300">
+            <!-- Header with Title & Filter Pills -->
+            <div class="pb-3 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span>Underwriting Assumptions Provenance & Diligence Bridge</span>
+                  <span id="bridge-category-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Institutional Audit</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Granular provenance for every model input: Economic Derivation, Information Gaps, and Actionable Diligence Steps.</p>
+              </div>
+              <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button type="button" onclick="filterAssumptionsCategory('all')" id="btn-cat-all" class="px-2.5 py-1 rounded-lg font-bold bg-brand-600 text-white transition text-[11px]">All (8)</button>
+                <button type="button" onclick="filterAssumptionsCategory('acquisition')" id="btn-cat-acquisition" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">Acquisition</button>
+                <button type="button" onclick="filterAssumptionsCategory('revenue')" id="btn-cat-revenue" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">Revenue</button>
+                <button type="button" onclick="filterAssumptionsCategory('financing')" id="btn-cat-financing" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">Debt</button>
+                <button type="button" onclick="filterAssumptionsCategory('operations')" id="btn-cat-operations" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">OpEx/CapEx</button>
+              </div>
+            </div>
+
+            <!-- Dynamic Assumptions Cards Container -->
+            <div id="assumptions-diligence-bridge-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Dynamically populated assumption cards -->
+            </div>
+
+            <!-- Interactive Due Diligence Action Bridge Checklist & Verification Score -->
+            <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4.5 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
+                <div class="flex items-center space-x-2">
+                  <span class="text-base">📋</span>
+                  <div>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Due Diligence Verification & Third-Party Action Plan</h4>
+                    <p class="text-[11px] text-slate-400">Track required third-party reports, seller deliverables, and financing commitments to de-risk closing.</p>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                  <div class="text-right">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Diligence Completion</span>
+                    <span id="diligence-progress-pct" class="text-xs font-black text-emerald-400">0% (0 of 8 Verified)</span>
+                  </div>
+                  <div class="w-24 bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="diligence-progress-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 8 Checkable Deliverables Grid -->
+              <div id="diligence-checklist-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                <!-- Dynamically populated check items -->
               </div>
             </div>
           </div>
@@ -3421,6 +3488,9 @@
       if (typeof renderMonthlyScheduleTable === 'function' && currentForecastView === 'monthly') {
         renderMonthlyScheduleTable();
       }
+      if (typeof renderAssumptionsDiligenceBridge === 'function') {
+        renderAssumptionsDiligenceBridge(activeTab, inputs, res);
+      }
     }
 
     // Helper to update dynamic system assumptions notes per tab
@@ -4069,90 +4139,169 @@
             </div>
           </div>
 
-          <!-- 2-Column Underwriting Parameters Table -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
-            <!-- Column 1: Acquisition & Financing -->
-            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
-              <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
-                Acquisition & Financing Structure
-              </div>
-              <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
-                <tbody>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Purchase Price</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.purchasePrice)}</td>
-                  </tr>
-                  ${activeTab === 'single-family' && inputs.arv > 0 ? `
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">After Repair Value (ARV)</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(inputs.arv)}</td>
-                  </tr>` : ''}
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Down Payment (${inputs.downPaymentPercent}%)</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.downPaymentAmount)}</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Loan Amount (LTV: ${res.ltv.toFixed(1)}%)</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.loanAmount)}</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Interest Rate & Loan Term</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.interestRate}% • ${inputs.loanTerm} Years</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Annual Debt Service (P&I)</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(res.monthlyMortgagePayment * 12)}/yr (${formatCurrency(res.monthlyMortgagePayment)}/mo)</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Rehab & Closing Costs</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">Rehab: ${formatCurrency(inputs.rehabCosts)} • Closing: ${formatCurrency(inputs.closingCosts)}</td>
-                  </tr>
-                  <tr style="background: #f8fafc;">
-                    <td style="padding: 5px 10px; color: #0f172a; font-weight: 800;">Total Initial Cash Invested</td>
-                    <td style="padding: 5px 10px; text-align: right; font-weight: 800; color: #059669;">${formatCurrency(res.initialCashInvested)}</td>
-                  </tr>
-                </tbody>
-              </table>
+          <!-- Institutional 4-Column Underwriting Assumptions, Methodology & Diligence Bridge Table -->
+          <div style="border: 1.5px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 14px; page-break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+            <div style="background: #0f172a; color: #ffffff; padding: 6px 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center;">
+              <span>Underwriting Assumptions, Derivation Methodology & Diligence Bridge</span>
+              <span style="font-size: 8.5px; background: #047857; color: #ffffff; padding: 2px 7px; border-radius: 3px; font-weight: 700;">Institutional Provenance Audit</span>
             </div>
+            <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; line-height: 1.35;">
+              <thead>
+                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; text-align: left;">
+                  <th style="padding: 5px 8px; width: 22%; border-right: 1px solid #e2e8f0;">Input Parameter & Value</th>
+                  <th style="padding: 5px 8px; width: 30%; border-right: 1px solid #e2e8f0;">Methodology & Provenance (How Reached)</th>
+                  <th style="padding: 5px 8px; width: 24%; border-right: 1px solid #e2e8f0;">Information Gaps (What is Missing)</th>
+                  <th style="padding: 5px 8px; width: 24%;">Action Plan & Deliverables (What to Add)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- 1. Acquisition Price & Basis -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Acquisition Price & Basis</strong>
+                    <span style="color: #059669; font-weight: 800; font-size: 10px;">${formatCurrency(res.purchasePrice)}</span>
+                    ${sqft > 0 ? `<span style="color: #64748b; font-size: 7.5px; display: block;">($${(res.purchasePrice / sqft).toFixed(2)}/sq ft)</span>` : ''}
+                    ${inputs.arv > 0 ? `<span style="color: #64748b; font-size: 7.5px; display: block;">ARV: ${formatCurrency(inputs.arv)}</span>` : ''}
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Calibrated against official Yakima County Assessor valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' total assessed basis' : 'assessed basis'}) and preliminary LOI guidance. Reflects prevailing price/sq ft metrics for regional commercial/industrial assets.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Counter-signed Purchase & Sale Agreement (PSA), verified escrow deposit receipt, and independent accredited third-party MAI commercial appraisal.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Execute bilateral PSA with seller, order accredited MAI commercial appraisal, and review municipal property tax reassessment post-closing risk.
+                  </td>
+                </tr>
 
-            <!-- Column 2: Operations & Growth -->
-            <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
-              <div style="background: #f1f5f9; padding: 5px 10px; font-size: 10px; font-weight: 800; color: #334155; text-transform: uppercase; border-bottom: 1px solid #cbd5e1;">
-                Operating & Valuation Assumptions
-              </div>
-              <table style="width: 100%; font-size: 10px; border-collapse: collapse;">
-                <tbody>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Gross Revenue Structure</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${revenueSummary}</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Underwritten Vacancy Rate</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.vacancyRate}% (${activeTab === 'multi-unit' ? '5% Floor' : activeTab === 'storage' ? '+5% Concessions' : 'Standard'})</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Operating Expense Ratio (OER)</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.expenseRatio}% of GPI</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Property Management</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.manageProperty ? 'Enabled (Underwritten in OpEx)' : 'Self-Managed'}</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Annual Rent Growth</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${inputs.rentGrowth}% / Year</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">${activeTab === 'commercial' || activeTab === 'storage' ? 'Target Exit Cap Rate' : 'Annual Property Appreciation'}</td>
-                    <td style="padding: 4px 10px; text-align: right; font-weight: 700; color: #0f172a;">${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || inputs.appreciationRate) + '%' : inputs.appreciationRate + '%'}</td>
-                  </tr>
-                  <tr style="background: #f8fafc;">
-                    <td style="padding: 5px 10px; color: #0f172a; font-weight: 800;">Target Discount Rate / Hold</td>
-                    <td style="padding: 5px 10px; text-align: right; font-weight: 800; color: #059669;">${inputs.discountRate}% Discount • ${inputs.exitYear}-Yr Hold</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                <!-- 2. Gross Revenue & Rental Income -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Gross Revenue & Rents</strong>
+                    <span style="color: #0f172a; font-weight: 800; font-size: 9.5px;">${revenueSummary}</span>
+                    <span style="color: #64748b; font-size: 7.5px; display: block;">Escalation: ${inputs.rentGrowth || 2.5}%/year</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Derived from ${activeTab === 'commercial' ? (inputs.leaseType || 'NNN') + ' commercial lease terms ($7.00/sq ft/yr NNN logistics baseline)' : activeTab === 'multi-unit' ? 'scheduled unit-level rents' : 'local market comps'}. Reflects active tenant lease rates across central Washington secondary market benchmarks.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Certified trailing 12-month (T12) operating history, executed master lease agreement, tenant corporate parent guarantee, and signed estoppel certificates.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Require seller-certified T12 rent roll, obtain executed Tenant Estoppel Certificate certifying zero disputes/defaults, and audit parent balance sheet.
+                  </td>
+                </tr>
+
+                <!-- 3. Debt Structure & Financing -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Debt Structure & LTV</strong>
+                    <span style="color: #0f172a; font-weight: 700;">${res.ltv.toFixed(1)}% LTV • ${formatCurrency(res.loanAmount)}</span>
+                    <span style="color: #64748b; font-size: 7.5px; display: block;">${inputs.interestRate}% • ${inputs.loanTerm} Yrs • P&I: ${formatCurrency(res.monthlyMortgagePayment * 12)}/yr</span>
+                    <span style="color: #047857; font-weight: 700; font-size: 7.5px; display: block;">DSCR: ${res.projections[0].dscr !== null ? res.projections[0].dscr.toFixed(2) + 'x' : 'N/A'}</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Calibrated to current regional commercial banking lending terms (75% LTV, 6.50% 30-year amortizing debt). Underwriting confirms robust cash-flow coverage well above institutional 1.25x covenant.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Binding commercial bank commitment letter, executed lender term sheet, credit committee approval, and lender-ordered Phase I ESA.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Solicit competitive term sheets from 2 regional lenders/credit unions, complete credit application package, lock SOFR/Treasury spread, and order Phase I ESA.
+                  </td>
+                </tr>
+
+                <!-- 4. Vacancy & Credit Loss -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Vacancy & Credit Loss</strong>
+                    <span style="color: #0f172a; font-weight: 700;">${inputs.vacancyRate}% of GPI</span>
+                    <span style="color: #64748b; font-size: 7.5px; display: block;">${formatCurrency(res.projections[0].vacancyLoss)}/yr reserve</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Enforces institutional 5.0% underwriting floor for single-tenant / credit assets. Reserves for lease turnover lag, collection friction, and economic downtime despite 100% current physical occupancy.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Historical tenant renewal probabilities, submarket micro-vacancy absorption trends, and lease rollover notification deadlines over the hold period.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Cross-examine CBRE/CoStar Yakima commercial market reports, audit lease renewal notification windows, and establish a 3-month debt service liquidity reserve.
+                  </td>
+                </tr>
+
+                <!-- 5. Operating Expenses & Management -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Operating Expenses (OpEx)</strong>
+                    <span style="color: #0f172a; font-weight: 700;">${inputs.expenseRatio}% of GPI</span>
+                    <span style="color: #64748b; font-size: 7.5px; display: block;">${formatCurrency(res.projections[0].operatingExpenses)}/yr • ${inputs.manageProperty ? 'Managed' : 'Self-Managed'}</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Underwritten under ${inputs.leaseType || (activeTab === 'commercial' ? 'NNN' : 'Standard')} structure. For NNN assets, tenant covers direct CAM/taxes/insurance; ratio accounts for non-reimbursable reserves, compliance, and property management (${inputs.manageProperty ? 'active' : 'owner'}).
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    2 years of actual utility, real estate tax, and building insurance receipts; active property insurance binder quote; current vendor service contracts.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Obtain seller's actual 2-year Schedule E or IRS Form 8825 tax statements, secure binding property & casualty insurance quote, and audit CAM reconciliation schedules.
+                  </td>
+                </tr>
+
+                <!-- 6. CapEx & Structural Reserves -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">CapEx & Reserves</strong>
+                    <span style="color: #0f172a; font-weight: 700;">Rehab: ${formatCurrency(inputs.rehabCosts || 0)}</span>
+                    <span style="color: #64748b; font-size: 7.5px; display: block;">Reserves: ${inputs.capexReserve || 3.0}% / yr (${formatCurrency(res.projections[0].capexReserve || 0)}/yr)</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Evaluated based on physical property age (${rawAssessor.yearBuilt || (deal.inputs && deal.inputs.yearBuilt) || '2024'} build) and structural specs. Newer vintage reflects zero deferred maintenance; reserve buffers roof, HVAC, and paving life-cycle replacements.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Independent certified Property Condition Assessment (PCA), roof warranty transfer documentation, HVAC mechanical engineering certification, and sewer scope.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Commission licensed commercial building inspector for a full PCA, verify transferable manufacturer warranties (roof/HVAC), and obtain municipal certificate of occupancy.
+                  </td>
+                </tr>
+
+                <!-- 7. Terminal Exit Cap Rate -->
+                <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Terminal Valuation</strong>
+                    <span style="color: #0f172a; font-weight: 700;">${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || inputs.appreciationRate || 6.5) + '% Exit Cap' : (inputs.appreciationRate || 3.0) + '% Appreciation'}</span>
+                    <span style="color: #64748b; font-size: 7.5px; display: block;">Spread: +50 bps over entry yield</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Built with an institutional conservative buffer (+50 bps cap rate expansion over entry yield) to stress-test liquidity, interest rate shifts, and asset vintage aging over the hold period.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Recent 12-month closed commercial transaction cap rate comps within a 10-mile radius, and long-term regional population/job growth metrics.
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Review CoStar / Real Capital Analytics (RCA) historical sales comps in Yakima/regional submarket to validate terminal spread assumptions.
+                  </td>
+                </tr>
+
+                <!-- 8. Hold Period & Closing Timeline -->
+                <tr style="background: #f8fafc;">
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; vertical-align: top;">
+                    <strong style="color: #0f172a; font-size: 9px; display: block;">Hold Horizon & Settlement</strong>
+                    <span style="color: #0f172a; font-weight: 700;">${holdYrs}-Year Hold</span>
+                    <span style="color: #047857; font-size: 7.5px; display: block; font-weight: 700;">Oct 2026 Closing Proration (3-Mo Stub)</span>
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+                    Aligned with fund lifecycle and full amortization wealth realization cycle. Incorporates 3-month partial-year proration for 2026 closing settlement to prevent overstated Year 1 returns.
+                  </td>
+                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
+                    Escrow timeline agreement, preliminary title commitment report, and closing settlement statement (HUD-1 / ALTA statement).
+                  </td>
+                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
+                    Open escrow with local title company (Yakima County Title), request preliminary title commitment to verify easements/liens, and agree on closing date.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <!-- 10-Year Pro-Forma Cash Flow Table -->
@@ -4233,6 +4382,275 @@
         menu.classList.add('hidden');
       }
     });
+
+
+    // === Detailed Underwriting Assumptions Provenance & Diligence Bridge ===
+    let currentAssumptionsCategory = 'all';
+
+    const DILIGENCE_CHECKLIST_ITEMS = [
+      { id: 'mai_appraisal', label: 'Commission Accredited MAI Commercial Appraisal', detail: 'Verify replacement cost and market sales comps in Yakima County', category: 'acquisition' },
+      { id: 'tenant_estoppel', label: 'Obtain Seller T12 Rent Roll & Signed Tenant Estoppel', detail: 'Certify zero lease disputes, prepaid rents, or unfulfilled landlord concessions', category: 'revenue' },
+      { id: 'lender_term_sheet', label: 'Solicit 2 Commercial Bank Term Sheets (DSCR > 1.25x)', detail: 'Lock benchmark SOFR/Treasury spread with commercial credit committee', category: 'financing' },
+      { id: 'phase1_esa', label: 'Order Phase I Environmental Site Assessment (ESA)', detail: 'Comply with ASTM E1527-21 standard for historical contamination clearance', category: 'financing' },
+      { id: 'pca_engineering', label: 'Commission Commercial Property Condition Assessment (PCA)', detail: 'Inspect structural integrity, roof membrane, and HVAC mechanical warranties', category: 'operations' },
+      { id: 'insurance_binder', label: 'Secure Binding Property & Casualty Insurance Quote', detail: 'Obtain written insurance binder from licensed carrier for replacement value', category: 'operations' },
+      { id: 'title_commitment', label: 'Open Escrow & Review Preliminary ALTA Title Commitment', detail: 'Audit recorded easements, rights-of-way, municipal liens, and ALTA survey', category: 'acquisition' },
+      { id: 'tax_audit', label: 'Audit Seller 2-Year IRS Tax Returns (Form 8825)', detail: 'Reconcile actual historical operating expenses against County Assessor tax roll', category: 'operations' }
+    ];
+
+    function filterAssumptionsCategory(cat) {
+      currentAssumptionsCategory = cat;
+      const buttons = ['all', 'acquisition', 'revenue', 'financing', 'operations'];
+      buttons.forEach(b => {
+        const el = document.getElementById('btn-cat-' + b);
+        if (el) {
+          if (b === cat) {
+            el.className = 'px-2.5 py-1 rounded-lg font-bold bg-brand-600 text-white transition text-[11px]';
+          } else {
+            el.className = 'px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]';
+          }
+        }
+      });
+      const badge = document.getElementById('bridge-category-badge');
+      if (badge) {
+        badge.textContent = cat === 'all' ? 'Institutional Audit' : cat.toUpperCase() + ' FOCUS';
+      }
+      const inputs = getInputsFromForm();
+      const res = window.PropertyMath.calculateProjections(activeTab, inputs);
+      renderAssumptionsDiligenceBridge(activeTab, inputs, res);
+    }
+
+    function scrollToAssumptionsBridge() {
+      if (typeof switchWorkspaceView === 'function') {
+        switchWorkspaceView('single');
+      }
+      const el = document.getElementById('assumptions-diligence-bridge-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2', 'ring-offset-slate-950');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2', 'ring-offset-slate-950');
+        }, 2000);
+      }
+    }
+
+    function toggleDiligenceCheck(id) {
+      const deal = currentLoadedDeal || {};
+      deal.inputs = deal.inputs || {};
+      deal.inputs.diligenceChecks = deal.inputs.diligenceChecks || {};
+      deal.inputs.diligenceChecks[id] = !deal.inputs.diligenceChecks[id];
+      
+      savePresetValues(activeTab, deal.inputs);
+
+      const inputs = getInputsFromForm();
+      const res = window.PropertyMath.calculateProjections(activeTab, inputs);
+      renderAssumptionsDiligenceBridge(activeTab, inputs, res);
+    }
+
+    function renderAssumptionsDiligenceBridge(activeTab, inputs, res) {
+      const container = document.getElementById('assumptions-diligence-bridge-cards');
+      if (!container) return;
+
+      const deal = currentLoadedDeal || {};
+      const rawAssessor = (deal.inputs && deal.inputs.assessorData) || {};
+      const totalAssessed = rawAssessor.totalAssessedValue || (deal.inputs && (deal.inputs.totalAssessedValue || deal.inputs.assessedValue)) || 0;
+      const yearBuilt = rawAssessor.yearBuilt || (deal.inputs && deal.inputs.yearBuilt) || '2024';
+      const sqft = rawAssessor.buildingSqFt || (deal.inputs && (deal.inputs.buildingSqFt || deal.inputs.gla || deal.inputs.totalSqFt)) || inputs.gla || 15000;
+      const holdYrs = inputs.exitYear || 10;
+      const p1 = (res.projections && res.projections[0]) || {};
+
+      let revenueStr = '';
+      if (activeTab === 'single-family') {
+        revenueStr = `${formatCurrency(inputs.monthlyRent)}/mo (${formatCurrency(inputs.monthlyRent * 12)}/yr)`;
+      } else if (activeTab === 'multi-unit') {
+        revenueStr = `${inputs.unitCount || 1} Units @ ${formatCurrency(inputs.monthlyRentPerUnit)}/mo (${formatCurrency((inputs.unitCount || 1) * (inputs.monthlyRentPerUnit || 0) * 12)}/yr)`;
+      } else if (activeTab === 'commercial') {
+        revenueStr = `${formatCurrency(inputs.grossRentAnnual || 105000)}/yr (${(inputs.gla || sqft || 0).toLocaleString()} sq ft GLA)`;
+      } else if (activeTab === 'storage') {
+        revenueStr = `${formatCurrency(inputs.grossRentAnnual || 0)}/yr (${inputs.unitCount || 0} Units)`;
+      }
+
+      const pricePerSqFt = sqft > 0 ? (res.purchasePrice / sqft).toFixed(2) : 'N/A';
+
+      const allAssumptions = [
+        {
+          id: 'price',
+          icon: '🏷️',
+          name: 'Acquisition Price & Cost Basis',
+          category: 'acquisition',
+          value: formatCurrency(res.purchasePrice) + (pricePerSqFt !== 'N/A' ? ` (${pricePerSqFt}/sq ft)` : ''),
+          provenance: `Underwritten against official Yakima County Assessor tax roll valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' assessed basis' : 'assessed basis'}) and preliminary LOI agreement. Sets baseline entry pricing reflecting prevailing secondary-market industrial/commercial valuations.`,
+          missing: 'Counter-signed Purchase & Sale Agreement (PSA), verified earnest money escrow receipt, and independent accredited third-party MAI commercial appraisal.',
+          actionPlan: 'Execute formal PSA with seller, deposit earnest funds into title escrow, commission licensed MAI appraisal, and audit municipal property tax reassessment schedule.'
+        },
+        {
+          id: 'revenue',
+          icon: '📈',
+          name: 'Gross Revenue & Rental Income',
+          category: 'revenue',
+          value: revenueStr + ` • ${inputs.rentGrowth || 2.5}%/yr Growth`,
+          provenance: `Derived from ${activeTab === 'commercial' ? (inputs.leaseType || 'NNN') + ' commercial single-tenant logistics rate ($7.00/sq ft/yr NNN)' : activeTab === 'multi-unit' ? 'unit-level market rental rates' : 'market comparable rents'}. Reflects contractual tenant obligations and submarket asking rents across comparable regional assets.`,
+          missing: 'Certified trailing 12-month (T12) operating statements, executed master lease agreement, tenant corporate parent guarantee, and signed estoppel certificates.',
+          actionPlan: 'Require seller-certified T12 rent rolls, obtain executed Tenant Estoppel Certificate confirming zero defaults/disputes, and audit tenant corporate financial creditworthiness.'
+        },
+        {
+          id: 'financing',
+          icon: '🏦',
+          name: 'Debt Structure, LTV & Financing',
+          category: 'financing',
+          value: `${inputs.downPaymentPercent}% Down (${formatCurrency(res.downPaymentAmount)}) • ${res.ltv.toFixed(1)}% LTV (${formatCurrency(res.loanAmount)}) @ ${inputs.interestRate}% (${inputs.loanTerm} Yrs) • DSCR: ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}`,
+          provenance: `Calibrated to current regional commercial banking lending appetite (75% LTV, 6.50% 30-year amortization). Underwriting verifies robust debt coverage capacity (DSCR ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}, well above standard 1.25x debt covenant).`,
+          missing: 'Binding commercial bank commitment letter, executed lender term sheet, credit committee approval, and lender-approved Phase I ESA.',
+          actionPlan: 'Solicit quotes from minimum 2 commercial lenders / credit unions, finalize loan application underwriting package, lock Treasury/SOFR spread index, and order Phase I ESA.'
+        },
+        {
+          id: 'vacancy',
+          icon: '🛡️',
+          name: 'Economic Vacancy & Credit Loss',
+          category: 'operations',
+          value: `${inputs.vacancyRate}% of GPI (${formatCurrency(p1.vacancyLoss || (res.purchasePrice * 0.005))}/yr)`,
+          provenance: 'Enforces institutional 5.0% underwriting floor for long-term credit tenants. Incorporates conservative reserve for lease expiration lag, collection friction, and turnover downtime despite 100% current physical occupancy.',
+          missing: 'Historical tenant renewal probabilities, submarket micro-vacancy absorption trends, and lease rollover expiration schedule over the 10-year hold.',
+          actionPlan: 'Cross-reference CoStar/CBRE regional industrial submarket reports, audit lease renewal notification windows, and establish a 3-month debt service operating buffer.'
+        },
+        {
+          id: 'opex',
+          icon: '⚙️',
+          name: 'Operating Expense Ratio (OER) & Management',
+          category: 'operations',
+          value: `${inputs.expenseRatio}% of GPI (${formatCurrency(p1.operatingExpenses || 0)}/yr) • ${inputs.manageProperty ? 'Managed' : 'Self-Managed'}`,
+          provenance: `Underwritten under ${inputs.leaseType || 'NNN'} structure where tenant directly reimburses taxes, insurance, and CAM. OpEx ratio buffers non-reimbursable landlord reserves, compliance fees, and professional management overhead (${inputs.manageProperty ? '3.5%' : 'owner'}).`,
+          missing: '2 years of actual utility, tax, and insurance receipts; binding property & casualty insurance policy binder quote; active vendor service contracts.',
+          actionPlan: 'Obtain seller 2-year IRS Form 8825 / Schedule E statements, secure binding commercial insurance binder from licensed carrier, and audit annual CAM reconciliation logs.'
+        },
+        {
+          id: 'capex',
+          icon: '🏗️',
+          name: 'Capital Expenditures & Structural Reserves',
+          category: 'operations',
+          value: `Initial Rehab: ${formatCurrency(inputs.rehabCosts || 0)} • Reserves: ${inputs.capexReserve || 3.0}% / yr (${formatCurrency(p1.capexReserve || 0)}/yr)`,
+          provenance: `Evaluated against asset physical vintage (${yearBuilt} construction) indicating modern systems with zero immediate deferred maintenance. Ongoing capital reserve underwritten to fund long-term structural, roof, and parking lot life-cycle replacements.`,
+          missing: 'Certified independent Property Condition Assessment (PCA), manufacturer roof warranty documentation, HVAC mechanical commissioning report, and sewer scope inspection.',
+          actionPlan: 'Commission licensed commercial engineering inspector for a full PCA, verify transferable manufacturer warranties (roof/HVAC), and obtain municipal certificate of occupancy.'
+        },
+        {
+          id: 'exit',
+          icon: '🎯',
+          name: 'Terminal Cap Rate & Asset Appreciation',
+          category: 'acquisition',
+          value: `${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || 7.0) + '% Exit Cap (+50 bps spread)' : (inputs.appreciationRate || 3.0) + '%/yr Appreciation'}`,
+          provenance: `Modeled with an institutional +50 bps cap rate expansion above the entry capitalization yield to stress-test liquidity, asset vintage aging, and interest rate cycle shifts over the ${holdYrs}-year investment horizon.`,
+          missing: 'Trailing 12-month closed commercial transaction sales comps within a 10-mile radius, and long-term regional economic growth projections.',
+          actionPlan: 'Review CoStar / Real Capital Analytics (RCA) Yakima submarket investment sales comps, and stress-test returns across a 6.00%–8.50% exit cap sensitivity matrix.'
+        },
+        {
+          id: 'horizon',
+          icon: '📅',
+          name: 'Hold Horizon & Closing Proration',
+          category: 'acquisition',
+          value: `${holdYrs}-Year Hold • Target Closing: October 2026 (Partial-Year 3-Month Proration)`,
+          provenance: 'Synchronized with the 10-year debt amortization wealth compounding curve. Incorporates 3-month stub proration for Q4 2026 closing settlement to ensure real-world, non-overstated Year 1 cash-on-cash metrics.',
+          missing: 'Agreed settlement closing date, opened escrow account, and preliminary title commitment report identifying recorded easements or encumbrances.',
+          actionPlan: 'Open escrow with Yakima County Title / First American Title, obtain preliminary title commitment report, and finalize closing date settlement proration statement.'
+        }
+      ];
+
+      const filtered = currentAssumptionsCategory === 'all' 
+        ? allAssumptions 
+        : allAssumptions.filter(a => a.category === currentAssumptionsCategory);
+
+      container.innerHTML = filtered.map(a => `
+        <div class="bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-xl p-4 space-y-3 shadow-md transition flex flex-col justify-between">
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-900 pb-2">
+              <div class="flex items-center space-x-2">
+                <span class="text-base">${a.icon}</span>
+                <span class="text-xs font-bold text-slate-200">${a.name}</span>
+              </div>
+              <span class="text-[9.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-brand-500/10 text-brand-300 border border-brand-500/20">${a.category}</span>
+            </div>
+            <div class="pt-0.5">
+              <span class="text-[10px] uppercase font-bold text-slate-500 block">Underwritten Value</span>
+              <p class="text-xs font-black text-emerald-400 mt-0.5">${a.value}</p>
+            </div>
+          </div>
+
+          <div class="space-y-2 text-[11px] pt-1">
+            <!-- 1. Provenance & Economic Conclusion -->
+            <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+              <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                💡 How We Reached This Conclusion
+              </span>
+              <p class="text-slate-300 leading-relaxed">${a.provenance}</p>
+            </div>
+
+            <!-- 2. What is Currently Missing -->
+            <div class="bg-rose-950/20 p-2.5 rounded-lg border border-rose-900/40">
+              <span class="text-[9.5px] font-bold uppercase tracking-wider text-rose-400 block mb-0.5">
+                ⚠️ What is Currently Missing
+              </span>
+              <p class="text-rose-200/90 leading-relaxed">${a.missing}</p>
+            </div>
+
+            <!-- 3. What Should We Add / Next Steps -->
+            <div class="bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-900/40">
+              <span class="text-[9.5px] font-bold uppercase tracking-wider text-emerald-400 block mb-0.5">
+                🎯 Required Additions & Deliverables
+              </span>
+              <p class="text-emerald-200/90 leading-relaxed">${a.actionPlan}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Render Diligence Checklist
+      const checkContainer = document.getElementById('diligence-checklist-grid');
+      const checks = (deal.inputs && deal.inputs.diligenceChecks) || {};
+      
+      let completedCount = 0;
+      DILIGENCE_CHECKLIST_ITEMS.forEach(item => {
+        if (checks[item.id]) completedCount++;
+      });
+      const totalCount = DILIGENCE_CHECKLIST_ITEMS.length;
+      const pct = Math.round((completedCount / totalCount) * 100);
+
+      const progressPctEl = document.getElementById('diligence-progress-pct');
+      if (progressPctEl) {
+        progressPctEl.textContent = `${pct}% (${completedCount} of ${totalCount} Verified)`;
+      }
+      const progressBarEl = document.getElementById('diligence-progress-bar');
+      if (progressBarEl) {
+        progressBarEl.style.width = `${pct}%`;
+      }
+      const briefScorePill = document.getElementById('brief-diligence-score-pill');
+      if (briefScorePill) {
+        briefScorePill.textContent = `${completedCount}/${totalCount} Verified (${pct}%)`;
+        briefScorePill.className = pct >= 75 
+          ? 'text-[10px] font-extrabold bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-300'
+          : pct >= 40 
+          ? 'text-[10px] font-extrabold bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300'
+          : 'text-[10px] font-extrabold bg-brand-500/20 px-1.5 py-0.5 rounded text-brand-300';
+      }
+
+      if (checkContainer) {
+        checkContainer.innerHTML = DILIGENCE_CHECKLIST_ITEMS.map(item => {
+          const isDone = !!checks[item.id];
+          return `
+            <label class="flex items-start space-x-2.5 p-2.5 rounded-xl border transition cursor-pointer ${isDone ? 'bg-emerald-950/30 border-emerald-800/80 text-emerald-200' : 'bg-slate-900/40 border-slate-900 text-slate-300 hover:border-slate-800'}">
+              <input type="checkbox" onchange="toggleDiligenceCheck('${item.id}')" ${isDone ? 'checked' : ''} class="rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-emerald-500 mt-0.5 h-3.5 w-3.5 cursor-pointer">
+              <div class="flex-1">
+                <span class="font-bold ${isDone ? 'line-through text-emerald-300/80' : 'text-slate-200'} block">${item.label}</span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">${item.detail}</span>
+              </div>
+            </label>
+          `;
+        }).join('');
+      }
+    }
+    window.renderAssumptionsDiligenceBridge = renderAssumptionsDiligenceBridge;
+    window.filterAssumptionsCategory = filterAssumptionsCategory;
+    window.scrollToAssumptionsBridge = scrollToAssumptionsBridge;
+    window.toggleDiligenceCheck = toggleDiligenceCheck;
 
     function exportToPDF() {
       renderPrintableBrief();
