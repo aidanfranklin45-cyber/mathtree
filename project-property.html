@@ -140,7 +140,7 @@
           <div id="nav-module-dropdown-menu" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 top-11 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-50 backdrop-blur-xl divide-y divide-slate-800/60">
             <div class="px-3.5 py-2 flex items-center justify-between">
               <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Property Analysis Modules</span>
-              <span class="text-[9px] text-slate-500 font-mono">7 Sections</span>
+              <span class="text-[9px] text-slate-500 font-mono" id="nav-module-count-badge">7 Sections</span>
             </div>
             <div class="p-1.5 space-y-0.5" id="deal-tabs-navbar" data-menu="module-dropdown-items-list">
           <a href="project.html" data-page-key="overview" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
@@ -2754,6 +2754,10 @@
     // Switch workspace views (Dashboard, Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio)
     // Switch between the 7 Deal Hub Sub-Pages
         function switchDealTab(tabName) {
+      const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
+      if (tabName === 'diligence' && isOwned) {
+        tabName = 'overview';
+      }
       const pageMap = {
         overview: 'project.html',
         proforma: 'project-proforma.html',
@@ -4529,12 +4533,14 @@
     function navigateModuleRelative(delta) {
       const activeNav = document.getElementById('header-analysis-nav');
       const currentKey = (activeNav && activeNav.getAttribute('data-active-page-key')) || 'overview';
-      const currentIndex = MODULE_NAV_PAGES.findIndex(m => m.key === currentKey);
+      const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
+      const pages = isOwned ? MODULE_NAV_PAGES.filter(m => m.key !== 'diligence') : MODULE_NAV_PAGES;
+      const currentIndex = pages.findIndex(m => m.key === currentKey);
       if (currentIndex === -1) return;
       let nextIndex = currentIndex + delta;
-      if (nextIndex < 0) nextIndex = MODULE_NAV_PAGES.length - 1;
-      if (nextIndex >= MODULE_NAV_PAGES.length) nextIndex = 0;
-      const target = MODULE_NAV_PAGES[nextIndex];
+      if (nextIndex < 0) nextIndex = pages.length - 1;
+      if (nextIndex >= pages.length) nextIndex = 0;
+      const target = pages[nextIndex];
       const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id);
       const url = target.file + (dealId ? '?id=' + encodeURIComponent(dealId) : '');
       window.location.href = url;
@@ -4573,7 +4579,22 @@
     });
 
     function syncNavLinksWithDealId() {
-      const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id) || sessionStorage.getItem('mathtree_active_deal_id') || localStorage.getItem('mathtree_active_deal_id');
+      const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id);
+      const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
+      
+      // Dynamically hide or show diligence link for owned assets
+      document.querySelectorAll('a[data-page-key="diligence"]').forEach(a => {
+        if (isOwned) {
+          a.classList.add('hidden');
+        } else {
+          a.classList.remove('hidden');
+        }
+      });
+      const badge = document.getElementById('nav-module-count-badge');
+      if (badge) {
+        badge.textContent = isOwned ? '6 Sections' : '7 Sections';
+      }
+
       if (!dealId) return;
 
       try {
@@ -8258,6 +8279,7 @@
     }
 
     function updateDealStatusUI(status) {
+      const isOwned = status === 'owned' || (currentLoadedDeal && currentLoadedDeal.status === 'owned');
       const statusPill = document.getElementById('deal-status-pill');
       const toggleLabel = document.getElementById('status-toggle-label');
       if (status === 'owned') {
@@ -8272,6 +8294,18 @@
           statusPill.className = 'text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20';
         }
         if (toggleLabel) toggleLabel.textContent = 'Mark as Owned';
+      }
+
+      document.querySelectorAll('a[data-page-key="diligence"]').forEach(a => {
+        if (isOwned) {
+          a.classList.add('hidden');
+        } else {
+          a.classList.remove('hidden');
+        }
+      });
+      const badge = document.getElementById('nav-module-count-badge');
+      if (badge) {
+        badge.textContent = isOwned ? '6 Sections' : '7 Sections';
       }
     }
 
