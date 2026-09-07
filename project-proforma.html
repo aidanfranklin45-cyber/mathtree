@@ -39,6 +39,43 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="math.js"></script>
+  <style>
+    @media screen {
+      #printable-brief { display: none !important; }
+    }
+    @media print {
+      @page {
+        size: letter landscape;
+        margin: 0.35in;
+      }
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      header, footer, nav, button, .no-print,
+      #project-header-menu, #nav-module-dropdown-menu,
+      #investor-profile-modal, #cloud-sync-modal, #edit-deal-modal, #delete-deal-modal,
+      main {
+        display: none !important;
+      }
+      #printable-brief {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+      .avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
+  </style>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased">
 <header class="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
@@ -221,12 +258,6 @@
   <!-- Main Analysis Workspace -->
   
   <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
-    <div id="printable-brief"></div>
-
-    
-
-
-
     <!-- Institutional Deal Hub Container (Full Width 12-Column Presentation) -->
     
     <div id="modeler-grid-container" class="w-full space-y-6">
@@ -4603,6 +4634,10 @@
     window.toggleDiligenceCheck = toggleDiligenceCheck;
 
     function exportToPDF() {
+      const menu = document.getElementById('project-header-menu');
+      if (menu) menu.classList.add('hidden');
+      const navMenu = document.getElementById('nav-module-dropdown-menu');
+      if (navMenu) navMenu.classList.add('hidden');
       renderPrintableBrief();
       window.print();
     }
@@ -7676,7 +7711,13 @@
       }
 
       // Print Hook
-      window.addEventListener('beforeprint', renderPrintableBrief);
+      window.addEventListener('beforeprint', () => {
+        const menu = document.getElementById('project-header-menu');
+        if (menu) menu.classList.add('hidden');
+        const navMenu = document.getElementById('nav-module-dropdown-menu');
+        if (navMenu) navMenu.classList.add('hidden');
+        renderPrintableBrief();
+      });
 
       // --- Landing Page Action Triggers ---
       ['landing-btn-demo', 'landing-hero-demo-btn', 'landing-cta-demo-btn'].forEach(id => {
@@ -8416,6 +8457,8 @@
 
     });
   </script>
+  <!-- Container for printable executive brief (controlled via @media print) -->
+  <div id="printable-brief"></div>
 </body>
 </html>
 
