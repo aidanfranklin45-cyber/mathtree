@@ -1,10 +1,17 @@
-﻿---
+---
 trigger: always_on
 description: Combined operational rules, mathematical graph invariants, database protocols, and tiered context selection for Math Tree.
 globs: "**/*"
 ---
 
 # AGENT OPERATIONAL RULES & SYSTEM DIRECTIVES (MATH TREE)
+
+## 0. STRICT TEST EXECUTION RULE (ZERO FULL SUITE RUNS ON MODIFICATIONS)
+> [!CRITICAL]
+> - **NEVER RUN FULL/GLOBAL TEST SUITES ON FILE MODIFICATIONS:** Under NO circumstances should `node test.js`, `npm test`, `vitest`, `jest`, or any full-project test suite be executed automatically after editing files or completing tasks.
+> - **DO NOT EXECUTE TESTS ON INQUIRIES:** If the user asks an investigatory question about tests (e.g. "did you run a full test suite?"), **NEVER execute the test command**. Answer the user's question directly with factual prose.
+> - **ISOLATED VERIFICATION ONLY:** For verifying changes, ONLY run isolated, lightweight scratch scripts (e.g. `node scratch/...`) or static syntax/AST checks targeted specifically at the modified code.
+> - **FULL SUITE REQUIRES EXPLICIT COMMAND:** The full test suite may ONLY be run if the user explicitly gives an imperative order (e.g., *"Run the full test suite now"*).
 
 ## 1. ARCHITECTURAL INVARIANTS & DOMAIN LOGIC RULES
 
