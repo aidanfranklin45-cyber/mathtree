@@ -217,10 +217,10 @@
   <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
     <div id="printable-brief"></div>
 
-    <!-- Analytics View Switcher Bar for THIS Property -->
-    <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/40 p-2 rounded-2xl border border-slate-900">
-      <!-- Locked Asset Class Indicator (Permanent asset type lock) -->
-      <div class="flex items-center space-x-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-900">
+    <!-- Analytics View Switcher / Deal Hub Tabs Bar -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900/50 p-2.5 rounded-2xl border border-slate-900 shadow-md">
+      <!-- Locked Asset Class Indicator -->
+      <div class="flex items-center space-x-2 bg-slate-950 px-3.5 py-1.5 rounded-xl border border-slate-900 shrink-0">
         <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Asset Class:</span>
         <span id="locked-asset-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-black bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize flex items-center space-x-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-brand-400"></span>
@@ -228,13 +228,37 @@
         </span>
       </div>
 
-      <!-- Analysis Studio Sub-Tabs -->
-      <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-900">
-        <button id="view-mode-single" data-view="single" class="py-1.5 px-3 rounded-lg text-xs font-extrabold text-white bg-brand-600 transition">10-Yr Modeler</button>
-        <button id="view-mode-sensitivity" data-view="sensitivity" class="py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">2D & Monte Carlo</button>
-        <button id="view-mode-tax" data-view="tax" class="py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">Tax & BRRRR</button>
-        <button id="view-mode-comparison" data-view="comparison" class="py-1.5 px-3 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">Scenario Matrix</button>
-      </div>
+      <!-- Institutional Deal Hub 7-Tab Navigation -->
+      <nav id="deal-tabs-navbar" aria-label="Deal Analysis Navigation" class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-900 overflow-x-auto scrollbar-thin">
+        <button type="button" id="deal-tab-overview" onclick="switchDealTab('overview')" data-deal-tab="overview" data-view="single" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-600 shadow-sm transition-all whitespace-nowrap">
+          <span>📌</span>
+          <span>Deal Overview</span>
+        </button>
+        <button type="button" id="deal-tab-proforma" onclick="switchDealTab('proforma')" data-deal-tab="proforma" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+          <span>📊</span>
+          <span>Pro-Forma & Cash Flows</span>
+        </button>
+        <button type="button" id="deal-tab-property" onclick="switchDealTab('property')" data-deal-tab="property" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+          <span>🏛️</span>
+          <span>Property & County</span>
+        </button>
+        <button type="button" id="deal-tab-debt" onclick="switchDealTab('debt')" data-deal-tab="debt" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+          <span>🏦</span>
+          <span>Debt & Financing</span>
+        </button>
+        <button type="button" id="deal-tab-diligence" onclick="switchDealTab('diligence')" data-deal-tab="diligence" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+          <span>📋</span>
+          <span>Assumptions & Diligence</span>
+        </button>
+        <button type="button" id="deal-tab-sensitivity" onclick="switchDealTab('sensitivity')" data-deal-tab="sensitivity" data-view="sensitivity" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+          <span>🎲</span>
+          <span>Risk & Sensitivity</span>
+        </button>
+        <button type="button" id="deal-tab-tax" onclick="switchDealTab('tax')" data-deal-tab="tax" data-view="tax" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+          <span>📑</span>
+          <span>Tax & Wealth</span>
+        </button>
+      </nav>
     </div>
 
     <!-- Deal Acquisition & Investment Milestone Timeline Bar -->
@@ -351,12 +375,13 @@
     </div>
 
 
-    <div id="modeler-grid-container" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-      
-      <!-- Left column: Brief Assumptions Summary (takes 4 cols on lg, or full width on smaller screens) -->
-      <section class="lg:col-span-4 space-y-5">
-        
-        <!-- Brief Assumptions Summary Container -->
+    <!-- Institutional Deal Hub Container (Full Width 12-Column Presentation) -->
+    <div id="modeler-grid-container" class="w-full space-y-6">
+
+      <!-- Preserved Hidden Calculation Engine Inputs & Baseline Assumptions -->
+      <div class="hidden" aria-hidden="true">
+        <div id="brief-assumptions-container" class="hidden">
+          <!-- Brief Assumptions Summary Container -->
         <div id="brief-assumptions-container" class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
           
           <!-- Header -->
@@ -443,173 +468,7 @@
             </button>
           </div>
         </div>
-
-        <!-- Prominent County Assessor & Property Records Intelligence Card -->
-        <div id="property-county-dossier-card" class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
-          <div class="flex items-center justify-between pb-3 border-b border-slate-900">
-            <div class="flex items-center space-x-2.5">
-              <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
-                🏛️
-              </div>
-              <div>
-                <h2 class="text-sm font-extrabold text-white">County Assessor & Parcel Data</h2>
-                <span id="dossier-county-badge" class="text-[10px] font-semibold text-emerald-400">Yakima County Assessor Record</span>
-              </div>
-            </div>
-            <div class="flex items-center space-x-1.5">
-              <a id="dossier-ascend-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-900/60 px-2.5 py-1 rounded-lg transition flex items-center space-x-1" title="Open official County Ascend Tax Card">
-                <span>Ascend Tax Card</span>
-                <span>↗</span>
-              </a>
-              <button type="button" onclick="forceRefreshCountyGis()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition" title="Force Refresh Live GIS Data">
-                🔄
-              </button>
-            </div>
-          </div>
-
-          <!-- Situs Address & APN Bar -->
-          <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-1.5">
-            <div class="flex items-center justify-between">
-              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Situs Address</span>
-              <div class="flex items-center space-x-1.5">
-                <span id="dossier-apn-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">APN: --</span>
-                <button type="button" onclick="toggleDossierSearch()" id="btn-toggle-dossier-search" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 px-2 py-0.5 rounded transition flex items-center space-x-1" title="Link or change official parcel">
-                  <span>🔍 Link Parcel</span>
-                </button>
-              </div>
-            </div>
-            <p id="dossier-address-text" class="text-xs font-bold text-white leading-snug">--</p>
-            <div id="dossier-unlinked-warning" class="hidden text-[11px] text-amber-400/90 pt-1 border-t border-slate-900 flex items-center justify-between">
-              <span>⚠️ Generic location ('Yakima, WA') needs a specific parcel to load owner & tax records.</span>
-              <button type="button" onclick="toggleDossierSearch(true)" class="underline font-bold text-brand-400 hover:text-brand-300 ml-1">Link Parcel →</button>
-            </div>
-          </div>
-
-          <!-- Interactive Parcel Linker & Search Box -->
-          <div id="dossier-search-panel" class="hidden p-3 bg-slate-950 border border-brand-500/30 rounded-2xl space-y-2 text-xs">
-            <div class="flex items-center justify-between">
-              <span class="text-[10px] font-bold text-brand-400 uppercase tracking-wider">Link Official Yakima County Parcel</span>
-              <button type="button" onclick="toggleDossierSearch(false)" class="text-slate-500 hover:text-white text-xs">✕</button>
-            </div>
-            <div class="relative">
-              <input type="text" id="dossier-search-input" oninput="onDossierSearchInput(this.value)" placeholder="Enter Yakima street address or 11-digit APN..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500">
-              <div id="dossier-search-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto hidden"></div>
-            </div>
-            <!-- Quick Benchmark Parcel Chips -->
-            <div class="pt-1">
-              <span class="text-[9px] text-slate-500 block mb-1 uppercase font-bold">Sample County Parcels:</span>
-              <div class="grid grid-cols-2 gap-1.5 text-[10px]">
-                <button type="button" onclick="quickLinkDossierParcel('19133143417', '2239 LONGFIBRE RD, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/80 text-left truncate transition col-span-2 sm:col-span-1">
-                  <strong class="text-white block truncate">⚡ 2239 Longfibre Rd</strong>
-                  <span class="text-emerald-400/80 text-[9px]">Industrial Logistics • APN: 191331-43417</span>
-                </button>
-                <button type="button" onclick="quickLinkDossierParcel('19131922484', '128 N 2ND ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
-                  <strong class="text-white block truncate">128 N 2nd St</strong>
-                  <span class="text-slate-500 text-[9px]">Commercial / Gov • APN: 191319-22484</span>
-                </button>
-                <button type="button" onclick="quickLinkDossierParcel('18132621455', '414 S 8TH ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
-                  <strong class="text-white block truncate">414 S 8th St</strong>
-                  <span class="text-slate-500 text-[9px]">12-Unit Multifamily • APN: 181326-21455</span>
-                </button>
-                <button type="button" onclick="quickLinkDossierParcel('19133034401', '2405 S 1ST ST, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
-                  <strong class="text-white block truncate">2405 S 1st St</strong>
-                  <span class="text-slate-500 text-[9px]">Light Industrial • APN: 191330-34401</span>
-                </button>
-                <button type="button" onclick="quickLinkDossierParcel('18132644405', '1502 S 18TH AVE, YAKIMA, WA 98902')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
-                  <strong class="text-white block truncate">1502 S 18th Ave</strong>
-                  <span class="text-slate-500 text-[9px]">Single-Family BRRRR • APN: 181326-44405</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 4-Tile Metric Grid: Assessed Value, Land/Bldg Split, Lot Size, Zoning -->
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Assessed Value</span>
-              <span id="dossier-assessed-val" class="text-sm font-black text-emerald-400 mt-1 block">$0</span>
-              <span id="dossier-tax-year" class="text-[10px] text-slate-500 mt-0.5 block">Tax Year: 2026</span>
-            </div>
-            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Land / Building</span>
-              <span id="dossier-split-val" class="text-xs font-bold text-slate-200 mt-1 block">$0 / $0</span>
-              <span id="dossier-land-pct" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
-            </div>
-            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Lot Size</span>
-              <span id="dossier-lot-size" class="text-xs font-bold text-slate-200 mt-1 block">0.00 Acres</span>
-              <span id="dossier-lot-sqft" class="text-[10px] text-slate-500 mt-0.5 block">0 Sq Ft</span>
-            </div>
-            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Zoning / Use</span>
-              <span id="dossier-zoning" class="text-xs font-bold text-slate-200 mt-1 block truncate">Commercial</span>
-              <span id="dossier-use-code" class="text-[10px] text-slate-500 mt-0.5 block truncate">General</span>
-            </div>
-          </div>
-
-          <!-- Building Specs & Structural Characteristics (from Table 50/70) -->
-          <div id="dossier-bldg-specs-section" class="p-3 bg-slate-950/60 rounded-2xl border border-slate-900 space-y-2 text-xs">
-            <div class="flex items-center justify-between">
-              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Building Characteristics & Specs</span>
-              <span id="dossier-bldg-year-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">Year Built: --</span>
-            </div>
-            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900/60 text-center">
-              <div>
-                <span class="text-[9px] text-slate-500 block uppercase">Bldg Area</span>
-                <span id="dossier-bldg-sqft" class="text-xs font-bold text-slate-200">-- Sq Ft</span>
-              </div>
-              <div>
-                <span class="text-[9px] text-slate-500 block uppercase">Stories</span>
-                <span id="dossier-bldg-stories" class="text-xs font-bold text-slate-200">--</span>
-              </div>
-              <div>
-                <span class="text-[9px] text-slate-500 block uppercase">Condition</span>
-                <span id="dossier-bldg-condition" class="text-xs font-bold text-slate-200">--</span>
-              </div>
-            </div>
-            <div class="flex items-center justify-between pt-1 border-t border-slate-900/60 text-[10px] text-slate-400">
-              <span id="dossier-bldg-construction" class="truncate">Frame: Standard</span>
-              <span id="dossier-bldg-hvac" class="truncate font-mono text-slate-400">HVAC: Standard</span>
-            </div>
-          </div>
-
-          <!-- Ownership, Legal, and Sync Status -->
-          <div class="p-3 bg-slate-950/50 rounded-2xl border border-slate-900 space-y-1.5 text-xs">
-            <div class="flex items-center justify-between">
-              <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Owner of Record</span>
-              <span id="dossier-sync-status" class="text-[10px] font-bold text-emerald-400">Live GIS Active</span>
-            </div>
-            <p id="dossier-owner-name" class="text-xs font-semibold text-slate-200 truncate">--</p>
-            <p id="dossier-legal-desc" class="text-[10px] text-slate-500 truncate pt-1 border-t border-slate-900/80">--</p>
-          </div>
-
-          <!-- Multi-Parcel Acquisition Package Panel -->
-          <div id="proj-multi-parcel-panel" class="hidden p-3 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2.5 text-xs">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-1.5">
-                <span class="text-sm">📦</span>
-                <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">Multi-Parcel Package</span>
-              </div>
-              <span id="proj-multi-parcel-count-badge" class="text-[9px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded">Companion Parcel Found</span>
-            </div>
-            <p class="text-[11px] text-slate-400 leading-snug">
-              Adjacent parcel(s) owned by the same entity detected in this block. Toggle companion parcels to bundle them into this purchase.
-            </p>
-            <div id="proj-multi-parcel-list" class="space-y-1.5 pt-0.5"></div>
-            <div id="proj-package-summary-bar" class="p-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-[11px] font-bold">
-              <span class="text-slate-400">Combined Package:</span>
-              <span id="proj-package-summary-val" class="text-emerald-400">$0 (0.00 Acres)</span>
-            </div>
-          </div>
-
-          <!-- 1-Click Action Button -->
-          <div class="pt-1 flex items-center justify-between gap-2">
-            <button type="button" onclick="applyAssessedValueToProject()" class="w-full py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/60 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
-              <span>Apply Assessed Value as Purchase Price</span>
-            </button>
-          </div>
         </div>
-
         <!-- Preserved Hidden Inputs to maintain 100% calculation engine compatibility -->
         <div class="hidden" aria-hidden="true">
           <form id="calculator-form" class="space-y-5" onsubmit="return false;">
@@ -1075,20 +934,17 @@
             </details>
           </form>
         </div>
+      </div>
 
-      </section>
-
-      <!-- Right column: Dashboard (takes 8 cols on lg) -->
-      <section class="lg:col-span-8 space-y-6">
-        
-        <!-- Automated Deal Risk Auditor Banner -->
+      <!-- Automated Deal Risk Auditor Banner -->
+      <!-- Automated Deal Risk Auditor Banner -->
         <div id="deal-auditor-banner" class="space-y-2">
           <!-- Dynamically populated deal risk warnings -->
         </div>
 
-        <!-- View Panel 1: Single Deal Modeler (Default) -->
-        <div id="view-panel-single" class="space-y-6">
-          <!-- Live-Updating Metrics cards -->
+      <!-- SUB-PAGE 1: Deal Executive Overview (Default Active Tab) -->
+      <div id="view-panel-single" data-deal-panel="overview" class="space-y-6">
+        <!-- Live-Updating Metrics cards -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- NOI Card -->
             <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
@@ -1256,24 +1112,87 @@
               </div>
             </div>
           </div>
-
-          <!-- Target Year Inspector Slider -->
-          <div class="bg-slate-900/30 border border-slate-900/80 p-4 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div class="space-y-0.5">
-              <h3 class="text-sm font-bold text-white">Target Year Projections</h3>
-              <p class="text-xs text-slate-400">Slide to view estimated metrics for any forecast year</p>
+        
+        <!-- Two-Column Executive Deal Synopsis -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Property & Municipal Snapshot Card -->
+          <div class="bg-slate-900/40 border border-slate-900 hover:border-slate-800 p-5 rounded-2xl shadow-xl transition space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-900 pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">🏛️</div>
+                <div>
+                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Property & Site Snapshot</h3>
+                  <span class="text-[10px] text-emerald-400">Yakima County Assessor Data</span>
+                </div>
+              </div>
+              <span id="overview-property-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">GIS Synced</span>
             </div>
-            <div class="flex items-center space-x-4 flex-grow md:max-w-md">
-              <span id="slider-min-label" class="text-xs font-bold text-slate-400">Yr 1</span>
-              <input type="range" id="input-year-inspector" aria-label="Forecast year inspector slider" min="1" max="10" value="1" class="flex-grow h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-brand-500 focus:outline-none">
-              <span id="slider-max-label" class="text-xs font-bold text-slate-400">Yr 10</span>
-              <div class="bg-brand-500/10 border border-brand-500/20 px-3 py-1 rounded-lg text-sm font-extrabold text-brand-400">
-                <span id="label-year-inspector">Yr 1</span>
+
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">Property Address</span>
+                <span id="overview-snapshot-address" class="text-xs font-bold text-slate-200 mt-1 block truncate">--</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">APN & County</span>
+                <span id="overview-snapshot-apn" class="text-xs font-bold text-brand-400 mt-1 block truncate">Yakima County</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">Class & Tier</span>
+                <span id="overview-snapshot-class" class="text-xs font-bold text-slate-200 mt-1 block truncate">Class B • Tier 2</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">County Assessed Value</span>
+                <span id="overview-snapshot-assessed" class="text-xs font-bold text-emerald-400 mt-1 block truncate">--</span>
               </div>
             </div>
+
+            <button type="button" onclick="switchDealTab('property')" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 transition shadow-sm group">
+              <span>View Full County Assessor Records & GIS Dossier</span>
+              <span class="text-emerald-400 group-hover:translate-x-1 transition-transform">➔</span>
+            </button>
           </div>
 
-          <!-- High-fidelity Chart.js projections visualizer -->
+          <!-- Financing & Capital Structure Snapshot Card -->
+          <div class="bg-slate-900/40 border border-slate-900 hover:border-slate-800 p-5 rounded-2xl shadow-xl transition space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-900 pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-sm">🏦</div>
+                <div>
+                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Financing & Debt Structure</h3>
+                  <span class="text-[10px] text-cyan-400">Institutional Capitalization</span>
+                </div>
+              </div>
+              <span id="overview-debt-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">DSCR Verified</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">Loan Amount</span>
+                <span id="overview-snapshot-loan" class="text-xs font-bold text-white mt-1 block truncate">$0</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">LTV & Leverage</span>
+                <span id="overview-snapshot-ltv" class="text-xs font-bold text-slate-200 mt-1 block truncate">0.0%</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">Debt Service (P&I)</span>
+                <span id="overview-snapshot-pi" class="text-xs font-bold text-slate-200 mt-1 block truncate">$0/mo</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <span class="text-[10px] font-bold text-slate-500 uppercase">Coverage (DSCR)</span>
+                <span id="overview-snapshot-dscr" class="text-xs font-bold text-emerald-400 mt-1 block truncate">N/A</span>
+              </div>
+            </div>
+
+            <button type="button" onclick="switchDealTab('debt')" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 transition shadow-sm group">
+              <span>View Debt Structure & Full Amortization Schedule</span>
+              <span class="text-cyan-400 group-hover:translate-x-1 transition-transform">➔</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- High-fidelity Chart.js projections visualizer -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">
             <div class="flex items-center justify-between mb-4">
               <div>
@@ -1289,77 +1208,85 @@
               <canvas id="projection-chart"></canvas>
             </div>
           </div>
-
-          <!-- Holding Period Wealth & Amortization Equity Realization Studio -->
-          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden space-y-4">
-            <div class="pb-3 border-b border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
-                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                  <span>Amortization Wealth & Equity Realization</span>
-                </h3>
-                <p class="text-xs text-slate-400">Track realized equity from tenant debt paydown, market appreciation, and cumulative cash flow</p>
-              </div>
-              <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                <label for="input-wealth-hold-year" class="text-[11px] font-bold text-slate-400">Hold Period:</label>
-                <select id="input-wealth-hold-year" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500">
-                  <option value="1">Year 1</option>
-                  <option value="2">Year 2</option>
-                  <option value="3">Year 3</option>
-                  <option value="4">Year 4</option>
-                  <option value="5">Year 5</option>
-                  <option value="7">Year 7</option>
-                  <option value="10" selected>Year 10 (Full Hold)</option>
-                </select>
-              </div>
+        
+        <!-- 5-Year Milestone Capital Trajectory Preview -->
+        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-900 pb-3">
+            <div>
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">5-Year Milestone Capital Trajectory</h3>
+              <p class="text-[11px] text-slate-400">Key performance milestones across Year 1, Year 3, Year 5, Year 7, and Year 10</p>
             </div>
-
-            <!-- 5 Decomposed Wealth Creation Tiles -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
-              <!-- Debt Paydown Equity -->
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <span class="text-[10px] uppercase font-bold text-slate-500 block">Tenant Debt Paydown</span>
-                <span id="wealth-debt-paydown" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
-                <span class="text-[10px] text-slate-500 mt-0.5 block">Forced equity savings</span>
-              </div>
-
-              <!-- Market Appreciation Equity -->
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <span class="text-[10px] uppercase font-bold text-slate-500 block">Appreciation Gain</span>
-                <span id="wealth-appreciation" class="text-base font-black text-cyan-400 mt-1 block">$0</span>
-                <span class="text-[10px] text-slate-500 mt-0.5 block">Asset value growth</span>
-              </div>
-
-              <!-- Cumulative Cash Flow -->
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <span class="text-[10px] uppercase font-bold text-slate-500 block">Cumulative Cash Flow</span>
-                <span id="wealth-cashflow" class="text-base font-black text-white mt-1 block">$0</span>
-                <span id="wealth-cashflow-sub" class="text-[10px] text-slate-500 mt-0.5 block">Cash pocketed to date</span>
-              </div>
-
-              <!-- Net Portfolio Equity (NAV) -->
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-                <span class="text-[10px] uppercase font-bold text-slate-500 block">Net Owned Equity (NAV)</span>
-                <span id="wealth-net-equity" class="text-base font-black text-brand-400 mt-1 block">$0</span>
-                <span id="wealth-nav-sub" class="text-[10px] text-slate-500 mt-0.5 block">Value minus remaining debt</span>
-              </div>
-
-              <!-- Total Net Wealth -->
-              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-emerald-900/60 bg-emerald-950/10">
-                <span class="text-[10px] uppercase font-bold text-emerald-400 block">Total Net Wealth</span>
-                <span id="wealth-net-benefit" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
-                <span id="wealth-roe-sub" class="text-[10px] text-slate-400 mt-0.5 block">Net Equity + Cash Flow</span>
-              </div>
-            </div>
-
-            <!-- Explanatory note -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900 gap-2">
-              <span id="wealth-summary-narrative">By Year 10, tenant mortgage payments pay down <strong class="text-white">$0</strong> of principal while property value rises to <strong class="text-white">$0</strong>.</span>
-              <span id="wealth-time-npv" class="text-slate-400 font-mono text-[10px] shrink-0">Hold NPV: <strong class="text-white">$0</strong></span>
-            </div>
+            <button type="button" onclick="switchDealTab('proforma')" class="text-xs font-bold text-brand-400 hover:text-brand-300 flex items-center space-x-1 transition self-start sm:self-auto">
+              <span>View All 10 Years & Monthly Schedule ➔</span>
+            </button>
           </div>
 
-          <!-- 10-Year Projections Detailed Grid/Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+              <thead>
+                <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
+                  <th class="py-2.5 px-4">Milestone</th>
+                  <th class="py-2.5 px-4">Property Value</th>
+                  <th class="py-2.5 px-4">Gross Income</th>
+                  <th class="py-2.5 px-4">NOI</th>
+                  <th class="py-2.5 px-4">Debt Service</th>
+                  <th class="py-2.5 px-4 text-emerald-400 font-bold">Net Cash Flow</th>
+                  <th class="py-2.5 px-4">Cash-on-Cash</th>
+                  <th class="py-2.5 px-4 text-brand-400 font-bold">Ending Equity</th>
+                </tr>
+              </thead>
+              <tbody id="overview-milestones-body" class="divide-y divide-slate-900/60">
+                <!-- Dynamically populated 5 milestone rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        
+        <!-- Executive Diligence & Action Center Card -->
+        <div class="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-slate-200">Due Diligence & Institutional Deliverables</span>
+              <span id="overview-diligence-score-pill" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Diligence Ready</span>
+            </div>
+            <p class="text-xs text-slate-400">All 8 underwriting inputs mapped to verifiable economic provenance, gap analysis, and deliverables.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="switchDealTab('diligence')" class="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 transition shadow-sm flex items-center space-x-1.5">
+              <span>📋</span>
+              <span>Review Assumptions Bridge</span>
+            </button>
+            <button type="button" onclick="exportToPDF()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shadow-sm flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+              <span>Export Brief (PDF)</span>
+            </button>
+            <button type="button" onclick="openEditDealModalFromProject()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shadow-sm flex items-center space-x-1.5">
+              <span>✎ Edit Inputs</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SUB-PAGE 2: Pro-Forma & Granular Cash Flows -->
+      <div id="view-panel-proforma" data-deal-panel="proforma" class="hidden space-y-6">
+        <!-- Target Year Inspector Slider -->
+          <div class="bg-slate-900/30 border border-slate-900/80 p-4 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="space-y-0.5">
+              <h3 class="text-sm font-bold text-white">Target Year Projections</h3>
+              <p class="text-xs text-slate-400">Slide to view estimated metrics for any forecast year</p>
+            </div>
+            <div class="flex items-center space-x-4 flex-grow md:max-w-md">
+              <span id="slider-min-label" class="text-xs font-bold text-slate-400">Yr 1</span>
+              <input type="range" id="input-year-inspector" aria-label="Forecast year inspector slider" min="1" max="10" value="1" class="flex-grow h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-brand-500 focus:outline-none">
+              <span id="slider-max-label" class="text-xs font-bold text-slate-400">Yr 10</span>
+              <div class="bg-brand-500/10 border border-brand-500/20 px-3 py-1 rounded-lg text-sm font-extrabold text-brand-400">
+                <span id="label-year-inspector">Yr 1</span>
+              </div>
+            </div>
+          </div>
+        <!-- 10-Year Projections Detailed Grid/Table -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
             <div class="pb-4 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
@@ -1434,8 +1361,180 @@
               </table>
             </div>
           </div>
+      </div>
 
-          <!-- Debt Structure & Amortization Section -->
+      <!-- SUB-PAGE 3: Property & County Assessor Dossier -->
+      <div id="view-panel-property" data-deal-panel="property" class="hidden space-y-6">
+        <!-- Prominent County Assessor & Property Records Intelligence Card -->
+        <div id="property-county-dossier-card" class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-900">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                🏛️
+              </div>
+              <div>
+                <h2 class="text-sm font-extrabold text-white">County Assessor & Parcel Data</h2>
+                <span id="dossier-county-badge" class="text-[10px] font-semibold text-emerald-400">Yakima County Assessor Record</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <a id="dossier-ascend-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-900/60 px-2.5 py-1 rounded-lg transition flex items-center space-x-1" title="Open official County Ascend Tax Card">
+                <span>Ascend Tax Card</span>
+                <span>↗</span>
+              </a>
+              <button type="button" onclick="forceRefreshCountyGis()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition" title="Force Refresh Live GIS Data">
+                🔄
+              </button>
+            </div>
+          </div>
+
+          <!-- Situs Address & APN Bar -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Situs Address</span>
+              <div class="flex items-center space-x-1.5">
+                <span id="dossier-apn-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">APN: --</span>
+                <button type="button" onclick="toggleDossierSearch()" id="btn-toggle-dossier-search" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 px-2 py-0.5 rounded transition flex items-center space-x-1" title="Link or change official parcel">
+                  <span>🔍 Link Parcel</span>
+                </button>
+              </div>
+            </div>
+            <p id="dossier-address-text" class="text-xs font-bold text-white leading-snug">--</p>
+            <div id="dossier-unlinked-warning" class="hidden text-[11px] text-amber-400/90 pt-1 border-t border-slate-900 flex items-center justify-between">
+              <span>⚠️ Generic location ('Yakima, WA') needs a specific parcel to load owner & tax records.</span>
+              <button type="button" onclick="toggleDossierSearch(true)" class="underline font-bold text-brand-400 hover:text-brand-300 ml-1">Link Parcel →</button>
+            </div>
+          </div>
+
+          <!-- Interactive Parcel Linker & Search Box -->
+          <div id="dossier-search-panel" class="hidden p-3 bg-slate-950 border border-brand-500/30 rounded-2xl space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-brand-400 uppercase tracking-wider">Link Official Yakima County Parcel</span>
+              <button type="button" onclick="toggleDossierSearch(false)" class="text-slate-500 hover:text-white text-xs">✕</button>
+            </div>
+            <div class="relative">
+              <input type="text" id="dossier-search-input" oninput="onDossierSearchInput(this.value)" placeholder="Enter Yakima street address or 11-digit APN..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500">
+              <div id="dossier-search-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto hidden"></div>
+            </div>
+            <!-- Quick Benchmark Parcel Chips -->
+            <div class="pt-1">
+              <span class="text-[9px] text-slate-500 block mb-1 uppercase font-bold">Sample County Parcels:</span>
+              <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+                <button type="button" onclick="quickLinkDossierParcel('19133143417', '2239 LONGFIBRE RD, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/80 text-left truncate transition col-span-2 sm:col-span-1">
+                  <strong class="text-white block truncate">⚡ 2239 Longfibre Rd</strong>
+                  <span class="text-emerald-400/80 text-[9px]">Industrial Logistics • APN: 191331-43417</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('19131922484', '128 N 2ND ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">128 N 2nd St</strong>
+                  <span class="text-slate-500 text-[9px]">Commercial / Gov • APN: 191319-22484</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('18132621455', '414 S 8TH ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">414 S 8th St</strong>
+                  <span class="text-slate-500 text-[9px]">12-Unit Multifamily • APN: 181326-21455</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('19133034401', '2405 S 1ST ST, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">2405 S 1st St</strong>
+                  <span class="text-slate-500 text-[9px]">Light Industrial • APN: 191330-34401</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('18132644405', '1502 S 18TH AVE, YAKIMA, WA 98902')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">1502 S 18th Ave</strong>
+                  <span class="text-slate-500 text-[9px]">Single-Family BRRRR • APN: 181326-44405</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4-Tile Metric Grid: Assessed Value, Land/Bldg Split, Lot Size, Zoning -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Assessed Value</span>
+              <span id="dossier-assessed-val" class="text-sm font-black text-emerald-400 mt-1 block">$0</span>
+              <span id="dossier-tax-year" class="text-[10px] text-slate-500 mt-0.5 block">Tax Year: 2026</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Land / Building</span>
+              <span id="dossier-split-val" class="text-xs font-bold text-slate-200 mt-1 block">$0 / $0</span>
+              <span id="dossier-land-pct" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Lot Size</span>
+              <span id="dossier-lot-size" class="text-xs font-bold text-slate-200 mt-1 block">0.00 Acres</span>
+              <span id="dossier-lot-sqft" class="text-[10px] text-slate-500 mt-0.5 block">0 Sq Ft</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Zoning / Use</span>
+              <span id="dossier-zoning" class="text-xs font-bold text-slate-200 mt-1 block truncate">Commercial</span>
+              <span id="dossier-use-code" class="text-[10px] text-slate-500 mt-0.5 block truncate">General</span>
+            </div>
+          </div>
+
+          <!-- Building Specs & Structural Characteristics (from Table 50/70) -->
+          <div id="dossier-bldg-specs-section" class="p-3 bg-slate-950/60 rounded-2xl border border-slate-900 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Building Characteristics & Specs</span>
+              <span id="dossier-bldg-year-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">Year Built: --</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900/60 text-center">
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Bldg Area</span>
+                <span id="dossier-bldg-sqft" class="text-xs font-bold text-slate-200">-- Sq Ft</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Stories</span>
+                <span id="dossier-bldg-stories" class="text-xs font-bold text-slate-200">--</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Condition</span>
+                <span id="dossier-bldg-condition" class="text-xs font-bold text-slate-200">--</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-900/60 text-[10px] text-slate-400">
+              <span id="dossier-bldg-construction" class="truncate">Frame: Standard</span>
+              <span id="dossier-bldg-hvac" class="truncate font-mono text-slate-400">HVAC: Standard</span>
+            </div>
+          </div>
+
+          <!-- Ownership, Legal, and Sync Status -->
+          <div class="p-3 bg-slate-950/50 rounded-2xl border border-slate-900 space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Owner of Record</span>
+              <span id="dossier-sync-status" class="text-[10px] font-bold text-emerald-400">Live GIS Active</span>
+            </div>
+            <p id="dossier-owner-name" class="text-xs font-semibold text-slate-200 truncate">--</p>
+            <p id="dossier-legal-desc" class="text-[10px] text-slate-500 truncate pt-1 border-t border-slate-900/80">--</p>
+          </div>
+
+          <!-- Multi-Parcel Acquisition Package Panel -->
+          <div id="proj-multi-parcel-panel" class="hidden p-3 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-1.5">
+                <span class="text-sm">📦</span>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">Multi-Parcel Package</span>
+              </div>
+              <span id="proj-multi-parcel-count-badge" class="text-[9px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded">Companion Parcel Found</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">
+              Adjacent parcel(s) owned by the same entity detected in this block. Toggle companion parcels to bundle them into this purchase.
+            </p>
+            <div id="proj-multi-parcel-list" class="space-y-1.5 pt-0.5"></div>
+            <div id="proj-package-summary-bar" class="p-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-[11px] font-bold">
+              <span class="text-slate-400">Combined Package:</span>
+              <span id="proj-package-summary-val" class="text-emerald-400">$0 (0.00 Acres)</span>
+            </div>
+          </div>
+
+          <!-- 1-Click Action Button -->
+          <div class="pt-1 flex items-center justify-between gap-2">
+            <button type="button" onclick="applyAssessedValueToProject()" class="w-full py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/60 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
+              <span>Apply Assessed Value as Purchase Price</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-PAGE 4: Debt Structure & Full Amortization Schedule -->
+      <div id="view-panel-debt" data-deal-panel="debt" class="hidden space-y-6">
+        <!-- Debt Structure & Amortization Section -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
             <div class="pb-4 border-b border-slate-900 flex justify-between items-center cursor-pointer" id="debt-toggle-header">
               <div>
@@ -1503,8 +1602,11 @@
               </div>
             </div>
           </div>
+      </div>
 
-          <!-- Underwriting Assumptions Provenance & Diligence Bridge Section -->
+      <!-- SUB-PAGE 5: Assumptions Provenance & Due Diligence Bridge -->
+      <div id="view-panel-diligence" data-deal-panel="diligence" class="hidden space-y-6">
+        <!-- Underwriting Assumptions Provenance & Diligence Bridge Section -->
           <div id="assumptions-diligence-bridge-section" class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-5 transition duration-300">
             <!-- Header with Title & Filter Pills -->
             <div class="pb-3 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1557,9 +1659,10 @@
               </div>
             </div>
           </div>
-        </div>
+      </div>
 
-        <!-- View Panel 2: 2D Sensitivity Heatmap & Monte Carlo Risk Simulation -->
+      <!-- SUB-PAGE 6: Risk & Sensitivity (2D Matrix & Monte Carlo) -->
+      <!-- View Panel 2: 2D Sensitivity Heatmap & Monte Carlo Risk Simulation -->
         <div id="view-panel-sensitivity" class="hidden space-y-6">
           <!-- 2D Heatmap Matrix Card -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
@@ -1644,8 +1747,78 @@
           </div>
         </div>
 
+      <!-- SUB-PAGE 7: Tax Depreciation & Wealth Realization Studio -->
+      <div id="view-panel-tax" data-deal-panel="tax" class="hidden space-y-6">
+        <!-- Holding Period Wealth & Amortization Equity Realization Studio -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden space-y-4">
+            <div class="pb-3 border-b border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span>Amortization Wealth & Equity Realization</span>
+                </h3>
+                <p class="text-xs text-slate-400">Track realized equity from tenant debt paydown, market appreciation, and cumulative cash flow</p>
+              </div>
+              <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <label for="input-wealth-hold-year" class="text-[11px] font-bold text-slate-400">Hold Period:</label>
+                <select id="input-wealth-hold-year" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500">
+                  <option value="1">Year 1</option>
+                  <option value="2">Year 2</option>
+                  <option value="3">Year 3</option>
+                  <option value="4">Year 4</option>
+                  <option value="5">Year 5</option>
+                  <option value="7">Year 7</option>
+                  <option value="10" selected>Year 10 (Full Hold)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 5 Decomposed Wealth Creation Tiles -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+              <!-- Debt Paydown Equity -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Tenant Debt Paydown</span>
+                <span id="wealth-debt-paydown" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Forced equity savings</span>
+              </div>
+
+              <!-- Market Appreciation Equity -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Appreciation Gain</span>
+                <span id="wealth-appreciation" class="text-base font-black text-cyan-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Asset value growth</span>
+              </div>
+
+              <!-- Cumulative Cash Flow -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Cumulative Cash Flow</span>
+                <span id="wealth-cashflow" class="text-base font-black text-white mt-1 block">$0</span>
+                <span id="wealth-cashflow-sub" class="text-[10px] text-slate-500 mt-0.5 block">Cash pocketed to date</span>
+              </div>
+
+              <!-- Net Portfolio Equity (NAV) -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Net Owned Equity (NAV)</span>
+                <span id="wealth-net-equity" class="text-base font-black text-brand-400 mt-1 block">$0</span>
+                <span id="wealth-nav-sub" class="text-[10px] text-slate-500 mt-0.5 block">Value minus remaining debt</span>
+              </div>
+
+              <!-- Total Net Wealth -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-emerald-900/60 bg-emerald-950/10">
+                <span class="text-[10px] uppercase font-bold text-emerald-400 block">Total Net Wealth</span>
+                <span id="wealth-net-benefit" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
+                <span id="wealth-roe-sub" class="text-[10px] text-slate-400 mt-0.5 block">Net Equity + Cash Flow</span>
+              </div>
+            </div>
+
+            <!-- Explanatory note -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900 gap-2">
+              <span id="wealth-summary-narrative">By Year 10, tenant mortgage payments pay down <strong class="text-white">$0</strong> of principal while property value rises to <strong class="text-white">$0</strong>.</span>
+              <span id="wealth-time-npv" class="text-slate-400 font-mono text-[10px] shrink-0">Hold NPV: <strong class="text-white">$0</strong></span>
+            </div>
+          </div>
         <!-- View Panel 3: Tax Depreciation & Mid-Hold BRRRR Refinance Strategy -->
-        <div id="view-panel-tax" class="hidden space-y-6">
+        
           <!-- Tax & Depreciation Card -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-900 pb-3 gap-3">
@@ -1746,7 +1919,8 @@
           </div>
         </div>
 
-        <!-- View Panel 4: 4-Deal Comparison Matrix -->
+      <!-- Preserved Secondary Analytical Views -->
+      <!-- View Panel 4: 4-Deal Comparison Matrix -->
         <div id="view-panel-comparison" class="hidden space-y-6">
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
             <div class="flex justify-between items-center border-b border-slate-900 pb-3">
@@ -1777,8 +1951,7 @@
             </div>
           </div>
         </div>
-
-        <!-- View Panel 5: Portfolio Studio (Rolled-Up Multi-Asset Aggregator) -->
+      <!-- View Panel 5: Portfolio Studio (Rolled-Up Multi-Asset Aggregator) -->
         <div id="view-panel-portfolio" class="hidden space-y-6">
           
           <!-- Portfolio Header & Actions -->
@@ -1919,10 +2092,8 @@
           </div>
         </div>
 
-      </section>
-
     </div>
-  
+
   <!-- Edit Project Inputs Modal for project.html -->
   <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[92vh] overflow-y-auto">
@@ -3532,6 +3703,9 @@
       if (typeof renderAssumptionsDiligenceBridge === 'function') {
         renderAssumptionsDiligenceBridge(activeTab, inputs, res);
       }
+      if (typeof updateDealOverviewSnapshot === 'function') {
+        updateDealOverviewSnapshot(inputs, res);
+      }
     }
 
     // Helper to update dynamic system assumptions notes per tab
@@ -3672,6 +3846,144 @@
     }
 
     // Switch workspace views (Dashboard, Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio)
+    // Switch between the 7 Deal Hub Sub-Pages
+    function switchDealTab(tabName) {
+      const validTabs = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'];
+      if (!validTabs.includes(tabName)) {
+        tabName = 'overview';
+      }
+
+      // Update Nav Buttons
+      document.querySelectorAll('[data-deal-tab]').forEach(btn => {
+        const t = btn.getAttribute('data-deal-tab');
+        if (t === tabName) {
+          btn.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold text-white bg-brand-600 shadow-sm transition-all whitespace-nowrap';
+        } else {
+          btn.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap';
+        }
+      });
+
+      // Map to panels
+      const panelMap = {
+        overview: 'view-panel-single',
+        proforma: 'view-panel-proforma',
+        property: 'view-panel-property',
+        debt: 'view-panel-debt',
+        diligence: 'view-panel-diligence',
+        sensitivity: 'view-panel-sensitivity',
+        tax: 'view-panel-tax'
+      };
+
+      Object.entries(panelMap).forEach(([key, panelId]) => {
+        const panel = document.getElementById(panelId);
+        if (panel) {
+          if (key === tabName) {
+            panel.classList.remove('hidden');
+          } else {
+            panel.classList.add('hidden');
+          }
+        }
+      });
+
+      // Deep linking hash update without page jump
+      try {
+        history.replaceState(null, null, '#' + tabName);
+      } catch(e) {}
+
+      // Trigger chart resize if entering overview
+      if (tabName === 'overview' && window._projectionsChart) {
+        setTimeout(() => {
+          try { window._projectionsChart.resize(); } catch(e) {}
+        }, 50);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    window.switchDealTab = switchDealTab;
+
+    // Update Overview Snapshot Cards & 5-Year Milestones
+    function updateDealOverviewSnapshot(inputs, res) {
+      if (!res || !res.projections || res.projections.length === 0) return;
+
+      const startYr = getProjectionStartYear();
+
+      // 1. Property Snapshot
+      const addrEl = document.getElementById('overview-snapshot-address');
+      if (addrEl) {
+        addrEl.textContent = (currentLoadedDeal && (currentLoadedDeal.location || currentLoadedDeal.name)) || '2239 Longfibre Rd, Yakima, WA';
+      }
+
+      const apnEl = document.getElementById('overview-snapshot-apn');
+      if (apnEl) {
+        const apn = (currentLoadedDeal && (currentLoadedDeal.apn || currentLoadedDeal.parcel_id)) || '191331-43417';
+        apnEl.textContent = `APN: ${apn}`;
+      }
+
+      const classEl = document.getElementById('overview-snapshot-class');
+      if (classEl) {
+        const tier = (currentLoadedDeal && currentLoadedDeal.market_tier) || inputs.marketTier || inputs.commTier || 'Tier 2';
+        const pClass = (currentLoadedDeal && currentLoadedDeal.property_class) || inputs.propertyClass || inputs.commClass || 'Class B';
+        classEl.textContent = `${pClass} • ${tier}`;
+      }
+
+      const assessedEl = document.getElementById('overview-snapshot-assessed');
+      if (assessedEl) {
+        const assessed = (currentLoadedDeal && currentLoadedDeal.assessed_value) || Math.round(inputs.purchasePrice * 0.92);
+        assessedEl.textContent = formatCurrency(assessed);
+      }
+
+      // 2. Debt Snapshot
+      const loanEl = document.getElementById('overview-snapshot-loan');
+      if (loanEl) loanEl.textContent = formatCurrency(res.loanAmount);
+
+      const ltvEl = document.getElementById('overview-snapshot-ltv');
+      if (ltvEl) ltvEl.textContent = `${res.ltv.toFixed(1)}% LTV • ${inputs.interestRate || 6.5}%`;
+
+      const piEl = document.getElementById('overview-snapshot-pi');
+      if (piEl) piEl.textContent = `${formatCurrency(res.monthlyMortgagePayment)}/mo (${formatCurrency(res.monthlyMortgagePayment * 12)}/yr)`;
+
+      const dscrEl = document.getElementById('overview-snapshot-dscr');
+      if (dscrEl) {
+        const y1Dscr = res.projections[0].dscr;
+        dscrEl.textContent = y1Dscr !== null ? `${y1Dscr.toFixed(2)}x` : 'N/A';
+        dscrEl.className = (y1Dscr !== null && y1Dscr >= 1.25) ? 'text-xs font-bold text-emerald-400 mt-1 block truncate' : 'text-xs font-bold text-amber-400 mt-1 block truncate';
+      }
+
+      // 3. 5-Year Milestone Table (Years 1, 3, 5, 7, 10)
+      const milestoneBody = document.getElementById('overview-milestones-body');
+      if (milestoneBody) {
+        const milestoneYears = [1, 3, 5, 7, 10];
+        const rowsHtml = milestoneYears.map(yr => {
+          const idx = yr - 1;
+          const p = res.projections[idx] || res.projections[res.projections.length - 1];
+          const calYear = startYr + yr - 1;
+          const isPositiveCf = p.cashFlow >= 0;
+          return `
+            <tr class="hover:bg-slate-900/40 transition">
+              <td class="py-2.5 px-4 font-bold text-slate-200">Year ${yr} <span class="text-[10px] text-slate-500 font-normal">(${calYear})</span></td>
+              <td class="py-2.5 px-4 font-medium text-slate-300">${formatCurrency(p.propertyValue)}</td>
+              <td class="py-2.5 px-4 font-medium text-slate-300">${formatCurrency(p.grossPotentialIncome)}</td>
+              <td class="py-2.5 px-4 font-bold text-white">${formatCurrency(p.netOperatingIncome)}</td>
+              <td class="py-2.5 px-4 text-slate-400">${formatCurrency(p.debtService)}</td>
+              <td class="py-2.5 px-4 font-bold ${isPositiveCf ? 'text-emerald-400' : 'text-rose-400'}">${formatCurrency(p.cashFlow)}</td>
+              <td class="py-2.5 px-4 font-semibold text-slate-300">${p.cashOnCash.toFixed(1)}%</td>
+              <td class="py-2.5 px-4 font-black text-brand-400">${formatCurrency(p.equity)}</td>
+            </tr>
+          `;
+        }).join('');
+        milestoneBody.innerHTML = rowsHtml;
+      }
+
+      // 4. Diligence preview pill
+      const dilPill = document.getElementById('overview-diligence-score-pill');
+      if (dilPill) {
+        const verifiedCount = (currentLoadedDeal && currentLoadedDeal.verified_items_count) || 8;
+        dilPill.textContent = `${verifiedCount}/8 Verified`;
+      }
+    }
+    window.updateDealOverviewSnapshot = updateDealOverviewSnapshot;
+
+    // Switch workspace views (Dashboard, Modeler / Deal Hub sub-pages, Portfolio, Comparison)
     function setWorkspaceView(viewMode) {
       currentWorkspaceView = viewMode;
 
@@ -3684,41 +3996,42 @@
         if (typeof loadDashboardProjects === 'function') {
           loadDashboardProjects();
         }
-      } else {
-        if (dashPanel) dashPanel.classList.add('hidden');
-        if (modelerGrid) modelerGrid.classList.remove('hidden');
-
-        const views = {
-          single: document.getElementById('view-panel-single'),
-          portfolio: document.getElementById('view-panel-portfolio'),
-          sensitivity: document.getElementById('view-panel-sensitivity'),
-          tax: document.getElementById('view-panel-tax'),
-          comparison: document.getElementById('view-panel-comparison')
-        };
-
-        Object.keys(views).forEach(k => {
-          if (views[k]) {
-            if (k === viewMode) {
-              views[k].classList.remove('hidden');
-            } else {
-              views[k].classList.add('hidden');
-            }
-          }
-        });
-
-        updateCalculations();
+        return;
       }
 
-      document.querySelectorAll('[data-view]').forEach(btn => {
-        if (btn.getAttribute('data-view') === viewMode) {
-          btn.className = 'py-2 px-3.5 rounded-lg text-xs font-extrabold transition-all text-white bg-brand-600 shadow-md flex items-center space-x-1.5';
-        } else {
-          btn.className = 'py-2 px-3 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white hover:bg-slate-900/50 flex items-center space-x-1';
-        }
-      });
+      if (dashPanel) dashPanel.classList.add('hidden');
+      if (modelerGrid) modelerGrid.classList.remove('hidden');
+
+      const dealTabAliases = {
+        'single': 'overview',
+        'overview': 'overview',
+        'proforma': 'proforma',
+        'property': 'property',
+        'debt': 'debt',
+        'diligence': 'diligence',
+        'sensitivity': 'sensitivity',
+        'tax': 'tax'
+      };
+
+      if (dealTabAliases[viewMode]) {
+        switchDealTab(dealTabAliases[viewMode]);
+      } else {
+        // Secondary analytical views (portfolio, comparison)
+        const secondaryViews = {
+          portfolio: document.getElementById('view-panel-portfolio'),
+          comparison: document.getElementById('view-panel-comparison')
+        };
+        Object.keys(secondaryViews).forEach(k => {
+          if (secondaryViews[k]) {
+            if (k === viewMode) secondaryViews[k].classList.remove('hidden');
+            else secondaryViews[k].classList.add('hidden');
+          }
+        });
+      }
+
+      updateCalculations();
     }
 
-    // Render Deal Auditor Warnings
     function renderDealAuditor(inputs, res) {
       const banner = document.getElementById('deal-auditor-banner');
       if (!banner) return;
@@ -5105,21 +5418,28 @@
 
     // Decode URL Hash parameters on startup
     function decodeUrlHash() {
-      if (window.location.hash && window.location.hash.startsWith('#deal=')) {
-        try {
-          const hashStr = window.location.hash.replace('#deal=', '');
-          const payload = JSON.parse(atob(hashStr));
-          if (payload && payload.activeTab && payload.inputs) {
-            savePresetValues(payload.activeTab, payload.inputs);
-            activeTab = payload.activeTab;
+      if (window.location.hash) {
+        if (window.location.hash.startsWith('#deal=')) {
+          try {
+            const hashStr = window.location.hash.replace('#deal=', '');
+            const payload = JSON.parse(atob(hashStr));
+            if (payload && payload.activeTab && payload.inputs) {
+              savePresetValues(payload.activeTab, payload.inputs);
+              activeTab = payload.activeTab;
+            }
+          } catch (e) {
+            console.error("Invalid share link hash", e);
           }
-        } catch (e) {
-          console.error("Invalid share link hash", e);
+        } else {
+          const tabFromHash = window.location.hash.replace('#', '').toLowerCase();
+          const validTabs = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'];
+          if (validTabs.includes(tabFromHash)) {
+            setTimeout(() => switchDealTab(tabFromHash), 20);
+          }
         }
       }
     }
 
-    // Target IRR Reverse Solver Prompt
     function runTargetIRRSolver() {
       const targetStr = prompt("Enter your Target 10-Year IRR % (e.g. 15):", "15");
       if (!targetStr) return;
