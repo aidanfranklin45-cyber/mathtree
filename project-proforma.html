@@ -847,28 +847,117 @@
             </div>
 
             <!-- Container 2: Monthly Schedule (Post-Closing) -->
-            <div id="monthly-schedule-container" class="overflow-x-auto -mx-5 mt-4 hidden">
-              <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead>
-                  <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
-                    <th class="py-3 px-5">Month / Date</th>
-                    <th class="py-3 px-4">Operating Yr</th>
-                    <th class="py-3 px-4">Gross Income</th>
-                    <th class="py-3 px-4">Vacancy Loss</th>
-                    <th class="py-3 px-4">OpEx</th>
-                    <th class="py-3 px-4">NOI</th>
-                    <th class="py-3 px-4">Debt Payment</th>
-                    <th class="py-3 px-4">Principal</th>
-                    <th class="py-3 px-4">Interest</th>
-                    <th class="py-3 px-4">Loan Balance</th>
-                    <th class="py-3 px-4">Monthly Net Cash</th>
-                    <th class="py-3 px-4 pr-5">Cumulative Cash</th>
-                  </tr>
-                </thead>
-                <tbody id="monthly-schedule-table-body" class="divide-y divide-slate-900/60">
-                  <!-- Dynamically generated monthly schedule -->
-                </tbody>
-              </table>
+            <div id="monthly-schedule-container" class="space-y-4 mt-4 hidden">
+              <!-- Monthly Horizon & Date Stretch Toolbar -->
+              <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-3.5 shadow-lg">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-sm">
+                      📆
+                    </div>
+                    <div>
+                      <div class="flex items-center space-x-2">
+                        <h4 class="text-xs font-black uppercase tracking-wider text-white">Monthly Cash Flow Projection Horizon</h4>
+                        <span id="monthly-horizon-pill" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">24 Months</span>
+                      </div>
+                      <p id="monthly-horizon-range-sub" class="text-[11px] text-slate-400">Stretch projections across any custom month & year date range</p>
+                    </div>
+                  </div>
+
+                  <!-- Date Pickers: Start Date & Stretch To End Date -->
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <div class="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                      <span class="text-[10px] uppercase font-bold text-slate-500">From (Closing):</span>
+                      <span id="monthly-start-date-display" class="font-mono font-bold text-slate-300 text-xs">Oct 2026</span>
+                    </div>
+
+                    <div class="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-emerald-500/30">
+                      <label for="input-monthly-end-date" class="text-[10px] uppercase font-bold text-emerald-400">Stretch To Date:</label>
+                      <input type="month" id="input-monthly-end-date" onchange="onMonthlyEndDateChange(this.value)" class="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs font-mono font-bold text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+
+                    <button type="button" onclick="exportMonthlyScheduleCSV()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center space-x-1" title="Download entire monthly schedule as CSV">
+                      <span>📥</span>
+                      <span>Export CSV</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Horizon Presets & Interactive Stretch Slider -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-slate-900 text-xs">
+                  <div class="flex items-center flex-wrap gap-1.5">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 mr-1">Quick Presets:</span>
+                    <button type="button" onclick="setMonthlyScheduleMonths(12)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="12">1 Yr (12m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(24)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 transition" data-months="24">2 Yrs (24m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(36)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="36">3 Yrs (36m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(60)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="60">5 Yrs (60m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(120)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="120">10 Yrs (120m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(180)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="180">15 Yrs (180m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(360)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="360">30 Yrs (360m)</button>
+                    <button type="button" onclick="setMonthlyScheduleToHoldPeriod()" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-300 transition" title="Match underwriting exit hold period">🎯 Match Exit Hold</button>
+                  </div>
+
+                  <!-- Slider -->
+                  <div class="flex items-center space-x-2 w-full sm:w-64">
+                    <span class="text-[10px] font-mono text-slate-500">1m</span>
+                    <input type="range" id="slider-monthly-months" min="1" max="360" value="24" oninput="onMonthlySliderChange(this.value)" class="w-full accent-emerald-500 h-1.5 bg-slate-900 rounded-lg cursor-pointer">
+                    <span class="text-[10px] font-mono text-slate-500">360m</span>
+                  </div>
+                </div>
+
+                <!-- Horizon Summary KPI Strip -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-slate-900 text-center">
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Total Gross Rent</div>
+                    <div id="kpi-monthly-gross" class="text-xs font-black text-white">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Total NOI</div>
+                    <div id="kpi-monthly-noi" class="text-xs font-black text-emerald-400">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Total Debt Service</div>
+                    <div id="kpi-monthly-debt" class="text-xs font-black text-slate-300">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Principal Paydown</div>
+                    <div id="kpi-monthly-principal" class="text-xs font-black text-cyan-400">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Cumulative Net Cash</div>
+                    <div id="kpi-monthly-net-cash" class="text-xs font-black text-emerald-400">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Ending Loan Balance</div>
+                    <div id="kpi-monthly-loan-bal" class="text-xs font-black text-slate-300">$0</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Table wrapper -->
+              <div class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-5 rounded-b-xl">
+                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                  <thead class="sticky top-0 z-10">
+                    <tr class="border-b border-slate-800 text-slate-400 font-semibold bg-slate-950">
+                      <th class="py-3 px-5">Month / Date</th>
+                      <th class="py-3 px-4">Operating Yr</th>
+                      <th class="py-3 px-4">Gross Income</th>
+                      <th class="py-3 px-4">Vacancy Loss</th>
+                      <th class="py-3 px-4">OpEx</th>
+                      <th class="py-3 px-4">NOI</th>
+                      <th class="py-3 px-4">Debt Payment</th>
+                      <th class="py-3 px-4">Principal</th>
+                      <th class="py-3 px-4">Interest</th>
+                      <th class="py-3 px-4">Loan Balance</th>
+                      <th class="py-3 px-4">Monthly Net Cash</th>
+                      <th class="py-3 px-4 pr-5">Cumulative Cash</th>
+                    </tr>
+                  </thead>
+                  <tbody id="monthly-schedule-table-body" class="divide-y divide-slate-900/60">
+                    <!-- Dynamically generated monthly schedule -->
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
       </div>
@@ -1976,29 +2065,177 @@
     }
     window.switchForecastView = switchForecastView;
 
+    let currentMonthlyMonths = 24;
+    let currentMonthlyEndDate = null;
+
+    function setMonthlyScheduleMonths(months) {
+      months = Math.max(1, Math.min(360, parseInt(months, 10) || 24));
+      currentMonthlyMonths = months;
+      currentMonthlyEndDate = null;
+      renderMonthlyScheduleTable();
+    }
+    window.setMonthlyScheduleMonths = setMonthlyScheduleMonths;
+
+    function onMonthlySliderChange(val) {
+      const months = Math.max(1, Math.min(360, parseInt(val, 10) || 24));
+      currentMonthlyMonths = months;
+      currentMonthlyEndDate = null;
+      renderMonthlyScheduleTable();
+    }
+    window.onMonthlySliderChange = onMonthlySliderChange;
+
+    function onMonthlyEndDateChange(dateStr) {
+      if (!dateStr) return;
+      currentMonthlyEndDate = dateStr;
+      renderMonthlyScheduleTable();
+    }
+    window.onMonthlyEndDateChange = onMonthlyEndDateChange;
+
+    function setMonthlyScheduleToHoldPeriod() {
+      const inputs = getInputsFromForm();
+      const holdYears = parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10);
+      setMonthlyScheduleMonths(holdYears * 12);
+    }
+    window.setMonthlyScheduleToHoldPeriod = setMonthlyScheduleToHoldPeriod;
+
+    function exportMonthlyScheduleCSV() {
+      const inputs = getInputsFromForm();
+      const options = {
+        startDate: inputs.closingDate || '2026-10-01',
+        totalMonths: currentMonthlyMonths
+      };
+      if (currentMonthlyEndDate) options.endDate = currentMonthlyEndDate;
+      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, options);
+      if (!monthlyData || !monthlyData.monthlyProjections || monthlyData.monthlyProjections.length === 0) {
+        alert('No monthly projection data available to export.');
+        return;
+      }
+
+      const headers = ['Month #', 'Period', 'Operating Year', 'Gross Potential Rent', 'Vacancy Loss', 'Operating Expenses', 'Net Operating Income (NOI)', 'Debt Service Payment', 'Principal Paid', 'Interest Paid', 'Remaining Loan Balance', 'Monthly Net Cash Flow', 'Cumulative Net Cash Flow'];
+      const csvRows = [headers.join(',')];
+
+      monthlyData.monthlyProjections.forEach(r => {
+        csvRows.push([
+          r.monthNumber,
+          `"${r.label}"`,
+          r.operatingYear,
+          r.grossIncome,
+          r.vacancyLoss,
+          r.operatingExpenses,
+          r.netOperatingIncome,
+          r.debtService,
+          r.principalPaid,
+          r.interestPaid,
+          r.remainingLoanBalance,
+          r.netCashFlow,
+          r.cumulativeCashFlow
+        ].join(','));
+      });
+
+      const csvString = csvRows.join('\r\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const dealTitle = (currentLoadedDeal?.title || 'deal').replace(/[^a-z0-9_-]/gi, '_');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${dealTitle}_Monthly_CashFlow_Schedule_${monthlyData.startDateISO}_to_${monthlyData.endDateISO}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    window.exportMonthlyScheduleCSV = exportMonthlyScheduleCSV;
+
     function renderMonthlyScheduleTable() {
       const tbody = document.getElementById('monthly-schedule-table-body');
       if (!tbody) return;
       tbody.innerHTML = '';
 
       const inputs = getInputsFromForm();
-      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, {
-        startDate: inputs.closingDate || '2026-10-01',
-        totalMonths: 24
-      });
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        if (!currentMonthlyEndDate && currentLoadedDeal.inputs.monthlyEndDate) {
+          currentMonthlyEndDate = currentLoadedDeal.inputs.monthlyEndDate;
+        }
+        if (currentMonthlyMonths === 24 && currentLoadedDeal.inputs.monthlyTotalMonths) {
+          currentMonthlyMonths = parseInt(currentLoadedDeal.inputs.monthlyTotalMonths, 10) || 24;
+        }
+      }
 
+      const options = {
+        startDate: inputs.closingDate || '2026-10-01',
+        totalMonths: currentMonthlyMonths
+      };
+      if (currentMonthlyEndDate) {
+        options.endDate = currentMonthlyEndDate;
+      }
+
+      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, options);
       if (!monthlyData || !monthlyData.monthlyProjections) return;
 
+      currentMonthlyMonths = monthlyData.totalMonths;
+      currentMonthlyEndDate = monthlyData.endDateISO;
+
+      // Synchronize UI Controls
+      const dateInput = document.getElementById('input-monthly-end-date');
+      if (dateInput) dateInput.value = monthlyData.endDateISO;
+
+      const startDateDisplay = document.getElementById('monthly-start-date-display');
+      if (startDateDisplay) startDateDisplay.textContent = `${monthlyData.startMonthName} ${monthlyData.startYear}`;
+
+      const slider = document.getElementById('slider-monthly-months');
+      if (slider) slider.value = currentMonthlyMonths;
+
+      const pill = document.getElementById('monthly-horizon-pill');
+      if (pill) pill.textContent = `${currentMonthlyMonths} Months (${(currentMonthlyMonths / 12).toFixed(1)} Yrs)`;
+
+      const sub = document.getElementById('monthly-horizon-range-sub');
+      if (sub) sub.textContent = `${monthlyData.startMonthName} ${monthlyData.startYear} ➔ ${monthlyData.endMonthName} ${monthlyData.endYear} (${currentMonthlyMonths} Consecutive Months)`;
+
+      // Update Preset Button highlights
+      document.querySelectorAll('.btn-monthly-preset').forEach(btn => {
+        const btnM = parseInt(btn.getAttribute('data-months'), 10);
+        if (btnM === currentMonthlyMonths) {
+          btn.className = 'btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 transition shadow-sm';
+        } else {
+          btn.className = 'btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition';
+        }
+      });
+
+      // Update Summary KPI Strip
+      if (monthlyData.summary) {
+        const grossEl = document.getElementById('kpi-monthly-gross');
+        if (grossEl) grossEl.textContent = formatCurrency(monthlyData.summary.totalGrossIncome);
+
+        const noiEl = document.getElementById('kpi-monthly-noi');
+        if (noiEl) noiEl.textContent = formatCurrency(monthlyData.summary.totalNOI);
+
+        const debtEl = document.getElementById('kpi-monthly-debt');
+        if (debtEl) debtEl.textContent = formatCurrency(monthlyData.summary.totalDebtService);
+
+        const princEl = document.getElementById('kpi-monthly-principal');
+        if (princEl) princEl.textContent = formatCurrency(monthlyData.summary.totalPrincipalPaid);
+
+        const netCashEl = document.getElementById('kpi-monthly-net-cash');
+        if (netCashEl) {
+          const isNetCashDeficit = monthlyData.summary.netCumulativeCashFlow < 0;
+          netCashEl.textContent = `${isNetCashDeficit ? '-' : ''}${formatCurrency(Math.abs(monthlyData.summary.netCumulativeCashFlow))}`;
+          netCashEl.className = `text-xs font-black ${isNetCashDeficit ? 'text-accent-rose' : 'text-emerald-400'}`;
+        }
+
+        const balEl = document.getElementById('kpi-monthly-loan-bal');
+        if (balEl) balEl.textContent = formatCurrency(monthlyData.summary.endingLoanBalance);
+      }
+
+      // Populate Table Rows with DocumentFragment
+      const frag = document.createDocumentFragment();
       monthlyData.monthlyProjections.forEach(m => {
         const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
+        tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/30 text-slate-300 font-medium transition';
         const isDeficit = m.netCashFlow < 0;
         const isCumDeficit = m.cumulativeCashFlow < 0;
 
         tr.innerHTML = `
           <td class="py-3 px-5">
             <div class="text-white font-bold text-xs">${m.label}</div>
-            <div class="text-[10px] text-slate-500 font-medium">Month ${m.monthNumber}</div>
+            <div class="text-[10px] text-slate-500 font-mono">Month ${m.monthNumber}</div>
           </td>
           <td class="py-3.5 px-4 text-slate-400 font-mono">Yr ${m.operatingYear}</td>
           <td class="py-3.5 px-4">${formatCurrency(m.grossIncome)}</td>
@@ -2006,14 +2243,24 @@
           <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.operatingExpenses)}</td>
           <td class="py-3.5 px-4 text-white font-semibold">${formatCurrency(m.netOperatingIncome)}</td>
           <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.debtService)}</td>
-          <td class="py-3.5 px-4 text-emerald-400 font-medium">${formatCurrency(m.principalPaid)}</td>
+          <td class="py-3.5 px-4 text-cyan-400 font-medium">${formatCurrency(m.principalPaid)}</td>
           <td class="py-3.5 px-4 text-slate-500">${formatCurrency(m.interestPaid)}</td>
           <td class="py-3.5 px-4 text-slate-400 font-mono">${formatCurrency(m.remainingLoanBalance)}</td>
           <td class="py-3.5 px-4 font-bold ${isDeficit ? 'text-accent-rose' : 'text-accent-emerald'}">${isDeficit ? '-' : ''}${formatCurrency(Math.abs(m.netCashFlow))}</td>
           <td class="py-3.5 px-4 pr-5 font-bold ${isCumDeficit ? 'text-accent-rose' : 'text-emerald-400'}">${isCumDeficit ? '-' : ''}${formatCurrency(Math.abs(m.cumulativeCashFlow))}</td>
         `;
-        tbody.appendChild(tr);
+        frag.appendChild(tr);
       });
+      tbody.appendChild(frag);
+
+      // Save state to deal inputs if deal loaded
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.monthlyTotalMonths = currentMonthlyMonths;
+        currentLoadedDeal.inputs.monthlyEndDate = currentMonthlyEndDate;
+        if (typeof saveCurrentDealChanges === 'function') {
+          saveCurrentDealChanges(false);
+        }
+      }
     }
     window.renderMonthlyScheduleTable = renderMonthlyScheduleTable;
 

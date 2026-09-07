@@ -734,7 +734,7 @@ function calculateProjections(assetType, inputs) {
  */
 function calculateMonthlyProjections(assetType, inputs, options = {}) {
   // Resolve start date / closing date
-  const rawDate = inputs.closingDate || options.closingDate || '2026-10-01';
+  const rawDate = inputs.closingDate || options.closingDate || options.startDate || '2026-10-01';
   let startYear = 2026;
   let startMonth = 10; // Default October (1-indexed)
   if (rawDate) {
@@ -750,8 +750,44 @@ function calculateMonthlyProjections(assetType, inputs, options = {}) {
     }
   }
 
-  const monthsCount = parseInt(options.monthsCount || options.totalMonths || 24, 10); // Default 24 months
-  const annualBase = calculateProjections(assetType, { ...inputs, prorateFirstYear: false });
+  // Resolve target monthsCount: either directly or derived from arbitrary endDate
+  let monthsCount = 24; // Standard 2-year default
+  const rawEnd = options.endDate || inputs.monthlyEndDate || options.targetEndDate;
+  if (rawEnd) {
+    let endYear = null;
+    let endMonth = null;
+    if (rawEnd instanceof Date && !isNaN(rawEnd.getTime())) {
+      endYear = rawEnd.getFullYear();
+      endMonth = rawEnd.getMonth() + 1;
+    } else {
+      const strEnd = String(rawEnd).trim();
+      const parts = strEnd.split(/[-/]/);
+      if (parts.length >= 2) {
+        if (parts[0].length === 4) {
+          endYear = parseInt(parts[0], 10);
+          endMonth = parseInt(parts[1], 10);
+        } else {
+          endMonth = parseInt(parts[0], 10);
+          endYear = parseInt(parts[2] || parts[1], 10);
+        }
+      }
+    }
+    if (endYear && endMonth && !isNaN(endYear) && !isNaN(endMonth)) {
+      const diffMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+      if (!isNaN(diffMonths) && diffMonths > 0) {
+        monthsCount = Math.min(360, Math.max(1, diffMonths));
+      }
+    }
+  } else if (options.monthsCount !== undefined || options.totalMonths !== undefined || inputs.monthlyTotalMonths !== undefined) {
+    const rawCount = parseInt(options.monthsCount !== undefined ? options.monthsCount : (options.totalMonths !== undefined ? options.totalMonths : inputs.monthlyTotalMonths), 10);
+    if (!isNaN(rawCount) && rawCount > 0) {
+      monthsCount = Math.min(360, Math.max(1, rawCount));
+    }
+  }
+
+  // Ensure annual base proforma projects enough years to cover full stretched monthly horizon
+  const requiredYears = Math.min(30, Math.max(10, Math.ceil(monthsCount / 12)));
+  const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears, prorateFirstYear: false });
   const purchasePrice = annualBase.purchasePrice;
   const initialEquity = annualBase.initialCashInvested;
   const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (parseFloat(inputs.downPaymentPercent || 25) / 100)));
@@ -819,12 +855,32 @@ function calculateMonthlyProjections(assetType, inputs, options = {}) {
     });
   }
 
+  const endCalYear = startYear + Math.floor((startMonth - 1 + (monthsCount - 1)) / 12);
+  const endCalMonth0 = (startMonth - 1 + (monthsCount - 1)) % 12;
+  const endMonthName = monthNames[endCalMonth0];
+  const endDateISO = `${endCalYear}-${String(endCalMonth0 + 1).padStart(2, '0')}`;
+  const startDateISO = `${startYear}-${String(startMonth).padStart(2, '0')}`;
+
   return {
     startYear,
     startMonth,
     startMonthName: monthNames[startMonth - 1],
+    startDateISO,
+    endYear: endCalYear,
+    endMonth: endCalMonth0 + 1,
+    endMonthName,
+    endDateISO,
     totalMonths: monthsCount,
-    monthlyProjections: monthlyRows
+    monthlyProjections: monthlyRows,
+    summary: {
+      totalGrossIncome: Math.round(monthlyRows.reduce((sum, r) => sum + (r.grossIncome || 0), 0) * 100) / 100,
+      totalNOI: Math.round(monthlyRows.reduce((sum, r) => sum + (r.netOperatingIncome || 0), 0) * 100) / 100,
+      totalDebtService: Math.round(monthlyRows.reduce((sum, r) => sum + (r.debtService || 0), 0) * 100) / 100,
+      totalPrincipalPaid: Math.round(monthlyRows.reduce((sum, r) => sum + (r.principalPaid || 0), 0) * 100) / 100,
+      totalInterestPaid: Math.round(monthlyRows.reduce((sum, r) => sum + (r.interestPaid || 0), 0) * 100) / 100,
+      netCumulativeCashFlow: Math.round(cumulativeCash * 100) / 100,
+      endingLoanBalance: monthlyRows.length > 0 ? monthlyRows[monthlyRows.length - 1].remainingLoanBalance : 0
+    }
   };
 }
 
