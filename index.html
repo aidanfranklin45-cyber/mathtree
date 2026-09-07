@@ -1079,7 +1079,7 @@
             <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Multi-Asset Portfolio Rollups</span></li>
             <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Custom GP/LP Waterfall Splits</span></li>
             <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Enterprise Cloud Security &amp; Isolation</span></li>
-            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Role-Based Multi-User Workspaces</span></li>
+            <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Unlimited Pipeline Deals &amp; Pro-Formas</span></li>
             <li class="flex items-center space-x-2"><span class="text-cyan-400 font-bold">✓</span><span>Custom White-Label Pitch Decks</span></li>
           </ul>
         </div>
@@ -1787,7 +1787,7 @@
       var password = (document.getElementById('_su-password') || {}).value || '';
       if (!email || !password) { setAuthMsg('Please fill in all fields.', true); return; }
       if (password.length < 6) { setAuthMsg('Password must be at least 6 characters.', true); return; }
-      setAuthMsg('Creating institutional workspace…', false);
+      setAuthMsg('Setting up your account…', false);
       var result = await _supabase.auth.signUp({ email: email.trim(), password: password });
       if (result.error) {
         setAuthMsg(result.error.message, true);
