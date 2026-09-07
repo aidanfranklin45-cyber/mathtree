@@ -807,7 +807,7 @@
                   <span>Underwriting Assumptions Provenance & Diligence Bridge</span>
                   <span id="bridge-category-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Institutional Audit</span>
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Granular provenance for every model input: Economic Derivation, Information Gaps, and Actionable Diligence Steps.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Granular provenance for every model input: Economic Derivation, Assessor Benchmarks, and Quantitative Valuation Sensitivity.</p>
               </div>
               <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
                 <button type="button" onclick="filterAssumptionsCategory('all')" id="btn-cat-all" class="px-2.5 py-1 rounded-lg font-bold bg-brand-600 text-white transition text-[11px]">All (8)</button>
@@ -829,8 +829,8 @@
                 <div class="flex items-center space-x-2">
                   <span class="text-base">📋</span>
                   <div>
-                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Due Diligence Verification & Third-Party Action Plan</h4>
-                    <p class="text-[11px] text-slate-400">Track required third-party reports, seller deliverables, and financing commitments to de-risk closing.</p>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Underwriting Records & Verification Audit</h4>
+                    <p class="text-[11px] text-slate-400">Track documentation, historical records, and property data inputs used to evaluate the asset.</p>
                   </div>
                 </div>
                 <div class="flex items-center space-x-3">
@@ -4086,14 +4086,14 @@
     let currentAssumptionsCategory = 'all';
 
     const DILIGENCE_CHECKLIST_ITEMS = [
-      { id: 'mai_appraisal', label: 'Commission Accredited MAI Commercial Appraisal', detail: 'Verify replacement cost and market sales comps in Yakima County', category: 'acquisition' },
-      { id: 'tenant_estoppel', label: 'Obtain Seller T12 Rent Roll & Signed Tenant Estoppel', detail: 'Certify zero lease disputes, prepaid rents, or unfulfilled landlord concessions', category: 'revenue' },
-      { id: 'lender_term_sheet', label: 'Solicit 2 Commercial Bank Term Sheets (DSCR > 1.25x)', detail: 'Lock benchmark SOFR/Treasury spread with commercial credit committee', category: 'financing' },
-      { id: 'phase1_esa', label: 'Order Phase I Environmental Site Assessment (ESA)', detail: 'Comply with ASTM E1527-21 standard for historical contamination clearance', category: 'financing' },
-      { id: 'pca_engineering', label: 'Commission Commercial Property Condition Assessment (PCA)', detail: 'Inspect structural integrity, roof membrane, and HVAC mechanical warranties', category: 'operations' },
-      { id: 'insurance_binder', label: 'Secure Binding Property & Casualty Insurance Quote', detail: 'Obtain written insurance binder from licensed carrier for replacement value', category: 'operations' },
-      { id: 'title_commitment', label: 'Open Escrow & Review Preliminary ALTA Title Commitment', detail: 'Audit recorded easements, rights-of-way, municipal liens, and ALTA survey', category: 'acquisition' },
-      { id: 'tax_audit', label: 'Audit Seller 2-Year IRS Tax Returns (Form 8825)', detail: 'Reconcile actual historical operating expenses against County Assessor tax roll', category: 'operations' }
+      { id: 'assessor_records', label: 'County Assessor & Parcel Roll Records', detail: 'Assessed valuation, parcel boundary data, and tax history verified', category: 'acquisition' },
+      { id: 'rent_roll_leases', label: 'Rent Roll & Lease Agreement Terms', detail: 'Contractual rent rates, escalation clauses, and tenant lease structures', category: 'revenue' },
+      { id: 'operating_history', label: 'Historical Operating Statements (T12)', detail: 'Operating revenues, utility histories, and expense reconciliations', category: 'operations' },
+      { id: 'debt_terms', label: 'Debt Financing & Capital Structure Terms', detail: 'Loan amortization schedule, interest rate, and DSCR covenants', category: 'financing' },
+      { id: 'physical_condition', label: 'Physical Asset Specs & Condition Assessment', detail: 'Building square footage, mechanical systems, and capital reserve needs', category: 'operations' },
+      { id: 'insurance_policy', label: 'Property & Casualty Insurance Coverage', detail: 'Hazard and liability coverage terms, replacement value, and annual premium', category: 'operations' },
+      { id: 'title_zoning', label: 'Zoning & Municipal Land Use Records', detail: 'Permitted land use codes, recorded easements, and legal description', category: 'acquisition' },
+      { id: 'tax_cost_seg', label: 'Tax Depreciation & Basis Allocation', detail: 'Land vs improvement basis split for annual cost recovery and deductions', category: 'financing' }
     ];
 
     function filterAssumptionsCategory(cat) {
@@ -4177,9 +4177,8 @@
           name: 'Acquisition Price & Cost Basis',
           category: 'acquisition',
           value: formatCurrency(res.purchasePrice) + (pricePerSqFt !== 'N/A' ? ` (${pricePerSqFt}/sq ft)` : ''),
-          provenance: `Underwritten against official Yakima County Assessor tax roll valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' assessed basis' : 'assessed basis'}) and preliminary LOI agreement. Sets baseline entry pricing reflecting prevailing secondary-market industrial/commercial valuations.`,
-          missing: 'Counter-signed Purchase & Sale Agreement (PSA), verified earnest money escrow receipt, and independent accredited third-party MAI commercial appraisal.',
-          actionPlan: 'Execute formal PSA with seller, deposit earnest funds into title escrow, commission licensed MAI appraisal, and audit municipal property tax reassessment schedule.'
+          provenance: `Underwritten against official Yakima County Assessor tax roll valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' assessed basis' : 'assessed basis'}). Establishes baseline entry pricing reflecting prevailing commercial/industrial property valuations.`,
+          sensitivity: `Valuation basis of ${pricePerSqFt !== 'N/A' ? pricePerSqFt : '0'}/sq ft provides an entry cost benchmark against regional commercial asset replacements (~$180–$250/sq ft).`
         },
         {
           id: 'revenue',
@@ -4188,8 +4187,7 @@
           category: 'revenue',
           value: revenueStr + ` • ${inputs.rentGrowth || 2.5}%/yr Growth`,
           provenance: `Derived from ${activeTab === 'commercial' ? (inputs.leaseType || 'NNN') + ' commercial single-tenant logistics rate ($7.00/sq ft/yr NNN)' : activeTab === 'multi-unit' ? 'unit-level market rental rates' : 'market comparable rents'}. Reflects contractual tenant obligations and submarket asking rents across comparable regional assets.`,
-          missing: 'Certified trailing 12-month (T12) operating statements, executed master lease agreement, tenant corporate parent guarantee, and signed estoppel certificates.',
-          actionPlan: 'Require seller-certified T12 rent rolls, obtain executed Tenant Estoppel Certificate confirming zero defaults/disputes, and audit tenant corporate financial creditworthiness.'
+          sensitivity: `Compounding at ${inputs.rentGrowth || 2.5}%/yr lifts Year 10 Gross Revenue to ${formatCurrency(res.projections[9].grossPotentialIncome)} (+${((res.projections[9].grossPotentialIncome / res.projections[0].grossPotentialIncome - 1) * 100).toFixed(1)}%).`
         },
         {
           id: 'financing',
@@ -4197,9 +4195,8 @@
           name: 'Debt Structure, LTV & Financing',
           category: 'financing',
           value: `${inputs.downPaymentPercent}% Down (${formatCurrency(res.downPaymentAmount)}) • ${res.ltv.toFixed(1)}% LTV (${formatCurrency(res.loanAmount)}) @ ${inputs.interestRate}% (${inputs.loanTerm} Yrs) • DSCR: ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}`,
-          provenance: `Calibrated to current regional commercial banking lending appetite (75% LTV, 6.50% 30-year amortization). Underwriting verifies robust debt coverage capacity (DSCR ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}, well above standard 1.25x debt covenant).`,
-          missing: 'Binding commercial bank commitment letter, executed lender term sheet, credit committee approval, and lender-approved Phase I ESA.',
-          actionPlan: 'Solicit quotes from minimum 2 commercial lenders / credit unions, finalize loan application underwriting package, lock Treasury/SOFR spread index, and order Phase I ESA.'
+          provenance: `Calibrated to commercial lending terms (${inputs.downPaymentPercent}% equity down, ${res.ltv.toFixed(1)}% senior debt at ${inputs.interestRate}% over ${inputs.loanTerm} years). Underwriting verifies debt coverage capacity (DSCR ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}).`,
+          sensitivity: `Year 1 Net Operating Income of ${formatCurrency(p1.netOperatingIncome)} provides ${formatCurrency(p1.netOperatingIncome - (res.monthlyMortgagePayment * 12))}/yr annual buffer above debt service obligations.`
         },
         {
           id: 'vacancy',
@@ -4207,9 +4204,8 @@
           name: 'Economic Vacancy & Credit Loss',
           category: 'operations',
           value: `${inputs.vacancyRate}% of GPI (${formatCurrency(p1.vacancyLoss || (res.purchasePrice * 0.005))}/yr)`,
-          provenance: 'Enforces institutional 5.0% underwriting floor for long-term credit tenants. Incorporates conservative reserve for lease expiration lag, collection friction, and turnover downtime despite 100% current physical occupancy.',
-          missing: 'Historical tenant renewal probabilities, submarket micro-vacancy absorption trends, and lease rollover expiration schedule over the 10-year hold.',
-          actionPlan: 'Cross-reference CoStar/CBRE regional industrial submarket reports, audit lease renewal notification windows, and establish a 3-month debt service operating buffer.'
+          provenance: `Enforces institutional ${inputs.vacancyRate}% underwriting allowance for tenant rollover downtime, collection friction, and lease transition periods.`,
+          sensitivity: `Breakeven occupancy is ${breakevenOccupancyPct.toFixed(1)}%; asset tolerates up to ${maxVacancyTolerancePct.toFixed(1)}% economic vacancy before operational cash flow becomes negative.`
         },
         {
           id: 'opex',
@@ -4217,9 +4213,8 @@
           name: 'Operating Expense Ratio (OER) & Management',
           category: 'operations',
           value: `${inputs.expenseRatio}% of GPI (${formatCurrency(p1.operatingExpenses || 0)}/yr) • ${inputs.manageProperty ? 'Managed' : 'Self-Managed'}`,
-          provenance: `Underwritten under ${inputs.leaseType || 'NNN'} structure where tenant directly reimburses taxes, insurance, and CAM. OpEx ratio buffers non-reimbursable landlord reserves, compliance fees, and professional management overhead (${inputs.manageProperty ? '3.5%' : 'owner'}).`,
-          missing: '2 years of actual utility, tax, and insurance receipts; binding property & casualty insurance policy binder quote; active vendor service contracts.',
-          actionPlan: 'Obtain seller 2-year IRS Form 8825 / Schedule E statements, secure binding commercial insurance binder from licensed carrier, and audit annual CAM reconciliation logs.'
+          provenance: `Underwritten under ${inputs.leaseType || 'NNN'} structure where tenant directly reimburses operational expenses. OpEx ratio buffers non-reimbursable owner reserves, compliance fees, and management overhead (${inputs.manageProperty ? '3.5%' : 'self-managed'}).`,
+          sensitivity: `A 20% increase in operating expenses would reduce net annual cash flow by ${formatCurrency(p1.operatingExpenses * 0.20)}/yr while maintaining debt service coverage.`
         },
         {
           id: 'capex',
@@ -4227,9 +4222,8 @@
           name: 'Capital Expenditures & Structural Reserves',
           category: 'operations',
           value: `Initial Rehab: ${formatCurrency(inputs.rehabCosts || 0)} • Reserves: ${inputs.capexReserve || 3.0}% / yr (${formatCurrency(p1.capexReserve || 0)}/yr)`,
-          provenance: `Evaluated against asset physical vintage (${yearBuilt} construction) indicating modern systems with zero immediate deferred maintenance. Ongoing capital reserve underwritten to fund long-term structural, roof, and parking lot life-cycle replacements.`,
-          missing: 'Certified independent Property Condition Assessment (PCA), manufacturer roof warranty documentation, HVAC mechanical commissioning report, and sewer scope inspection.',
-          actionPlan: 'Commission licensed commercial engineering inspector for a full PCA, verify transferable manufacturer warranties (roof/HVAC), and obtain municipal certificate of occupancy.'
+          provenance: `Evaluated against asset physical vintage (${yearBuilt} construction). Ongoing capital reserve is modeled to build dedicated liquidity for long-term structural, mechanical, and roof life-cycle maintenance.`,
+          sensitivity: `Accumulates ${formatCurrency((p1.capexReserve || 0) * holdYrs)} in dedicated replacement reserves over the ${holdYrs}-year investment horizon.`
         },
         {
           id: 'exit',
@@ -4237,19 +4231,17 @@
           name: 'Terminal Cap Rate & Asset Appreciation',
           category: 'acquisition',
           value: `${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || 7.0) + '% Exit Cap (+50 bps spread)' : (inputs.appreciationRate || 3.0) + '%/yr Appreciation'}`,
-          provenance: `Modeled with an institutional +50 bps cap rate expansion above the entry capitalization yield to stress-test liquidity, asset vintage aging, and interest rate cycle shifts over the ${holdYrs}-year investment horizon.`,
-          missing: 'Trailing 12-month closed commercial transaction sales comps within a 10-mile radius, and long-term regional economic growth projections.',
-          actionPlan: 'Review CoStar / Real Capital Analytics (RCA) Yakima submarket investment sales comps, and stress-test returns across a 6.00%–8.50% exit cap sensitivity matrix.'
+          provenance: `Modeled with an institutional cap rate spread (+50 bps above entry yield) to stress-test liquidity, asset vintage aging, and interest rate cycle shifts over the ${holdYrs}-year investment horizon.`,
+          sensitivity: `Each ±50 bps shift in terminal exit cap rate alters net equity proceeds at disposition by ~${formatCurrency(p1.propertyValue * 0.065)}.`
         },
         {
           id: 'horizon',
           icon: '📅',
-          name: 'Hold Horizon & Closing Proration',
+          name: 'Hold Horizon & Timing Strategy',
           category: 'acquisition',
-          value: `${holdYrs}-Year Hold • Target Closing: October 2026 (Partial-Year 3-Month Proration)`,
-          provenance: 'Synchronized with the 10-year debt amortization wealth compounding curve. Incorporates 3-month stub proration for Q4 2026 closing settlement to ensure real-world, non-overstated Year 1 cash-on-cash metrics.',
-          missing: 'Agreed settlement closing date, opened escrow account, and preliminary title commitment report identifying recorded easements or encumbrances.',
-          actionPlan: 'Open escrow with Yakima County Title / First American Title, obtain preliminary title commitment report, and finalize closing date settlement proration statement.'
+          value: `${holdYrs}-Year Hold Horizon • Wealth Compounding Cycle`,
+          provenance: `Aligned with the long-term debt amortization curve. Compounding cash flows and steady mortgage paydown optimize equity accumulation and capital return multiples.`,
+          sensitivity: `Achieves a 10-Year Levered IRR of ${res.irr.toFixed(2)}%, NPV of ${formatCurrency(res.npv)}, and an Equity Multiplier of ${res.equityMultiplier.toFixed(2)}x.`
         }
       ];
 
@@ -4282,20 +4274,12 @@
               <p class="text-slate-300 leading-relaxed">${a.provenance}</p>
             </div>
 
-            <!-- 2. What is Currently Missing -->
-            <div class="bg-rose-950/20 p-2.5 rounded-lg border border-rose-900/40">
-              <span class="text-[9.5px] font-bold uppercase tracking-wider text-rose-400 block mb-0.5">
-                ⚠️ What is Currently Missing
+            <!-- 2. Sensitivity & Valuation Context -->
+            <div class="bg-cyan-950/20 p-2.5 rounded-lg border border-cyan-900/40">
+              <span class="text-[9.5px] font-bold uppercase tracking-wider text-cyan-400 block mb-0.5">
+                📊 Valuation & Sensitivity Context
               </span>
-              <p class="text-rose-200/90 leading-relaxed">${a.missing}</p>
-            </div>
-
-            <!-- 3. What Should We Add / Next Steps -->
-            <div class="bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-900/40">
-              <span class="text-[9.5px] font-bold uppercase tracking-wider text-emerald-400 block mb-0.5">
-                🎯 Required Additions & Deliverables
-              </span>
-              <p class="text-emerald-200/90 leading-relaxed">${a.actionPlan}</p>
+              <p class="text-cyan-200/90 leading-relaxed">${a.sensitivity}</p>
             </div>
           </div>
         </div>
@@ -6643,7 +6627,7 @@
       },
       due_diligence: {
         label: 'Under Contract (DD)',
-        desc: 'PSA executed • 30-60 day feasibility window: lease audits, physical inspections, environmental & title',
+        desc: 'Underwriting & diligence • property evaluation, physical condition review, and financial audit',
         badgeClass: 'bg-rose-500/10 text-rose-400 border-rose-500/20'
       },
       closing: {

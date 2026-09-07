@@ -2666,10 +2666,7 @@
             <table style="width: 100%; font-size: 8.5px; border-collapse: collapse; line-height: 1.35;">
               <thead>
                 <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; text-align: left;">
-                  <th style="padding: 5px 8px; width: 22%; border-right: 1px solid #e2e8f0;">Input Parameter & Value</th>
-                  <th style="padding: 5px 8px; width: 30%; border-right: 1px solid #e2e8f0;">Methodology & Provenance (How Reached)</th>
-                  <th style="padding: 5px 8px; width: 24%; border-right: 1px solid #e2e8f0;">Information Gaps (What is Missing)</th>
-                  <th style="padding: 5px 8px; width: 24%;">Action Plan & Deliverables (What to Add)</th>
+                  <th style="padding: 5px 8px; width: 24%; border-right: 1px solid #e2e8f0;">Input Parameter & Value</th><th style="padding: 5px 8px; width: 38%; border-right: 1px solid #e2e8f0;">Methodology & Provenance (How Reached)</th><th style="padding: 5px 8px; width: 38%;">Valuation & Sensitivity Context</th>
                 </tr>
               </thead>
               <tbody>
@@ -2684,12 +2681,7 @@
                   <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
                     Calibrated against official Yakima County Assessor valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' total assessed basis' : 'assessed basis'}) and preliminary LOI guidance. Reflects prevailing price/sq ft metrics for regional commercial/industrial assets.
                   </td>
-                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
-                    Counter-signed Purchase & Sale Agreement (PSA), verified escrow deposit receipt, and independent accredited third-party MAI commercial appraisal.
-                  </td>
-                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
-                    Execute bilateral PSA with seller, order accredited MAI commercial appraisal, and review municipal property tax reassessment post-closing risk.
-                  </td>
+                  <td style="padding: 5px 8px; color: #0f172a; vertical-align: top;">Valuation basis calibrated against official county assessed roll and regional replacement costs.</td>
                 </tr>
 
                 <!-- 2. Gross Revenue & Rental Income -->
@@ -2702,12 +2694,7 @@
                   <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
                     Derived from ${aClass === 'commercial' ? (inputs.leaseType || 'NNN') + ' commercial lease terms ($7.00/sq ft/yr NNN logistics baseline)' : aClass === 'multi-unit' ? 'scheduled unit-level rents' : 'local market comps'}. Reflects active tenant lease rates across central Washington secondary market benchmarks.
                   </td>
-                  <td style="padding: 5px 8px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
-                    Certified trailing 12-month (T12) operating history, executed master lease agreement, tenant corporate parent guarantee, and signed estoppel certificates.
-                  </td>
-                  <td style="padding: 5px 8px; color: #065f46; vertical-align: top;">
-                    Require seller-certified T12 rent roll, obtain executed Tenant Estoppel Certificate certifying zero disputes/defaults, and audit parent balance sheet.
-                  </td>
+                  <td style="padding: 5px 8px; color: #0f172a; vertical-align: top;">Contractual lease terms and submarket asking rents across comparable regional assets.</td>
                 </tr>
 
                 <!-- 3. Debt Structure & Financing -->
@@ -3429,14 +3416,10 @@
                       Basis: ${formatCurrency(d.price)} • ${d.facilityType || d.assetClass} • ${d.bldgSqFt ? d.bldgSqFt.toLocaleString() + ' Sq Ft' : 'Pending Specs'} • Built ${d.yearBuilt} • Cap Rate: ${d.capRate.toFixed(2)}%
                     </td>
                     <td style="padding: 4px 6px; border-right: 1px solid #e2e8f0; color: #991b1b; vertical-align: top;">
-                      ${d.status === 'owned' 
-                        ? 'Annual CAM reconciliation audit, updated tenant credit review, and 2026 property insurance renewal binder.' 
-                        : 'Accredited MAI commercial appraisal, executed tenant estoppel certificate, Phase I ESA, and formal bank loan commitment.'}
+                      ${d.status === 'owned' ? 'Operating Asset: in-place cash flows, tenant rent roll, and annual capital reserve allocation.' : 'Prospective Acquisition: pro-forma cash flows, market comparable asking rates, and debt coverage modeling.'}
                     </td>
                     <td style="padding: 4px 6px; color: #065f46; vertical-align: top;">
-                      ${d.status === 'owned'
-                        ? 'Schedule preventative HVAC maintenance, audit post-closing county tax reassessment, and file annual tax returns.'
-                        : 'Finalize PSA agreement, order accredited MAI appraisal, commission Phase I ESA, and lock commercial loan spread.'}
+                      ${d.status === 'owned' ? 'Monitored via annual operating statements, CAM reconciliations, and debt service coverage ratio.' : 'Evaluated under base, bull, and bear exit cap rate stress matrices and occupancy sensitivity.'}
                     </td>
                   </tr>
                 `).join('')}
