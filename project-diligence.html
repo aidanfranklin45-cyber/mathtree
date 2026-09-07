@@ -7720,7 +7720,8 @@
         document.getElementById('edit-deal-asset-class').value = aClass;
       }
       setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
-      document.getElementById('edit-deal-name').value = currentLoadedDeal.name || '';
+      const cleanName = resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal]);
+      document.getElementById('edit-deal-name').value = cleanName;
       document.getElementById('edit-deal-location').value = currentLoadedDeal.location || '';
       document.getElementById('edit-deal-status').value = currentLoadedDeal.status || 'prospect';
 
@@ -7849,7 +7850,8 @@
       const aClass = document.getElementById('edit-deal-asset-class')?.value || currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
       const parsedInputs = getEditModalInputs();
 
-      currentLoadedDeal.name = document.getElementById('edit-deal-name').value.trim();
+      const rawEnteredName = document.getElementById('edit-deal-name').value.trim();
+      currentLoadedDeal.name = cleanTitleFromAddress(rawEnteredName, currentLoadedDeal.location);
       currentLoadedDeal.location = document.getElementById('edit-deal-location').value.trim();
       currentLoadedDeal.status = document.getElementById('edit-deal-status').value;
       currentLoadedDeal.market_tier = parsedInputs.marketTier;
@@ -7880,7 +7882,7 @@
 
       // Update UI title and badges
       const titleEl = document.getElementById('deal-title-display');
-      if (titleEl) titleEl.textContent = currentLoadedDeal.name;
+      if (titleEl) titleEl.textContent = resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal]);
 
       const locEl = document.getElementById('deal-location-display');
       if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location}</span>`;
@@ -7906,6 +7908,97 @@
       closeEditDealModal();
     }
     window.saveEditDealModalFromProject = saveEditDealModalFromProject;
+
+    
+    // --- Intelligent Deal Title & Address Deduplication Helpers ---
+    function cleanTitleFromAddress(rawName, location) {
+      if (!rawName) return 'Underwriting Project';
+      let clean = String(rawName).trim();
+      if (!clean) return 'Underwriting Project';
+
+      // 1. Extract street address from location if available
+      let street = '';
+      if (location && typeof location === 'string') {
+        street = location.split(',')[0].trim();
+      }
+
+      function getStreetVariants(str) {
+        if (!str) return [];
+        const variants = new Set([str]);
+        const map = [
+          [/\bRd\.?\b/gi, 'Road'],
+          [/\bRoad\b/gi, 'Rd'],
+          [/\bSt\.?\b/gi, 'Street'],
+          [/\bStreet\b/gi, 'St'],
+          [/\bAve\.?\b/gi, 'Avenue'],
+          [/\bAvenue\b/gi, 'Ave'],
+          [/\bBlvd\.?\b/gi, 'Boulevard'],
+          [/\bBoulevard\b/gi, 'Blvd'],
+          [/\bDr\.?\b/gi, 'Drive'],
+          [/\bDrive\b/gi, 'Dr']
+        ];
+        map.forEach(([re, rep]) => {
+          const swapped = str.replace(re, rep);
+          if (swapped !== str) variants.add(swapped);
+        });
+        return Array.from(variants).sort((a, b) => b.length - a.length);
+      }
+
+      // 2. If street or variant is present in rawName, strip it
+      if (street && street.length >= 3) {
+        const variants = getStreetVariants(street);
+        for (const v of variants) {
+          const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\async function initProjectView() {');
+          const streetRegex = new RegExp('(?:\\s*[-–—:,/]+\\s*|\\s*\\(\\s*|\\s+)' + escaped + '\\b(?:\\s*\\))?', 'i');
+          if (streetRegex.test(clean)) {
+            const stripped = clean.replace(streetRegex, '').trim();
+            if (stripped.length > 0) {
+              clean = stripped.replace(/[-–—:,/]+$/, '').trim();
+              break;
+            }
+          }
+        }
+      }
+
+      // 3. Generic street address suffix pattern check
+      const streetSuffixPattern = /(?:\s*[-–—:,/]+\s*|\s*[([]\s*|\s+)\d{1,6}\s+([NSEW]\.?\s+)?[A-Za-z0-9\s.'#]+(Rd|Road|St|Street|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Way|Hwy|Highway|Pkwy|Parkway|Ln|Lane|Ct|Court|Pl|Place|Loop|Cir|Circle|Trl|Trail)\b[)\]]?$/i;
+      if (clean.length > 3 && streetSuffixPattern.test(clean)) {
+        const candidate = clean.replace(streetSuffixPattern, '').trim().replace(/[-–—:,/]+$/, '').trim();
+        if (candidate.length > 0) {
+          clean = candidate;
+        }
+      }
+
+      return clean;
+    }
+    window.cleanTitleFromAddress = cleanTitleFromAddress;
+
+    function resolveDealDisplayName(deal, allDeals = []) {
+      if (!deal) return 'Underwriting Project';
+      const rawName = deal.name || deal.title || 'Underwriting Project';
+      const location = deal.location || deal.inputs?.location || deal.inputs?.address || '';
+      const clean = cleanTitleFromAddress(rawName, location);
+
+      // If there are other deals with the same cleaned title, append the distinguishing street address
+      if (Array.isArray(allDeals) && allDeals.length > 1) {
+        const street = (location ? location.split(',')[0].trim() : '').replace(/\bWA\b|\d{5}/gi, '').trim();
+        const otherDealsWithSameCleanTitle = allDeals.filter(d => {
+          if (!d || d.id === deal.id) return false;
+          const otherClean = cleanTitleFromAddress(d.name || d.title, d.location || d.inputs?.location);
+          return otherClean.toLowerCase() === clean.toLowerCase();
+        });
+
+        if (otherDealsWithSameCleanTitle.length > 0) {
+          if (street && !clean.toLowerCase().includes(street.toLowerCase())) {
+            return `${clean} (${street})`;
+          }
+          return rawName;
+        }
+      }
+
+      return clean;
+    }
+    window.resolveDealDisplayName = resolveDealDisplayName;
 
     async function initProjectView() {
       if (typeof syncNavLinksWithDealId === "function") syncNavLinksWithDealId();
@@ -7978,8 +8071,11 @@
       activeTab = aType;
 
       // Dynamically Update Header Display
+      const allDealsList = (typeof allDeals !== 'undefined' && Array.isArray(allDeals)) ? allDeals : [currentLoadedDeal];
+      const cleanTitle = resolveDealDisplayName(currentLoadedDeal, allDealsList);
+      currentLoadedDeal.name = cleanTitle;
       const titleEl = document.getElementById('deal-title-display');
-      if (titleEl) titleEl.textContent = currentLoadedDeal.name || currentLoadedDeal.title || 'Underwriting Project';
+      if (titleEl) titleEl.textContent = cleanTitle;
 
       const locEl = document.getElementById('deal-location-display');
       if (locEl) {
