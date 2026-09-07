@@ -1874,7 +1874,11 @@
       if (e.target.closest('.card-dropdown-menu') || e.target.closest('button[aria-label="Deal Actions"]') || e.target.closest('#card-menu-' + id)) {
         return;
       }
-      window.location.href = 'project.html?id=' + id;
+      try {
+        sessionStorage.setItem('mathtree_active_deal_id', id);
+        localStorage.setItem('mathtree_active_deal_id', id);
+      } catch(e) {}
+      window.location.href = 'project.html?id=' + encodeURIComponent(id);
     }
 
     // --- Dropdown Menu Controller ---

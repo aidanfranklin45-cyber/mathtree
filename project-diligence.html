@@ -113,7 +113,7 @@
               <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Property Analysis Modules</span>
               <span class="text-[9px] text-slate-500 font-mono">7 Sections</span>
             </div>
-            <div class="p-1.5 space-y-0.5" id="module-dropdown-items-list">
+            <div class="p-1.5 space-y-0.5" id="deal-tabs-navbar" data-menu="module-dropdown-items-list">
           <a href="project.html" data-page-key="overview" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">📌</span>
@@ -4480,9 +4480,15 @@
     });
 
     function syncNavLinksWithDealId() {
-      const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id);
+      const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id) || sessionStorage.getItem('mathtree_active_deal_id') || localStorage.getItem('mathtree_active_deal_id');
       if (!dealId) return;
-      document.querySelectorAll('#deal-tabs-navbar a[data-page-key]').forEach(a => {
+
+      try {
+        sessionStorage.setItem('mathtree_active_deal_id', dealId);
+        localStorage.setItem('mathtree_active_deal_id', dealId);
+      } catch(e) {}
+
+      document.querySelectorAll('a[data-page-key], #deal-tabs-navbar a[data-page-key], #module-dropdown-items-list a[data-page-key]').forEach(a => {
         const pageKey = a.getAttribute('data-page-key');
         const fileMap = {
           'overview': 'project.html',
@@ -4495,6 +4501,15 @@
         };
         const targetFile = fileMap[pageKey] || 'project.html';
         a.href = targetFile + '?id=' + encodeURIComponent(dealId);
+        if (!a._dealBound) {
+          a.addEventListener('click', () => {
+            try {
+              sessionStorage.setItem('mathtree_active_deal_id', dealId);
+              localStorage.setItem('mathtree_active_deal_id', dealId);
+            } catch(e) {}
+          });
+          a._dealBound = true;
+        }
       });
     }
 
@@ -7566,9 +7581,21 @@
     function getDealIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
       const urlId = params.get('id');
-      if (urlId) return urlId;
+      if (urlId) {
+        try {
+          sessionStorage.setItem('mathtree_active_deal_id', urlId);
+          localStorage.setItem('mathtree_active_deal_id', urlId);
+        } catch(e) {}
+        return urlId;
+      }
       const hash = window.location.hash;
       if (hash && hash.startsWith('#deal=')) return hash.substring(6);
+
+      try {
+        const storedId = sessionStorage.getItem('mathtree_active_deal_id') || localStorage.getItem('mathtree_active_deal_id');
+        if (storedId) return storedId;
+      } catch(e) {}
+
       return null;
     }
 
