@@ -1995,7 +1995,7 @@
       if (street && street.length >= 3) {
         const variants = getStreetVariants(street);
         for (const v of variants) {
-          const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\// --- Edit Project Inputs Modal Controller ---');
+          const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, ch => '\\' + ch);
           const streetRegex = new RegExp('(?:\\s*[-–—:,/]+\\s*|\\s*\\(\\s*|\\s+)' + escaped + '\\b(?:\\s*\\))?', 'i');
           if (streetRegex.test(clean)) {
             const stripped = clean.replace(streetRegex, '').trim();

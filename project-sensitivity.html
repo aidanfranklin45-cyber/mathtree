@@ -3174,11 +3174,13 @@
       const container = document.getElementById('printable-brief');
       if (!container) return;
 
-      const deal = currentLoadedDeal || {};
+      const deal = currentLoadedDeal || window.currentLoadedDeal || (() => { try { const d = localStorage.getItem('mathtree_active_deal'); return d ? JSON.parse(d) : {}; } catch(e) { return {}; } })() || {};
       const rawAssessor = (deal.inputs && deal.inputs.assessorData) || {};
-      const propAddress = deal.location || (deal.inputs && deal.inputs.location) || rawAssessor.address || '128 N 2nd St, Yakima, WA 98901';
+      const domLoc = (document.getElementById('deal-location-display') ? document.getElementById('deal-location-display').textContent.trim() : '');
+      const domTitle = (document.getElementById('deal-title-display') ? document.getElementById('deal-title-display').textContent.trim() : '');
+      const propAddress = deal.location || (deal.inputs && (deal.inputs.location || deal.inputs.address || deal.inputs.siteAddress)) || rawAssessor.address || domLoc || 'Site Address';
       const propCounty = (deal.inputs && deal.inputs.county) || (propAddress.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Assessor Record');
-      const propTitle = deal.name || tabTitles[activeTab] || activeTab;
+      const propTitle = deal.name || domTitle || tabTitles[activeTab] || 'Real Estate Investment Project';
 
       // Multi-parcel package resolution
       const rawParcels = (deal.inputs && Array.isArray(deal.inputs.parcels) && deal.inputs.parcels.length > 0)
@@ -3219,7 +3221,17 @@
         : (rawAssessor.sqft || (deal.inputs && deal.inputs.sqft) || (pkgTotalAcres > 0 ? Math.round(pkgTotalAcres * 43560) : (inputs.gla || 0)));
 
       const primaryApnRaw = (deal.inputs && (deal.inputs.primaryApn || deal.inputs.apn)) || rawAssessor.apn || (activeParcelsList[0] && (activeParcelsList[0].formattedApn || activeParcelsList[0].apn)) || '';
+      const cleanApn = primaryApnRaw ? String(primaryApnRaw).replace(/[^a-zA-Z0-9]/g, '') : '';
+      const ascendUrl = rawAssessor.assessorPortalUrl || (cleanApn ? `https://yes.co.yakima.wa.us/ascend/?mParcelID=${cleanApn}` : 'https://yes.co.yakima.wa.us/ascend/');
       const formattedApn = rawAssessor.formattedApn || (primaryApnRaw.length === 11 ? (primaryApnRaw.slice(0, 6) + '-' + primaryApnRaw.slice(6)) : primaryApnRaw) || 'Pending Link';
+
+      let assessedBasisSpreadDisplay = 'Pending Assessment';
+      let spreadColor = '#64748b';
+      if (pkgTotalAssessed > 0) {
+        const spreadPct = ((res.purchasePrice - pkgTotalAssessed) / pkgTotalAssessed) * 100;
+        assessedBasisSpreadDisplay = `${spreadPct >= 0 ? '+' : ''}${spreadPct.toFixed(1)}% vs County Assessed`;
+        spreadColor = spreadPct <= 0 ? '#047857' : (spreadPct <= 15 ? '#2563eb' : '#d97706');
+      }
 
       const sqft = pkgTotalSqFt > 0 ? pkgTotalSqFt : (inputs.gla || 0);
       const acres = pkgTotalAcres;
@@ -3396,7 +3408,7 @@
                   <h1 style="font-size: 17px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${propTitle}</h1>
                   <div style="font-size: 10px; color: #475569; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 8px;">
                     <span>📍 <strong>${propAddress}</strong></span>
-                    <span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-family: monospace; font-weight: 700;">APN: ${formattedApn}${hasMultiParcels ? ' (+' + (activeParcelsList.length - 1) + ' Companion)' : ''}</span>
+                    <span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-family: monospace; font-weight: 700;">${cleanApn ? `<a href="${ascendUrl}" target="_blank" style="color: #047857; text-decoration: none;">APN: ${formattedApn}${hasMultiParcels ? ' (+' + (activeParcelsList.length - 1) + ' Companion)' : ''} ↗</a>` : `APN: ${formattedApn}${hasMultiParcels ? ' (+' + (activeParcelsList.length - 1) + ' Companion)' : ''}`}</span>
                     <span style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700;">🏛️ ${propCounty}</span>
                   </div>
                 </div>
@@ -3492,7 +3504,7 @@
                       </tr>
                       <tr style="border-bottom: 1px solid #f1f5f9;">
                         <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Assessor APN / Parcel ID</td>
-                        <td style="padding: 4px 10px; font-family: monospace; font-weight: 700; color: #047857;">${formattedApn}</td>
+                        <td style="padding: 4px 10px; font-family: monospace; font-weight: 700; color: #047857;">${cleanApn ? `<a href="${ascendUrl}" target="_blank" style="color: #047857; text-decoration: underline;">${formattedApn} <span style="font-size: 8px; font-weight: 600; text-decoration: none;">(Ascend Portal ↗)</span></a>` : formattedApn}</td>
                         <td style="padding: 4px 10px; color: #64748b; font-weight: 600;">Owner of Record</td>
                         <td style="padding: 4px 10px; font-weight: 700; color: #0f172a;">${owner}</td>
                       </tr>
@@ -3557,7 +3569,7 @@
                   <div style="font-size: 8.5px; color: #334155; line-height: 1.45;">
                     <div>Purchase Price: <strong style="color: #059669; font-size: 9.5px;">${formatCurrency(res.purchasePrice)}</strong></div>
                     <div>Price / Sq Ft: <strong>${sqft > 0 ? '$' + (res.purchasePrice / sqft).toFixed(2) : 'N/A'}</strong></div>
-                    <div>Assessed Basis Spread: <strong style="color: ${res.purchasePrice >= pkgTotalAssessed ? '#047857' : '#2563eb'};">${res.purchasePrice >= pkgTotalAssessed ? '+' : ''}${(((res.purchasePrice - pkgTotalAssessed) / (pkgTotalAssessed || 1)) * 100).toFixed(1)}% vs County</strong></div>
+                    <div>Assessed Basis Spread: <strong style="color: ${spreadColor};">${assessedBasisSpreadDisplay}</strong></div>
                     <div>Asset Class: <strong>${tabTitles[activeTab] || activeTab}</strong></div>
                   </div>
                 </div>
@@ -3606,10 +3618,33 @@
               </div>
             </div>
 
+              <!-- Executive Investment Thesis & Underwriting Summary (Centered Prospectus Panel) -->
+              <div style="border: 1.5px solid #0f172a; border-radius: 6px; overflow: hidden; margin-top: 10px; background: #ffffff;">
+                <div style="background: #0f172a; color: #ffffff; padding: 5px 10px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+                  <span>📑 Executive Investment Thesis & Underwriting Summary</span>
+                  <span style="font-size: 8.5px; background: #047857; color: #ffffff; padding: 1.5px 7px; border-radius: 3px; font-weight: 700;">Prospectus Overview</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 9px 12px; font-size: 8.5px; line-height: 1.45; background: #f8fafc;">
+                  <div>
+                    <div style="font-weight: 800; color: #0f172a; margin-bottom: 3px; text-transform: uppercase; font-size: 8px; letter-spacing: 0.5px;">1. Basis & Acquisition Thesis</div>
+                    <p style="margin: 0; color: #334155;">Underwritten at <strong>${formatCurrency(res.purchasePrice)}</strong> (${sqft > 0 ? '$' + (res.purchasePrice / sqft).toFixed(2) + '/sq ft' : 'market basis'}), representing <strong>${assessedBasisSpreadDisplay}</strong>. The asset offers a favorable basis entry with immediate cash yield across a ${holdYrs}-year institutional horizon.</p>
+                  </div>
+                  <div>
+                    <div style="font-weight: 800; color: #0f172a; margin-bottom: 3px; text-transform: uppercase; font-size: 8px; letter-spacing: 0.5px;">2. Debt Coverage & Downside Cushion</div>
+                    <p style="margin: 0; color: #334155;">Year 1 debt service of <strong>${formatCurrency(res.monthlyMortgagePayment * 12)}/yr</strong> is supported by <strong>${res.projections[0].dscr !== null ? res.projections[0].dscr.toFixed(2) + 'x DSCR' : 'in-place NOI'}</strong>. Operations provide a <strong>${maxVacancyTolerancePct.toFixed(1)}% vacancy buffer</strong> before debt service is impaired, with breakeven occupancy at <strong>${breakevenOccupancyPct.toFixed(1)}%</strong>.</p>
+                  </div>
+                  <div>
+                    <div style="font-weight: 800; color: #0f172a; margin-bottom: 3px; text-transform: uppercase; font-size: 8px; letter-spacing: 0.5px;">3. Capital Realization & Return Profile</div>
+                    <p style="margin: 0; color: #334155;">Targeting a <strong>${res.irr.toFixed(2)}% Levered IRR</strong> and <strong>${res.equityMultiplier.toFixed(2)}x Equity Multiple</strong>. Model derives <strong>${formatCurrency(res.npv)}</strong> in net present value (@${inputs.discountRate}% hurdle), combining recurring cash yield with principal paydown and terminal exit realization.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Page 1 Running Footer -->
-            <div style="border-top: 1px solid #cbd5e1; padding-top: 4px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8;">
-              <span>MathTree Institutional Real Estate Underwriting • Verified Acquisition Dossier & Capital Structure</span>
-              <span>Informational Underwriting Analysis • Based on User-Supplied Inputs • Page 1 of 3</span>
+            <div style="border-top: 1.5px solid #cbd5e1; padding-top: 5px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 8px; color: #64748b;">
+              <span>MathTree Real Estate Underwriting • Verified Acquisition Dossier & Capital Structure</span>
+              <span style="font-weight: 600;">Confidential Institutional Underwriting Prospectus • Page 1 of 3</span>
             </div>
           </div>
 
@@ -3657,7 +3692,7 @@
                         <span style="color: #64748b; font-size: 7.5px; display: block;">${sqft > 0 ? '$' + (res.purchasePrice / sqft).toFixed(2) + '/sq ft' : ''}</span>
                       </td>
                       <td style="padding: 4px 6px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-                        User underwritten purchase basis calibrated against official ${hasMultiParcels ? activeParcelsList.length + '-parcel assessed valuation of ' + formatCurrency(pkgTotalAssessed) : 'assessed basis of ' + formatCurrency(totalAssessed)} (${res.purchasePrice >= pkgTotalAssessed ? '+' : ''}${(((res.purchasePrice - pkgTotalAssessed) / (pkgTotalAssessed || 1)) * 100).toFixed(1)}% spread).
+                        User underwritten purchase basis calibrated against official ${hasMultiParcels ? activeParcelsList.length + '-parcel assessed valuation of ' + formatCurrency(pkgTotalAssessed) : 'assessed basis of ' + formatCurrency(totalAssessed)} (${pkgTotalAssessed > 0 ? assessedBasisSpreadDisplay : 'assessed basis pending'}).
                       </td>
                       <td style="padding: 4px 6px; border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
                         Establishes initial capital requirement, starting loan basis (${formatCurrency(res.loanAmount)}), and depreciable tax basis.
@@ -7993,7 +8028,7 @@
       if (street && street.length >= 3) {
         const variants = getStreetVariants(street);
         for (const v of variants) {
-          const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\async function initProjectView() {');
+          const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, ch => '\\' + ch);
           const streetRegex = new RegExp('(?:\\s*[-–—:,/]+\\s*|\\s*\\(\\s*|\\s+)' + escaped + '\\b(?:\\s*\\))?', 'i');
           if (streetRegex.test(clean)) {
             const stripped = clean.replace(streetRegex, '').trim();
@@ -8059,7 +8094,7 @@
 
       // 1. First attempt to load directly from Supabase by UUID
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentLoadedDealId || '');
-      if (window._supabase && user && !user.demo && currentLoadedDealId && isUuid) {
+      if (window._supabase && currentLoadedDealId && isUuid) {
         try {
           const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).single();
           if (!error && data) {
@@ -8111,6 +8146,8 @@
 
       if (!currentLoadedDeal) return;
       currentLoadedDealId = currentLoadedDeal.id;
+      window.currentLoadedDeal = currentLoadedDeal;
+      try { localStorage.setItem("mathtree_active_deal", JSON.stringify(currentLoadedDeal)); } catch(e) {}
 
       const aType = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
       activeTab = aType;
