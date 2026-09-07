@@ -2640,54 +2640,25 @@
 
     // Switch workspace views (Dashboard, Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio)
     // Switch between the 7 Deal Hub Sub-Pages
-    function switchDealTab(tabName) {
-      const validTabs = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'];
-      if (!validTabs.includes(tabName)) {
-        tabName = 'overview';
-      }
-
-      // Update Nav Buttons
-      document.querySelectorAll('[data-deal-tab]').forEach(btn => {
-        const t = btn.getAttribute('data-deal-tab');
-        if (t === tabName) {
-          btn.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold text-white bg-brand-600 shadow-sm transition-all whitespace-nowrap';
-        } else {
-          btn.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap';
-        }
-      });
-
-      // Map to panels
-      const panelMap = {
-        overview: 'view-panel-single',
-        proforma: 'view-panel-proforma',
-        property: 'view-panel-property',
-        debt: 'view-panel-debt',
-        diligence: 'view-panel-diligence',
-        sensitivity: 'view-panel-sensitivity',
-        tax: 'view-panel-tax'
+        function switchDealTab(tabName) {
+      const pageMap = {
+        overview: 'project.html',
+        proforma: 'project-proforma.html',
+        property: 'project-property.html',
+        debt: 'project-debt.html',
+        diligence: 'project-diligence.html',
+        sensitivity: 'project-sensitivity.html',
+        tax: 'project-tax.html'
       };
 
-      Object.entries(panelMap).forEach(([key, panelId]) => {
-        const panel = document.getElementById(panelId);
-        if (panel) {
-          if (key === tabName) {
-            panel.classList.remove('hidden');
-          } else {
-            panel.classList.add('hidden');
-          }
-        }
-      });
+      const targetFile = pageMap[tabName] || 'project.html';
+      const currentPath = window.location.pathname.split('/').pop().split('?')[0].split('#')[0] || 'project.html';
 
-      // Deep linking hash update without page jump
-      try {
-        history.replaceState(null, null, '#' + tabName);
-      } catch(e) {}
-
-      // Trigger chart resize if entering overview
-      if (tabName === 'overview' && window._projectionsChart) {
-        setTimeout(() => {
-          try { window._projectionsChart.resize(); } catch(e) {}
-        }, 50);
+      if (targetFile !== currentPath) {
+        const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (typeof currentLoadedDeal !== 'undefined' && currentLoadedDeal && currentLoadedDeal.id);
+        const url = targetFile + (dealId ? '?id=' + encodeURIComponent(dealId) : '');
+        window.location.href = url;
+        return;
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
