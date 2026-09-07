@@ -233,102 +233,6 @@
 
     
 
-<!-- Quick Stage Actions -->
-        <div class="flex items-center space-x-2">
-          <button type="button" id="btn-prev-stage" onclick="stepDealStage(-1)" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition" title="Move to previous stage">← Prev</button>
-          <select id="select-deal-stage" onchange="setDealStage(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-bold text-white focus:outline-none focus:border-brand-500">
-            <option value="screening">1. Screening & Underwriting</option>
-            <option value="loi">2. LOI / Offer Submitted</option>
-            <option value="due_diligence">3. Under Contract & Due Diligence</option>
-            <option value="closing">4. Financing & Closing</option>
-            <option value="owned">5. Owned / Asset Management</option>
-            <option value="disposition">6. Exited / Disposed</option>
-          </select>
-          <button type="button" id="btn-next-stage" onclick="stepDealStage(1)" class="px-3 py-1 rounded-lg text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/30 border border-emerald-900/50 hover:bg-emerald-950/50 transition flex items-center space-x-1" title="Advance to next stage">
-            <span>Advance</span>
-            <span>➔</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 6-Stage Visual Stepper -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1" id="timeline-stepper-track">
-        <div id="step-screening" onclick="setDealStage('screening')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-brand-500/10 border-brand-500/30 text-brand-300">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 1</span>
-            <span class="w-2 h-2 rounded-full bg-brand-400"></span>
-          </div>
-          <p class="text-xs font-bold text-white">Underwriting</p>
-          <span class="text-[10px] text-slate-400">Model & Returns</span>
-        </div>
-
-        <div id="step-loi" onclick="setDealStage('loi')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 2</span>
-            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
-          </div>
-          <p class="text-xs font-bold text-slate-300">LOI Submitted</p>
-          <span class="text-[10px] text-slate-500">Offer Issued</span>
-        </div>
-
-        <div id="step-due_diligence" onclick="setDealStage('due_diligence')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 3</span>
-            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
-          </div>
-          <p class="text-xs font-bold text-slate-300">Due Diligence</p>
-          <span class="text-[10px] text-slate-500">PSA Feasibility</span>
-        </div>
-
-        <div id="step-closing" onclick="setDealStage('closing')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 4</span>
-            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
-          </div>
-          <p class="text-xs font-bold text-slate-300">Closing & Escrow</p>
-          <span class="text-[10px] text-slate-500">Debt & Settlement</span>
-        </div>
-
-        <div id="step-owned" onclick="setDealStage('owned')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 5</span>
-            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
-          </div>
-          <p class="text-xs font-bold text-slate-300">Owned Asset</p>
-          <span class="text-[10px] text-slate-500">Operate & Value-Add</span>
-        </div>
-
-        <div id="step-disposition" onclick="setDealStage('disposition')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
-          <div class="flex items-center justify-between">
-            <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 6</span>
-            <span class="w-2 h-2 rounded-full bg-slate-700"></span>
-          </div>
-          <p class="text-xs font-bold text-slate-300">Disposition</p>
-          <span class="text-[10px] text-slate-500">Sale / Refinance</span>
-        </div>
-      </div>
-
-      <!-- Milestone Target Dates & Critical Deadlines -->
-      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs border-t border-slate-900 bg-slate-950/40 p-2.5 rounded-xl">
-        <div class="flex items-center flex-wrap gap-4 text-[11px]">
-          <div class="flex items-center space-x-1.5">
-            <span class="text-slate-500 font-bold uppercase text-[10px]">LOI Date:</span>
-            <input type="date" id="date-loi" onchange="updateMilestoneDate('loiDate', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-slate-200 text-[11px] focus:outline-none focus:border-brand-500">
-          </div>
-          <div class="flex items-center space-x-1.5">
-            <span class="text-amber-400 font-bold uppercase text-[10px]">DD Expiration (Go/No-Go):</span>
-            <input type="date" id="date-dd" onchange="updateMilestoneDate('dueDiligenceExpiration', this.value)" class="bg-slate-900 border border-amber-900/60 rounded px-2 py-0.5 text-amber-200 text-[11px] focus:outline-none focus:border-amber-400">
-          </div>
-          <div class="flex items-center space-x-1.5">
-            <span class="text-emerald-400 font-bold uppercase text-[10px]">Target Closing:</span>
-            <input type="date" id="date-closing" onchange="updateMilestoneDate('closingDate', this.value)" class="bg-slate-900 border border-emerald-900/60 rounded px-2 py-0.5 text-emerald-200 text-[11px] focus:outline-none focus:border-emerald-400">
-          </div>
-        </div>
-        <div id="timeline-countdown-pill" class="text-[11px] font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
-          <span>Active Pipeline Status</span>
-        </div>
-      </div>
-    </div>
 
 
     <!-- Institutional Deal Hub Container (Full Width 12-Column Presentation) -->
@@ -6911,6 +6815,7 @@
     window.saveCurrentDealChanges = saveCurrentDealChanges;
 
     function renderDealTimelineUI(currentStage) {
+      if (!document.getElementById('deal-timeline-container')) return;
       currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || (currentLoadedDeal?.status === 'owned' ? 'owned' : 'screening');
       const meta = STAGE_META[currentStage] || STAGE_META['screening'];
 

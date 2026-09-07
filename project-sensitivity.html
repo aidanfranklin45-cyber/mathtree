@@ -6823,6 +6823,7 @@
     window.saveCurrentDealChanges = saveCurrentDealChanges;
 
     function renderDealTimelineUI(currentStage) {
+      if (!document.getElementById('deal-timeline-container')) return;
       currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || (currentLoadedDeal?.status === 'owned' ? 'owned' : 'screening');
       const meta = STAGE_META[currentStage] || STAGE_META['screening'];
 
