@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MathTree - FourLeaf Property Operations & Rent Roll</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- MathTree Session & Settings -->
+  <script src="session.js"></script>
+  <script src="profile.js"></script>
+  <script src="math.js?v=4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(6, 40, 24, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.7); }
+
+    @media print {
+      body { background: #ffffff !important; color: #0f172a !important; }
+      header, nav, button, .no-print { display: none !important; }
+      #printable-rent-roll { display: block !important; }
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f4fcf7', 100: '#e1f9eb', 200: '#c2f1d4', 300: '#90e4b0',
+              400: '#56cf86', 500: '#10b981', 600: '#059669', 700: '#047857',
+              800: '#065f46', 900: '#064e3b', 950: '#022c22'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-brand-500/30 selection:text-brand-200">
+
+  <!-- Session Guard -->
+  <script>
+    window.SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
+    window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
+
+    (function() {
+      if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
+        window.MathTreeSession.logout('timeout');
+        return;
+      }
+
+      const { createClient } = window.supabase;
+      const guardClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      window._supabase = guardClient;
+
+      guardClient.auth.getSession().then(function(result) {
+        const session = result.data && result.data.session;
+        if (!session) {
+          window.location.replace('index.html');
+          return;
+        }
+        window._currentUser = session.user;
+        if (window.MathTreeSession) window.MathTreeSession.startWatcher(guardClient);
+        if (typeof initOperationsView === 'function') {
+          initOperationsView();
+        }
+      });
+
+      guardClient.auth.onAuthStateChange(function(event, session) {
+        if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
+          window.location.replace('index.html');
+        }
+      });
+    })();
+  </script>
+
+  <!-- Clean Operations Header -->
+  <header class="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-3">
+      
+      <!-- Brand & Hub Nav -->
+      <div class="flex items-center space-x-4 sm:space-x-6 shrink-0">
+        <a href="dashboard.html" class="flex items-center space-x-2.5 sm:space-x-3 group">
+          <div class="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 relative">
+            <svg class="h-5 w-5 sm:h-6 sm:w-6 text-white relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 21V12" stroke-linecap="round" />
+              <path d="M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" stroke-linecap="round" />
+              <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8" stroke-linecap="round" />
+              <path d="M17 10C17 10 15 8 15 6M17 10C17 19 8 19 6" stroke-linecap="round" />
+              <circle cx="5" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="9" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="19" cy="6" r="1.5" fill="currentColor" />
+            </svg>
+          </div>
+          <div>
+            <span class="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
+            <span class="text-[10px] sm:text-xs block text-emerald-400 font-bold uppercase tracking-wider flex items-center space-x-1">
+              <span>FourLeaf Operations</span>
+            </span>
+          </div>
+        </a>
+
+        <!-- Dual Hub Switcher Tabs -->
+        <nav class="hidden md:flex items-center space-x-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+          <a href="dashboard.html" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+            Portfolio & Pipeline
+          </a>
+          <a href="operations.html" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm transition">
+            FourLeaf Rent Roll
+          </a>
+        </nav>
+      </div>
+
+      <!-- User Actions & Global Profile -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <button onclick="openEntityManagementModal()" class="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Manage LLC Entities">
+          <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          <span class="hidden sm:inline">Manage LLCs</span>
+        </button>
+        <button onclick="openAddLeaseModal()" class="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30 transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          <span>Add Lease</span>
+        </button>
+        <button onclick="handleSignOut()" class="py-1.5 px-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/40 transition">
+          Sign Out
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 flex flex-col space-y-6">
+
+    <!-- Top Entity & Filter Controls (Uncluttered) -->
+    <div class="bg-slate-900/70 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-lg backdrop-blur-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      
+      <!-- Entity Dropdown & Property Scope -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div>
+          <label for="entity-filter-select" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+            Ownership Entity (LLC)
+          </label>
+          <div class="relative">
+            <select id="entity-filter-select" onchange="handleEntityFilterChange()" class="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-emerald-500 pr-8 min-w-[200px] sm:min-w-[240px] appearance-none cursor-pointer">
+              <option value="all">All Entities (Consolidated Portfolio)</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="property-filter-select" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+            Property Filter
+          </label>
+          <div class="relative">
+            <select id="property-filter-select" onchange="handlePropertyFilterChange()" class="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:border-emerald-500 pr-8 min-w-[180px] sm:min-w-[210px] appearance-none cursor-pointer">
+              <option value="all">All Properties</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Month Navigation (Due Date Cycle) -->
+      <div class="flex items-center justify-between sm:justify-end space-x-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+        <button onclick="changeMonth(-1)" class="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 transition" title="Previous Month">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="text-center px-3">
+          <span id="active-month-label" class="block text-xs sm:text-sm font-extrabold text-white font-mono">September 2026</span>
+          <span class="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Billing Cycle</span>
+        </div>
+        <button onclick="changeMonth(1)" class="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-950 border border-slate-800 hover:border-slate-700 transition" title="Next Month">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button onclick="resetCurrentMonth()" class="text-[11px] text-slate-400 hover:text-white px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-800 transition">
+          Today
+        </button>
+      </div>
+
+    </div>
+
+    <!-- 4 High-Impact Pulse Scorecards (Clean & Minimalist) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      
+      <!-- 1. Total In-Place Rent Roll -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-emerald-700/40 transition">
+        <div class="flex items-center justify-between text-slate-400">
+          <span class="text-[10px] font-bold uppercase tracking-wider">In-Place Rent Roll</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        </div>
+        <span id="kpi-monthly-rent" class="text-xl sm:text-2xl font-black text-white mt-1.5 block">$0</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+          <span>Run-Rate:</span>
+          <span id="kpi-annual-rent" class="text-emerald-400 font-bold font-mono">$0 / yr</span>
+        </div>
+      </div>
+
+      <!-- 2. Physical Occupancy -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-emerald-700/40 transition">
+        <div class="flex items-center justify-between text-slate-400">
+          <span class="text-[10px] font-bold uppercase tracking-wider">Physical Occupancy</span>
+          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+        </div>
+        <span id="kpi-occupancy-rate" class="text-xl sm:text-2xl font-black text-white mt-1.5 block">0%</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+          <span>Units Leased:</span>
+          <span id="kpi-occupied-units" class="text-blue-400 font-bold font-mono">0 / 0</span>
+        </div>
+      </div>
+
+      <!-- 3. Current Month Collections -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-emerald-700/40 transition">
+        <div class="flex items-center justify-between text-slate-400">
+          <span class="text-[10px] font-bold uppercase tracking-wider">Collections</span>
+          <span id="kpi-collection-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        </div>
+        <span id="kpi-collected-pct" class="text-xl sm:text-2xl font-black text-emerald-400 mt-1.5 block">100%</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+          <span>Status:</span>
+          <span id="kpi-collection-breakdown" class="text-slate-300 font-medium text-[10px]">0 Paid • 0 Pending</span>
+        </div>
+      </div>
+
+      <!-- 4. Rent Reviews Due (>12 mos) -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-amber-700/40 transition">
+        <div class="flex items-center justify-between text-slate-400">
+          <span class="text-[10px] font-bold uppercase tracking-wider">Reviews Due (>12m)</span>
+          <span id="kpi-reviews-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+        </div>
+        <span id="kpi-reviews-count" class="text-xl sm:text-2xl font-black text-white mt-1.5 block">0 Leases</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+          <span>Rent Optimization:</span>
+          <span id="kpi-reviews-sub" class="text-slate-400 text-[10px]">All Up-to-Date</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Master Rent Roll Section -->
+    <div class="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
+      
+      <!-- Section Header -->
+      <div class="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90">
+        <div>
+          <h3 class="text-sm sm:text-base font-extrabold text-white flex items-center space-x-2">
+            <span>Master Rent Roll & Lease Ledger</span>
+            <span id="rent-roll-count-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">0 Active</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Monitor tenant lease status, due dates, in-place cash flows, and escalation opportunities.
+          </p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="refreshOperationsData()" class="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800 border border-slate-700 hover:border-slate-600 transition" title="Refresh Live Database">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Rent Roll Table Container -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
+              <th class="py-3 px-4">Property & Unit</th>
+              <th class="py-3 px-4">Tenant</th>
+              <th class="py-3 px-4 text-right">In-Place Rent</th>
+              <th class="py-3 px-4">Lease Expiration</th>
+              <th class="py-3 px-4">Last Escalation</th>
+              <th class="py-3 px-4 text-center">Month Status</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rent-roll-tbody" class="divide-y divide-slate-800/60 text-xs">
+            <!-- Populated Dynamically -->
+            <tr>
+              <td colspan="7" class="py-12 text-center text-slate-400">
+                <div class="animate-pulse flex flex-col items-center justify-center space-y-2">
+                  <div class="h-4 w-32 bg-slate-800 rounded"></div>
+                  <span class="text-xs">Connecting to Supabase production database...</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ==================== MODALS (PROGRESSIVE DISCLOSURE) ==================== -->
+
+  <!-- 1. Log Rent Payment Modal -->
+  <div id="modal-log-payment" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400">💵</span>
+          <span>Record Rent Payment</span>
+        </h3>
+        <button onclick="closeModal('modal-log-payment')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+      <form id="form-log-payment" onsubmit="handleSavePayment(event)" class="space-y-4 text-xs">
+        <input type="hidden" id="payment-lease-id" name="lease_id">
+        <input type="hidden" id="payment-deal-id" name="deal_id">
+        
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Property & Tenant</label>
+          <div id="payment-tenant-display" class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl font-semibold text-slate-200">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Billing Month</label>
+            <input type="date" id="payment-period-month" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Date Paid</label>
+            <input type="date" id="payment-paid-date" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Amount Due ($)</label>
+            <input type="number" step="0.01" id="payment-amount-due" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Amount Paid ($)</label>
+            <input type="number" step="0.01" id="payment-amount-paid" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-bold font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Payment Status</label>
+            <select id="payment-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:border-emerald-500 focus:outline-none">
+              <option value="paid">Paid (Settled)</option>
+              <option value="pending">Pending Settlement</option>
+              <option value="overdue">Overdue</option>
+              <option value="partial">Partial</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Method</label>
+            <select id="payment-method" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+              <option value="ach">ACH / Direct Deposit</option>
+              <option value="check">Check</option>
+              <option value="wire">Bank Wire</option>
+              <option value="card">Credit / Debit Card</option>
+              <option value="cash">Cash / Money Order</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Reference / Transaction Note</label>
+          <input type="text" id="payment-reference-note" placeholder="e.g. Wire Ref #8932, Check #1042" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button type="button" onclick="closeModal('modal-log-payment')" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
+            Save Payment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Record Rent Increase Modal -->
+  <div id="modal-rent-increase" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400">📈</span>
+          <span>Record Rent Escalation</span>
+        </h3>
+        <button onclick="closeModal('modal-rent-increase')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+      <form id="form-rent-increase" onsubmit="handleSaveRentIncrease(event)" class="space-y-4 text-xs">
+        <input type="hidden" id="increase-lease-id" name="lease_id">
+        <input type="hidden" id="increase-deal-id" name="deal_id">
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Property & Tenant</label>
+          <div id="increase-tenant-display" class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl font-semibold text-slate-200">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Current Rent ($)</label>
+            <input type="number" id="increase-old-rent" readonly class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-400 font-mono font-bold">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">New Monthly Rent ($)</label>
+            <input type="number" step="0.01" id="increase-new-rent" oninput="recalcIncreasePreview()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Calculated Live Adjustment Pill -->
+        <div id="increase-delta-preview" class="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-950 text-emerald-400 text-center font-bold font-mono text-[11px]">
+          Adjustment: +$0.00 (+0.0%)
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Effective Date</label>
+            <input type="date" id="increase-effective-date" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Notice Sent Date</label>
+            <input type="date" id="increase-notice-date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Reason / Clause</label>
+          <input type="text" id="increase-reason" placeholder="e.g. Annual 3% lease escalation, market catch-up" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button type="button" onclick="closeModal('modal-rent-increase')" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
+            Apply Escalation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Rent Increase Audit Trail Modal -->
+  <div id="modal-audit-trail" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-blue-400">📜</span>
+          <span>Escalation History & Audit Trail</span>
+        </h3>
+        <button onclick="closeModal('modal-audit-trail')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+      
+      <div id="audit-trail-tenant-info" class="text-xs text-slate-400 mb-3 font-medium"></div>
+
+      <div class="overflow-hidden rounded-xl border border-slate-800">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-950 text-[10px] uppercase font-bold text-slate-400">
+            <tr>
+              <th class="py-2.5 px-3">Effective</th>
+              <th class="py-2.5 px-3">Prior Rent</th>
+              <th class="py-2.5 px-3">New Rent</th>
+              <th class="py-2.5 px-3 text-right">Adjustment</th>
+              <th class="py-2.5 px-3">Reason</th>
+            </tr>
+          </thead>
+          <tbody id="audit-trail-tbody" class="divide-y divide-slate-800 text-slate-300">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-800 text-right">
+        <button type="button" onclick="closeModal('modal-audit-trail')" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Entity (LLC) Management Modal -->
+  <div id="modal-manage-entities" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400">🏛️</span>
+          <span>Manage Legal Entities (LLCs)</span>
+        </h3>
+        <button onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <!-- Current Entities List -->
+      <div class="space-y-2 mb-5">
+        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+        <div id="entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Create New LLC Form -->
+      <form id="form-create-entity" onsubmit="handleCreateEntity(event)" class="border-t border-slate-800 pt-4 space-y-3 text-xs">
+        <span class="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider">+ Register New LLC Entity</span>
+        
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Entity Legal Name *</label>
+          <input type="text" id="new-entity-name" required placeholder="e.g. FourLeaf Holdings LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Formation State</label>
+            <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">EIN / Tax ID</label>
+            <input type="text" id="new-entity-ein" placeholder="XX-XXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Operating Bank / Depository</label>
+          <input type="text" id="new-entity-bank" placeholder="e.g. Chase Commercial Banking (*4892)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
+          Save Entity
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Add Unit & Lease Modal -->
+  <div id="modal-add-lease" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400">📝</span>
+          <span>Add Property Unit & Lease</span>
+        </h3>
+        <button onclick="closeModal('modal-add-lease')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <form id="form-add-lease" onsubmit="handleSaveNewLease(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Target Property *</label>
+          <select id="new-lease-deal-id" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:border-emerald-500 focus:outline-none">
+            <!-- Populated with owned deals -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Unit / Suite # *</label>
+            <input type="text" id="new-lease-unit-num" required placeholder="e.g. Suite 100, Bay 2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Unit Type</label>
+            <input type="text" id="new-lease-unit-type" placeholder="Commercial, Retail, Bay" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Tenant Name *</label>
+            <input type="text" id="new-lease-tenant-name" required placeholder="e.g. Pacific Logistics LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Monthly Rent ($) *</label>
+            <input type="number" step="0.01" id="new-lease-rent" required placeholder="3200.00" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Lease Start Date *</label>
+            <input type="date" id="new-lease-start" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Lease Expiration</label>
+            <input type="date" id="new-lease-end" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Tenant Email</label>
+            <input type="email" id="new-lease-email" placeholder="tenant@example.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Tenant Phone</label>
+            <input type="text" id="new-lease-phone" placeholder="(509) 555-0100" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-lease')" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
+            Create Lease
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== FRONTEND CONTROLLER & DYNAMIC SUPABASE SYNC ==================== -->
+  <script>
+    let rawEntities = [];
+    let rawDeals = [];
+    let rawUnits = [];
+    let rawLeases = [];
+    let rawPayments = [];
+    let rawIncreases = [];
+
+    // Current Active Billing Period (Default to current month, normalized to YYYY-MM-01)
+    let activeDate = new Date();
+    activeDate.setDate(1);
+
+    function formatPeriodMonth(d) {
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      return `${yr}-${mo}-01`;
+    }
+
+    function getMonthLabel(d) {
+      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function updateMonthDisplay() {
+      const lbl = document.getElementById('active-month-label');
+      if (lbl) lbl.textContent = getMonthLabel(activeDate);
+    }
+
+    function changeMonth(delta) {
+      activeDate.setMonth(activeDate.getMonth() + delta);
+      updateMonthDisplay();
+      renderOperationsUI();
+    }
+
+    function resetCurrentMonth() {
+      activeDate = new Date();
+      activeDate.setDate(1);
+      updateMonthDisplay();
+      renderOperationsUI();
+    }
+
+    function closeModal(modalId) {
+      const el = document.getElementById(modalId);
+      if (el) el.classList.add('hidden');
+    }
+
+    function openModal(modalId) {
+      const el = document.getElementById(modalId);
+      if (el) el.classList.remove('hidden');
+    }
+
+    function handleSignOut() {
+      if (window._supabase && window._supabase.auth) {
+        window._supabase.auth.signOut().then(() => window.location.replace('index.html'));
+      } else {
+        window.location.replace('index.html');
+      }
+    }
+
+    // Initialize View
+    async function initOperationsView() {
+      updateMonthDisplay();
+      await fetchAllOperationsData();
+    }
+
+    async function refreshOperationsData() {
+      await fetchAllOperationsData();
+    }
+
+    // Fetch all records dynamically from Supabase
+    async function fetchAllOperationsData() {
+      if (!window._supabase) return;
+      const client = window._supabase;
+
+      try {
+        // Fetch entities, deals, units, leases, rent payments, and rent increases in parallel
+        const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.all([
+          client.from('entities').select('*').order('name', { ascending: true }),
+          client.from('deals').select('*').order('title', { ascending: true }),
+          client.from('units').select('*').order('unit_number', { ascending: true }),
+          client.from('leases').select('*').order('is_active', { ascending: false }),
+          client.from('rent_payments').select('*').order('period_month', { ascending: false }),
+          client.from('rent_increases').select('*').order('effective_date', { ascending: false })
+        ]);
+
+        rawEntities = resEntities.data || [];
+        rawDeals = resDeals.data || [];
+        rawUnits = resUnits.data || [];
+        rawLeases = resLeases.data || [];
+        rawPayments = resPayments.data || [];
+        rawIncreases = resIncreases.data || [];
+
+        populateFilterDropdowns();
+        renderOperationsUI();
+      } catch (err) {
+        console.error('Error loading operations data from Supabase:', err);
+      }
+    }
+
+    function populateFilterDropdowns() {
+      // 1. Entity Filter
+      const entitySelect = document.getElementById('entity-filter-select');
+      if (entitySelect) {
+        const currentVal = entitySelect.value;
+        let html = '<option value="all">All Entities (Consolidated Portfolio)</option>';
+        rawEntities.forEach(ent => {
+          html += `<option value="${ent.id}">${ent.name}</option>`;
+        });
+        entitySelect.innerHTML = html;
+        if (currentVal && Array.from(entitySelect.options).some(o => o.value === currentVal)) {
+          entitySelect.value = currentVal;
+        }
+      }
+
+      // 2. Property Filter (Only owned deals or all deals)
+      const propSelect = document.getElementById('property-filter-select');
+      if (propSelect) {
+        const currentVal = propSelect.value;
+        let html = '<option value="all">All Properties</option>';
+        rawDeals.forEach(d => {
+          html += `<option value="${d.id}">${d.title} (${d.status === 'owned' ? 'Owned' : 'Pipeline'})</option>`;
+        });
+        propSelect.innerHTML = html;
+        if (currentVal && Array.from(propSelect.options).some(o => o.value === currentVal)) {
+          propSelect.value = currentVal;
+        }
+      }
+
+      // 3. New Lease Target Property Select
+      const newLeaseDealSelect = document.getElementById('new-lease-deal-id');
+      if (newLeaseDealSelect) {
+        let html = '';
+        rawDeals.forEach(d => {
+          html += `<option value="${d.id}">${d.title}</option>`;
+        });
+        newLeaseDealSelect.innerHTML = html;
+      }
+    }
+
+    function handleEntityFilterChange() {
+      // Filter properties dropdown based on selected entity
+      const selectedEntityId = document.getElementById('entity-filter-select').value;
+      const propSelect = document.getElementById('property-filter-select');
+      
+      let filteredDeals = rawDeals;
+      if (selectedEntityId !== 'all') {
+        filteredDeals = rawDeals.filter(d => d.entity_id === selectedEntityId);
+      }
+
+      let html = '<option value="all">All Properties</option>';
+      filteredDeals.forEach(d => {
+        html += `<option value="${d.id}">${d.title}</option>`;
+      });
+      propSelect.innerHTML = html;
+
+      renderOperationsUI();
+    }
+
+    function handlePropertyFilterChange() {
+      renderOperationsUI();
+    }
+
+    // Render Master UI
+    function renderOperationsUI() {
+      const selectedEntityId = document.getElementById('entity-filter-select')?.value || 'all';
+      const selectedDealId = document.getElementById('property-filter-select')?.value || 'all';
+      const currentPeriodMonthStr = formatPeriodMonth(activeDate);
+
+      // Filter deals by entity
+      let scopedDeals = rawDeals;
+      if (selectedEntityId !== 'all') {
+        scopedDeals = scopedDeals.filter(d => d.entity_id === selectedEntityId);
+      }
+      if (selectedDealId !== 'all') {
+        scopedDeals = scopedDeals.filter(d => d.id === selectedDealId);
+      }
+
+      const scopedDealIds = new Set(scopedDeals.map(d => d.id));
+
+      // Filter units & leases
+      const scopedUnits = rawUnits.filter(u => scopedDealIds.has(u.deal_id));
+      const scopedLeases = rawLeases.filter(l => scopedDealIds.has(l.deal_id) && l.is_active);
+
+      // 1. Calculate Monthly Rent Roll & Run Rate
+      const totalMonthlyRent = scopedLeases.reduce((acc, l) => acc + (parseFloat(l.monthly_rent) || 0), 0);
+      const totalAnnualRent = totalMonthlyRent * 12;
+
+      document.getElementById('kpi-monthly-rent').textContent = `$${totalMonthlyRent.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      document.getElementById('kpi-annual-rent').textContent = `$${totalAnnualRent.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / yr`;
+
+      // 2. Calculate Physical Occupancy
+      const totalUnitsCount = scopedUnits.length;
+      const occupiedUnitsCount = scopedLeases.length;
+      const occPct = totalUnitsCount > 0 ? Math.round((occupiedUnitsCount / totalUnitsCount) * 100) : (occupiedUnitsCount > 0 ? 100 : 0);
+
+      document.getElementById('kpi-occupancy-rate').textContent = `${occPct}%`;
+      document.getElementById('kpi-occupied-units').textContent = `${occupiedUnitsCount} / ${totalUnitsCount || occupiedUnitsCount}`;
+
+      // 3. Current Month Collections
+      let paidCount = 0;
+      let pendingCount = 0;
+      let overdueCount = 0;
+      let totalDue = 0;
+      let totalPaid = 0;
+
+      scopedLeases.forEach(l => {
+        const p = rawPayments.find(pay => pay.lease_id === l.id && pay.period_month === currentPeriodMonthStr);
+        const monthlyDue = parseFloat(l.monthly_rent) || 0;
+        totalDue += monthlyDue;
+
+        if (p) {
+          if (p.status === 'paid') {
+            paidCount++;
+            totalPaid += (parseFloat(p.amount_paid) || monthlyDue);
+          } else if (p.status === 'overdue') {
+            overdueCount++;
+          } else {
+            pendingCount++;
+          }
+        } else {
+          // No payment record yet for this month: check if today is past due day + grace period
+          const today = new Date();
+          const isPastPeriod = today > new Date(activeDate.getFullYear(), activeDate.getMonth() + 1, 1);
+          if (isPastPeriod) {
+            overdueCount++;
+          } else {
+            pendingCount++;
+          }
+        }
+      });
+
+      const collPct = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : (scopedLeases.length === 0 ? 100 : 0);
+      document.getElementById('kpi-collected-pct').textContent = `${collPct}%`;
+      document.getElementById('kpi-collection-breakdown').textContent = `${paidCount} Paid • ${pendingCount} Pending • ${overdueCount} Overdue`;
+      
+      const collDot = document.getElementById('kpi-collection-dot');
+      if (collDot) {
+        collDot.className = `w-2 h-2 rounded-full ${overdueCount > 0 ? 'bg-rose-400 animate-pulse' : (pendingCount > 0 ? 'bg-amber-400' : 'bg-emerald-400')}`;
+      }
+
+      // 4. Rent Reviews Due (>12 months since last increase or start)
+      const now = new Date();
+      let reviewsDueCount = 0;
+
+      scopedLeases.forEach(l => {
+        const refDate = l.last_rent_increase_date ? new Date(l.last_rent_increase_date) : new Date(l.lease_start_date);
+        const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+        if (diffMonths >= 12) {
+          reviewsDueCount++;
+        }
+      });
+
+      document.getElementById('kpi-reviews-count').textContent = `${reviewsDueCount} Leases`;
+      const reviewsSub = document.getElementById('kpi-reviews-sub');
+      const reviewsDot = document.getElementById('kpi-reviews-dot');
+      if (reviewsDueCount > 0) {
+        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-amber-400 font-bold">Escalation Opportunity</span>`;
+        if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+      } else {
+        if (reviewsSub) reviewsSub.textContent = 'All Up-to-Date';
+        if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+      }
+
+      // Update badge
+      const countBadge = document.getElementById('rent-roll-count-badge');
+      if (countBadge) countBadge.textContent = `${scopedLeases.length} Active Leases`;
+
+      // 5. Populate Rent Roll Rows
+      const tbody = document.getElementById('rent-roll-tbody');
+      if (!tbody) return;
+
+      if (scopedLeases.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-10 text-center text-slate-400">
+              <div class="max-w-sm mx-auto space-y-3">
+                <span class="text-3xl block">📋</span>
+                <p class="font-bold text-white text-sm">No Active Leases in Selected Scope</p>
+                <p class="text-xs text-slate-500">Register an entity and link an active lease to begin tracking real-time rent rolls and escalation logs.</p>
+                <button onclick="openAddLeaseModal()" class="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+                  + Add First Lease
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let rowsHtml = '';
+      scopedLeases.forEach(lease => {
+        const deal = rawDeals.find(d => d.id === lease.deal_id) || { title: 'Unknown Asset' };
+        const unit = rawUnits.find(u => u.id === lease.unit_id) || { unit_number: 'Unit 1', unit_type: 'Commercial' };
+        const payment = rawPayments.find(p => p.lease_id === lease.id && p.period_month === currentPeriodMonthStr);
+
+        // Rent Review Age
+        const refDate = lease.last_rent_increase_date ? new Date(lease.last_rent_increase_date) : new Date(lease.lease_start_date);
+        const monthsSince = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+        const isReviewDue = monthsSince >= 12;
+
+        // Payment status badge
+        let statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Pending</span>';
+        if (payment && payment.status === 'paid') {
+          statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✓ Paid</span>';
+        } else if (payment && payment.status === 'overdue') {
+          statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Overdue</span>';
+        }
+
+        const rentFormatted = parseFloat(lease.monthly_rent || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        rowsHtml += `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-3 px-4">
+              <span class="block font-bold text-white text-xs">${deal.title}</span>
+              <span class="block text-[11px] text-emerald-400 font-medium">${unit.unit_number} <span class="text-slate-500">(${unit.unit_type || 'Commercial'})</span></span>
+            </td>
+            <td class="py-3 px-4">
+              <span class="block font-semibold text-slate-200">${lease.tenant_name}</span>
+              <span class="block text-[10px] text-slate-400">${lease.tenant_email || lease.tenant_phone || 'No contact on file'}</span>
+            </td>
+            <td class="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-xs">
+              $${rentFormatted}
+            </td>
+            <td class="py-3 px-4 text-slate-300 font-mono text-[11px]">
+              ${lease.lease_end_date ? lease.lease_end_date : 'Month-to-Month'}
+            </td>
+            <td class="py-3 px-4">
+              <div class="flex items-center space-x-1.5">
+                <span class="font-mono text-[11px] text-slate-300">${lease.last_rent_increase_date || lease.lease_start_date}</span>
+                ${isReviewDue ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="No escalation in over 12 months">⚠️ Review Due</span>' : ''}
+              </div>
+            </td>
+            <td class="py-3 px-4 text-center">
+              ${statusBadge}
+            </td>
+            <td class="py-3 px-4 text-right">
+              <div class="flex items-center justify-end space-x-1.5">
+                <button onclick="openLogPaymentModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-800 transition" title="Log Payment">
+                  Log Pay
+                </button>
+                <button onclick="openRentIncreaseModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-300 bg-blue-950/60 border border-blue-800/60 hover:bg-blue-800 transition" title="Record Rent Escalation">
+                  Escalate
+                </button>
+                <button onclick="openAuditTrailModal('${lease.id}')" class="p-1 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition" title="View Audit Trail">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = rowsHtml;
+    }
+
+    // Modal Trigger: Log Payment
+    function openLogPaymentModal(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+      const deal = rawDeals.find(d => d.id === lease.deal_id);
+      const unit = rawUnits.find(u => u.id === lease.unit_id);
+
+      document.getElementById('payment-lease-id').value = lease.id;
+      document.getElementById('payment-deal-id').value = lease.deal_id;
+      document.getElementById('payment-tenant-display').textContent = `${deal ? deal.title : 'Asset'} • ${unit ? unit.unit_number : 'Unit'} — ${lease.tenant_name}`;
+
+      const curPeriod = formatPeriodMonth(activeDate);
+      document.getElementById('payment-period-month').value = curPeriod;
+      
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('payment-paid-date').value = today;
+
+      document.getElementById('payment-amount-due').value = lease.monthly_rent;
+      document.getElementById('payment-amount-paid').value = lease.monthly_rent;
+      document.getElementById('payment-status').value = 'paid';
+
+      openModal('modal-log-payment');
+    }
+
+    // Modal Save: Log Payment
+    async function handleSavePayment(e) {
+      e.preventDefault();
+      const leaseId = document.getElementById('payment-lease-id').value;
+      const dealId = document.getElementById('payment-deal-id').value;
+      const periodMonth = document.getElementById('payment-period-month').value;
+      const paidDate = document.getElementById('payment-paid-date').value;
+      const amountDue = parseFloat(document.getElementById('payment-amount-due').value) || 0;
+      const amountPaid = parseFloat(document.getElementById('payment-amount-paid').value) || 0;
+      const status = document.getElementById('payment-status').value;
+      const method = document.getElementById('payment-method').value;
+      const refNote = document.getElementById('payment-reference-note').value;
+
+      const user = window._currentUser;
+      if (!user || !window._supabase) return;
+
+      const payload = {
+        user_id: user.id,
+        lease_id: leaseId,
+        deal_id: dealId,
+        period_month: periodMonth,
+        due_date: periodMonth,
+        amount_due: amountDue,
+        amount_paid: amountPaid,
+        paid_date: paidDate,
+        status: status,
+        payment_method: method,
+        reference_note: refNote
+      };
+
+      try {
+        const { error } = await window._supabase
+          .from('rent_payments')
+          .upsert(payload, { onConflict: 'lease_id,period_month' });
+
+        if (error) throw error;
+
+        closeModal('modal-log-payment');
+        await fetchAllOperationsData();
+      } catch (err) {
+        alert('Error saving rent payment: ' + err.message);
+      }
+    }
+
+    // Modal Trigger: Rent Increase
+    function openRentIncreaseModal(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+      const deal = rawDeals.find(d => d.id === lease.deal_id);
+      const unit = rawUnits.find(u => u.id === lease.unit_id);
+
+      document.getElementById('increase-lease-id').value = lease.id;
+      document.getElementById('increase-deal-id').value = lease.deal_id;
+      document.getElementById('increase-tenant-display').textContent = `${deal ? deal.title : 'Asset'} • ${unit ? unit.unit_number : 'Unit'} — ${lease.tenant_name}`;
+
+      const curRent = parseFloat(lease.monthly_rent || 0);
+      document.getElementById('increase-old-rent').value = curRent;
+      // Default new rent to +3% escalation
+      const defaultNew = Math.round(curRent * 1.03);
+      document.getElementById('increase-new-rent').value = defaultNew;
+
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('increase-effective-date').value = today;
+      document.getElementById('increase-notice-date').value = today;
+      document.getElementById('increase-reason').value = 'Annual contractual escalation';
+
+      recalcIncreasePreview();
+      openModal('modal-rent-increase');
+    }
+
+    function recalcIncreasePreview() {
+      const oldRent = parseFloat(document.getElementById('increase-old-rent').value) || 0;
+      const newRent = parseFloat(document.getElementById('increase-new-rent').value) || 0;
+      const diff = newRent - oldRent;
+      const pct = oldRent > 0 ? ((diff / oldRent) * 100).toFixed(1) : 0;
+      const pill = document.getElementById('increase-delta-preview');
+      if (pill) {
+        pill.textContent = `Adjustment: ${diff >= 0 ? '+' : ''}$${diff.toFixed(2)} (${diff >= 0 ? '+' : ''}${pct}%)`;
+      }
+    }
+
+    // Modal Save: Rent Increase
+    async function handleSaveRentIncrease(e) {
+      e.preventDefault();
+      const leaseId = document.getElementById('increase-lease-id').value;
+      const dealId = document.getElementById('increase-deal-id').value;
+      const oldRent = parseFloat(document.getElementById('increase-old-rent').value) || 0;
+      const newRent = parseFloat(document.getElementById('increase-new-rent').value) || 0;
+      const effectiveDate = document.getElementById('increase-effective-date').value;
+      const noticeDate = document.getElementById('increase-notice-date').value;
+      const reason = document.getElementById('increase-reason').value;
+
+      const user = window._currentUser;
+      if (!user || !window._supabase) return;
+
+      try {
+        // 1. Insert rent increase audit record
+        const { error: incErr } = await window._supabase
+          .from('rent_increases')
+          .insert({
+            user_id: user.id,
+            lease_id: leaseId,
+            deal_id: dealId,
+            effective_date: effectiveDate,
+            old_rent: oldRent,
+            new_rent: newRent,
+            reason: reason,
+            notice_sent_date: noticeDate || null
+          });
+        if (incErr) throw incErr;
+
+        // 2. Update lease with new monthly rent and last increase date
+        const { error: leaseErr } = await window._supabase
+          .from('leases')
+          .update({
+            monthly_rent: newRent,
+            previous_rent_amount: oldRent,
+            last_rent_increase_date: effectiveDate,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', leaseId);
+        if (leaseErr) throw leaseErr;
+
+        closeModal('modal-rent-increase');
+        await fetchAllOperationsData();
+      } catch (err) {
+        alert('Error saving rent escalation: ' + err.message);
+      }
+    }
+
+    // Modal Trigger: Audit Trail
+    function openAuditTrailModal(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+      const deal = rawDeals.find(d => d.id === lease.deal_id);
+      const unit = rawUnits.find(u => u.id === lease.unit_id);
+
+      document.getElementById('audit-trail-tenant-info').textContent = `${deal ? deal.title : 'Asset'} • ${unit ? unit.unit_number : 'Unit'} — ${lease.tenant_name}`;
+
+      const records = rawIncreases.filter(inc => inc.lease_id === leaseId);
+      const tbody = document.getElementById('audit-trail-tbody');
+      if (!tbody) return;
+
+      if (records.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-6 text-center text-slate-500 italic">
+              No historical rent increases logged yet for this lease. Initial starting rent: $${parseFloat(lease.monthly_rent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}.
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = records.map(r => `
+          <tr class="hover:bg-slate-800/50">
+            <td class="py-2 px-3 font-mono text-slate-200">${r.effective_date}</td>
+            <td class="py-2 px-3 font-mono text-slate-400">$${parseFloat(r.old_rent).toFixed(2)}</td>
+            <td class="py-2 px-3 font-mono text-emerald-400 font-bold">$${parseFloat(r.new_rent).toFixed(2)}</td>
+            <td class="py-2 px-3 text-right font-mono font-semibold text-emerald-400">
+              +$${(r.new_rent - r.old_rent).toFixed(2)} (+${r.percentage_change || ((r.new_rent - r.old_rent)/r.old_rent*100).toFixed(1)}%)
+            </td>
+            <td class="py-2 px-3 text-slate-300 text-[11px]">${r.reason || 'Contractual Escalation'}</td>
+          </tr>
+        `).join('');
+      }
+
+      openModal('modal-audit-trail');
+    }
+
+    // Modal: Manage Entities
+    function openEntityManagementModal() {
+      const container = document.getElementById('entities-list-container');
+      if (container) {
+        if (rawEntities.length === 0) {
+          container.innerHTML = '<div class="text-xs text-slate-500 italic">No legal entities registered yet.</div>';
+        } else {
+          container.innerHTML = rawEntities.map(e => `
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+              <div>
+                <span class="block font-bold text-white text-xs">${e.name}</span>
+                <span class="block text-[10px] text-slate-400">${e.formation_state ? e.formation_state + ' LLC' : 'Entity'} ${e.ein ? '• EIN: ' + e.ein : ''} ${e.bank_name ? '• ' + e.bank_name : ''}</span>
+              </div>
+              <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">Active</span>
+            </div>
+          `).join('');
+        }
+      }
+      openModal('modal-manage-entities');
+    }
+
+    async function handleCreateEntity(e) {
+      e.preventDefault();
+      const name = document.getElementById('new-entity-name').value.trim();
+      const state = document.getElementById('new-entity-state').value.trim();
+      const ein = document.getElementById('new-entity-ein').value.trim();
+      const bank = document.getElementById('new-entity-bank').value.trim();
+
+      const user = window._currentUser;
+      if (!user || !window._supabase) return;
+
+      try {
+        const { data, error } = await window._supabase
+          .from('entities')
+          .insert({
+            user_id: user.id,
+            name: name,
+            formation_state: state || null,
+            ein: ein || null,
+            bank_name: bank || null
+          })
+          .select();
+
+        if (error) throw error;
+
+        document.getElementById('form-create-entity').reset();
+        await fetchAllOperationsData();
+        openEntityManagementModal();
+      } catch (err) {
+        alert('Error creating entity: ' + err.message);
+      }
+    }
+
+    // Modal: Add Unit & Lease
+    function openAddLeaseModal() {
+      const dealSelect = document.getElementById('new-lease-deal-id');
+      if (dealSelect) {
+        let html = '';
+        rawDeals.forEach(d => {
+          html += `<option value="${d.id}">${d.title}</option>`;
+        });
+        dealSelect.innerHTML = html;
+      }
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('new-lease-start').value = today;
+      openModal('modal-add-lease');
+    }
+
+    async function handleSaveNewLease(e) {
+      e.preventDefault();
+      const dealId = document.getElementById('new-lease-deal-id').value;
+      const unitNum = document.getElementById('new-lease-unit-num').value.trim();
+      const unitType = document.getElementById('new-lease-unit-type').value.trim() || 'Commercial';
+      const tenantName = document.getElementById('new-lease-tenant-name').value.trim();
+      const rent = parseFloat(document.getElementById('new-lease-rent').value) || 0;
+      const startDate = document.getElementById('new-lease-start').value;
+      const endDate = document.getElementById('new-lease-end').value;
+      const email = document.getElementById('new-lease-email').value.trim();
+      const phone = document.getElementById('new-lease-phone').value.trim();
+
+      const user = window._currentUser;
+      if (!user || !window._supabase) return;
+
+      try {
+        // 1. Create Unit
+        const { data: unitData, error: unitErr } = await window._supabase
+          .from('units')
+          .insert({
+            user_id: user.id,
+            deal_id: dealId,
+            unit_number: unitNum,
+            unit_type: unitType,
+            market_rent: rent,
+            status: 'occupied'
+          })
+          .select()
+          .single();
+
+        if (unitErr) throw unitErr;
+
+        // 2. Create Lease
+        const { error: leaseErr } = await window._supabase
+          .from('leases')
+          .insert({
+            user_id: user.id,
+            unit_id: unitData.id,
+            deal_id: dealId,
+            tenant_name: tenantName,
+            monthly_rent: rent,
+            lease_start_date: startDate,
+            lease_end_date: endDate || null,
+            tenant_email: email || null,
+            tenant_phone: phone || null,
+            last_rent_increase_date: startDate,
+            is_active: true
+          });
+
+        if (leaseErr) throw leaseErr;
+
+        document.getElementById('form-add-lease').reset();
+        closeModal('modal-add-lease');
+        await fetchAllOperationsData();
+      } catch (err) {
+        alert('Error creating unit and lease: ' + err.message);
+      }
+    }
+  </script>
+
+</body>
+</html>
