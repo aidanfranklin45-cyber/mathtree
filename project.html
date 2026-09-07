@@ -80,22 +80,22 @@
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased">
 <header class="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
       
       <!-- Back to Dashboard & Brand -->
       <div class="flex items-center space-x-3">
-        <a href="dashboard.html" class="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition group">
+        <a href="dashboard.html" class="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition group shrink-0">
           <svg class="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           <span>Dashboard</span>
         </a>
         <div class="h-5 w-px bg-slate-800"></div>
         <div>
           <div class="flex items-center space-x-2">
-            <h1 id="deal-title-display" class="text-base font-extrabold text-white tracking-tight">Property Underwriting</h1>
-            <span id="deal-status-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <h1 id="deal-title-display" class="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[100px] xs:max-w-[160px] sm:max-w-xs md:max-w-md" title="Property Underwriting">Property Underwriting</h1>
+            <span id="deal-status-pill" class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
               Prospect
             </span>
-            <span id="deal-asset-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize">
+            <span id="deal-asset-pill" class="hidden xs:inline-block text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize shrink-0">
               Commercial
             </span>
           </div>
@@ -117,7 +117,7 @@
       </div>
 
             <!-- Analysis Module Selector & Quick Navigation (Seamlessly Integrated) -->
-      <div class="flex items-center space-x-1.5 shrink-0" id="header-analysis-nav" data-active-page-key="overview">
+      <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0" id="header-analysis-nav" data-active-page-key="overview">
         <!-- Previous Module Quick Arrow -->
         <button type="button" id="btn-nav-prev-module" onclick="navigateModuleRelative(-1)" class="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Previous Module (Keyboard: Alt + Left)">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
@@ -125,20 +125,20 @@
 
         <!-- Analysis Module Dropdown -->
         <div class="relative" id="nav-module-dropdown-container">
-          <button type="button" id="btn-nav-module-dropdown" onclick="toggleNavModuleDropdown(event)" aria-haspopup="true" aria-expanded="false" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-850 text-white transition shadow-sm group">
+          <button type="button" id="btn-nav-module-dropdown" onclick="toggleNavModuleDropdown(event)" aria-haspopup="true" aria-expanded="false" class="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-850 text-white transition shadow-sm group">
             <span class="text-base shrink-0" id="header-active-module-icon">📌</span>
             <div class="text-left hidden md:block">
               <span class="block text-[8.5px] uppercase font-extrabold tracking-wider text-emerald-400 leading-none mb-0.5">Analysis Module</span>
               <span class="block text-xs font-bold text-slate-100 group-hover:text-white leading-tight" id="header-active-module-title">Deal Overview</span>
             </div>
-            <span class="block text-xs font-bold text-slate-100 md:hidden" id="header-active-module-mobile-title">Overview</span>
+            <span class="block text-[11px] sm:text-xs font-bold text-slate-100 md:hidden truncate max-w-[65px] xs:max-w-[100px]" id="header-active-module-mobile-title">Overview</span>
             <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-transform ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           <!-- Rich Dropdown Menu (No horizontal scrollbars, full keyboard support) -->
-          <div id="nav-module-dropdown-menu" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 top-11 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-50 backdrop-blur-xl divide-y divide-slate-800/60">
+          <div id="nav-module-dropdown-menu" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 top-11 w-[calc(100vw-1.5rem)] max-w-xs sm:max-w-sm sm:w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-50 backdrop-blur-xl divide-y divide-slate-800/60">
             <div class="px-3.5 py-2 flex items-center justify-between">
               <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Property Analysis Modules</span>
               <span class="text-[9px] text-slate-500 font-mono" id="nav-module-count-badge">7 Sections</span>
@@ -258,7 +258,7 @@
 
   <!-- Main Analysis Workspace -->
   
-  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
+  <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 md:pb-6 flex flex-col space-y-6">
     <!-- Deal Acquisition & Investment Milestone Timeline Bar -->
     <div id="deal-timeline-container" class="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 p-4 rounded-2xl border border-slate-800 shadow-xl space-y-3">
       <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
@@ -294,8 +294,8 @@
       </div>
 
       <!-- 6-Stage Visual Stepper -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1" id="timeline-stepper-track">
-        <div id="step-screening" onclick="setDealStage('screening')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-brand-500/10 border-brand-500/30 text-brand-300">
+      <div class="flex overflow-x-auto no-scrollbar sm:grid sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1 pb-1 snap-x" id="timeline-stepper-track">
+        <div id="step-screening" onclick="setDealStage('screening')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-brand-500/10 border-brand-500/30 text-brand-300 min-w-[130px] sm:min-w-0 snap-start shrink-0 sm:shrink">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 1</span>
             <span class="w-2 h-2 rounded-full bg-brand-400"></span>
@@ -304,7 +304,7 @@
           <span class="text-[10px] text-slate-400">Model & Returns</span>
         </div>
 
-        <div id="step-loi" onclick="setDealStage('loi')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+        <div id="step-loi" onclick="setDealStage('loi')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 min-w-[130px] sm:min-w-0 snap-start shrink-0 sm:shrink">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 2</span>
             <span class="w-2 h-2 rounded-full bg-slate-700"></span>
@@ -313,7 +313,7 @@
           <span class="text-[10px] text-slate-500">Offer Issued</span>
         </div>
 
-        <div id="step-due_diligence" onclick="setDealStage('due_diligence')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+        <div id="step-due_diligence" onclick="setDealStage('due_diligence')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 min-w-[130px] sm:min-w-0 snap-start shrink-0 sm:shrink">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 3</span>
             <span class="w-2 h-2 rounded-full bg-slate-700"></span>
@@ -322,7 +322,7 @@
           <span class="text-[10px] text-slate-500">Evaluation & DD</span>
         </div>
 
-        <div id="step-closing" onclick="setDealStage('closing')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+        <div id="step-closing" onclick="setDealStage('closing')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 min-w-[130px] sm:min-w-0 snap-start shrink-0 sm:shrink">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 4</span>
             <span class="w-2 h-2 rounded-full bg-slate-700"></span>
@@ -331,7 +331,7 @@
           <span class="text-[10px] text-slate-500">Debt & Settlement</span>
         </div>
 
-        <div id="step-owned" onclick="setDealStage('owned')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+        <div id="step-owned" onclick="setDealStage('owned')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 min-w-[130px] sm:min-w-0 snap-start shrink-0 sm:shrink">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 5</span>
             <span class="w-2 h-2 rounded-full bg-slate-700"></span>
@@ -340,7 +340,7 @@
           <span class="text-[10px] text-slate-500">Operate & Value-Add</span>
         </div>
 
-        <div id="step-disposition" onclick="setDealStage('disposition')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+        <div id="step-disposition" onclick="setDealStage('disposition')" class="cursor-pointer p-2 rounded-xl border transition flex flex-col justify-between space-y-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 min-w-[130px] sm:min-w-0 snap-start shrink-0 sm:shrink">
           <div class="flex items-center justify-between">
             <span class="text-[9px] font-extrabold uppercase tracking-wider">Stage 6</span>
             <span class="w-2 h-2 rounded-full bg-slate-700"></span>
@@ -351,8 +351,8 @@
       </div>
 
       <!-- Milestone Target Dates & Critical Deadlines -->
-      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs border-t border-slate-900 bg-slate-950/40 p-2.5 rounded-xl">
-        <div class="flex items-center flex-wrap gap-4 text-[11px]">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 text-xs border-t border-slate-900 bg-slate-950/40 p-2.5 rounded-xl">
+        <div class="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-wrap gap-2.5 sm:gap-4 text-[11px] w-full sm:w-auto">
           <div class="flex items-center space-x-1.5">
             <span class="text-slate-500 font-bold uppercase text-[10px]">LOI Date:</span>
             <input type="date" id="date-loi" onchange="updateMilestoneDate('loiDate', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-0.5 text-slate-200 text-[11px] focus:outline-none focus:border-brand-500">
@@ -366,7 +366,7 @@
             <input type="date" id="date-closing" onchange="updateMilestoneDate('closingDate', this.value)" class="bg-slate-900 border border-emerald-900/60 rounded px-2 py-0.5 text-emerald-200 text-[11px] focus:outline-none focus:border-emerald-400">
           </div>
         </div>
-        <div id="timeline-countdown-pill" class="text-[11px] font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+        <div id="timeline-countdown-pill" class="text-[11px] font-bold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 self-end sm:self-auto">
           <span>Active Pipeline Status</span>
         </div>
       </div>
@@ -943,78 +943,78 @@
       <!-- SUB-PAGE 1: Deal Executive Overview (Default Active Tab) -->
       <div id="view-panel-single" class="space-y-6">
         <!-- Live-Updating Metrics cards -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <!-- NOI Card -->
-            <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
+            <div class="bg-slate-900/40 border border-slate-900 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-brand-500/5 group-hover:bg-brand-500/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Net Operating Income</p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-noi" class="text-2xl font-extrabold text-white tracking-tight">$0</span>
-                <span id="metric-noi-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
+              <p class="text-[10px] sm:text-xs font-semibold tracking-wider text-slate-400 uppercase">Net Operating Income</p>
+              <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span id="metric-noi" class="text-lg sm:text-2xl font-extrabold text-white tracking-tight">$0</span>
+                <span id="metric-noi-label" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
-              <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span>Revenue minus vacancy & OpEx</span>
+              <div class="mt-2 sm:mt-3 flex items-center text-[10px] sm:text-xs text-slate-500">
+                <span class="truncate">Revenue minus OpEx</span>
               </div>
             </div>
 
             <!-- Cap Rate Card -->
-            <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
+            <div class="bg-slate-900/40 border border-slate-900 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-accent-cyan/5 group-hover:bg-accent-cyan/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Cap Rate Yield</p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cap-rate" class="text-2xl font-extrabold text-accent-cyan tracking-tight">0.0%</span>
-                <span id="metric-cap-rate-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
+              <p class="text-[10px] sm:text-xs font-semibold tracking-wider text-slate-400 uppercase">Cap Rate Yield</p>
+              <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span id="metric-cap-rate" class="text-lg sm:text-2xl font-extrabold text-accent-cyan tracking-tight">0.0%</span>
+                <span id="metric-cap-rate-label" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
-              <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span id="metric-cap-rate-desc">Annual NOI / property value</span>
+              <div class="mt-2 sm:mt-3 flex items-center text-[10px] sm:text-xs text-slate-500">
+                <span id="metric-cap-rate-desc" class="truncate">Annual NOI / value</span>
               </div>
             </div>
 
             <!-- Net Cash Flow (Take-Home Pocket Cash) Card -->
-            <div class="bg-slate-900/40 border border-emerald-950/80 p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-800/60 transition duration-300 bg-gradient-to-br from-slate-900/80 via-slate-900/40 to-emerald-950/20 shadow-lg shadow-emerald-950/20">
+            <div class="bg-slate-900/40 border border-emerald-950/80 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-800/60 transition duration-300 bg-gradient-to-br from-slate-900/80 via-slate-900/40 to-emerald-950/20 shadow-lg shadow-emerald-950/20">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-emerald-400 uppercase flex items-center justify-between">
+              <p class="text-[10px] sm:text-xs font-semibold tracking-wider text-emerald-400 uppercase flex items-center justify-between">
                 <span>Net Cash Flow</span>
-                <span id="metric-cf-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Take-Home</span>
+                <span id="metric-cf-status" class="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Take-Home</span>
               </p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cash-flow" class="text-2xl font-black text-emerald-400 tracking-tight">$0/yr</span>
-                <span id="metric-cf-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
+              <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span id="metric-cash-flow" class="text-lg sm:text-2xl font-black text-emerald-400 tracking-tight">$0/yr</span>
+                <span id="metric-cf-label" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
-              <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
-                <span>Pocketed cash after mortgage</span>
-                <span id="metric-cf-mo" class="font-mono text-emerald-300 font-bold">+$0/mo</span>
+              <div class="mt-2 sm:mt-3 flex items-center justify-between text-[10px] sm:text-xs text-slate-400">
+                <span class="truncate">After debt</span>
+                <span id="metric-cf-mo" class="font-mono text-emerald-300 font-bold ml-1">+$0/mo</span>
               </div>
             </div>
 
             <!-- Cash-on-Cash Return Card -->
-            <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
+            <div class="bg-slate-900/40 border border-slate-900 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
               <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-slate-500/5 group-hover:bg-slate-500/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center justify-between">
+              <p class="text-[10px] sm:text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center justify-between">
                 <span>Cash-on-Cash</span>
-                <span id="metric-coc-badge" class="hidden text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">100% Financed</span>
+                <span id="metric-coc-badge" class="hidden text-[8px] sm:text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">100% Financed</span>
               </p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cash-on-cash" class="text-2xl font-extrabold text-slate-200 tracking-tight">0.0%</span>
-                <span id="metric-cash-on-cash-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
+              <div class="mt-1 sm:mt-2 flex items-baseline justify-between">
+                <span id="metric-cash-on-cash" class="text-lg sm:text-2xl font-extrabold text-slate-200 tracking-tight">0.0%</span>
+                <span id="metric-cash-on-cash-label" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
               </div>
-              <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span id="metric-coc-desc">Annual cash flow / cash invested</span>
+              <div class="mt-2 sm:mt-3 flex items-center text-[10px] sm:text-xs text-slate-500">
+                <span id="metric-coc-desc" class="truncate">Cash flow / equity</span>
               </div>
             </div>
           </div>
 
           <!-- Advanced Analytics metrics grid -->
-          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden hover:border-slate-800 transition duration-300 space-y-4">
+          <div class="bg-slate-900/40 border border-slate-900 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden hover:border-slate-800 transition duration-300 space-y-4">
             <div class="border-b border-slate-900/80 pb-3 flex items-center justify-between">
-              <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+              <h3 class="text-xs sm:text-sm font-bold text-white tracking-tight flex items-center space-x-2">
                 <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-violet"></span>
                 <span>Advanced Analytics</span>
               </h3>
-              <span id="metric-exit-badge" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-2 py-0.5 border border-slate-900 rounded">Exit: Year 10</span>
+              <span id="metric-exit-badge" class="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-2 py-0.5 border border-slate-900 rounded">Exit: Year 10</span>
             </div>
             
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               <!-- NPV Card -->
               <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
                 <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
@@ -1223,7 +1223,7 @@
             <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
               <thead>
                 <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
-                  <th class="py-2.5 px-4">Milestone</th>
+                  <th class="py-2.5 px-4 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Milestone</th>
                   <th class="py-2.5 px-4">Property Value</th>
                   <th class="py-2.5 px-4">Gross Income</th>
                   <th class="py-2.5 px-4">NOI</th>
@@ -1269,8 +1269,8 @@
     </div>
   </main>
   <!-- Edit Project Inputs Modal for project.html -->
-  <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[92vh] overflow-y-auto">
+  <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl my-2 sm:my-6 max-h-[96vh] sm:max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base shrink-0">
@@ -3114,7 +3114,7 @@
           const isPositiveCf = p.cashFlow >= 0;
           return `
             <tr class="hover:bg-slate-900/40 transition">
-              <td class="py-2.5 px-4 font-bold text-slate-200">Year ${yr} <span class="text-[10px] text-slate-500 font-normal">(${calYear})</span></td>
+              <td class="py-2.5 px-4 font-bold text-slate-200 sticky left-0 bg-slate-950/95 backdrop-blur z-10 border-r border-slate-800/80 shadow-md">Year ${yr} <span class="text-[10px] text-slate-500 font-normal">(${calYear})</span></td>
               <td class="py-2.5 px-4 font-medium text-slate-300">${formatCurrency(p.propertyValue)}</td>
               <td class="py-2.5 px-4 font-medium text-slate-300">${formatCurrency(p.grossPotentialIncome)}</td>
               <td class="py-2.5 px-4 font-bold text-white">${formatCurrency(p.netOperatingIncome)}</td>
@@ -4923,6 +4923,21 @@
         };
         const targetFile = fileMap[pageKey] || 'project.html';
         a.href = targetFile + '?id=' + encodeURIComponent(dealId);
+      });
+
+      // Update mobile sticky bottom nav links and active highlights
+      const activeNav = document.getElementById('header-analysis-nav');
+      const currentKey = (activeNav && activeNav.getAttribute('data-active-page-key')) || 'overview';
+      document.querySelectorAll('#mobile-sticky-bottom-bar a[data-mobile-nav]').forEach(a => {
+        const navKey = a.getAttribute('data-mobile-nav');
+        const file = navKey === 'proforma' ? 'project-proforma.html' : 'project.html';
+        a.href = file + (dealId ? '?id=' + encodeURIComponent(dealId) : '');
+        if (navKey === currentKey) {
+          a.className = 'flex flex-col items-center py-0.5 px-2 text-[10px] font-black text-emerald-400 transition';
+        } else {
+          a.className = 'flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition';
+        }
+      
         if (!a._dealBound) {
           a.addEventListener('click', () => {
             try {
@@ -8647,6 +8662,27 @@
 
     });
   </script>
+  
+  <!-- Mobile Sticky Bottom Navigation Bar (md:hidden) -->
+  <nav id="mobile-sticky-bottom-bar" class="md:hidden fixed bottom-0 inset-x-0 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/90 px-3 py-2 z-40 flex items-center justify-around shadow-2xl">
+    <a href="project.html" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition" data-mobile-nav="overview">
+      <span class="text-base">📌</span>
+      <span>Overview</span>
+    </a>
+    <a href="project-proforma.html" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition" data-mobile-nav="proforma">
+      <span class="text-base">📊</span>
+      <span>Pro-Forma</span>
+    </a>
+    <button type="button" onclick="toggleNavModuleDropdown(event)" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition">
+      <span class="text-base">🧭</span>
+      <span>Sections</span>
+    </button>
+    <button type="button" onclick="openEditDealModalFromProject()" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-brand-400 hover:text-brand-300 transition">
+      <span class="text-base">✏️</span>
+      <span>Inputs</span>
+    </button>
+  </nav>
+
   <!-- Container for printable executive brief (controlled via @media print) -->
   <div id="printable-brief"></div>
 </body>

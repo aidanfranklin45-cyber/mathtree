@@ -79,22 +79,22 @@
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased">
 <header class="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
       
       <!-- Back to Dashboard & Brand -->
       <div class="flex items-center space-x-3">
-        <a href="dashboard.html" class="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition group">
+        <a href="dashboard.html" class="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition group shrink-0">
           <svg class="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           <span>Dashboard</span>
         </a>
         <div class="h-5 w-px bg-slate-800"></div>
         <div>
           <div class="flex items-center space-x-2">
-            <h1 id="deal-title-display" class="text-base font-extrabold text-white tracking-tight">Property Underwriting</h1>
-            <span id="deal-status-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <h1 id="deal-title-display" class="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[100px] xs:max-w-[160px] sm:max-w-xs md:max-w-md" title="Property Underwriting">Property Underwriting</h1>
+            <span id="deal-status-pill" class="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
               Prospect
             </span>
-            <span id="deal-asset-pill" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize">
+            <span id="deal-asset-pill" class="hidden xs:inline-block text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize shrink-0">
               Commercial
             </span>
           </div>
@@ -116,7 +116,7 @@
       </div>
 
             <!-- Analysis Module Selector & Quick Navigation (Seamlessly Integrated) -->
-      <div class="flex items-center space-x-1.5 shrink-0" id="header-analysis-nav" data-active-page-key="property">
+      <div class="flex items-center space-x-1 sm:space-x-1.5 shrink-0" id="header-analysis-nav" data-active-page-key="property">
         <!-- Previous Module Quick Arrow -->
         <button type="button" id="btn-nav-prev-module" onclick="navigateModuleRelative(-1)" class="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Previous Module (Keyboard: Alt + Left)">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" /></svg>
@@ -124,20 +124,20 @@
 
         <!-- Analysis Module Dropdown -->
         <div class="relative" id="nav-module-dropdown-container">
-          <button type="button" id="btn-nav-module-dropdown" onclick="toggleNavModuleDropdown(event)" aria-haspopup="true" aria-expanded="false" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-850 text-white transition shadow-sm group">
+          <button type="button" id="btn-nav-module-dropdown" onclick="toggleNavModuleDropdown(event)" aria-haspopup="true" aria-expanded="false" class="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-brand-500/50 hover:bg-slate-850 text-white transition shadow-sm group">
             <span class="text-base shrink-0" id="header-active-module-icon">🏛️</span>
             <div class="text-left hidden md:block">
               <span class="block text-[8.5px] uppercase font-extrabold tracking-wider text-emerald-400 leading-none mb-0.5">Analysis Module</span>
               <span class="block text-xs font-bold text-slate-100 group-hover:text-white leading-tight" id="header-active-module-title">Property & County Records</span>
             </div>
-            <span class="block text-xs font-bold text-slate-100 md:hidden" id="header-active-module-mobile-title">Property & GIS</span>
+            <span class="block text-[11px] sm:text-xs font-bold text-slate-100 md:hidden truncate max-w-[65px] xs:max-w-[100px]" id="header-active-module-mobile-title">Property & GIS</span>
             <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-transform ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           <!-- Rich Dropdown Menu (No horizontal scrollbars, full keyboard support) -->
-          <div id="nav-module-dropdown-menu" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 top-11 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-50 backdrop-blur-xl divide-y divide-slate-800/60">
+          <div id="nav-module-dropdown-menu" class="hidden absolute right-0 sm:left-1/2 sm:-translate-x-1/2 top-11 w-[calc(100vw-1.5rem)] max-w-xs sm:max-w-sm sm:w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-50 backdrop-blur-xl divide-y divide-slate-800/60">
             <div class="px-3.5 py-2 flex items-center justify-between">
               <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Property Analysis Modules</span>
               <span class="text-[9px] text-slate-500 font-mono" id="nav-module-count-badge">7 Sections</span>
@@ -257,7 +257,7 @@
 
   <!-- Main Analysis Workspace -->
   
-  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
+  <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 md:pb-6 flex flex-col space-y-6">
     <!-- Institutional Deal Hub Container (Full Width 12-Column Presentation) -->
     
     <div id="modeler-grid-container" class="w-full space-y-6">
@@ -996,8 +996,8 @@
     </div>
   </main>
   <!-- Edit Project Inputs Modal for project.html -->
-  <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-2xl my-6 max-h-[92vh] overflow-y-auto">
+  <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl my-2 sm:my-6 max-h-[96vh] sm:max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-2xl bg-brand-500/10 text-brand-400 flex items-center justify-center border border-brand-500/20 font-black text-base shrink-0">
@@ -4650,6 +4650,21 @@
         };
         const targetFile = fileMap[pageKey] || 'project.html';
         a.href = targetFile + '?id=' + encodeURIComponent(dealId);
+      });
+
+      // Update mobile sticky bottom nav links and active highlights
+      const activeNav = document.getElementById('header-analysis-nav');
+      const currentKey = (activeNav && activeNav.getAttribute('data-active-page-key')) || 'overview';
+      document.querySelectorAll('#mobile-sticky-bottom-bar a[data-mobile-nav]').forEach(a => {
+        const navKey = a.getAttribute('data-mobile-nav');
+        const file = navKey === 'proforma' ? 'project-proforma.html' : 'project.html';
+        a.href = file + (dealId ? '?id=' + encodeURIComponent(dealId) : '');
+        if (navKey === currentKey) {
+          a.className = 'flex flex-col items-center py-0.5 px-2 text-[10px] font-black text-emerald-400 transition';
+        } else {
+          a.className = 'flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition';
+        }
+      
         if (!a._dealBound) {
           a.addEventListener('click', () => {
             try {
@@ -8374,6 +8389,27 @@
 
     });
   </script>
+  
+  <!-- Mobile Sticky Bottom Navigation Bar (md:hidden) -->
+  <nav id="mobile-sticky-bottom-bar" class="md:hidden fixed bottom-0 inset-x-0 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/90 px-3 py-2 z-40 flex items-center justify-around shadow-2xl">
+    <a href="project.html" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition" data-mobile-nav="overview">
+      <span class="text-base">📌</span>
+      <span>Overview</span>
+    </a>
+    <a href="project-proforma.html" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition" data-mobile-nav="proforma">
+      <span class="text-base">📊</span>
+      <span>Pro-Forma</span>
+    </a>
+    <button type="button" onclick="toggleNavModuleDropdown(event)" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition">
+      <span class="text-base">🧭</span>
+      <span>Sections</span>
+    </button>
+    <button type="button" onclick="openEditDealModalFromProject()" class="flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-brand-400 hover:text-brand-300 transition">
+      <span class="text-base">✏️</span>
+      <span>Inputs</span>
+    </button>
+  </nav>
+
   <!-- Container for printable executive brief (controlled via @media print) -->
   <div id="printable-brief"></div>
 </body>
