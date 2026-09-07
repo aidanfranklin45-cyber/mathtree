@@ -1671,7 +1671,7 @@
       document.getElementById('input-exit-year').value = values.exitYear ?? 10;
       document.getElementById('input-manage-property').checked = values.manageProperty ?? true;
       if (document.getElementById('input-prorate-first-year')) {
-        document.getElementById('input-prorate-first-year').checked = !!(values.prorateFirstYear);
+        const prorateEl = document.getElementById('input-prorate-first-year'); if (prorateEl) prorateEl.checked = !!(values.prorateFirstYear);
       }
       setExitCapTimingUI(values.exitCapTiming || 'amortized');
 
@@ -1912,6 +1912,7 @@
     // Render multi-year forecasts in the UI table
     function renderProjectionsTable(projections) {
       const tbody = document.getElementById('projection-table-body');
+      if (!tbody) return;
       tbody.innerHTML = '';
 
       const tableTitle = document.getElementById('forecast-table-title');
@@ -1952,6 +1953,7 @@
     // Render multi-year amortization schedule in the UI table
     function renderAmortizationTable(schedule, projections) {
       const tbody = document.getElementById('amortization-table-body');
+      if (!tbody) return;
       tbody.innerHTML = '';
 
       const amortTitle = document.getElementById('amortization-table-title');
@@ -2067,6 +2069,7 @@
     function updateWealthRealizationStudio(inputs, res) {
       if (!res || !res.projections || res.projections.length === 0) return;
       const selectEl = document.getElementById('input-wealth-hold-year');
+      if (!selectEl) return;
       const startYr = getProjectionStartYear();
       
       if (selectEl && res.projections) {
@@ -2168,7 +2171,9 @@
     }
     // Draw high-fidelity visual representations of the forecast model
     function updateProjectionsChart(projections) {
-      const ctx = document.getElementById('projection-chart').getContext('2d');
+      const canvas = document.getElementById('projection-chart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
       const startYr = getProjectionStartYear();
       const labels = projections.map(p => `${startYr + p.year - 1} (Yr ${p.year})`);
 
@@ -2401,7 +2406,8 @@
       const res = window.PropertyMath.calculateProjections(mappedTab, inputs);
 
       // Read target year from inspector slider
-      const targetYearInput = parseInt(document.getElementById('input-year-inspector').value) || 1;
+      const sliderEl = document.getElementById('input-year-inspector');
+      const targetYearInput = sliderEl ? (parseInt(sliderEl.value) || 1) : 1;
       const yearIdx = Math.max(0, Math.min(9, targetYearInput - 1));
       const targetYearProj = res.projections[yearIdx];
 
@@ -2414,17 +2420,15 @@
       if (sliderMin) sliderMin.textContent = `${startYr}`;
       if (sliderMax) sliderMax.textContent = `${startYr + 9}`;
 
-      document.getElementById('label-year-inspector').textContent = `${currentCalYear} (Yr ${targetYearInput})`;
-      document.getElementById('metric-noi-label').textContent = `${currentCalYear}`;
-      document.getElementById('metric-cap-rate-label').textContent = `${currentCalYear}`;
-      if (document.getElementById('metric-cf-label')) {
-        document.getElementById('metric-cf-label').textContent = `${currentCalYear}`;
-      }
-      document.getElementById('metric-cash-on-cash-label').textContent = `${currentCalYear}`;
+      const labelYr = document.getElementById('label-year-inspector'); if (labelYr) labelYr.textContent = `${currentCalYear} (Yr ${targetYearInput})`;
+      const lblNoi = document.getElementById('metric-noi-label'); if (lblNoi) lblNoi.textContent = `${currentCalYear}`;
+      const lblCap = document.getElementById('metric-cap-rate-label'); if (lblCap) lblCap.textContent = `${currentCalYear}`;
+      const lblCf = document.getElementById('metric-cf-label'); if (lblCf) lblCf.textContent = `${currentCalYear}`;
+      const lblCoc = document.getElementById('metric-cash-on-cash-label'); if (lblCoc) lblCoc.textContent = `${currentCalYear}`;
 
       // Update Dynamic Cards metrics
-      document.getElementById('metric-noi').textContent = formatCurrency(targetYearProj.netOperatingIncome);
-      document.getElementById('metric-cap-rate').textContent = `${targetYearProj.capRate.toFixed(2)}%`;
+      const mNoi = document.getElementById('metric-noi'); if (mNoi) mNoi.textContent = formatCurrency(targetYearProj.netOperatingIncome);
+      const mCap = document.getElementById('metric-cap-rate'); if (mCap) mCap.textContent = `${targetYearProj.capRate.toFixed(2)}%`;
 
       // Update Net Cash Flow Card
       const cfEl = document.getElementById('metric-cash-flow');
@@ -2454,26 +2458,27 @@
       
       const cocBadge = document.getElementById('metric-coc-badge');
       const cocDesc = document.getElementById('metric-coc-desc');
-      if (res.isZeroEquity) {
-        document.getElementById('metric-cash-on-cash').textContent = 'N/M';
-        if (cocBadge) cocBadge.classList.remove('hidden');
-        if (cocDesc) cocDesc.textContent = '100% financed (zero initial cash outlay)';
-      } else {
-        document.getElementById('metric-cash-on-cash').textContent = `${targetYearProj.cashOnCash.toFixed(2)}%`;
-        if (cocBadge) cocBadge.classList.add('hidden');
-        if (cocDesc) cocDesc.textContent = 'Annual cash flow / initial cash';
+      const mCoc = document.getElementById('metric-cash-on-cash');
+      if (mCoc) {
+        if (res.isZeroEquity) {
+          mCoc.textContent = 'N/M';
+          if (cocBadge) cocBadge.classList.remove('hidden');
+          if (cocDesc) cocDesc.textContent = '100% financed (zero initial cash outlay)';
+        } else {
+          mCoc.textContent = `${targetYearProj.cashOnCash.toFixed(2)}%`;
+          if (cocBadge) cocBadge.classList.add('hidden');
+          if (cocDesc) cocDesc.textContent = 'Annual cash flow / initial cash';
+        }
       }
 
       // Update Advanced Analytics Cards metrics
       const exitHorizon = inputs.exitYear || 10;
-      document.getElementById('metric-exit-badge').textContent = `Exit: ${startYr + exitHorizon - 1} (Yr ${exitHorizon})`;
-      document.getElementById('metric-npv').textContent = formatCurrency(res.npv);
-      document.getElementById('metric-irr').textContent = res.irrDisplay || `${res.irr.toFixed(2)}%`;
-      document.getElementById('metric-equity-multiplier').textContent = res.equityMultiplierDisplay || `${res.equityMultiplier.toFixed(2)}x`;
-
-      // Update Amortization Wealth Realization Studio
-      updateWealthRealizationStudio(inputs, res);
-      document.getElementById('metric-breakeven').textContent = typeof res.breakEvenYear === 'number' ? `${startYr + res.breakEvenYear - 1} (Year ${res.breakEvenYear})` : res.breakEvenYear;
+      const mExit = document.getElementById('metric-exit-badge'); if (mExit) mExit.textContent = `Exit: ${startYr + exitHorizon - 1} (Yr ${exitHorizon})`;
+      const mNpv = document.getElementById('metric-npv'); if (mNpv) mNpv.textContent = formatCurrency(res.npv);
+      const mIrr = document.getElementById('metric-irr'); if (mIrr) mIrr.textContent = res.irrDisplay || `${res.irr.toFixed(2)}%`;
+      const mEq = document.getElementById('metric-equity-multiplier'); if (mEq) mEq.textContent = res.equityMultiplierDisplay || `${res.equityMultiplier.toFixed(2)}x`;
+      if (typeof updateWealthRealizationStudio === 'function') updateWealthRealizationStudio(inputs, res);
+      const mBe = document.getElementById('metric-breakeven'); if (mBe) mBe.textContent = typeof res.breakEvenYear === 'number' ? `${startYr + res.breakEvenYear - 1} (Year ${res.breakEvenYear})` : res.breakEvenYear;
 
       // Update Cap Rate benchmark description label dynamically based on institutional ranges
       const descField = document.getElementById('metric-cap-rate-desc');
@@ -2515,11 +2520,11 @@
       }
 
       // Update Debt Section
-      document.getElementById('debt-loan-amount').textContent = formatCurrency(res.loanAmount);
-      document.getElementById('debt-ltv').textContent = `${res.ltv.toFixed(1)}%`;
-      document.getElementById('debt-monthly-payment').textContent = `${formatCurrency(res.monthlyMortgagePayment)}/mo`;
-      document.getElementById('debt-y1-dscr').textContent = res.projections[0].dscr !== null ? `${res.projections[0].dscr.toFixed(2)}x` : 'N/A';
-      document.getElementById('debt-y1-yield').textContent = res.projections[0].debtYield !== null ? `${res.projections[0].debtYield.toFixed(2)}%` : 'N/A';
+      const dLoan = document.getElementById('debt-loan-amount'); if (dLoan) dLoan.textContent = formatCurrency(res.loanAmount);
+      const dLtv = document.getElementById('debt-ltv'); if (dLtv) dLtv.textContent = `${res.ltv.toFixed(1)}%`;
+      const dPay = document.getElementById('debt-monthly-payment'); if (dPay) dPay.textContent = `${formatCurrency(res.monthlyMortgagePayment)}/mo`;
+      const dDscr = document.getElementById('debt-y1-dscr'); if (dDscr) dDscr.textContent = res.projections[0].dscr !== null ? `${res.projections[0].dscr.toFixed(2)}x` : 'N/A';
+      const dYield = document.getElementById('debt-y1-yield'); if (dYield) dYield.textContent = res.projections[0].debtYield !== null ? `${res.projections[0].debtYield.toFixed(2)}%` : 'N/A';
 
       // Update graphical elements and spreadsheet logs
       updateProjectionsChart(res.projections);
@@ -2899,8 +2904,10 @@
 
     // Render 2D Sensitivity Matrix
     function renderSensitivityMatrix(inputs) {
-      const rowParam = document.getElementById('sens-row-param').value || 'interestRate';
-      const colParam = document.getElementById('sens-col-param').value || 'targetCapRate';
+      const rowSelect = document.getElementById('sens-row-param');
+      if (!rowSelect) return;
+      const rowParam = rowSelect.value || 'interestRate';
+      const colParam = document.getElementById('sens-col-param')?.value || 'targetCapRate';
 
       // Generate dynamic ranges centered around current inputs
       const rowBase = parseFloat(inputs[rowParam]) || (rowParam === 'purchasePrice' ? 300000 : 6);
@@ -2977,13 +2984,15 @@
 
     // Render Monte Carlo Simulation
     function renderMonteCarlo(inputs) {
+      const chartCanvas = document.getElementById('monte-carlo-chart');
+      if (!chartCanvas) return;
       const mc = window.PropertyMath.runMonteCarloSimulation(activeTab, inputs, 1000);
 
-      document.getElementById('mc-mean-irr').textContent = `${mc.meanIrr.toFixed(2)}%`;
-      document.getElementById('mc-median-irr').textContent = `${mc.medianIrr.toFixed(2)}%`;
-      document.getElementById('mc-p5-irr').textContent = `${mc.p5Irr.toFixed(2)}%`;
-      document.getElementById('mc-p95-irr').textContent = `${mc.p95Irr.toFixed(2)}%`;
-      document.getElementById('mc-prob-neg').textContent = `${mc.probNegativeCashFlow.toFixed(1)}%`;
+      const mMean = document.getElementById('mc-mean-irr'); if (mMean) mMean.textContent = `${mc.meanIrr.toFixed(2)}%`;
+      const mMedian = document.getElementById('mc-median-irr'); if (mMedian) mMedian.textContent = `${mc.medianIrr.toFixed(2)}%`;
+      const mP5 = document.getElementById('mc-p5-irr'); if (mP5) mP5.textContent = `${mc.p5Irr.toFixed(2)}%`;
+      const mP95 = document.getElementById('mc-p95-irr'); if (mP95) mP95.textContent = `${mc.p95Irr.toFixed(2)}%`;
+      const mProb = document.getElementById('mc-prob-neg'); if (mProb) mProb.textContent = `${mc.probNegativeCashFlow.toFixed(1)}%`;
 
       const ctx = document.getElementById('monte-carlo-chart');
       if (!ctx) return;
@@ -3019,14 +3028,16 @@
 
     // Render Tax Depreciation & Refinance
     function renderTaxAndRefinance(inputs, baseRes) {
-      const costSegEnabled = document.getElementById('input-cost-seg').checked;
+      const costSegEl = document.getElementById('input-cost-seg');
+      if (!costSegEl) return;
+      const costSegEnabled = costSegEl.checked;
       const taxInputs = { ...inputs, enableCostSeg: costSegEnabled };
       const taxRes = window.PropertyMath.calculateTaxAndDepreciation(activeTab, taxInputs, baseRes);
 
-      document.getElementById('tax-basis').textContent = formatCurrency(taxRes.depreciableBasis);
-      document.getElementById('tax-annual-dep').textContent = `${formatCurrency(taxRes.annualDepreciation)}/yr`;
-      document.getElementById('tax-after-irr').textContent = `${taxRes.afterTaxIrr.toFixed(2)}%`;
-      document.getElementById('tax-exit-liability').textContent = formatCurrency(taxRes.totalExitTax);
+      const tBasis = document.getElementById('tax-basis'); if (tBasis) tBasis.textContent = formatCurrency(taxRes.depreciableBasis);
+      const tAnnDep = document.getElementById('tax-annual-dep'); if (tAnnDep) tAnnDep.textContent = `${formatCurrency(taxRes.annualDepreciation)}/yr`;
+      const tAfterIrr = document.getElementById('tax-after-irr'); if (tAfterIrr) tAfterIrr.textContent = `${taxRes.afterTaxIrr.toFixed(2)}%`;
+      const tExit = document.getElementById('tax-exit-liability'); if (tExit) tExit.textContent = formatCurrency(taxRes.totalExitTax);
 
       const startYr = getProjectionStartYear();
       const tableBody = document.getElementById('tax-table-body');
@@ -3050,9 +3061,12 @@
       }
 
       // Refinance Simulation
-      const refiYear = parseInt(document.getElementById('refi-input-year').value) || 5;
-      const refiLtv = parseFloat(document.getElementById('refi-input-ltv').value) || 75;
-      const refiRate = parseFloat(document.getElementById('refi-input-rate').value) || 6.5;
+      const refiYearEl = document.getElementById('refi-input-year');
+      const refiLtvEl = document.getElementById('refi-input-ltv');
+      const refiRateEl = document.getElementById('refi-input-rate');
+      const refiYear = refiYearEl ? (parseInt(refiYearEl.value) || 5) : 5;
+      const refiLtv = refiLtvEl ? (parseFloat(refiLtvEl.value) || 75) : 75;
+      const refiRate = refiRateEl ? (parseFloat(refiRateEl.value) || 6.5) : 6.5;
 
       const refiRes = window.PropertyMath.calculateRefinanceEvent(activeTab, inputs, refiYear, refiLtv, refiRate, 30);
       const summaryCards = document.getElementById('refi-summary-cards');
@@ -3630,7 +3644,7 @@
             <!-- Page 1 Running Footer -->
             <div style="border-top: 1px solid #cbd5e1; padding-top: 4px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8;">
               <span>MathTree Institutional Real Estate Underwriting • Verified Acquisition Dossier & Capital Structure</span>
-              <span>Binding Underwriting Memorandum • Verified Deal Records • Page 1 of 3</span>
+              <span>Informational Underwriting Analysis • Based on User-Supplied Inputs • Page 1 of 3</span>
             </div>
           </div>
 
@@ -3886,7 +3900,7 @@
             <!-- Page 2 Running Footer -->
             <div style="border-top: 1px solid #cbd5e1; padding-top: 4px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8;">
               <span>MathTree Institutional Real Estate Underwriting • Quantitative Derivation Engine & Valuation Provenance</span>
-              <span>Binding Underwriting Memorandum • Verified Deal Records • Page 2 of 3</span>
+              <span>Informational Underwriting Analysis • Based on User-Supplied Inputs • Page 2 of 3</span>
             </div>
           </div>
 
@@ -4119,20 +4133,21 @@
                 </div>
 
                 <!-- Attestation & Sign-Off -->
-                <div style="border: 1px solid #cbd5e1; border-radius: 5px; padding: 5px 8px; background: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="border: 1px solid #cbd5e1; border-radius: 5px; padding: 5px 8px; background: #f8fafc; display: flex; flex-direction: column; justify-content: space-between;">
                   <div>
-                    <span style="font-size: 8px; font-weight: 800; color: #0f172a; text-transform: uppercase; display: block;">Institutional Review & Execution Sign-Off</span>
-                    <span style="font-size: 7px; color: #64748b;">Underwriting verified against official county records, lease schedules & loan terms</span>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+                      <span style="font-size: 8px; font-weight: 800; color: #0f172a; text-transform: uppercase; display: flex; align-items: center; gap: 3px;">
+                        <span>⚖️</span> Informational Analysis Disclaimer
+                      </span>
+                      <span style="font-size: 6.5px; font-weight: 700; color: #475569; background: #e2e8f0; padding: 1px 4px; border-radius: 2px;">User Inputs</span>
+                    </div>
+                    <p style="font-size: 7px; color: #64748b; line-height: 1.28; margin: 0;">
+                      This report is strictly an informational underwriting analysis generated primarily from user-supplied assumptions, financial estimates, debt financing terms, and public records. MathTree makes no representations regarding property condition or realized yields. Users must independently verify all physical, legal, and financial inputs with qualified professionals prior to transactions.
+                    </p>
                   </div>
-                  <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 6px; font-size: 7.5px; color: #475569;">
-                    <div>
-                      <div style="border-bottom: 1px solid #94a3b8; width: 120px; margin-bottom: 2px;"></div>
-                      <span>Lead Underwriter Signature</span>
-                    </div>
-                    <div style="text-align: right;">
-                      <div style="border-bottom: 1px solid #94a3b8; width: 75px; margin-bottom: 2px;"></div>
-                      <span>Review Date</span>
-                    </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px; border-top: 1px dashed #cbd5e1; margin-top: 4px; font-size: 6.8px; color: #94a3b8;">
+                    <span>Derived from User-Specified Model Assumptions</span>
+                    <span style="font-style: italic;">Informational Purposes Only</span>
                   </div>
                 </div>
               </div>
@@ -4141,7 +4156,7 @@
             <!-- Page 3 Running Footer -->
             <div style="border-top: 1px solid #cbd5e1; padding-top: 4px; margin-top: 6px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8;">
               <span>MathTree Institutional Real Estate Underwriting • 10-Year Pro-Forma, Monte Carlo & Capital Returns</span>
-              <span>Binding Underwriting Memorandum • Verified Deal Records • Page 3 of 3</span>
+              <span>Informational Underwriting Analysis • Based on User-Supplied Inputs • Page 3 of 3</span>
             </div>
           </div>
 
