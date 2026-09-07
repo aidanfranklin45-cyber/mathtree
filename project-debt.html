@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Deal Overview | MathTree</title>
+  <title>Debt & Financing | MathTree</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -137,7 +137,7 @@
       <!-- Institutional Deal Hub 7-Tab Navigation -->
       <nav id="deal-tabs-navbar" aria-label="Deal Analysis Navigation" class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-900 overflow-x-auto scrollbar-thin">
         
-        <a href="project.html" id="deal-tab-overview" data-page-key="overview" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold text-white bg-brand-600 shadow-sm transition-all whitespace-nowrap">
+        <a href="project.html" id="deal-tab-overview" data-page-key="overview" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
           <span>📌</span>
           <span>Deal Overview</span>
         </a>
@@ -149,7 +149,7 @@
           <span>🏛️</span>
           <span>Property & County</span>
         </a>
-        <a href="project-debt.html" id="deal-tab-debt" data-page-key="debt" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-900/80 transition-all whitespace-nowrap">
+        <a href="project-debt.html" id="deal-tab-debt" data-page-key="debt" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold text-white bg-brand-600 shadow-sm transition-all whitespace-nowrap">
           <span>🏦</span>
           <span>Debt & Financing</span>
         </a>
@@ -849,331 +849,76 @@
         <div id="deal-auditor-banner" class="space-y-2">
           <!-- Dynamically populated deal risk warnings -->
         </div>
-      <!-- SUB-PAGE 1: Deal Executive Overview (Default Active Tab) -->
-      <div id="view-panel-single" class="space-y-6">
-        <!-- Live-Updating Metrics cards -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- NOI Card -->
-            <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
-              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-brand-500/5 group-hover:bg-brand-500/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Net Operating Income</p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-noi" class="text-2xl font-extrabold text-white tracking-tight">$0</span>
-                <span id="metric-noi-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
+      <!-- SUB-PAGE 4: Debt Structure & Full Amortization Schedule -->
+      <div id="view-panel-debt" data-deal-panel="debt" class="space-y-6">
+        <!-- Debt Structure & Amortization Section -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
+            <div class="pb-4 border-b border-slate-900 flex justify-between items-center cursor-pointer" id="debt-toggle-header">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-cyan"></span>
+                  <span>Debt Structure & Amortization Schedule</span>
+                </h3>
+                <p class="text-xs text-slate-400">Underwriting metrics, debt coverage, and loan paydown forecast</p>
               </div>
-              <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span>Revenue minus vacancy & OpEx</span>
-              </div>
-            </div>
-
-            <!-- Cap Rate Card -->
-            <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
-              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-accent-cyan/5 group-hover:bg-accent-cyan/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Cap Rate Yield</p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cap-rate" class="text-2xl font-extrabold text-accent-cyan tracking-tight">0.0%</span>
-                <span id="metric-cap-rate-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
-              </div>
-              <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span id="metric-cap-rate-desc">Annual NOI / property value</span>
-              </div>
-            </div>
-
-            <!-- Net Cash Flow (Take-Home Pocket Cash) Card -->
-            <div class="bg-slate-900/40 border border-emerald-950/80 p-5 rounded-2xl relative overflow-hidden group hover:border-emerald-800/60 transition duration-300 bg-gradient-to-br from-slate-900/80 via-slate-900/40 to-emerald-950/20 shadow-lg shadow-emerald-950/20">
-              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-emerald-400 uppercase flex items-center justify-between">
-                <span>Net Cash Flow</span>
-                <span id="metric-cf-status" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Take-Home</span>
-              </p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cash-flow" class="text-2xl font-black text-emerald-400 tracking-tight">$0/yr</span>
-                <span id="metric-cf-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
-              </div>
-              <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
-                <span>Pocketed cash after mortgage</span>
-                <span id="metric-cf-mo" class="font-mono text-emerald-300 font-bold">+$0/mo</span>
-              </div>
-            </div>
-
-            <!-- Cash-on-Cash Return Card -->
-            <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
-              <div class="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-slate-500/5 group-hover:bg-slate-500/10 transition-colors"></div>
-              <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center justify-between">
-                <span>Cash-on-Cash</span>
-                <span id="metric-coc-badge" class="hidden text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">100% Financed</span>
-              </p>
-              <div class="mt-2 flex items-baseline justify-between">
-                <span id="metric-cash-on-cash" class="text-2xl font-extrabold text-slate-200 tracking-tight">0.0%</span>
-                <span id="metric-cash-on-cash-label" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded">Year 1</span>
-              </div>
-              <div class="mt-3 flex items-center text-xs text-slate-500">
-                <span id="metric-coc-desc">Annual cash flow / cash invested</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Advanced Analytics metrics grid -->
-          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl relative overflow-hidden hover:border-slate-800 transition duration-300 space-y-4">
-            <div class="border-b border-slate-900/80 pb-3 flex items-center justify-between">
-              <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-violet"></span>
-                <span>Advanced Analytics</span>
-              </h3>
-              <span id="metric-exit-badge" class="text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-2 py-0.5 border border-slate-900 rounded">Exit: Year 10</span>
-            </div>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <!-- NPV Card -->
-              <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
-                <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
-                  <span>NPV</span>
-                  <span class="text-slate-600 cursor-help" title="Net Present Value: Discounted cash flows + exit equity minus initial investment.">ⓘ</span>
-                </p>
-                <div class="mt-1 flex items-baseline justify-between">
-                  <span id="metric-npv" class="text-xl font-extrabold text-white tracking-tight">$0</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-1">Today's cash value minus investment</p>
-              </div>
-              
-              <!-- IRR Card -->
-              <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
-                <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
-                  <span>IRR</span>
-                  <span class="text-slate-600 cursor-help" title="Internal Rate of Return: Annualized rate of return of the investment.">ⓘ</span>
-                </p>
-                <div class="mt-1 flex items-baseline justify-between">
-                  <span id="metric-irr" class="text-xl font-extrabold text-accent-violet tracking-tight">0.0%</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-1">Annualized rate of return</p>
-              </div>
-              
-              <!-- Equity Multiplier Card -->
-              <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
-                <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
-                  <span>Equity Multiplier</span>
-                  <span class="text-slate-600 cursor-help" title="Equity Multiplier: Total returns divided by initial cash invested (also known as MOIC).">ⓘ</span>
-                </p>
-                <div class="mt-1 flex items-baseline justify-between">
-                  <span id="metric-equity-multiplier" class="text-xl font-extrabold text-accent-cyan tracking-tight">0.00x</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-1">Total returns / Initial cash</p>
-              </div>
-              
-              <!-- Break-Even Year Card -->
-              <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group">
-                <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between">
-                  <span>Break-Even Year</span>
-                  <span class="text-slate-600 cursor-help" title="Break-Even Year: The year when cumulative cash flow becomes positive.">ⓘ</span>
-                </p>
-                <div class="mt-1 flex items-baseline justify-between">
-                  <span id="metric-breakeven" class="text-xl font-extrabold text-accent-emerald tracking-tight">N/A</span>
-                </div>
-                <p class="text-[10px] text-slate-500 mt-1">Year cumulative cash turns positive</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Glossary & Understanding Metrics (Collapsible) -->
-          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden hover:border-slate-800 transition duration-300">
-            <div class="pb-3 border-b border-slate-900/80 flex items-center justify-between cursor-pointer" id="glossary-toggle-header">
-              <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-500"></span>
-                <span>Glossary: Understanding Your Deal Metrics</span>
-              </h3>
-              <button type="button" class="text-slate-400 hover:text-white transition animate-pulse" id="glossary-toggle-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5 transform transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" id="glossary-toggle-icon">
+              <button type="button" class="text-slate-400 hover:text-white transition" id="debt-toggle-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transform transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" id="debt-toggle-icon">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
             </div>
-            <div id="glossary-section-content" class="hidden mt-4 space-y-4 text-xs leading-relaxed text-slate-300">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="space-y-2">
-                  <p class="font-semibold text-accent-violet flex items-center gap-1">
-                    <span>⚡</span>
-                    <span>Internal Rate of Return (IRR)</span>
-                  </p>
-                  <p class="text-slate-400">
-                    The annualized rate of return that equates the present value of all cash flows (including net sale equity at exit) to your initial investment. Think of it as the speed at which your capital grows. A higher IRR is better, with institutional real estate typically targeting 12% to 18%.
-                  </p>
+
+            <div id="debt-section-content" class="transition-all duration-300 overflow-hidden mt-4 space-y-6">
+              <!-- Summary metrics for debt -->
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Loan Amount</p>
+                  <p id="debt-loan-amount" class="text-sm font-bold text-white mt-1">$0</p>
                 </div>
-                <div class="space-y-2">
-                  <p class="font-semibold text-white flex items-center gap-1">
-                    <span>💸</span>
-                    <span>Net Present Value (NPV)</span>
-                  </p>
-                  <p class="text-slate-400">
-                    The current value of all future cash flows (cash flow + exit proceeds), discounted back to today using a target discount rate (hurdle rate), minus your initial cash investment.
-                  </p>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Loan-to-Value (LTV)</p>
+                  <p id="debt-ltv" class="text-sm font-bold text-white mt-1">0.0%</p>
                 </div>
-                <div class="space-y-2">
-                  <p class="font-semibold text-accent-cyan flex items-center gap-1">
-                    <span></span>
-                    <span>Equity Multiplier (MOIC)</span>
-                  </p>
-                  <p class="text-slate-400">
-                    How many times your cash investment is returned over the hold period. Calculated as Total Cash Returned / Total Cash Invested.
-                  </p>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Monthly Payment</p>
+                  <p id="debt-monthly-payment" class="text-sm font-bold text-white mt-1">$0</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Year 1 DSCR</p>
+                  <p id="debt-y1-dscr" class="text-sm font-bold text-white mt-1">N/A</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Year 1 Debt Yield</p>
+                  <p id="debt-y1-yield" class="text-sm font-bold text-white mt-1">N/A</p>
                 </div>
               </div>
-            </div>
-          </div>
-        
-        <!-- Two-Column Executive Deal Synopsis -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <!-- Property & Municipal Snapshot Card -->
-          <div class="bg-slate-900/40 border border-slate-900 hover:border-slate-800 p-5 rounded-2xl shadow-xl transition space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-900 pb-3">
-              <div class="flex items-center space-x-2.5">
-                <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">🏛️</div>
-                <div>
-                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Property & Site Snapshot</h3>
-                  <span class="text-[10px] text-emerald-400">Yakima County Assessor Data</span>
-                </div>
-              </div>
-              <span id="overview-property-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">GIS Synced</span>
-            </div>
 
-            <div class="grid grid-cols-2 gap-3 text-xs">
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Property Address</span>
-                <span id="overview-snapshot-address" class="text-xs font-bold text-slate-200 mt-1 block truncate">--</span>
-              </div>
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">APN & County</span>
-                <span id="overview-snapshot-apn" class="text-xs font-bold text-brand-400 mt-1 block truncate">Yakima County</span>
-              </div>
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Class & Tier</span>
-                <span id="overview-snapshot-class" class="text-xs font-bold text-slate-200 mt-1 block truncate">Class B • Tier 2</span>
-              </div>
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">County Assessed Value</span>
-                <span id="overview-snapshot-assessed" class="text-xs font-bold text-emerald-400 mt-1 block truncate">--</span>
-              </div>
-            </div>
-
-            <button type="button" onclick="switchDealTab('property')" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 transition shadow-sm group">
-              <span>View Full County Assessor Records & GIS Dossier</span>
-              <span class="text-emerald-400 group-hover:translate-x-1 transition-transform">➔</span>
-            </button>
-          </div>
-
-          <!-- Financing & Capital Structure Snapshot Card -->
-          <div class="bg-slate-900/40 border border-slate-900 hover:border-slate-800 p-5 rounded-2xl shadow-xl transition space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-900 pb-3">
-              <div class="flex items-center space-x-2.5">
-                <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-sm">🏦</div>
-                <div>
-                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Financing & Debt Structure</h3>
-                  <span class="text-[10px] text-cyan-400">Institutional Capitalization</span>
-                </div>
-              </div>
-              <span id="overview-debt-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">DSCR Verified</span>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 text-xs">
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Loan Amount</span>
-                <span id="overview-snapshot-loan" class="text-xs font-bold text-white mt-1 block truncate">$0</span>
-              </div>
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">LTV & Leverage</span>
-                <span id="overview-snapshot-ltv" class="text-xs font-bold text-slate-200 mt-1 block truncate">0.0%</span>
-              </div>
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Debt Service (P&I)</span>
-                <span id="overview-snapshot-pi" class="text-xs font-bold text-slate-200 mt-1 block truncate">$0/mo</span>
-              </div>
-              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Coverage (DSCR)</span>
-                <span id="overview-snapshot-dscr" class="text-xs font-bold text-emerald-400 mt-1 block truncate">N/A</span>
-              </div>
-            </div>
-
-            <button type="button" onclick="switchDealTab('debt')" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 transition shadow-sm group">
-              <span>View Debt Structure & Full Amortization Schedule</span>
-              <span class="text-cyan-400 group-hover:translate-x-1 transition-transform">➔</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- High-fidelity Chart.js projections visualizer -->
-          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">
-            <div class="flex items-center justify-between mb-4">
+              <!-- Amortization Table -->
               <div>
-                <h3 class="text-sm font-bold text-white tracking-tight">10-Year Projections Visualization</h3>
-                <p class="text-xs text-slate-400">Comparing property value, debt, equity and cash flow over time</p>
+                <h4 id="amortization-table-title" class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Amortization Forecast</h4>
+                <div class="overflow-x-auto -mx-5">
+                  <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                    <thead>
+                      <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
+                        <th class="py-2.5 px-5">Date / Period</th>
+                        <th class="py-2.5 px-4">Rate (%)</th>
+                        <th class="py-2.5 px-4">Beginning Balance</th>
+                        <th class="py-2.5 px-4">Annual Payment</th>
+                        <th class="py-2.5 px-4 text-accent-emerald">Principal Paid</th>
+                        <th class="py-2.5 px-4 text-accent-rose">Interest Paid</th>
+                        <th class="py-2.5 px-4">Ending Balance</th>
+                        <th class="py-2.5 px-4 text-emerald-400">Cumulative Paydown</th>
+                        <th class="py-2.5 px-4 pr-5 text-slate-400">LTV (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="amortization-table-body" class="divide-y divide-slate-900/60">
+                      <!-- Dynamically generated amortization rows -->
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div class="flex space-x-1.5 bg-slate-950 p-1 rounded-lg border border-slate-900">
-                <button id="chart-btn-cashflow" class="px-3 py-1 rounded-md text-xs font-semibold bg-slate-900 text-white shadow-sm transition">Cash Flow</button>
-                <button id="chart-btn-valuation" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-400 hover:text-white transition">Value vs Debt</button>
-              </div>
-            </div>
-            <div class="h-64 md:h-80 w-full relative">
-              <canvas id="projection-chart"></canvas>
             </div>
           </div>
-        
-        <!-- 5-Year Milestone Capital Trajectory Preview -->
-        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-900 pb-3">
-            <div>
-              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200">5-Year Milestone Capital Trajectory</h3>
-              <p class="text-[11px] text-slate-400">Key performance milestones across Year 1, Year 3, Year 5, Year 7, and Year 10</p>
-            </div>
-            <button type="button" onclick="switchDealTab('proforma')" class="text-xs font-bold text-brand-400 hover:text-brand-300 flex items-center space-x-1 transition self-start sm:self-auto">
-              <span>View All 10 Years & Monthly Schedule ➔</span>
-            </button>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-              <thead>
-                <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
-                  <th class="py-2.5 px-4">Milestone</th>
-                  <th class="py-2.5 px-4">Property Value</th>
-                  <th class="py-2.5 px-4">Gross Income</th>
-                  <th class="py-2.5 px-4">NOI</th>
-                  <th class="py-2.5 px-4">Debt Service</th>
-                  <th class="py-2.5 px-4 text-emerald-400 font-bold">Net Cash Flow</th>
-                  <th class="py-2.5 px-4">Cash-on-Cash</th>
-                  <th class="py-2.5 px-4 text-brand-400 font-bold">Ending Equity</th>
-                </tr>
-              </thead>
-              <tbody id="overview-milestones-body" class="divide-y divide-slate-900/60">
-                <!-- Dynamically populated 5 milestone rows -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        
-        <!-- Executive Diligence & Action Center Card -->
-        <div class="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div class="space-y-1">
-            <div class="flex items-center space-x-2">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-slate-200">Due Diligence & Institutional Deliverables</span>
-              <span id="overview-diligence-score-pill" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Diligence Ready</span>
-            </div>
-            <p class="text-xs text-slate-400">All 8 underwriting inputs mapped to verifiable economic provenance, gap analysis, and deliverables.</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button type="button" onclick="switchDealTab('diligence')" class="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-500 transition shadow-sm flex items-center space-x-1.5">
-              <span>📋</span>
-              <span>Review Assumptions Bridge</span>
-            </button>
-            <button type="button" onclick="exportToPDF()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shadow-sm flex items-center space-x-1.5">
-              <svg class="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-              <span>Export Brief (PDF)</span>
-            </button>
-            <button type="button" onclick="openEditDealModalFromProject()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shadow-sm flex items-center space-x-1.5">
-              <span>✎ Edit Inputs</span>
-            </button>
-          </div>
-        </div>
-
       </div>
     </div>
   </main>
