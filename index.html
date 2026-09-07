@@ -1341,7 +1341,10 @@
       var session = result.data && result.data.session;
       if (session) {
         if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
-          window.MathTreeSession.logout('timeout', _supabase);
+          if (window.MathTreeSession.clearSessionStorage) {
+            window.MathTreeSession.clearSessionStorage();
+          }
+          _supabase.auth.signOut().catch(function() {});
           return;
         }
         window.location.replace('dashboard.html');
@@ -1351,7 +1354,10 @@
     _supabase.auth.onAuthStateChange(function(event, session) {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
-          window.MathTreeSession.logout('timeout', _supabase);
+          if (window.MathTreeSession.clearSessionStorage) {
+            window.MathTreeSession.clearSessionStorage();
+          }
+          _supabase.auth.signOut().catch(function() {});
           return;
         }
         if (window.MathTreeSession) window.MathTreeSession.recordActivity();
@@ -1391,6 +1397,7 @@
         var el = document.getElementById(id);
         if (el) el.addEventListener('click', function(e) {
           e.preventDefault();
+          e.stopPropagation();
           showAuthModal('signin');
         });
       });
@@ -1640,15 +1647,27 @@
     }
 
     // ==================== AUTH MODAL COMPONENT ====================
+    var _modalOpenTime = 0;
+    function closeAuthModal() {
+      var modal = document.getElementById('_auth-modal');
+      if (modal) modal.remove();
+    }
+
     function showAuthModal(initialTab) {
-      if (document.getElementById('_auth-modal')) return;
+      var existing = document.getElementById('_auth-modal');
+      if (existing) {
+        switchAuthTab(initialTab);
+        return;
+      }
       initialTab = initialTab || 'signin';
 
       var modal = document.createElement('div');
       modal.id = '_auth-modal';
       modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4';
+      _modalOpenTime = Date.now();
+
       modal.innerHTML = [
-        '<div class="bg-[#0D111A] border border-[#1E2230] rounded-2xl p-7 w-full max-w-sm shadow-2xl space-y-5">',
+        '<div id="_auth-modal-card" class="bg-[#0D111A] border border-[#1E2230] rounded-2xl p-7 w-full max-w-sm shadow-2xl space-y-5" onclick="event.stopPropagation()">',
           '<div class="flex items-center justify-between">',
             '<div class="flex items-center space-x-2">',
               '<div class="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black">',
@@ -1656,20 +1675,20 @@
               '</div>',
               '<span class="font-extrabold text-white text-lg tracking-tight">MathTree</span>',
             '</div>',
-            '<button onclick="document.getElementById(\'_auth-modal\').remove()" class="text-slate-400 hover:text-white transition">',
+            '<button type="button" onclick="closeAuthModal()" class="text-slate-400 hover:text-white transition p-1">',
               '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
             '</button>',
           '</div>',
           '<div class="flex bg-[#090A0F] rounded-xl p-1 gap-1 border border-[#1E2230]">',
-            '<button id="_tab-signin" onclick="switchAuthTab(\'signin\')" class="flex-1 py-2 rounded-lg text-xs font-bold transition">Sign In</button>',
-            '<button id="_tab-signup" onclick="switchAuthTab(\'signup\')" class="flex-1 py-2 rounded-lg text-xs font-bold transition">Create Account</button>',
+            '<button type="button" id="_tab-signin" onclick="switchAuthTab(\'signin\')" class="flex-1 py-2 rounded-lg text-xs font-bold transition">Sign In</button>',
+            '<button type="button" id="_tab-signup" onclick="switchAuthTab(\'signup\')" class="flex-1 py-2 rounded-lg text-xs font-bold transition">Create Account</button>',
           '</div>',
           '<div id="_form-signin" class="space-y-3">',
             '<input id="_si-email" type="email" placeholder="Institutional Email" autocomplete="email"',
               ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
             '<input id="_si-password" type="password" placeholder="Password" autocomplete="current-password"',
               ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
-            '<button onclick="doSignIn()"',
+            '<button type="button" onclick="doSignIn()"',
               ' class="w-full py-3 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">',
               'Sign In →',
             '</button>',
@@ -1679,13 +1698,13 @@
               ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
             '<input id="_su-password" type="password" placeholder="Password (min 6 chars)" autocomplete="new-password"',
               ' class="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-500 text-sm rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500">',
-            '<button onclick="doSignUp()"',
+            '<button type="button" onclick="doSignUp()"',
               ' class="w-full py-3 rounded-xl text-sm font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 shadow-lg shadow-emerald-500/20 transition">',
               'Create Account →',
             '</button>',
           '</div>',
           '<div class="pt-2 text-center">',
-            '<button onclick="launchDemoSandbox()" class="text-xs text-emerald-400 hover:underline font-semibold">',
+            '<button type="button" onclick="launchDemoSandbox()" class="text-xs text-emerald-400 hover:underline font-semibold">',
               'Or test drive full app in Demo Sandbox →',
             '</button>',
           '</div>',
@@ -1695,9 +1714,26 @@
       ].join('');
 
       document.body.appendChild(modal);
-      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+
+      var mousedownOnBackdrop = false;
+      modal.addEventListener('mousedown', function(e) {
+        mousedownOnBackdrop = (e.target === modal);
+      });
+
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal && mousedownOnBackdrop && (Date.now() - _modalOpenTime > 300)) {
+          closeAuthModal();
+        }
+      });
+
       switchAuthTab(initialTab);
     }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        closeAuthModal();
+      }
+    });
 
     function switchAuthTab(tab) {
       var signinForm = document.getElementById('_form-signin');

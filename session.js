@@ -101,21 +101,29 @@
       watcherInterval = null;
     }
 
+    function doRedirect() {
+      if (typeof window !== 'undefined' && window.location) {
+        var currentPath = window.location.pathname || '';
+        var isLandingPage = currentPath.endsWith('index.html') || currentPath === '/' || currentPath === '';
+        // If already on landing page and redirect target is also landing page, do not trigger a reload
+        if (isLandingPage && (redirectUrl.indexOf('index.html') !== -1 || redirectUrl.startsWith('/?'))) {
+          return;
+        }
+        window.location.replace(redirectUrl);
+      }
+    }
+
     var client = supabaseClient || (typeof window !== 'undefined' ? (window._supabase || window.supabaseClient) : null);
     if (client && client.auth && typeof client.auth.signOut === 'function') {
       try {
         client.auth.signOut().finally(function () {
-          if (typeof window !== 'undefined' && window.location) {
-            window.location.replace(redirectUrl);
-          }
+          doRedirect();
         });
         return;
       } catch (e) {}
     }
 
-    if (typeof window !== 'undefined' && window.location) {
-      window.location.replace(redirectUrl);
-    }
+    doRedirect();
   }
 
   function renderWarningModal(secondsLeft, onKeepAlive) {
