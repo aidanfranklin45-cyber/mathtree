@@ -7536,8 +7536,8 @@
       // Check Cloud Auth state on load
       checkCloudAuthState();
 
-      // Initial tab and calculations setup
-      setActiveTab(activeTab);
+      // Guaranteed Startup Routing: dynamically retrieve & load deal FIRST
+      await initProjectView();
       syncSlidersFromInputs();
 
       
@@ -7882,7 +7882,8 @@
       const user = (window._supabase && (await window._supabase.auth.getSession()).data?.session?.user) || window._currentUser;
 
       // 1. First attempt to load directly from Supabase by UUID
-      if (window._supabase && user && !user.demo && currentLoadedDealId && !currentLoadedDealId.startsWith('proj-') && !currentLoadedDealId.startsWith('demo-')) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentLoadedDealId || '');
+      if (window._supabase && user && !user.demo && currentLoadedDealId && isUuid) {
         try {
           const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).single();
           if (!error && data) {
@@ -7910,18 +7911,23 @@
         }
       }
 
-      // 2. Fallback to isolated storage or synthetic benchmark defaults
+      // 2. Fallback to isolated storage (searching across local deals, demo deals, and benchmark presets)
       if (!currentLoadedDeal) {
-        const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
-        const storageKey = isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
         let allDeals = [];
-        try {
-          const raw = localStorage.getItem(storageKey);
-          if (raw) allDeals = JSON.parse(raw);
-        } catch(e) {}
+        const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
+        const storageKeys = isDemo ? ['mathtree_demo_deals', 'mathtree_local_deals'] : ['mathtree_local_deals', 'mathtree_demo_deals'];
+        for (const sk of storageKeys) {
+          try {
+            const raw = localStorage.getItem(sk);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) allDeals.push(...parsed);
+            }
+          } catch(e) {}
+        }
 
-        if (!allDeals || allDeals.length === 0) {
-          allDeals = defaultSyntheticBenchmarks;
+        if (typeof defaultSyntheticBenchmarks !== 'undefined' && Array.isArray(defaultSyntheticBenchmarks)) {
+          allDeals.push(...defaultSyntheticBenchmarks);
         }
 
         currentLoadedDeal = (currentLoadedDealId && allDeals.find(d => d.id === currentLoadedDealId)) || allDeals[0];
@@ -7933,12 +7939,15 @@
       const aType = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
       activeTab = aType;
 
-      // Update Header Display
+      // Dynamically Update Header Display
       const titleEl = document.getElementById('deal-title-display');
-      if (titleEl) titleEl.textContent = currentLoadedDeal.name;
+      if (titleEl) titleEl.textContent = currentLoadedDeal.name || currentLoadedDeal.title || 'Underwriting Project';
 
       const locEl = document.getElementById('deal-location-display');
-      if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location || 'United States'}</span>`;
+      if (locEl) {
+        const displayLoc = currentLoadedDeal.location || currentLoadedDeal.inputs?.location || currentLoadedDeal.inputs?.county || currentLoadedDeal.inputs?.address || 'United States';
+        locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${displayLoc}</span>`;
+      }
 
       const assetPill = document.getElementById('deal-asset-pill');
       if (assetPill) assetPill.textContent = aType.replace('-', ' ');
@@ -7949,7 +7958,7 @@
       const fType = currentLoadedDeal.facility_type || rawInputs.facilityType || '';
 
       const tierPill = document.getElementById('deal-tier-class-pill');
-      if (tierPill) tierPill.textContent = `${tier} • ${pClass}`;
+      if (tierPill) tierPill.textContent = `• ${tier} • ${pClass}`;
       const fPill = document.getElementById('deal-facility-type-pill');
       if (fPill) {
         if (fType) {
@@ -8051,8 +8060,6 @@
       if (e.key === 'Escape') closePitchDeck();
     });
 
-    // --- Guaranteed Startup Routing for project.html ---
-      await initProjectView();
     });
   </script>
 </body>
