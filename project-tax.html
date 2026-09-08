@@ -5867,7 +5867,10 @@
 
     function openProjectWizard() {
       const modal = document.getElementById('project-wizard-modal');
-      if (!modal) return;
+      if (!modal) {
+        window.location.href = 'dashboard.html?action=new-project';
+        return;
+      }
       setWizardStep(1);
       modal.classList.remove('hidden');
     }
@@ -7843,29 +7846,53 @@
       if (aClass === 'single-family') {
         if (monthlyRentVal > 0) inputs.monthlyRent = monthlyRentVal;
         else if (annualRentVal > 0) inputs.monthlyRent = Math.round(annualRentVal / 12);
+        inputs.grossRentPerMonth = inputs.monthlyRent || 0;
+        inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
         inputs.arv = numVal('edit-deal-arv', 0);
       } else if (aClass === 'multi-unit') {
         inputs.unitCount = intVal('edit-deal-unit-count', 4);
         inputs.numUnits = inputs.unitCount;
-        if (monthlyRentVal > 0) inputs.monthlyRentPerUnit = monthlyRentVal;
-        else if (annualRentVal > 0) inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+        if (monthlyRentVal > 0) {
+          inputs.monthlyRentPerUnit = monthlyRentVal;
+          inputs.grossRentPerMonth = monthlyRentVal * inputs.unitCount;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
+        } else if (annualRentVal > 0) {
+          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+          inputs.grossRentAnnual = annualRentVal;
+          inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+        }
       } else if (aClass === 'commercial') {
-        if (annualRentVal > 0) inputs.grossRentAnnual = annualRentVal;
-        else if (monthlyRentVal > 0) inputs.grossRentAnnual = monthlyRentVal * 12;
+        if (annualRentVal > 0) {
+          inputs.grossRentAnnual = annualRentVal;
+          inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+        } else if (monthlyRentVal > 0) {
+          inputs.grossRentAnnual = monthlyRentVal * 12;
+          inputs.grossRentPerMonth = monthlyRentVal;
+          inputs.monthlyRent = monthlyRentVal;
+        }
         inputs.leaseType = document.getElementById('edit-deal-lease-type')?.value || 'NNN';
         inputs.gla = numVal('edit-deal-gla', 15000);
       } else if (aClass === 'storage') {
-        inputs.storageUnitCount = intVal('edit-deal-storage-units', 100);
+        inputs.storageUnitCount = intVal('edit-deal-storage-units', 20);
         inputs.unitCount = inputs.storageUnitCount;
-        inputs.storageSqFt = numVal('edit-deal-storage-sqft', 10000);
+        inputs.storageSqFt = numVal('edit-deal-storage-sqft', 2000);
         inputs.totalSqFt = inputs.storageSqFt;
-        inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? false;
+        inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? true;
         if (monthlyRentVal > 0) {
           inputs.monthlyRentPerUnit = monthlyRentVal;
           inputs.storageRentPerUnit = monthlyRentVal;
+          inputs.grossRentPerMonth = monthlyRentVal * inputs.storageUnitCount;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
         } else if (annualRentVal > 0) {
           inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.storageUnitCount);
           inputs.storageRentPerUnit = inputs.monthlyRentPerUnit;
+          inputs.grossRentAnnual = annualRentVal;
+          inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
         }
       }
 
@@ -7958,9 +7985,13 @@
         preMonthly = inputs.monthlyRentPerUnit || 0;
         preAnnual  = 0;
       } else if (aClass === 'storage') {
-        const uCount = inputs.storageUnitCount || inputs.unitCount || 1;
+        const uCount = inputs.storageUnitCount || inputs.unitCount || 20;
         preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
-        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : 0);
+        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
+      } else if (aClass === 'multi-unit') {
+        const uCount = inputs.unitCount || inputs.numUnits || 4;
+        preMonthly = inputs.monthlyRentPerUnit || inputs.rentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0);
+        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
       }
 
       document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
@@ -8009,13 +8040,13 @@
         document.getElementById('edit-deal-unit-count').value = inputs.unitCount || inputs.numUnits || 4;
       }
       if (document.getElementById('edit-deal-storage-units')) {
-        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || 100;
+        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100);
       }
       if (document.getElementById('edit-deal-storage-sqft')) {
-        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || 10000;
+        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || inputs.gla || (aClass === 'storage' ? 2000 : 10000);
       }
       if (document.getElementById('edit-deal-storage-automated')) {
-        document.getElementById('edit-deal-storage-automated').checked = !!inputs.isAutomated;
+        document.getElementById('edit-deal-storage-automated').checked = inputs.isAutomated !== undefined ? !!inputs.isAutomated : true;
       }
       if (document.getElementById('edit-deal-arv')) {
         document.getElementById('edit-deal-arv').value = inputs.arv || '';

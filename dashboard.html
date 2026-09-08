@@ -371,22 +371,92 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="space-y-1.5 relative">
-              <div class="flex items-center justify-between">
-                <label for="wiz-location" class="text-xs font-bold uppercase tracking-wider text-slate-300">Location / Street Address</label>
-                <span class="text-[10px] text-emerald-400 font-semibold flex items-center space-x-1">
-                  <span>🏛️ Yakima GIS</span>
-                  <span id="wiz-location-spinner" class="hidden animate-spin text-[10px]">⏳</span>
-                </span>
-              </div>
-              <input type="text" id="wiz-location" oninput="onWizardLocationInput(this.value)" onfocus="onWizardLocationFocus()" autocomplete="off" placeholder="e.g. 128 N 2nd St, Yakima, WA" value="Austin, TX" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
-              <!-- Autocomplete Dropdown -->
-              <div id="wiz-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto hidden"></div>
+          <div class="space-y-1.5 relative">
+            <div class="flex items-center justify-between">
+              <label for="wiz-location" class="text-xs font-bold uppercase tracking-wider text-slate-300">Location / Street Address</label>
+              <span class="text-[10px] text-emerald-400 font-semibold flex items-center space-x-1">
+                <span>🏛️ Yakima GIS</span>
+                <span id="wiz-location-spinner" class="hidden animate-spin text-[10px]">⏳</span>
+              </span>
             </div>
-            <div class="space-y-1.5">
-              <label for="wiz-gla" class="text-xs font-bold uppercase tracking-wider text-slate-300">Gross Leasable Area (GLA sqft)</label>
-              <input type="number" id="wiz-gla" placeholder="e.g. 15000" value="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            <input type="text" id="wiz-location" oninput="onWizardLocationInput(this.value)" onfocus="onWizardLocationFocus()" autocomplete="off" placeholder="e.g. 128 N 2nd St, Yakima, WA" value="Austin, TX" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+            <input type="hidden" id="wiz-gla" value="15000">
+            <!-- Autocomplete Dropdown -->
+            <div id="wiz-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto hidden"></div>
+          </div>
+
+          <!-- Dynamic Asset-Specific Underwriting Questions (Step 1) -->
+          <div id="wiz-asset-specific-step1" class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span id="wiz-asset-specific-title" class="text-xs font-bold uppercase tracking-wider text-slate-200">Asset Specifications & Parameters</span>
+              <span id="wiz-asset-specific-badge" class="text-[10px] font-semibold text-brand-400 bg-brand-500/10 border border-brand-500/20 px-2 py-0.5 rounded-md">Commercial</span>
+            </div>
+
+            <!-- Storage Asset Group -->
+            <div id="wiz-step1-group-storage" class="space-y-3 hidden">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                  <label for="wiz-storage-units" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Total Storage Units</label>
+                  <input type="number" id="wiz-storage-units" min="1" value="20" placeholder="e.g. 20" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+                <div class="space-y-1.5">
+                  <label for="wiz-storage-sqft" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Rentable Facility Area (Sq Ft)</label>
+                  <input type="number" id="wiz-storage-sqft" min="100" value="2000" placeholder="e.g. 2000" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+              </div>
+              <label class="flex items-center space-x-2.5 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <input type="checkbox" id="wiz-storage-automated" checked class="w-4 h-4 rounded text-brand-500 bg-slate-950 border-slate-700 focus:ring-brand-500 cursor-pointer">
+                <div>
+                  <span class="text-xs font-bold text-white">Automated Facility (Remote / Keypad Access)</span>
+                  <p class="text-[10px] text-slate-400">Unmanned or kiosk operations with reduced payroll &amp; operational overhead.</p>
+                </div>
+              </label>
+            </div>
+
+            <!-- Multi-Unit Asset Group -->
+            <div id="wiz-step1-group-multi" class="space-y-3 hidden">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                  <label for="wiz-multi-units" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Total Apartment Units</label>
+                  <input type="number" id="wiz-multi-units" min="1" value="12" placeholder="e.g. 12" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+                <div class="space-y-1.5">
+                  <label for="wiz-multi-sqft" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Gross Leasable Area (GLA Sq Ft)</label>
+                  <input type="number" id="wiz-multi-sqft" min="100" value="11000" placeholder="e.g. 11000" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+              </div>
+            </div>
+
+            <!-- Commercial Asset Group -->
+            <div id="wiz-step1-group-commercial" class="space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                  <label for="wiz-comm-sqft" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Gross Leasable Area (GLA Sq Ft)</label>
+                  <input type="number" id="wiz-comm-sqft" min="100" value="15000" placeholder="e.g. 15000" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+                <div class="space-y-1.5">
+                  <label for="wiz-comm-lease-type" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Primary Lease Structure</label>
+                  <select id="wiz-comm-lease-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                    <option value="NNN" selected>Triple Net (NNN) • Tenant Pays Taxes, Ins &amp; CAM</option>
+                    <option value="Modified Gross">Modified Gross</option>
+                    <option value="Gross">Full Service Gross</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- SFR Asset Group -->
+            <div id="wiz-step1-group-sfr" class="space-y-3 hidden">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                  <label for="wiz-sfr-arv" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Appraised / After-Repair Value ($)</label>
+                  <input type="number" id="wiz-sfr-arv" min="0" value="450000" placeholder="e.g. 450000" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+                <div class="space-y-1.5">
+                  <label for="wiz-sfr-sqft" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Living Area (Sq Ft)</label>
+                  <input type="number" id="wiz-sfr-sqft" min="100" value="2400" placeholder="e.g. 2400" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                </div>
+              </div>
             </div>
           </div>
 
@@ -534,16 +604,96 @@
 
         <!-- Step 3: Income & Operations -->
         <div id="wizard-step-3" class="space-y-5 hidden">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="space-y-1.5">
-              <label for="wiz-gross-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Gross Monthly Rent ($)</label>
-              <input type="number" id="wiz-gross-rent" value="12500" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-bold">
+          <input type="hidden" id="wiz-gross-rent" value="12500">
+
+          <!-- Storage Revenue Section -->
+          <div id="wiz-income-group-storage" class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3 hidden">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-200">📦 Self-Storage Revenue Schedule</span>
+              <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Live Bidirectional Sync</span>
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label for="wiz-storage-rent-per-unit" class="text-xs font-bold uppercase tracking-wider text-slate-300">Average Rent per Unit ($/mo)</label>
+                <input type="number" id="wiz-storage-rent-per-unit" value="85" placeholder="85" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+              <div class="space-y-1.5">
+                <label for="wiz-storage-gross-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Total Monthly Facility Rent ($)</label>
+                <input type="number" id="wiz-storage-gross-rent" value="1700" placeholder="1700" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+            </div>
+            <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400">Gross Potential Revenue:</span>
+              <span id="wiz-storage-annual-hint" class="font-extrabold text-emerald-400">$20,400 / yr (20 units @ $85/mo)</span>
+            </div>
+          </div>
+
+          <!-- Multi-Unit Revenue Section -->
+          <div id="wiz-income-group-multi" class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3 hidden">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-200">🏢 Multifamily Revenue Schedule</span>
+              <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Live Bidirectional Sync</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label for="wiz-multi-rent-per-unit" class="text-xs font-bold uppercase tracking-wider text-slate-300">Average Rent per Unit ($/mo)</label>
+                <input type="number" id="wiz-multi-rent-per-unit" value="1500" placeholder="1500" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+              <div class="space-y-1.5">
+                <label for="wiz-multi-gross-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Total Monthly Property Rent ($)</label>
+                <input type="number" id="wiz-multi-gross-rent" value="18000" placeholder="18000" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+            </div>
+            <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400">Gross Potential Revenue:</span>
+              <span id="wiz-multi-annual-hint" class="font-extrabold text-emerald-400">$216,000 / yr (12 units @ $1,500/mo)</span>
+            </div>
+          </div>
+
+          <!-- Commercial Revenue Section -->
+          <div id="wiz-income-group-commercial" class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-200">🏬 Commercial Revenue Schedule</span>
+              <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Annual / Monthly Sync</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label for="wiz-comm-annual-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Annual Gross Rent ($/yr)</label>
+                <input type="number" id="wiz-comm-annual-rent" value="150000" placeholder="150000" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+              <div class="space-y-1.5">
+                <label for="wiz-comm-gross-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Monthly Rent Equivalent ($/mo)</label>
+                <input type="number" id="wiz-comm-gross-rent" value="12500" placeholder="12500" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+            </div>
+            <div class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+              <span class="text-slate-400">Gross Contract Rent:</span>
+              <span id="wiz-comm-annual-hint" class="font-extrabold text-emerald-400">$150,000 / yr</span>
+            </div>
+          </div>
+
+          <!-- SFR Revenue Section -->
+          <div id="wiz-income-group-sfr" class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3 hidden">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-200">🏡 Single-Family Rental Revenue</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label for="wiz-sfr-gross-rent" class="text-xs font-bold uppercase tracking-wider text-slate-300">Monthly Rental Income ($/mo)</label>
+                <input type="number" id="wiz-sfr-gross-rent" value="3200" placeholder="3200" class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 font-bold">
+              </div>
+              <div class="space-y-1.5">
+                <label for="wiz-sfr-annual-display" class="text-xs font-bold uppercase tracking-wider text-slate-400">Annual Gross Projection</label>
+                <input type="text" id="wiz-sfr-annual-display" value="$38,400 / yr" disabled class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-slate-400 font-bold cursor-not-allowed">
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="space-y-1.5">
               <label for="wiz-other-income" class="text-xs font-bold uppercase tracking-wider text-slate-300">Other Monthly Income ($)</label>
               <input type="number" id="wiz-other-income" value="500" class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
             </div>
-          </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div class="space-y-1.5">
@@ -2132,29 +2282,53 @@
       if (aClass === 'single-family') {
         if (monthlyRentVal > 0) inputs.monthlyRent = monthlyRentVal;
         else if (annualRentVal > 0) inputs.monthlyRent = Math.round(annualRentVal / 12);
+        inputs.grossRentPerMonth = inputs.monthlyRent || 0;
+        inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
         inputs.arv = numVal('edit-deal-arv', 0);
       } else if (aClass === 'multi-unit') {
         inputs.unitCount = intVal('edit-deal-unit-count', 4);
         inputs.numUnits = inputs.unitCount;
-        if (monthlyRentVal > 0) inputs.monthlyRentPerUnit = monthlyRentVal;
-        else if (annualRentVal > 0) inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+        if (monthlyRentVal > 0) {
+          inputs.monthlyRentPerUnit = monthlyRentVal;
+          inputs.grossRentPerMonth = monthlyRentVal * inputs.unitCount;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
+        } else if (annualRentVal > 0) {
+          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+          inputs.grossRentAnnual = annualRentVal;
+          inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+        }
       } else if (aClass === 'commercial') {
-        if (annualRentVal > 0) inputs.grossRentAnnual = annualRentVal;
-        else if (monthlyRentVal > 0) inputs.grossRentAnnual = monthlyRentVal * 12;
+        if (annualRentVal > 0) {
+          inputs.grossRentAnnual = annualRentVal;
+          inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+        } else if (monthlyRentVal > 0) {
+          inputs.grossRentAnnual = monthlyRentVal * 12;
+          inputs.grossRentPerMonth = monthlyRentVal;
+          inputs.monthlyRent = monthlyRentVal;
+        }
         inputs.leaseType = document.getElementById('edit-deal-lease-type')?.value || 'NNN';
         inputs.gla = numVal('edit-deal-gla', 15000);
       } else if (aClass === 'storage') {
-        inputs.storageUnitCount = intVal('edit-deal-storage-units', 100);
+        inputs.storageUnitCount = intVal('edit-deal-storage-units', 20);
         inputs.unitCount = inputs.storageUnitCount;
-        inputs.storageSqFt = numVal('edit-deal-storage-sqft', 10000);
+        inputs.storageSqFt = numVal('edit-deal-storage-sqft', 2000);
         inputs.totalSqFt = inputs.storageSqFt;
-        inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? false;
+        inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? true;
         if (monthlyRentVal > 0) {
           inputs.monthlyRentPerUnit = monthlyRentVal;
           inputs.storageRentPerUnit = monthlyRentVal;
+          inputs.grossRentPerMonth = monthlyRentVal * inputs.storageUnitCount;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
         } else if (annualRentVal > 0) {
           inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.storageUnitCount);
           inputs.storageRentPerUnit = inputs.monthlyRentPerUnit;
+          inputs.grossRentAnnual = annualRentVal;
+          inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
         }
       }
 
@@ -2278,8 +2452,13 @@
         preMonthly = inputs.monthlyRentPerUnit || 0;
         preAnnual  = 0;
       } else if (aClass === 'storage') {
-        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || 0;
-        preAnnual  = 0;
+        const uCount = inputs.storageUnitCount || inputs.unitCount || 20;
+        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
+        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
+      } else if (aClass === 'multi-unit') {
+        const uCount = inputs.unitCount || inputs.numUnits || 4;
+        preMonthly = inputs.monthlyRentPerUnit || inputs.rentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0);
+        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
       }
 
       document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
@@ -2328,13 +2507,13 @@
         document.getElementById('edit-deal-unit-count').value = inputs.unitCount || inputs.numUnits || 4;
       }
       if (document.getElementById('edit-deal-storage-units')) {
-        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || 100;
+        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100);
       }
       if (document.getElementById('edit-deal-storage-sqft')) {
-        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || 10000;
+        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || inputs.gla || (aClass === 'storage' ? 2000 : 10000);
       }
       if (document.getElementById('edit-deal-storage-automated')) {
-        document.getElementById('edit-deal-storage-automated').checked = !!inputs.isAutomated;
+        document.getElementById('edit-deal-storage-automated').checked = inputs.isAutomated !== undefined ? !!inputs.isAutomated : true;
       }
       if (document.getElementById('edit-deal-arv')) {
         document.getElementById('edit-deal-arv').value = inputs.arv || '';
@@ -3518,6 +3697,8 @@
           'Single-Family Fix & Flip'
         ],
         gla: 2400,
+        sfrSqFt: 2400,
+        sfrArv: 450000,
         price: 450000,
         down: 20,
         closing: 9000,
@@ -3545,7 +3726,11 @@
           'Duplex / Triplex / Quadplex (2-4 Units)',
           'Build-to-Rent (BTR) Community'
         ],
+        unitCount: 12,
+        multiUnits: 12,
+        multiSqFt: 11000,
         gla: 11000,
+        rentPerUnit: 1500,
         price: 1850000,
         down: 25,
         closing: 37000,
@@ -3574,6 +3759,9 @@
           'Flex / R&D Facility'
         ],
         gla: 15000,
+        commSqFt: 15000,
+        leaseType: 'NNN',
+        annualRent: 150000,
         price: 1200000,
         down: 25,
         closing: 24000,
@@ -3594,23 +3782,28 @@
         location: 'Synthetic Model • Generic Metro',
         marketTier: 'Tier 1',
         propertyClass: 'Class A',
-        facilityType: 'Climate-Controlled (Multi-Story)',
+        facilityType: 'Drive-Up Standard (Single-Story)',
         subTypes: [
           'Climate-Controlled (Multi-Story)',
           'Drive-Up Standard (Single-Story)',
           'Outdoor / RV & Boat Parking',
           'Hybrid Flex Facility'
         ],
-        gla: 22000,
-        price: 950000,
+        storageUnits: 20,
+        storageSqFt: 2000,
+        unitCount: 20,
+        isAutomated: true,
+        rentPerUnit: 85,
+        gla: 2000,
+        price: 230000,
         down: 30,
-        closing: 19000,
-        rehab: 25000,
-        rent: 11200,
-        other: 1200,
-        vacancy: 7.0,
-        rentGrowth: 4.0,
-        opexRatio: 32.0,
+        closing: 4600,
+        rehab: 5000,
+        rent: 1700,
+        other: 0,
+        vacancy: 5.0,
+        rentGrowth: 3.0,
+        opexRatio: 30.0,
         expenseGrowth: 2.5,
         rate: 6.75,
         amort: 25,
@@ -3751,8 +3944,160 @@
       setVal('wiz-exit-cap', def.exitCap);
       setVal('wiz-appreciation', def.apprec);
 
+      // Toggle Step 1 Asset Specific Panels & Step 3 Revenue Panels
+      const assetBadges = {
+        'single-family': 'Single-Family',
+        'multi-unit': 'Multi-Unit Multifamily',
+        'commercial': 'Commercial Real Estate',
+        'storage': 'Self-Storage Facility'
+      };
+      const badgeEl = document.getElementById('wiz-asset-specific-badge');
+      if (badgeEl) badgeEl.textContent = assetBadges[assetClass] || 'Commercial';
+
+      ['storage', 'multi', 'commercial', 'sfr'].forEach(t => {
+        const step1Group = document.getElementById(`wiz-step1-group-${t}`);
+        if (step1Group) step1Group.classList.add('hidden');
+        const incGroup = document.getElementById(`wiz-income-group-${t}`);
+        if (incGroup) incGroup.classList.add('hidden');
+      });
+
+      if (assetClass === 'storage') {
+        const step1S = document.getElementById('wiz-step1-group-storage');
+        if (step1S) step1S.classList.remove('hidden');
+        setVal('wiz-storage-units', def.storageUnits || 20);
+        setVal('wiz-storage-sqft', def.storageSqFt || 2000);
+        const autoCb = document.getElementById('wiz-storage-automated');
+        if (autoCb) autoCb.checked = def.isAutomated !== false;
+
+        const incS = document.getElementById('wiz-income-group-storage');
+        if (incS) incS.classList.remove('hidden');
+        setVal('wiz-storage-rent-per-unit', def.rentPerUnit || 85);
+        setVal('wiz-storage-gross-rent', def.rent || 1700);
+        const hintS = document.getElementById('wiz-storage-annual-hint');
+        if (hintS) hintS.textContent = `${formatCurrency(def.rent * 12)} / yr (${def.storageUnits || 20} units @ ${def.rentPerUnit || 85}/mo)`;
+      } else if (assetClass === 'multi-unit') {
+        const step1M = document.getElementById('wiz-step1-group-multi');
+        if (step1M) step1M.classList.remove('hidden');
+        setVal('wiz-multi-units', def.multiUnits || 12);
+        setVal('wiz-multi-sqft', def.multiSqFt || 11000);
+
+        const incM = document.getElementById('wiz-income-group-multi');
+        if (incM) incM.classList.remove('hidden');
+        setVal('wiz-multi-rent-per-unit', def.rentPerUnit || 1500);
+        setVal('wiz-multi-gross-rent', def.rent || 18000);
+        const hintM = document.getElementById('wiz-multi-annual-hint');
+        if (hintM) hintM.textContent = `${formatCurrency(def.rent * 12)} / yr (${def.multiUnits || 12} units @ ${def.rentPerUnit || 1500}/mo)`;
+      } else if (assetClass === 'commercial') {
+        const step1C = document.getElementById('wiz-step1-group-commercial');
+        if (step1C) step1C.classList.remove('hidden');
+        setVal('wiz-comm-sqft', def.commSqFt || 15000);
+        setVal('wiz-comm-lease-type', def.leaseType || 'NNN');
+
+        const incC = document.getElementById('wiz-income-group-commercial');
+        if (incC) incC.classList.remove('hidden');
+        setVal('wiz-comm-annual-rent', def.annualRent || (def.rent * 12));
+        setVal('wiz-comm-gross-rent', def.rent || 12500);
+        const hintC = document.getElementById('wiz-comm-annual-hint');
+        if (hintC) hintC.textContent = `${formatCurrency(def.rent * 12)} / yr`;
+      } else if (assetClass === 'single-family') {
+        const step1F = document.getElementById('wiz-step1-group-sfr');
+        if (step1F) step1F.classList.remove('hidden');
+        setVal('wiz-sfr-arv', def.sfrArv || 450000);
+        setVal('wiz-sfr-sqft', def.sfrSqFt || 2400);
+
+        const incF = document.getElementById('wiz-income-group-sfr');
+        if (incF) incF.classList.remove('hidden');
+        setVal('wiz-sfr-gross-rent', def.rent || 3200);
+        setVal('wiz-sfr-annual-display', `${formatCurrency(def.rent * 12)} / yr`);
+      }
+
       calculateWizardUpfrontCash();
       updateWizardBenchmarkHint();
+    }
+
+    function initWizardIncomeSync() {
+      // Storage: Unit rent <-> Total monthly rent
+      const sRpu = document.getElementById('wiz-storage-rent-per-unit');
+      const sTot = document.getElementById('wiz-storage-gross-rent');
+      const sUnits = document.getElementById('wiz-storage-units');
+      const sHint = document.getElementById('wiz-storage-annual-hint');
+
+      if (sRpu && sTot) {
+        sRpu.addEventListener('input', () => {
+          const u = parseInt(sUnits?.value, 10) || 20;
+          const r = parseFloat(sRpu.value) || 0;
+          const tot = r * u;
+          sTot.value = tot;
+          document.getElementById('wiz-gross-rent').value = tot;
+          if (sHint) sHint.textContent = `${formatCurrency(tot * 12)} / yr (${u} units @ ${r}/mo)`;
+        });
+        sTot.addEventListener('input', () => {
+          const u = parseInt(sUnits?.value, 10) || 20;
+          const tot = parseFloat(sTot.value) || 0;
+          const r = u > 0 ? Math.round(tot / u) : 0;
+          sRpu.value = r;
+          document.getElementById('wiz-gross-rent').value = tot;
+          if (sHint) sHint.textContent = `${formatCurrency(tot * 12)} / yr (${u} units @ ${r}/mo)`;
+        });
+      }
+
+      // Multi-unit: Unit rent <-> Total monthly rent
+      const mRpu = document.getElementById('wiz-multi-rent-per-unit');
+      const mTot = document.getElementById('wiz-multi-gross-rent');
+      const mUnits = document.getElementById('wiz-multi-units');
+      const mHint = document.getElementById('wiz-multi-annual-hint');
+
+      if (mRpu && mTot) {
+        mRpu.addEventListener('input', () => {
+          const u = parseInt(mUnits?.value, 10) || 12;
+          const r = parseFloat(mRpu.value) || 0;
+          const tot = r * u;
+          mTot.value = tot;
+          document.getElementById('wiz-gross-rent').value = tot;
+          if (mHint) mHint.textContent = `${formatCurrency(tot * 12)} / yr (${u} units @ ${r}/mo)`;
+        });
+        mTot.addEventListener('input', () => {
+          const u = parseInt(mUnits?.value, 10) || 12;
+          const tot = parseFloat(mTot.value) || 0;
+          const r = u > 0 ? Math.round(tot / u) : 0;
+          mRpu.value = r;
+          document.getElementById('wiz-gross-rent').value = tot;
+          if (mHint) mHint.textContent = `${formatCurrency(tot * 12)} / yr (${u} units @ ${r}/mo)`;
+        });
+      }
+
+      // Commercial: Annual rent <-> Monthly rent
+      const cAnn = document.getElementById('wiz-comm-annual-rent');
+      const cTot = document.getElementById('wiz-comm-gross-rent');
+      const cHint = document.getElementById('wiz-comm-annual-hint');
+
+      if (cAnn && cTot) {
+        cAnn.addEventListener('input', () => {
+          const a = parseFloat(cAnn.value) || 0;
+          const m = Math.round(a / 12);
+          cTot.value = m;
+          document.getElementById('wiz-gross-rent').value = m;
+          if (cHint) cHint.textContent = `${formatCurrency(a)} / yr`;
+        });
+        cTot.addEventListener('input', () => {
+          const m = parseFloat(cTot.value) || 0;
+          const a = m * 12;
+          cAnn.value = a;
+          document.getElementById('wiz-gross-rent').value = m;
+          if (cHint) cHint.textContent = `${formatCurrency(a)} / yr`;
+        });
+      }
+
+      // SFR: Monthly rent -> hint
+      const fTot = document.getElementById('wiz-sfr-gross-rent');
+      const fDisp = document.getElementById('wiz-sfr-annual-display');
+      if (fTot) {
+        fTot.addEventListener('input', () => {
+          const m = parseFloat(fTot.value) || 0;
+          document.getElementById('wiz-gross-rent').value = m;
+          if (fDisp) fDisp.value = `${formatCurrency(m * 12)} / yr`;
+        });
+      }
     }
 
     // === Guided Wizard Submit: Inserts directly into Supabase & updates dashboard ===
@@ -3765,24 +4110,85 @@
       const purchasePrice = parseFloat(document.getElementById('wiz-purchase-price')?.value) || 1000000;
       const downPaymentPercent = parseFloat(document.getElementById('wiz-down-payment')?.value) || 25;
       const interestRate = parseFloat(document.getElementById('wiz-interest-rate')?.value) || 6.5;
-      const grossRent = parseFloat(document.getElementById('wiz-gross-rent')?.value) || 12000;
       const marketTier = document.getElementById('wiz-market-tier')?.value || 'Tier 2';
       const propertyClass = document.getElementById('wiz-property-class')?.value || 'Class B';
       const facilityType = document.getElementById('wiz-facility-type')?.value || '';
+
+      let grossRent = parseFloat(document.getElementById('wiz-gross-rent')?.value) || 0;
+      let unitCount = 1;
+      let storageUnitCount = 20;
+      let storageSqFt = 2000;
+      let isAutomated = false;
+      let rentPerUnit = 0;
+      let arv = 0;
+      let leaseType = 'NNN';
+      let gla = parseFloat(document.getElementById('wiz-gla')?.value) || 0;
+
+      if (assetClass === 'storage') {
+        storageUnitCount = parseInt(document.getElementById('wiz-storage-units')?.value, 10) || 20;
+        unitCount = storageUnitCount;
+        storageSqFt = parseFloat(document.getElementById('wiz-storage-sqft')?.value) || 2000;
+        gla = storageSqFt;
+        isAutomated = document.getElementById('wiz-storage-automated')?.checked ?? true;
+        rentPerUnit = parseFloat(document.getElementById('wiz-storage-rent-per-unit')?.value) || 0;
+        const totalRent = parseFloat(document.getElementById('wiz-storage-gross-rent')?.value) || 0;
+        grossRent = totalRent > 0 ? totalRent : (rentPerUnit > 0 ? rentPerUnit * storageUnitCount : 1700);
+        if (!rentPerUnit && grossRent > 0 && storageUnitCount > 0) {
+          rentPerUnit = Math.round(grossRent / storageUnitCount);
+        }
+      } else if (assetClass === 'multi-unit') {
+        unitCount = parseInt(document.getElementById('wiz-multi-units')?.value, 10) || 12;
+        gla = parseFloat(document.getElementById('wiz-multi-sqft')?.value) || 11000;
+        rentPerUnit = parseFloat(document.getElementById('wiz-multi-rent-per-unit')?.value) || 0;
+        const totalRent = parseFloat(document.getElementById('wiz-multi-gross-rent')?.value) || 0;
+        grossRent = totalRent > 0 ? totalRent : (rentPerUnit > 0 ? rentPerUnit * unitCount : 18000);
+        if (!rentPerUnit && grossRent > 0 && unitCount > 0) {
+          rentPerUnit = Math.round(grossRent / unitCount);
+        }
+      } else if (assetClass === 'commercial') {
+        gla = parseFloat(document.getElementById('wiz-comm-sqft')?.value) || gla || 15000;
+        leaseType = document.getElementById('wiz-comm-lease-type')?.value || 'NNN';
+        const totalRent = parseFloat(document.getElementById('wiz-comm-gross-rent')?.value) || 0;
+        const annualRent = parseFloat(document.getElementById('wiz-comm-annual-rent')?.value) || 0;
+        grossRent = totalRent > 0 ? totalRent : (annualRent > 0 ? Math.round(annualRent / 12) : 12500);
+      } else if (assetClass === 'single-family') {
+        unitCount = 1;
+        gla = parseFloat(document.getElementById('wiz-sfr-sqft')?.value) || 2400;
+        arv = parseFloat(document.getElementById('wiz-sfr-arv')?.value) || 0;
+        const sfrRent = parseFloat(document.getElementById('wiz-sfr-gross-rent')?.value) || 0;
+        grossRent = sfrRent > 0 ? sfrRent : 3200;
+      }
+
+      if (!grossRent || grossRent <= 0) {
+        grossRent = (assetClass === 'storage') ? 1700 : ((assetClass === 'multi-unit') ? 18000 : 12500);
+      }
 
       const inputs = {
         purchasePrice: purchasePrice,
         downPaymentPercent: downPaymentPercent,
         interestRate: interestRate,
-        loanTerm: 25,
+        loanTerm: parseInt(document.getElementById('wiz-amortization')?.value, 10) || 25,
         rehabCosts: parseFloat(document.getElementById('wiz-rehab-costs')?.value) || 0,
         closingCosts: parseFloat(document.getElementById('wiz-closing-costs')?.value) || (purchasePrice * 0.02),
         grossRentPerMonth: grossRent,
         grossRentAnnual: grossRent * 12,
         monthlyRent: grossRent,
+        unitCount: unitCount,
+        numUnits: unitCount,
+        storageUnitCount: (assetClass === 'storage') ? storageUnitCount : undefined,
+        storageSqFt: (assetClass === 'storage') ? storageSqFt : undefined,
+        totalSqFt: (assetClass === 'storage') ? storageSqFt : (gla || 0),
+        gla: gla || 0,
+        isAutomated: (assetClass === 'storage') ? isAutomated : undefined,
+        storageRentPerUnit: (assetClass === 'storage') ? (rentPerUnit || Math.round(grossRent / storageUnitCount)) : undefined,
+        monthlyRentPerUnit: (assetClass === 'storage') ? (rentPerUnit || Math.round(grossRent / storageUnitCount)) : ((assetClass === 'multi-unit') ? (rentPerUnit || Math.round(grossRent / unitCount)) : undefined),
+        leaseType: (assetClass === 'commercial') ? leaseType : undefined,
+        arv: (assetClass === 'single-family') ? arv : undefined,
         vacancyRate: parseFloat(document.getElementById('wiz-vacancy-rate')?.value) || 5,
         expenseRatio: parseFloat(document.getElementById('wiz-opex-ratio')?.value) || 35,
+        operatingExpenseRatio: parseFloat(document.getElementById('wiz-opex-ratio')?.value) || 35,
         rentGrowth: parseFloat(document.getElementById('wiz-rent-growth')?.value) || 3,
+        annualRentGrowth: parseFloat(document.getElementById('wiz-rent-growth')?.value) || 3,
         targetCapRate: parseFloat(document.getElementById('wiz-exit-cap')?.value) || 6.5,
         marketTier: marketTier,
         propertyClass: propertyClass,
@@ -4375,6 +4781,15 @@
 
       const wizForm = document.getElementById('project-wizard-form');
       if (wizForm) wizForm.addEventListener('submit', handleWizardSubmit);
+
+      // Initialize dynamic wizard income synchronizers
+      initWizardIncomeSync();
+
+      // Check for navigation query parameters to auto-launch wizard
+      const wizUrlParams = new URLSearchParams(window.location.search);
+      if (wizUrlParams.get('action') === 'new-project' || wizUrlParams.get('create') === 'true') {
+        openProjectWizard();
+      }
 
       // Typed delete confirmation input listener
       const delInput = document.getElementById('delete-confirm-input');
