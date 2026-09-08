@@ -1695,8 +1695,15 @@
         if (document.getElementById('input-comm-building-class')) document.getElementById('input-comm-building-class').value = values.propertyClass || 'Class A';
         document.getElementById('input-gla').value = values.gla ?? 15000;
       } else if (activeTab === 'storage') {
-        document.getElementById('input-storage-units').value = values.storageUnitCount ?? values.unitCount ?? values.numUnits ?? '';
-        document.getElementById('input-storage-rent-per-unit').value = values.storageRentPerUnit ?? values.monthlyRentPerUnit ?? '';
+        const uCount = values.storageUnitCount ?? values.unitCount ?? values.numUnits ?? '';
+        document.getElementById('input-storage-units').value = uCount;
+        let rpu = values.storageRentPerUnit ?? values.monthlyRentPerUnit ?? '';
+        if ((rpu === '' || rpu === undefined || rpu === null) && (values.grossRentPerMonth || values.monthlyRent || values.grossRentAnnual)) {
+          const totMo = values.grossRentPerMonth || values.monthlyRent || (values.grossRentAnnual ? values.grossRentAnnual / 12 : 0);
+          const units = parseInt(uCount) || 1;
+          rpu = Math.round((totMo / units) * 100) / 100;
+        }
+        document.getElementById('input-storage-rent-per-unit').value = rpu;
         document.getElementById('input-storage-sqft').value = values.storageSqFt ?? values.totalSqFt ?? values.gla ?? '';
         document.getElementById('input-storage-rent-per-sqft').value = values.storageRentPerSqFt ?? values.rentPerSqFt ?? '';
         document.getElementById('input-storage-automated').checked = values.isAutomated ?? false;
@@ -2342,9 +2349,9 @@
         const ann = inputs.grossRentAnnual || (inputs.monthlyRent ? inputs.monthlyRent * 12 : 0);
         rentStr = `${formatCurrency(ann)}/yr (${formatCurrency(Math.round(ann / 12))}/mo)`;
       } else if (activeTab === 'storage') {
-        const u = inputs.unitCount || inputs.storageUnitCount || 100;
+        const u = inputs.unitCount || inputs.storageUnitCount || 1;
         const rpu = inputs.monthlyRentPerUnit || inputs.storageRentPerUnit || 0;
-        const total = (u * rpu * 12) || inputs.grossRentAnnual || 0;
+        const total = (rpu > 0 ? u * rpu * 12 : 0) || inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0) || (inputs.monthlyRent ? inputs.monthlyRent * 12 : 0);
         rentStr = `${formatCurrency(total)}/yr (${u} units)`;
       }
       setVal('brief-val-rent', rentStr);
@@ -7851,8 +7858,9 @@
         preMonthly = inputs.monthlyRentPerUnit || 0;
         preAnnual  = 0;
       } else if (aClass === 'storage') {
-        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || 0;
-        preAnnual  = 0;
+        const uCount = inputs.storageUnitCount || inputs.unitCount || 1;
+        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
+        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : 0);
       }
 
       document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
@@ -8228,8 +8236,25 @@
       // Lock inputs view strictly to this property's asset class
       showTabInputs(aType);
 
-      // Normalize inputs: merge with default presets to guarantee no empty/zero fields
-      const baseDefaults = defaultPresets[aType] || defaultPresets['commercial'];
+      // Normalize inputs: merge with default presets, ensuring preset template rents do not overwrite real deal revenue
+      const baseDefaults = { ...(defaultPresets[aType] || defaultPresets['commercial']) };
+      const hasRealRent = (rawInputs.grossRentAnnual > 0) ||
+                          (rawInputs.grossRentPerMonth > 0) ||
+                          (rawInputs.monthlyRent > 0) ||
+                          (rawInputs.storageRentPerUnit > 0) ||
+                          (rawInputs.monthlyRentPerUnit > 0);
+      if (hasRealRent) {
+        delete baseDefaults.storageRentPerUnit;
+        delete baseDefaults.monthlyRentPerUnit;
+        delete baseDefaults.grossRentAnnual;
+        delete baseDefaults.grossRentPerMonth;
+        delete baseDefaults.monthlyRent;
+        if (rawInputs.storageUnitCount || rawInputs.unitCount) {
+          delete baseDefaults.storageUnitCount;
+          delete baseDefaults.unitCount;
+        }
+      }
+
       currentLoadedDeal.inputs = {
         ...baseDefaults,
         ...rawInputs,

@@ -327,15 +327,19 @@ function calculateProjections(assetType, inputs) {
     case 'single-family':
       const arv = parseFloat(inputs.arv) || 0;
       initialPropertyValue = arv > 0 ? arv : purchasePrice;
-      const sfRent = parseFloat(inputs.monthlyRent) || parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.rent) || 0;
+      const sfRent = parseFloat(inputs.monthlyRent) || parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.rent) || (parseFloat(inputs.grossRentAnnual) ? parseFloat(inputs.grossRentAnnual) / 12 : 0) || 0;
       year1GrossIncome = sfRent * 12;
       unitCount = 1;
       break;
 
     case 'multi-unit':
       unitCount = parseInt(inputs.unitCount) || parseInt(inputs.numUnits) || 1;
-      const muRent = parseFloat(inputs.monthlyRentPerUnit) || parseFloat(inputs.rentPerUnit) || (parseFloat(inputs.grossRentPerMonth) && unitCount > 0 ? parseFloat(inputs.grossRentPerMonth) / unitCount : 0) || 0;
-      year1GrossIncome = unitCount * muRent * 12;
+      const explicitMuMonthly = parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || (parseFloat(inputs.grossRentAnnual) ? parseFloat(inputs.grossRentAnnual) / 12 : 0) || 0;
+      let muRent = parseFloat(inputs.monthlyRentPerUnit) || parseFloat(inputs.rentPerUnit) || 0;
+      if (explicitMuMonthly > 0 && unitCount > 0 && (!muRent || Math.abs((unitCount * muRent) - explicitMuMonthly) > 1)) {
+        muRent = explicitMuMonthly / unitCount;
+      }
+      year1GrossIncome = (muRent > 0 ? unitCount * muRent : explicitMuMonthly) * 12;
       break;
 
     case 'commercial':
@@ -346,15 +350,23 @@ function calculateProjections(assetType, inputs) {
 
     case 'storage':
       unitCount = parseInt(inputs.unitCount) || parseInt(inputs.storageUnitCount) || parseInt(inputs.numUnits) || 0;
-      const storageRent = parseFloat(inputs.monthlyRentPerUnit) || parseFloat(inputs.storageRentPerUnit) || 0;
+      let storageRent = parseFloat(inputs.monthlyRentPerUnit) || parseFloat(inputs.storageRentPerUnit) || 0;
       const totalSqFt = parseFloat(inputs.totalSqFt) || parseFloat(inputs.storageSqFt) || parseFloat(inputs.gla) || 0;
       const rentPerSqFt = parseFloat(inputs.rentPerSqFt) || parseFloat(inputs.storageRentPerSqFt) || 0;
-      if (storageRent > 0) {
+      const explicitStorageAnnual = parseFloat(inputs.grossRentAnnual) || 0;
+      const explicitStorageMonthly = parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || (explicitStorageAnnual > 0 ? explicitStorageAnnual / 12 : 0);
+
+      if (explicitStorageMonthly > 0) {
+        if (unitCount > 0) {
+          storageRent = explicitStorageMonthly / unitCount;
+          year1GrossIncome = explicitStorageMonthly * 12;
+        } else {
+          year1GrossIncome = explicitStorageMonthly * 12;
+        }
+      } else if (storageRent > 0) {
         year1GrossIncome = (unitCount || 1) * storageRent * 12;
       } else if (totalSqFt > 0 && rentPerSqFt > 0) {
         year1GrossIncome = totalSqFt * rentPerSqFt * 12;
-      } else if (inputs.grossRentPerMonth) {
-        year1GrossIncome = parseFloat(inputs.grossRentPerMonth) * 12;
       }
       break;
   }
