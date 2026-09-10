@@ -180,6 +180,11 @@ serve(async (req: Request) => {
     <span>MathTree Platform • Direct Postgres & Serverless Underwriting Engine</span>
     <span>Confidential Institutional Investment Memo • DSCR: ${dscr}</span>
   </div>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => { window.print(); }, 250);
+    });
+  </script>
 </body>
 </html>`;
 

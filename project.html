@@ -5599,7 +5599,55 @@
       `;
     }
 
-    function exportToPDF() {
+    async function exportToPDF() {
+      const inputs = typeof getInputsFromForm === 'function' ? getInputsFromForm() : {};
+      const deal = currentLoadedDeal || window.currentLoadedDeal || {};
+      const res = window.PropertyMath ? window.PropertyMath.calculateProjections(activeTab, inputs) : null;
+
+      const payload = {
+        deal: {
+          title: deal.name || deal.title || (document.getElementById('deal-title-display')?.textContent.trim()) || 'Investment Underwriting Prospectus',
+          location: deal.location || inputs.location || (document.getElementById('deal-location-display')?.textContent.trim()) || 'Yakima, WA',
+          asset_type: activeTab || deal.asset_class || 'commercial',
+          status: deal.status || 'prospect',
+          purchase_price: res ? res.purchasePrice : (inputs.purchasePrice || 0),
+          total_equity: res ? res.initialCashInvested : (inputs.downPaymentAmount || 0),
+          year1_cashflow: res?.projections?.[0]?.cashFlow || 0,
+          cash_on_cash: res?.projections?.[0]?.cashOnCash || 0,
+          irr: res ? res.irr : 0,
+          equity_multiple: res ? res.equityMultiplier : 1.0,
+          inputs: inputs,
+          metrics: {
+            noi: res?.projections?.[0]?.netOperatingIncome || 0,
+            annualDebtService: (res?.monthlyMortgagePayment || 0) * 12,
+            dscr: res?.projections?.[0]?.dscr !== null ? res?.projections?.[0]?.dscr?.toFixed(2) : 'N/A',
+            projections: res?.projections || []
+          }
+        }
+      };
+
+      try {
+        const response = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          const html = await response.text();
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const win = window.open(url, '_blank');
+          if (win) {
+            win.focus();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Edge function PDF brief fallback to client-side renderer:', err);
+      }
+
+      // Seamless fallback to client-side print brief
       try {
         renderPrintableBrief();
       } catch (err) {

@@ -2028,7 +2028,7 @@
                         <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                         <span>${isOwned ? 'Move to Pipeline (Prospect)' : 'Mark as Acquired (Owned)'}</span>
                       </button>
-                      <button onclick="openEditDealModal('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
+                      <button onclick="event.stopPropagation(); openEditDealModal('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
                         <svg class="w-3.5 h-3.5 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         <span>Edit Project Inputs</span>
                       </button>
@@ -2112,10 +2112,16 @@
               </div>
             </div>
 
-            <!-- Hint: Whole card is clickable -->
-            <div class="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-between text-[11px] text-slate-500 group-hover:text-emerald-400 transition">
-              <span>View Financial Modeler & Analysis</span>
-              <span class="font-bold">→</span>
+            <!-- Card Footer: Direct Edit Inputs Action and Modeler Link -->
+            <div class="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-between text-[11px]">
+              <div class="flex items-center space-x-1 text-slate-500 group-hover:text-emerald-400 transition">
+                <span>View Modeler</span>
+                <span class="font-bold">→</span>
+              </div>
+              <button type="button" onclick="event.stopPropagation(); openEditDealModal('${d.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-brand-500/50 transition flex items-center space-x-1 shadow-sm" title="Edit Deal Inputs">
+                <span class="text-brand-400">✎</span>
+                <span>Edit Inputs</span>
+              </button>
             </div>
 
           </div>
@@ -2125,7 +2131,7 @@
 
     // --- Card Navigation Controller ---
     function navigateToProject(e, id) {
-      if (e.target.closest('.card-dropdown-menu') || e.target.closest('button[aria-label="Deal Actions"]') || e.target.closest('#card-menu-' + id)) {
+      if (e.target.closest('button') || e.target.closest('.card-dropdown-menu') || e.target.closest('#card-menu-' + id)) {
         return;
       }
       try {
@@ -2505,6 +2511,8 @@
     window.toggleCardMenu = toggleCardMenu;
     window.toggleDealStatus = toggleDealStatus;
     window.navigateToProject = navigateToProject;
+    window.openEditDealModal = openEditDealModal;
+    window.closeEditDealModal = closeEditDealModal;
     window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF;
     window.exportDashboardDealPDF = exportDashboardDealPDF;
     window.exportDashboardDealCSV = exportDashboardDealCSV;
@@ -3213,8 +3221,8 @@
 
         let _isPrintingSingleDeal = false;
 
-    // PDF Executive Brief Exporter (Single Property Deep-Dive)
-    function exportDashboardDealPDF(id) {
+    // PDF Executive Brief Exporter (Single Property Deep-Dive) - Wires generate-pdf-brief Edge Function
+    async function exportDashboardDealPDF(id) {
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
       const deal = getDashboardDealById(id);
       if (!deal) {
@@ -3243,6 +3251,51 @@
       const res = window.PropertyMath.calculateProjections(aClass, inputs);
       const warnings = window.PropertyMath.auditDealRisks(aClass, inputs, res);
 
+      // Invoke serverless generate-pdf-brief Edge Function directly
+      const payload = {
+        deal: {
+          title: deal.name || deal.title || 'Executive Investment Brief',
+          location: deal.location || inputs.location || 'Yakima, WA',
+          asset_type: aClass,
+          status: deal.status || 'prospect',
+          purchase_price: res.purchasePrice,
+          total_equity: res.initialCashInvested,
+          year1_cashflow: res.projections[0]?.cashFlow || 0,
+          cash_on_cash: res.projections[0]?.cashOnCash || 0,
+          irr: res.irr || 0,
+          equity_multiple: res.equityMultiplier || 1.0,
+          inputs: inputs,
+          metrics: {
+            noi: res.projections[0]?.netOperatingIncome || 0,
+            annualDebtService: (res.monthlyMortgagePayment || 0) * 12,
+            dscr: res.projections[0]?.dscr !== null ? res.projections[0]?.dscr?.toFixed(2) : 'N/A',
+            projections: res.projections
+          }
+        }
+      };
+
+      try {
+        const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (edgeRes.ok) {
+          const html = await edgeRes.text();
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const win = window.open(url, '_blank');
+          if (win) {
+            win.focus();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Edge function invocation fallback:', err);
+      }
+
+      // Seamless client-side print fallback
       renderDashboardPrintableBrief(deal, aClass, inputs, res, warnings);
       requestAnimationFrame(() => {
         setTimeout(() => {
