@@ -136,12 +136,13 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
 
     const dealId = String(payload.dealId ?? payload.id ?? "").trim();
-    const isDemo = payload.demo === true || !userId || !supabaseUrl;
+    const isRealUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dealId);
+    const isDemo = payload.demo === true && !isRealUuid;
 
     const dbClient = adminClient || userClient;
     let existingDeal: Record<string, unknown> | null = null;
 
-    if (!isDemo && dbClient && dealId) {
+    if (isRealUuid && dbClient) {
       try {
         const { data, error } = await dbClient
           .from("deals")
@@ -251,54 +252,77 @@ export async function handleRequest(req: Request): Promise<Response> {
         }
 
         const leaseRecord: Record<string, unknown> = {
-          deal_id: dealId || "demo-deal",
-          user_id: userId || "demo-user",
-          unit_id: l.unitId ?? l.unit_id ?? null,
+          deal_id: dealId,
           tenant_name: tenantName,
           tenant_email: l.tenantEmail ?? l.tenant_email ?? null,
           tenant_phone: l.tenantPhone ?? l.tenant_phone ?? null,
           monthly_rent: monthlyRent,
           lease_start_date: startDate,
           lease_end_date: endDate,
-          security_deposit: Number(l.securityDeposit ?? l.security_deposit ?? 0),
+          security_deposit: Number(l.securityDeposit ?? l.security_deposit ?? (monthlyRent * 2)),
           escalation_type: escType,
           escalation_rate: escRate,
           escalation_frequency: escType ? escFreq : null,
           next_escalation_date: escType ? nextEscDate : null,
-          is_active: isActive
+          is_active: isActive,
+          updated_at: new Date().toISOString()
         };
+        if (l.unitId || l.unit_id) leaseRecord.unit_id = l.unitId || l.unit_id;
+        if (userId) leaseRecord.user_id = userId;
 
-        if (l.id) leaseRecord.id = l.id;
-
-        if (!isDemo && dbClient && dealId) {
+        if (isRealUuid && dbClient) {
           try {
-            const { data: upsertedLease } = await dbClient
-              .from("leases")
-              .upsert(leaseRecord)
-              .select()
-              .single();
+            let targetLeaseId = l.id;
+            if (!targetLeaseId) {
+              const { data: exLease } = await dbClient
+                .from("leases")
+                .select("id")
+                .eq("deal_id", dealId)
+                .limit(1)
+                .maybeSingle();
+              if (exLease?.id) targetLeaseId = exLease.id;
+            }
 
-            if (upsertedLease) {
-              syncedLeases.push(upsertedLease);
+            let savedLease: Record<string, unknown> | null = null;
+            if (targetLeaseId) {
+              const { data: updatedL, error: uErr } = await dbClient
+                .from("leases")
+                .update(leaseRecord)
+                .eq("id", targetLeaseId)
+                .select()
+                .maybeSingle();
+              if (!uErr && updatedL) savedLease = updatedL;
+            } else {
+              const { data: insertedL, error: iErr } = await dbClient
+                .from("leases")
+                .insert(leaseRecord)
+                .select()
+                .maybeSingle();
+              if (!iErr && insertedL) savedLease = insertedL;
+            }
 
-              // Record planned escalation in rent_increases if configured
+            if (savedLease) {
+              syncedLeases.push(savedLease);
               if (escType && escRate && escRate > 0) {
                 const plannedNewRent = String(escType).includes("Percentage")
                   ? Math.round(monthlyRent * (1 + escRate / 100) * 100) / 100
                   : monthlyRent + escRate;
                 const escReason = `Scheduled ${String(escType).includes("Percentage") ? escRate + "%" : "$" + escRate} ${escFreq} escalation`;
 
-                await dbClient.from("rent_increases").upsert({
-                  user_id: userId,
-                  lease_id: upsertedLease.id,
+                const incRecord: Record<string, unknown> = {
+                  lease_id: savedLease.id,
                   deal_id: dealId,
                   effective_date: nextEscDate || startDate,
                   old_rent: monthlyRent,
                   new_rent: plannedNewRent,
                   reason: escReason,
                   notice_sent_date: null
-                });
+                };
+                if (userId) incRecord.user_id = userId;
+                await dbClient.from("rent_increases").upsert(incRecord);
               }
+            } else {
+              syncedLeases.push(leaseRecord);
             }
           } catch (leaseErr) {
             console.warn("Lease upsert error:", leaseErr);
@@ -351,14 +375,39 @@ export async function handleRequest(req: Request): Promise<Response> {
     };
 
     // 5. Persist Deal in Postgres if connected
-    if (!isDemo && dbClient && dealId) {
+    if (isRealUuid && dbClient) {
       try {
+        const dealUpdatePayload: Record<string, unknown> = {
+          title: title,
+          status: status,
+          asset_type: assetType,
+          location: location,
+          purchase_price: projectionsResult.purchasePrice,
+          irr: projectionsResult.irr,
+          equity_multiple: projectionsResult.equityMultiplier,
+          cash_on_cash: y1?.cashOnCash ?? 0,
+          year1_cashflow: y1?.netCashFlow ?? 0,
+          total_equity: projectionsResult.initialCashInvested,
+          inputs: mergedInputs,
+          metrics: {
+            ...projectionsResult,
+            noi: y1?.netOperatingIncome ?? 0,
+            capRate: projectionsResult.purchasePrice > 0 ? ((y1?.netOperatingIncome ?? 0) / projectionsResult.purchasePrice) * 100 : 0,
+            dscr: y1?.dscr ?? null,
+            breakEvenOccupancyPct: y1?.breakEvenOccupancyPct ?? 0,
+            initialCashInvested: projectionsResult.initialCashInvested,
+            loanAmount: projectionsResult.loanAmount
+          },
+          updated_at: new Date().toISOString()
+        };
+        if (entityId) dealUpdatePayload.entity_id = entityId;
+
         const { data: savedDeal, error: saveErr } = await dbClient
           .from("deals")
-          .update(updatedDeal)
+          .update(dealUpdatePayload)
           .eq("id", dealId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (!saveErr && savedDeal) {
           Object.assign(updatedDeal, savedDeal);

@@ -2314,6 +2314,41 @@
           </div>
         </div>
 
+        <!-- In-Place Lease & Tenant Parameters -->
+        <div class="p-3 bg-slate-950/60 rounded-xl border border-emerald-900/40 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">📑 In-Place Lease & Tenant Terms</span>
+            <span class="text-[10px] text-slate-400">Live Postgres Sync</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="space-y-1 sm:col-span-1">
+              <label class="text-[11px] font-bold text-slate-400">Tenant of Record</label>
+              <input type="text" id="edit-deal-tenant-name" placeholder="e.g. In-Place Commercial Tenant" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1 sm:col-span-1">
+              <label class="text-[11px] font-bold text-slate-400">Lease Commencement</label>
+              <input type="date" id="edit-deal-lease-start" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+            <div class="space-y-1 sm:col-span-1">
+              <label class="text-[11px] font-bold text-slate-400">Lease Expiration</label>
+              <input type="date" id="edit-deal-lease-end" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Escalation Mechanism</label>
+              <select id="edit-deal-escalation-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+                <option value="Percentage Bump (%)">Percentage Bump (%)</option>
+                <option value="Fixed Dollar ($)">Fixed Dollar ($)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Next Escalation Date</label>
+              <input type="date" id="edit-deal-next-escalation" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
+            </div>
+          </div>
+        </div>
+
         <!-- Asset-Specific Optional Parameters (Commercial, Multi, Storage, SFR) -->
         <div id="edit-asset-specific-container" class="space-y-2">
           <!-- Commercial Options -->
@@ -7144,26 +7179,10 @@
         localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
       } catch(e) {}
 
-      // 2. If authenticated and not demo, immediately modify via Edge Function and Supabase
-      const user = window._currentUser;
-      if (user && !user.demo && deal.id && !deal.id.startsWith('demo-') && !deal.id.startsWith('proj-')) {
+      // 2. Direct Supabase PostgreSQL update for deals & leases and Edge Function invocation
+      const isRealDeal = deal.id && !deal.id.startsWith('proj-') && !deal.id.startsWith('demo-');
+      if (isRealDeal) {
         try {
-          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-              dealId: deal.id,
-              title: deal.name,
-              assetType: deal.asset_class || deal.asset_type,
-              status: deal.status || 'prospect',
-              location: deal.location,
-              inputs: deal.inputs
-            })
-          }).catch(err => console.warn('Edge auto-save warning:', err));
-
           if (window._supabase) {
             await window._supabase.from('deals').update({
               title: deal.name,
@@ -7176,9 +7195,72 @@
               year1_cashflow: deal.year1_cashflow,
               total_equity: deal.total_equity,
               inputs: deal.inputs,
-              metrics: deal.metrics
-            }).eq('id', deal.id).eq('user_id', user.id);
+              metrics: deal.metrics,
+              updated_at: new Date().toISOString()
+            }).eq('id', deal.id);
+
+            // Synchronize in-place lease into public.leases
+            if (deal.inputs?.leases?.[0]) {
+              const l = deal.inputs.leases[0];
+              const { data: existingLease } = await window._supabase
+                .from('leases')
+                .select('id')
+                .eq('deal_id', deal.id)
+                .maybeSingle();
+
+              const leasePayload = {
+                deal_id: deal.id,
+                tenant_name: l.tenantName || deal.name,
+                monthly_rent: l.monthlyRent || 0,
+                security_deposit: (l.monthlyRent || 0) * 2,
+                lease_start_date: l.leaseStartDate || '2024-06-01',
+                lease_end_date: l.leaseEndDate || '2029-05-31',
+                lease_type: l.leaseType || 'NNN',
+                escalation_type: l.escalationType || 'Percentage Bump (%)',
+                escalation_rate: l.escalationRate || 3.0,
+                escalation_frequency: l.escalationFrequency || 'Annual on Anniversary',
+                next_escalation_date: l.nextEscalationDate || null,
+                is_active: true,
+                updated_at: new Date().toISOString()
+              };
+
+              if (existingLease) {
+                await window._supabase.from('leases').update(leasePayload).eq('id', existingLease.id);
+              } else {
+                await window._supabase.from('leases').insert(leasePayload);
+              }
+            }
           }
+
+          // Edge Function sync
+          const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              dealId: deal.id,
+              title: deal.name,
+              assetType: deal.asset_class || deal.asset_type,
+              status: deal.status || 'prospect',
+              location: deal.location,
+              inputs: deal.inputs,
+              leases: deal.inputs?.leases || []
+            })
+          }).then(async (edgeRes) => {
+            if (edgeRes.ok) {
+              const edgeData = await edgeRes.json();
+              if (edgeData?.deal) {
+                deal.irr = edgeData.deal.irr ?? deal.irr;
+                deal.equity_multiple = edgeData.deal.equity_multiple ?? deal.equity_multiple;
+                deal.cash_on_cash = edgeData.deal.cash_on_cash ?? deal.cash_on_cash;
+                deal.year1_cashflow = edgeData.deal.year1_cashflow ?? deal.year1_cashflow;
+                if (edgeData.deal.metrics) deal.metrics = edgeData.deal.metrics;
+              }
+            }
+          }).catch(err => console.warn('Edge auto-save warning:', err));
         } catch(err) {
           console.warn('Auto-save error:', err);
         }
@@ -8265,6 +8347,13 @@
       setVal('edit-deal-property-class', currentLoadedDeal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B');
       setVal('edit-deal-facility-type', currentLoadedDeal.facility_type || inputs.facilityType || '');
 
+      const primaryLease = (inputs.leases && inputs.leases[0]) || {};
+      setVal('edit-deal-tenant-name', primaryLease.tenantName || inputs.tenantName || currentLoadedDeal.name || '');
+      setVal('edit-deal-lease-start', primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '2024-06-01');
+      setVal('edit-deal-lease-end', primaryLease.leaseEndDate || inputs.leaseEndDate || '2029-05-31');
+      setVal('edit-deal-escalation-type', primaryLease.escalationType || 'Percentage Bump (%)');
+      setVal('edit-deal-next-escalation', primaryLease.nextEscalationDate || '2026-06-01');
+
       let preAnnual = 0;
       let preMonthly = 0;
       if (aClass === 'commercial') {
@@ -8380,6 +8469,33 @@
         ...(currentLoadedDeal.inputs || {}),
         ...parsedInputs
       };
+
+      // Capture and persist in-place lease terms
+      const tenantName = document.getElementById('edit-deal-tenant-name')?.value?.trim() || currentLoadedDeal.name;
+      const leaseStart = document.getElementById('edit-deal-lease-start')?.value || currentLoadedDeal.inputs.closingDate || '2024-06-01';
+      const leaseEnd = document.getElementById('edit-deal-lease-end')?.value || '2029-05-31';
+      const escType = document.getElementById('edit-deal-escalation-type')?.value || 'Percentage Bump (%)';
+      const escRate = currentLoadedDeal.inputs.rentGrowth || 3.0;
+      const nextEscDate = document.getElementById('edit-deal-next-escalation')?.value || '2026-06-01';
+      const monthlyRentVal = currentLoadedDeal.inputs.monthlyRent || currentLoadedDeal.inputs.grossRentPerMonth || 0;
+
+      const updatedLease = {
+        tenantName: tenantName,
+        monthlyRent: monthlyRentVal,
+        annualRent: monthlyRentVal * 12,
+        leaseStartDate: leaseStart,
+        leaseEndDate: leaseEnd,
+        leaseType: currentLoadedDeal.inputs.leaseType || 'NNN',
+        escalationType: escType,
+        escalationRate: escRate,
+        escalationFrequency: 'Annual on Anniversary',
+        nextEscalationDate: nextEscDate
+      };
+
+      currentLoadedDeal.inputs.leases = [updatedLease];
+      currentLoadedDeal.inputs.tenantName = tenantName;
+      currentLoadedDeal.inputs.leaseStartDate = leaseStart;
+      currentLoadedDeal.inputs.leaseEndDate = leaseEnd;
 
       // Recalculate metrics via PropertyMath
       const res = window.PropertyMath ? window.PropertyMath.calculateProjections(aClass, currentLoadedDeal.inputs) : { purchasePrice: 0, irr: 0, equityMultiplier: 1, initialCashInvested: 0, projections: [{}] };

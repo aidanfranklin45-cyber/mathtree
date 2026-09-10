@@ -1,6 +1,8 @@
-﻿.firebase/
+.firebase/
 node_modules/
 *.log
 scratch/
+supabase/.temp/
 test_*_diagnostic.js
 test_*_sim.js
+

@@ -913,46 +913,6 @@
       const client = window._supabase;
       const user = window._currentUser;
 
-      if (client && user && !user.demo) {
-        try {
-          // Fetch entities, deals, units, leases, rent payments, and rent increases with user_id scoping
-          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases, resStats] = await Promise.allSettled([
-            client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true }),
-            client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true }),
-            client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true }),
-            client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false }),
-            client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false }),
-            client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false }),
-            client.from('view_property_management_stats').select('*').eq('user_id', user.id)
-          ]);
-
-          rawEntities = (resEntities.status === 'fulfilled' && resEntities.value.data) || [];
-          rawDeals = (resDeals.status === 'fulfilled' && resDeals.value.data) || [];
-          rawUnits = (resUnits.status === 'fulfilled' && resUnits.value.data) || [];
-          rawLeases = (resLeases.status === 'fulfilled' && resLeases.value.data) || [];
-          rawPayments = (resPayments.status === 'fulfilled' && resPayments.value.data) || [];
-          rawIncreases = (resIncreases.status === 'fulfilled' && resIncreases.value.data) || [];
-          const rawStats = (resStats && resStats.status === 'fulfilled' && resStats.value.data) || [];
-          window._propertyManagementStats = rawStats;
-
-          // Handle 401 token refresh retry if deals query failed with PGRST303
-          if (resDeals.status === 'fulfilled' && resDeals.value.error && (resDeals.value.error.code === 'PGRST303' || resDeals.value.error.message?.includes('JWT'))) {
-            try {
-              const refreshRes = await client.auth.refreshSession();
-              if (refreshRes.data?.session) {
-                const retryDeals = await client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true });
-                if (retryDeals.data) rawDeals = retryDeals.data;
-              }
-            } catch (refErr) {
-              console.warn('Operations session refresh failed:', refErr);
-            }
-          }
-        } catch (err) {
-          console.error('Error loading operations data from Supabase:', err);
-        }
-      }
-
-      // Check if user is in demo mode
       let activeUserDemo = false;
       try {
         const storedUser = localStorage.getItem('mathtree_active_user');
@@ -961,7 +921,7 @@
         if (demoMode && JSON.parse(demoMode).demo) activeUserDemo = true;
       } catch (e) {}
 
-      const isDemo = !window._supabase || (user && user.demo) || activeUserDemo || (!rawEntities.length && !rawDeals.length);
+      const isDemo = !window._supabase || (user && user.demo) || activeUserDemo;
 
       // Show/Hide Demo Sandbox top banner
       const demoBanner = document.getElementById('demo-sandbox-banner');
@@ -970,343 +930,56 @@
         else demoBanner.classList.add('hidden');
       }
 
-      // When isDemo is true, ensure full multi-property demo portfolio is loaded:
-      if (isDemo || (!rawEntities.length && !rawDeals.length)) {
+      if (client) {
+        try {
+          const dealQuery = (user && !user.demo && !activeUserDemo)
+            ? client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true })
+            : client.from('deals').select('*').eq('is_demo', true).order('title', { ascending: true });
+
+          const leaseQuery = (user && !user.demo && !activeUserDemo)
+            ? client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false })
+            : client.from('leases').select('*').order('is_active', { ascending: false });
+
+          const unitQuery = (user && !user.demo && !activeUserDemo)
+            ? client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true })
+            : client.from('units').select('*').order('unit_number', { ascending: true });
+
+          const entityQuery = (user && !user.demo && !activeUserDemo)
+            ? client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true })
+            : client.from('entities').select('*').order('name', { ascending: true });
+
+          const paymentQuery = (user && !user.demo && !activeUserDemo)
+            ? client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false })
+            : client.from('rent_payments').select('*').order('period_month', { ascending: false });
+
+          const increaseQuery = (user && !user.demo && !activeUserDemo)
+            ? client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false })
+            : client.from('rent_increases').select('*').order('effective_date', { ascending: false });
+
+          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.allSettled([
+            entityQuery, dealQuery, unitQuery, leaseQuery, paymentQuery, increaseQuery
+          ]);
+
+          rawEntities = (resEntities.status === 'fulfilled' && resEntities.value.data) || [];
+          rawDeals = (resDeals.status === 'fulfilled' && resDeals.value.data) || [];
+          rawUnits = (resUnits.status === 'fulfilled' && resUnits.value.data) || [];
+          rawLeases = (resLeases.status === 'fulfilled' && resLeases.value.data) || [];
+          rawPayments = (resPayments.status === 'fulfilled' && resPayments.value.data) || [];
+          rawIncreases = (resIncreases.status === 'fulfilled' && resIncreases.value.data) || [];
+        } catch (err) {
+          console.error('Error loading operations data from Supabase:', err);
+        }
+      }
+
+      if (!rawEntities.length) {
         rawEntities = [
           {
-            id: 'ent-demo-1',
+            id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
             name: 'Summit Crest Holdings LLC',
             formation_state: 'WA',
             ein: '84-1928374',
             depository_bank: 'Chase Commercial (*4892)',
             bank_name: 'Chase Commercial (*4892)'
-          }
-        ];
-
-        rawDeals = [
-          {
-            id: 'deal-demo-1',
-            title: '2239 Longfibre Rd Distribution Center',
-            entity_id: 'ent-demo-1',
-            status: 'owned',
-            asset_type: 'Industrial / Distribution',
-            asset_class: 'commercial',
-            purchase_price: 1850000,
-            cap_rate: 6.78,
-            year1_cashflow: 64200,
-            inputs: {
-              purchasePrice: 1850000,
-              monthlyRent: 10450,
-              grossRentPerMonth: 10450,
-              grossRentAnnual: 125400,
-              sqft: 28500,
-              operatingExpenseRatio: 22,
-              vacancyRate: 4
-            }
-          },
-          {
-            id: 'deal-demo-2',
-            title: 'Stop and Go Burgers',
-            entity_id: 'ent-demo-1',
-            status: 'owned',
-            asset_type: 'Single-Tenant Retail NNN',
-            asset_class: 'commercial',
-            purchase_price: 1450000,
-            cap_rate: 7.03,
-            year1_cashflow: 58900,
-            inputs: {
-              purchasePrice: 1450000,
-              monthlyRent: 8500,
-              grossRentPerMonth: 8500,
-              grossRentAnnual: 102000,
-              sqft: 3400,
-              operatingExpenseRatio: 12,
-              vacancyRate: 0
-            }
-          },
-          {
-            id: 'deal-demo-3',
-            title: 'Westfield 12-Plex Multi-Family',
-            entity_id: 'ent-demo-1',
-            status: 'owned',
-            asset_type: 'Multi-Family Residential',
-            asset_class: 'multi-unit',
-            purchase_price: 2200000,
-            cap_rate: 7.42,
-            year1_cashflow: 78500,
-            inputs: {
-              purchasePrice: 2200000,
-              monthlyRent: 16800,
-              grossRentPerMonth: 16800,
-              grossRentAnnual: 201600,
-              unitCount: 12,
-              monthlyRentPerUnit: 1400,
-              operatingExpenseRatio: 35,
-              vacancyRate: 5
-            }
-          }
-        ];
-
-        rawUnits = [
-          {
-            id: 'unit-demo-101',
-            deal_id: 'deal-demo-1',
-            unit_number: 'Suite 101 Logistics',
-            unit_type: 'Logistics / Warehouse',
-            market_rent: 3450,
-            sqft: 10500,
-            status: 'occupied'
-          },
-          {
-            id: 'unit-demo-102',
-            deal_id: 'deal-demo-1',
-            unit_number: 'Suite 102 Cold Storage',
-            unit_type: 'Cold Storage / Food Grade',
-            market_rent: 4200,
-            sqft: 12000,
-            status: 'occupied'
-          },
-          {
-            id: 'unit-demo-103',
-            deal_id: 'deal-demo-1',
-            unit_number: 'Suite 103 Flex Office',
-            unit_type: 'Flex Office / Dispatch',
-            market_rent: 2800,
-            sqft: 6000,
-            status: 'occupied'
-          },
-          {
-            id: 'unit-demo-201',
-            deal_id: 'deal-demo-2',
-            unit_number: 'Stand-Alone Drive-Thru & Dining',
-            unit_type: 'Quick-Service Restaurant',
-            market_rent: 8500,
-            sqft: 3400,
-            status: 'occupied'
-          },
-          {
-            id: 'unit-demo-301',
-            deal_id: 'deal-demo-3',
-            unit_number: 'Units 1-4 (Ground Floor Garden)',
-            unit_type: '2 Bed / 1.5 Bath Residential',
-            market_rent: 5600,
-            sqft: 3800,
-            status: 'occupied'
-          },
-          {
-            id: 'unit-demo-302',
-            deal_id: 'deal-demo-3',
-            unit_number: 'Units 5-8 (Upper Balcony Suites)',
-            unit_type: '2 Bed / 1.5 Bath Residential',
-            market_rent: 5800,
-            sqft: 3800,
-            status: 'occupied'
-          },
-          {
-            id: 'unit-demo-303',
-            deal_id: 'deal-demo-3',
-            unit_number: 'Units 9-12 (Courtyard Townhomes)',
-            unit_type: '2 Bed / 2 Bath Residential',
-            market_rent: 5400,
-            sqft: 4000,
-            status: 'occupied'
-          }
-        ];
-
-        rawLeases = [
-          {
-            id: 'lease-demo-1',
-            deal_id: 'deal-demo-1',
-            unit_id: 'unit-demo-101',
-            tenant_name: 'Cascade Cold Logistics',
-            tenant_email: 'ops@cascadecold.com',
-            tenant_phone: '(509) 555-0144',
-            monthly_rent: 3450,
-            lease_start_date: '2024-06-01',
-            lease_end_date: '2027-05-31',
-            last_rent_increase_date: '2025-06-01',
-            previous_rent_amount: 3300,
-            escalation_type: 'Percentage Bump (%)',
-            escalation_rate: 3.5,
-            escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-06-01',
-            is_active: true
-          },
-          {
-            id: 'lease-demo-2',
-            deal_id: 'deal-demo-1',
-            unit_id: 'unit-demo-102',
-            tenant_name: 'Pacific Freight Lines',
-            tenant_email: 'dispatch@pacificfreight.net',
-            tenant_phone: '(206) 555-0812',
-            monthly_rent: 4200,
-            lease_start_date: '2023-09-01',
-            lease_end_date: '2028-08-31',
-            last_rent_increase_date: '2025-09-01',
-            previous_rent_amount: 4000,
-            escalation_type: 'Percentage Bump (%)',
-            escalation_rate: 3.0,
-            escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-09-01',
-            is_active: true
-          },
-          {
-            id: 'lease-demo-3',
-            deal_id: 'deal-demo-1',
-            unit_id: 'unit-demo-103',
-            tenant_name: 'Valley Distribution',
-            tenant_email: 'accounting@valleydist.com',
-            tenant_phone: '(509) 555-0399',
-            monthly_rent: 2800,
-            lease_start_date: '2025-01-15',
-            lease_end_date: '2027-01-14',
-            last_rent_increase_date: '2025-01-15',
-            previous_rent_amount: 2800,
-            escalation_type: 'Fixed Dollar ($)',
-            escalation_rate: 100,
-            escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-01-15',
-            is_active: true
-          },
-          {
-            id: 'lease-demo-4',
-            deal_id: 'deal-demo-2',
-            unit_id: 'unit-demo-201',
-            tenant_name: 'QuickBite Restaurants Holdings LLC',
-            tenant_email: 'leases@quickbiteholdings.com',
-            tenant_phone: '(509) 555-9122',
-            monthly_rent: 8500,
-            lease_start_date: '2022-04-01',
-            lease_end_date: '2032-03-31',
-            last_rent_increase_date: '2025-04-01',
-            previous_rent_amount: 8250,
-            escalation_type: 'Percentage Bump (%)',
-            escalation_rate: 2.5,
-            escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-04-01',
-            is_active: true
-          },
-          {
-            id: 'lease-demo-5',
-            deal_id: 'deal-demo-3',
-            unit_id: 'unit-demo-301',
-            tenant_name: 'Residential Master Roll (Apt 1-4)',
-            tenant_email: 'leasing@summitcrestwa.com',
-            tenant_phone: '(509) 555-7731',
-            monthly_rent: 5600,
-            lease_start_date: '2024-08-01',
-            lease_end_date: '2026-07-31',
-            last_rent_increase_date: '2024-08-01',
-            previous_rent_amount: 5400,
-            escalation_type: 'Percentage Bump (%)',
-            escalation_rate: 4.0,
-            escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2025-08-01',
-            is_active: true
-          }
-        ];
-
-        const curMonthStr = formatPeriodMonth(activeDate);
-        const prev1Date = new Date(activeDate.getFullYear(), activeDate.getMonth() - 1, 1);
-        const prev1Str = formatPeriodMonth(prev1Date);
-        const prev2Date = new Date(activeDate.getFullYear(), activeDate.getMonth() - 2, 1);
-        const prev2Str = formatPeriodMonth(prev2Date);
-
-        rawPayments = [
-          {
-            id: 'pay-demo-1',
-            lease_id: 'lease-demo-1',
-            deal_id: 'deal-demo-1',
-            period_month: curMonthStr,
-            amount_due: 3450,
-            amount_paid: 3450,
-            paid_date: curMonthStr.replace('-01', '-02'),
-            status: 'paid',
-            payment_method: 'ach',
-            reference_note: 'Auto ACH Transfer #98421'
-          },
-          {
-            id: 'pay-demo-2',
-            lease_id: 'lease-demo-2',
-            deal_id: 'deal-demo-1',
-            period_month: curMonthStr,
-            amount_due: 4200,
-            amount_paid: 4200,
-            paid_date: curMonthStr.replace('-01', '-03'),
-            status: 'paid',
-            payment_method: 'wire',
-            reference_note: 'FedWire Ref #772910'
-          },
-          {
-            id: 'pay-demo-3',
-            lease_id: 'lease-demo-3',
-            deal_id: 'deal-demo-1',
-            period_month: curMonthStr,
-            amount_due: 2800,
-            amount_paid: 2800,
-            paid_date: curMonthStr.replace('-01', '-01'),
-            status: 'paid',
-            payment_method: 'check',
-            reference_note: 'Check #4512'
-          },
-          {
-            id: 'pay-demo-4',
-            lease_id: 'lease-demo-1',
-            deal_id: 'deal-demo-1',
-            period_month: prev1Str,
-            amount_due: 3450,
-            amount_paid: 3450,
-            paid_date: prev1Str.replace('-01', '-02'),
-            status: 'paid',
-            payment_method: 'ach',
-            reference_note: 'Auto ACH Transfer #97210'
-          },
-          {
-            id: 'pay-demo-5',
-            lease_id: 'lease-demo-2',
-            deal_id: 'deal-demo-1',
-            period_month: prev1Str,
-            amount_due: 4200,
-            amount_paid: 4200,
-            paid_date: prev1Str.replace('-01', '-04'),
-            status: 'paid',
-            payment_method: 'wire',
-            reference_note: 'FedWire Ref #765109'
-          },
-          {
-            id: 'pay-demo-6',
-            lease_id: 'lease-demo-3',
-            deal_id: 'deal-demo-1',
-            period_month: prev1Str,
-            amount_due: 2800,
-            amount_paid: 2800,
-            paid_date: prev1Str.replace('-01', '-01'),
-            status: 'paid',
-            payment_method: 'check',
-            reference_note: 'Check #4489'
-          }
-        ];
-
-        rawIncreases = [
-          {
-            id: 'inc-demo-1',
-            lease_id: 'lease-demo-1',
-            deal_id: 'deal-demo-1',
-            effective_date: '2025-06-01',
-            old_rent: 3300,
-            new_rent: 3450,
-            reason: 'Year 2 Contractual Escalation (+4.5%)',
-            notice_sent_date: '2025-04-15'
-          },
-          {
-            id: 'inc-demo-2',
-            lease_id: 'lease-demo-2',
-            deal_id: 'deal-demo-1',
-            effective_date: '2025-09-01',
-            old_rent: 4000,
-            new_rent: 4200,
-            reason: 'Contractual 5% Escalation',
-            notice_sent_date: '2025-07-01'
           }
         ];
       }
@@ -1317,43 +990,83 @@
 
 
     // === Core Synchronizer: Wire In-Place Rent Roll directly to Deal Portfolio Analysis ===
-    function syncLeaseRollToDeal(dealId) {
+    async function syncLeaseRollToDeal(dealId) {
       if (!dealId) return;
-      const activeLeases = rawLeases.filter(l => l.deal_id === dealId && l.is_active !== false);
+      const activeLeases = rawLeases.filter(l => String(l.deal_id) === String(dealId) && l.is_active !== false);
       const totalDealRent = activeLeases.reduce((sum, l) => sum + (parseFloat(l.monthly_rent) || 0), 0);
 
-      const deal = rawDeals.find(d => d.id === dealId);
-      if (deal) {
-        deal.inputs = deal.inputs || {};
-        deal.inputs.monthlyRent = totalDealRent;
-        deal.inputs.grossRentPerMonth = totalDealRent;
-        deal.inputs.grossRentAnnual = totalDealRent * 12;
+      const deal = rawDeals.find(d => String(d.id) === String(dealId));
+      if (!deal) return;
 
-        if (window.PropertyMath) {
-          try {
-            const projections = window.PropertyMath.calculateProjections(deal.asset_class || 'commercial', deal.inputs);
-            if (projections && projections.projections && projections.projections[0]) {
-              deal.noi = projections.projections[0].netOperatingIncome;
-              deal.cap_rate = projections.projections[0].capRate;
-              deal.year1_cashflow = projections.projections[0].cashFlow;
-            }
-          } catch (e) {}
+      deal.inputs = deal.inputs || {};
+      deal.inputs.monthlyRent = totalDealRent;
+      deal.inputs.grossRentPerMonth = totalDealRent;
+      deal.inputs.grossRentAnnual = totalDealRent * 12;
+
+      // Map active leases into deal.inputs.leases so single-deal prospectus, dashboard & PDF generator reflect exact lease terms
+      deal.inputs.leases = activeLeases.map(l => ({
+        tenantName: l.tenant_name || 'Commercial Tenant',
+        monthlyRent: parseFloat(l.monthly_rent) || 0,
+        annualRent: (parseFloat(l.monthly_rent) || 0) * 12,
+        leaseStartDate: l.lease_start_date || (deal.inputs.closingDate || '2025-01-01'),
+        leaseEndDate: l.lease_end_date || '2030-12-31',
+        leaseType: l.lease_type || deal.inputs.leaseType || 'NNN',
+        escalationType: l.escalation_type || 'Percentage Bump (%)',
+        escalationRate: l.escalation_rate !== undefined && l.escalation_rate !== null ? parseFloat(l.escalation_rate) : 3.0,
+        escalationFrequency: l.escalation_frequency || 'Annual on Anniversary',
+        nextEscalationDate: l.next_escalation_date || '2026-06-01'
+      }));
+
+      // Calculate full pro-forma projections with updated rent & leases
+      let projResult = null;
+      if (window.PropertyMath) {
+        try {
+          projResult = window.PropertyMath.calculateProjections(deal.asset_class || deal.asset_type || 'commercial', deal.inputs);
+          if (projResult && projResult.projections && projResult.projections[0]) {
+            const y1 = projResult.projections[0];
+            deal.purchase_price = projResult.purchasePrice ?? deal.purchase_price;
+            deal.irr = projResult.irr ?? deal.irr;
+            deal.equity_multiple = projResult.equityMultiplier ?? deal.equity_multiple;
+            deal.cash_on_cash = y1.cashOnCash ?? deal.cash_on_cash;
+            deal.year1_cashflow = y1.cashFlow ?? y1.netCashFlow ?? deal.year1_cashflow;
+            deal.total_equity = projResult.initialCashInvested ?? deal.total_equity;
+            deal.metrics = {
+              ...projResult,
+              noi: y1.netOperatingIncome ?? 0,
+              capRate: y1.capRate ?? 0,
+              dscr: y1.dscr ?? null,
+              year1CashFlow: y1.cashFlow ?? y1.netCashFlow ?? 0,
+              year1CoC: y1.cashOnCash ?? 0
+            };
+          }
+        } catch (e) {
+          console.warn('PropertyMath recalculation warning:', e);
         }
       }
 
-      // Update Supabase if connected
-      if (window._supabase && window._currentUser && !window._currentUser.demo) {
-        window._supabase.from('deals').update({
-          inputs: deal ? deal.inputs : { monthlyRent: totalDealRent, grossRentAnnual: totalDealRent * 12 },
-          updated_at: new Date().toISOString()
-        }).eq('id', dealId).then(() => {});
-
+      // Persist directly to Supabase deals table (both for authenticated users and demo benchmarks)
+      if (window._supabase) {
         try {
-          window._supabase.rpc('rpc_recalculate_deal', {
-            p_deal_id: dealId,
-            p_inputs: deal ? deal.inputs : {}
-          }).then(() => {});
-        } catch(e) {}
+          const updatePayload = {
+            purchase_price: deal.purchase_price,
+            irr: deal.irr,
+            equity_multiple: deal.equity_multiple,
+            cash_on_cash: deal.cash_on_cash,
+            year1_cashflow: deal.year1_cashflow,
+            total_equity: deal.total_equity,
+            inputs: deal.inputs,
+            updated_at: new Date().toISOString()
+          };
+          if (deal.metrics) updatePayload.metrics = deal.metrics;
+
+          await window._supabase
+            .from('deals')
+            .update(updatePayload)
+            .eq('id', dealId);
+          console.log('✓ Successfully synchronized updated lease and pro-forma metrics to Supabase deals table');
+        } catch (err) {
+          console.error('Error syncing deal pro-forma to Supabase deals table:', err);
+        }
       }
 
       // Synchronize localStorage deal caches so dashboard and pro-forma immediately reflect real in-place leases
@@ -1362,17 +1075,9 @@
           const stored = localStorage.getItem(key);
           if (stored) {
             const list = JSON.parse(stored);
-            const idx = list.findIndex(d => d.id === dealId);
+            const idx = list.findIndex(d => String(d.id) === String(dealId));
             if (idx >= 0) {
-              list[idx].inputs = list[idx].inputs || {};
-              list[idx].inputs.monthlyRent = totalDealRent;
-              list[idx].inputs.grossRentPerMonth = totalDealRent;
-              list[idx].inputs.grossRentAnnual = totalDealRent * 12;
-              if (deal && deal.noi) {
-                list[idx].noi = deal.noi;
-                list[idx].cap_rate = deal.cap_rate;
-                list[idx].year1_cashflow = deal.year1_cashflow;
-              }
+              list[idx] = { ...list[idx], ...deal };
               localStorage.setItem(key, JSON.stringify(list));
             }
           }
@@ -1429,9 +1134,6 @@
       const escFreq = document.getElementById('edit-lease-escalation-freq').value;
       const nextEscDate = document.getElementById('edit-lease-next-escalation').value || null;
 
-      const user = window._currentUser;
-      const isDemo = !window._supabase || (user && user.demo) || localStorage.getItem('mathtree_demo_mode');
-
       // Update in memory
       const lease = rawLeases.find(l => l.id === leaseId);
       if (lease) {
@@ -1441,7 +1143,7 @@
         lease.lease_end_date = endDate;
         lease.tenant_email = email;
         lease.tenant_phone = phone;
-        lease.deposit_amount = deposit;
+        lease.security_deposit = deposit;
         lease.is_active = isActive;
         lease.escalation_type = escType;
         lease.escalation_rate = escRate;
@@ -1449,17 +1151,17 @@
         lease.next_escalation_date = nextEscDate;
       }
 
-      // Update in Supabase if not demo
-      if (!isDemo && window._supabase) {
+      // Always persist to Supabase public.leases table
+      if (window._supabase) {
         try {
-          await window._supabase.from('leases').update({
+          const { error } = await window._supabase.from('leases').update({
             tenant_name: tenantName,
             monthly_rent: monthlyRent,
             lease_start_date: startDate,
             lease_end_date: endDate,
             tenant_email: email,
             tenant_phone: phone,
-            deposit_amount: deposit,
+            security_deposit: deposit,
             is_active: isActive,
             escalation_type: escType,
             escalation_rate: escRate,
@@ -1467,13 +1169,16 @@
             next_escalation_date: nextEscDate,
             updated_at: new Date().toISOString()
           }).eq('id', leaseId);
+
+          if (error) console.error('Error updating lease in Supabase:', error);
+          else console.log('✓ Successfully updated lease in Supabase public.leases');
         } catch (err) {
           console.error('Error updating lease in Supabase:', err);
         }
       }
 
-      // Automatically recalculate deal financial analysis and update portfolio
-      syncLeaseRollToDeal(dealId);
+      // Automatically recalculate deal financial analysis and persist to deals table in Supabase
+      await syncLeaseRollToDeal(dealId);
 
       closeModal('modal-edit-lease');
       renderOperationsUI();
@@ -2202,137 +1907,91 @@
       const nextEscDate = document.getElementById('new-lease-next-escalation')?.value || null;
 
       const user = window._currentUser;
-      const isDemo = !window._supabase || (user && user.demo);
 
-      if (isDemo) {
-        const newUnitId = 'unit-demo-' + Date.now();
-        const newLeaseId = 'lease-demo-' + Date.now();
-        rawUnits.push({
-          id: newUnitId,
-          deal_id: dealId,
-          unit_number: unitNum,
-          unit_type: unitType,
-          market_rent: rent,
-          status: 'occupied'
-        });
-
-        const newLease = {
-          id: newLeaseId,
-          user_id: user ? user.id : 'demo-user',
-          unit_id: newUnitId,
-          deal_id: dealId,
-          tenant_name: tenantName,
-          monthly_rent: rent,
-          lease_start_date: startDate,
-          lease_end_date: endDate || null,
-          tenant_email: email || null,
-          tenant_phone: phone || null,
-          last_rent_increase_date: startDate,
-          escalation_type: escType !== 'none' ? escType : null,
-          escalation_rate: escRate > 0 ? escRate : null,
-          escalation_frequency: escType !== 'none' ? escFreq : null,
-          next_escalation_date: escType !== 'none' ? nextEscDate : null,
-          is_active: true
-        };
-        rawLeases.push(newLease);
-
-        if (escType !== 'none' && escRate > 0) {
-          const plannedNewRent = escType.includes('Percentage')
-            ? Math.round((rent * (1 + escRate / 100)) * 100) / 100
-            : (rent + escRate);
-          const escReason = `Scheduled ${escType.includes('Percentage') ? escRate + '%' : '$' + escRate} ${escFreq} escalation`;
-          rawIncreases.unshift({
-            id: 'inc-demo-' + Date.now(),
-            user_id: user ? user.id : 'demo-user',
-            lease_id: newLeaseId,
-            deal_id: dealId,
-            effective_date: nextEscDate || startDate,
-            old_rent: rent,
-            new_rent: plannedNewRent,
-            reason: escReason,
-            notice_sent_date: null
-          });
-        }
-
-        syncLeaseRollToDeal(dealId);
-        document.getElementById('form-add-lease').reset();
-        closeModal('modal-add-lease');
-        populateFilterDropdowns();
-        renderOperationsUI();
-        return;
-      }
-
-      if (!user || !window._supabase) return;
-
-      try {
-        // 1. Create Unit
-        const { data: unitData, error: unitErr } = await window._supabase
-          .from('units')
-          .insert({
-            user_id: user.id,
-            deal_id: dealId,
-            unit_number: unitNum,
-            unit_type: unitType,
-            market_rent: rent,
-            status: 'occupied'
-          })
-          .select()
-          .single();
-
-        if (unitErr) throw unitErr;
-
-        // 2. Create Lease
-        const leasePayload = {
-          user_id: user.id,
-          unit_id: unitData.id,
-          deal_id: dealId,
-          tenant_name: tenantName,
-          monthly_rent: rent,
-          lease_start_date: startDate,
-          lease_end_date: endDate || null,
-          tenant_email: email || null,
-          tenant_phone: phone || null,
-          last_rent_increase_date: startDate,
-          escalation_type: escType !== 'none' ? escType : null,
-          escalation_rate: escRate > 0 ? escRate : null,
-          escalation_frequency: escType !== 'none' ? escFreq : null,
-          next_escalation_date: escType !== 'none' ? nextEscDate : null,
-          is_active: true
-        };
-
-        const { data: leaseData, error: leaseErr } = await window._supabase
-          .from('leases')
-          .insert(leasePayload)
-          .select()
-          .single();
-
-        if (leaseErr) throw leaseErr;
-
-        // 3. Record planned escalation in rent_increases if configured
-        if (escType !== 'none' && escRate > 0 && leaseData) {
-          const plannedNewRent = escType.includes('Percentage')
-            ? Math.round((rent * (1 + escRate / 100)) * 100) / 100
-            : (rent + escRate);
-          const escReason = `Scheduled ${escType.includes('Percentage') ? escRate + '%' : '$' + escRate} ${escFreq} escalation`;
-          await window._supabase
-            .from('rent_increases')
+      if (window._supabase) {
+        try {
+          // 1. Create Unit
+          let unitId = null;
+          const { data: unitData, error: unitErr } = await window._supabase
+            .from('units')
             .insert({
-              user_id: user.id,
-              lease_id: leaseData.id,
+              user_id: user?.id || null,
               deal_id: dealId,
-              effective_date: nextEscDate || startDate,
-              old_rent: rent,
-              new_rent: plannedNewRent,
-              reason: escReason,
-              notice_sent_date: null
-            });
-        }
+              unit_number: unitNum,
+              unit_type: unitType,
+              market_rent: rent,
+              status: 'occupied'
+            })
+            .select()
+            .single();
 
-        document.getElementById('form-add-lease').reset();
-        closeModal('modal-add-lease');
-        await fetchAllOperationsData();
-      } catch (err) {
-        alert('Error creating unit and lease: ' + err.message);
+          if (!unitErr && unitData) {
+            unitId = unitData.id;
+          }
+
+          // 2. Create Lease
+          const leasePayload = {
+            user_id: user?.id || null,
+            unit_id: unitId,
+            deal_id: dealId,
+            tenant_name: tenantName,
+            monthly_rent: rent,
+            security_deposit: rent * 2,
+            lease_start_date: startDate,
+            lease_end_date: endDate || null,
+            tenant_email: email || null,
+            tenant_phone: phone || null,
+            last_rent_increase_date: startDate,
+            escalation_type: escType !== 'none' ? escType : null,
+            escalation_rate: escRate > 0 ? escRate : null,
+            escalation_frequency: escType !== 'none' ? escFreq : null,
+            next_escalation_date: escType !== 'none' ? nextEscDate : null,
+            is_active: true
+          };
+
+          const { data: leaseData, error: leaseErr } = await window._supabase
+            .from('leases')
+            .insert(leasePayload)
+            .select()
+            .single();
+
+          if (leaseErr) throw leaseErr;
+
+          if (leaseData) {
+            rawLeases.push(leaseData);
+          }
+
+          // 3. Record planned escalation in rent_increases if configured
+          if (escType !== 'none' && escRate > 0 && leaseData) {
+            const plannedNewRent = escType.includes('Percentage')
+              ? Math.round((rent * (1 + escRate / 100)) * 100) / 100
+              : (rent + escRate);
+            const escReason = `Scheduled ${escType.includes('Percentage') ? escRate + '%' : '$' + escRate} ${escFreq} escalation`;
+            await window._supabase
+              .from('rent_increases')
+              .insert({
+                user_id: user?.id || null,
+                lease_id: leaseData.id,
+                deal_id: dealId,
+                effective_date: nextEscDate || startDate,
+                old_rent: rent,
+                new_rent: plannedNewRent,
+                reason: escReason,
+                notice_sent_date: null
+              });
+          }
+
+          // 4. Synchronize with parent deal
+          await syncLeaseRollToDeal(dealId);
+
+          document.getElementById('form-add-lease').reset();
+          closeModal('modal-add-lease');
+          await fetchAllOperationsData();
+          return;
+        } catch (err) {
+          console.error('Error creating lease in Supabase:', err);
+          alert('Error creating unit and lease: ' + err.message);
+        }
       }
     }
 
