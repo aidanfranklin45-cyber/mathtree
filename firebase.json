@@ -1,38 +1,19 @@
-﻿{
-  "hosting": [
-    {
-      "site": "mathtree",
-      "public": ".",
-      "cleanUrls": true,
-      "ignore": [
-        "firebase.json",
-        ".firebaserc",
-        ".*",
-        ".*/**",
-        "supabase/**",
-        "**/*.md",
-        "**/*.sql",
-        "**/*.log",
-        "test.js",
-        "scratch/**"
-      ]
-    },
-    {
-      "site": "fourleafrealestate-87c56",
-      "public": ".",
-      "cleanUrls": true,
-      "ignore": [
-        "firebase.json",
-        ".firebaserc",
-        ".*",
-        ".*/**",
-        "supabase/**",
-        "**/*.md",
-        "**/*.sql",
-        "**/*.log",
-        "test.js",
-        "scratch/**"
-      ]
-    }
-  ]
+{
+  "hosting": {
+    "site": "mathtree",
+    "public": ".",
+    "cleanUrls": true,
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      ".*",
+      ".*/**",
+      "supabase/**",
+      "**/*.md",
+      "**/*.sql",
+      "**/*.log",
+      "test.js",
+      "scratch/**"
+    ]
+  }
 }
