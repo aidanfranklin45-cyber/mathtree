@@ -74,3 +74,11 @@ Optimize context efficiency by gathering only the information necessary to resol
 - **Domain:** Interactive mathematical knowledge graph, prerequisite tree engine, dynamic problem generation, and mastery tracking.
 - **Core Entities:** `nodes` (skills/topics), `edges` (prerequisites/dependencies), `user_mastery` (progress/state), `problem_templates` (generators).
 - Maintain clean separation between the mathematical graph solver/state machine and the visual rendering layer (e.g., SVG/Canvas/KaTeX).
+
+---
+
+## 7. FOUNDATIONAL MODERN ARCHITECTURE AS PRIMARY ENGINEERING METHOD
+- **Core Principle:** Enforce foundational modern architecture as the primary engineering method across MathTree. Forbid brittle, monolithic client-side JavaScript glue, duplicate 500KB+ copy-pasted HTML files, and ad-hoc DOM string-scraping.
+- **High-Powered Postgres (Supabase):** Postgres is the primary relational brain and single source of truth. Use relational schemas, SQL views, generated columns, and stored procedures/RPCs for complex domain calculations, aggregations (e.g., Net Operating Income, debt service amortization, portfolio rollups, rent roll schedules), and transactional mutations. Enforce native Row-Level Security (RLS) for data protection.
+- **Serverless Edge Functions (Deno/Supabase):** Reserve for compute-intensive, asynchronous, or security-sensitive workloads (e.g., Monte Carlo risk simulations across 1,000–10,000 runs, automated Executive Pitch Deck/PDF synthesis, external API calls like Census/County Assessor integrations). Never block client UI threads with heavy, long-running math loops.
+- **Lean, Declarative Frontend:** Frontend interfaces must be modular, lightweight, and focused purely on presentation, user interaction, and reactive data visualization. Never synchronize financial state through fragile URL string manipulation or fragmented `localStorage` keys; synchronize state cleanly via authenticated Supabase client queries and structured reactive stores.
