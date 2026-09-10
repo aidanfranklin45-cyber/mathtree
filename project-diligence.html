@@ -4251,6 +4251,11 @@
       const sqft = rawAssessor.buildingSqFt || (deal.inputs && (deal.inputs.buildingSqFt || deal.inputs.gla || deal.inputs.totalSqFt)) || inputs.gla || 15000;
       const holdYrs = inputs.exitYear || 10;
       const p1 = (res.projections && res.projections[0]) || {};
+      const y1Gpi = p1.grossPotentialIncome || (inputs.grossRentAnnual || 0);
+      const y1Opex = p1.operatingExpenses || 0;
+      const y1Debt = (res.monthlyMortgagePayment || 0) * 12;
+      const breakevenOccupancyPct = y1Gpi > 0 ? (((y1Opex + y1Debt) / y1Gpi) * 100) : 0;
+      const maxVacancyTolerancePct = Math.max(0, 100 - breakevenOccupancyPct);
 
       let revenueStr = '';
       if (activeTab === 'single-family') {
@@ -7660,11 +7665,9 @@
       // Guaranteed Startup Routing: dynamically retrieve & load deal FIRST
       await initProjectView();
       syncSlidersFromInputs();
+    });
 
-      
     // === Property Detail Auto-Loader & Sync Controller ===
-    currentLoadedDealId = null;
-    currentLoadedDeal = null;
 
     function getDealIdFromUrl() {
       const params = new URLSearchParams(window.location.search);
@@ -7826,41 +7829,68 @@
       }
     }
 
-    function openEditDealModalFromProject() {
-      if (!currentLoadedDeal) return;
+    function openEditDealModalFromProject(targetDeal) {
+      let deal = targetDeal || currentLoadedDeal || window.currentLoadedDeal;
+      if (!deal) {
+        try {
+          const raw = localStorage.getItem('mathtree_active_deal');
+          if (raw) deal = JSON.parse(raw);
+        } catch(e) {}
+      }
+      if (!deal) {
+        try {
+          const rawLocal = localStorage.getItem('mathtree_local_deals');
+          if (rawLocal) {
+            const arr = JSON.parse(rawLocal);
+            if (Array.isArray(arr) && arr.length) deal = arr[0];
+          }
+        } catch(e) {}
+      }
+      if (!deal) {
+        console.warn('openEditDealModalFromProject: No active deal found to edit.');
+        return;
+      }
+      currentLoadedDeal = deal;
+      window.currentLoadedDeal = deal;
+
       const modal = document.getElementById('edit-deal-modal');
       if (!modal) return;
 
       const inputs = currentLoadedDeal.inputs || {};
       const aClass = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
 
-      document.getElementById('edit-deal-id').value = currentLoadedDeal.id;
-      if (document.getElementById('edit-deal-asset-class')) {
-        document.getElementById('edit-deal-asset-class').value = aClass;
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val ?? '';
+      };
+      const setChecked = (id, checked) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!checked;
+      };
+
+      setVal('edit-deal-id', currentLoadedDeal.id);
+      setVal('edit-deal-asset-class', aClass);
+      if (typeof setModalExitCapTimingUI === 'function') {
+        setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
       }
-      setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
-      const cleanName = resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal]);
-      document.getElementById('edit-deal-name').value = cleanName;
-      document.getElementById('edit-deal-location').value = currentLoadedDeal.location || '';
-      document.getElementById('edit-deal-status').value = currentLoadedDeal.status || 'prospect';
+      const cleanName = typeof resolveDealDisplayName === 'function'
+        ? resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal])
+        : (currentLoadedDeal.name || currentLoadedDeal.title || 'Underwriting Project');
+      setVal('edit-deal-name', cleanName);
+      setVal('edit-deal-location', currentLoadedDeal.location || '');
+      setVal('edit-deal-status', currentLoadedDeal.status || 'prospect');
 
       const price = currentLoadedDeal.purchase_price || inputs.purchasePrice || 0;
-      document.getElementById('edit-deal-price').value = price;
+      setVal('edit-deal-price', price);
 
       const subTitle = document.getElementById('edit-modal-deal-subtitle');
       if (subTitle) {
         subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Comprehensive Baseline Underwriting Parameters`;
       }
 
-      if (document.getElementById('edit-deal-market-tier')) {
-        document.getElementById('edit-deal-market-tier').value = currentLoadedDeal.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2';
-      }
-      if (document.getElementById('edit-deal-property-class')) {
-        document.getElementById('edit-deal-property-class').value = currentLoadedDeal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B';
-      }
-      if (document.getElementById('edit-deal-facility-type')) {
-        document.getElementById('edit-deal-facility-type').value = currentLoadedDeal.facility_type || inputs.facilityType || '';
-      }
+      setVal('edit-deal-market-tier', currentLoadedDeal.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2');
+      setVal('edit-deal-property-class', currentLoadedDeal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B');
+      setVal('edit-deal-facility-type', currentLoadedDeal.facility_type || inputs.facilityType || '');
 
       let preAnnual = 0;
       let preMonthly = 0;
@@ -7871,75 +7901,55 @@
         preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
         preAnnual  = preMonthly ? preMonthly * 12 : 0;
       } else if (aClass === 'multi-unit') {
-        preMonthly = inputs.monthlyRentPerUnit || 0;
-        preAnnual  = 0;
+        const uCount = inputs.unitCount || inputs.numUnits || 4;
+        preMonthly = inputs.monthlyRentPerUnit || inputs.rentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0);
+        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
       } else if (aClass === 'storage') {
         const uCount = inputs.storageUnitCount || inputs.unitCount || 20;
         preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
         preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
-      } else if (aClass === 'multi-unit') {
-        const uCount = inputs.unitCount || inputs.numUnits || 4;
-        preMonthly = inputs.monthlyRentPerUnit || inputs.rentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0);
-        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
       }
 
-      document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
-      document.getElementById('edit-deal-gross-rent-monthly').value = preMonthly > 0 ? preMonthly : '';
+      setVal('edit-deal-gross-rent-annual', preAnnual > 0 ? preAnnual : '');
+      setVal('edit-deal-gross-rent-monthly', preMonthly > 0 ? preMonthly : '');
 
-      document.getElementById('edit-deal-vacancy-rate').value = inputs.vacancyRate ?? 5;
-      document.getElementById('edit-deal-rent-growth').value = inputs.rentGrowth ?? inputs.annualRentGrowth ?? 3;
+      setVal('edit-deal-vacancy-rate', inputs.vacancyRate ?? 5);
+      setVal('edit-deal-rent-growth', inputs.rentGrowth ?? inputs.annualRentGrowth ?? 3);
       const appRate = (aClass === 'commercial' || aClass === 'storage')
         ? (inputs.targetCapRate ?? inputs.targetExitCapRate ?? inputs.appreciationRate ?? 6.5)
         : (inputs.appreciationRate ?? 3.5);
-      document.getElementById('edit-deal-appreciation-rate').value = appRate;
+      setVal('edit-deal-appreciation-rate', appRate);
 
-      document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+      setVal('edit-deal-opex-ratio', inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35);
       const finType = inputs.financingType || 'fixed';
-      if (document.getElementById('edit-deal-financing-type')) {
-        document.getElementById('edit-deal-financing-type').value = finType;
+      setVal('edit-deal-financing-type', finType);
+      if (typeof toggleEditModalFinancing === 'function') {
         toggleEditModalFinancing(finType);
       }
-      if (document.getElementById('edit-deal-arm-initial')) document.getElementById('edit-deal-arm-initial').value = inputs.armInitialYears ?? 5;
-      if (document.getElementById('edit-deal-arm-rate')) document.getElementById('edit-deal-arm-rate').value = inputs.armAdjustmentRate ?? 7.75;
-      if (document.getElementById('edit-deal-arm-cap')) document.getElementById('edit-deal-arm-cap').value = inputs.armRateCap ?? 9.5;
-      if (document.getElementById('edit-deal-io-years')) document.getElementById('edit-deal-io-years').value = inputs.interestOnlyYears ?? 3;
-      document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
-      document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
-      document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
+      setVal('edit-deal-arm-initial', inputs.armInitialYears ?? 5);
+      setVal('edit-deal-arm-rate', inputs.armAdjustmentRate ?? 7.75);
+      setVal('edit-deal-arm-cap', inputs.armRateCap ?? 9.5);
+      setVal('edit-deal-io-years', inputs.interestOnlyYears ?? 3);
+      setVal('edit-deal-down-payment', inputs.downPaymentPercent ?? 25);
+      setVal('edit-deal-interest-rate', inputs.interestRate ?? 6.5);
+      setVal('edit-deal-loan-term', inputs.loanTerm ?? 30);
 
-      document.getElementById('edit-deal-rehab-costs').value = inputs.rehabCosts ?? inputs.rehabBudget ?? 0;
-      document.getElementById('edit-deal-closing-costs').value = inputs.closingCosts ?? 0;
-      document.getElementById('edit-deal-exit-year').value = inputs.exitYear ?? 10;
+      setVal('edit-deal-rehab-costs', inputs.rehabCosts ?? inputs.rehabBudget ?? 0);
+      setVal('edit-deal-closing-costs', inputs.closingCosts ?? 0);
+      setVal('edit-deal-exit-year', inputs.exitYear ?? 10);
       const currentProfile = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : { discountRate: 8 };
-      if (document.getElementById('edit-deal-discount-rate')) {
-        document.getElementById('edit-deal-discount-rate').value = inputs.discountRate ?? currentProfile.discountRate ?? 8;
-      }
+      setVal('edit-deal-discount-rate', inputs.discountRate ?? currentProfile.discountRate ?? 8);
       
-      const mgmtEl = document.getElementById('edit-deal-manage-property');
-      if (mgmtEl) mgmtEl.checked = inputs.manageProperty !== false;
+      setChecked('edit-deal-manage-property', inputs.manageProperty !== false);
 
       // Asset specific fields
-      if (document.getElementById('edit-deal-lease-type')) {
-        document.getElementById('edit-deal-lease-type').value = inputs.leaseType || 'NNN';
-      }
-      if (document.getElementById('edit-deal-gla')) {
-        document.getElementById('edit-deal-gla').value = inputs.gla || 15000;
-      }
-      if (document.getElementById('edit-deal-unit-count')) {
-        document.getElementById('edit-deal-unit-count').value = inputs.unitCount || inputs.numUnits || 4;
-      }
-      if (document.getElementById('edit-deal-storage-units')) {
-        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100);
-      }
-      if (document.getElementById('edit-deal-storage-sqft')) {
-        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || inputs.gla || (aClass === 'storage' ? 2000 : 10000);
-      }
-      if (document.getElementById('edit-deal-storage-automated')) {
-        document.getElementById('edit-deal-storage-automated').checked = inputs.isAutomated !== undefined ? !!inputs.isAutomated : true;
-      }
-      if (document.getElementById('edit-deal-arv')) {
-        document.getElementById('edit-deal-arv').value = inputs.arv || '';
-      }
+      setVal('edit-deal-lease-type', inputs.leaseType || 'NNN');
+      setVal('edit-deal-gla', inputs.gla || 15000);
+      setVal('edit-deal-unit-count', inputs.unitCount || inputs.numUnits || 4);
+      setVal('edit-deal-storage-units', inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100));
+      setVal('edit-deal-storage-sqft', inputs.storageSqFt || inputs.totalSqFt || inputs.gla || (aClass === 'storage' ? 2000 : 10000));
+      setChecked('edit-deal-storage-automated', inputs.isAutomated !== undefined ? !!inputs.isAutomated : true);
+      setVal('edit-deal-arv', inputs.arv || '');
 
       // Show appropriate asset-specific group
       ['commercial', 'multi', 'storage', 'sfr'].forEach(t => {
@@ -7952,7 +7962,9 @@
       else if (aClass === 'single-family') document.getElementById('edit-asset-group-sfr')?.classList.remove('hidden');
 
       // Live Pro-Forma preview update
-      updateEditModalLivePreview();
+      if (typeof updateEditModalLivePreview === 'function') {
+        updateEditModalLivePreview();
+      }
 
       // Bind input events for live reactivity
       document.querySelectorAll('#edit-deal-form input, #edit-deal-form select').forEach(el => {
@@ -7969,15 +7981,24 @@
 
     async function saveEditDealModalFromProject(e) {
       if (e && e.preventDefault) e.preventDefault();
-      if (!currentLoadedDeal) return;
+      let deal = currentLoadedDeal || window.currentLoadedDeal;
+      if (!deal) {
+        try {
+          const raw = localStorage.getItem('mathtree_active_deal');
+          if (raw) deal = JSON.parse(raw);
+        } catch(err) {}
+      }
+      if (!deal) return;
+      currentLoadedDeal = deal;
+      window.currentLoadedDeal = deal;
 
       const aClass = document.getElementById('edit-deal-asset-class')?.value || currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
       const parsedInputs = getEditModalInputs();
 
-      const rawEnteredName = document.getElementById('edit-deal-name').value.trim();
-      currentLoadedDeal.name = cleanTitleFromAddress(rawEnteredName, currentLoadedDeal.location);
-      currentLoadedDeal.location = document.getElementById('edit-deal-location').value.trim();
-      currentLoadedDeal.status = document.getElementById('edit-deal-status').value;
+      const rawEnteredName = document.getElementById('edit-deal-name')?.value?.trim() || '';
+      currentLoadedDeal.name = typeof cleanTitleFromAddress === 'function' ? cleanTitleFromAddress(rawEnteredName, currentLoadedDeal.location) : (rawEnteredName || 'Underwriting Project');
+      currentLoadedDeal.location = document.getElementById('edit-deal-location')?.value?.trim() || currentLoadedDeal.location || '';
+      currentLoadedDeal.status = document.getElementById('edit-deal-status')?.value || currentLoadedDeal.status || 'prospect';
       currentLoadedDeal.market_tier = parsedInputs.marketTier;
       currentLoadedDeal.property_class = parsedInputs.propertyClass;
       currentLoadedDeal.facility_type = parsedInputs.facilityType;
@@ -7988,7 +8009,7 @@
       };
 
       // Recalculate metrics via PropertyMath
-      const res = window.PropertyMath.calculateProjections(aClass, currentLoadedDeal.inputs);
+      const res = window.PropertyMath ? window.PropertyMath.calculateProjections(aClass, currentLoadedDeal.inputs) : { purchasePrice: 0, irr: 0, equityMultiplier: 1, initialCashInvested: 0, projections: [{}] };
       const p1 = (res.projections && res.projections[0]) || {};
       currentLoadedDeal.purchase_price = res.purchasePrice;
       currentLoadedDeal.irr = res.irr;
@@ -8006,7 +8027,9 @@
 
       // Update UI title and badges
       const titleEl = document.getElementById('deal-title-display');
-      if (titleEl) titleEl.textContent = resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal]);
+      if (titleEl && typeof resolveDealDisplayName === 'function') {
+        titleEl.textContent = resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal]);
+      }
 
       const locEl = document.getElementById('deal-location-display');
       if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${currentLoadedDeal.location}</span>`;
@@ -8023,13 +8046,18 @@
         }
       }
 
-      updateDealStatusUI(currentLoadedDeal.status);
-      updateFormFields(currentLoadedDeal.inputs);
-      saveCurrentDealChanges(false);
-      updateCalculations();
-      if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(currentLoadedDeal);
-      if (typeof updateHeaderApnBadge === 'function') updateHeaderApnBadge(currentLoadedDeal.inputs.primaryApn || currentLoadedDeal.inputs.apn);
+      try { localStorage.setItem('mathtree_active_deal', JSON.stringify(currentLoadedDeal)); } catch(e) {}
       closeEditDealModal();
+      try {
+        if (typeof updateDealStatusUI === 'function') updateDealStatusUI(currentLoadedDeal.status);
+        if (typeof updateFormFields === 'function') updateFormFields(currentLoadedDeal.inputs);
+        if (typeof saveCurrentDealChanges === 'function') saveCurrentDealChanges(false);
+        if (typeof updateCalculations === 'function') updateCalculations();
+        if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(currentLoadedDeal);
+        if (typeof updateHeaderApnBadge === 'function') updateHeaderApnBadge(currentLoadedDeal.inputs.primaryApn || currentLoadedDeal.inputs.apn);
+      } catch(viewErr) {
+        console.warn('Post-edit view update error:', viewErr);
+      }
     }
     window.saveEditDealModalFromProject = saveEditDealModalFromProject;
 
@@ -8360,7 +8388,6 @@
       if (e.key === 'Escape') closePitchDeck();
     });
 
-    });
   </script>
   
   <!-- Mobile Sticky Bottom Navigation Bar (md:hidden) -->
