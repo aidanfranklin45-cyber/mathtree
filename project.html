@@ -47,7 +47,14 @@
   <script src="address-service.js"></script>
   <style>
     @media screen {
-      #printable-brief { display: none !important; }
+      #printable-brief {
+        position: fixed !important;
+        left: -99999px !important;
+        top: 0 !important;
+        width: 1100px !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
     }
     @media print {
       @page {
@@ -1359,6 +1366,12 @@
                   <input type="checkbox" id="input-prorate-first-year" onchange="updateCalculations()" class="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 w-3.5 h-3.5">
                   <span class="text-[11px]">Prorate 2026 (Oct–Dec Stub: 3 Mo)</span>
                 </label>
+                <!-- Inspector Year Slider Labels -->
+                <div class="hidden">
+                  <span id="slider-min-label">2026</span>
+                  <span id="slider-max-label">2035</span>
+                  <span id="label-year-inspector">2026 (Yr 1)</span>
+                </div>
                 <!-- View Mode: Annual Pro-Forma vs Monthly Schedule -->
                 <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
                   <button type="button" id="btn-view-annual" onclick="switchForecastView('annual')" class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition">
@@ -4668,6 +4681,8 @@
       const useCode = rawAssessor.useCode || (deal.inputs && deal.inputs.useCode) || (activeParcelsList[0] && activeParcelsList[0].useCode) || 'Commercial / Retail';
       const legal = rawAssessor.legalDescription || (deal.inputs && deal.inputs.legalDescription) || (activeParcelsList[0] && activeParcelsList[0].legalDescription) || '';
       const holdYrs = inputs.exitYear || 10;
+      const lastSync = deal.inputs && deal.inputs.gisSync && deal.inputs.gisSync.lastSyncedAt;
+      const gisSyncBadge = lastSync ? 'Live GIS Verified (' + new Date(lastSync).toLocaleDateString() + ')' : (cleanApn ? 'Verified County Assessor Parcel' : 'Manual Underwriting Record');
 
       const propAssessedDisplay = totalAssessed > 0 ? `${formatCurrency(totalAssessed)} (Tax Year ${taxYear})` : 'Pending Assessment';
       const propSplitDisplay = totalAssessed > 0 ? `${formatCurrency(pkgTotalLand)} Land / ${formatCurrency(pkgTotalImp)} Bldg` : 'N/A';
@@ -4843,7 +4858,7 @@
               <!-- Official County Assessor & Multi-Parcel Property Records Section -->
               <div style="border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 7px;">
                 <div style="background: #0f172a; color: #ffffff; padding: 4px 10px; font-size: 9px; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
-                  <span>🏛️ Official County Assessor & Multi-Parcel Property Records</span>
+                  <span>🏛️ Official County Assessor & Property Records — <span style="font-size: 8px; color: #047857; font-weight: 700;">${gisSyncBadge}</span></span>
                   <span style="font-size: 8px; color: #34d399; font-weight: 700;">${hasMultiParcels ? activeParcelsList.length + ' Parcels Combined • Verified GIS Portal' : 'Verified County Assessor Record'}</span>
                 </div>
 
@@ -4938,7 +4953,7 @@
                       <tr style="border-bottom: 1px solid #f1f5f9;">
                         <td style="padding: 3px 10px; color: #64748b; font-weight: 600;">Lot Size / Acreage</td>
                         <td style="padding: 3px 10px; font-weight: 700; color: #0f172a;">${propLotSizeDisplay}</td>
-                        <td style="padding: 3px 10px; color: #64748b; font-weight: 600;">Zoning & Land Use</td>
+                        <td style="padding: 3px 10px; color: #64748b; font-weight: 600;">Zoning / Land Use</td>
                         <td style="padding: 3px 10px; font-weight: 700; color: #0f172a;">${zoning} • ${useCode}</td>
                       </tr>
                       ${legal ? `
@@ -5583,6 +5598,28 @@
         </div>
       `;
     }
+
+    function exportToPDF() {
+      try {
+        renderPrintableBrief();
+      } catch (err) {
+        console.error('Failed to render printable brief:', err);
+      }
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      });
+    }
+    window.exportToPDF = exportToPDF;
+    window.renderPrintableBrief = renderPrintableBrief;
+
+    window.addEventListener('beforeprint', () => {
+      const el = document.getElementById('printable-brief');
+      if (!el || !el.innerHTML || el.innerHTML.trim().length < 50) {
+        try { renderPrintableBrief(); } catch (e) { console.error(e); }
+      }
+    });
 
     function toggleProjectHeaderMenu(event) {
       if (event) event.stopPropagation();

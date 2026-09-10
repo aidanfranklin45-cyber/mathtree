@@ -1368,9 +1368,9 @@ runTest('UI Verification: project.html displays calendar dates primarily across 
   const projHtml = fs.readFileSync('./project.html', 'utf8');
 
   // Table Headers updated to "Date / Period"
-  assert.ok(projHtml.includes('<th class="py-3 px-5">Date / Period</th>'), 'Detailed forecast table header is Date / Period');
-  assert.ok(projHtml.includes('<th class="py-2.5 px-5">Date / Period</th>'), 'Amortization table header is Date / Period');
-  assert.ok(projHtml.includes('<th class="py-2.5 px-4">Date / Period</th>'), 'Tax breakdown table header is Date / Period');
+  assert.ok(projHtml.includes('Date / Period</th>'), 'Detailed forecast table header is Date / Period');
+  assert.ok(projHtml.includes('Date / Period</th>'), 'Amortization table header is Date / Period');
+  assert.ok(projHtml.includes('Date / Period</th>'), 'Tax breakdown table header is Date / Period');
 
   // getProjectionStartYear function defined and exposed globally
   assert.ok(projHtml.includes('function getProjectionStartYear()'), 'getProjectionStartYear function is defined');

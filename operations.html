@@ -51,6 +51,17 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-brand-500/30 selection:text-brand-200">
 
+  <!-- Demo Sandbox Mode Top Banner -->
+  <div id="demo-sandbox-banner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
+    <div class="flex items-center space-x-2">
+      <span class="text-sm">🧪</span>
+      <span><strong>Interactive Demo Sandbox Active</strong> — You are viewing simulated property management data. Any edits you make update the portfolio analysis in real-time.</span>
+    </div>
+    <button onclick="exitDemoMode()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-bold transition">
+      Exit Demo Mode
+    </button>
+  </div>
+
   <!-- Session Guard -->
   <script>
     window.SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
@@ -701,6 +712,127 @@
     </div>
   </div>
 
+
+  <!-- 6. Edit Lease & Escalation Schedule Modal -->
+  <div id="modal-edit-lease" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400">📝</span>
+          <span>Edit Lease & Escalation Schedule</span>
+        </h3>
+        <button onclick="closeModal('modal-edit-lease')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <form id="form-edit-lease" onsubmit="handleSaveEditLease(event)" class="space-y-3.5 text-xs">
+        <input type="hidden" id="edit-lease-id" name="lease_id">
+        <input type="hidden" id="edit-lease-deal-id" name="deal_id">
+        <input type="hidden" id="edit-lease-unit-id" name="unit_id">
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Property & Unit</label>
+          <div id="edit-lease-property-display" class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl font-semibold text-slate-200">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Tenant Name *</label>
+            <input type="text" id="edit-lease-tenant-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Current Monthly Rent ($) *</label>
+            <input type="number" step="0.01" id="edit-lease-rent" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Lease Start Date *</label>
+            <input type="date" id="edit-lease-start" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Lease Expiration Date</label>
+            <input type="date" id="edit-lease-end" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Tenant Email</label>
+            <input type="email" id="edit-lease-email" placeholder="tenant@example.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Tenant Phone</label>
+            <input type="text" id="edit-lease-phone" placeholder="(509) 555-0100" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Security Deposit ($)</label>
+            <input type="number" step="0.01" id="edit-lease-deposit" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Lease Status</label>
+            <select id="edit-lease-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+              <option value="active">Active In-Place Lease</option>
+              <option value="terminated">Terminated / Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Scheduled Rent Escalation Schedule -->
+        <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Scheduled Rent Escalation</span>
+            <span class="text-[10px] text-slate-500">Contractual terms</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Escalation Type</label>
+              <select id="edit-lease-escalation-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="none">None / Manual</option>
+                <option value="Percentage Bump (%)">Percentage Bump (%)</option>
+                <option value="Fixed Dollar ($)">Fixed Dollar ($)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Escalation Rate / Amount</label>
+              <input type="number" step="0.01" id="edit-lease-escalation-rate" placeholder="e.g. 3.00 or 100.00" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Escalation Frequency</label>
+              <select id="edit-lease-escalation-freq" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="Annual on Anniversary">Annual on Anniversary</option>
+                <option value="Bi-Annual">Bi-Annual</option>
+                <option value="Triennial">Triennial</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Next Escalation Date</label>
+              <input type="date" id="edit-lease-next-escalation" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button type="button" onclick="closeModal('modal-edit-lease')" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
+            Save Changes & Update Portfolio
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ==================== FRONTEND CONTROLLER & DYNAMIC SUPABASE SYNC ==================== -->
   <script>
     let rawEntities = [];
@@ -831,8 +963,15 @@
 
       const isDemo = !window._supabase || (user && user.demo) || activeUserDemo || (!rawEntities.length && !rawDeals.length);
 
-      // When isDemo is true and no data was loaded from Supabase:
-      if (isDemo && (!rawEntities.length && !rawDeals.length)) {
+      // Show/Hide Demo Sandbox top banner
+      const demoBanner = document.getElementById('demo-sandbox-banner');
+      if (demoBanner) {
+        if (isDemo) demoBanner.classList.remove('hidden');
+        else demoBanner.classList.add('hidden');
+      }
+
+      // When isDemo is true, ensure full multi-property demo portfolio is loaded:
+      if (isDemo || (!rawEntities.length && !rawDeals.length)) {
         rawEntities = [
           {
             id: 'ent-demo-1',
@@ -851,11 +990,59 @@
             entity_id: 'ent-demo-1',
             status: 'owned',
             asset_type: 'Industrial / Distribution',
+            asset_class: 'commercial',
+            purchase_price: 1850000,
+            cap_rate: 6.78,
+            year1_cashflow: 64200,
             inputs: {
+              purchasePrice: 1850000,
               monthlyRent: 10450,
               grossRentPerMonth: 10450,
               grossRentAnnual: 125400,
-              sqft: 28500
+              sqft: 28500,
+              operatingExpenseRatio: 22,
+              vacancyRate: 4
+            }
+          },
+          {
+            id: 'deal-demo-2',
+            title: 'Stop and Go Burgers',
+            entity_id: 'ent-demo-1',
+            status: 'owned',
+            asset_type: 'Single-Tenant Retail NNN',
+            asset_class: 'commercial',
+            purchase_price: 1450000,
+            cap_rate: 7.03,
+            year1_cashflow: 58900,
+            inputs: {
+              purchasePrice: 1450000,
+              monthlyRent: 8500,
+              grossRentPerMonth: 8500,
+              grossRentAnnual: 102000,
+              sqft: 3400,
+              operatingExpenseRatio: 12,
+              vacancyRate: 0
+            }
+          },
+          {
+            id: 'deal-demo-3',
+            title: 'Westfield 12-Plex Multi-Family',
+            entity_id: 'ent-demo-1',
+            status: 'owned',
+            asset_type: 'Multi-Family Residential',
+            asset_class: 'multi-unit',
+            purchase_price: 2200000,
+            cap_rate: 7.42,
+            year1_cashflow: 78500,
+            inputs: {
+              purchasePrice: 2200000,
+              monthlyRent: 16800,
+              grossRentPerMonth: 16800,
+              grossRentAnnual: 201600,
+              unitCount: 12,
+              monthlyRentPerUnit: 1400,
+              operatingExpenseRatio: 35,
+              vacancyRate: 5
             }
           }
         ];
@@ -886,6 +1073,42 @@
             unit_type: 'Flex Office / Dispatch',
             market_rent: 2800,
             sqft: 6000,
+            status: 'occupied'
+          },
+          {
+            id: 'unit-demo-201',
+            deal_id: 'deal-demo-2',
+            unit_number: 'Stand-Alone Drive-Thru & Dining',
+            unit_type: 'Quick-Service Restaurant',
+            market_rent: 8500,
+            sqft: 3400,
+            status: 'occupied'
+          },
+          {
+            id: 'unit-demo-301',
+            deal_id: 'deal-demo-3',
+            unit_number: 'Units 1-4 (Ground Floor Garden)',
+            unit_type: '2 Bed / 1.5 Bath Residential',
+            market_rent: 5600,
+            sqft: 3800,
+            status: 'occupied'
+          },
+          {
+            id: 'unit-demo-302',
+            deal_id: 'deal-demo-3',
+            unit_number: 'Units 5-8 (Upper Balcony Suites)',
+            unit_type: '2 Bed / 1.5 Bath Residential',
+            market_rent: 5800,
+            sqft: 3800,
+            status: 'occupied'
+          },
+          {
+            id: 'unit-demo-303',
+            deal_id: 'deal-demo-3',
+            unit_number: 'Units 9-12 (Courtyard Townhomes)',
+            unit_type: '2 Bed / 2 Bath Residential',
+            market_rent: 5400,
+            sqft: 4000,
             status: 'occupied'
           }
         ];
@@ -943,6 +1166,42 @@
             escalation_rate: 100,
             escalation_frequency: 'Annual on Anniversary',
             next_escalation_date: '2026-01-15',
+            is_active: true
+          },
+          {
+            id: 'lease-demo-4',
+            deal_id: 'deal-demo-2',
+            unit_id: 'unit-demo-201',
+            tenant_name: 'QuickBite Restaurants Holdings LLC',
+            tenant_email: 'leases@quickbiteholdings.com',
+            tenant_phone: '(509) 555-9122',
+            monthly_rent: 8500,
+            lease_start_date: '2022-04-01',
+            lease_end_date: '2032-03-31',
+            last_rent_increase_date: '2025-04-01',
+            previous_rent_amount: 8250,
+            escalation_type: 'Percentage Bump (%)',
+            escalation_rate: 2.5,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2026-04-01',
+            is_active: true
+          },
+          {
+            id: 'lease-demo-5',
+            deal_id: 'deal-demo-3',
+            unit_id: 'unit-demo-301',
+            tenant_name: 'Residential Master Roll (Apt 1-4)',
+            tenant_email: 'leasing@summitcrestwa.com',
+            tenant_phone: '(509) 555-7731',
+            monthly_rent: 5600,
+            lease_start_date: '2024-08-01',
+            lease_end_date: '2026-07-31',
+            last_rent_increase_date: '2024-08-01',
+            previous_rent_amount: 5400,
+            escalation_type: 'Percentage Bump (%)',
+            escalation_rate: 4.0,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2025-08-01',
             is_active: true
           }
         ];
@@ -1055,6 +1314,178 @@
       populateFilterDropdowns();
       renderOperationsUI();
     }
+
+
+    // === Core Synchronizer: Wire In-Place Rent Roll directly to Deal Portfolio Analysis ===
+    function syncLeaseRollToDeal(dealId) {
+      if (!dealId) return;
+      const activeLeases = rawLeases.filter(l => l.deal_id === dealId && l.is_active !== false);
+      const totalDealRent = activeLeases.reduce((sum, l) => sum + (parseFloat(l.monthly_rent) || 0), 0);
+
+      const deal = rawDeals.find(d => d.id === dealId);
+      if (deal) {
+        deal.inputs = deal.inputs || {};
+        deal.inputs.monthlyRent = totalDealRent;
+        deal.inputs.grossRentPerMonth = totalDealRent;
+        deal.inputs.grossRentAnnual = totalDealRent * 12;
+
+        if (window.PropertyMath) {
+          try {
+            const projections = window.PropertyMath.calculateProjections(deal.asset_class || 'commercial', deal.inputs);
+            if (projections && projections.projections && projections.projections[0]) {
+              deal.noi = projections.projections[0].netOperatingIncome;
+              deal.cap_rate = projections.projections[0].capRate;
+              deal.year1_cashflow = projections.projections[0].cashFlow;
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Update Supabase if connected
+      if (window._supabase && window._currentUser && !window._currentUser.demo) {
+        window._supabase.from('deals').update({
+          inputs: deal ? deal.inputs : { monthlyRent: totalDealRent, grossRentAnnual: totalDealRent * 12 },
+          updated_at: new Date().toISOString()
+        }).eq('id', dealId).then(() => {});
+
+        try {
+          window._supabase.rpc('rpc_recalculate_deal', {
+            p_deal_id: dealId,
+            p_inputs: deal ? deal.inputs : {}
+          }).then(() => {});
+        } catch(e) {}
+      }
+
+      // Synchronize localStorage deal caches so dashboard and pro-forma immediately reflect real in-place leases
+      try {
+        ['mathtree_local_deals', 'mathtree_demo_deals'].forEach(key => {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const list = JSON.parse(stored);
+            const idx = list.findIndex(d => d.id === dealId);
+            if (idx >= 0) {
+              list[idx].inputs = list[idx].inputs || {};
+              list[idx].inputs.monthlyRent = totalDealRent;
+              list[idx].inputs.grossRentPerMonth = totalDealRent;
+              list[idx].inputs.grossRentAnnual = totalDealRent * 12;
+              if (deal && deal.noi) {
+                list[idx].noi = deal.noi;
+                list[idx].cap_rate = deal.cap_rate;
+                list[idx].year1_cashflow = deal.year1_cashflow;
+              }
+              localStorage.setItem(key, JSON.stringify(list));
+            }
+          }
+        });
+      } catch(e) {}
+    }
+    window.syncLeaseRollToDeal = syncLeaseRollToDeal;
+
+    // Modal Trigger: Edit Lease & Schedule
+    function openEditLeaseModal(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+      const deal = rawDeals.find(d => d.id === lease.deal_id);
+      const unit = rawUnits.find(u => u.id === lease.unit_id);
+
+      document.getElementById('edit-lease-id').value = lease.id;
+      document.getElementById('edit-lease-deal-id').value = lease.deal_id;
+      document.getElementById('edit-lease-unit-id').value = lease.unit_id || '';
+      document.getElementById('edit-lease-property-display').textContent = `${deal ? deal.title : 'Asset'} • ${unit ? unit.unit_number : (lease.derived_unit_number || 'Main Suite')}`;
+
+      document.getElementById('edit-lease-tenant-name').value = lease.tenant_name || '';
+      document.getElementById('edit-lease-rent').value = lease.monthly_rent || 0;
+      document.getElementById('edit-lease-start').value = lease.lease_start_date || '';
+      document.getElementById('edit-lease-end').value = lease.lease_end_date || '';
+      document.getElementById('edit-lease-email').value = lease.tenant_email || '';
+      document.getElementById('edit-lease-phone').value = lease.tenant_phone || '';
+      document.getElementById('edit-lease-deposit').value = lease.deposit_amount || '';
+      document.getElementById('edit-lease-status').value = lease.is_active === false ? 'terminated' : 'active';
+
+      document.getElementById('edit-lease-escalation-type').value = lease.escalation_type || 'none';
+      document.getElementById('edit-lease-escalation-rate').value = lease.escalation_rate || '';
+      document.getElementById('edit-lease-escalation-freq').value = lease.escalation_frequency || 'Annual on Anniversary';
+      document.getElementById('edit-lease-next-escalation').value = lease.next_escalation_date || '';
+
+      openModal('modal-edit-lease');
+    }
+    window.openEditLeaseModal = openEditLeaseModal;
+
+    // Modal Save: Edit Lease & Schedule
+    async function handleSaveEditLease(e) {
+      e.preventDefault();
+      const leaseId = document.getElementById('edit-lease-id').value;
+      const dealId = document.getElementById('edit-lease-deal-id').value;
+      const tenantName = document.getElementById('edit-lease-tenant-name').value.trim();
+      const monthlyRent = parseFloat(document.getElementById('edit-lease-rent').value) || 0;
+      const startDate = document.getElementById('edit-lease-start').value;
+      const endDate = document.getElementById('edit-lease-end').value || null;
+      const email = document.getElementById('edit-lease-email').value.trim() || null;
+      const phone = document.getElementById('edit-lease-phone').value.trim() || null;
+      const deposit = parseFloat(document.getElementById('edit-lease-deposit').value) || 0;
+      const isActive = document.getElementById('edit-lease-status').value === 'active';
+      const escType = document.getElementById('edit-lease-escalation-type').value;
+      const escRate = parseFloat(document.getElementById('edit-lease-escalation-rate').value) || 0;
+      const escFreq = document.getElementById('edit-lease-escalation-freq').value;
+      const nextEscDate = document.getElementById('edit-lease-next-escalation').value || null;
+
+      const user = window._currentUser;
+      const isDemo = !window._supabase || (user && user.demo) || localStorage.getItem('mathtree_demo_mode');
+
+      // Update in memory
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (lease) {
+        lease.tenant_name = tenantName;
+        lease.monthly_rent = monthlyRent;
+        lease.lease_start_date = startDate;
+        lease.lease_end_date = endDate;
+        lease.tenant_email = email;
+        lease.tenant_phone = phone;
+        lease.deposit_amount = deposit;
+        lease.is_active = isActive;
+        lease.escalation_type = escType;
+        lease.escalation_rate = escRate;
+        lease.escalation_frequency = escFreq;
+        lease.next_escalation_date = nextEscDate;
+      }
+
+      // Update in Supabase if not demo
+      if (!isDemo && window._supabase) {
+        try {
+          await window._supabase.from('leases').update({
+            tenant_name: tenantName,
+            monthly_rent: monthlyRent,
+            lease_start_date: startDate,
+            lease_end_date: endDate,
+            tenant_email: email,
+            tenant_phone: phone,
+            deposit_amount: deposit,
+            is_active: isActive,
+            escalation_type: escType,
+            escalation_rate: escRate,
+            escalation_frequency: escFreq,
+            next_escalation_date: nextEscDate,
+            updated_at: new Date().toISOString()
+          }).eq('id', leaseId);
+        } catch (err) {
+          console.error('Error updating lease in Supabase:', err);
+        }
+      }
+
+      // Automatically recalculate deal financial analysis and update portfolio
+      syncLeaseRollToDeal(dealId);
+
+      closeModal('modal-edit-lease');
+      renderOperationsUI();
+    }
+    window.handleSaveEditLease = handleSaveEditLease;
+
+    function exitDemoMode() {
+      localStorage.removeItem('mathtree_demo_mode');
+      localStorage.removeItem('mathtree_demo_deals');
+      window.location.href = 'index.html';
+    }
+    window.exitDemoMode = exitDemoMode;
 
     function populateFilterDropdowns() {
       // 1. Entity Filter
@@ -1359,6 +1790,9 @@
             </td>
             <td class="py-3 px-4 text-right">
               <div class="flex items-center justify-end space-x-1.5">
+                <button onclick="openEditLeaseModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-800 transition" title="Edit Lease & Escalation Schedule">
+                  ✎ Edit
+                </button>
                 <button onclick="openLogPaymentModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-800 transition" title="Log Payment">
                   Log Pay
                 </button>
@@ -1528,6 +1962,7 @@
           reason: reason,
           notice_sent_date: noticeDate || null
         });
+        syncLeaseRollToDeal(dealId);
         closeModal('modal-rent-increase');
         renderOperationsUI();
         return;
@@ -1819,6 +2254,7 @@
           });
         }
 
+        syncLeaseRollToDeal(dealId);
         document.getElementById('form-add-lease').reset();
         closeModal('modal-add-lease');
         populateFilterDropdowns();
