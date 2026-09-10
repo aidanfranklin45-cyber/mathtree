@@ -1640,7 +1640,7 @@
       };
 
       grid.innerHTML = filtered.map(rawDeal => {
-        const d = ensureDynamicDealMetrics(rawDeal);
+        const d = rawDeal;
         const aClass = d.asset_class || d.assetType || 'single-family';
         const isOwned = d.status === 'owned';
         const icon = assetIcons[aClass] || assetIcons['single-family'];
