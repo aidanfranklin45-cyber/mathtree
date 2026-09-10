@@ -5600,28 +5600,42 @@
     }
 
     async function exportToPDF() {
-      const inputs = typeof getInputsFromForm === 'function' ? getInputsFromForm() : {};
+      const menu = document.getElementById('project-header-menu');
+      if (menu) menu.classList.add('hidden');
+      const navMenu = document.getElementById('nav-module-dropdown-menu');
+      if (navMenu) navMenu.classList.add('hidden');
+
       const deal = currentLoadedDeal || window.currentLoadedDeal || {};
-      const res = window.PropertyMath ? window.PropertyMath.calculateProjections(activeTab, inputs) : null;
+      const formInputs = typeof getInputsFromForm === 'function' ? getInputsFromForm() : {};
+      const inputs = Object.assign({}, deal.inputs || {}, formInputs);
+      const aClass = activeTab || deal.asset_class || 'commercial';
+      const res = window.PropertyMath ? window.PropertyMath.calculateProjections(aClass, inputs) : null;
+
+      const closing = inputs.closingDate || '2026-10-15';
+      const startYr = new Date(closing).getFullYear() || 2026;
+      const proj = (deal.metrics && deal.metrics.projections && deal.metrics.projections.length > 0)
+        ? deal.metrics.projections
+        : (res?.projections || []).map((p, idx) => Object.assign({}, p, { calendarYear: p.calendarYear || (startYr + idx) }));
 
       const payload = {
+        mode: 'deal',
         deal: {
           title: deal.name || deal.title || (document.getElementById('deal-title-display')?.textContent.trim()) || 'Investment Underwriting Prospectus',
           location: deal.location || inputs.location || (document.getElementById('deal-location-display')?.textContent.trim()) || 'Yakima, WA',
-          asset_type: activeTab || deal.asset_class || 'commercial',
+          asset_type: aClass,
           status: deal.status || 'prospect',
           purchase_price: res ? res.purchasePrice : (inputs.purchasePrice || 0),
           total_equity: res ? res.initialCashInvested : (inputs.downPaymentAmount || 0),
-          year1_cashflow: res?.projections?.[0]?.cashFlow || 0,
-          cash_on_cash: res?.projections?.[0]?.cashOnCash || 0,
-          irr: res ? res.irr : 0,
-          equity_multiple: res ? res.equityMultiplier : 1.0,
+          year1_cashflow: proj[0]?.cashFlow ?? res?.projections?.[0]?.cashFlow ?? 0,
+          cash_on_cash: proj[0]?.cashOnCash ?? res?.projections?.[0]?.cashOnCash ?? 0,
+          irr: deal.metrics?.irr ?? (res ? res.irr : 0),
+          equity_multiple: deal.metrics?.equityMultiplier ?? (res ? res.equityMultiplier : 1.0),
           inputs: inputs,
           metrics: {
-            noi: res?.projections?.[0]?.netOperatingIncome || 0,
-            annualDebtService: (res?.monthlyMortgagePayment || 0) * 12,
-            dscr: res?.projections?.[0]?.dscr !== null ? res?.projections?.[0]?.dscr?.toFixed(2) : 'N/A',
-            projections: res?.projections || []
+            noi: proj[0]?.netOperatingIncome ?? res?.projections?.[0]?.netOperatingIncome ?? 0,
+            annualDebtService: deal.metrics?.annualDebtService || ((res?.monthlyMortgagePayment || 0) * 12),
+            dscr: deal.metrics?.dscr || (res?.projections?.[0]?.dscr !== null ? res?.projections?.[0]?.dscr?.toFixed(2) : 'N/A'),
+            projections: proj
           }
         }
       };
@@ -5942,19 +5956,6 @@
     window.scrollToAssumptionsBridge = scrollToAssumptionsBridge;
     window.toggleDiligenceCheck = toggleDiligenceCheck;
 
-    function exportToPDF() {
-      const menu = document.getElementById('project-header-menu');
-      if (menu) menu.classList.add('hidden');
-      const navMenu = document.getElementById('nav-module-dropdown-menu');
-      if (navMenu) navMenu.classList.add('hidden');
-      renderPrintableBrief();
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          window.print();
-        }, 150);
-      });
-    }
-    window.exportToPDF = exportToPDF;
 
     // Shareable Deal URL Hash Link Generator
     function shareDealLink() {

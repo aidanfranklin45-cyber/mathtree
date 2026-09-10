@@ -53,7 +53,7 @@
         print-color-adjust: exact !important;
       }
       header, footer, nav, button, .no-print,
-      #investor-profile-modal, #cloud-sync-modal, #project-wizard-modal, #delete-deal-modal,
+      #investor-profile-modal, #cloud-sync-modal, #project-wizard-modal, #delete-deal-modal, #edit-deal-modal, #typed-delete-modal, #demo-sandbox-banner,
       main {
         display: none !important;
       }
@@ -3252,7 +3252,14 @@
       const warnings = window.PropertyMath.auditDealRisks(aClass, inputs, res);
 
       // Invoke serverless generate-pdf-brief Edge Function directly
+      const closing = inputs.closingDate || '2026-10-15';
+      const startYr = new Date(closing).getFullYear() || 2026;
+      const proj = (deal.metrics && deal.metrics.projections && deal.metrics.projections.length > 0)
+        ? deal.metrics.projections
+        : (res.projections || []).map((p, idx) => Object.assign({}, p, { calendarYear: p.calendarYear || (startYr + idx) }));
+
       const payload = {
+        mode: 'deal',
         deal: {
           title: deal.name || deal.title || 'Executive Investment Brief',
           location: deal.location || inputs.location || 'Yakima, WA',
@@ -3260,16 +3267,16 @@
           status: deal.status || 'prospect',
           purchase_price: res.purchasePrice,
           total_equity: res.initialCashInvested,
-          year1_cashflow: res.projections[0]?.cashFlow || 0,
-          cash_on_cash: res.projections[0]?.cashOnCash || 0,
-          irr: res.irr || 0,
-          equity_multiple: res.equityMultiplier || 1.0,
+          year1_cashflow: proj[0]?.cashFlow ?? res.projections[0]?.cashFlow ?? 0,
+          cash_on_cash: proj[0]?.cashOnCash ?? res.projections[0]?.cashOnCash ?? 0,
+          irr: deal.metrics?.irr ?? res.irr ?? 0,
+          equity_multiple: deal.metrics?.equityMultiplier ?? res.equityMultiplier ?? 1.0,
           inputs: inputs,
           metrics: {
-            noi: res.projections[0]?.netOperatingIncome || 0,
-            annualDebtService: (res.monthlyMortgagePayment || 0) * 12,
-            dscr: res.projections[0]?.dscr !== null ? res.projections[0]?.dscr?.toFixed(2) : 'N/A',
-            projections: res.projections
+            noi: proj[0]?.netOperatingIncome ?? res.projections[0]?.netOperatingIncome ?? 0,
+            annualDebtService: deal.metrics?.annualDebtService || ((res.monthlyMortgagePayment || 0) * 12),
+            dscr: deal.metrics?.dscr || (res.projections[0]?.dscr !== null ? res.projections[0]?.dscr?.toFixed(2) : 'N/A'),
+            projections: proj
           }
         }
       };
@@ -3305,11 +3312,8 @@
     }
     window.exportDashboardDealPDF = exportDashboardDealPDF;
 
-    // === Comprehensive Portfolio & Pipeline Executive PDF Brief Renderer ===
-    function renderDashboardPortfolioBrief() {
-      const container = document.getElementById('printable-brief');
-      if (!container) return;
-
+    // === Comprehensive Portfolio & Pipeline Executive Aggregators & Data Engine ===
+    function getPortfolioAggregates() {
       let deals = (typeof activeDashboardProjects !== 'undefined' && Array.isArray(activeDashboardProjects) && activeDashboardProjects.length > 0)
         ? activeDashboardProjects
         : [];
@@ -3346,7 +3350,13 @@
         const rawAssessor = inp.assessorData || {};
 
         let noi = 0, debtService = 0, dscr = null, capRate = d.cap_rate || 0;
-        if (window.PropertyMath) {
+        if (d.metrics && d.metrics.projections && d.metrics.projections[0]) {
+          const p0 = d.metrics.projections[0];
+          noi = p0.netOperatingIncome || 0;
+          debtService = p0.debtService || 0;
+          dscr = p0.dscr;
+          capRate = p0.capRate || capRate;
+        } else if (window.PropertyMath) {
           try {
             const res = window.PropertyMath.calculateProjections(aClass, inp);
             if (res && res.projections && res.projections[0]) {
@@ -3413,13 +3423,19 @@
         const eq = d.total_equity || (price * 0.25);
         const debt = Math.max(0, price - eq);
         const cf = d.year1_cashflow || 0;
-        const irr = d.irr || 0;
+        const irr = d.irr || (d.metrics && d.metrics.irr) || 0;
         const inp = d.inputs || {};
         const aClass = d.asset_class || 'commercial';
         const rawAssessor = inp.assessorData || {};
 
         let noi = 0, debtService = 0, dscr = null, capRate = d.cap_rate || 0;
-        if (window.PropertyMath) {
+        if (d.metrics && d.metrics.projections && d.metrics.projections[0]) {
+          const p0 = d.metrics.projections[0];
+          noi = p0.netOperatingIncome || 0;
+          debtService = p0.debtService || 0;
+          dscr = p0.dscr;
+          capRate = p0.capRate || capRate;
+        } else if (window.PropertyMath) {
           try {
             const res = window.PropertyMath.calculateProjections(aClass, inp);
             if (res && res.projections && res.projections[0]) {
@@ -3503,7 +3519,7 @@
         const cf = matching.reduce((sum, d) => sum + (d.year1_cashflow || 0), 0);
         const avgIrr = count > 0 ? (matching.reduce((sum, d) => sum + (d.irr || 0), 0) / count) : 0;
         const pctOfTotal = totalPortfolioVolume > 0 ? ((val / totalPortfolioVolume) * 100).toFixed(1) : '0.0';
-        return { ...sec, count, val, cf, avgIrr, pctOfTotal };
+        return Object.assign({}, sec, { count, val, cf, avgIrr, pctOfTotal });
       });
 
       // Audit Warnings Aggregation
@@ -3514,7 +3530,7 @@
             deal: d.name,
             severity: 'warn',
             title: 'Negative Cash Flow Alert',
-            desc: `Year 1 underwritten cash flow is ${formatCurrency(d.year1_cashflow)} (CoC: ${(d.cash_on_cash || 0).toFixed(1)}%). Operating deficit requires working capital reserve or principal amortization restructuring.`
+            desc: 'Year 1 underwritten cash flow is ' + formatCurrency(d.year1_cashflow) + ' (CoC: ' + (d.cash_on_cash || 0).toFixed(1) + '%). Operating deficit requires working capital reserve or principal amortization restructuring.'
           });
         }
         const inp = d.inputs || {};
@@ -3524,7 +3540,7 @@
             deal: d.name,
             severity: 'info',
             title: 'Assessor Parcel Unlinked',
-            desc: `Property has not been linked to an official County Assessor APN parcel. Official tax assessment and GIS structural records are unverified.`
+            desc: 'Property has not been linked to an official County Assessor APN parcel. Official tax assessment and GIS structural records are unverified.'
           });
         }
         if (d.status !== 'owned' && d.irr && d.irr < hurdleRate) {
@@ -3532,11 +3548,44 @@
             deal: d.name,
             severity: 'warn',
             title: 'Return Below Hurdle Rate',
-            desc: `Projected 10-Yr IRR (${d.irr.toFixed(1)}%) is below investor hurdle rate of ${hurdleRate.toFixed(1)}%. Model yields negative Net Present Value (NPV).`
+            desc: 'Projected 10-Yr IRR (' + d.irr.toFixed(1) + '%) is below investor hurdle rate of ' + hurdleRate.toFixed(1) + '%. Model yields negative Net Present Value (NPV).'
           });
         }
       });
 
+      return {
+        deals, owned, pipeline,
+        invName, compName, hurdleRate, dateStr,
+        ownedGAV, ownedEquity, ownedDebt, ownedCashFlow, ownedNoi, ownedDebtService,
+        ownedUnits, ownedCommercialSqFt, ownedAcres,
+        ownedDetails,
+        pipelineVolume, pipelineEquity, sumPipelineIrr, pipelineYear1CF, pipelineNoi,
+        pipelineUnits, pipelineCommercialSqFt, pipelineAcres,
+        pipelineDetails,
+        totalPortfolioVolume, totalPortfolioDeals,
+        blendedOwnedLtv, blendedOwnedYield, avgPipelineIrr,
+        sectorRows, portfolioFlags
+      };
+    }
+    window.getPortfolioAggregates = getPortfolioAggregates;
+
+    // === Comprehensive Portfolio & Pipeline Executive PDF Brief Renderer ===
+    function renderDashboardPortfolioBrief() {
+      const container = document.getElementById('printable-brief');
+      if (!container) return;
+
+      const agg = getPortfolioAggregates();
+      const deals = agg.deals, owned = agg.owned, pipeline = agg.pipeline;
+      const invName = agg.invName, compName = agg.compName, hurdleRate = agg.hurdleRate, dateStr = agg.dateStr;
+      const ownedGAV = agg.ownedGAV, ownedEquity = agg.ownedEquity, ownedDebt = agg.ownedDebt, ownedCashFlow = agg.ownedCashFlow, ownedNoi = agg.ownedNoi, ownedDebtService = agg.ownedDebtService;
+      const ownedUnits = agg.ownedUnits, ownedCommercialSqFt = agg.ownedCommercialSqFt, ownedAcres = agg.ownedAcres;
+      const ownedDetails = agg.ownedDetails;
+      const pipelineVolume = agg.pipelineVolume, pipelineEquity = agg.pipelineEquity, sumPipelineIrr = agg.sumPipelineIrr, pipelineYear1CF = agg.pipelineYear1CF, pipelineNoi = agg.pipelineNoi;
+      const pipelineUnits = agg.pipelineUnits, pipelineCommercialSqFt = agg.pipelineCommercialSqFt, pipelineAcres = agg.pipelineAcres;
+      const pipelineDetails = agg.pipelineDetails;
+      const totalPortfolioVolume = agg.totalPortfolioVolume, totalPortfolioDeals = agg.totalPortfolioDeals;
+      const blendedOwnedLtv = agg.blendedOwnedLtv, blendedOwnedYield = agg.blendedOwnedYield, avgPipelineIrr = agg.avgPipelineIrr;
+      const sectorRows = agg.sectorRows, portfolioFlags = agg.portfolioFlags;
       container.innerHTML = `
         <div style="font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; color: #0f172a; max-width: 100%; margin: 0 auto; background: #ffffff; padding: 6px 10px;">
           <!-- Brief Header -->
@@ -3848,8 +3897,55 @@
     }
     window.renderDashboardPortfolioBrief = renderDashboardPortfolioBrief;
 
-    function exportDashboardPortfolioPDF() {
+    async function exportDashboardPortfolioPDF() {
       _isPrintingSingleDeal = false;
+      const data = getPortfolioAggregates();
+
+      const portfolioPayload = {
+        investorName: data.invName,
+        companyName: data.compName,
+        hurdleRate: data.hurdleRate,
+        kpis: {
+          ownedGAV: data.ownedGAV,
+          ownedEquity: data.ownedEquity,
+          portfolioLTV: data.blendedOwnedLtv,
+          annualNOI: data.ownedNoi,
+          pipelineVolume: data.pipelineVolume,
+          weightedCapRate: data.blendedOwnedYield,
+          footprintAcres: data.ownedAcres + data.pipelineAcres,
+          footprintSqFt: data.ownedCommercialSqFt + data.pipelineCommercialSqFt,
+          totalVolume: data.totalPortfolioVolume,
+          totalDeals: data.totalPortfolioDeals
+        },
+        sectors: data.sectorRows,
+        ownedHoldings: data.ownedDetails,
+        pipelineDeals: data.pipelineDetails,
+        assessorAudit: [...data.ownedDetails, ...data.pipelineDetails],
+        auditFlags: data.portfolioFlags
+      };
+
+      try {
+        const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'portfolio', portfolio: portfolioPayload })
+        });
+
+        if (edgeRes.ok) {
+          const html = await edgeRes.text();
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const win = window.open(url, '_blank');
+          if (win) {
+            win.focus();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Edge function portfolio PDF brief fallback to local print:', err);
+      }
+
+      // Seamless client-side print fallback
       renderDashboardPortfolioBrief();
       requestAnimationFrame(() => {
         setTimeout(() => {
