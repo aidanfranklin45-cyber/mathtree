@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MathTree | Institutional PropTech Underwriting & Executive Pitch Deck Studio</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
@@ -154,8 +155,16 @@
           <!-- Modern Geometric Icon -->
           <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-[#0D111A] p-[1px] shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/35 transition-all">
             <div class="h-full w-full bg-[#0D111A] rounded-[11px] flex items-center justify-center">
-              <svg class="h-5 w-5 text-emerald-400 transform group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              <svg class="h-5 w-5 text-emerald-400 transform group-hover:scale-110 transition-transform filter drop-shadow-[0_0_4px_rgba(52,211,153,0.6)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 21V12" stroke-linecap="round" />
+                <path d="M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" stroke-linecap="round" />
+                <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8" stroke-linecap="round" />
+                <path d="M17 10C17 10 15 8 15 6M17 10C17 10 19 8 19 6" stroke-linecap="round" />
+                <circle cx="5" cy="8" r="1.5" fill="currentColor" />
+                <circle cx="9" cy="8" r="1.5" fill="currentColor" />
+                <circle cx="15" cy="6" r="1.5" fill="currentColor" />
+                <circle cx="19" cy="6" r="1.5" fill="currentColor" />
+                <path d="M11.5 5h1M12 4.5v1" stroke-width="1.2" stroke-linecap="round" />
               </svg>
             </div>
           </div>
@@ -1136,8 +1145,18 @@
       <div class="flex flex-col md:flex-row items-center justify-between gap-6">
         <!-- Logo & Tagline -->
         <div class="flex items-center space-x-3">
-          <div class="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black">
-            MT
+          <div class="h-8 w-8 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 shadow-md shadow-emerald-500/20">
+            <svg class="h-5 w-5 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 21V12" stroke-linecap="round" />
+              <path d="M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" stroke-linecap="round" />
+              <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8" stroke-linecap="round" />
+              <path d="M17 10C17 10 15 8 15 6M17 10C17 10 19 8 19 6" stroke-linecap="round" />
+              <circle cx="5" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="9" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="19" cy="6" r="1.5" fill="currentColor" />
+              <path d="M11.5 5h1M12 4.5v1" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
           </div>
           <div>
             <span class="text-sm font-extrabold text-white">MathTree PropTech Technologies</span>
@@ -1146,13 +1165,17 @@
         </div>
       </div>
 
+      <!-- Regulatory Disclaimer -->
+      <div class="pt-6 border-t border-[#1E2230] text-[11px] text-slate-500 leading-relaxed max-w-4xl">
+        <p>All financial models, pro-formas, yields, and IRR forecasts are provided for informational and analytical purposes only. MathTree is not a registered broker-dealer or investment advisor.</p>
+      </div>
+
       <!-- Links and Legal -->
-      <div class="pt-6 border-t border-[#1E2230] flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
-        <div class="flex space-x-6">
-          <a href="#" class="hover:text-slate-300">Terms of Service</a>
-          <a href="#" class="hover:text-slate-300">Privacy Policy</a>
-          <a href="#" class="hover:text-slate-300">Security Architecture</a>
-          <a href="#" class="hover:text-slate-300">API Documentation</a>
+      <div class="pt-4 border-t border-[#1E2230]/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
+        <div class="flex flex-wrap items-center gap-6">
+          <button type="button" onclick="openModal('modal-terms-of-service')" class="hover:text-slate-300 transition-colors">Terms of Service</button>
+          <button type="button" onclick="openModal('modal-privacy-policy')" class="hover:text-slate-300 transition-colors">Privacy Policy</button>
+          <a href="#" class="hover:text-slate-300 transition-colors">Security Architecture</a>
         </div>
         <p>© 2026 MathTree Inc. All rights reserved. Mathematical modeling engine.</p>
       </div>
@@ -1307,6 +1330,156 @@
     </div>
   </div>
 
+  <!-- ==================== TERMS OF SERVICE MODAL ==================== -->
+  <div id="modal-terms-of-service" role="dialog" aria-modal="true" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto" onclick="if(event.target === this) closeModal('modal-terms-of-service')">
+    <div class="bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl space-y-6 my-8">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-[#1E2230] pb-4">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] font-mono-numbers font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              INSTITUTIONAL TERMS OF SERVICE
+            </span>
+            <span class="text-xs text-slate-400">• Effective March 2026</span>
+          </div>
+          <h3 class="text-xl font-black text-white">MathTree Terms of Service &amp; Platform Agreement</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-terms-of-service')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#131824] transition">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="space-y-4 text-xs text-slate-300 max-h-[60vh] overflow-y-auto pr-2">
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">1. Acceptance of Terms &amp; Platform Scope</h4>
+          <p class="text-slate-400 leading-relaxed">
+            By accessing or utilizing the MathTree commercial real estate financial modeling engine, executive pitch deck generator, or asset intelligence tools (collectively, the "Platform"), you agree to be bound by these Terms of Service. If you are entering into this agreement on behalf of a corporation, partnership, or other legal entity, you represent that you hold the authority to bind such entity.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">2. Regulatory &amp; Non-Advisory Status Disclaimer</h4>
+          <p class="text-slate-400 leading-relaxed">
+            MathTree is a software analytics and modeling technology provider. MathTree is <strong class="text-slate-200">not a registered broker-dealer, investment advisor, or securities custodian</strong> under the Securities Exchange Act of 1934 or the Investment Advisers Act of 1940. All financial projections, internal rates of return (IRR), equity multiples, debt service coverage ratios (DSCR), waterfall splits, sensitivity simulations, and investment memos are generated solely for informational, illustrative, and analytical purposes. Nothing provided herein constitutes an offer, solicitation, or recommendation to buy or sell securities, real property, or debt instruments.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">3. User Responsibility &amp; Underwriting Assumptions</h4>
+          <p class="text-slate-400 leading-relaxed">
+            Users retain sole responsibility for evaluating, auditing, and verifying all input assumptions, including but not limited to purchase capitalization rates, exit capitalization rates, market rent comps, expense ratios, debt financing terms, capital expenditure schedules, and sponsor promotes. MathTree assumes no liability for underwriting variance or commercial decisions made in reliance on Platform calculations.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">4. Intellectual Property &amp; Algorithmic Engines</h4>
+          <p class="text-slate-400 leading-relaxed">
+            All code, UI components, calculation models, Monte Carlo simulations, automated deck generation routines, and visual styling remain the exclusive intellectual property of MathTree Inc. Users receive a revocable, non-exclusive, non-transferable license to utilize generated investment briefs and executive decks solely for internal investment committee reviews and capital raising diligences.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">5. Limitation of Liability</h4>
+          <p class="text-slate-400 leading-relaxed">
+            To the maximum extent permitted under applicable law, MathTree Inc., its affiliates, officers, and licensors shall not be held liable for any indirect, incidental, punitive, or consequential damages resulting from lost transaction opportunities, investment losses, calculation discrepancies, or server downtime.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">6. Governing Law &amp; Jurisdiction</h4>
+          <p class="text-slate-400 leading-relaxed">
+            These Terms shall be governed by and construed under the laws of the State of Delaware, without regard to its conflict of law principles.
+          </p>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-end border-t border-[#1E2230] pt-4">
+        <button type="button" onclick="closeModal('modal-terms-of-service')" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-sm">
+          Acknowledge &amp; Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== PRIVACY POLICY MODAL ==================== -->
+  <div id="modal-privacy-policy" role="dialog" aria-modal="true" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto" onclick="if(event.target === this) closeModal('modal-privacy-policy')">
+    <div class="bg-[#0D111A] border border-[#1E2230] rounded-3xl p-6 sm:p-8 w-full max-w-3xl shadow-2xl space-y-6 my-8">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-[#1E2230] pb-4">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] font-mono-numbers font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              DATA GOVERNANCE &amp; PRIVACY
+            </span>
+            <span class="text-xs text-slate-400">• Effective March 2026</span>
+          </div>
+          <h3 class="text-xl font-black text-white">MathTree Institutional Privacy Policy</h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-privacy-policy')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#131824] transition">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="space-y-4 text-xs text-slate-300 max-h-[60vh] overflow-y-auto pr-2">
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">1. Institutional Data Confidentiality</h4>
+          <p class="text-slate-400 leading-relaxed">
+            MathTree recognizes the extreme sensitivity of commercial real estate pipelines, acquisition bids, rent rolls, lease terms, and capital stack allocations. We maintain institutional-grade organizational and technical controls designed to prevent unauthorized access or disclosure of proprietary underwriting models.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">2. Deal Information &amp; Model Isolation</h4>
+          <p class="text-slate-400 leading-relaxed">
+            All user-submitted project information, asset metrics, debt schedules, and investor waterfall arrangements are isolated within your account tenancy. MathTree does <strong class="text-slate-200">not</strong> sell, monetize, broker, or syndicate deal parameters, nor do we train public AI foundational models on your proprietary rent rolls or underwritings.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">3. Information Collected</h4>
+          <p class="text-slate-400 leading-relaxed">
+            We collect authentication credentials (email address, session tokens), account preferences, project configurations, asset financial schedules, and aggregated technical telemetry (error reporting, latency diagnostics) necessary to operate the Platform reliably.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">4. Encryption &amp; Security Standards</h4>
+          <p class="text-slate-400 leading-relaxed">
+            Data is protected in transit using TLS 1.3 encryption and at rest using AES-256 standard encryption. Automated session expiration protects unattended institutional terminals, and role-based access policies govern database querying.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">5. Data Retention &amp; Right of Erasure</h4>
+          <p class="text-slate-400 leading-relaxed">
+            Underwritten projects and scenario analyses remain stored in your dedicated database schema until deleted by your authorized administrators. Upon account termination or written request, all associated proprietary pro-forma records and memos will be permanently expunged in accordance with enterprise data deletion cycles.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <h4 class="text-sm font-bold text-white">6. Inquiries &amp; Data Protection Contact</h4>
+          <p class="text-slate-400 leading-relaxed">
+            For inquiries regarding security whitepapers, data isolation architecture, or compliance verification, contact our Data Governance team at <span class="text-emerald-400 font-mono-numbers">privacy@mathtree.io</span>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-end border-t border-[#1E2230] pt-4">
+        <button type="button" onclick="closeModal('modal-privacy-policy')" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-sm">
+          Acknowledge &amp; Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ==================== AUTHENTICATION SCRIPT & MODAL ==================== -->
   <script>
     const SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
@@ -1410,21 +1583,38 @@
       initHeroCalculations();
     });
 
-    // Sample Memo Modal
-    function openSampleMemoModal() {
-      var modal = document.getElementById('sample-memo-modal');
+    // Modal Management (Sample Memo, Terms of Service, Privacy Policy)
+    function openModal(modalId) {
+      var modal = document.getElementById(modalId);
       if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
       }
     }
-    function closeSampleMemoModal() {
-      var modal = document.getElementById('sample-memo-modal');
+    function closeModal(modalId) {
+      var modal = document.getElementById(modalId);
       if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
       }
     }
+
+    // Sample Memo Modal
+    function openSampleMemoModal() {
+      openModal('sample-memo-modal');
+    }
+    function closeSampleMemoModal() {
+      closeModal('sample-memo-modal');
+    }
+
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeModal('modal-terms-of-service');
+        closeModal('modal-privacy-policy');
+        closeModal('sample-memo-modal');
+        if (typeof closeAuthModal === 'function') closeAuthModal();
+      }
+    });
 
     // Asset Class Tab Switcher
     function switchAssetTab(tabKey) {

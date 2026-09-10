@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MathTree - FourLeaf Property Operations & Rent Roll</title>
+  <title>MathTree - Property Management & Rent Roll</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -57,6 +57,33 @@
         return;
       }
 
+      var demoRaw = localStorage.getItem('mathtree_demo_mode');
+      var activeUserRaw = localStorage.getItem('mathtree_active_user');
+      var isDemoUser = false;
+      if (demoRaw) {
+        try {
+          var demo = JSON.parse(demoRaw);
+          if (demo && demo.demo) isDemoUser = true;
+        } catch(e) {}
+      }
+      if (activeUserRaw) {
+        try {
+          var au = JSON.parse(activeUserRaw);
+          if (au && au.demo) isDemoUser = true;
+        } catch(e) {}
+      }
+
+      if (isDemoUser) {
+        window._currentUser = { email: 'demo@mathtree.app', user_metadata: { full_name: 'Demo Investor' }, demo: true };
+        window._supabase = null;
+        window._demoMode = true;
+        if (window.MathTreeSession) window.MathTreeSession.startWatcher(null);
+        if (typeof initOperationsView === 'function') {
+          initOperationsView();
+        }
+        return;
+      }
+
       const { createClient } = window.supabase;
       const guardClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
       window._supabase = guardClient;
@@ -104,7 +131,7 @@
           <div>
             <span class="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
             <span class="text-[10px] sm:text-xs block text-emerald-400 font-bold uppercase tracking-wider flex items-center space-x-1">
-              <span>FourLeaf Operations</span>
+              <span>Property Management</span>
             </span>
           </div>
         </a>
@@ -115,7 +142,7 @@
             Portfolio & Pipeline
           </a>
           <a href="operations.html" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm transition">
-            FourLeaf Rent Roll
+            Master Rent Roll & Operations
           </a>
         </nav>
       </div>
@@ -600,7 +627,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-slate-400 font-bold mb-1">Lease Start Date *</label>
-            <input type="date" id="new-lease-start" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+            <input type="date" id="new-lease-start" onchange="updateNextEscalationDefault()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
           </div>
           <div>
             <label class="block text-slate-400 font-bold mb-1">Lease Expiration</label>
@@ -616,6 +643,44 @@
           <div>
             <label class="block text-slate-400 font-bold mb-1">Tenant Phone</label>
             <input type="text" id="new-lease-phone" placeholder="(509) 555-0100" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Scheduled Rent Escalation (Optional) -->
+        <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Scheduled Rent Escalation (Optional)</span>
+            <span class="text-[10px] text-slate-500">Auto-calculated</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Escalation Type</label>
+              <select id="new-lease-escalation-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="none">None / Manual</option>
+                <option value="Percentage Bump (%)">Percentage Bump (%)</option>
+                <option value="Fixed Dollar ($)">Fixed Dollar ($)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Escalation Rate / Amount</label>
+              <input type="number" step="0.01" id="new-lease-escalation-rate" placeholder="e.g. 3.00 or 100.00" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Escalation Frequency</label>
+              <select id="new-lease-escalation-freq" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="Annual on Anniversary">Annual on Anniversary</option>
+                <option value="Bi-Annual">Bi-Annual</option>
+                <option value="Triennial">Triennial</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Next Escalation Date</label>
+              <input type="date" id="new-lease-next-escalation" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
+            </div>
           </div>
         </div>
 
@@ -694,40 +759,276 @@
     async function initOperationsView() {
       updateMonthDisplay();
       await fetchAllOperationsData();
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('action') === 'manage-entities') {
+        openEntityManagementModal();
+      }
     }
 
     async function refreshOperationsData() {
       await fetchAllOperationsData();
     }
 
-    // Fetch all records dynamically from Supabase
+    // Fetch all records dynamically from Supabase or load Demo Sandbox Mode
     async function fetchAllOperationsData() {
-      if (!window._supabase) return;
       const client = window._supabase;
+      if (client) {
+        try {
+          // Fetch entities, deals, units, leases, rent payments, and rent increases in parallel
+          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.all([
+            client.from('entities').select('*').order('name', { ascending: true }),
+            client.from('deals').select('*').order('title', { ascending: true }),
+            client.from('units').select('*').order('unit_number', { ascending: true }),
+            client.from('leases').select('*').order('is_active', { ascending: false }),
+            client.from('rent_payments').select('*').order('period_month', { ascending: false }),
+            client.from('rent_increases').select('*').order('effective_date', { ascending: false })
+          ]);
 
-      try {
-        // Fetch entities, deals, units, leases, rent payments, and rent increases in parallel
-        const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.all([
-          client.from('entities').select('*').order('name', { ascending: true }),
-          client.from('deals').select('*').order('title', { ascending: true }),
-          client.from('units').select('*').order('unit_number', { ascending: true }),
-          client.from('leases').select('*').order('is_active', { ascending: false }),
-          client.from('rent_payments').select('*').order('period_month', { ascending: false }),
-          client.from('rent_increases').select('*').order('effective_date', { ascending: false })
-        ]);
-
-        rawEntities = resEntities.data || [];
-        rawDeals = resDeals.data || [];
-        rawUnits = resUnits.data || [];
-        rawLeases = resLeases.data || [];
-        rawPayments = resPayments.data || [];
-        rawIncreases = resIncreases.data || [];
-
-        populateFilterDropdowns();
-        renderOperationsUI();
-      } catch (err) {
-        console.error('Error loading operations data from Supabase:', err);
+          rawEntities = resEntities.data || [];
+          rawDeals = resDeals.data || [];
+          rawUnits = resUnits.data || [];
+          rawLeases = resLeases.data || [];
+          rawPayments = resPayments.data || [];
+          rawIncreases = resIncreases.data || [];
+        } catch (err) {
+          console.error('Error loading operations data from Supabase:', err);
+        }
       }
+
+      // Check if user is in demo mode
+      let activeUserDemo = false;
+      try {
+        const storedUser = localStorage.getItem('mathtree_active_user');
+        if (storedUser && JSON.parse(storedUser).demo) activeUserDemo = true;
+        const demoMode = localStorage.getItem('mathtree_demo_mode');
+        if (demoMode && JSON.parse(demoMode).demo) activeUserDemo = true;
+      } catch (e) {}
+
+      const isDemo = !window._supabase || activeUserDemo || (!rawEntities.length && !rawDeals.length);
+
+      // When isDemo is true and no data was loaded from Supabase:
+      if (isDemo && (!rawEntities.length && !rawDeals.length)) {
+        rawEntities = [
+          {
+            id: 'ent-demo-1',
+            name: 'Summit Crest Holdings LLC',
+            formation_state: 'WA',
+            ein: '84-1928374',
+            depository_bank: 'Chase Commercial (*4892)',
+            bank_name: 'Chase Commercial (*4892)'
+          }
+        ];
+
+        rawDeals = [
+          {
+            id: 'deal-demo-1',
+            title: '2239 Longfibre Rd Distribution Center',
+            entity_id: 'ent-demo-1',
+            status: 'owned',
+            asset_type: 'Industrial / Distribution',
+            inputs: {
+              monthlyRent: 10450,
+              grossRentPerMonth: 10450,
+              grossRentAnnual: 125400,
+              sqft: 28500
+            }
+          }
+        ];
+
+        rawUnits = [
+          {
+            id: 'unit-demo-101',
+            deal_id: 'deal-demo-1',
+            unit_number: 'Suite 101 Logistics',
+            unit_type: 'Logistics / Warehouse',
+            market_rent: 3450,
+            sqft: 10500,
+            status: 'occupied'
+          },
+          {
+            id: 'unit-demo-102',
+            deal_id: 'deal-demo-1',
+            unit_number: 'Suite 102 Cold Storage',
+            unit_type: 'Cold Storage / Food Grade',
+            market_rent: 4200,
+            sqft: 12000,
+            status: 'occupied'
+          },
+          {
+            id: 'unit-demo-103',
+            deal_id: 'deal-demo-1',
+            unit_number: 'Suite 103 Flex Office',
+            unit_type: 'Flex Office / Dispatch',
+            market_rent: 2800,
+            sqft: 6000,
+            status: 'occupied'
+          }
+        ];
+
+        rawLeases = [
+          {
+            id: 'lease-demo-1',
+            deal_id: 'deal-demo-1',
+            unit_id: 'unit-demo-101',
+            tenant_name: 'Cascade Cold Logistics',
+            tenant_email: 'ops@cascadecold.com',
+            tenant_phone: '(509) 555-0144',
+            monthly_rent: 3450,
+            lease_start_date: '2024-06-01',
+            lease_end_date: '2027-05-31',
+            last_rent_increase_date: '2025-06-01',
+            previous_rent_amount: 3300,
+            escalation_type: 'Percentage Bump (%)',
+            escalation_rate: 3.5,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2026-06-01',
+            is_active: true
+          },
+          {
+            id: 'lease-demo-2',
+            deal_id: 'deal-demo-1',
+            unit_id: 'unit-demo-102',
+            tenant_name: 'Pacific Freight Lines',
+            tenant_email: 'dispatch@pacificfreight.net',
+            tenant_phone: '(206) 555-0812',
+            monthly_rent: 4200,
+            lease_start_date: '2023-09-01',
+            lease_end_date: '2028-08-31',
+            last_rent_increase_date: '2025-09-01',
+            previous_rent_amount: 4000,
+            escalation_type: 'Percentage Bump (%)',
+            escalation_rate: 3.0,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2026-09-01',
+            is_active: true
+          },
+          {
+            id: 'lease-demo-3',
+            deal_id: 'deal-demo-1',
+            unit_id: 'unit-demo-103',
+            tenant_name: 'Valley Distribution',
+            tenant_email: 'accounting@valleydist.com',
+            tenant_phone: '(509) 555-0399',
+            monthly_rent: 2800,
+            lease_start_date: '2025-01-15',
+            lease_end_date: '2027-01-14',
+            last_rent_increase_date: '2025-01-15',
+            previous_rent_amount: 2800,
+            escalation_type: 'Fixed Dollar ($)',
+            escalation_rate: 100,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2026-01-15',
+            is_active: true
+          }
+        ];
+
+        const curMonthStr = formatPeriodMonth(activeDate);
+        const prev1Date = new Date(activeDate.getFullYear(), activeDate.getMonth() - 1, 1);
+        const prev1Str = formatPeriodMonth(prev1Date);
+        const prev2Date = new Date(activeDate.getFullYear(), activeDate.getMonth() - 2, 1);
+        const prev2Str = formatPeriodMonth(prev2Date);
+
+        rawPayments = [
+          {
+            id: 'pay-demo-1',
+            lease_id: 'lease-demo-1',
+            deal_id: 'deal-demo-1',
+            period_month: curMonthStr,
+            amount_due: 3450,
+            amount_paid: 3450,
+            paid_date: curMonthStr.replace('-01', '-02'),
+            status: 'paid',
+            payment_method: 'ach',
+            reference_note: 'Auto ACH Transfer #98421'
+          },
+          {
+            id: 'pay-demo-2',
+            lease_id: 'lease-demo-2',
+            deal_id: 'deal-demo-1',
+            period_month: curMonthStr,
+            amount_due: 4200,
+            amount_paid: 4200,
+            paid_date: curMonthStr.replace('-01', '-03'),
+            status: 'paid',
+            payment_method: 'wire',
+            reference_note: 'FedWire Ref #772910'
+          },
+          {
+            id: 'pay-demo-3',
+            lease_id: 'lease-demo-3',
+            deal_id: 'deal-demo-1',
+            period_month: curMonthStr,
+            amount_due: 2800,
+            amount_paid: 2800,
+            paid_date: curMonthStr.replace('-01', '-01'),
+            status: 'paid',
+            payment_method: 'check',
+            reference_note: 'Check #4512'
+          },
+          {
+            id: 'pay-demo-4',
+            lease_id: 'lease-demo-1',
+            deal_id: 'deal-demo-1',
+            period_month: prev1Str,
+            amount_due: 3450,
+            amount_paid: 3450,
+            paid_date: prev1Str.replace('-01', '-02'),
+            status: 'paid',
+            payment_method: 'ach',
+            reference_note: 'Auto ACH Transfer #97210'
+          },
+          {
+            id: 'pay-demo-5',
+            lease_id: 'lease-demo-2',
+            deal_id: 'deal-demo-1',
+            period_month: prev1Str,
+            amount_due: 4200,
+            amount_paid: 4200,
+            paid_date: prev1Str.replace('-01', '-04'),
+            status: 'paid',
+            payment_method: 'wire',
+            reference_note: 'FedWire Ref #765109'
+          },
+          {
+            id: 'pay-demo-6',
+            lease_id: 'lease-demo-3',
+            deal_id: 'deal-demo-1',
+            period_month: prev1Str,
+            amount_due: 2800,
+            amount_paid: 2800,
+            paid_date: prev1Str.replace('-01', '-01'),
+            status: 'paid',
+            payment_method: 'check',
+            reference_note: 'Check #4489'
+          }
+        ];
+
+        rawIncreases = [
+          {
+            id: 'inc-demo-1',
+            lease_id: 'lease-demo-1',
+            deal_id: 'deal-demo-1',
+            effective_date: '2025-06-01',
+            old_rent: 3300,
+            new_rent: 3450,
+            reason: 'Year 2 Contractual Escalation (+4.5%)',
+            notice_sent_date: '2025-04-15'
+          },
+          {
+            id: 'inc-demo-2',
+            lease_id: 'lease-demo-2',
+            deal_id: 'deal-demo-1',
+            effective_date: '2025-09-01',
+            old_rent: 4000,
+            new_rent: 4200,
+            reason: 'Contractual 5% Escalation',
+            notice_sent_date: '2025-07-01'
+          }
+        ];
+      }
+
+      populateFilterDropdowns();
+      renderOperationsUI();
     }
 
     function populateFilterDropdowns() {
@@ -830,6 +1131,7 @@
       }
 
       const scopedDealIds = new Set(scopedDeals.map(d => d.id));
+      const scopedUnits = rawUnits.filter(u => scopedDealIds.has(u.deal_id));
 
       // Build unified list of active operational leases from database
       const scopedLeases = [];
@@ -838,11 +1140,6 @@
         const existingLeases = rawLeases.filter(l => l.deal_id === deal.id && l.is_active);
         if (existingLeases.length > 0) {
           existingLeases.forEach(l => {
-            // Keep lease monthly rent strictly synchronized with deal inputs if deal inputs exist
-            const dealRent = parseFloat(deal.inputs?.monthlyRent || deal.inputs?.grossRentPerMonth || 0);
-            if (dealRent > 0 && dealRent !== parseFloat(l.monthly_rent)) {
-              l.monthly_rent = dealRent;
-            }
             scopedLeases.push(l);
           });
         } else {
@@ -887,7 +1184,7 @@
       document.getElementById('kpi-annual-rent').textContent = `$${totalAnnualRent.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / yr`;
 
       // 2. Calculate Physical Occupancy
-      const totalUnitsCount = scopedUnits.length;
+      const totalUnitsCount = scopedUnits.length || scopedLeases.length;
       const occupiedUnitsCount = scopedLeases.length;
       const occPct = totalUnitsCount > 0 ? Math.round((occupiedUnitsCount / totalUnitsCount) * 100) : (occupiedUnitsCount > 0 ? 100 : 0);
 
@@ -1093,10 +1390,10 @@
       const refNote = document.getElementById('payment-reference-note').value;
 
       const user = window._currentUser;
-      if (!user || !window._supabase) return;
+      const isDemo = !window._supabase || (user && user.demo);
 
       const payload = {
-        user_id: user.id,
+        user_id: user ? user.id : 'demo-user',
         lease_id: leaseId,
         deal_id: dealId,
         period_month: periodMonth,
@@ -1108,6 +1405,21 @@
         payment_method: method,
         reference_note: refNote
       };
+
+      if (isDemo) {
+        payload.id = 'pay-demo-' + Date.now();
+        const existingIdx = rawPayments.findIndex(p => p.lease_id === leaseId && p.period_month === periodMonth);
+        if (existingIdx >= 0) {
+          rawPayments[existingIdx] = payload;
+        } else {
+          rawPayments.push(payload);
+        }
+        closeModal('modal-log-payment');
+        renderOperationsUI();
+        return;
+      }
+
+      if (!user || !window._supabase) return;
 
       try {
         const { error } = await window._supabase
@@ -1172,6 +1484,30 @@
       const reason = document.getElementById('increase-reason').value;
 
       const user = window._currentUser;
+      const isDemo = !window._supabase || (user && user.demo);
+
+      if (isDemo) {
+        const lease = rawLeases.find(l => l.id === leaseId);
+        if (lease) {
+          lease.previous_rent_amount = oldRent;
+          lease.monthly_rent = newRent;
+          lease.last_rent_increase_date = effectiveDate;
+        }
+        rawIncreases.unshift({
+          id: 'inc-demo-' + Date.now(),
+          lease_id: leaseId,
+          deal_id: dealId,
+          effective_date: effectiveDate,
+          old_rent: oldRent,
+          new_rent: newRent,
+          reason: reason,
+          notice_sent_date: noticeDate || null
+        });
+        closeModal('modal-rent-increase');
+        renderOperationsUI();
+        return;
+      }
+
       if (!user || !window._supabase) return;
 
       try {
@@ -1290,7 +1626,13 @@
 
     async function handleDeleteEntity(entityId) {
       if (!confirm('Are you sure you want to remove this entity? Any properties assigned to it will be unassigned.')) return;
-      if (!window._supabase) return;
+      if (!window._supabase) {
+        rawEntities = rawEntities.filter(e => e.id !== entityId);
+        populateFilterDropdowns();
+        renderOperationsUI();
+        openEntityManagementModal();
+        return;
+      }
       try {
         const { error } = await window._supabase
           .from('entities')
@@ -1312,7 +1654,23 @@
       const bank = document.getElementById('new-entity-bank').value.trim();
 
       const user = window._currentUser;
-      if (!user || !window._supabase) return;
+      if (!window._supabase) {
+        rawEntities.push({
+          id: 'ent-demo-' + Date.now(),
+          name: name,
+          formation_state: state || 'WA',
+          ein: ein || '99-0000000',
+          bank_name: bank || 'Chase Commercial (*4892)',
+          depository_bank: bank || 'Chase Commercial (*4892)'
+        });
+        document.getElementById('form-create-entity').reset();
+        populateFilterDropdowns();
+        renderOperationsUI();
+        openEntityManagementModal();
+        return;
+      }
+
+      if (!user) return;
 
       try {
         const { data, error } = await window._supabase
@@ -1336,6 +1694,19 @@
       }
     }
 
+    function updateNextEscalationDefault() {
+      const startVal = document.getElementById('new-lease-start')?.value;
+      const nextEscEl = document.getElementById('new-lease-next-escalation');
+      if (startVal && nextEscEl) {
+        const parts = startVal.split('-');
+        if (parts.length === 3) {
+          const yyyy = parseInt(parts[0], 10) + 1;
+          nextEscEl.value = `${yyyy}-${parts[1]}-${parts[2]}`;
+        }
+      }
+    }
+    window.updateNextEscalationDefault = updateNextEscalationDefault;
+
     // Modal: Add Unit & Lease
     function openAddLeaseModal() {
       const dealSelect = document.getElementById('new-lease-deal-id');
@@ -1347,7 +1718,9 @@
         dealSelect.innerHTML = html;
       }
       const today = new Date().toISOString().split('T')[0];
-      document.getElementById('new-lease-start').value = today;
+      const startEl = document.getElementById('new-lease-start');
+      if (startEl) startEl.value = today;
+      updateNextEscalationDefault();
       openModal('modal-add-lease');
     }
 
@@ -1363,7 +1736,71 @@
       const email = document.getElementById('new-lease-email').value.trim();
       const phone = document.getElementById('new-lease-phone').value.trim();
 
+      const escType = document.getElementById('new-lease-escalation-type')?.value || 'none';
+      const escRate = parseFloat(document.getElementById('new-lease-escalation-rate')?.value) || 0;
+      const escFreq = document.getElementById('new-lease-escalation-freq')?.value || 'Annual on Anniversary';
+      const nextEscDate = document.getElementById('new-lease-next-escalation')?.value || null;
+
       const user = window._currentUser;
+      const isDemo = !window._supabase || (user && user.demo);
+
+      if (isDemo) {
+        const newUnitId = 'unit-demo-' + Date.now();
+        const newLeaseId = 'lease-demo-' + Date.now();
+        rawUnits.push({
+          id: newUnitId,
+          deal_id: dealId,
+          unit_number: unitNum,
+          unit_type: unitType,
+          market_rent: rent,
+          status: 'occupied'
+        });
+
+        const newLease = {
+          id: newLeaseId,
+          user_id: user ? user.id : 'demo-user',
+          unit_id: newUnitId,
+          deal_id: dealId,
+          tenant_name: tenantName,
+          monthly_rent: rent,
+          lease_start_date: startDate,
+          lease_end_date: endDate || null,
+          tenant_email: email || null,
+          tenant_phone: phone || null,
+          last_rent_increase_date: startDate,
+          escalation_type: escType !== 'none' ? escType : null,
+          escalation_rate: escRate > 0 ? escRate : null,
+          escalation_frequency: escType !== 'none' ? escFreq : null,
+          next_escalation_date: escType !== 'none' ? nextEscDate : null,
+          is_active: true
+        };
+        rawLeases.push(newLease);
+
+        if (escType !== 'none' && escRate > 0) {
+          const plannedNewRent = escType.includes('Percentage')
+            ? Math.round((rent * (1 + escRate / 100)) * 100) / 100
+            : (rent + escRate);
+          const escReason = `Scheduled ${escType.includes('Percentage') ? escRate + '%' : '$' + escRate} ${escFreq} escalation`;
+          rawIncreases.unshift({
+            id: 'inc-demo-' + Date.now(),
+            user_id: user ? user.id : 'demo-user',
+            lease_id: newLeaseId,
+            deal_id: dealId,
+            effective_date: nextEscDate || startDate,
+            old_rent: rent,
+            new_rent: plannedNewRent,
+            reason: escReason,
+            notice_sent_date: null
+          });
+        }
+
+        document.getElementById('form-add-lease').reset();
+        closeModal('modal-add-lease');
+        populateFilterDropdowns();
+        renderOperationsUI();
+        return;
+      }
+
       if (!user || !window._supabase) return;
 
       try {
@@ -1384,23 +1821,51 @@
         if (unitErr) throw unitErr;
 
         // 2. Create Lease
-        const { error: leaseErr } = await window._supabase
+        const leasePayload = {
+          user_id: user.id,
+          unit_id: unitData.id,
+          deal_id: dealId,
+          tenant_name: tenantName,
+          monthly_rent: rent,
+          lease_start_date: startDate,
+          lease_end_date: endDate || null,
+          tenant_email: email || null,
+          tenant_phone: phone || null,
+          last_rent_increase_date: startDate,
+          escalation_type: escType !== 'none' ? escType : null,
+          escalation_rate: escRate > 0 ? escRate : null,
+          escalation_frequency: escType !== 'none' ? escFreq : null,
+          next_escalation_date: escType !== 'none' ? nextEscDate : null,
+          is_active: true
+        };
+
+        const { data: leaseData, error: leaseErr } = await window._supabase
           .from('leases')
-          .insert({
-            user_id: user.id,
-            unit_id: unitData.id,
-            deal_id: dealId,
-            tenant_name: tenantName,
-            monthly_rent: rent,
-            lease_start_date: startDate,
-            lease_end_date: endDate || null,
-            tenant_email: email || null,
-            tenant_phone: phone || null,
-            last_rent_increase_date: startDate,
-            is_active: true
-          });
+          .insert(leasePayload)
+          .select()
+          .single();
 
         if (leaseErr) throw leaseErr;
+
+        // 3. Record planned escalation in rent_increases if configured
+        if (escType !== 'none' && escRate > 0 && leaseData) {
+          const plannedNewRent = escType.includes('Percentage')
+            ? Math.round((rent * (1 + escRate / 100)) * 100) / 100
+            : (rent + escRate);
+          const escReason = `Scheduled ${escType.includes('Percentage') ? escRate + '%' : '$' + escRate} ${escFreq} escalation`;
+          await window._supabase
+            .from('rent_increases')
+            .insert({
+              user_id: user.id,
+              lease_id: leaseData.id,
+              deal_id: dealId,
+              effective_date: nextEscDate || startDate,
+              old_rent: rent,
+              new_rent: plannedNewRent,
+              reason: escReason,
+              notice_sent_date: null
+            });
+        }
 
         document.getElementById('form-add-lease').reset();
         closeModal('modal-add-lease');
