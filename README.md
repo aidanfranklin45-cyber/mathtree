@@ -21,5 +21,5 @@ A high-performance, client-side real estate investment analysis and 10-year fina
 - **Institutional Reporting**: 1-click CSV pro-forma download, print-optimized PDF investment brief, JSON state backups, and shareable URL hash links.
 
 ## Live Application
-- **Production (Firebase Hosting):** [https://mathtree.web.app](https://mathtree.web.app) (also accessible at [https://mathtree.firebaseapp.com](https://mathtree.firebaseapp.com))
+- **Production (Firebase Hosting):** [https://mathtree-app.web.app](https://mathtree-app.web.app) (also accessible at [https://mathtree-app.firebaseapp.com](https://mathtree-app.firebaseapp.com))
 - **Mirror (GitHub Pages):** [https://aidanfranklin45-cyber.github.io/mathtree/](https://aidanfranklin45-cyber.github.io/mathtree/)

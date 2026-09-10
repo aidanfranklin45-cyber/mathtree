@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "mathtree",
+    "site": "mathtree-app",
     "public": ".",
     "cleanUrls": true,
     "ignore": [
