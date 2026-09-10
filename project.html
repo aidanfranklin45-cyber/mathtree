@@ -4083,11 +4083,46 @@
         activePanel.classList.remove('hidden');
       }
 
-      // 2. Update navigation styling
+      // 2. Update navigation styling and header active module indicator
+      const MODULE_METADATA = {
+        overview: { title: 'Deal Overview', mobileTitle: 'Overview', icon: '📌' },
+        proforma: { title: 'Pro-Forma & Cash Flows', mobileTitle: 'Pro-Forma', icon: '📊' },
+        property: { title: 'Property & County Records', mobileTitle: 'Property', icon: '🏛️' },
+        debt: { title: 'Debt & Financing', mobileTitle: 'Debt', icon: '🏦' },
+        diligence: { title: 'Assumptions & Diligence', mobileTitle: 'Diligence', icon: '📋' },
+        sensitivity: { title: 'Risk & Sensitivity', mobileTitle: 'Sensitivity', icon: '🎲' },
+        tax: { title: 'Tax & Wealth Strategy', mobileTitle: 'Tax', icon: '📑' }
+      };
+
+      const meta = MODULE_METADATA[tabName] || MODULE_METADATA['overview'];
+
+      const headerTitle = document.getElementById('header-active-module-title');
+      if (headerTitle) headerTitle.textContent = meta.title;
+
+      const headerMobileTitle = document.getElementById('header-active-module-mobile-title');
+      if (headerMobileTitle) headerMobileTitle.textContent = meta.mobileTitle;
+
+      const headerIcon = document.getElementById('header-active-module-icon');
+      if (headerIcon) headerIcon.textContent = meta.icon;
+
+      const activeNav = document.getElementById('header-analysis-nav');
+      if (activeNav) activeNav.setAttribute('data-active-page-key', tabName);
+
+      // Update dropdown links & checkmarks
       document.querySelectorAll('a[data-page-key]').forEach(a => {
         const key = a.getAttribute('data-page-key');
+        
+        // Remove existing checkmarks
+        a.querySelectorAll('span').forEach(s => {
+          if (s.textContent.trim() === '✓') s.remove();
+        });
+
         if (key === tabName) {
           a.className = 'flex items-center justify-between p-2 rounded-xl transition group bg-brand-600 text-white font-bold shadow-md';
+          const checkSpan = document.createElement('span');
+          checkSpan.className = 'text-emerald-300 text-xs font-black ml-2';
+          checkSpan.textContent = '✓';
+          a.appendChild(checkSpan);
         } else {
           a.className = 'flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white';
         }
@@ -4105,16 +4140,7 @@
       // 3. Update active tab indicator pill
       const tabIndicator = document.getElementById('active-tab-indicator');
       if (tabIndicator) {
-        const labels = {
-          overview: 'Deal Overview',
-          proforma: 'Pro-Forma & Cash Flows',
-          property: 'Property & Assessor',
-          debt: 'Debt & Amortization',
-          tax: 'Tax & Depreciation',
-          diligence: 'Due Diligence',
-          sensitivity: 'Sensitivity & Risk'
-        };
-        tabIndicator.textContent = labels[tabName] || tabName;
+        tabIndicator.textContent = meta.title;
       }
 
       // 4. Update browser history state without page reload
@@ -6009,9 +6035,7 @@
       if (nextIndex < 0) nextIndex = pages.length - 1;
       if (nextIndex >= pages.length) nextIndex = 0;
       const target = pages[nextIndex];
-      const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id);
-      const url = target.file + (dealId ? '?id=' + encodeURIComponent(dealId) : '');
-      window.location.href = url;
+      switchDealTab(target.key);
     }
     window.navigateModuleRelative = navigateModuleRelative;
 
@@ -8853,6 +8877,12 @@
           if (key) {
             e.preventDefault();
             switchDealTab(key);
+            const menu = document.getElementById('nav-module-dropdown-menu');
+            const btn = document.getElementById('btn-nav-module-dropdown');
+            if (menu && !menu.classList.contains('hidden')) {
+              menu.classList.add('hidden');
+              if (btn) btn.setAttribute('aria-expanded', 'false');
+            }
           }
         });
       });
