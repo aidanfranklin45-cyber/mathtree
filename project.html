@@ -41,6 +41,8 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="session.js"></script>
+  <script src="mathtree-client.js"></script>
   <script src="math.js"></script>
   <script src="address-service.js"></script>
   <style>
@@ -968,7 +970,10 @@
         <div id="deal-auditor-banner" class="space-y-2">
           <!-- Dynamically populated deal risk warnings -->
         </div>
-      <!-- SUB-PAGE 1: Deal Executive Overview (Default Active Tab) -->
+      
+        <!-- Tab Panel: OVERVIEW -->
+        <div id="tab-panel-overview" data-tab-panel class="space-y-6">
+<!-- SUB-PAGE 1: Deal Executive Overview (Default Active Tab) -->
       <div id="view-panel-single" class="space-y-6">
         <!-- Live-Updating Metrics cards -->
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1291,7 +1296,800 @@
 
       </div>
     </div>
-  </main>
+        </div>
+
+        <!-- Tab Panel: PROFORMA -->
+        <div id="tab-panel-proforma" data-tab-panel class="space-y-6 hidden">
+<!-- SUB-PAGE 2: Pro-Forma & Granular Cash Flows -->
+      <div id="view-panel-proforma" data-deal-panel="proforma" class="space-y-6">
+
+        <!-- FourLeaf Live Operations vs. Pro-Forma Variance Banner (Progressive Disclosure) -->
+        <div id="fourleaf-variance-banner" class="hidden rounded-2xl bg-emerald-950/20 border border-emerald-800/40 p-3.5 sm:p-4 transition backdrop-blur-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <span class="text-base shrink-0">🍀</span>
+              <div class="min-w-0">
+                <span class="block text-xs font-bold text-white tracking-tight">
+                  Property Management vs. Underwritten Pro-Forma Variance
+                </span>
+                <span id="fourleaf-variance-summary" class="block text-[11px] text-emerald-300 font-mono mt-0.5 truncate">
+                  Loading active rent roll...
+                </span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+              <a href="operations.html" class="px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800 hover:bg-emerald-900 transition">
+                Property Management →
+              </a>
+              <button type="button" onclick="toggleFourLeafVarianceDetails()" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900 border border-slate-800 hover:text-white transition">
+                <span id="fourleaf-variance-toggle-btn">View Details ▾</span>
+              </button>
+            </div>
+          </div>
+          <!-- Expandable Details Row -->
+          <div id="fourleaf-variance-details" class="hidden mt-3 pt-3 border-t border-emerald-900/40 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs font-mono">
+            <div class="p-2 rounded-xl bg-slate-950/60 border border-slate-900">
+              <span class="text-[10px] uppercase text-slate-400 font-sans font-bold block">In-Place Rent Roll</span>
+              <span id="fourleaf-actual-rent" class="text-emerald-400 font-bold text-sm block mt-0.5">$0/mo</span>
+              <span id="fourleaf-actual-annual" class="text-[10px] text-slate-400 block">$0/yr</span>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950/60 border border-slate-900">
+              <span class="text-[10px] uppercase text-slate-400 font-sans font-bold block">Modeled Year 1 Pro-Forma</span>
+              <span id="fourleaf-modeled-rent" class="text-slate-200 font-bold text-sm block mt-0.5">$0/mo</span>
+              <span id="fourleaf-modeled-annual" class="text-[10px] text-slate-400 block">$0/yr</span>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950/60 border border-slate-900">
+              <span class="text-[10px] uppercase text-slate-400 font-sans font-bold block">Revenue Variance</span>
+              <span id="fourleaf-delta-rent" class="font-bold text-sm block mt-0.5">$0/mo</span>
+              <span id="fourleaf-delta-pct" class="text-[10px] block">0.0% spread</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 10-Year Projections Detailed Grid/Table -->
+        <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
+          <div class="pb-4 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h3 id="forecast-table-title" class="text-sm font-bold text-white tracking-tight">Detailed 10-Year Forecast Table</h3>
+              <p id="forecast-table-sub" class="text-xs text-slate-400">Granular breakdowns of financials, equity accumulation, and returns</p>
+            </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <!-- 2026 Stub Period Proration Toggle -->
+                <label class="inline-flex items-center space-x-2 text-xs font-semibold text-slate-300 cursor-pointer bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition" title="Prorate Year 1 for late 2026 closing (e.g. October 2026 = 3 months operating period)">
+                  <input type="checkbox" id="input-prorate-first-year" onchange="updateCalculations()" class="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 w-3.5 h-3.5">
+                  <span class="text-[11px]">Prorate 2026 (Oct–Dec Stub: 3 Mo)</span>
+                </label>
+                <!-- View Mode: Annual Pro-Forma vs Monthly Schedule -->
+                <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+                  <button type="button" id="btn-view-annual" onclick="switchForecastView('annual')" class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition">
+                    📅 Annual Pro-Forma
+                  </button>
+                  <button type="button" id="btn-view-monthly" onclick="switchForecastView('monthly')" class="px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition">
+                    📆 Monthly Schedule (Post-Closing)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Container 1: Annual Pro-Forma Schedule -->
+            <div id="annual-schedule-container" class="overflow-x-auto -mx-5 mt-4">
+              <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead>
+                  <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
+                    <th class="py-3 px-5 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Date / Period</th>
+                    <th class="py-3 px-4">Property Value</th>
+                    <th class="py-3 px-4">Gross Income</th>
+                    <th class="py-3 px-4">Vacancy Loss</th>
+                    <th class="py-3 px-4">Expenses</th>
+                    <th class="py-3 px-4">NOI</th>
+                    <th class="py-3 px-4">Debt Service</th>
+                    <th class="py-3 px-4">Cash Flow</th>
+                    <th class="py-3 px-4">Cash-on-Cash</th>
+                    <th class="py-3 px-4">Cap Rate</th>
+                    <th class="py-3 px-4">Loan Balance</th>
+                    <th class="py-3 px-4 pr-5">Equity</th>
+                  </tr>
+                </thead>
+                <tbody id="projection-table-body" class="divide-y divide-slate-900/60">
+                  <!-- Dynamically generated projections -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Container 2: Monthly Schedule (Post-Closing) -->
+            <div id="monthly-schedule-container" class="space-y-4 mt-4 hidden">
+              <!-- Monthly Horizon & Date Stretch Toolbar -->
+              <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-3.5 shadow-lg">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-sm">
+                      📆
+                    </div>
+                    <div>
+                      <div class="flex items-center space-x-2">
+                        <h4 class="text-xs font-black uppercase tracking-wider text-white">Monthly Cash Flow Projection Horizon</h4>
+                        <span id="monthly-horizon-pill" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">24 Months</span>
+                      </div>
+                      <p id="monthly-horizon-range-sub" class="text-[11px] text-slate-400">Stretch projections across any custom month & year date range</p>
+                    </div>
+                  </div>
+
+                  <!-- Date Pickers: Start Date & Stretch To End Date -->
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <div class="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                      <span class="text-[10px] uppercase font-bold text-slate-500">From (Closing):</span>
+                      <span id="monthly-start-date-display" class="font-mono font-bold text-slate-300 text-xs">Oct 2026</span>
+                    </div>
+
+                    <div class="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-emerald-500/30">
+                      <label for="input-monthly-end-date" class="text-[10px] uppercase font-bold text-emerald-400">Stretch To Date:</label>
+                      <input type="month" id="input-monthly-end-date" onchange="onMonthlyEndDateChange(this.value)" class="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs font-mono font-bold text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+
+                    <button type="button" onclick="exportMonthlyScheduleCSV()" class="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center space-x-1" title="Download entire monthly schedule as CSV">
+                      <span>📥</span>
+                      <span>Export CSV</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Horizon Presets & Interactive Stretch Slider -->
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-slate-900 text-xs">
+                  <div class="flex items-center flex-wrap gap-1.5">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 mr-1">Quick Presets:</span>
+                    <button type="button" onclick="setMonthlyScheduleMonths(12)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="12">1 Yr (12m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(24)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 transition" data-months="24">2 Yrs (24m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(36)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="36">3 Yrs (36m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(60)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="60">5 Yrs (60m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(120)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="120">10 Yrs (120m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(180)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="180">15 Yrs (180m)</button>
+                    <button type="button" onclick="setMonthlyScheduleMonths(360)" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition" data-months="360">30 Yrs (360m)</button>
+                    <button type="button" onclick="setMonthlyScheduleToHoldPeriod()" class="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-300 transition" title="Match underwriting exit hold period">🎯 Match Exit Hold</button>
+                  </div>
+
+                  <!-- Slider -->
+                  <div class="flex items-center space-x-2 w-full sm:w-64">
+                    <span class="text-[10px] font-mono text-slate-500">1m</span>
+                    <input type="range" id="slider-monthly-months" min="1" max="360" value="24" oninput="onMonthlySliderChange(this.value)" class="w-full accent-emerald-500 h-1.5 bg-slate-900 rounded-lg cursor-pointer">
+                    <span class="text-[10px] font-mono text-slate-500">360m</span>
+                  </div>
+                </div>
+
+                <!-- Horizon Summary KPI Strip -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-slate-900 text-center">
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Total Gross Rent</div>
+                    <div id="kpi-monthly-gross" class="text-xs font-black text-white">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Total NOI</div>
+                    <div id="kpi-monthly-noi" class="text-xs font-black text-emerald-400">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Total Debt Service</div>
+                    <div id="kpi-monthly-debt" class="text-xs font-black text-slate-300">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Principal Paydown</div>
+                    <div id="kpi-monthly-principal" class="text-xs font-black text-cyan-400">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Cumulative Net Cash</div>
+                    <div id="kpi-monthly-net-cash" class="text-xs font-black text-emerald-400">$0</div>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Ending Loan Balance</div>
+                    <div id="kpi-monthly-loan-bal" class="text-xs font-black text-slate-300">$0</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Table wrapper -->
+              <div class="overflow-x-auto max-h-[600px] overflow-y-auto -mx-5 rounded-b-xl">
+                <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                  <thead class="sticky top-0 z-10">
+                    <tr class="border-b border-slate-800 text-slate-400 font-semibold bg-slate-950">
+                      <th class="py-3 px-5 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Month / Date</th>
+                      <th class="py-3 px-4">Operating Yr</th>
+                      <th class="py-3 px-4">Gross Income</th>
+                      <th class="py-3 px-4">Vacancy Loss</th>
+                      <th class="py-3 px-4">OpEx</th>
+                      <th class="py-3 px-4">NOI</th>
+                      <th class="py-3 px-4">Debt Payment</th>
+                      <th class="py-3 px-4">Principal</th>
+                      <th class="py-3 px-4">Interest</th>
+                      <th class="py-3 px-4">Loan Balance</th>
+                      <th class="py-3 px-4">Monthly Net Cash</th>
+                      <th class="py-3 px-4 pr-5">Cumulative Cash</th>
+                    </tr>
+                  </thead>
+                  <tbody id="monthly-schedule-table-body" class="divide-y divide-slate-900/60">
+                    <!-- Dynamically generated monthly schedule -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+        </div>
+
+        <!-- Tab Panel: PROPERTY -->
+        <div id="tab-panel-property" data-tab-panel class="space-y-6 hidden">
+<!-- SUB-PAGE 3: Property & County Assessor Dossier -->
+      <div id="view-panel-property" data-deal-panel="property" class="space-y-6">
+        <!-- Prominent County Assessor & Property Records Intelligence Card -->
+        <div id="property-county-dossier-card" class="bg-slate-900/60 border border-slate-900 hover:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xl backdrop-blur-md transition">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-900">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">
+                🏛️
+              </div>
+              <div>
+                <h2 class="text-sm font-extrabold text-white">County Assessor & Parcel Data</h2>
+                <span id="dossier-county-badge" class="text-[10px] font-semibold text-emerald-400">Yakima County Assessor Record</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <a id="dossier-ascend-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 border border-emerald-900/60 px-2.5 py-1 rounded-lg transition flex items-center space-x-1" title="Open official County Ascend Tax Card">
+                <span>Ascend Tax Card</span>
+                <span>↗</span>
+              </a>
+              <button type="button" onclick="forceRefreshCountyGis()" class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition" title="Force Refresh Live GIS Data">
+                🔄
+              </button>
+            </div>
+          </div>
+
+          <!-- Situs Address & APN Bar -->
+          <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Situs Address</span>
+              <div class="flex items-center space-x-1.5">
+                <span id="dossier-apn-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">APN: --</span>
+                <button type="button" onclick="toggleDossierSearch()" id="btn-toggle-dossier-search" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 px-2 py-0.5 rounded transition flex items-center space-x-1" title="Link or change official parcel">
+                  <span>🔍 Link Parcel</span>
+                </button>
+              </div>
+            </div>
+            <p id="dossier-address-text" class="text-xs font-bold text-white leading-snug">--</p>
+            <div id="dossier-unlinked-warning" class="hidden text-[11px] text-amber-400/90 pt-1 border-t border-slate-900 flex items-center justify-between">
+              <span>⚠️ Generic location ('Yakima, WA') needs a specific parcel to load owner & tax records.</span>
+              <button type="button" onclick="toggleDossierSearch(true)" class="underline font-bold text-brand-400 hover:text-brand-300 ml-1">Link Parcel →</button>
+            </div>
+          </div>
+
+          <!-- Interactive Parcel Linker & Search Box -->
+          <div id="dossier-search-panel" class="hidden p-3 bg-slate-950 border border-brand-500/30 rounded-2xl space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-brand-400 uppercase tracking-wider">Link Official Yakima County Parcel</span>
+              <button type="button" onclick="toggleDossierSearch(false)" class="text-slate-500 hover:text-white text-xs">✕</button>
+            </div>
+            <div class="relative">
+              <input type="text" id="dossier-search-input" oninput="onDossierSearchInput(this.value)" placeholder="Enter Yakima street address or 11-digit APN..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500">
+              <div id="dossier-search-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto hidden"></div>
+            </div>
+            <!-- Quick Benchmark Parcel Chips -->
+            <div class="pt-1">
+              <span class="text-[9px] text-slate-500 block mb-1 uppercase font-bold">Sample County Parcels:</span>
+              <div class="grid grid-cols-2 gap-1.5 text-[10px]">
+                <button type="button" onclick="quickLinkDossierParcel('19133143417', '2239 LONGFIBRE RD, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/80 text-left truncate transition col-span-2 sm:col-span-1">
+                  <strong class="text-white block truncate">⚡ 2239 Longfibre Rd</strong>
+                  <span class="text-emerald-400/80 text-[9px]">Industrial Logistics • APN: 191331-43417</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('19131922484', '128 N 2ND ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">128 N 2nd St</strong>
+                  <span class="text-slate-500 text-[9px]">Commercial / Gov • APN: 191319-22484</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('18132621455', '414 S 8TH ST, YAKIMA, WA 98901')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">414 S 8th St</strong>
+                  <span class="text-slate-500 text-[9px]">12-Unit Multifamily • APN: 181326-21455</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('19133034401', '2405 S 1ST ST, YAKIMA, WA 98903')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">2405 S 1st St</strong>
+                  <span class="text-slate-500 text-[9px]">Light Industrial • APN: 191330-34401</span>
+                </button>
+                <button type="button" onclick="quickLinkDossierParcel('18132644405', '1502 S 18TH AVE, YAKIMA, WA 98902')" class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-left truncate transition">
+                  <strong class="text-white block truncate">1502 S 18th Ave</strong>
+                  <span class="text-slate-500 text-[9px]">Single-Family BRRRR • APN: 181326-44405</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4-Tile Metric Grid: Assessed Value, Land/Bldg Split, Lot Size, Zoning -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Assessed Value</span>
+              <span id="dossier-assessed-val" class="text-sm font-black text-emerald-400 mt-1 block">$0</span>
+              <span id="dossier-tax-year" class="text-[10px] text-slate-500 mt-0.5 block">Tax Year: 2026</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Land / Building</span>
+              <span id="dossier-split-val" class="text-xs font-bold text-slate-200 mt-1 block">$0 / $0</span>
+              <span id="dossier-land-pct" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Lot Size</span>
+              <span id="dossier-lot-size" class="text-xs font-bold text-slate-200 mt-1 block">0.00 Acres</span>
+              <span id="dossier-lot-sqft" class="text-[10px] text-slate-500 mt-0.5 block">0 Sq Ft</span>
+            </div>
+            <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
+              <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Zoning / Use</span>
+              <span id="dossier-zoning" class="text-xs font-bold text-slate-200 mt-1 block truncate">Commercial</span>
+              <span id="dossier-use-code" class="text-[10px] text-slate-500 mt-0.5 block truncate">General</span>
+            </div>
+          </div>
+
+          <!-- Building Specs & Structural Characteristics (from Table 50/70) -->
+          <div id="dossier-bldg-specs-section" class="p-3 bg-slate-950/60 rounded-2xl border border-slate-900 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Building Characteristics & Specs</span>
+              <span id="dossier-bldg-year-pill" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">Year Built: --</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900/60 text-center">
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Bldg Area</span>
+                <span id="dossier-bldg-sqft" class="text-xs font-bold text-slate-200">-- Sq Ft</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Stories</span>
+                <span id="dossier-bldg-stories" class="text-xs font-bold text-slate-200">--</span>
+              </div>
+              <div>
+                <span class="text-[9px] text-slate-500 block uppercase">Condition</span>
+                <span id="dossier-bldg-condition" class="text-xs font-bold text-slate-200">--</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-900/60 text-[10px] text-slate-400">
+              <span id="dossier-bldg-construction" class="truncate">Frame: Standard</span>
+              <span id="dossier-bldg-hvac" class="truncate font-mono text-slate-400">HVAC: Standard</span>
+            </div>
+          </div>
+
+          <!-- Ownership, Legal, and Sync Status -->
+          <div class="p-3 bg-slate-950/50 rounded-2xl border border-slate-900 space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Owner of Record</span>
+              <span id="dossier-sync-status" class="text-[10px] font-bold text-emerald-400">Live GIS Active</span>
+            </div>
+            <p id="dossier-owner-name" class="text-xs font-semibold text-slate-200 truncate">--</p>
+            <p id="dossier-legal-desc" class="text-[10px] text-slate-500 truncate pt-1 border-t border-slate-900/80">--</p>
+          </div>
+
+          <!-- Multi-Parcel Acquisition Package Panel -->
+          <div id="proj-multi-parcel-panel" class="hidden p-3 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-1.5">
+                <span class="text-sm">📦</span>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">Multi-Parcel Package</span>
+              </div>
+              <span id="proj-multi-parcel-count-badge" class="text-[9px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded">Companion Parcel Found</span>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-snug">
+              Adjacent parcel(s) owned by the same entity detected in this block. Toggle companion parcels to bundle them into this purchase.
+            </p>
+            <div id="proj-multi-parcel-list" class="space-y-1.5 pt-0.5"></div>
+            <div id="proj-package-summary-bar" class="p-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-[11px] font-bold">
+              <span class="text-slate-400">Combined Package:</span>
+              <span id="proj-package-summary-val" class="text-emerald-400">$0 (0.00 Acres)</span>
+            </div>
+          </div>
+
+          <!-- 1-Click Action Button -->
+          <div class="pt-1 flex items-center justify-between gap-2">
+            <button type="button" onclick="applyAssessedValueToProject()" class="w-full py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/60 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
+              <span>Apply Assessed Value as Purchase Price</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+        </div>
+
+        <!-- Tab Panel: DEBT -->
+        <div id="tab-panel-debt" data-tab-panel class="space-y-6 hidden">
+<!-- SUB-PAGE 4: Debt Structure & Full Amortization Schedule -->
+      <div id="view-panel-debt" data-deal-panel="debt" class="space-y-6">
+        <!-- Debt Structure & Amortization Section -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
+            <div class="pb-4 border-b border-slate-900 flex justify-between items-center cursor-pointer" id="debt-toggle-header">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-cyan"></span>
+                  <span>Debt Structure & Amortization Schedule</span>
+                </h3>
+                <p class="text-xs text-slate-400">Underwriting metrics, debt coverage, and loan paydown forecast</p>
+              </div>
+              <button type="button" class="text-slate-400 hover:text-white transition" id="debt-toggle-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transform transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" id="debt-toggle-icon">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            <div id="debt-section-content" class="transition-all duration-300 overflow-hidden mt-4 space-y-6">
+              <!-- Summary metrics for debt -->
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Loan Amount</p>
+                  <p id="debt-loan-amount" class="text-sm font-bold text-white mt-1">$0</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Loan-to-Value (LTV)</p>
+                  <p id="debt-ltv" class="text-sm font-bold text-white mt-1">0.0%</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Monthly Payment</p>
+                  <p id="debt-monthly-payment" class="text-sm font-bold text-white mt-1">$0</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Year 1 DSCR</p>
+                  <p id="debt-y1-dscr" class="text-sm font-bold text-white mt-1">N/A</p>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                  <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Year 1 Debt Yield</p>
+                  <p id="debt-y1-yield" class="text-sm font-bold text-white mt-1">N/A</p>
+                </div>
+              </div>
+
+              <!-- Amortization Table -->
+              <div>
+                <h4 id="amortization-table-title" class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Amortization Forecast</h4>
+                <div class="overflow-x-auto -mx-5">
+                  <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                    <thead>
+                      <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
+                        <th class="py-2.5 px-5 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Date / Period</th>
+                        <th class="py-2.5 px-4">Rate (%)</th>
+                        <th class="py-2.5 px-4">Beginning Balance</th>
+                        <th class="py-2.5 px-4">Annual Payment</th>
+                        <th class="py-2.5 px-4 text-accent-emerald">Principal Paid</th>
+                        <th class="py-2.5 px-4 text-accent-rose">Interest Paid</th>
+                        <th class="py-2.5 px-4">Ending Balance</th>
+                        <th class="py-2.5 px-4 text-emerald-400">Cumulative Paydown</th>
+                        <th class="py-2.5 px-4 pr-5 text-slate-400">LTV (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="amortization-table-body" class="divide-y divide-slate-900/60">
+                      <!-- Dynamically generated amortization rows -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+        </div>
+
+        <!-- Tab Panel: DILIGENCE -->
+        <div id="tab-panel-diligence" data-tab-panel class="space-y-6 hidden">
+<!-- SUB-PAGE 5: Assumptions Provenance & Due Diligence Bridge -->
+      <div id="view-panel-diligence" data-deal-panel="diligence" class="space-y-6">
+        <!-- Underwriting Assumptions Provenance & Diligence Bridge Section -->
+          <div id="assumptions-diligence-bridge-section" class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-5 transition duration-300">
+            <!-- Header with Title & Filter Pills -->
+            <div class="pb-3 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span>Underwriting Assumptions Provenance & Diligence Bridge</span>
+                  <span id="bridge-category-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Institutional Audit</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Granular provenance for every model input: Economic Derivation, Assessor Benchmarks, and Quantitative Valuation Sensitivity.</p>
+              </div>
+              <div class="flex items-center space-x-2 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button type="button" onclick="filterAssumptionsCategory('all')" id="btn-cat-all" class="px-2.5 py-1 rounded-lg font-bold bg-brand-600 text-white transition text-[11px]">All (8)</button>
+                <button type="button" onclick="filterAssumptionsCategory('acquisition')" id="btn-cat-acquisition" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">Acquisition</button>
+                <button type="button" onclick="filterAssumptionsCategory('revenue')" id="btn-cat-revenue" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">Revenue</button>
+                <button type="button" onclick="filterAssumptionsCategory('financing')" id="btn-cat-financing" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">Debt</button>
+                <button type="button" onclick="filterAssumptionsCategory('operations')" id="btn-cat-operations" class="px-2.5 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition text-[11px]">OpEx/CapEx</button>
+              </div>
+            </div>
+
+            <!-- Dynamic Assumptions Cards Container -->
+            <div id="assumptions-diligence-bridge-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Dynamically populated assumption cards -->
+            </div>
+
+            <!-- Interactive Due Diligence Action Bridge Checklist & Verification Score -->
+            <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4.5 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
+                <div class="flex items-center space-x-2">
+                  <span class="text-base">📋</span>
+                  <div>
+                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-200">Underwriting Records & Verification Audit</h4>
+                    <p class="text-[11px] text-slate-400">Track documentation, historical records, and property data inputs used to evaluate the asset.</p>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                  <div class="text-right">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Diligence Completion</span>
+                    <span id="diligence-progress-pct" class="text-xs font-black text-emerald-400">0% (0 of 8 Verified)</span>
+                  </div>
+                  <div class="w-24 bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="diligence-progress-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 8 Checkable Deliverables Grid -->
+              <div id="diligence-checklist-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                <!-- Dynamically populated check items -->
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+        </div>
+
+        <!-- Tab Panel: SENSITIVITY -->
+        <div id="tab-panel-sensitivity" data-tab-panel class="space-y-6 hidden">
+<!-- SUB-PAGE 6: Risk & Sensitivity (2D Matrix & Monte Carlo) -->
+      <!-- View Panel 2: 2D Sensitivity Heatmap & Monte Carlo Risk Simulation -->
+        <div id="view-panel-sensitivity" class="space-y-6">
+          <!-- 2D Heatmap Matrix Card -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-900 pb-3 gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-brand-400"></span>
+                  <span>2D Sensitivity Matrix & Return Heatmap</span>
+                </h3>
+                <p class="text-xs text-slate-400">Evaluating IRR returns across variable operational and market parameters</p>
+              </div>
+              <div class="flex gap-2">
+                <select id="sens-row-param" aria-label="Sensitivity table Y-Axis parameter" class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-brand-500">
+                  <option value="interestRate">Y-Axis: Interest Rate</option>
+                  <option value="purchasePrice">Y-Axis: Purchase Price</option>
+                  <option value="downPaymentPercent">Y-Axis: Down Payment %</option>
+                </select>
+                <select id="sens-col-param" aria-label="Sensitivity table X-Axis parameter" class="bg-slate-950 border border-slate-800 text-xs text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-brand-500">
+                  <option value="targetCapRate">X-Axis: Exit Cap Rate</option>
+                  <option value="vacancyRate">X-Axis: Vacancy Rate</option>
+                  <option value="rentGrowth">X-Axis: Rent Growth</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Heatmap table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-center border-collapse text-xs">
+                <thead id="sens-table-head" class="text-slate-400 font-semibold bg-slate-950/80">
+                  <!-- Generated Heatmap Head -->
+                </thead>
+                <tbody id="sens-table-body" class="divide-y divide-slate-900">
+                  <!-- Generated Heatmap Body -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Monte Carlo Simulation Card -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-900 pb-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-violet"></span>
+                  <span>Monte Carlo 1,000-Iteration Risk Analysis</span>
+                </h3>
+                <p class="text-xs text-slate-400">Stochastic market volatility model (Rent Growth, Appreciation & Vacancy Shocks)</p>
+              </div>
+              <button id="btn-run-mc" class="px-3 py-1.5 rounded-lg border border-accent-violet/40 bg-accent-violet/20 hover:bg-accent-violet/30 text-xs font-bold text-accent-violet transition flex items-center space-x-1.5">
+                <span>🎲 Re-Run 1,000 Runs</span>
+              </button>
+            </div>
+
+            <!-- Statistical Distribution Summary -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Mean Expected IRR</p>
+                <p id="mc-mean-irr" class="text-sm font-extrabold text-white mt-1">0.0%</p>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Median IRR (P50)</p>
+                <p id="mc-median-irr" class="text-sm font-extrabold text-accent-violet mt-1">0.0%</p>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Downside Risk (P5)</p>
+                <p id="mc-p5-irr" class="text-sm font-extrabold text-accent-rose mt-1">0.0%</p>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Upside Potential (P95)</p>
+                <p id="mc-p95-irr" class="text-sm font-extrabold text-accent-emerald mt-1">0.0%</p>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Prob. Neg Cash Flow</p>
+                <p id="mc-prob-neg" class="text-sm font-extrabold text-amber-400 mt-1">0.0%</p>
+              </div>
+            </div>
+
+            <!-- Monte Carlo Distribution Chart -->
+            <div class="h-64 w-full relative pt-2">
+              <canvas id="monte-carlo-chart"></canvas>
+            </div>
+          </div>
+        </div>
+    </div>
+        </div>
+
+        <!-- Tab Panel: TAX -->
+        <div id="tab-panel-tax" data-tab-panel class="space-y-6 hidden">
+<!-- SUB-PAGE 7: Tax Depreciation & Wealth Realization Studio -->
+      <div id="view-panel-tax" data-deal-panel="tax" class="space-y-6">
+        <!-- Holding Period Wealth & Amortization Equity Realization Studio -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden space-y-4">
+            <div class="pb-3 border-b border-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span>Amortization Wealth & Equity Realization</span>
+                </h3>
+                <p class="text-xs text-slate-400">Track realized equity from tenant debt paydown, market appreciation, and cumulative cash flow</p>
+              </div>
+              <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <label for="input-wealth-hold-year" class="text-[11px] font-bold text-slate-400">Hold Period:</label>
+                <select id="input-wealth-hold-year" class="bg-slate-900 border border-slate-700 text-xs font-bold text-white rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500">
+                  <option value="1">Year 1</option>
+                  <option value="2">Year 2</option>
+                  <option value="3">Year 3</option>
+                  <option value="4">Year 4</option>
+                  <option value="5">Year 5</option>
+                  <option value="7">Year 7</option>
+                  <option value="10" selected>Year 10 (Full Hold)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 5 Decomposed Wealth Creation Tiles -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+              <!-- Debt Paydown Equity -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Tenant Debt Paydown</span>
+                <span id="wealth-debt-paydown" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Forced equity savings</span>
+              </div>
+
+              <!-- Market Appreciation Equity -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Appreciation Gain</span>
+                <span id="wealth-appreciation" class="text-base font-black text-cyan-400 mt-1 block">$0</span>
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Asset value growth</span>
+              </div>
+
+              <!-- Cumulative Cash Flow -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Cumulative Cash Flow</span>
+                <span id="wealth-cashflow" class="text-base font-black text-white mt-1 block">$0</span>
+                <span id="wealth-cashflow-sub" class="text-[10px] text-slate-500 mt-0.5 block">Cash pocketed to date</span>
+              </div>
+
+              <!-- Net Portfolio Equity (NAV) -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <span class="text-[10px] uppercase font-bold text-slate-500 block">Net Owned Equity (NAV)</span>
+                <span id="wealth-net-equity" class="text-base font-black text-brand-400 mt-1 block">$0</span>
+                <span id="wealth-nav-sub" class="text-[10px] text-slate-500 mt-0.5 block">Value minus remaining debt</span>
+              </div>
+
+              <!-- Total Net Wealth -->
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-emerald-900/60 bg-emerald-950/10">
+                <span class="text-[10px] uppercase font-bold text-emerald-400 block">Total Net Wealth</span>
+                <span id="wealth-net-benefit" class="text-base font-black text-emerald-400 mt-1 block">$0</span>
+                <span id="wealth-roe-sub" class="text-[10px] text-slate-400 mt-0.5 block">Net Equity + Cash Flow</span>
+              </div>
+            </div>
+
+            <!-- Explanatory note -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900 gap-2">
+              <span id="wealth-summary-narrative">By Year 10, tenant mortgage payments pay down <strong class="text-white">$0</strong> of principal while property value rises to <strong class="text-white">$0</strong>.</span>
+              <span id="wealth-time-npv" class="text-slate-400 font-mono text-[10px] shrink-0">Hold NPV: <strong class="text-white">$0</strong></span>
+            </div>
+          </div>
+        <!-- View Panel 3: Tax Depreciation & Mid-Hold BRRRR Refinance Strategy -->
+        
+          <!-- Tax & Depreciation Card -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-900 pb-3 gap-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-emerald"></span>
+                  <span>Tax Depreciation (MACRS) & After-Tax ROI</span>
+                </h3>
+                <p class="text-xs text-slate-400">Straight-line depreciation, Cost Segregation, tax shields, and exit tax liabilities</p>
+              </div>
+              <div class="flex items-center space-x-3 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-900">
+                <label class="text-xs font-bold text-slate-300 flex items-center space-x-2 cursor-pointer">
+                  <input type="checkbox" id="input-cost-seg" aria-label="Enable Cost Segregation (80% Bonus Yr 1)" class="rounded bg-slate-900 border-slate-800 text-brand-500 focus:ring-brand-500">
+                  <span>Enable Cost Segregation (80% Bonus Yr 1)</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Tax Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Depreciable Basis</p>
+                <p id="tax-basis" class="text-base font-extrabold text-white mt-1">$0</p>
+              </div>
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Annual Depreciation</p>
+                <p id="tax-annual-dep" class="text-base font-extrabold text-accent-emerald mt-1">$0</p>
+              </div>
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">After-Tax IRR</p>
+                <p id="tax-after-irr" class="text-base font-extrabold text-accent-violet mt-1">0.0%</p>
+              </div>
+              <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+                <p class="text-[10px] font-bold text-slate-500 uppercase">Exit Tax Liability</p>
+                <p id="tax-exit-liability" class="text-base font-extrabold text-accent-rose mt-1">$0</p>
+              </div>
+            </div>
+
+            <!-- Yearly Tax Breakdown Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead>
+                  <tr class="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/80">
+                    <th class="py-2.5 px-4 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Date / Period</th>
+                    <th class="py-2.5 px-4">NOI</th>
+                    <th class="py-2.5 px-4">Interest Expense</th>
+                    <th class="py-2.5 px-4 text-accent-emerald">Depreciation</th>
+                    <th class="py-2.5 px-4">Taxable Income</th>
+                    <th class="py-2.5 px-4">Tax Liability / Shield</th>
+                    <th class="py-2.5 px-4 text-white font-bold">After-Tax Cash Flow</th>
+                  </tr>
+                </thead>
+                <tbody id="tax-table-body" class="divide-y divide-slate-900/60">
+                  <!-- Dynamically generated tax rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mid-Hold BRRRR Refinance Simulation Card -->
+          <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-900 pb-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-cyan"></span>
+                  <span>Mid-Hold Refinance & BRRRR Strategy Simulation</span>
+                </h3>
+                <p class="text-xs text-slate-400">Model cash-out refinance events to retrieve invested equity mid-hold</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-950/60 p-4 rounded-xl border border-slate-900">
+              <div>
+                <label for="refi-input-year" class="text-xs font-semibold text-slate-400">Refinance Year</label>
+                <select id="refi-input-year" class="w-full mt-1 bg-slate-900 border border-slate-800 text-xs text-white rounded-lg p-2">
+                  <option value="3">Year 3</option>
+                  <option value="5" selected>Year 5</option>
+                  <option value="7">Year 7</option>
+                </select>
+              </div>
+              <div>
+                <label for="refi-input-ltv" class="text-xs font-semibold text-slate-400">New Refi LTV (%)</label>
+                <input type="number" id="refi-input-ltv" value="75" class="w-full mt-1 bg-slate-900 border border-slate-800 text-xs text-white rounded-lg p-2">
+              </div>
+              <div>
+                <label for="refi-input-rate" class="text-xs font-semibold text-slate-400">New Interest Rate (%)</label>
+                <input type="number" step="any" id="refi-input-rate" value="6.5" class="w-full mt-1 bg-slate-900 border border-slate-800 text-xs text-white rounded-lg p-2">
+              </div>
+              <div class="flex items-end">
+                <button id="btn-recalc-refi" class="w-full py-2 bg-brand-600 hover:bg-brand-500 text-xs font-bold text-white rounded-lg transition">Simulate Cash-Out</button>
+              </div>
+            </div>
+
+            <!-- Refinance Impact Scorecards -->
+            <div id="refi-summary-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <!-- Dynamically populated refi metrics -->
+            </div>
+          </div>
+        </div>
+    </div>
+        </div>
+    </main>
   <!-- Edit Project Inputs Modal for project.html -->
   <div id="edit-deal-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl my-2 sm:my-6 max-h-[96vh] sm:max-h-[92vh] overflow-y-auto">
@@ -2764,6 +3562,204 @@
       setVal('active-tab-indicator', assetNames[activeTab] || activeTab);
     }
 
+    let currentMonthlyEndDate = null;
+
+    function setMonthlyScheduleMonths(months) {
+      months = Math.max(1, Math.min(360, parseInt(months, 10) || 24));
+      currentMonthlyMonths = months;
+      currentMonthlyEndDate = null;
+      renderMonthlyScheduleTable();
+    }
+    window.setMonthlyScheduleMonths = setMonthlyScheduleMonths;
+
+    function onMonthlySliderChange(val) {
+      const months = Math.max(1, Math.min(360, parseInt(val, 10) || 24));
+      currentMonthlyMonths = months;
+      currentMonthlyEndDate = null;
+      renderMonthlyScheduleTable();
+    }
+    window.onMonthlySliderChange = onMonthlySliderChange;
+
+    function onMonthlyEndDateChange(dateStr) {
+      if (!dateStr) return;
+      currentMonthlyEndDate = dateStr;
+      renderMonthlyScheduleTable();
+    }
+    window.onMonthlyEndDateChange = onMonthlyEndDateChange;
+
+    function setMonthlyScheduleToHoldPeriod() {
+      const inputs = getInputsFromForm();
+      const holdYears = parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10);
+      setMonthlyScheduleMonths(holdYears * 12);
+    }
+    window.setMonthlyScheduleToHoldPeriod = setMonthlyScheduleToHoldPeriod;
+
+    function exportMonthlyScheduleCSV() {
+      const inputs = getInputsFromForm();
+      const options = {
+        startDate: inputs.closingDate || '2026-10-01',
+        totalMonths: currentMonthlyMonths
+      };
+      if (currentMonthlyEndDate) options.endDate = currentMonthlyEndDate;
+      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, options);
+      if (!monthlyData || !monthlyData.monthlyProjections || monthlyData.monthlyProjections.length === 0) {
+        alert('No monthly projection data available to export.');
+        return;
+      }
+
+      const headers = ['Month #', 'Period', 'Operating Year', 'Gross Potential Rent', 'Vacancy Loss', 'Operating Expenses', 'Net Operating Income (NOI)', 'Debt Service Payment', 'Principal Paid', 'Interest Paid', 'Remaining Loan Balance', 'Monthly Net Cash Flow', 'Cumulative Net Cash Flow'];
+      const csvRows = [headers.join(',')];
+
+      monthlyData.monthlyProjections.forEach(r => {
+        csvRows.push([
+          r.monthNumber,
+          `"${r.label}"`,
+          r.operatingYear,
+          r.grossIncome,
+          r.vacancyLoss,
+          r.operatingExpenses,
+          r.netOperatingIncome,
+          r.debtService,
+          r.principalPaid,
+          r.interestPaid,
+          r.remainingLoanBalance,
+          r.netCashFlow,
+          r.cumulativeCashFlow
+        ].join(','));
+      });
+
+      const csvString = csvRows.join('\r\n');
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const dealTitle = (currentLoadedDeal?.title || 'deal').replace(/[^a-z0-9_-]/gi, '_');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${dealTitle}_Monthly_CashFlow_Schedule_${monthlyData.startDateISO}_to_${monthlyData.endDateISO}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    window.exportMonthlyScheduleCSV = exportMonthlyScheduleCSV;
+
+    function renderMonthlyScheduleTable() {
+      const tbody = document.getElementById('monthly-schedule-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const inputs = getInputsFromForm();
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        if (!currentMonthlyEndDate && currentLoadedDeal.inputs.monthlyEndDate) {
+          currentMonthlyEndDate = currentLoadedDeal.inputs.monthlyEndDate;
+        }
+        if (currentMonthlyMonths === 24 && currentLoadedDeal.inputs.monthlyTotalMonths) {
+          currentMonthlyMonths = parseInt(currentLoadedDeal.inputs.monthlyTotalMonths, 10) || 24;
+        }
+      }
+
+      const options = {
+        startDate: inputs.closingDate || '2026-10-01',
+        totalMonths: currentMonthlyMonths
+      };
+      if (currentMonthlyEndDate) {
+        options.endDate = currentMonthlyEndDate;
+      }
+
+      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, options);
+      if (!monthlyData || !monthlyData.monthlyProjections) return;
+
+      currentMonthlyMonths = monthlyData.totalMonths;
+      currentMonthlyEndDate = monthlyData.endDateISO;
+
+      // Synchronize UI Controls
+      const dateInput = document.getElementById('input-monthly-end-date');
+      if (dateInput) dateInput.value = monthlyData.endDateISO;
+
+      const startDateDisplay = document.getElementById('monthly-start-date-display');
+      if (startDateDisplay) startDateDisplay.textContent = `${monthlyData.startMonthName} ${monthlyData.startYear}`;
+
+      const slider = document.getElementById('slider-monthly-months');
+      if (slider) slider.value = currentMonthlyMonths;
+
+      const pill = document.getElementById('monthly-horizon-pill');
+      if (pill) pill.textContent = `${currentMonthlyMonths} Months (${(currentMonthlyMonths / 12).toFixed(1)} Yrs)`;
+
+      const sub = document.getElementById('monthly-horizon-range-sub');
+      if (sub) sub.textContent = `${monthlyData.startMonthName} ${monthlyData.startYear} ➔ ${monthlyData.endMonthName} ${monthlyData.endYear} (${currentMonthlyMonths} Consecutive Months)`;
+
+      // Update Preset Button highlights
+      document.querySelectorAll('.btn-monthly-preset').forEach(btn => {
+        const btnM = parseInt(btn.getAttribute('data-months'), 10);
+        if (btnM === currentMonthlyMonths) {
+          btn.className = 'btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 transition shadow-sm';
+        } else {
+          btn.className = 'btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition';
+        }
+      });
+
+      // Update Summary KPI Strip
+      if (monthlyData.summary) {
+        const grossEl = document.getElementById('kpi-monthly-gross');
+        if (grossEl) grossEl.textContent = formatCurrency(monthlyData.summary.totalGrossIncome);
+
+        const noiEl = document.getElementById('kpi-monthly-noi');
+        if (noiEl) noiEl.textContent = formatCurrency(monthlyData.summary.totalNOI);
+
+        const debtEl = document.getElementById('kpi-monthly-debt');
+        if (debtEl) debtEl.textContent = formatCurrency(monthlyData.summary.totalDebtService);
+
+        const princEl = document.getElementById('kpi-monthly-principal');
+        if (princEl) princEl.textContent = formatCurrency(monthlyData.summary.totalPrincipalPaid);
+
+        const netCashEl = document.getElementById('kpi-monthly-net-cash');
+        if (netCashEl) {
+          const isNetCashDeficit = monthlyData.summary.netCumulativeCashFlow < 0;
+          netCashEl.textContent = `${isNetCashDeficit ? '-' : ''}${formatCurrency(Math.abs(monthlyData.summary.netCumulativeCashFlow))}`;
+          netCashEl.className = `text-xs font-black ${isNetCashDeficit ? 'text-accent-rose' : 'text-emerald-400'}`;
+        }
+
+        const balEl = document.getElementById('kpi-monthly-loan-bal');
+        if (balEl) balEl.textContent = formatCurrency(monthlyData.summary.endingLoanBalance);
+      }
+
+      // Populate Table Rows with DocumentFragment
+      const frag = document.createDocumentFragment();
+      monthlyData.monthlyProjections.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/30 text-slate-300 font-medium transition';
+        const isDeficit = m.netCashFlow < 0;
+        const isCumDeficit = m.cumulativeCashFlow < 0;
+
+        tr.innerHTML = `
+          <td class="py-3 px-5">
+            <div class="text-white font-bold text-xs">${m.label}</div>
+            <div class="text-[10px] text-slate-500 font-mono">Month ${m.monthNumber}</div>
+          </td>
+          <td class="py-3.5 px-4 text-slate-400 font-mono">Yr ${m.operatingYear}</td>
+          <td class="py-3.5 px-4">${formatCurrency(m.grossIncome)}</td>
+          <td class="py-3.5 px-4 text-accent-rose/85">${formatCurrency(m.vacancyLoss)}</td>
+          <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.operatingExpenses)}</td>
+          <td class="py-3.5 px-4 text-white font-semibold">${formatCurrency(m.netOperatingIncome)}</td>
+          <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.debtService)}</td>
+          <td class="py-3.5 px-4 text-cyan-400 font-medium">${formatCurrency(m.principalPaid)}</td>
+          <td class="py-3.5 px-4 text-slate-500">${formatCurrency(m.interestPaid)}</td>
+          <td class="py-3.5 px-4 text-slate-400 font-mono">${formatCurrency(m.remainingLoanBalance)}</td>
+          <td class="py-3.5 px-4 font-bold ${isDeficit ? 'text-accent-rose' : 'text-accent-emerald'}">${isDeficit ? '-' : ''}${formatCurrency(Math.abs(m.netCashFlow))}</td>
+          <td class="py-3.5 px-4 pr-5 font-bold ${isCumDeficit ? 'text-accent-rose' : 'text-emerald-400'}">${isCumDeficit ? '-' : ''}${formatCurrency(Math.abs(m.cumulativeCashFlow))}</td>
+        `;
+        frag.appendChild(tr);
+      });
+      tbody.appendChild(frag);
+
+      // Save state to deal inputs if deal loaded
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.monthlyTotalMonths = currentMonthlyMonths;
+        currentLoadedDeal.inputs.monthlyEndDate = currentMonthlyEndDate;
+        if (typeof saveCurrentDealChanges === 'function') {
+          saveCurrentDealChanges(false);
+        }
+      }
+    }
+    window.renderMonthlyScheduleTable = renderMonthlyScheduleTable;
+
     function updateCalculations() {
       syncSimpleModeState();
       syncManagementCheckboxState();
@@ -3058,28 +4054,71 @@
     // Switch workspace views (Dashboard, Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio)
     // Switch between the 7 Deal Hub Sub-Pages
         function switchDealTab(tabName) {
+      if (!tabName) tabName = 'overview';
       const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
       if (tabName === 'diligence' && isOwned) {
         tabName = 'overview';
       }
-      const pageMap = {
-        overview: 'project.html',
-        proforma: 'project-proforma.html',
-        property: 'project-property.html',
-        debt: 'project-debt.html',
-        diligence: 'project-diligence.html',
-        sensitivity: 'project-sensitivity.html',
-        tax: 'project-tax.html'
-      };
 
-      const targetFile = pageMap[tabName] || 'project.html';
-      const currentPath = window.location.pathname.split('/').pop().split('?')[0].split('#')[0] || 'project.html';
+      const validTabs = ['overview', 'proforma', 'property', 'debt', 'tax', 'diligence', 'sensitivity'];
+      if (!validTabs.includes(tabName)) tabName = 'overview';
 
-      if (targetFile !== currentPath) {
-        const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (typeof currentLoadedDeal !== 'undefined' && currentLoadedDeal && currentLoadedDeal.id);
-        const url = targetFile + (dealId ? '?id=' + encodeURIComponent(dealId) : '');
-        window.location.href = url;
-        return;
+      // 1. Toggle tab panels
+      document.querySelectorAll('[data-tab-panel]').forEach(el => el.classList.add('hidden'));
+      const activePanel = document.getElementById('tab-panel-' + tabName);
+      if (activePanel) {
+        activePanel.classList.remove('hidden');
+      }
+
+      // 2. Update navigation styling
+      document.querySelectorAll('a[data-page-key]').forEach(a => {
+        const key = a.getAttribute('data-page-key');
+        if (key === tabName) {
+          a.className = 'flex items-center justify-between p-2 rounded-xl transition group bg-brand-600 text-white font-bold shadow-md';
+        } else {
+          a.className = 'flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white';
+        }
+      });
+
+      document.querySelectorAll('a[data-mobile-nav]').forEach(a => {
+        const key = a.getAttribute('data-mobile-nav');
+        if (key === tabName) {
+          a.className = 'flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-brand-400 transition';
+        } else {
+          a.className = 'flex flex-col items-center py-0.5 px-2 text-[10px] font-bold text-slate-400 hover:text-white transition';
+        }
+      });
+
+      // 3. Update active tab indicator pill
+      const tabIndicator = document.getElementById('active-tab-indicator');
+      if (tabIndicator) {
+        const labels = {
+          overview: 'Deal Overview',
+          proforma: 'Pro-Forma & Cash Flows',
+          property: 'Property & Assessor',
+          debt: 'Debt & Amortization',
+          tax: 'Tax & Depreciation',
+          diligence: 'Due Diligence',
+          sensitivity: 'Sensitivity & Risk'
+        };
+        tabIndicator.textContent = labels[tabName] || tabName;
+      }
+
+      // 4. Update browser history state without page reload
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tabName);
+        window.history.replaceState({ tab: tabName }, '', url.toString());
+      } catch (_) {}
+
+      // 5. Trigger tab-specific refresh routines
+      if (tabName === 'proforma' && typeof renderMonthlyScheduleTable === 'function') {
+        renderMonthlyScheduleTable();
+      }
+      if (tabName === 'sensitivity' && typeof updateSensitivityMatrix === 'function') {
+        const curInputs = getInputsFromForm();
+        const curRes = window.PropertyMath.calculateProjections(activeTab, curInputs);
+        updateSensitivityMatrix(curInputs, curRes);
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -7720,6 +8759,33 @@
 
     // DOM Initialization & Event Listeners
     document.addEventListener('DOMContentLoaded', async () => {
+
+      // Intercept sidebar & mobile tab links for instant zero-reload switching
+      document.querySelectorAll('a[data-page-key]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          const key = a.getAttribute('data-page-key');
+          if (key) {
+            e.preventDefault();
+            switchDealTab(key);
+          }
+        });
+      });
+      document.querySelectorAll('a[data-mobile-nav]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          const key = a.getAttribute('data-mobile-nav');
+          if (key) {
+            e.preventDefault();
+            switchDealTab(key);
+          }
+        });
+      });
+
+      // Check URL for requested tab
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (requestedTab && requestedTab !== 'overview') {
+        setTimeout(() => switchDealTab(requestedTab), 30);
+      }
+
       decodeUrlHash();
 
       // Asset Class Tab Click Handlers

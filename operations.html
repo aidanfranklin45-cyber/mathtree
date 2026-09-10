@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- MathTree Session & Settings -->
   <script src="session.js"></script>
+  <script src="mathtree-client.js"></script>
   <script src="profile.js"></script>
   <script src="math.js?v=4"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -783,13 +784,14 @@
       if (client && user && !user.demo) {
         try {
           // Fetch entities, deals, units, leases, rent payments, and rent increases with user_id scoping
-          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.allSettled([
+          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases, resStats] = await Promise.allSettled([
             client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true }),
             client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true }),
             client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true }),
             client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false }),
             client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false }),
-            client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false })
+            client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false }),
+            client.from('view_property_management_stats').select('*').eq('user_id', user.id)
           ]);
 
           rawEntities = (resEntities.status === 'fulfilled' && resEntities.value.data) || [];
@@ -798,6 +800,8 @@
           rawLeases = (resLeases.status === 'fulfilled' && resLeases.value.data) || [];
           rawPayments = (resPayments.status === 'fulfilled' && resPayments.value.data) || [];
           rawIncreases = (resIncreases.status === 'fulfilled' && resIncreases.value.data) || [];
+          const rawStats = (resStats && resStats.status === 'fulfilled' && resStats.value.data) || [];
+          window._propertyManagementStats = rawStats;
 
           // Handle 401 token refresh retry if deals query failed with PGRST303
           if (resDeals.status === 'fulfilled' && resDeals.value.error && (resDeals.value.error.code === 'PGRST303' || resDeals.value.error.message?.includes('JWT'))) {

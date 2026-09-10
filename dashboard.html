@@ -13,6 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- MathTree Session Management (Inactivity Timeout) -->
   <script src="session.js"></script>
+  <script src="mathtree-client.js"></script>
   <script src="profile.js"></script>
   <script src="math.js?v=4"></script>
   <script src="address-service.js"></script>
@@ -1816,6 +1817,29 @@
           sumPipelineIrr += irr;
         }
       });
+
+      // Database View Enrichment: query view_portfolio_aggregates if in live mode
+      if (window._supabase && window._currentUser && !window._currentUser.demo) {
+        try {
+          const viewRes = await window._supabase
+            .from('view_portfolio_aggregates')
+            .select('*')
+            .eq('user_id', window._currentUser.id)
+            .maybeSingle();
+
+          if (viewRes && viewRes.data) {
+            const v = viewRes.data;
+            if (v.total_owned_value !== null) ownedVal = parseFloat(v.total_owned_value) || ownedVal;
+            if (v.total_owned_equity !== null) ownedEquity = parseFloat(v.total_owned_equity) || ownedEquity;
+            if (v.total_owned_debt !== null) ownedDebt = parseFloat(v.total_owned_debt) || ownedDebt;
+            if (v.blended_owned_ltv !== null) ownedLtv = parseFloat(v.blended_owned_ltv) || ownedLtv;
+            if (v.total_owned_cashflow !== null) ownedCashFlow = parseFloat(v.total_owned_cashflow) || ownedCashFlow;
+            if (v.total_pipeline_value !== null) pipelineVal = parseFloat(v.total_pipeline_value) || pipelineVal;
+            if (v.pipeline_count !== null) pipelineCount = parseInt(v.pipeline_count, 10) || pipelineCount;
+            if (v.owned_count !== null) ownedCount = parseInt(v.owned_count, 10) || ownedCount;
+          }
+        } catch (_) {}
+      }
 
       const avgPipelineIrr = pipelineCount > 0 ? (sumPipelineIrr / pipelineCount) : 0;
       const avgOwnedYield = ownedEquity > 0 ? ((ownedCashFlow / ownedEquity) * 100) : 0;
