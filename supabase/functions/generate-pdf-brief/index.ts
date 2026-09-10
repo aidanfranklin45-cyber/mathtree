@@ -3,6 +3,7 @@
 // Dual-Mode: Single-Asset Underwriting Memo & Portfolio & Pipeline Command Center Brief
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -825,6 +826,188 @@ function buildPortfolioBriefHtml(portfolio: any): string {
 }
 
 // =========================================================================
+// 2.5 SERVER-SIDE PORTFOLIO AGGREGATOR (Calculates totals directly from DB)
+// =========================================================================
+function aggregateDealsToPortfolio(deals: any[], meta: any = {}) {
+  const owned = deals.filter(d => d.status === 'owned');
+  const pipeline = deals.filter(d => d.status !== 'owned');
+
+  let ownedGAV = 0, ownedEquity = 0, ownedDebt = 0, ownedCashFlow = 0, ownedNoi = 0, ownedDebtService = 0;
+  let ownedUnits = 0, ownedCommercialSqFt = 0, ownedAcres = 0;
+
+  const ownedHoldings = owned.map(d => {
+    const price = parseFloat(d.purchase_price || d.inputs?.purchasePrice || 0);
+    const eq = parseFloat(d.total_equity || d.metrics?.initialCashInvested || (price * 0.25));
+    const debt = Math.max(0, price - eq);
+    const cf = parseFloat(d.year1_cashflow || d.metrics?.projections?.[0]?.cashFlow || 0);
+    const noi = parseFloat(d.metrics?.noi || d.metrics?.projections?.[0]?.netOperatingIncome || 0);
+    const debtService = parseFloat(d.metrics?.annualDebtService || d.metrics?.projections?.[0]?.debtService || 0);
+    const dscr = d.metrics?.dscr || (debtService > 0 ? (noi / debtService).toFixed(2) : 'N/A');
+    const capRate = parseFloat(d.metrics?.capRate || d.cap_rate || 0);
+    const inp = d.inputs || {};
+    const rawAssessor = inp.assessorData || {};
+
+    ownedGAV += price;
+    ownedEquity += eq;
+    ownedDebt += debt;
+    ownedCashFlow += cf;
+    ownedNoi += noi;
+    ownedDebtService += debtService;
+
+    const acres = parseFloat(rawAssessor.acres || inp.acres || 0);
+    ownedAcres += acres;
+    const bldg = parseFloat(rawAssessor.buildingSqFt || inp.buildingSqFt || inp.gla || inp.totalSqFt || 0);
+    ownedCommercialSqFt += bldg;
+
+    return {
+      id: d.id,
+      name: d.title || d.name || 'Untitled Asset',
+      location: d.location || inp.location || 'Location Unspecified',
+      status: 'owned',
+      assetClass: d.asset_type || d.asset_class || 'commercial',
+      facilityType: inp.facilityType || (d.asset_type === 'commercial' ? 'Commercial Real Estate' : d.asset_type),
+      price,
+      equity: eq,
+      debt,
+      cashFlow: cf,
+      coc: eq > 0 ? ((cf / eq) * 100) : 0,
+      noi,
+      debtService,
+      dscr,
+      capRate,
+      apn: rawAssessor.apn || inp.primaryApn || inp.apn || 'Pending Link',
+      county: rawAssessor.county || inp.county || 'Yakima County, WA',
+      acres,
+      bldgSqFt: bldg,
+      yearBuilt: rawAssessor.yearBuilt || inp.yearBuilt || 'N/A',
+      zoning: rawAssessor.zoning || inp.zoning || 'Commercial / Mixed',
+      owner: rawAssessor.owner || inp.owner || 'Owner of Record'
+    };
+  });
+
+  let pipelineVolume = 0, pipelineEquity = 0, sumPipelineIrr = 0, pipelineYear1CF = 0, pipelineNoi = 0;
+  let pipelineUnits = 0, pipelineCommercialSqFt = 0, pipelineAcres = 0;
+
+  const pipelineDeals = pipeline.map(d => {
+    const price = parseFloat(d.purchase_price || d.inputs?.purchasePrice || 0);
+    const eq = parseFloat(d.total_equity || d.metrics?.initialCashInvested || (price * 0.25));
+    const debt = Math.max(0, price - eq);
+    const cf = parseFloat(d.year1_cashflow || d.metrics?.projections?.[0]?.cashFlow || 0);
+    const irr = parseFloat(d.irr || d.metrics?.irr || 0);
+    const noi = parseFloat(d.metrics?.noi || d.metrics?.projections?.[0]?.netOperatingIncome || 0);
+    const debtService = parseFloat(d.metrics?.annualDebtService || d.metrics?.projections?.[0]?.debtService || 0);
+    const dscr = d.metrics?.dscr || (debtService > 0 ? (noi / debtService).toFixed(2) : 'N/A');
+    const capRate = parseFloat(d.metrics?.capRate || d.cap_rate || 0);
+    const inp = d.inputs || {};
+    const rawAssessor = inp.assessorData || {};
+
+    pipelineVolume += price;
+    pipelineEquity += eq;
+    sumPipelineIrr += irr;
+    pipelineYear1CF += cf;
+    pipelineNoi += noi;
+
+    const acres = parseFloat(rawAssessor.acres || inp.acres || 0);
+    pipelineAcres += acres;
+    const bldg = parseFloat(rawAssessor.buildingSqFt || inp.buildingSqFt || inp.gla || inp.totalSqFt || 0);
+    pipelineCommercialSqFt += bldg;
+
+    return {
+      id: d.id,
+      name: d.title || d.name || 'Untitled Asset',
+      location: d.location || inp.location || 'Location Unspecified',
+      status: d.status || 'prospect',
+      assetClass: d.asset_type || d.asset_class || 'commercial',
+      facilityType: inp.facilityType || (d.asset_type === 'commercial' ? 'Commercial Logistics' : d.asset_type),
+      price,
+      equity: eq,
+      debt,
+      cashFlow: cf,
+      coc: eq > 0 ? ((cf / eq) * 100) : 0,
+      irr,
+      noi,
+      debtService,
+      dscr,
+      capRate,
+      ltv: price > 0 ? Math.round((debt / price) * 100) : 0,
+      rate: inp.interestRate || 6.5,
+      term: inp.loanTerm || 30,
+      stage: inp.dealStage || 'screening',
+      holdYrs: inp.exitYear || 10,
+      apn: rawAssessor.apn || inp.primaryApn || inp.apn || 'Pending Link',
+      county: rawAssessor.county || inp.county || 'Yakima County, WA',
+      acres,
+      bldgSqFt: bldg,
+      yearBuilt: rawAssessor.yearBuilt || inp.yearBuilt || 'N/A',
+      zoning: rawAssessor.zoning || inp.zoning || 'Commercial / Mixed',
+      owner: rawAssessor.owner || inp.owner || 'Owner of Record'
+    };
+  });
+
+  const totalVolume = ownedGAV + pipelineVolume;
+  const totalDeals = deals.length;
+  const blendedOwnedLtv = ownedGAV > 0 ? Math.round((ownedDebt / ownedGAV) * 100) : 0;
+  const blendedOwnedYield = ownedEquity > 0 ? ((ownedCashFlow / ownedEquity) * 100) : 0;
+  const avgPipelineIrr = pipeline.length > 0 ? (sumPipelineIrr / pipeline.length) : 0;
+
+  const sectorsDef = [
+    { id: 'commercial', label: 'Commercial / Industrial', icon: '🏢' },
+    { id: 'single-family', label: 'Single-Family Residential', icon: '🏠' },
+    { id: 'multi-unit', label: 'Multi-Family (Multi-Unit)', icon: '🏬' },
+    { id: 'storage', label: 'Self-Storage Facilities', icon: '📦' }
+  ];
+
+  const sectors = sectorsDef.map(sec => {
+    const matching = deals.filter(d => (d.asset_type || d.asset_class || 'commercial') === sec.id);
+    const count = matching.length;
+    const val = matching.reduce((sum, d) => sum + parseFloat(d.purchase_price || d.inputs?.purchasePrice || 0), 0);
+    const cf = matching.reduce((sum, d) => sum + parseFloat(d.year1_cashflow || d.metrics?.projections?.[0]?.cashFlow || 0), 0);
+    const avgIrr = count > 0 ? (matching.reduce((sum, d) => sum + parseFloat(d.irr || d.metrics?.irr || 0), 0) / count) : 0;
+    const pctOfTotal = totalVolume > 0 ? ((val / totalVolume) * 100).toFixed(1) : '0.0';
+    return { ...sec, count, val, cf, avgIrr, pctOfTotal };
+  });
+
+  const auditFlags: any[] = [];
+  deals.forEach(d => {
+    const cf = parseFloat(d.year1_cashflow || d.metrics?.projections?.[0]?.cashFlow || 0);
+    if (cf < 0) {
+      auditFlags.push({
+        deal: d.title || d.name,
+        severity: 'warn',
+        title: 'Negative Cash Flow Alert',
+        desc: `Year 1 underwritten cash flow is $${Math.round(cf).toLocaleString()} (operating deficit requires reserve buffer).`
+      });
+    }
+  });
+
+  return {
+    investorName: meta.investorName || 'Investor',
+    companyName: meta.companyName || 'MathTree Real Estate Capital',
+    hurdleRate: meta.hurdleRate || 10.0,
+    kpis: {
+      ownedGAV,
+      ownedEquity,
+      ownedDebt,
+      blendedOwnedLtv,
+      ownedCashFlow,
+      blendedOwnedYield,
+      pipelineVolume,
+      pipelineCount: pipeline.length,
+      avgPipelineIrr,
+      footprintAcres: ownedAcres + pipelineAcres,
+      footprintSqFt: ownedCommercialSqFt + pipelineCommercialSqFt,
+      totalVolume,
+      totalDeals
+    },
+    sectors,
+    ownedHoldings,
+    pipelineDeals,
+    assessorAudit: [...ownedHoldings, ...pipelineDeals],
+    auditFlags
+  };
+}
+
+// =========================================================================
 // 3. SERVER ENTRYPOINT & HTTP REQUEST HANDLER
 // =========================================================================
 serve(async (req: Request) => {
@@ -833,24 +1016,70 @@ serve(async (req: Request) => {
   }
 
   try {
-    let payload: any = {};
+    const url = new URL(req.url);
+    const queryDealId = url.searchParams.get('dealId') || url.searchParams.get('id');
+    const queryMode = url.searchParams.get('mode');
+
+    let bodyPayload: any = {};
     if (req.method === 'POST') {
-      payload = await req.json().catch(() => ({}));
-    } else {
-      const url = new URL(req.url);
-      const title = url.searchParams.get('title') || 'Investment Underwriting Brief';
-      payload = { mode: 'deal', deal: { title, inputs: {}, metrics: {} } };
+      bodyPayload = await req.json().catch(() => ({}));
     }
 
-    const mode = (payload.mode || (payload.portfolio ? 'portfolio' : 'deal')).toLowerCase();
+    const dealId = queryDealId || bodyPayload.dealId || bodyPayload.id;
+    const mode = (queryMode || bodyPayload.mode || (bodyPayload.portfolio ? 'portfolio' : (dealId ? 'deal' : 'deal'))).toLowerCase();
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://bgexwcepwbxvhxbpblhd.supabase.co';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     let html = '';
-    if (mode === 'portfolio') {
-      const portfolioData = payload.portfolio || payload;
-      html = buildPortfolioBriefHtml(portfolioData);
+
+    if (dealId) {
+      // Direct database resolution for single-asset memo
+      const { data: dbDeal, error: dealErr } = await supabase.from('deals').select('*').eq('id', dealId).single();
+      if (dealErr || !dbDeal) {
+        throw new Error(`Deal not found for ID: ${dealId} (${dealErr?.message || 'record missing'})`);
+      }
+      html = buildSingleDealBriefHtml(dbDeal);
+    } else if (mode === 'portfolio') {
+      if (bodyPayload.portfolio && bodyPayload.portfolio.kpis) {
+        // Direct payload provided
+        html = buildPortfolioBriefHtml(bodyPayload.portfolio);
+      } else {
+        // Direct database resolution for portfolio command center
+        const authHeader = req.headers.get('Authorization');
+        let dealsQuery = supabase.from('deals').select('*');
+        let invName = 'Investor';
+        let compName = 'MathTree Real Estate Capital';
+
+        if (authHeader && authHeader.includes('Bearer ')) {
+          const token = authHeader.replace('Bearer ', '').trim();
+          const { data: { user } } = await supabase.auth.getUser(token);
+          if (user) {
+            invName = (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
+            dealsQuery = dealsQuery.eq('user_id', user.id);
+          } else {
+            dealsQuery = dealsQuery.eq('is_demo', true);
+          }
+        } else {
+          dealsQuery = dealsQuery.eq('is_demo', true);
+        }
+
+        const { data: dealsList, error: dealsErr } = await dealsQuery;
+        if (dealsErr) throw new Error(dealsErr.message);
+
+        const portfolioData = aggregateDealsToPortfolio(dealsList || [], { investorName: invName, companyName: compName });
+        html = buildPortfolioBriefHtml(portfolioData);
+      }
     } else {
-      const dealData = payload.deal || payload;
-      html = buildSingleDealBriefHtml(dealData);
+      // Fallback to dealData from payload or query title
+      const dealData = bodyPayload.deal || bodyPayload;
+      if (dealData && (dealData.title || dealData.inputs)) {
+        html = buildSingleDealBriefHtml(dealData);
+      } else {
+        const title = url.searchParams.get('title') || 'Investment Underwriting Brief';
+        html = buildSingleDealBriefHtml({ title, inputs: {}, metrics: {} });
+      }
     }
 
     return new Response(html, {
