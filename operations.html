@@ -82,8 +82,8 @@
         window._supabase = null;
         window._demoMode = true;
         if (window.MathTreeSession) window.MathTreeSession.startWatcher(null);
-        if (typeof initOperationsView === 'function') {
-          initOperationsView();
+        if (typeof window.initOperationsView === 'function') {
+          window.initOperationsView();
         }
         return;
       }
@@ -100,8 +100,8 @@
         }
         window._currentUser = session.user;
         if (window.MathTreeSession) window.MathTreeSession.startWatcher(guardClient);
-        if (typeof initOperationsView === 'function') {
-          initOperationsView();
+        if (typeof window.initOperationsView === 'function') {
+          window.initOperationsView();
         }
       });
 
@@ -768,32 +768,49 @@
         openEntityManagementModal();
       }
     }
+    window.initOperationsView = initOperationsView;
 
     async function refreshOperationsData() {
       await fetchAllOperationsData();
     }
+    window.refreshOperationsData = refreshOperationsData;
 
     // Fetch all records dynamically from Supabase or load Demo Sandbox Mode
     async function fetchAllOperationsData() {
       const client = window._supabase;
-      if (client) {
+      const user = window._currentUser;
+
+      if (client && user && !user.demo) {
         try {
-          // Fetch entities, deals, units, leases, rent payments, and rent increases in parallel
-          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.all([
-            client.from('entities').select('*').order('name', { ascending: true }),
-            client.from('deals').select('*').order('title', { ascending: true }),
-            client.from('units').select('*').order('unit_number', { ascending: true }),
-            client.from('leases').select('*').order('is_active', { ascending: false }),
-            client.from('rent_payments').select('*').order('period_month', { ascending: false }),
-            client.from('rent_increases').select('*').order('effective_date', { ascending: false })
+          // Fetch entities, deals, units, leases, rent payments, and rent increases with user_id scoping
+          const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.allSettled([
+            client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true }),
+            client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true }),
+            client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true }),
+            client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false }),
+            client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false }),
+            client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false })
           ]);
 
-          rawEntities = resEntities.data || [];
-          rawDeals = resDeals.data || [];
-          rawUnits = resUnits.data || [];
-          rawLeases = resLeases.data || [];
-          rawPayments = resPayments.data || [];
-          rawIncreases = resIncreases.data || [];
+          rawEntities = (resEntities.status === 'fulfilled' && resEntities.value.data) || [];
+          rawDeals = (resDeals.status === 'fulfilled' && resDeals.value.data) || [];
+          rawUnits = (resUnits.status === 'fulfilled' && resUnits.value.data) || [];
+          rawLeases = (resLeases.status === 'fulfilled' && resLeases.value.data) || [];
+          rawPayments = (resPayments.status === 'fulfilled' && resPayments.value.data) || [];
+          rawIncreases = (resIncreases.status === 'fulfilled' && resIncreases.value.data) || [];
+
+          // Handle 401 token refresh retry if deals query failed with PGRST303
+          if (resDeals.status === 'fulfilled' && resDeals.value.error && (resDeals.value.error.code === 'PGRST303' || resDeals.value.error.message?.includes('JWT'))) {
+            try {
+              const refreshRes = await client.auth.refreshSession();
+              if (refreshRes.data?.session) {
+                const retryDeals = await client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true });
+                if (retryDeals.data) rawDeals = retryDeals.data;
+              }
+            } catch (refErr) {
+              console.warn('Operations session refresh failed:', refErr);
+            }
+          }
         } catch (err) {
           console.error('Error loading operations data from Supabase:', err);
         }
@@ -808,7 +825,7 @@
         if (demoMode && JSON.parse(demoMode).demo) activeUserDemo = true;
       } catch (e) {}
 
-      const isDemo = !window._supabase || activeUserDemo || (!rawEntities.length && !rawDeals.length);
+      const isDemo = !window._supabase || (user && user.demo) || activeUserDemo || (!rawEntities.length && !rawDeals.length);
 
       // When isDemo is true and no data was loaded from Supabase:
       if (isDemo && (!rawEntities.length && !rawDeals.length)) {
@@ -1878,6 +1895,49 @@
         alert('Error creating unit and lease: ' + err.message);
       }
     }
+
+
+    // Realtime Postgres sync for Property Management
+    function setupRealtimeOperationsSubscriptions() {
+      if (!window._supabase || typeof window._supabase.channel !== 'function') return;
+      try {
+        if (window._operationsRealtimeChannel) return;
+        const channel = window._supabase.channel('mathtree-operations-sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'leases' }, () => debouncedOperationsReload())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'entities' }, () => debouncedOperationsReload())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, () => debouncedOperationsReload())
+          .subscribe((status) => {
+            console.log('[Realtime] Operations channel status:', status);
+          });
+        window._operationsRealtimeChannel = channel;
+      } catch (err) {
+        console.warn('[Realtime] Operations subscription notice:', err);
+      }
+    }
+
+    function debouncedOperationsReload() {
+      if (window._realtimeOpsTimer) clearTimeout(window._realtimeOpsTimer);
+      window._realtimeOpsTimer = setTimeout(() => {
+        if (typeof refreshOperationsData === 'function') {
+          refreshOperationsData();
+        }
+      }, 400);
+    }
+    window.setupRealtimeOperationsSubscriptions = setupRealtimeOperationsSubscriptions;
+
+    // Standard DOM ready lifecycle handler
+    document.addEventListener('DOMContentLoaded', async function() {
+      if (!window._currentUser && window._supabase) {
+        try {
+          const res = await window._supabase.auth.getSession();
+          if (res.data?.session?.user) {
+            window._currentUser = res.data.session.user;
+          }
+        } catch(e) {}
+      }
+      await initOperationsView();
+      setupRealtimeOperationsSubscriptions();
+    });
   </script>
 
 </body>

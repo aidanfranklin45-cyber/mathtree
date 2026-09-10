@@ -47,6 +47,18 @@
     hideWarningModal();
   }
 
+  function resetSession() {
+    var now = Date.now();
+    lastRecordedTime = now;
+    var storage = getStorage();
+    if (storage) {
+      try {
+        storage.setItem(STORAGE_KEY_LAST_ACTIVITY, String(now));
+      } catch (e) {}
+    }
+    hideWarningModal();
+  }
+
   function getLastActivity() {
     var storage = getStorage();
     if (!storage) return 0;
@@ -240,6 +252,7 @@
     TIMEOUT_MS: TIMEOUT_MS,
     WARNING_MS: WARNING_MS,
     recordActivity: recordActivity,
+    resetSession: resetSession,
     getLastActivity: getLastActivity,
     isTimedOut: isTimedOut,
     getRemainingTime: getRemainingTime,

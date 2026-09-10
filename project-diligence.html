@@ -6808,16 +6808,16 @@
       const user = window._currentUser;
       if (user && !user.demo && deal.id && !deal.id.startsWith('demo-') && !deal.id.startsWith('proj-')) {
         try {
-          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
             },
             body: JSON.stringify({
-              id: deal.id,
-              name: deal.name,
-              asset_class: deal.asset_class || deal.asset_type,
+              dealId: deal.id,
+              title: deal.name,
+              assetType: deal.asset_class || deal.asset_type,
               status: deal.status || 'prospect',
               location: deal.location,
               inputs: deal.inputs

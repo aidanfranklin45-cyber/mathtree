@@ -1533,14 +1533,14 @@
 
     _supabase.auth.onAuthStateChange(function(event, session) {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
+        if (event !== 'SIGNED_IN' && window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
           if (window.MathTreeSession.clearSessionStorage) {
             window.MathTreeSession.clearSessionStorage();
           }
           _supabase.auth.signOut().catch(function() {});
           return;
         }
-        if (window.MathTreeSession) window.MathTreeSession.recordActivity();
+        if (window.MathTreeSession) window.MathTreeSession.resetSession();
         window.location.replace('dashboard.html');
       }
     });
@@ -1971,11 +1971,18 @@
       var password = (document.getElementById('_si-password') || {}).value || '';
       if (!email || !password) { setAuthMsg('Please enter email and password.', true); return; }
       setAuthMsg('Verifying credentials…', false);
+      if (window.MathTreeSession) window.MathTreeSession.resetSession();
+      try {
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
       var result = await _supabase.auth.signInWithPassword({ email: email.trim(), password: password });
       if (result.error) {
         setAuthMsg(result.error.message, true);
       } else {
-        if (window.MathTreeSession) window.MathTreeSession.recordActivity();
+        if (window.MathTreeSession) window.MathTreeSession.resetSession();
+        if (result.data && result.data.session) {
+          window.location.replace('dashboard.html');
+        }
       }
     }
 
@@ -1985,11 +1992,15 @@
       if (!email || !password) { setAuthMsg('Please fill in all fields.', true); return; }
       if (password.length < 6) { setAuthMsg('Password must be at least 6 characters.', true); return; }
       setAuthMsg('Setting up your account…', false);
+      if (window.MathTreeSession) window.MathTreeSession.resetSession();
+      try {
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
       var result = await _supabase.auth.signUp({ email: email.trim(), password: password });
       if (result.error) {
         setAuthMsg(result.error.message, true);
       } else if (result.data && result.data.session) {
-        if (window.MathTreeSession) window.MathTreeSession.recordActivity();
+        if (window.MathTreeSession) window.MathTreeSession.resetSession();
         window.location.replace('dashboard.html');
       } else {
         setAuthMsg('✅ Verification link sent to your institutional email.', false);

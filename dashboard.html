@@ -34,7 +34,11 @@
         size: letter landscape;
         margin: 0.35in;
       }
-      body {
+      html, body {
+        display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
         background: #ffffff !important;
         color: #0f172a !important;
         -webkit-print-color-adjust: exact !important;
@@ -1730,6 +1734,23 @@
           if (!resDeals.error && resDeals.data) {
             activeDashboardProjects = resDeals.data.map(mapSupabaseDeal);
             loadedFromSupabase = true;
+          } else if (resDeals.error && (resDeals.error.code === 'PGRST303' || resDeals.error.message?.includes('JWT'))) {
+            try {
+              const refreshRes = await window._supabase.auth.refreshSession();
+              if (refreshRes.data?.session) {
+                const retryDeals = await window._supabase
+                  .from('deals')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .order('created_at', { ascending: false });
+                if (!retryDeals.error && retryDeals.data) {
+                  activeDashboardProjects = retryDeals.data.map(mapSupabaseDeal);
+                  loadedFromSupabase = true;
+                }
+              }
+            } catch(refErr) {
+              console.warn('Session refresh failed:', refErr);
+            }
           }
         } catch (err) {
           console.warn('Supabase fetch error, falling back to local deals:', err);
@@ -2091,6 +2112,7 @@
 
       // Re-load and re-render grid
       await loadDashboardProjects();
+      setupRealtimeDashboardSubscriptions();
     }
 
     // --- Typed Delete Confirmation Modal Controller ---
@@ -2407,11 +2429,34 @@
       }
     }
     window.setModalExitCapTimingUI = setModalExitCapTimingUI;
+    // Explicit Window Action Handler Exposure
+    window.openEditDealModal = openEditDealModal;
+    window.closeEditDealModal = closeEditDealModal;
+    window.saveEditDealModal = saveEditDealModal;
+    window.openProjectWizard = openProjectWizard;
+    window.setDashboardStatusFilter = setDashboardStatusFilter;
+    window.setDashboardAssetFilter = setDashboardAssetFilter;
+    window.openInvestorProfileModal = openInvestorProfileModal;
+    window.closeInvestorProfileModal = closeInvestorProfileModal;
+    window.openEntityManagementModal = openEntityManagementModal;
+    window.openTypedDeleteModal = openTypedDeleteModal;
+    window.executeTypedDelete = executeTypedDelete;
+    window.closeTypedDeleteModal = closeTypedDeleteModal;
+    window.toggleCardMenu = toggleCardMenu;
+    window.toggleDealStatus = toggleDealStatus;
+    window.navigateToProject = navigateToProject;
+    window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF;
+    window.exportDashboardDealPDF = exportDashboardDealPDF;
+    window.exportDashboardDealCSV = exportDashboardDealCSV;
+
 
     function openEditDealModal(dealId) {
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
-      const deal = activeDashboardProjects.find(p => p.id === dealId);
-      if (!deal) return;
+      const deal = activeDashboardProjects.find(p => String(p.id) === String(dealId)) || getDashboardDealById(dealId);
+      if (!deal) {
+        console.warn('Deal not found for modal edit:', dealId);
+        return;
+      }
 
       const modal = document.getElementById('edit-deal-modal');
       if (!modal) return;
@@ -2606,24 +2651,37 @@
       const user = await getSupabaseUser();
       if (user && !user.demo && deal.id && !deal.id.startsWith('proj-') && !deal.id.startsWith('demo-')) {
         try {
-          // 1. Edge Function immediate modify
-          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+          // 1. One-stop shop edit-property-inputs Edge Function
+          const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+          const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-              id: deal.id,
-              name: deal.name,
-              asset_class: deal.asset_class,
+              dealId: deal.id,
+              title: deal.name,
+              assetType: deal.asset_class || deal.assetType,
               status: deal.status,
               location: deal.location,
               inputs: deal.inputs
             })
-          }).catch(e => console.warn('Edge modify sync warning:', e));
+          });
 
-          // 2. Direct Supabase DB immediate modify
+          if (edgeRes.ok) {
+            const edgeData = await edgeRes.json();
+            if (edgeData?.deal) {
+              deal.irr = edgeData.deal.irr ?? deal.irr;
+              deal.equity_multiple = edgeData.deal.equity_multiple ?? deal.equity_multiple;
+              deal.cash_on_cash = edgeData.deal.cash_on_cash ?? deal.cash_on_cash;
+              deal.year1_cashflow = edgeData.deal.year1_cashflow ?? deal.year1_cashflow;
+              if (edgeData.deal.metrics) deal.metrics = edgeData.deal.metrics;
+              saveActiveDealsToStorage();
+            }
+          }
+
+          // 2. Direct Supabase DB immediate sync fallback
           if (window._supabase) {
             await window._supabase.from('deals').update({
               title: deal.name,
@@ -2640,7 +2698,7 @@
             }).eq('id', deal.id).eq('user_id', user.id);
           }
         } catch(err) {
-          console.warn('Supabase update deal error:', err);
+          console.warn('edit-property-inputs sync warning:', err);
         }
       }
     }
@@ -3126,7 +3184,11 @@
       const warnings = window.PropertyMath.auditDealRisks(aClass, inputs, res);
 
       renderDashboardPrintableBrief(deal, aClass, inputs, res, warnings);
-      window.print();
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      });
     }
     window.exportDashboardDealPDF = exportDashboardDealPDF;
 
@@ -3135,7 +3197,19 @@
       const container = document.getElementById('printable-brief');
       if (!container) return;
 
-      const deals = (typeof activeDashboardProjects !== 'undefined' && activeDashboardProjects) || [];
+      let deals = (typeof activeDashboardProjects !== 'undefined' && Array.isArray(activeDashboardProjects) && activeDashboardProjects.length > 0)
+        ? activeDashboardProjects
+        : [];
+      if (!deals.length) {
+        try {
+          const key = typeof getActiveStorageKey === 'function' ? getActiveStorageKey() : 'mathtree_local_deals';
+          const stored = localStorage.getItem(key);
+          const fallback = stored ? JSON.parse(stored) : JSON.parse(localStorage.getItem('mathtree_local_deals') || '[]');
+          if (Array.isArray(fallback) && fallback.length > 0) {
+            deals = fallback.map(typeof mapSupabaseDeal === 'function' ? mapSupabaseDeal : (x => x));
+          }
+        } catch (_) {}
+      }
       const owned = deals.filter(d => d.status === 'owned');
       const pipeline = deals.filter(d => d.status !== 'owned');
 
@@ -3662,14 +3736,21 @@
     function exportDashboardPortfolioPDF() {
       _isPrintingSingleDeal = false;
       renderDashboardPortfolioBrief();
-      window.print();
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      });
     }
     window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF;
 
-    // Automatic print interception: if user presses Ctrl+P / browser print, render the full portfolio brief
+    // Automatic print interception: only render if printable brief is not already populated
     window.addEventListener('beforeprint', () => {
       if (!_isPrintingSingleDeal) {
-        renderDashboardPortfolioBrief();
+        const el = document.getElementById('printable-brief');
+        if (!el || !el.innerHTML || el.innerHTML.trim().length < 50) {
+          renderDashboardPortfolioBrief();
+        }
       }
     });
     window.addEventListener('afterprint', () => {
@@ -4712,6 +4793,36 @@
     }
 
     
+
+    
+    // Realtime Postgres sync for Deals
+    function setupRealtimeDashboardSubscriptions() {
+      if (!window._supabase || typeof window._supabase.channel !== 'function') return;
+      try {
+        if (window._dashboardRealtimeChannel) return;
+        const channel = window._supabase.channel('mathtree-dashboard-deals')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'deals' },
+            (payload) => {
+              console.log('[Realtime] Deal updated in Supabase:', payload.eventType, payload.new?.id || payload.old?.id);
+              if (window._realtimeDashTimer) clearTimeout(window._realtimeDashTimer);
+              window._realtimeDashTimer = setTimeout(() => {
+                if (typeof loadDashboardProjects === 'function') {
+                  loadDashboardProjects();
+                }
+              }, 400);
+            }
+          )
+          .subscribe((status) => {
+            console.log('[Realtime] Dashboard channel status:', status);
+          });
+        window._dashboardRealtimeChannel = channel;
+      } catch (err) {
+        console.warn('[Realtime] Dashboard subscription notice:', err);
+      }
+    }
+    window.setupRealtimeDashboardSubscriptions = setupRealtimeDashboardSubscriptions;
 
     document.addEventListener('DOMContentLoaded', () => {
       // Set greeting with demo privacy isolation

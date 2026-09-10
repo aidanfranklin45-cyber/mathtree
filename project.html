@@ -52,7 +52,11 @@
         size: letter landscape;
         margin: 0.25in 0.3in;
       }
-      body {
+      html, body {
+        display: block !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
         background: #ffffff !important;
         color: #0f172a !important;
         -webkit-print-color-adjust: exact !important;
@@ -4820,8 +4824,13 @@
       const navMenu = document.getElementById('nav-module-dropdown-menu');
       if (navMenu) navMenu.classList.add('hidden');
       renderPrintableBrief();
-      window.print();
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      });
     }
+    window.exportToPDF = exportToPDF;
 
     // Shareable Deal URL Hash Link Generator
     function shareDealLink() {
@@ -7188,16 +7197,16 @@
       const user = window._currentUser;
       if (user && !user.demo && deal.id && !deal.id.startsWith('demo-') && !deal.id.startsWith('proj-')) {
         try {
-          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/create-project', {
+          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`
             },
             body: JSON.stringify({
-              id: deal.id,
-              name: deal.name,
-              asset_class: deal.asset_class || deal.asset_type,
+              dealId: deal.id,
+              title: deal.name,
+              assetType: deal.asset_class || deal.asset_type,
               status: deal.status || 'prospect',
               location: deal.location,
               inputs: deal.inputs
