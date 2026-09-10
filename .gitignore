@@ -1,0 +1,6 @@
+﻿.firebase/
+node_modules/
+*.log
+scratch/
+test_*_diagnostic.js
+test_*_sim.js
