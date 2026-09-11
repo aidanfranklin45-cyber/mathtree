@@ -65,9 +65,9 @@ serve(async (req: Request) => {
     const baseRentMonthly = parseFloat(inputs.monthlyRent || inputs.rent || (price * 0.008));
     const baseRentAnnual = baseRentMonthly * 12;
     const baseVacancy = parseFloat(inputs.vacancyRate || 5) / 100;
-    const baseOpex = parseFloat(inputs.operatingExpenseRatio || 40) / 100;
-    const baseGrowth = parseFloat(inputs.rentGrowth || 2.5) / 100;
-    const baseExitCap = parseFloat(inputs.targetExitCapRate || 6.5) / 100;
+    const baseOpex = parseFloat(inputs.operatingExpenseRatio || inputs.expenseRatio || 40) / 100;
+    const baseGrowth = parseFloat(inputs.rentGrowth || inputs.appreciationRate || 2.5) / 100;
+    const baseExitCap = parseFloat(inputs.targetExitCapRate || inputs.exitCapRate || 6.5) / 100;
 
     const exitCapStdDev = (parseFloat(payload.exitCapSpreadBps || 100) / 10000);
     const growthStdDev = (parseFloat(payload.rentGrowthVolPct || 2.0) / 100);
@@ -76,6 +76,7 @@ serve(async (req: Request) => {
     const irrResults: number[] = new Array(runs);
     let totalIrr = 0;
     let negativeRuns = 0;
+    let negativeCashFlowRuns = 0;
 
     for (let r = 0; r < runs; r++) {
       const simGrowth = Math.max(-0.05, randomGaussian(baseGrowth, growthStdDev));
@@ -100,6 +101,8 @@ serve(async (req: Request) => {
         cfs.push(cf);
       }
 
+      if (cfs[1] < 0) negativeCashFlowRuns++;
+
       const runIrr = calculateQuickIRR(cfs);
       irrResults[r] = runIrr;
       totalIrr += runIrr;
@@ -108,11 +111,13 @@ serve(async (req: Request) => {
 
     irrResults.sort((a, b) => a - b);
 
+    const p5 = irrResults[Math.floor(runs * 0.05)];
     const p10 = irrResults[Math.floor(runs * 0.10)];
     const p25 = irrResults[Math.floor(runs * 0.25)];
     const p50 = irrResults[Math.floor(runs * 0.50)];
     const p75 = irrResults[Math.floor(runs * 0.75)];
     const p90 = irrResults[Math.floor(runs * 0.90)];
+    const p95 = irrResults[Math.floor(runs * 0.95)];
     const minIrr = irrResults[0];
     const maxIrr = irrResults[runs - 1];
     const meanIrr = Math.round((totalIrr / runs) * 100) / 100;
@@ -123,7 +128,33 @@ serve(async (req: Request) => {
     }
     const stdDev = Math.round(Math.sqrt(sumSquares / runs) * 100) / 100;
     const probOfLoss = Math.round((negativeRuns / runs) * 1000) / 10;
+    const probNegativeCashFlow = Math.round((negativeCashFlowRuns / runs) * 1000) / 10;
 
+    // 10-bin histogram for standard chart presentation
+    const bin10Count = 10;
+    const bin10Width = Math.max(0.1, (maxIrr - minIrr) / bin10Count);
+    const histogramBins: { label: string; binStart: number; binEnd: number; count: number }[] = [];
+
+    for (let b = 0; b < bin10Count; b++) {
+      const bStart = Math.round((minIrr + b * bin10Width) * 10) / 10;
+      const bEnd = Math.round((minIrr + (b + 1) * bin10Width) * 10) / 10;
+      histogramBins.push({
+        label: `${bStart}% - ${bEnd}%`,
+        binStart: bStart,
+        binEnd: bEnd,
+        count: 0
+      });
+    }
+
+    for (let i = 0; i < runs; i++) {
+      const val = irrResults[i];
+      let idx = Math.floor((val - minIrr) / bin10Width);
+      if (idx >= bin10Count) idx = bin10Count - 1;
+      if (idx < 0) idx = 0;
+      histogramBins[idx].count++;
+    }
+
+    // 20-bin histogram for granular distribution analysis
     const binCount = 20;
     const binWidth = Math.max(0.1, (maxIrr - minIrr) / binCount);
     const histogram: { min: number; max: number; count: number; pct: number }[] = [];
@@ -149,17 +180,28 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({
       success: true,
       runs,
+      engine: 'supabase-deno-edge',
+      meanIrr,
+      medianIrr: p50,
+      p5Irr: p5,
+      p95Irr: p95,
+      probNegativeCashFlow,
+      probNegativeIrr: probOfLoss,
+      histogramBins,
       summary: {
+        p5,
         p10,
         p25,
         p50,
         p75,
         p90,
+        p95,
         mean: meanIrr,
         stdDev,
         min: minIrr,
         max: maxIrr,
-        probOfLossPct: probOfLoss
+        probOfLossPct: probOfLoss,
+        probNegativeCashFlowPct: probNegativeCashFlow
       },
       histogram
     }), {

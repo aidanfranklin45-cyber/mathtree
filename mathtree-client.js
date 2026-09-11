@@ -128,9 +128,11 @@
 
     runMonteCarlo: async function(inputs, runs, options) {
       options = options || {};
+      const resolvedInputs = inputs || (this._currentDeal && this._currentDeal.inputs) || {};
       const payload = {
-        inputs: inputs || (this._currentDeal && this._currentDeal.inputs) || {},
-        runs: runs || 10000,
+        inputs: resolvedInputs,
+        assetType: options.assetType || (this._currentDeal && this._currentDeal.asset_class) || 'single-family',
+        runs: runs || 1000,
         exitCapSpreadBps: options.exitCapSpreadBps || 100,
         rentGrowthVolPct: options.rentGrowthVolPct || 2.0,
         vacancyVolPct: options.vacancyVolPct || 2.5
@@ -138,9 +140,17 @@
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/simulate-monte-carlo`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        },
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => '');
+        throw new Error(`Deno Edge simulation error (${res.status}): ${errorText || res.statusText}`);
+      }
       return await res.json();
     },
 

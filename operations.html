@@ -1420,6 +1420,11 @@
             const unitType = inputs.useCode || inputs.facilityType || deal.asset_type || 'Commercial';
             const unitNumber = inputs.unitNumber || 'Main Suite';
             const sqft = inputs.sqft || inputs.buildingSqFt || inputs.gla || 0;
+            const rentGrowth = inputs.rentGrowthPercent || inputs.rentGrowth || inputs.annualRentGrowth || 3.0;
+            const escType = inputs.escalationType || 'Percentage Bump (%)';
+            const escFreq = inputs.escalationFrequency || 'Annual on Anniversary';
+            const escDate = inputs.nextEscalationDate || inputs.next_escalation_date;
+
             scopedLeases.push({
               id: 'deal-lease-' + deal.id,
               user_id: deal.user_id,
@@ -1436,6 +1441,10 @@
               grace_period_days: 5,
               last_rent_increase_date: inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : '2025-07-15'),
               previous_rent_amount: rentVal,
+              escalation_type: escType,
+              escalation_rate: rentGrowth,
+              escalation_frequency: escFreq,
+              next_escalation_date: escDate || null,
               is_active: true,
               is_derived: true,
               derived_unit_number: unitNumber,
@@ -1503,15 +1512,28 @@
         collDot.className = `w-2 h-2 rounded-full ${overdueCount > 0 ? 'bg-rose-400 animate-pulse' : (pendingCount > 0 ? 'bg-amber-400' : 'bg-emerald-400')}`;
       }
 
-      // 4. Rent Reviews Due (>12 months since last increase or start)
+      // 4. Rent Reviews Due (Only for leases WITHOUT a defined schedule, or with an overdue scheduled date)
       const now = new Date();
       let reviewsDueCount = 0;
+      let scheduledCount = 0;
 
       scopedLeases.forEach(l => {
-        const refDate = l.last_rent_increase_date ? new Date(l.last_rent_increase_date) : new Date(l.lease_start_date);
-        const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
-        if (diffMonths >= 12) {
-          reviewsDueCount++;
+        const hasDefinedSchedule = Boolean((l.escalation_type && l.escalation_type !== 'none') || (parseFloat(l.escalation_rate) > 0) || l.next_escalation_date);
+        const nextEscDate = l.next_escalation_date ? new Date(l.next_escalation_date) : null;
+        const isScheduledDue = Boolean(nextEscDate && nextEscDate <= now);
+
+        if (hasDefinedSchedule) {
+          scheduledCount++;
+          if (isScheduledDue) {
+            reviewsDueCount++; // Contractual escalation date arrived and needs action
+          }
+        } else {
+          // No schedule defined: check if over 12 months since last increase or start
+          const refDate = l.last_rent_increase_date ? new Date(l.last_rent_increase_date) : new Date(l.lease_start_date);
+          const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+          if (diffMonths >= 12) {
+            reviewsDueCount++;
+          }
         }
       });
 
@@ -1519,8 +1541,11 @@
       const reviewsSub = document.getElementById('kpi-reviews-sub');
       const reviewsDot = document.getElementById('kpi-reviews-dot');
       if (reviewsDueCount > 0) {
-        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-amber-400 font-bold">Escalation Opportunity</span>`;
+        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-amber-400 font-bold">Review Required</span>`;
         if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+      } else if (scheduledCount > 0) {
+        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-emerald-400 font-bold">Defined Schedule</span>`;
+        if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
       } else {
         if (reviewsSub) reviewsSub.textContent = 'All Up-to-Date';
         if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
@@ -1562,10 +1587,14 @@
         };
         const payment = rawPayments.find(p => p.lease_id === lease.id && p.period_month === currentPeriodMonthStr);
 
-        // Rent Review Age
+        // Rent Review / Escalation Schedule Status
+        const hasDefinedSchedule = Boolean((lease.escalation_type && lease.escalation_type !== 'none') || (parseFloat(lease.escalation_rate) > 0) || lease.next_escalation_date);
+        const nextEscDate = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+        const isScheduledDue = Boolean(nextEscDate && nextEscDate <= now);
+
         const refDate = lease.last_rent_increase_date ? new Date(lease.last_rent_increase_date) : new Date(lease.lease_start_date);
         const monthsSince = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
-        const isReviewDue = monthsSince >= 12;
+        const isUnscheduledReviewDue = !hasDefinedSchedule && monthsSince >= 12;
 
         // Payment status badge
         let statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Pending</span>';
@@ -1594,9 +1623,23 @@
               ${lease.lease_end_date ? lease.lease_end_date : 'Month-to-Month'}
             </td>
             <td class="py-3 px-4">
-              <div class="flex items-center space-x-1.5">
-                <span class="font-mono text-[11px] text-slate-300">${lease.last_rent_increase_date || lease.lease_start_date}</span>
-                ${isReviewDue ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="No escalation in over 12 months">⚠️ Review Due</span>' : ''}
+              <div class="flex flex-col space-y-0.5">
+                <div class="flex items-center space-x-1.5">
+                  <span class="font-mono text-[11px] text-slate-300">${lease.last_rent_increase_date || lease.lease_start_date}</span>
+                  ${isScheduledDue 
+                    ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="Scheduled escalation date has arrived">⚠️ Escalation Due</span>'
+                    : isUnscheduledReviewDue
+                    ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="No escalation schedule in place (>12 months)">⚠️ Review Due</span>'
+                    : hasDefinedSchedule
+                    ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold" title="Contractual escalation schedule active">✓ Defined Schedule</span>'
+                    : ''}
+                </div>
+                ${hasDefinedSchedule ? `
+                  <span class="text-[10px] text-slate-400">
+                    ${lease.escalation_frequency || 'Annual'}: <strong class="text-slate-300">${lease.escalation_rate ? `+${lease.escalation_rate}%` : (lease.escalation_type || 'Scheduled')}</strong>
+                    ${lease.next_escalation_date ? ` • Next: <span class="font-mono text-slate-300">${lease.next_escalation_date}</span>` : ''}
+                  </span>
+                ` : ''}
               </div>
             </td>
             <td class="py-3 px-4 text-center">
