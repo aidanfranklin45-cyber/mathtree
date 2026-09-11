@@ -1,4 +1,5 @@
-﻿import React from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { useDealStore } from '../stores/useDealStore';
 import { StudioNavbar } from '../components/studio/StudioNavbar';
 import { OverviewTab } from '../components/studio/tabs/OverviewTab';
@@ -41,12 +42,12 @@ export const DealStudioPage: React.FC = () => {
         <div className="p-6 max-w-md bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
           <h2 className="text-base font-black text-rose-400">Failed to load deal</h2>
           <p className="text-xs text-slate-400">{error || 'No active deal found.'}</p>
-          <a
-            href="dashboard.html"
+          <Link
+            to="/"
             className="inline-block px-4 py-2 rounded-xl bg-emerald-600 text-slate-950 text-xs font-bold"
           >
             Return to Dashboard
-          </a>
+          </Link>
         </div>
       </div>
     );

@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { mapSupabaseDeal } from '../stores/useDealStore';
 import { DealRecord } from '../lib/math/types';
@@ -85,12 +86,12 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
-            <a
-              href="operations.html"
+            <Link
+              to="/operations"
               className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-300 transition"
             >
               Property Management
-            </a>
+            </Link>
             <button
               onClick={() => exportPortfolioBriefPDF()}
               className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs flex items-center space-x-1.5 transition shadow-sm"
@@ -252,13 +253,13 @@ export const DashboardPage: React.FC = () => {
                   <span>PDF Brief</span>
                 </button>
 
-                <a
-                  href={`project.html?id=${encodeURIComponent(deal.id)}`}
+                <Link
+                  to={`/project?id=${encodeURIComponent(deal.id)}`}
                   className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs flex items-center gap-1 transition shadow-sm"
                 >
                   <span>Open Studio</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
-                </a>
+                </Link>
               </div>
             </div>
           ))}

@@ -1,4 +1,5 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { DealRecord, DealMetrics } from '../../lib/math/types';
 import { exportDealBriefPDF } from '../../lib/export/pdfBrief';
 import { ChevronDown, FileDown, Sliders, Layers, ArrowLeft } from 'lucide-react';
@@ -38,13 +39,13 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Left: Branding & Deal Info */}
         <div className="flex items-center space-x-3">
-          <a
-            href="dashboard.html"
+          <Link
+            to="/"
             className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30 transition shadow-sm"
             title="Return to Portfolio Dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
-          </a>
+          </Link>
 
           <div>
             <div className="flex items-center space-x-2">

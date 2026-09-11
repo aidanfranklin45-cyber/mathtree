@@ -1,231 +1,226 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
-import { Building2, Users, DollarSign, Calendar, Plus, Layers, ArrowLeft } from 'lucide-react';
-
-import { EntityRow, LeaseRow } from '../lib/supabase/types';
+import { Building2, ArrowLeft, ShieldCheck, Plus, RefreshCw } from 'lucide-react';
+import { EntityRow, MonthlyRentReconciliationView } from '../lib/supabase/types';
+import { MasterRentRoll } from '../components/operations/MasterRentRoll';
+import { LogPaymentModal } from '../components/operations/LogPaymentModal';
 
 export const OperationsPage: React.FC = () => {
-  const [leases, setLeases] = useState<LeaseRow[]>([]);
+  const [reconciliationItems, setReconciliationItems] = useState<MonthlyRentReconciliationView[]>([]);
   const [entities, setEntities] = useState<EntityRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedItem, setSelectedItem] = useState<MonthlyRentReconciliationView | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    async function loadOperations() {
-      setLoading(true);
-      try {
-        const [resEntities, resLeases] = await Promise.allSettled([
-          supabase.from('entities').select('*').order('name', { ascending: true }),
-          supabase.from('leases').select('*').order('is_active', { ascending: false }),
-        ]);
+  const loadOperations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [resEntities, resRecon] = await Promise.allSettled([
+        supabase.from('entities').select('*').order('name', { ascending: true }),
+        supabase.from('view_monthly_rent_reconciliation').select('*'),
+      ]);
 
-        let loadedEntities: EntityRow[] =
-          ((resEntities.status === 'fulfilled' && resEntities.value.data) || []) as EntityRow[];
-        let loadedLeases: LeaseRow[] =
-          ((resLeases.status === 'fulfilled' && resLeases.value.data) || []) as LeaseRow[];
+      let loadedEntities: EntityRow[] =
+        ((resEntities.status === 'fulfilled' && resEntities.value.data) || []) as EntityRow[];
+      let loadedRecon: MonthlyRentReconciliationView[] =
+        ((resRecon.status === 'fulfilled' && resRecon.value.data) || []) as MonthlyRentReconciliationView[];
 
-        // Benchmark fallback
-        if (loadedEntities.length === 0) {
-          loadedEntities = [
-            {
-              id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
-              name: 'Summit Crest Holdings LLC',
-              formation_state: 'WA',
-              ein: '84-1928374',
-              bank_name: 'Chase Commercial (*4892)',
-              notes: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              user_id: 'benchmark-user',
-              formation_date: null,
-            },
-          ];
-        }
-
-        if (loadedLeases.length === 0) {
-          loadedLeases = [
-            {
-              id: 'l-1',
-              deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
-              tenant_name: 'Cascade Cold Logistics LLC',
-              unit_id: null,
-              monthly_rent: 15500,
-              lease_start_date: '2024-01-01',
-              lease_end_date: '2029-12-31',
-              lease_type: 'NNN',
-              escalation_type: 'Percentage Bump (%)',
-              escalation_rate: 3.0,
-              escalation_frequency: 'Annual on Anniversary',
-              next_escalation_date: '2026-01-01',
-              is_active: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              grace_period_days: 5,
-              last_rent_increase_date: null,
-              notes: null,
-              payment_due_day: 1,
-              previous_rent_amount: null,
-              security_deposit: 0,
-              tenant_email: null,
-              tenant_phone: null,
-              user_id: null,
-            },
-            {
-              id: 'l-2',
-              deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
-              tenant_name: 'Pacific Freight Lines',
-              unit_id: null,
-              monthly_rent: 13250,
-              lease_start_date: '2023-06-01',
-              lease_end_date: '2028-05-31',
-              lease_type: 'NNN',
-              escalation_type: 'Percentage Bump (%)',
-              escalation_rate: 3.5,
-              escalation_frequency: 'Annual on Anniversary',
-              next_escalation_date: '2026-06-01',
-              is_active: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              grace_period_days: 5,
-              last_rent_increase_date: null,
-              notes: null,
-              payment_due_day: 1,
-              previous_rent_amount: null,
-              security_deposit: 0,
-              tenant_email: null,
-              tenant_phone: null,
-              user_id: null,
-            },
-          ];
-        }
-
-        setEntities(loadedEntities);
-        setLeases(loadedLeases);
-      } catch (err) {
-        console.error('Operations load error:', err);
-      } finally {
-        setLoading(false);
+      // Benchmark fallback if 0 records exist
+      if (loadedEntities.length === 0) {
+        loadedEntities = [
+          {
+            id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
+            name: 'Summit Crest Holdings LLC',
+            formation_state: 'WA',
+            ein: '84-1928374',
+            bank_name: 'Chase Commercial (*4892)',
+            notes: 'Primary title holding vehicle for Stop and Go Burger assets',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            user_id: 'benchmark-user',
+            formation_date: '2023-04-15',
+          },
+        ];
       }
+
+      if (loadedRecon.length === 0) {
+        loadedRecon = [
+          {
+            lease_id: 'l-1',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            deal_title: 'Stop and Go Burgers - 2801 E Nob Hill Blvd',
+            tenant_name: 'Cascade Cold Logistics LLC',
+            unit_number: 'Suite 100',
+            contractual_rent: 15500,
+            current_period: `${new Date().toISOString().slice(0, 7)}-01`,
+            is_active: true,
+            payment_id: null,
+            amount_paid: 0,
+            paid_date: null,
+            payment_method: null,
+            reference_note: null,
+            payment_status: 'pending',
+            user_id: null,
+          },
+          {
+            lease_id: 'l-2',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            deal_title: 'Stop and Go Burgers - 2801 E Nob Hill Blvd',
+            tenant_name: 'Pacific Freight Lines',
+            unit_number: 'Bay 2',
+            contractual_rent: 13250,
+            current_period: `${new Date().toISOString().slice(0, 7)}-01`,
+            is_active: true,
+            payment_id: 'p-demo-2',
+            amount_paid: 13250,
+            paid_date: `${new Date().toISOString().slice(0, 7)}-02`,
+            payment_method: 'ACH / Wire Transfer',
+            reference_note: 'Wire Ref: ACH-883921',
+            payment_status: 'paid',
+            user_id: null,
+          },
+        ];
+      }
+
+      setEntities(loadedEntities);
+      setReconciliationItems(loadedRecon);
+    } catch (err) {
+      console.error('Operations load error:', err);
+    } finally {
+      setLoading(false);
     }
-    loadOperations();
   }, []);
 
-  const totalMonthlyRent = leases.reduce((sum, l) => sum + (l.monthly_rent || 0), 0);
-  const activeTenants = leases.filter((l) => l.is_active).length;
+  useEffect(() => {
+    loadOperations();
+  }, [loadOperations]);
+
+  const handleOpenPaymentModal = (item: MonthlyRentReconciliationView) => {
+    setSelectedItem(item);
+    setIsPaymentModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3">
+      {/* Top Navigation Header */}
+      <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <a
-              href="dashboard.html"
+            <Link
+              to="/"
               className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 transition"
-              title="Return to Dashboard"
+              title="Return to Portfolio Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
-            </a>
+            </Link>
             <div>
-              <h1 className="text-base font-black text-white tracking-tight">Property Management & Rent Roll</h1>
-              <p className="text-[11px] text-slate-400">Master Rent Roll, Lease Escalations & Holding Entities</p>
+              <h1 className="text-base font-black text-white tracking-tight">
+                Operations & Commercial Rent Roll
+              </h1>
+              <p className="text-[11px] text-slate-400">
+                Authoritative Monthly Rent Reconciliation & Holding Entities
+              </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
-            <a
-              href="dashboard.html"
+            <button
+              onClick={loadOperations}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <Link
+              to="/"
+              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition"
+            >
+              Portfolio
+            </Link>
+            <Link
+              to="/project"
               className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs transition shadow-sm"
             >
               Deal Studio
-            </a>
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-              <span>Gross Monthly Rent</span>
-              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
+        {/* Section 1: Authoritative Rent Roll Reconciliation */}
+        <section>
+          <MasterRentRoll
+            items={reconciliationItems}
+            isLoading={loading}
+            onLogPayment={handleOpenPaymentModal}
+          />
+        </section>
+
+        {/* Section 2: Holding Entities & Ownership Architecture */}
+        <section className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Holding Entities & SPV Registrations ({entities.length})
+              </h3>
             </div>
-            <div className="text-xl font-black text-white">${totalMonthlyRent.toLocaleString()}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">${(totalMonthlyRent * 12).toLocaleString()} / year</div>
+            <span className="text-[11px] text-slate-400">
+              Tax ID & Commercial Banking Segregation
+            </span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-              <span>Active Commercial Leases</span>
-              <Users className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div className="text-xl font-black text-emerald-400">{activeTenants} Tenants</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">100% Occupancy Rate</div>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {entities.map((entity) => (
+              <div
+                key={entity.id}
+                className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 hover:border-slate-700 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white truncate">{entity.name}</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[9px] font-bold uppercase">
+                    {entity.formation_state || 'WA'} SPV
+                  </span>
+                </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-              <span>Holding Entities</span>
-              <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div className="text-xl font-black text-white">{entities.length} LLCs</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">{entities[0]?.name || 'Commercial LLC'}</div>
-          </div>
+                <div className="text-[11px] text-slate-400 space-y-1 font-mono">
+                  <div>
+                    <span className="text-slate-500 font-sans">EIN: </span>
+                    <span className="text-slate-300 font-semibold">{entity.ein || 'Pending'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-sans">Operating Acct: </span>
+                    <span className="text-slate-300 font-semibold">{entity.bank_name || 'Standard Checking'}</span>
+                  </div>
+                  {entity.formation_date && (
+                    <div>
+                      <span className="text-slate-500 font-sans">Formed: </span>
+                      <span className="text-slate-400">{entity.formation_date}</span>
+                    </div>
+                  )}
+                </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-              <span>Next Rent Escalation</span>
-              <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div className="text-xl font-black text-emerald-400">+3.0% Annual</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Contractual Lease Bump</div>
+                {entity.notes && (
+                  <p className="text-[10px] text-slate-500 italic pt-1 border-t border-slate-900">
+                    {entity.notes}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
-
-        {/* Master Rent Roll Table */}
-        <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 overflow-x-auto shadow-sm">
-          <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Master Commercial Rent Roll</h3>
-              <p className="text-xs text-slate-400">In-place leases, contractual escalations, and monthly billings</p>
-            </div>
-          </div>
-
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
-                <th className="py-3 px-2">Tenant Name</th>
-                <th className="py-3 px-2">Unit / Suite</th>
-                <th className="py-3 px-2">Lease Structure</th>
-                <th className="py-3 px-2">Monthly Rent</th>
-                <th className="py-3 px-2">Annualized</th>
-                <th className="py-3 px-2">Escalation Term</th>
-                <th className="py-3 px-2 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-              {leases.map((lease) => (
-                <tr key={lease.id} className="hover:bg-slate-800/40 transition">
-                  <td className="py-3 px-2 font-sans font-bold text-white">{lease.tenant_name}</td>
-                  <td className="py-3 px-2 text-slate-300">{(lease as any).unit_number || 'Main Facility'}</td>
-                  <td className="py-3 px-2 font-sans text-emerald-400 font-bold">{lease.lease_type || 'NNN'}</td>
-                  <td className="py-3 px-2 font-bold text-white">${lease.monthly_rent.toLocaleString()}</td>
-                  <td className="py-3 px-2">${(lease.monthly_rent * 12).toLocaleString()}</td>
-                  <td className="py-3 px-2 font-sans text-slate-400">
-                    {lease.escalation_rate ? `+${lease.escalation_rate}% Annually` : 'Standard Flat'}
-                  </td>
-                  <td className="py-3 px-2 text-right font-sans">
-                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                      Active
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        </section>
       </main>
+
+      {/* Modal for Logging / Updating Rent Payments */}
+      <LogPaymentModal
+        isOpen={isPaymentModalOpen}
+        item={selectedItem}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onSuccess={loadOperations}
+      />
     </div>
   );
 };

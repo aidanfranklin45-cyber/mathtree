@@ -1,5 +1,6 @@
 import React from 'react';
-import { Layers, MapPin, CheckCircle2, DollarSign, Building } from 'lucide-react';
+import { Layers, MapPin, CheckCircle2 } from 'lucide-react';
+import { DealParcelPackageView } from '../../lib/supabase/types';
 
 export interface ParcelItem {
   id?: string;
@@ -18,19 +19,7 @@ export interface ParcelItem {
   total_assessed_val: number;
 }
 
-export interface ParcelPackageData {
-  deal_id: string;
-  deal_title?: string;
-  total_parcels: number;
-  adjacent_parcel_count: number;
-  total_package_acres: number;
-  total_package_sqft: number;
-  total_land_value: number;
-  total_improvement_value: number;
-  combined_assessed_value: number;
-  primary_parcel?: Partial<ParcelItem>;
-  parcels: ParcelItem[];
-}
+export type ParcelPackageData = DealParcelPackageView;
 
 interface ParcelPackageCardProps {
   packageData?: ParcelPackageData | null;
@@ -40,54 +29,52 @@ interface ParcelPackageCardProps {
 export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageData, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-6 animate-pulse">
-        <div className="h-6 w-48 bg-slate-200 rounded mb-4"></div>
-        <div className="h-20 bg-slate-100 rounded mb-4"></div>
-        <div className="h-32 bg-slate-50 rounded"></div>
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 animate-pulse">
+        <div className="h-6 w-48 bg-slate-800 rounded mb-4"></div>
+        <div className="h-20 bg-slate-800/50 rounded mb-4"></div>
+        <div className="h-32 bg-slate-800/30 rounded"></div>
       </div>
     );
   }
 
-  if (!packageData || !packageData.parcels || packageData.parcels.length === 0) {
+  if (!packageData || !packageData.parcels || (packageData.parcels as any[]).length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-6 text-center text-slate-500">
-        <Layers className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center text-slate-400">
+        <Layers className="w-8 h-8 mx-auto text-slate-500 mb-2" />
         <p className="text-sm font-medium">No parcel records attached to this deal yet.</p>
       </div>
     );
   }
 
-  const {
-    total_parcels,
-    adjacent_parcel_count,
-    total_package_acres,
-    total_package_sqft,
-    total_land_value,
-    total_improvement_value,
-    combined_assessed_value,
-    primary_parcel,
-    parcels,
-  } = packageData;
+  const parcelsList: ParcelItem[] = Array.isArray(packageData.parcels) ? (packageData.parcels as any[]) : [];
+  const totalParcels = packageData.total_parcels || parcelsList.length || 1;
+  const adjacentParcelCount = packageData.adjacent_parcel_count || Math.max(0, totalParcels - 1);
+  const totalAcres = Number(packageData.total_package_acres || 0);
+  const totalSqft = Number(packageData.total_package_sqft || (totalAcres > 0 ? Math.round(totalAcres * 43560) : 0));
+  const totalLandVal = Number(packageData.total_land_value || 0);
+  const totalImpVal = Number(packageData.total_improvement_value || 0);
+  const combinedVal = Number(packageData.combined_assessed_value || totalLandVal + totalImpVal);
+  const primaryParcel = packageData.primary_parcel as Partial<ParcelItem> | undefined;
 
-  const hasMultiple = total_parcels > 1;
+  const hasMultiple = totalParcels > 1;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden mb-6 shadow-sm">
       {/* Card Header */}
-      <div className="bg-slate-900 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="px-6 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-950/40">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
             <Layers className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               Attached Parcel Package Breakdown
               {hasMultiple ? (
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold normal-case">
-                  {total_parcels} Tax Lots ({adjacent_parcel_count} Adjacent)
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold normal-case">
+                  {totalParcels} Tax Lots ({adjacentParcelCount} Adjacent)
                 </span>
               ) : (
-                <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-semibold normal-case">
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-semibold normal-case">
                   Single Tax Lot
                 </span>
               )}
@@ -99,14 +86,14 @@ export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageDat
         <div className="flex items-center gap-4 text-right">
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400">Total Land Footprint</div>
-            <div className="text-sm font-bold text-emerald-400">
-              {Number(total_package_acres).toFixed(3)} ac ({Number(total_package_sqft).toLocaleString()} sf)
+            <div className="text-sm font-bold font-mono text-emerald-400">
+              {totalAcres.toFixed(3)} ac ({totalSqft.toLocaleString()} sf)
             </div>
           </div>
-          <div className="border-l border-slate-700 pl-4">
+          <div className="border-l border-slate-800 pl-4">
             <div className="text-[10px] uppercase font-bold text-slate-400">Combined Assessment</div>
-            <div className="text-sm font-bold text-white">
-              ${Math.round(Number(combined_assessed_value)).toLocaleString()}
+            <div className="text-sm font-bold font-mono text-white">
+              ${Math.round(combinedVal).toLocaleString()}
             </div>
           </div>
         </div>
@@ -114,17 +101,17 @@ export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageDat
 
       {/* Aggregated Package Summary Banner (If Multi-Parcel) */}
       {hasMultiple && (
-        <div className="bg-emerald-50 border-b border-emerald-100 px-6 py-3 flex flex-wrap items-center justify-between text-xs text-emerald-950 font-medium">
+        <div className="bg-emerald-950/20 border-b border-emerald-900/30 px-6 py-3 flex flex-wrap items-center justify-between text-xs text-emerald-300 font-medium">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>
-              <strong>Multi-Parcel Bundle Scope:</strong> Purchase includes primary operating parcel plus {adjacent_parcel_count} companion lot{adjacent_parcel_count > 1 ? 's' : ''}.
+              <strong>Multi-Parcel Bundle Scope:</strong> Purchase includes primary operating parcel plus {adjacentParcelCount} companion lot{adjacentParcelCount > 1 ? 's' : ''}.
             </span>
           </div>
-          <div className="flex items-center gap-4 text-emerald-900 text-[11px]">
-            <span><strong>Land Value:</strong> ${Math.round(Number(total_land_value)).toLocaleString()}</span>
+          <div className="flex items-center gap-4 text-emerald-400/90 text-[11px] font-mono">
+            <span><strong>Land Value:</strong> ${Math.round(totalLandVal).toLocaleString()}</span>
             <span>•</span>
-            <span><strong>Improvements:</strong> ${Math.round(Number(total_improvement_value)).toLocaleString()}</span>
+            <span><strong>Improvements:</strong> ${Math.round(totalImpVal).toLocaleString()}</span>
           </div>
         </div>
       )}
@@ -133,7 +120,7 @@ export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageDat
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[11px] uppercase tracking-wider">
+            <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px] bg-slate-950/30">
               <th className="py-3 px-4">Role</th>
               <th className="py-3 px-4">APN / Parcel</th>
               <th className="py-3 px-4">Situs Address</th>
@@ -142,8 +129,8 @@ export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageDat
               <th className="py-3 px-4 text-right">Assessed Value</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
-            {parcels.map((p) => {
+          <tbody className="divide-y divide-slate-800/50 text-slate-300">
+            {parcelsList.map((p, idx) => {
               const isPrim = p.is_primary;
               const displayApn = p.formatted_apn || p.apn;
               const addr = p.situs_address || 'Address Unassigned';
@@ -154,36 +141,36 @@ export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageDat
               const impVal = Number(p.market_imp_val || 0);
 
               return (
-                <tr key={p.apn} className={isPrim ? 'bg-white font-medium' : 'bg-slate-50/50'}>
+                <tr key={p.apn || idx} className={isPrim ? 'bg-slate-950/50 font-medium' : 'hover:bg-slate-800/30 transition'}>
                   <td className="py-3 px-4">
                     {isPrim ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                         Primary Lot
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-100 text-sky-800 border border-sky-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
                         Adjacent Lot
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900">{displayApn}</td>
-                  <td className="py-3 px-4 text-slate-800 max-w-[200px] truncate" title={addr}>
+                  <td className="py-3 px-4 font-mono font-bold text-white">{displayApn}</td>
+                  <td className="py-3 px-4 text-slate-300 max-w-[200px] truncate" title={addr}>
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                       <span>{addr}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-slate-600">
-                    <span className="font-semibold text-slate-900">{p.zoning || 'Commercial'}</span>
-                    {p.use_code && <span className="text-slate-400 ml-1">({p.use_code})</span>}
+                  <td className="py-3 px-4 text-slate-400">
+                    <span className="font-semibold text-slate-200">{p.zoning || 'Commercial'}</span>
+                    {p.use_code && <span className="text-slate-500 ml-1">({p.use_code})</span>}
                   </td>
-                  <td className="py-3 px-4 text-right tabular-nums text-slate-700">
+                  <td className="py-3 px-4 text-right tabular-nums font-mono text-slate-300">
                     <span className="font-semibold">{acresNum.toFixed(3)} ac</span>
-                    <span className="text-slate-400 text-[10px] block">({sqftNum.toLocaleString()} sf)</span>
+                    <span className="text-slate-500 text-[10px] block font-sans">({sqftNum.toLocaleString()} sf)</span>
                   </td>
-                  <td className="py-3 px-4 text-right tabular-nums">
-                    <span className="font-bold text-slate-900">${Math.round(totalVal).toLocaleString()}</span>
-                    <span className="text-slate-400 text-[10px] block">
+                  <td className="py-3 px-4 text-right tabular-nums font-mono">
+                    <span className="font-bold text-emerald-400">${Math.round(totalVal).toLocaleString()}</span>
+                    <span className="text-slate-500 text-[10px] block font-sans">
                       (${Math.round(landVal).toLocaleString()} L / ${Math.round(impVal).toLocaleString()} B)
                     </span>
                   </td>
@@ -195,9 +182,9 @@ export const ParcelPackageCard: React.FC<ParcelPackageCardProps> = ({ packageDat
       </div>
 
       {/* Primary Lot Legal Description Footer */}
-      {primary_parcel?.legal_description && (
-        <div className="bg-slate-50 border-t border-slate-200 px-6 py-3 text-[11px] text-slate-500">
-          <strong className="text-slate-700">Primary Legal Description:</strong> {primary_parcel.legal_description}
+      {primaryParcel?.legal_description && (
+        <div className="bg-slate-950/40 border-t border-slate-800 px-6 py-3 text-[11px] text-slate-400">
+          <strong className="text-slate-300">Primary Legal Description:</strong> {primaryParcel.legal_description}
         </div>
       )}
     </div>
