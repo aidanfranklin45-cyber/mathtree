@@ -50,3 +50,10 @@ globs: "**/*"
 - **High-Powered Postgres (Supabase):** Postgres is the primary relational brain and single source of truth. Use relational schemas, SQL views, generated columns, and stored procedures/RPCs for complex domain calculations, aggregations (e.g., Net Operating Income, debt service amortization, portfolio rollups, rent roll schedules), and transactional mutations. Enforce native Row-Level Security (RLS) for data protection.
 - **Serverless Edge Functions (Deno/Supabase):** Reserve for compute-intensive, asynchronous, or security-sensitive workloads (e.g., Monte Carlo risk simulations across 1,000–10,000 runs, automated Executive Pitch Deck/PDF synthesis, external API calls like Census/County Assessor integrations). Never block client UI threads with heavy, long-running math loops.
 - **Lean, Declarative Frontend:** Frontend interfaces must be modular, lightweight, and focused purely on presentation, user interaction, and reactive data visualization. Never synchronize financial state through fragile URL string manipulation or fragmented `localStorage` keys; synchronize state cleanly via authenticated Supabase client queries and structured reactive stores.
+
+---
+
+## 6. FIRST-DESIGN PRINCIPLES & PROHIBITION OF PATCHWORK ARCHITECTURE
+- **First-Design Principles Mandatory:** Every feature, data entity, and domain workflow must begin with proper first-principles system design. Never create ad-hoc client-side hacks, regex parsers, or temporary JSON blobs to mask a deficient or un-normalized database schema.
+- **Database Schema First:** Always design relational schemas, foreign keys, generated columns, and PostgreSQL views/RPCs as step #1 before writing UI code. The frontend (TSX) must remain a lean declarative presentation layer—never an ETL pipeline, data munging engine, or math reconciler.
+- **Zero Patchwork / Shims:** Do not wrap legacy bugs in successive layers of client-side shims or fallbacks. Identify the architectural flaw at the root, fix the underlying database schema and typed contracts, and eliminate the legacy technical debt.

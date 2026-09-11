@@ -15,9 +15,11 @@ globs: "**/*"
 
 ---
 
-## 1. CODE MODIFICATION STANDARDS & BAN ON "ONE-OFF PATCH SCRIPTS"
+## 1. CODE MODIFICATION STANDARDS & BAN ON "ONE-OFF PATCH SCRIPTS" & PATCHWORK HACKS
 > [!IMPORTANT]
-> - **PROHIBIT "SCRATCH PATCH SCRIPTS":** Agents must NEVER generate one-off Node.js patch scripts (e.g. `scratch/fix_*.js`, `scratch/update_*.js`) to modify source code files. Code changes must be applied directly to the codebase files using proper file editing tools.
+> - **MANDATE FIRST-DESIGN PRINCIPLES:** Every feature, data entity, and domain workflow must begin with proper first-principles system design. Never create ad-hoc client-side hacks, regex parsers, or temporary JSON blobs to mask a deficient or un-normalized database schema.
+> - **DATABASE SCHEMA FIRST:** Always design relational schemas, foreign keys, generated columns, and PostgreSQL views/RPCs as step #1. The frontend (TSX) must remain a lean declarative presentation layer—never an ETL pipeline, data munging engine, or math reconciler.
+> - **PROHIBIT "SCRATCH PATCH SCRIPTS" & AD-HOC PATCHWORK:** Agents must NEVER generate one-off Node.js patch scripts (e.g. `scratch/fix_*.js`, `scratch/update_*.js`) to modify source code files. Code changes must be applied directly to the codebase files using proper file editing tools.
 > - **NO AD-HOC SCRIPT PROLIFERATION:** Do not create separate `.js` files for individual bug fixes or updates. If a file is too large to edit cleanly, it must be modularized into proper component files, not patched via string-replacement scripts.
 > - **CLEAN WORKSPACE HYGIENE:** Temporary diagnostic or AST-check scripts must be ephemeral and purged once verification is complete. Never commit one-off migration/patch scripts to Git.
 
