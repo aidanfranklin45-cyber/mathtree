@@ -1,19 +1,14 @@
 {
   "hosting": {
     "site": "mathtree-app",
-    "public": ".",
+    "public": "dist",
     "cleanUrls": true,
     "ignore": [
       "firebase.json",
       ".firebaserc",
       ".*",
       ".*/**",
-      "supabase/**",
-      "**/*.md",
-      "**/*.sql",
-      "**/*.log",
-      "node_modules/**",
-      "scratch/**"
+      "**/*.map"
     ],
     "headers": [
       {
