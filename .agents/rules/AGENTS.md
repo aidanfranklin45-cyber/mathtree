@@ -48,7 +48,7 @@ globs: "**/*"
   - **Type Resolution Protocol:** Agents must fix TypeScript errors directly through proper typing, interfaces, or pragmatic type narrowing—never by stripping TypeScript out of the project.
   - **Database & Auth:** `@supabase/supabase-js` connecting directly to PostgreSQL (specifically querying views like `view_deal_parcel_packages` and `view_monthly_rent_reconciliation`).
   - **Serverless:** Supabase Edge Functions (Deno) for complex orchestration, PDF brief synthesis, and heavy compute.
-  - **Hosting:** Firebase Hosting serving the `/dist` directory with SPA rewrites.
+  - **Hosting:** Firebase Hosting serving the root directory (`"public": "."`) preserving the full application suite and sign-in flow (`index.html`, `dashboard.html`, `project.html`, `operations.html`).
   - **State Management:** Structured reactive stores (e.g., Zustand, React Context) backed by Supabase Auth and Realtime.
 
 ---
