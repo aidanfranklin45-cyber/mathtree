@@ -43,7 +43,8 @@ globs: "**/*"
   - `src/components/property/` (ParcelPackageCard, CountyAssessorDossier)
   - `src/components/operations/` (MasterRentRoll, LeaseEditorModal, EscalationSchedule)
   - `src/components/reports/` (PdfBriefGenerator, PitchDeckExporter)
-- **State Management & Type Safety:** Use compile-time TypeScript checks. Replace fragile `localStorage`, `sessionStorage`, or URL hash sync with structured reactive stores (e.g., Zustand, React Context) backed by Supabase Auth and Realtime.
+- **Optimal Frontend Stack:** Standardize on **Vite + React (Pure JavaScript / JSX) + Tailwind CSS** communicating directly with Postgres via `@supabase/supabase-js`. Forbid TypeScript (`.ts`/`.tsx`) compilation overhead, interfaces boilerplate, and `tsc` bottlenecks.
+- **State Management & Data Flow:** Replace fragile `localStorage`, `sessionStorage`, or URL hash sync with structured reactive stores (e.g., Zustand, React Context) backed by Supabase Auth and Realtime.
 
 ---
 
@@ -58,7 +59,7 @@ globs: "**/*"
 ## 5. DATABASE & INFRASTRUCTURE PROTOCOLS (SUPABASE)
 - **Project ID:** `bgexwcepwbxvhxbpblhd`
 - **Postgres as Single Source of Truth:** All deals, pro-forma metrics, lease rolls, and LLC entities must live in Supabase PostgreSQL protected by Row Level Security (RLS).
-- **Schema Inspection:** Inspect local types (`supabase/types.ts`) or migration files first. Avoid executing MCP schema discovery queries (`list_tables`).
+- **Schema Inspection:** Inspect migration files or database schema directly. Avoid executing MCP schema discovery queries (`list_tables`).
 - **Targeted SQL Execution:** Execute DDL/DML via Supabase MCP (`execute_sql`) only when altering relations or records. Verify changes with a single targeted `SELECT` query.
 - **Serverless Edge Functions (Deno):** Reserve for heavy or asynchronous compute (Monte Carlo risk simulations across 1,000–10,000 runs, automated executive PDF synthesis via `generate-pdf-brief`, GIS parcel sync via `batch-sync-gis`). Never block client UI threads with heavy math loops.
 - **Benchmark Fallbacks:** If an authenticated user account has 0 custom deals, fall back gracefully to benchmark records (`is_demo = true`).
