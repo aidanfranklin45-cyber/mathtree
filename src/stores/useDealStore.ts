@@ -174,8 +174,8 @@ export function useDealStore(initialDealId?: string): DealStoreState {
         cash_on_cash: calculated.cashOnCash,
         equity_multiple: calculated.equityMultiplier,
         year1_cashflow: calculated.year1Cashflow,
-        cap_rate: calculated.capRate,
-        inputs: deal.inputs,
+        metrics: calculated as any,
+        inputs: deal.inputs as any,
         updated_at: new Date().toISOString(),
       };
 

@@ -29,7 +29,7 @@ function fmtDec(num: any, decimals = 1): string {
 // =========================================================================
 // 1. SINGLE-DEAL EXECUTIVE UNDERWRITING MEMORANDUM BUILDER
 // =========================================================================
-function buildSingleDealBriefHtml(deal: any): string {
+function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const title = deal.title || deal.name || 'Commercial Asset Underwriting';
   const location = deal.location || deal.address || 'Yakima, WA';
   const assetClass = (deal.asset_class || deal.asset_type || deal.assetType || 'commercial').toLowerCase();
@@ -68,39 +68,43 @@ function buildSingleDealBriefHtml(deal: any): string {
     if (!isNaN(parsed) && parsed > 2000 && parsed < 2100) startYear = parsed;
   }
 
-  // County Assessor & Multi-Parcel Package variables
-  const rawParcels: any[] = Array.isArray(inputs.parcels) ? inputs.parcels : [];
-  const includedParcels = rawParcels.filter((p: any) => p.included !== false);
-  const activeParcels = includedParcels.length > 0 ? includedParcels : rawParcels;
-  const adjacentParcels = activeParcels.filter((p: any) => !p.isPrimary);
-  const hasMultipleParcels = activeParcels.length > 1;
+  // County Assessor & Multi-Parcel Package variables (Sourced from Postgres view_deal_parcel_packages)
+  const pkgParcels: any[] = (parcelPackage && Array.isArray(parcelPackage.parcels) && parcelPackage.parcels.length > 0)
+    ? parcelPackage.parcels
+    : (Array.isArray(inputs.parcels) ? inputs.parcels : []);
+  const includedParcels = pkgParcels.filter((p: any) => p.included !== false);
+  const activeParcels = includedParcels.length > 0 ? includedParcels : pkgParcels;
+  const adjacentParcels = activeParcels.filter((p: any) => !(p.is_primary ?? p.isPrimary));
+  const hasMultipleParcels = (parcelPackage && parcelPackage.total_parcels > 1) || activeParcels.length > 1;
 
-  const apn = inputs.primaryApn || inputs.apn || rawAssessor.apn || (activeParcels[0]?.apn) || 'Pending Link';
-  const formattedApn = rawAssessor.formattedApn || (activeParcels[0]?.formattedApn) || (apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn);
+  const primParcel = (parcelPackage && parcelPackage.primary_parcel) || activeParcels[0] || {};
+  const apn = primParcel.apn || inputs.primaryApn || inputs.apn || rawAssessor.apn || 'Pending Link';
+  const formattedApn = primParcel.formatted_apn || primParcel.formattedApn || rawAssessor.formattedApn || (apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn);
   const county = inputs.county || rawAssessor.county || (location.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Assessor Record');
-  const owner = rawAssessor.owner || inputs.owner || (activeParcels[0]?.owner) || 'Owner of Record';
-  const totalAssessed = parseFloat(rawAssessor.totalAssessedValue || inputs.totalAssessedValue || (activeParcels[0]?.totalAssessedValue) || 0);
-  const landVal = parseFloat(rawAssessor.marketLandValue || inputs.marketLandValue || (activeParcels[0]?.marketLandValue) || 0);
-  const impVal = parseFloat(rawAssessor.marketImprovementValue || inputs.marketImprovementValue || (activeParcels[0]?.marketImprovementValue) || 0);
-  const acres = parseFloat(rawAssessor.acres || inputs.acres || inputs.acreage || (activeParcels[0]?.acres) || 0);
+  const owner = primParcel.owner || rawAssessor.owner || inputs.owner || 'Owner of Record';
+  const totalAssessed = parseFloat(primParcel.total_assessed_val || primParcel.totalAssessedValue || rawAssessor.totalAssessedValue || inputs.totalAssessedValue || 0);
+  const landVal = parseFloat(primParcel.market_land_val || primParcel.marketLandValue || rawAssessor.marketLandValue || inputs.marketLandValue || 0);
+  const impVal = parseFloat(primParcel.market_imp_val || primParcel.marketImprovementValue || rawAssessor.marketImprovementValue || inputs.marketImprovementValue || 0);
+  const acres = parseFloat(primParcel.acres || rawAssessor.acres || inputs.acres || inputs.acreage || 0);
   const bldgSqFt = parseInt(rawAssessor.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || (activeParcels[0]?.buildingSqFt) || 0, 10);
-  const lotSqFt = parseInt(rawAssessor.sqft || inputs.sqft || (activeParcels[0]?.sqft) || (acres > 0 ? Math.round(acres * 43560) : 0), 10);
+  const lotSqFt = parseInt(primParcel.sqft || rawAssessor.sqft || inputs.sqft || (activeParcels[0]?.sqft) || (acres > 0 ? Math.round(acres * 43560) : 0), 10);
 
-  const pkgTotalAssessed = hasMultipleParcels 
-    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.totalAssessedValue || p.assessedValue || 0), 0)
-    : totalAssessed;
-  const pkgTotalLand = hasMultipleParcels
-    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.marketLandValue || p.landValue || 0), 0)
-    : landVal;
-  const pkgTotalImp = hasMultipleParcels
-    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.marketImprovementValue || p.improvementValue || 0), 0)
-    : impVal;
-  const pkgTotalAcres = hasMultipleParcels
-    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.acres || 0), 0)
-    : acres;
-  const pkgTotalSqFt = hasMultipleParcels
-    ? activeParcels.reduce((s: number, p: any) => s + parseInt(p.sqft || p.lotSqFt || (parseFloat(p.acres || 0) > 0 ? Math.round(parseFloat(p.acres) * 43560) : 0), 10), 0)
-    : lotSqFt;
+  // Pre-computed totals directly from Postgres view (with fallback to client array for manual drafts)
+  const pkgTotalAssessed = parcelPackage?.combined_assessed_value !== undefined 
+    ? parseFloat(parcelPackage.combined_assessed_value)
+    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.total_assessed_val || p.totalAssessedValue || p.assessedValue || 0), 0) : totalAssessed);
+  const pkgTotalLand = parcelPackage?.total_land_value !== undefined 
+    ? parseFloat(parcelPackage.total_land_value)
+    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0), 0) : landVal);
+  const pkgTotalImp = parcelPackage?.total_improvement_value !== undefined 
+    ? parseFloat(parcelPackage.total_improvement_value)
+    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0), 0) : impVal);
+  const pkgTotalAcres = parcelPackage?.total_package_acres !== undefined 
+    ? parseFloat(parcelPackage.total_package_acres)
+    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.acres || 0), 0) : acres);
+  const pkgTotalSqFt = parcelPackage?.total_package_sqft !== undefined 
+    ? parseFloat(parcelPackage.total_package_sqft)
+    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseInt(p.sqft || p.lotSqFt || (parseFloat(p.acres || 0) > 0 ? Math.round(parseFloat(p.acres) * 43560) : 0), 10), 0) : lotSqFt);
   const zoning = rawAssessor.zoning || inputs.zoning || 'B-2 General Commercial';
   const useCode = rawAssessor.useCode || inputs.useCode || 'Commercial / Mixed';
   const yearBuilt = rawAssessor.yearBuilt || inputs.yearBuilt || '2022';
@@ -330,15 +334,15 @@ function buildSingleDealBriefHtml(deal: any): string {
       </thead>
       <tbody>
         ${activeParcels.map((p: any) => {
-          const isPrim = p.isPrimary;
-          const pApn = p.formattedApn || p.apn;
-          const pAddr = p.address || p.street || location;
-          const pUse = p.useCode || zoning;
+          const isPrim = p.is_primary ?? p.isPrimary;
+          const pApn = p.formatted_apn || p.formattedApn || p.apn;
+          const pAddr = p.situs_address || p.address || p.street || location;
+          const pUse = p.use_code || p.useCode || zoning;
           const pAcres = parseFloat(p.acres || 0);
           const pSqft = parseInt(p.sqft || p.lotSqFt || (pAcres > 0 ? Math.round(pAcres * 43560) : 0), 10);
-          const pTot = parseFloat(p.totalAssessedValue || p.assessedValue || 0);
-          const pLand = parseFloat(p.marketLandValue || p.landValue || 0);
-          const pBldg = parseFloat(p.marketImprovementValue || p.improvementValue || 0);
+          const pTot = parseFloat(p.total_assessed_val || p.totalAssessedValue || p.assessedValue || 0);
+          const pLand = parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0);
+          const pBldg = parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0);
           return `
           <tr style="border-bottom: 1px solid #f1f5f9; background: ${isPrim ? '#ffffff' : '#f8fafc'};">
             <td style="padding: 3px 6px; font-weight: 800;">
@@ -1122,7 +1126,15 @@ serve(async (req: Request) => {
           throw new Error(`Deal not found for ID: ${dealId} (${dealErr?.message || 'record missing'})`);
         }
       }
-      html = buildSingleDealBriefHtml(dbDeal);
+
+      // Query pre-computed parcel package aggregation view directly from Postgres:
+      const { data: parcelPackage } = await supabase
+        .from('view_deal_parcel_packages')
+        .select('*')
+        .eq('deal_id', dbDeal.id)
+        .maybeSingle();
+
+      html = buildSingleDealBriefHtml(dbDeal, parcelPackage);
     } else if (mode === 'portfolio') {
       if (bodyPayload.portfolio && bodyPayload.portfolio.kpis) {
         // Direct payload provided

@@ -1,9 +1,10 @@
-﻿import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from './types';
 
 export const SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
 
-export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase: SupabaseClient<Database> = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,

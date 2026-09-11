@@ -1,34 +1,12 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { Building2, Users, DollarSign, Calendar, Plus, Layers, ArrowLeft } from 'lucide-react';
 
-interface LeaseRecord {
-  id: string;
-  deal_id: string;
-  tenant_name: string;
-  unit_number?: string;
-  monthly_rent: number;
-  lease_start_date?: string;
-  lease_end_date?: string;
-  lease_type?: string;
-  escalation_type?: string;
-  escalation_rate?: number;
-  escalation_frequency?: string;
-  next_escalation_date?: string;
-  is_active: boolean;
-}
-
-interface EntityRecord {
-  id: string;
-  name: string;
-  formation_state?: string;
-  ein?: string;
-  depository_bank?: string;
-}
+import { EntityRow, LeaseRow } from '../lib/supabase/types';
 
 export const OperationsPage: React.FC = () => {
-  const [leases, setLeases] = useState<LeaseRecord[]>([]);
-  const [entities, setEntities] = useState<EntityRecord[]>([]);
+  const [leases, setLeases] = useState<LeaseRow[]>([]);
+  const [entities, setEntities] = useState<EntityRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,10 +18,10 @@ export const OperationsPage: React.FC = () => {
           supabase.from('leases').select('*').order('is_active', { ascending: false }),
         ]);
 
-        let loadedEntities: EntityRecord[] =
-          (resEntities.status === 'fulfilled' && resEntities.value.data) || [];
-        let loadedLeases: LeaseRecord[] =
-          (resLeases.status === 'fulfilled' && resLeases.value.data) || [];
+        let loadedEntities: EntityRow[] =
+          ((resEntities.status === 'fulfilled' && resEntities.value.data) || []) as EntityRow[];
+        let loadedLeases: LeaseRow[] =
+          ((resLeases.status === 'fulfilled' && resLeases.value.data) || []) as LeaseRow[];
 
         // Benchmark fallback
         if (loadedEntities.length === 0) {
@@ -53,7 +31,12 @@ export const OperationsPage: React.FC = () => {
               name: 'Summit Crest Holdings LLC',
               formation_state: 'WA',
               ein: '84-1928374',
-              depository_bank: 'Chase Commercial (*4892)',
+              bank_name: 'Chase Commercial (*4892)',
+              notes: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              user_id: 'benchmark-user',
+              formation_date: null,
             },
           ];
         }
@@ -64,7 +47,7 @@ export const OperationsPage: React.FC = () => {
               id: 'l-1',
               deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
               tenant_name: 'Cascade Cold Logistics LLC',
-              unit_number: 'Bay A (Logistics)',
+              unit_id: null,
               monthly_rent: 15500,
               lease_start_date: '2024-01-01',
               lease_end_date: '2029-12-31',
@@ -74,12 +57,23 @@ export const OperationsPage: React.FC = () => {
               escalation_frequency: 'Annual on Anniversary',
               next_escalation_date: '2026-01-01',
               is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              grace_period_days: 5,
+              last_rent_increase_date: null,
+              notes: null,
+              payment_due_day: 1,
+              previous_rent_amount: null,
+              security_deposit: 0,
+              tenant_email: null,
+              tenant_phone: null,
+              user_id: null,
             },
             {
               id: 'l-2',
               deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
               tenant_name: 'Pacific Freight Lines',
-              unit_number: 'Bay B (Cold Storage)',
+              unit_id: null,
               monthly_rent: 13250,
               lease_start_date: '2023-06-01',
               lease_end_date: '2028-05-31',
@@ -89,6 +83,17 @@ export const OperationsPage: React.FC = () => {
               escalation_frequency: 'Annual on Anniversary',
               next_escalation_date: '2026-06-01',
               is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              grace_period_days: 5,
+              last_rent_increase_date: null,
+              notes: null,
+              payment_due_day: 1,
+              previous_rent_amount: null,
+              security_deposit: 0,
+              tenant_email: null,
+              tenant_phone: null,
+              user_id: null,
             },
           ];
         }
@@ -203,7 +208,7 @@ export const OperationsPage: React.FC = () => {
               {leases.map((lease) => (
                 <tr key={lease.id} className="hover:bg-slate-800/40 transition">
                   <td className="py-3 px-2 font-sans font-bold text-white">{lease.tenant_name}</td>
-                  <td className="py-3 px-2 text-slate-300">{lease.unit_number || 'Main Facility'}</td>
+                  <td className="py-3 px-2 text-slate-300">{(lease as any).unit_number || 'Main Facility'}</td>
                   <td className="py-3 px-2 font-sans text-emerald-400 font-bold">{lease.lease_type || 'NNN'}</td>
                   <td className="py-3 px-2 font-bold text-white">${lease.monthly_rent.toLocaleString()}</td>
                   <td className="py-3 px-2">${(lease.monthly_rent * 12).toLocaleString()}</td>
