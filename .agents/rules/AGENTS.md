@@ -43,8 +43,13 @@ globs: "**/*"
   - `src/components/property/` (ParcelPackageCard, CountyAssessorDossier)
   - `src/components/operations/` (MasterRentRoll, LeaseEditorModal, EscalationSchedule)
   - `src/components/reports/` (PdfBriefGenerator, PitchDeckExporter)
-- **Optimal Frontend Stack:** Standardize on **Vite + React (Pure JavaScript / JSX) + Tailwind CSS** communicating directly with Postgres via `@supabase/supabase-js`. Forbid TypeScript (`.ts`/`.tsx`) compilation overhead, interfaces boilerplate, and `tsc` bottlenecks.
-- **State Management & Data Flow:** Replace fragile `localStorage`, `sessionStorage`, or URL hash sync with structured reactive stores (e.g., Zustand, React Context) backed by Supabase Auth and Realtime.
+- **Mandatory TypeScript Architecture:** Standardize strictly on **Vite + React + TypeScript (.ts / .tsx) + Tailwind CSS**.
+  - **Strict TypeScript Standard:** Mandate TypeScript (`.ts` / `.tsx`) across the entire codebase. Prohibit converting files to pure `.js` / `.jsx`. Forbid deleting `tsconfig.json`, `tsc`, or `@types/*` packages.
+  - **Type Resolution Protocol:** Agents must fix TypeScript errors directly through proper typing, interfaces, or pragmatic type narrowing—never by stripping TypeScript out of the project.
+  - **Database & Auth:** `@supabase/supabase-js` connecting directly to PostgreSQL (specifically querying views like `view_deal_parcel_packages` and `view_monthly_rent_reconciliation`).
+  - **Serverless:** Supabase Edge Functions (Deno) for complex orchestration, PDF brief synthesis, and heavy compute.
+  - **Hosting:** Firebase Hosting serving the `/dist` directory with SPA rewrites.
+  - **State Management:** Structured reactive stores (e.g., Zustand, React Context) backed by Supabase Auth and Realtime.
 
 ---
 
