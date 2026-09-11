@@ -5105,7 +5105,7 @@
       const dealId = (typeof getDealIdFromUrl === 'function' && getDealIdFromUrl()) || (currentLoadedDeal && currentLoadedDeal.id);
       const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
       
-      // Dynamically hide or show diligence link for owned assets
+      // Dynamically hide or show diligence link and acquisition timeline for owned assets
       document.querySelectorAll('a[data-page-key="diligence"]').forEach(a => {
         if (isOwned) {
           a.classList.add('hidden');
@@ -5113,6 +5113,14 @@
           a.classList.remove('hidden');
         }
       });
+      const timelineContainer = document.getElementById('deal-timeline-container');
+      if (timelineContainer) {
+        if (isOwned) {
+          timelineContainer.classList.add('hidden');
+        } else {
+          timelineContainer.classList.remove('hidden');
+        }
+      }
       const badge = document.getElementById('nav-module-count-badge');
       if (badge) {
         badge.textContent = isOwned ? '6 Sections' : '7 Sections';
@@ -7379,8 +7387,16 @@
     window.saveCurrentDealChanges = saveCurrentDealChanges;
 
     function renderDealTimelineUI(currentStage) {
-      if (!document.getElementById('deal-timeline-container')) return;
-      currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || (currentLoadedDeal?.status === 'owned' ? 'owned' : 'screening');
+      const container = document.getElementById('deal-timeline-container');
+      if (!container) return;
+      const isOwned = (currentLoadedDeal && currentLoadedDeal.status === 'owned') || currentStage === 'owned';
+      if (isOwned) {
+        container.classList.add('hidden');
+        return;
+      } else {
+        container.classList.remove('hidden');
+      }
+      currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || 'screening';
       const meta = STAGE_META[currentStage] || STAGE_META['screening'];
 
       const badgeEl = document.getElementById('deal-stage-badge');
@@ -8986,6 +9002,14 @@
           a.classList.remove('hidden');
         }
       });
+      const timelineContainer = document.getElementById('deal-timeline-container');
+      if (timelineContainer) {
+        if (isOwned) {
+          timelineContainer.classList.add('hidden');
+        } else {
+          timelineContainer.classList.remove('hidden');
+        }
+      }
       const badge = document.getElementById('nav-module-count-badge');
       if (badge) {
         badge.textContent = isOwned ? '6 Sections' : '7 Sections';
