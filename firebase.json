@@ -12,7 +12,7 @@
       "**/*.md",
       "**/*.sql",
       "**/*.log",
-      "test.js",
+      "node_modules/**",
       "scratch/**"
     ],
     "headers": [
