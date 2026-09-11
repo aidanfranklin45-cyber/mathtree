@@ -1,13 +1,5 @@
 ---
 trigger: always_on
-description: Combined operational rules, mathematical graph invariants, database protocols, and tiered context selection for Math Tree.
-globs: "**/*"
----
-
-# AGENT OPERATIONAL RULES & SYSTEM DIRECTIVES (MATH TREE)
-
----
-trigger: always_on
 description: Unified agent operational rules, architectural constraints, database protocols, and testing policies for Math Tree.
 globs: "**/*"
 ---
@@ -57,7 +49,7 @@ globs: "**/*"
 
 ## 4. PLATFORM DOMAIN & BOUNDARIES
 - **Domain:** Institutional Commercial Real Estate Underwriting, Financial Modeling (Pro-Forma, Debt, Tax, Sensitivity, Monte Carlo), and Property Management across Commercial, Multifamily, SFR, and Self-Storage asset classes.
-- **Core Entities:** `deals` (property pipelines), `leases` (tenants, terms, escalations), `units` (suites, bays, square footage), `entities` (holding LLCs, EINs, bank accounts), `rent_payments` (transactions & receivables), `rent_increases` (audited escalations).
+- **Core Entities:** `deals` (property pipelines), `parcels` (tax lots & land records), `leases` (tenants, terms, escalations), `units` (suites, bays, square footage), `entities` (holding LLCs, EINs, bank accounts), `rent_payments` (transactions & receivables), `rent_increases` (audited escalations).
 - **Relational Integrity:** Maintain strict relational mapping between property assets (`deals`), holding entities (`entities`), and rent roll operations (`leases`/`units`).
 - **Precision Math:** Financial calculations (IRR, NPV, Debt Service Amortization, Cash-on-Cash, Equity Multiples) must remain standardized in verified shared modules (`math.js` or Postgres RPCs)—never duplicated as inline ad-hoc calculations in UI templates.
 
