@@ -1036,9 +1036,14 @@ serve(async (req: Request) => {
 
     if (dealId) {
       // Direct database resolution for single-asset memo
-      const { data: dbDeal, error: dealErr } = await supabase.from('deals').select('*').eq('id', dealId).single();
+      let { data: dbDeal, error: dealErr } = await supabase.from('deals').select('*').eq('id', dealId).single();
       if (dealErr || !dbDeal) {
-        throw new Error(`Deal not found for ID: ${dealId} (${dealErr?.message || 'record missing'})`);
+        const { data: demoDeals } = await supabase.from('deals').select('*').eq('is_demo', true).limit(1);
+        if (demoDeals && demoDeals[0]) {
+          dbDeal = demoDeals[0];
+        } else {
+          throw new Error(`Deal not found for ID: ${dealId} (${dealErr?.message || 'record missing'})`);
+        }
       }
       html = buildSingleDealBriefHtml(dbDeal);
     } else if (mode === 'portfolio') {
@@ -1065,8 +1070,14 @@ serve(async (req: Request) => {
           dealsQuery = dealsQuery.eq('is_demo', true);
         }
 
-        const { data: dealsList, error: dealsErr } = await dealsQuery;
+        let { data: dealsList, error: dealsErr } = await dealsQuery;
         if (dealsErr) throw new Error(dealsErr.message);
+
+        // Benchmark fallback: If user account has 0 deals yet, fall back to benchmark deals so portfolio brief is populated
+        if (!dealsList || dealsList.length === 0) {
+          const { data: demoDeals } = await supabase.from('deals').select('*').eq('is_demo', true);
+          dealsList = demoDeals || [];
+        }
 
         const portfolioData = aggregateDealsToPortfolio(dealsList || [], { investorName: invName, companyName: compName });
         html = buildPortfolioBriefHtml(portfolioData);

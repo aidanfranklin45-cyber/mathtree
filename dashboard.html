@@ -1469,9 +1469,20 @@
 
           window._dashboardEntities = resEntities.data || [];
 
-          if (!resDeals.error && resDeals.data) {
+          if (!resDeals.error && resDeals.data && resDeals.data.length > 0) {
             activeDashboardProjects = resDeals.data.map(mapSupabaseDeal);
             loadedFromSupabase = true;
+          } else if (!resDeals.error && resDeals.data && resDeals.data.length === 0) {
+            // New user account with no custom deals yet: fetch benchmark deals from PostgreSQL so dashboard is populated!
+            const { data: demoDeals } = await window._supabase
+              .from('deals')
+              .select('*')
+              .eq('is_demo', true)
+              .order('created_at', { ascending: false });
+            if (demoDeals && demoDeals.length > 0) {
+              activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
+              loadedFromSupabase = true;
+            }
           } else if (resDeals.error && (resDeals.error.code === 'PGRST303' || resDeals.error.message?.includes('JWT'))) {
             try {
               const refreshRes = await window._supabase.auth.refreshSession();
@@ -2630,15 +2641,84 @@
     }
     window.exportDashboardDealCSV = exportDashboardDealCSV;
 
-    // === Serverless PDF Exporters (Direct Supabase Edge Function Architecture) ===
+    // === Institutional PDF Brief Generator & Printer (Native Client Render) ===
+    async function openPdfBrief(url) {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Preparing MathTree PDF Brief...</title>
+  <style>
+    body { background: #020617; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .card { text-align: center; padding: 24px; max-width: 420px; }
+    .brand { font-size: 24px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; margin-bottom: 12px; }
+    .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid rgba(16,185,129,0.2); border-radius: 50%; border-top-color: #10b981; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <div class="brand">🌿 MATHTREE</div>
+    <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">Generating Institutional PDF Brief...</div>
+    <div style="font-size: 12px; color: #64748b; line-height: 1.5;">Preparing print-optimized pro-forma schedule, debt breakdown, and executive memorandum</div>
+  </div>
+</body>
+</html>`);
+        win.document.close();
+      }
+
+      try {
+        const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+        const res = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Server returned ' + res.status }));
+          throw new Error(err.error || 'Failed to generate brief');
+        }
+
+        const html = await res.text();
+        if (win) {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        } else {
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+          }, 5000);
+        }
+      } catch (err) {
+        console.error('PDF Brief generation error:', err);
+        if (win) {
+          win.document.body.innerHTML = `<div style="text-align:center;padding:40px;color:#f43f5e;font-family:sans-serif;"><h3>Failed to generate PDF brief</h3><p>${err.message}</p></div>`;
+        } else {
+          alert('Failed to generate PDF brief: ' + err.message);
+        }
+      }
+    }
+    window.openPdfBrief = openPdfBrief;
+
     async function exportDashboardDealPDF(id) {
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
-      window.open(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(id)}`, '_blank');
+      openPdfBrief(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(id)}`);
     }
     window.exportDashboardDealPDF = exportDashboardDealPDF;
 
     async function exportDashboardPortfolioPDF() {
-      window.open('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?mode=portfolio', '_blank');
+      openPdfBrief('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?mode=portfolio');
     }
     window.exportDashboardPortfolioPDF = exportDashboardPortfolioPDF;
 

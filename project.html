@@ -176,7 +176,7 @@
             </div>
             <span class="text-emerald-300 text-xs font-black ml-2">✓</span>
           </a>
-          <a href="project-proforma.html" data-page-key="proforma" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+          <a href="project-proforma.html" onclick="handleModuleDropdownSelect('proforma', event)" data-page-key="proforma" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">📊</span>
               <div>
@@ -186,7 +186,7 @@
             </div>
             
           </a>
-          <a href="project-property.html" data-page-key="property" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+          <a href="project-property.html" onclick="handleModuleDropdownSelect('property', event)" data-page-key="property" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">🏛️</span>
               <div>
@@ -196,7 +196,7 @@
             </div>
             
           </a>
-          <a href="project-debt.html" data-page-key="debt" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+          <a href="project-debt.html" onclick="handleModuleDropdownSelect('debt', event)" data-page-key="debt" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">🏦</span>
               <div>
@@ -206,7 +206,7 @@
             </div>
             
           </a>
-          <a href="project-diligence.html" data-page-key="diligence" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+          <a href="project-diligence.html" onclick="handleModuleDropdownSelect('diligence', event)" data-page-key="diligence" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">📋</span>
               <div>
@@ -216,7 +216,7 @@
             </div>
             
           </a>
-          <a href="project-sensitivity.html" data-page-key="sensitivity" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+          <a href="project-sensitivity.html" onclick="handleModuleDropdownSelect('sensitivity', event)" data-page-key="sensitivity" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">🎲</span>
               <div>
@@ -226,7 +226,7 @@
             </div>
             
           </a>
-          <a href="project-tax.html" data-page-key="tax" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+          <a href="project-tax.html" onclick="handleModuleDropdownSelect('tax', event)" data-page-key="tax" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">📑</span>
               <div>
@@ -4640,7 +4640,76 @@
       document.body.removeChild(link);
     }
 
-    // === Serverless PDF Exporter (Direct Edge Function Architecture) ===
+    // === Institutional PDF Brief Generator & Printer (Native Client Render) ===
+    async function openPdfBrief(url) {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Preparing MathTree PDF Brief...</title>
+  <style>
+    body { background: #020617; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .card { text-align: center; padding: 24px; max-width: 420px; }
+    .brand { font-size: 24px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; margin-bottom: 12px; }
+    .spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid rgba(16,185,129,0.2); border-radius: 50%; border-top-color: #10b981; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner"></div>
+    <div class="brand">🌿 MATHTREE</div>
+    <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">Generating Institutional PDF Brief...</div>
+    <div style="font-size: 12px; color: #64748b; line-height: 1.5;">Preparing print-optimized pro-forma schedule, debt breakdown, and executive memorandum</div>
+  </div>
+</body>
+</html>`);
+        win.document.close();
+      }
+
+      try {
+        const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+        const res = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Server returned ' + res.status }));
+          throw new Error(err.error || 'Failed to generate brief');
+        }
+
+        const html = await res.text();
+        if (win) {
+          win.document.open();
+          win.document.write(html);
+          win.document.close();
+        } else {
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+          }, 5000);
+        }
+      } catch (err) {
+        console.error('PDF Brief generation error:', err);
+        if (win) {
+          win.document.body.innerHTML = `<div style="text-align:center;padding:40px;color:#f43f5e;font-family:sans-serif;"><h3>Failed to generate PDF brief</h3><p>${err.message}</p></div>`;
+        } else {
+          alert('Failed to generate PDF brief: ' + err.message);
+        }
+      }
+    }
+    window.openPdfBrief = openPdfBrief;
+
     async function exportToPDF() {
       const menu = document.getElementById('project-header-menu');
       if (menu) menu.classList.add('hidden');
@@ -4649,19 +4718,12 @@
 
       const dealId = currentLoadedDeal?.id || (new URLSearchParams(window.location.search)).get('id');
       if (dealId) {
-        window.open(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(dealId)}`, '_blank');
+        openPdfBrief(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(dealId)}`);
       } else {
-        alert('Please save the project first before exporting the PDF prospectus.');
+        alert('Please save or select a deal first before exporting the PDF prospectus.');
       }
     }
-    window.exportToPDF = exportToPDF;    window.renderPrintableBrief = renderPrintableBrief;
-
-    window.addEventListener('beforeprint', () => {
-      const el = document.getElementById('printable-brief');
-      if (!el || !el.innerHTML || el.innerHTML.trim().length < 50) {
-        try { renderPrintableBrief(); } catch (e) { console.error(e); }
-      }
-    });
+    window.exportToPDF = exportToPDF;
 
     function toggleProjectHeaderMenu(event) {
       if (event) event.stopPropagation();
@@ -4977,6 +5039,21 @@
       }
     }
     window.toggleNavModuleDropdown = toggleNavModuleDropdown;
+
+    // Direct module switcher from dropdown item click (instant in-page transition without reload)
+    function handleModuleDropdownSelect(pageKey, event) {
+      if (event) event.preventDefault();
+      const menu = document.getElementById('nav-module-dropdown-menu');
+      const btn = document.getElementById('btn-nav-module-dropdown');
+      if (menu) {
+        menu.classList.add('hidden');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+      }
+      if (typeof switchDealTab === 'function') {
+        switchDealTab(pageKey);
+      }
+    }
+    window.handleModuleDropdownSelect = handleModuleDropdownSelect;
 
     function navigateModuleRelative(delta) {
       const activeNav = document.getElementById('header-analysis-nav');
@@ -7780,11 +7857,7 @@
         });
       });
 
-      // Check URL for requested tab
-      const requestedTab = new URLSearchParams(window.location.search).get('tab');
-      if (requestedTab && requestedTab !== 'overview') {
-        setTimeout(() => switchDealTab(requestedTab), 30);
-      }
+      // Requested tab will be switched after deal is initialized below
 
       decodeUrlHash();
 
@@ -8007,7 +8080,6 @@
         if (menu) menu.classList.add('hidden');
         const navMenu = document.getElementById('nav-module-dropdown-menu');
         if (navMenu) navMenu.classList.add('hidden');
-        renderPrintableBrief();
       });
 
       // --- Landing Page Action Triggers ---
@@ -8120,6 +8192,11 @@
       // Guaranteed Startup Routing: dynamically retrieve & load deal FIRST
       await initProjectView();
       syncSlidersFromInputs();
+
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (requestedTab && requestedTab !== 'overview') {
+        switchDealTab(requestedTab);
+      }
     });
 
     // === Property Detail Auto-Loader & Sync Controller ===
@@ -8641,9 +8718,37 @@
     }
     window.resolveDealDisplayName = resolveDealDisplayName;
 
-    async function initProjectView() {
-      if (typeof syncNavLinksWithDealId === "function") syncNavLinksWithDealId();
+    // === Helper: Map Supabase DB record to App Deal Model ===
+    function mapSupabaseDeal(d) {
+      if (!d) return null;
+      const inputs = d.inputs || {};
+      const m = d.metrics || {};
+      const assetClass = d.asset_type || d.asset_class || 'commercial';
+      const deal = {
+        id: d.id,
+        name: d.title || d.name || 'Underwriting Project',
+        entity_id: d.entity_id || inputs.entity_id || null,
+        asset_class: assetClass,
+        status: d.status || 'prospect',
+        location: d.location || 'United States',
+        market_tier: d.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2',
+        property_class: d.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B',
+        facility_type: d.facility_type || inputs.facilityType || '',
+        is_synthetic: !!d.is_synthetic,
+        purchase_price: d.purchase_price ?? inputs.purchasePrice ?? 0,
+        irr: d.irr ?? m.irr ?? 0,
+        equity_multiple: d.equity_multiple ?? m.equityMultiplier ?? 2.0,
+        cash_on_cash: d.cash_on_cash ?? m.year1CoC ?? m.cashOnCash ?? 0,
+        year1_cashflow: d.year1_cashflow ?? m.year1CashFlow ?? m.netCashFlow ?? m.cashFlow ?? 0,
+        total_equity: d.total_equity ?? m.initialCashInvested ?? (inputs.purchasePrice ? inputs.purchasePrice * 0.25 : 0),
+        inputs: inputs,
+        metrics: m
+      };
+      return deal;
+    }
+    window.mapSupabaseDeal = mapSupabaseDeal;
 
+    async function initProjectView() {
       // Demo Mode: hide assumptions cards grid cleanly
       if (window._demoMode || (window._currentUser && window._currentUser.demo) || localStorage.getItem('mathtree_demo_mode')) {
         const cardsGrid = document.getElementById('brief-assumptions-cards-grid');
@@ -8657,33 +8762,54 @@
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentLoadedDealId || '');
       if (window._supabase && currentLoadedDealId && isUuid) {
         try {
-          const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).single();
+          const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).maybeSingle();
           if (!error && data) {
-            currentLoadedDeal = {
-              id: data.id,
-              name: data.title || 'Underwriting Project',
-              asset_class: data.asset_type || 'commercial',
-              status: data.status || 'prospect',
-              location: data.location || 'United States',
-              market_tier: data.market_tier || data.inputs?.marketTier || data.inputs?.commTier || data.inputs?.storageTier || 'Tier 2',
-              property_class: data.property_class || data.inputs?.propertyClass || data.inputs?.commClass || data.inputs?.storageClass || 'Class B',
-              facility_type: data.facility_type || data.inputs?.facilityType || '',
-              purchase_price: data.purchase_price || data.inputs?.purchasePrice || 0,
-              irr: data.irr || data.metrics?.irr || 0,
-              equity_multiple: data.equity_multiple || data.metrics?.equityMultiplier || 2.0,
-              cash_on_cash: data.cash_on_cash || data.metrics?.year1CoC || 0,
-              year1_cashflow: data.year1_cashflow || data.metrics?.year1CashFlow || data.metrics?.netCashFlow || data.metrics?.cashFlow || 0,
-              total_equity: data.total_equity || data.metrics?.initialCashInvested || 0,
-              inputs: data.inputs || {},
-              metrics: data.metrics || {}
-            };
+            currentLoadedDeal = mapSupabaseDeal(data);
           }
         } catch(e) {
           console.warn('Supabase project fetch error:', e);
         }
       }
 
-      // 2. Fallback to isolated storage (searching across local deals, demo deals, and benchmark presets)
+      // 2. If not found by UUID, dynamically query Supabase (user custom deals first, then benchmark deals)
+      if (!currentLoadedDeal && window._supabase) {
+        try {
+          if (user && !user.demo) {
+            const { data: userDeals, error: userDealsErr } = await window._supabase
+              .from('deals')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('updated_at', { ascending: false });
+            if (!userDealsErr && userDeals && userDeals.length > 0) {
+              const matched = currentLoadedDealId ? userDeals.find(d => d.id === currentLoadedDealId) : null;
+              currentLoadedDeal = mapSupabaseDeal(matched || userDeals[0]);
+            }
+          }
+
+          // Fallback to Supabase demo benchmark deals if still no deal loaded
+          if (!currentLoadedDeal) {
+            const { data: demoDeals, error: demoDealsErr } = await window._supabase
+              .from('deals')
+              .select('*')
+              .eq('is_demo', true)
+              .order('created_at', { ascending: false });
+            if (!demoDealsErr && demoDeals && demoDeals.length > 0) {
+              const matched = currentLoadedDealId ? demoDeals.find(d => d.id === currentLoadedDealId) : null;
+              currentLoadedDeal = mapSupabaseDeal(matched || demoDeals[0]);
+            }
+          }
+        } catch(e) {
+          console.warn('Supabase dynamic deal query error:', e);
+        }
+      }
+
+      // 3. Fallback to localStorage
+      if (!currentLoadedDeal) {
+        try {
+          const rawActive = localStorage.getItem('mathtree_active_deal');
+          if (rawActive) currentLoadedDeal = JSON.parse(rawActive);
+        } catch(e) {}
+      }
       if (!currentLoadedDeal) {
         let allDeals = [];
         const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
@@ -8697,15 +8823,40 @@
             }
           } catch(e) {}
         }
-
-        if (typeof defaultSyntheticBenchmarks !== 'undefined' && Array.isArray(defaultSyntheticBenchmarks)) {
-          allDeals.push(...defaultSyntheticBenchmarks);
-        }
-
         currentLoadedDeal = (currentLoadedDealId && allDeals.find(d => d.id === currentLoadedDealId)) || allDeals[0];
       }
 
-      if (!currentLoadedDeal) return;
+      // 4. Default fallback: build default institutional benchmark deal
+      if (!currentLoadedDeal) {
+        currentLoadedDeal = {
+          id: 'deal-default-benchmark',
+          name: 'Valvoline - Yakima 2239 Longfibre Rd',
+          asset_class: 'commercial',
+          status: 'owned',
+          location: '2239 Longfibre Rd, Union Gap, WA 98903',
+          market_tier: 'Tier 2',
+          property_class: 'Class A',
+          facility_type: 'Industrial Logistics / Warehouse',
+          purchase_price: 1850000,
+          irr: 18.47,
+          equity_multiple: 4.91,
+          cash_on_cash: 2.01,
+          year1_cashflow: 9798.01,
+          total_equity: 462500,
+          inputs: {
+            purchasePrice: 1850000,
+            downPaymentPercent: 25,
+            interestRate: 6.5,
+            monthlyRent: 10500,
+            grossRentAnnual: 126000,
+            rentGrowth: 3.0,
+            leaseType: 'NNN',
+            facilityType: 'Industrial Logistics / Warehouse',
+            marketTier: 'Tier 2',
+            propertyClass: 'Class A'
+          }
+        };
+      }
       currentLoadedDealId = currentLoadedDeal.id;
       window.currentLoadedDeal = currentLoadedDeal;
       try { localStorage.setItem("mathtree_active_deal", JSON.stringify(currentLoadedDeal)); } catch(e) {}

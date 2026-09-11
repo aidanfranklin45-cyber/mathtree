@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <title>MathTree - Loading PROPERTY...</title>
+  <title>MathTree - Loading PROPERTY & COUNTY RECORDS...</title>
   <script>
     (function() {
       var params = new URLSearchParams(window.location.search);
-      var id = params.get('id');
+      var id = params.get('id') || sessionStorage.getItem('mathtree_active_deal_id') || localStorage.getItem('mathtree_active_deal_id');
       var target = 'project.html?tab=property' + (id ? '&id=' + encodeURIComponent(id) : '');
       window.location.replace(target);
     })();
@@ -16,7 +16,7 @@
 <body style="background:#020617;color:#94a3b8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
   <div style="text-align:center;padding:24px;">
     <div style="font-weight:900;color:#10b981;font-size:24px;letter-spacing:-0.5px;">🌿 MATHTREE</div>
-    <div style="font-size:14px;color:#e2e8f0;margin-top:10px;font-weight:600;">Opening PROPERTY Workspace...</div>
+    <div style="font-size:14px;color:#e2e8f0;margin-top:10px;font-weight:600;">Opening PROPERTY & COUNTY RECORDS Workspace...</div>
     <div style="font-size:12px;color:#64748b;margin-top:6px;">Switching to unified single-page Deal Studio</div>
   </div>
 </body>
