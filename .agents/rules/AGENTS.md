@@ -73,4 +73,4 @@ globs: "**/*"
 
 ## 6. WORKFLOW & INTEGRATION
 - **Trunk Commits:** When atomic logic passes local checks, commit with a concise, descriptive message and push directly to `main` without triggering CI bottlenecks.
-- **Deployments:** Deploy edge functions via Supabase MCP and web clients via Firebase Hosting (`firebase deploy --only hosting`).
+- **Deployments:** Deploy edge functions via Supabase MCP and web clients via Firebase Hosting (`npm run deploy:hosting` or `firebase deploy --only hosting` with automated predeploy build validation).

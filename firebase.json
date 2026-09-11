@@ -3,6 +3,9 @@
     "site": "mathtree-app",
     "public": "dist",
     "cleanUrls": true,
+    "predeploy": [
+      "npm run build"
+    ],
     "ignore": [
       "firebase.json",
       ".firebaserc",
