@@ -1691,7 +1691,7 @@
         const isOwned = d.status === 'owned';
         const icon = assetIcons[aClass] || assetIcons['single-family'];
         const priceStr = formatCurrency(d.purchase_price || 0);
-        const isZeroEq = (d.total_equity === 0 || d.inputs?.downPaymentPercent === 0 || d.inputs?.downPaymentPercent === '0') && (d.purchase_price > 0 || d.inputs?.purchasePrice > 0);
+        const isZeroEq = (parseFloat(d.total_equity) <= 0 || (d.total_equity === undefined && parseFloat(d.inputs?.downPaymentPercent) === 0 && !parseFloat(d.inputs?.closingCosts) && !parseFloat(d.inputs?.rehabCosts))) && (d.purchase_price > 0 || d.inputs?.purchasePrice > 0);
         const irrStr = isZeroEq ? 'N/M' : `${(d.irr || 0).toFixed(1)}%`;
         const cocStr = isZeroEq ? 'N/M' : `${(d.cash_on_cash || 0).toFixed(1)}%`;
         const cfStr = formatCurrency(d.year1_cashflow || 0);
@@ -2297,7 +2297,8 @@
       let preAnnual = 0;
       let preMonthly = 0;
       if (aClass === 'commercial') {
-        preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0);
+        const pLease = (inputs.leases && inputs.leases[0]) || {};
+        preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0) || pLease.annualRent || (pLease.monthlyRent ? pLease.monthlyRent * 12 : 0);
         preMonthly = 0;
       } else if (aClass === 'single-family') {
         preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);

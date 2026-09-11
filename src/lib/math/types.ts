@@ -1,4 +1,4 @@
-﻿export type AssetClass = 'commercial' | 'multi_family' | 'residential' | 'storage';
+export type AssetClass = 'commercial' | 'multi_family' | 'residential' | 'storage';
 export type DealStatus = 'owned' | 'pipeline' | 'prospect' | 'archived';
 
 export interface LeaseTerm {
@@ -21,10 +21,20 @@ export interface ParcelRecord {
   sqft?: number;
   buildingSqFt?: number;
   assessedValue?: number;
+  totalAssessedValue?: number;
   landValue?: number;
+  marketLandValue?: number;
   improvementValue?: number;
+  marketImprovementValue?: number;
   zoning?: string;
   county?: string;
+  address?: string;
+  street?: string;
+  legalDescription?: string;
+  useCode?: string;
+  owner?: string;
+  included?: boolean;
+  isPrimary?: boolean;
 }
 
 export interface DealInputs {
@@ -64,6 +74,8 @@ export interface DealInputs {
   armInitialYears?: number;
   armAdjustmentRate?: number;
   armRateCap?: number;
+  closingCosts?: number;
+  rehabCosts?: number;
 
   // Valuation & Exit
   exitCapRatePercent?: number;

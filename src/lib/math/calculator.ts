@@ -1,4 +1,4 @@
-﻿import { DealInputs, DealMetrics, ProFormaYear, AmortizationScheduleEntry, AssetClass } from './types';
+import { DealInputs, DealMetrics, ProFormaYear, AmortizationScheduleEntry, AssetClass } from './types';
 
 export function calculateMonthlyPayment(loanAmount: number, annualRate: number, termYears: number): number {
   if (loanAmount <= 0 || termYears <= 0) return 0;
@@ -129,8 +129,12 @@ export function calculateProjections(assetClass: AssetClass, inputs: DealInputs)
   const price = inputs.purchasePrice || 0;
   const holdYears = Math.max(1, Math.min(30, inputs.holdingPeriod || inputs.exitYear || 10));
   const dpPct = inputs.downPaymentPercent !== undefined ? inputs.downPaymentPercent : 25;
-  const equity = inputs.initialEquity || (price * (dpPct / 100));
-  const loanAmt = inputs.loanAmount !== undefined ? inputs.loanAmount : Math.max(0, price - equity);
+  const downPaymentAmount = price * (dpPct / 100);
+  const closingCosts = inputs.closingCosts || 0;
+  const rehabCosts = inputs.rehabCosts || 0;
+  const initialCashInvested = inputs.initialEquity !== undefined ? inputs.initialEquity : (downPaymentAmount + closingCosts + rehabCosts);
+  const equity = initialCashInvested;
+  const loanAmt = inputs.loanAmount !== undefined ? inputs.loanAmount : Math.max(0, price - downPaymentAmount);
   const rate = inputs.interestRate || 6.5;
   const termYears = inputs.amortizationYears || inputs.loanTermYears || 30;
 

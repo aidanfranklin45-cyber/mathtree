@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { calculateProjections } from '../lib/math/calculator';
 import { DealRecord, DealInputs, DealMetrics } from '../lib/math/types';
@@ -21,12 +21,14 @@ export interface DealStoreState {
 export function mapSupabaseDeal(d: any): DealRecord {
   const inputs: DealInputs = {
     purchasePrice: parseFloat(d.purchase_price) || 0,
-    downPaymentPercent: d.inputs?.downPaymentPercent || 25,
+    downPaymentPercent: d.inputs?.downPaymentPercent !== undefined ? parseFloat(d.inputs.downPaymentPercent) : 25,
     interestRate: parseFloat(d.inputs?.interestRate) || 6.5,
-    loanTermYears: parseInt(d.inputs?.loanTermYears || d.inputs?.amortizationYears || 30, 10),
+    loanTermYears: parseInt(d.inputs?.loanTermYears || d.inputs?.amortizationYears || d.inputs?.loanTerm || 30, 10),
     holdingPeriod: parseInt(d.inputs?.holdingPeriod || d.inputs?.exitYear || 10, 10),
-    grossRentAnnual: parseFloat(d.inputs?.grossRentAnnual) || (parseFloat(d.inputs?.monthlyRent || d.inputs?.grossRentPerMonth || 0) * 12),
-    monthlyRent: parseFloat(d.inputs?.monthlyRent || d.inputs?.grossRentPerMonth) || 0,
+    grossRentAnnual: parseFloat(d.inputs?.grossRentAnnual) || (parseFloat(d.inputs?.monthlyRent || d.inputs?.grossRentPerMonth || 0) * 12) || (d.inputs?.leases?.[0]?.annualRent || (d.inputs?.leases?.[0]?.monthlyRent ? d.inputs.leases[0].monthlyRent * 12 : 0)),
+    monthlyRent: parseFloat(d.inputs?.monthlyRent || d.inputs?.grossRentPerMonth) || (d.inputs?.leases?.[0]?.monthlyRent || 0),
+    closingCosts: parseFloat(d.inputs?.closingCosts) || 0,
+    rehabCosts: parseFloat(d.inputs?.rehabCosts || d.inputs?.rehabBudget) || 0,
     operatingExpensesAnnual: parseFloat(d.inputs?.operatingExpensesAnnual) || 0,
     vacancyRatePercent: parseFloat(d.inputs?.vacancyRatePercent !== undefined ? d.inputs.vacancyRatePercent : 5.0),
     rentGrowthPercent: parseFloat(d.inputs?.rentGrowthPercent !== undefined ? d.inputs.rentGrowthPercent : 3.0),

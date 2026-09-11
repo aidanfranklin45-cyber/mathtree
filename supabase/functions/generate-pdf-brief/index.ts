@@ -68,17 +68,39 @@ function buildSingleDealBriefHtml(deal: any): string {
     if (!isNaN(parsed) && parsed > 2000 && parsed < 2100) startYear = parsed;
   }
 
-  // County Assessor variables
-  const apn = inputs.primaryApn || inputs.apn || rawAssessor.apn || 'Pending Link';
-  const formattedApn = rawAssessor.formattedApn || (apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn);
+  // County Assessor & Multi-Parcel Package variables
+  const rawParcels: any[] = Array.isArray(inputs.parcels) ? inputs.parcels : [];
+  const includedParcels = rawParcels.filter((p: any) => p.included !== false);
+  const activeParcels = includedParcels.length > 0 ? includedParcels : rawParcels;
+  const adjacentParcels = activeParcels.filter((p: any) => !p.isPrimary);
+  const hasMultipleParcels = activeParcels.length > 1;
+
+  const apn = inputs.primaryApn || inputs.apn || rawAssessor.apn || (activeParcels[0]?.apn) || 'Pending Link';
+  const formattedApn = rawAssessor.formattedApn || (activeParcels[0]?.formattedApn) || (apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn);
   const county = inputs.county || rawAssessor.county || (location.toLowerCase().includes('yakima') ? 'Yakima County, WA' : 'County Assessor Record');
-  const owner = rawAssessor.owner || inputs.owner || 'Owner of Record';
-  const totalAssessed = parseFloat(rawAssessor.totalAssessedValue || inputs.totalAssessedValue || 0);
-  const landVal = parseFloat(rawAssessor.marketLandValue || inputs.marketLandValue || 0);
-  const impVal = parseFloat(rawAssessor.marketImprovementValue || inputs.marketImprovementValue || 0);
-  const acres = parseFloat(rawAssessor.acres || inputs.acres || inputs.acreage || 0);
-  const bldgSqFt = parseInt(rawAssessor.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || 0, 10);
-  const lotSqFt = parseInt(rawAssessor.sqft || inputs.sqft || (acres > 0 ? Math.round(acres * 43560) : 0), 10);
+  const owner = rawAssessor.owner || inputs.owner || (activeParcels[0]?.owner) || 'Owner of Record';
+  const totalAssessed = parseFloat(rawAssessor.totalAssessedValue || inputs.totalAssessedValue || (activeParcels[0]?.totalAssessedValue) || 0);
+  const landVal = parseFloat(rawAssessor.marketLandValue || inputs.marketLandValue || (activeParcels[0]?.marketLandValue) || 0);
+  const impVal = parseFloat(rawAssessor.marketImprovementValue || inputs.marketImprovementValue || (activeParcels[0]?.marketImprovementValue) || 0);
+  const acres = parseFloat(rawAssessor.acres || inputs.acres || inputs.acreage || (activeParcels[0]?.acres) || 0);
+  const bldgSqFt = parseInt(rawAssessor.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || (activeParcels[0]?.buildingSqFt) || 0, 10);
+  const lotSqFt = parseInt(rawAssessor.sqft || inputs.sqft || (activeParcels[0]?.sqft) || (acres > 0 ? Math.round(acres * 43560) : 0), 10);
+
+  const pkgTotalAssessed = hasMultipleParcels 
+    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.totalAssessedValue || p.assessedValue || 0), 0)
+    : totalAssessed;
+  const pkgTotalLand = hasMultipleParcels
+    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.marketLandValue || p.landValue || 0), 0)
+    : landVal;
+  const pkgTotalImp = hasMultipleParcels
+    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.marketImprovementValue || p.improvementValue || 0), 0)
+    : impVal;
+  const pkgTotalAcres = hasMultipleParcels
+    ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.acres || 0), 0)
+    : acres;
+  const pkgTotalSqFt = hasMultipleParcels
+    ? activeParcels.reduce((s: number, p: any) => s + parseInt(p.sqft || p.lotSqFt || (parseFloat(p.acres || 0) > 0 ? Math.round(parseFloat(p.acres) * 43560) : 0), 10), 0)
+    : lotSqFt;
   const zoning = rawAssessor.zoning || inputs.zoning || 'B-2 General Commercial';
   const useCode = rawAssessor.useCode || inputs.useCode || 'Commercial / Mixed';
   const yearBuilt = rawAssessor.yearBuilt || inputs.yearBuilt || '2022';
@@ -198,11 +220,12 @@ function buildSingleDealBriefHtml(deal: any): string {
       <div style="font-size: 9.5px; color: #475569; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 8px;">
         <span>📍 <strong>${location}</strong></span>
         <span>•</span>
-        <span style="font-family: monospace; font-weight: 700; color: #047857;">APN: ${formattedApn}</span>
+        <span style="font-family: monospace; font-weight: 700; color: #047857;">APN: ${formattedApn}${adjacentParcels.length > 0 ? ` (+${adjacentParcels.length} Adjacent)` : ''}</span>
         <span>•</span>
         <span>🏛️ ${county}</span>
         <span>•</span>
         <span class="pill pill-slate">${gisBadge}</span>
+        ${hasMultipleParcels ? `<span class="pill pill-green">📦 ${activeParcels.length}-Parcel Package</span>` : ''}
       </div>
     </div>
     <div style="text-align: right; font-size: 9.5px; color: #64748b;">
@@ -244,7 +267,7 @@ function buildSingleDealBriefHtml(deal: any): string {
   <div class="box">
     <div class="box-header">
       <span>🏛️ Official County Assessor & Parcel Records</span>
-      <span style="font-size: 8px; color: #34d399;">Tax Roll & Boundary Audit</span>
+      <span style="font-size: 8px; color: #34d399;">${hasMultipleParcels ? `Multi-Parcel Package (${activeParcels.length} APNs • Tax Roll Audit)` : 'Tax Roll & Boundary Audit'}</span>
     </div>
     <table class="table-data">
       <tbody>
@@ -253,19 +276,19 @@ function buildSingleDealBriefHtml(deal: any): string {
           <td style="width: 22%; font-weight: 700; color: #0f172a;">${location}</td>
           <td style="width: 14%; color: #64748b; font-weight: 700;">County Jurisdiction</td>
           <td style="width: 18%; font-weight: 700; color: #0f172a;">${county}</td>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">Assessor APN / Parcel</td>
+          <td style="width: 14%; color: #64748b; font-weight: 700;">Primary APN / Parcel</td>
           <td style="width: 18%; font-family: monospace; font-weight: 700; color: #047857;">${formattedApn}</td>
         </tr>
         <tr>
           <td style="color: #64748b; font-weight: 700;">Owner of Record</td>
           <td style="font-weight: 700; color: #0f172a;">${owner}</td>
-          <td style="color: #64748b; font-weight: 700;">Total Assessed Value</td>
+          <td style="color: #64748b; font-weight: 700;">${hasMultipleParcels ? 'Primary Lot Assessment' : 'Total Assessed Value'}</td>
           <td style="font-weight: 800; color: #059669;">${totalAssessed > 0 ? fmtCurr(totalAssessed) : 'Pending Assessment'}</td>
           <td style="color: #64748b; font-weight: 700;">Land / Bldg Split</td>
           <td style="font-weight: 600; color: #334155;">${totalAssessed > 0 ? `${fmtCurr(landVal)} L / ${fmtCurr(impVal)} B` : 'N/A'}</td>
         </tr>
         <tr>
-          <td style="color: #64748b; font-weight: 700;">Lot Area / Acreage</td>
+          <td style="color: #64748b; font-weight: 700;">Primary Lot Area</td>
           <td style="font-weight: 700; color: #0f172a;">${acres > 0 ? `${fmtDec(acres, 2)} Acres (${lotSqFt.toLocaleString()} Sq Ft)` : (lotSqFt > 0 ? `${lotSqFt.toLocaleString()} Sq Ft` : 'N/A')}</td>
           <td style="color: #64748b; font-weight: 700;">Zoning & Land Use</td>
           <td style="font-weight: 600; color: #0f172a;">${zoning} • ${useCode}</td>
@@ -274,11 +297,65 @@ function buildSingleDealBriefHtml(deal: any): string {
         </tr>
         ${legalDesc ? `
         <tr style="background: #f8fafc;">
-          <td style="color: #64748b; font-weight: 700;">Legal Description</td>
+          <td style="color: #64748b; font-weight: 700;">Primary Legal Desc</td>
           <td colspan="5" style="font-size: 7.5px; color: #475569;">${legalDesc}</td>
+        </tr>` : ''}
+        ${hasMultipleParcels ? `
+        <tr style="background: #ecfdf5; border-top: 1.5px solid #a7f3d0;">
+          <td style="color: #065f46; font-weight: 800;">Package Scope</td>
+          <td style="font-weight: 800; color: #065f46;">Multi-Parcel Bundle (${activeParcels.length} APNs)</td>
+          <td style="color: #065f46; font-weight: 800;">Combined Assessment</td>
+          <td style="font-weight: 900; color: #047857;">${fmtCurr(pkgTotalAssessed)} (${fmtCurr(pkgTotalLand)} L / ${fmtCurr(pkgTotalImp)} B)</td>
+          <td style="color: #065f46; font-weight: 800;">Total Land Area</td>
+          <td style="font-weight: 800; color: #047857;">${fmtDec(pkgTotalAcres, 2)} Acres (${pkgTotalSqFt.toLocaleString()} Sq Ft)</td>
         </tr>` : ''}
       </tbody>
     </table>
+
+    ${hasMultipleParcels ? `
+    <div style="background: #f1f5f9; padding: 3px 8px; font-size: 8px; font-weight: 800; color: #334155; text-transform: uppercase; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between;">
+      <span>Attached Parcel Package Breakdown (${activeParcels.length} Total Taxlots)</span>
+      <span style="color: #047857;">Primary APN + ${adjacentParcels.length} Adjacent Companion Lot${adjacentParcels.length > 1 ? 's' : ''} Included</span>
+    </div>
+    <table class="table-data">
+      <thead>
+        <tr style="background: #f8fafc; font-size: 7.5px;">
+          <th style="text-align: left; width: 12%; padding: 3px 6px;">Role</th>
+          <th style="text-align: left; width: 16%; padding: 3px 6px;">APN / Parcel</th>
+          <th style="text-align: left; width: 22%; padding: 3px 6px;">Situs Address</th>
+          <th style="text-align: left; width: 18%; padding: 3px 6px;">Use / Zoning</th>
+          <th style="text-align: right; width: 14%; padding: 3px 6px;">Lot Area</th>
+          <th style="text-align: right; width: 18%; padding: 3px 6px;">Assessed Valuation</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${activeParcels.map((p: any) => {
+          const isPrim = p.isPrimary;
+          const pApn = p.formattedApn || p.apn;
+          const pAddr = p.address || p.street || location;
+          const pUse = p.useCode || zoning;
+          const pAcres = parseFloat(p.acres || 0);
+          const pSqft = parseInt(p.sqft || p.lotSqFt || (pAcres > 0 ? Math.round(pAcres * 43560) : 0), 10);
+          const pTot = parseFloat(p.totalAssessedValue || p.assessedValue || 0);
+          const pLand = parseFloat(p.marketLandValue || p.landValue || 0);
+          const pBldg = parseFloat(p.marketImprovementValue || p.improvementValue || 0);
+          return `
+          <tr style="border-bottom: 1px solid #f1f5f9; background: ${isPrim ? '#ffffff' : '#f8fafc'};">
+            <td style="padding: 3px 6px; font-weight: 800;">
+              ${isPrim 
+                ? '<span style="background: #d1fae5; color: #065f46; padding: 1px 4px; border-radius: 3px; font-size: 7px; text-transform: uppercase;">Primary</span>' 
+                : '<span style="background: #e0f2fe; color: #0369a1; padding: 1px 4px; border-radius: 3px; font-size: 7px; text-transform: uppercase;">Adjacent Lot</span>'}
+            </td>
+            <td style="padding: 3px 6px; font-family: monospace; font-weight: 700; color: ${isPrim ? '#047857' : '#0284c7'};">${pApn}</td>
+            <td style="padding: 3px 6px; font-weight: 600; color: #1e293b;">${pAddr}</td>
+            <td style="padding: 3px 6px; color: #475569;">${pUse}</td>
+            <td style="padding: 3px 6px; text-align: right; font-weight: 600;">${pAcres > 0 ? `${fmtDec(pAcres, 2)} ac (${pSqft.toLocaleString()} sf)` : (pSqft > 0 ? `${pSqft.toLocaleString()} sf` : 'N/A')}</td>
+            <td style="padding: 3px 6px; text-align: right; font-weight: 700; color: #0f172a;">${fmtCurr(pTot)} <span style="font-weight: 400; font-size: 7px; color: #64748b;">(${fmtCurr(pLand)} L / ${fmtCurr(pBldg)} B)</span></td>
+          </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>` : ''}
   </div>
 
   <!-- 2. Dynamic Lease Terms & Scheduled Escalations (Owned & Leased Assets) -->
