@@ -165,6 +165,10 @@
 
       <!-- User Actions & Global Profile -->
       <div class="flex items-center space-x-2 sm:space-x-3">
+        <button onclick="openAlertSettingsModal()" class="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Rent Reconciliation & Alert Email Settings">
+          <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span class="hidden sm:inline">Alert Emails</span>
+        </button>
         <button onclick="openEntityManagementModal()" class="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Manage LLC Entities">
           <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
           <span class="hidden sm:inline">Manage LLCs</span>
@@ -615,7 +619,83 @@
     </div>
   </div>
 
-  <!-- 5. Add Unit & Lease Modal -->
+  <!-- 5. Email & Rent Alert Routing Modal -->
+  <div id="modal-alert-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-blue-400">📧</span>
+          <span>Rent Reconciliation & Email Settings</span>
+        </h3>
+        <button onclick="closeModal('modal-alert-settings')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- 1. Account Login Email -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-300">Account Login Email</span>
+            <span class="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">Supabase Auth</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="email" id="setting-account-email" disabled class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300 font-mono text-xs">
+            <button type="button" onclick="toggleChangeAccountEmail()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition">
+              Change
+            </button>
+          </div>
+          <!-- Change Account Email Form (Hidden by default) -->
+          <div id="box-change-account-email" class="hidden pt-2 border-t border-slate-800/60 space-y-2">
+            <label class="block text-slate-400">Enter New Account Email:</label>
+            <div class="flex items-center space-x-2">
+              <input type="email" id="input-new-account-email" placeholder="new-email@example.com" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs">
+              <button type="button" onclick="submitChangeAccountEmail()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition">
+                Send Verification
+              </button>
+            </div>
+            <p id="msg-change-account-email" class="text-[10px] text-slate-400"></p>
+          </div>
+        </div>
+
+        <!-- 2. Operations / Notification Email -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-300">Default Rent Alert & 1-Click Reminder Email</span>
+            <span class="text-[10px] text-blue-400 font-mono bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800/40">Routing</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Where 1-click rent payment confirmation emails and snooze grace period notices are sent. Defaults to your account email if empty.</p>
+          <div class="flex items-center space-x-2">
+            <input type="email" id="setting-notification-email" placeholder="e.g. accounting@myfirm.com" class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs focus:border-blue-500 focus:outline-none">
+            <button type="button" onclick="saveNotificationEmailSetting()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition">
+              Save
+            </button>
+          </div>
+          <p id="msg-notification-email" class="text-[10px] text-emerald-400 hidden">✓ Notification email updated successfully.</p>
+        </div>
+
+        <!-- 3. How Delivery Works Explainer -->
+        <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800/80 space-y-1.5 text-[11px] text-slate-400">
+          <div class="font-bold text-slate-300 flex items-center space-x-1.5">
+            <span>ℹ️</span>
+            <span>How Email Delivery Works</span>
+          </div>
+          <ul class="list-disc pl-4 space-y-1 text-[10px] text-slate-400">
+            <li><strong>Lease-Level Override:</strong> If a lease has a specific manager email, reminders send directly to that manager.</li>
+            <li><strong>Default Alert Email:</strong> If specified above, all other rent alerts send here.</li>
+            <li><strong>Account Fallback:</strong> If no notification email is specified, alerts send directly to your Supabase login email.</li>
+            <li><strong>Resend API:</strong> Delivered securely via your configured <code>RESEND_API_KEY</code> secret.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-800 text-right">
+        <button type="button" onclick="closeModal('modal-alert-settings')" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Add Unit & Lease Modal -->
   <div id="modal-add-lease" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
@@ -676,6 +756,11 @@
             <label class="block text-slate-400 font-bold mb-1">Tenant Phone</label>
             <input type="text" id="new-lease-phone" placeholder="(509) 555-0100" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
           </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Manager / Notification Email <span class="text-[10px] text-slate-500 font-normal">(Optional: where 1-click rent reminders send for this lease)</span></label>
+          <input type="email" id="new-lease-notification-email" placeholder="manager@example.com (defaults to your account email if blank)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none text-xs">
         </div>
 
         <!-- Scheduled Rent Escalation (Optional) -->
@@ -2132,6 +2217,133 @@
       openModal('modal-audit-trail');
     }
 
+    // Modal: Alert & Notification Email Settings
+    async function openAlertSettingsModal() {
+      const user = window._currentUser;
+      const accountEmailEl = document.getElementById('setting-account-email');
+      const notifEmailEl = document.getElementById('setting-notification-email');
+      const msgNotif = document.getElementById('msg-notification-email');
+      const msgAccount = document.getElementById('msg-change-account-email');
+      const boxChange = document.getElementById('box-change-account-email');
+
+      if (msgNotif) msgNotif.classList.add('hidden');
+      if (msgAccount) msgAccount.textContent = '';
+      if (boxChange) boxChange.classList.add('hidden');
+
+      if (accountEmailEl) {
+        accountEmailEl.value = user?.email || 'demo@mathtree.app';
+      }
+
+      if (notifEmailEl) {
+        notifEmailEl.value = '';
+        if (window._supabase && user && !user.demo) {
+          try {
+            const { data: prof } = await window._supabase
+              .from('profiles')
+              .select('notification_email')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (prof && prof.notification_email) {
+              notifEmailEl.value = prof.notification_email;
+            }
+          } catch (err) {
+            console.warn('Could not load notification email:', err);
+          }
+        }
+      }
+
+      openModal('modal-alert-settings');
+    }
+    window.openAlertSettingsModal = openAlertSettingsModal;
+
+    async function saveNotificationEmailSetting() {
+      const user = window._currentUser;
+      const notifEmailEl = document.getElementById('setting-notification-email');
+      const msgNotif = document.getElementById('msg-notification-email');
+      const val = notifEmailEl?.value?.trim() || null;
+
+      if (!window._supabase || !user || user.demo) {
+        if (msgNotif) {
+          msgNotif.textContent = '✓ Saved in demo sandbox session.';
+          msgNotif.classList.remove('hidden');
+        }
+        return;
+      }
+
+      try {
+        const { error } = await window._supabase
+          .from('profiles')
+          .update({
+            notification_email: val,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (error) throw error;
+
+        if (msgNotif) {
+          msgNotif.textContent = '✓ Rent notification email saved successfully!';
+          msgNotif.className = 'text-[10px] text-emerald-400 block';
+          msgNotif.classList.remove('hidden');
+        }
+      } catch (err) {
+        if (msgNotif) {
+          msgNotif.textContent = 'Error saving notification email: ' + (err.message || err);
+          msgNotif.className = 'text-[10px] text-rose-400 block';
+          msgNotif.classList.remove('hidden');
+        }
+      }
+    }
+    window.saveNotificationEmailSetting = saveNotificationEmailSetting;
+
+    function toggleChangeAccountEmail() {
+      const box = document.getElementById('box-change-account-email');
+      if (box) {
+        box.classList.toggle('hidden');
+      }
+    }
+    window.toggleChangeAccountEmail = toggleChangeAccountEmail;
+
+    async function submitChangeAccountEmail() {
+      const user = window._currentUser;
+      const inputEl = document.getElementById('input-new-account-email');
+      const msgAccount = document.getElementById('msg-change-account-email');
+      const newEmail = inputEl?.value?.trim();
+
+      if (!newEmail || !newEmail.includes('@')) {
+        if (msgAccount) {
+          msgAccount.textContent = 'Please enter a valid email address.';
+          msgAccount.className = 'text-[10px] text-rose-400 block';
+        }
+        return;
+      }
+
+      if (!window._supabase || !user || user.demo) {
+        if (msgAccount) {
+          msgAccount.textContent = 'Demo sandbox mode active. In production, Supabase Auth sends a confirmation link.';
+          msgAccount.className = 'text-[10px] text-amber-400 block';
+        }
+        return;
+      }
+
+      try {
+        const { error } = await window._supabase.auth.updateUser({ email: newEmail });
+        if (error) throw error;
+
+        if (msgAccount) {
+          msgAccount.textContent = `✓ Verification email sent to ${newEmail}! Click the confirmation link in your inbox to complete the change.`;
+          msgAccount.className = 'text-[10px] text-emerald-400 block';
+        }
+        if (inputEl) inputEl.value = '';
+      } catch (err) {
+        if (msgAccount) {
+          msgAccount.textContent = 'Error changing email: ' + (err.message || err);
+          msgAccount.className = 'text-[10px] text-rose-400 block';
+        }
+      }
+    }
+    window.submitChangeAccountEmail = submitChangeAccountEmail;
+
     // Modal: Manage Entities
     function openEntityManagementModal() {
       const container = document.getElementById('entities-list-container');
@@ -2310,6 +2522,7 @@
             lease_end_date: endDate || null,
             tenant_email: email || null,
             tenant_phone: phone || null,
+            notification_email: document.getElementById('new-lease-notification-email')?.value?.trim() || null,
             last_rent_increase_date: startDate,
             escalation_type: escType !== 'none' ? escType : null,
             escalation_rate: escRate > 0 ? escRate : null,

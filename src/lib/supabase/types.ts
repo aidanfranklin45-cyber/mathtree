@@ -147,6 +147,7 @@ export type Database = {
           monthly_rent: number
           next_escalation_date: string | null
           notes: string | null
+          notification_email: string | null
           payment_due_day: number | null
           previous_rent_amount: number | null
           security_deposit: number | null
@@ -173,6 +174,7 @@ export type Database = {
           monthly_rent: number
           next_escalation_date?: string | null
           notes?: string | null
+          notification_email?: string | null
           payment_due_day?: number | null
           previous_rent_amount?: number | null
           security_deposit?: number | null
@@ -199,6 +201,7 @@ export type Database = {
           monthly_rent?: number
           next_escalation_date?: string | null
           notes?: string | null
+          notification_email?: string | null
           payment_due_day?: number | null
           previous_rent_amount?: number | null
           security_deposit?: number | null
@@ -365,6 +368,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          notification_email: string | null
           preferences: Json | null
           updated_at: string
         }
@@ -374,6 +378,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          notification_email?: string | null
           preferences?: Json | null
           updated_at?: string
         }
@@ -383,6 +388,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          notification_email?: string | null
           preferences?: Json | null
           updated_at?: string
         }

@@ -53,6 +53,49 @@ async function sendEmailWithResend(
   } catch (err: any) {
     return { success: false, error: err?.message || "Network error sending email" };
   }
+async function resolveRecipientEmail(
+  adminClient: any,
+  leaseUserId: string | null | undefined,
+  leaseNotificationEmail: string | null | undefined,
+  alertRecipientOverride?: string
+): Promise<{ email: string; source: string }> {
+  // 1. Lease-level specific override
+  if (leaseNotificationEmail && leaseNotificationEmail.includes("@")) {
+    return { email: leaseNotificationEmail.trim(), source: "lease_notification_email" };
+  }
+
+  // 2. Alert recipient secret override (if explicitly specified)
+  if (alertRecipientOverride && alertRecipientOverride.includes("@")) {
+    return { email: alertRecipientOverride.trim(), source: "alert_recipient_override" };
+  }
+
+  // 3. User profile check (both custom notification_email and account email)
+  if (leaseUserId) {
+    try {
+      const { data: prof } = await adminClient
+        .from("profiles")
+        .select("email, notification_email")
+        .eq("id", leaseUserId)
+        .maybeSingle();
+
+      if (prof?.notification_email && prof.notification_email.includes("@")) {
+        return { email: prof.notification_email.trim(), source: "profile_notification_email" };
+      }
+      if (prof?.email && prof.email.includes("@")) {
+        return { email: prof.email.trim(), source: "profile_account_email" };
+      }
+    } catch (_) {}
+
+    // 4. Infallible direct Supabase Auth lookup (auth.users)
+    try {
+      const { data: authData } = await adminClient.auth.admin.getUserById(leaseUserId);
+      if (authData?.user?.email && authData.user.email.includes("@")) {
+        return { email: authData.user.email.trim(), source: "auth_users_email" };
+      }
+    } catch (_) {}
+  }
+
+  return { email: "delivered@resend.dev", source: "default_fallback" };
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
@@ -104,6 +147,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         monthly_rent,
         payment_due_day,
         grace_period_days,
+        notification_email,
         user_id,
         deal_id,
         deals ( id, title, user_id ),
@@ -129,21 +173,14 @@ export async function handleRequest(req: Request): Promise<Response> {
           continue;
         }
 
-        // Determine destination email (Owner profile or alert override)
-        let targetEmail = alertRecipientOverride;
-        if (!targetEmail && lease.user_id) {
-          const { data: prof } = await adminClient
-            .from("profiles")
-            .select("email")
-            .eq("id", lease.user_id)
-            .maybeSingle();
-          if (prof?.email) targetEmail = prof.email;
-        }
-
-        // If still no email, fallback to a verified default or skip delivery
-        if (!targetEmail) {
-          targetEmail = "delivered@resend.dev";
-        }
+        // Dynamically resolve destination email with source transparency
+        const { email: targetEmail, source: targetSource } = await resolveRecipientEmail(
+          adminClient,
+          lease.user_id,
+          (lease as any).notification_email,
+          alertRecipientOverride
+        );
+        logs.push(`Routing reminder for ${lease.tenant_name} to ${targetEmail} (resolved via ${targetSource})`);
 
         // Generate Single-Use Cryptographic Action Tokens
         const confirmToken = generateHexToken();
@@ -262,7 +299,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         amount_due,
         amount_paid,
         snooze_until,
-        leases ( id, tenant_name, monthly_rent, user_id, grace_period_days ),
+        leases ( id, tenant_name, monthly_rent, user_id, grace_period_days, notification_email ),
         deals ( id, title )
       `)
       .eq("status", "snoozed")
@@ -276,16 +313,14 @@ export async function handleRequest(req: Request): Promise<Response> {
         const deal = p.deals as any;
         if (!lease) continue;
 
-        let targetEmail = alertRecipientOverride;
-        if (!targetEmail && lease.user_id) {
-          const { data: prof } = await adminClient
-            .from("profiles")
-            .select("email")
-            .eq("id", lease.user_id)
-            .maybeSingle();
-          if (prof?.email) targetEmail = prof.email;
-        }
-        if (!targetEmail) targetEmail = "delivered@resend.dev";
+        // Dynamically resolve destination email with source transparency
+        const { email: targetEmail, source: targetSource } = await resolveRecipientEmail(
+          adminClient,
+          lease.user_id,
+          lease.notification_email,
+          alertRecipientOverride
+        );
+        logs.push(`Routing grace period follow-up for ${lease.tenant_name} to ${targetEmail} (resolved via ${targetSource})`);
 
         const confirmToken = generateHexToken();
         const tokenExpires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
