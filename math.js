@@ -327,7 +327,14 @@ function calculateProjections(assetType, inputs) {
   switch (assetType) {
     case 'single-family':
       const arv = parseFloat(inputs.arv) || 0;
-      initialPropertyValue = arv > 0 ? arv : purchasePrice;
+      // In acquisition pro-forma modeling, initial Year 1 Property Value is the purchase price (acquisition cost basis).
+      // If ARV is explicitly provided and greater than purchase price in a value-add/rehab project (rehabCosts > 0),
+      // the post-rehab stabilized value can reflect ARV. Otherwise, the property value must strictly be the purchase price!
+      if (arv > purchasePrice && rehabCosts > 0) {
+        initialPropertyValue = arv;
+      } else {
+        initialPropertyValue = purchasePrice > 0 ? purchasePrice : (arv > 0 ? arv : 0);
+      }
       const sfRent = parseFloat(inputs.monthlyRent) || parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.rent) || (parseFloat(inputs.grossRentAnnual) ? parseFloat(inputs.grossRentAnnual) / 12 : 0) || 0;
       year1GrossIncome = sfRent * 12;
       unitCount = 1;

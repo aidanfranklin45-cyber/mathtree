@@ -9662,18 +9662,25 @@
         packageAssessedVal = parseFloat(rawInputs.totalAssessedValue) || parseFloat(rawInputs.assessorData?.totalAssessedValue) || 0;
       }
 
-      // Check if price was stuck on legacy preset default (300k, 800k, 2M)
+      // Check if price was stuck on legacy preset default (300k, 800k, 2M) or single parcel value
       const presetTemplatePrices = [300000, 800000, 2000000];
       const hasPresetDefault = !rawInputs.purchasePrice || (presetTemplatePrices.includes(Number(rawInputs.purchasePrice)) && packageAssessedVal > 0 && Number(rawInputs.purchasePrice) !== packageAssessedVal);
 
-      const resolvedPurchasePrice = (packageAssessedVal > 0 && hasPresetDefault)
+      // If deal has active multi-parcel package, ensure purchase price reflects the full combined package value
+      const resolvedPurchasePrice = (packageAssessedVal > 0 && (hasPresetDefault || packageAssessedVal > Number(rawInputs.purchasePrice || 0)))
         ? packageAssessedVal
         : (rawInputs.purchasePrice || currentLoadedDeal.purchase_price || (packageAssessedVal > 0 ? packageAssessedVal : baseDefaults.purchasePrice));
+
+      // Clean up stale ARV so it never suppresses property value below the purchase price
+      const cleanArv = (rawInputs.arv && rawInputs.arv > resolvedPurchasePrice && (rawInputs.rehabCosts > 0 || rawInputs.rehabBudget > 0))
+        ? rawInputs.arv
+        : resolvedPurchasePrice;
 
       currentLoadedDeal.inputs = {
         ...baseDefaults,
         ...rawInputs,
         purchasePrice: resolvedPurchasePrice,
+        arv: cleanArv,
         totalAssessedValue: packageAssessedVal > 0 ? packageAssessedVal : (rawInputs.totalAssessedValue || 0)
       };
       currentLoadedDeal.purchase_price = resolvedPurchasePrice;
