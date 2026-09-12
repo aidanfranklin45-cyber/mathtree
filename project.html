@@ -462,8 +462,14 @@
           <!-- Brief Assumptions Summary Cards Grid -->
           <div id="brief-assumptions-cards-grid" class="space-y-2 pt-1">
             <div class="grid grid-cols-2 gap-2 text-xs">
-              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Acquisition Price</span>
+              <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900 group relative">
+                <div class="flex items-center justify-between">
+                  <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Acquisition Price</span>
+                  <div class="flex items-center space-x-1.5">
+                    <button type="button" onclick="promptEditPurchasePrice()" class="text-[10px] font-bold text-brand-400 hover:text-brand-300 transition" title="Edit Purchase Price">✏️ Edit</button>
+                    <button type="button" onclick="applyAssessedValueToProject()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition" title="Sync with County Assessed Package">⚡ Assessed</button>
+                  </div>
+                </div>
                 <span id="brief-val-price" class="text-sm font-black text-white mt-1 block">$0</span>
               </div>
               <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
@@ -3327,6 +3333,15 @@
       const tableTitle = document.getElementById('forecast-table-title');
       if (tableTitle && projections) {
         tableTitle.textContent = `Detailed ${projections.length}-Year Forecast Table`;
+      }
+      const tableSub = document.getElementById('forecast-table-sub');
+      if (tableSub && projections && projections.length > 0) {
+        const y1Val = projections[0].propertyValue;
+        const parcelCount = (currentLoadedDeal?.inputs?.parcels && Array.isArray(currentLoadedDeal.inputs.parcels))
+          ? currentLoadedDeal.inputs.parcels.filter(p => p.included).length
+          : 1;
+        const parcelSuffix = parcelCount > 1 ? ` (${parcelCount} Parcels Combined)` : '';
+        tableSub.innerHTML = `Granular breakdowns of financials, equity accumulation, and returns • Starting Basis: <span class="text-emerald-400 font-bold">${formatCurrency(y1Val)}</span>${parcelSuffix}`;
       }
 
       const startYr = getProjectionStartYear();
@@ -7548,9 +7563,20 @@
         currentLoadedDeal.inputs.marketImprovementValue = pkg.totalImprovementValue ?? pkg.marketImprovementValue;
         currentLoadedDeal.inputs.acres = pkg.totalAcres ?? pkg.acres;
         currentLoadedDeal.inputs.sqft = pkg.totalSqFt ?? pkg.sqft;
+
+        // Dynamically update model purchase price to reflect active multi-parcel package total assessed basis
+        if (pkg.totalAssessedValue > 0) {
+          const priceInput = document.getElementById('input-purchase-price');
+          if (priceInput) priceInput.value = pkg.totalAssessedValue;
+          const sliderInput = document.getElementById('slider-purchase-price');
+          if (sliderInput) sliderInput.value = pkg.totalAssessedValue;
+          currentLoadedDeal.inputs.purchasePrice = pkg.totalAssessedValue;
+          currentLoadedDeal.purchase_price = pkg.totalAssessedValue;
+        }
       }
 
       renderProjectMultiParcelUI(currentLoadedDeal);
+      updateCalculations();
 
       if (typeof autoSaveDealToSupabase === 'function') {
         autoSaveDealToSupabase(currentLoadedDeal);
@@ -7560,18 +7586,32 @@
 
     function applyAssessedValueToProject() {
       const current = currentLoadedDeal || {};
-      const rawAssessor = (current.inputs && current.inputs.assessorData) || {};
-      const totalAssessed = rawAssessor.totalAssessedValue || (current.inputs && (current.inputs.totalAssessedValue || current.inputs.assessedValue)) || 0;
+      let totalAssessed = 0;
+
+      // Check parcel package first for combined multi-parcel valuation
+      if (current.inputs && Array.isArray(current.inputs.parcels) && current.inputs.parcels.length > 0 && window.AddressService) {
+        const pkg = window.AddressService.aggregateParcelPackage(current.inputs.parcels);
+        totalAssessed = pkg.totalAssessedValue;
+      }
+
+      if (!totalAssessed || totalAssessed <= 0) {
+        const rawAssessor = (current.inputs && current.inputs.assessorData) || {};
+        totalAssessed = (current.inputs && (current.inputs.totalAssessedValue || current.inputs.assessedValue)) || rawAssessor.totalAssessedValue || 0;
+      }
 
       if (!totalAssessed || totalAssessed <= 0) {
         alert('No official assessed value on record for this parcel.');
         return;
       }
 
-      const priceInput = document.getElementById('field-purchase-price');
+      const priceInput = document.getElementById('input-purchase-price');
       if (priceInput) {
         priceInput.value = totalAssessed;
         priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const sliderInput = document.getElementById('slider-purchase-price');
+      if (sliderInput) {
+        sliderInput.value = totalAssessed;
       }
 
       if (current.inputs) {
@@ -7584,9 +7624,41 @@
         saveCurrentDealChanges(false);
       }
 
-      alert(`Applied Yakima County assessed value of ${formatCurrency(totalAssessed)} as project Purchase Price.`);
+      const parcelCount = (current.inputs && Array.isArray(current.inputs.parcels)) ? current.inputs.parcels.filter(p => p.included).length : 1;
+      const countStr = parcelCount > 1 ? ` (${parcelCount} Parcels Combined)` : '';
+      alert(`Applied Yakima County assessed value of ${formatCurrency(totalAssessed)}${countStr} as project Purchase Price.`);
     }
     window.applyAssessedValueToProject = applyAssessedValueToProject;
+
+    function promptEditPurchasePrice() {
+      const current = currentLoadedDeal || {};
+      const currentPrice = (current.inputs && current.inputs.purchasePrice) || current.purchase_price || 0;
+      const assessedVal = (current.inputs && current.inputs.totalAssessedValue) || 0;
+      const promptMsg = `Enter negotiated Purchase Price (Cost Basis):\n` +
+        (assessedVal > 0 ? `(Current Assessed Package Value: ${formatCurrency(assessedVal)})\n` : '') +
+        `Current: ${formatCurrency(currentPrice)}`;
+      const valStr = prompt(promptMsg, currentPrice > 0 ? String(currentPrice) : (assessedVal > 0 ? String(assessedVal) : ''));
+      if (valStr === null) return;
+      const newPrice = parseFloat(valStr.replace(/[^0-9.]/g, ''));
+      if (isNaN(newPrice) || newPrice <= 0) {
+        alert('Please enter a valid positive number for purchase price.');
+        return;
+      }
+
+      const priceInput = document.getElementById('input-purchase-price');
+      if (priceInput) priceInput.value = newPrice;
+      const sliderInput = document.getElementById('slider-purchase-price');
+      if (sliderInput) sliderInput.value = newPrice;
+
+      if (current.inputs) current.inputs.purchasePrice = newPrice;
+      current.purchase_price = newPrice;
+
+      updateCalculations();
+      if (typeof saveCurrentDealChanges === 'function') {
+        saveCurrentDealChanges(false);
+      }
+    }
+    window.promptEditPurchasePrice = promptEditPurchasePrice;
 
     async function forceRefreshCountyGis() {
       if (!currentLoadedDeal || !currentLoadedDeal.inputs) return;
@@ -9581,11 +9653,30 @@
         }
       }
 
+      // Check for multi-parcel package or official assessed valuation
+      let packageAssessedVal = 0;
+      if (Array.isArray(rawInputs.parcels) && rawInputs.parcels.length > 0 && window.AddressService) {
+        const pkg = window.AddressService.aggregateParcelPackage(rawInputs.parcels);
+        packageAssessedVal = pkg.totalAssessedValue || 0;
+      } else {
+        packageAssessedVal = parseFloat(rawInputs.totalAssessedValue) || parseFloat(rawInputs.assessorData?.totalAssessedValue) || 0;
+      }
+
+      // Check if price was stuck on legacy preset default (300k, 800k, 2M)
+      const presetTemplatePrices = [300000, 800000, 2000000];
+      const hasPresetDefault = !rawInputs.purchasePrice || (presetTemplatePrices.includes(Number(rawInputs.purchasePrice)) && packageAssessedVal > 0 && Number(rawInputs.purchasePrice) !== packageAssessedVal);
+
+      const resolvedPurchasePrice = (packageAssessedVal > 0 && hasPresetDefault)
+        ? packageAssessedVal
+        : (rawInputs.purchasePrice || currentLoadedDeal.purchase_price || (packageAssessedVal > 0 ? packageAssessedVal : baseDefaults.purchasePrice));
+
       currentLoadedDeal.inputs = {
         ...baseDefaults,
         ...rawInputs,
-        purchasePrice: rawInputs.purchasePrice || currentLoadedDeal.purchase_price || baseDefaults.purchasePrice
+        purchasePrice: resolvedPurchasePrice,
+        totalAssessedValue: packageAssessedVal > 0 ? packageAssessedVal : (rawInputs.totalAssessedValue || 0)
       };
+      currentLoadedDeal.purchase_price = resolvedPurchasePrice;
 
       // Set form fields with valid property values
       updateFormFields(currentLoadedDeal.inputs);

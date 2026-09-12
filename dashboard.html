@@ -3603,6 +3603,14 @@
         _wizAssessorCache.totalAssessedValue = pkg.totalAssessedValue;
         _wizAssessorCache.packageAcres = pkg.totalAcres;
       }
+
+      if (pkg.totalAssessedValue > 0) {
+        const priceEl = document.getElementById('wiz-purchase-price');
+        if (priceEl) {
+          priceEl.value = pkg.totalAssessedValue;
+          if (typeof calculateWizardUpfrontCash === 'function') calculateWizardUpfrontCash();
+        }
+      }
     }
     window.updateWizardPackageMetrics = updateWizardPackageMetrics;
 

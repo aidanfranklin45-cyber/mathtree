@@ -303,7 +303,8 @@ function calculateIRR(initialCash, cashFlows) {
  */
 function calculateProjections(assetType, inputs) {
   // Common inputs parsing with alias normalization
-  const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
+  const assessedFallback = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || 0;
+  const purchasePrice = (parseFloat(inputs.purchasePrice) > 0) ? parseFloat(inputs.purchasePrice) : (assessedFallback > 0 ? assessedFallback : (parseFloat(inputs.purchasePrice) || 0));
   const downPaymentPercent = parseFloat(inputs.downPaymentPercent) || 0;
   const interestRate = parseFloat(inputs.interestRate) || 0;
   const loanTerm = parseInt(inputs.loanTerm) || parseInt(inputs.loanTermYears) || parseInt(inputs.amortizationYears) || 30;
@@ -1640,23 +1641,25 @@ if (typeof exports !== 'undefined') {
   exports.getBenchmarkCapRateRange = getBenchmarkCapRateRange;
   exports.calculateHoldingPeriodWealth = calculateHoldingPeriodWealth;
 }
+const globalScope = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
+globalScope.PropertyMath = {
+  calculateProjections,
+  calculateMonthlyProjections,
+  calculateMonthlyPayment,
+  getAnnualAmortization,
+  getMonthlyAmortization,
+  calculateRemainingBalance,
+  calculateSensitivityMatrix,
+  runMonteCarloSimulation,
+  calculateTaxAndDepreciation,
+  calculateRefinanceEvent,
+  solveTargetPurchasePrice,
+  aggregatePortfolio,
+  auditDealRisks,
+  generateScenarioVariants,
+  getBenchmarkCapRateRange,
+  calculateHoldingPeriodWealth
+};
 if (typeof window !== 'undefined') {
-  window.PropertyMath = {
-    calculateProjections,
-    calculateMonthlyProjections,
-    calculateMonthlyPayment,
-    getAnnualAmortization,
-    getMonthlyAmortization,
-    calculateRemainingBalance,
-    calculateSensitivityMatrix,
-    runMonteCarloSimulation,
-    calculateTaxAndDepreciation,
-    calculateRefinanceEvent,
-    solveTargetPurchasePrice,
-    aggregatePortfolio,
-    auditDealRisks,
-    generateScenarioVariants,
-    getBenchmarkCapRateRange,
-    calculateHoldingPeriodWealth
-  };
+  window.PropertyMath = globalScope.PropertyMath;
 }
