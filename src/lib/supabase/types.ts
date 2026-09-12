@@ -482,6 +482,8 @@ export type Database = {
           payment_method: string | null
           period_month: string
           reference_note: string | null
+          snooze_until: string | null
+          snoozed_at: string | null
           status: string
           updated_at: string
           user_id: string | null
@@ -498,6 +500,8 @@ export type Database = {
           payment_method?: string | null
           period_month: string
           reference_note?: string | null
+          snooze_until?: string | null
+          snoozed_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -514,6 +518,8 @@ export type Database = {
           payment_method?: string | null
           period_month?: string
           reference_note?: string | null
+          snooze_until?: string | null
+          snoozed_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string | null
@@ -643,13 +649,17 @@ export type Database = {
           current_period: string | null
           deal_id: string | null
           deal_title: string | null
+          grace_period_days: number | null
           is_active: boolean | null
           lease_id: string | null
           paid_date: string | null
+          payment_due_day: number | null
           payment_id: string | null
           payment_method: string | null
           payment_status: string | null
           reference_note: string | null
+          snooze_until: string | null
+          snoozed_at: string | null
           tenant_name: string | null
           unit_number: string | null
           user_id: string | null

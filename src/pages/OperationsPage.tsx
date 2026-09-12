@@ -62,6 +62,10 @@ export const OperationsPage: React.FC = () => {
             reference_note: null,
             payment_status: 'pending',
             user_id: null,
+            grace_period_days: 5,
+            payment_due_day: 1,
+            snooze_until: null,
+            snoozed_at: null,
           },
           {
             lease_id: 'l-2',
@@ -79,6 +83,10 @@ export const OperationsPage: React.FC = () => {
             reference_note: 'Wire Ref: ACH-883921',
             payment_status: 'paid',
             user_id: null,
+            grace_period_days: 5,
+            payment_due_day: 1,
+            snooze_until: null,
+            snoozed_at: null,
           },
         ];
       }

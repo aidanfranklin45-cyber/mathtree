@@ -323,6 +323,10 @@
           </p>
         </div>
         <div class="flex items-center space-x-2">
+          <button onclick="triggerDailyMonitorNow()" id="btn-run-daily-monitor" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition" title="Trigger Automated Rent Due & Escalation Monitor">
+            <span>⚡</span>
+            <span>Run Daily Monitor</span>
+          </button>
           <button onclick="refreshOperationsData()" class="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800 border border-slate-700 hover:border-slate-600 transition" title="Refresh Live Database">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           </button>
@@ -482,27 +486,39 @@
           Adjustment: +$0.00 (+0.0%)
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-400 font-bold mb-1">Effective Date</label>
-            <input type="date" id="increase-effective-date" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-slate-400 font-bold">Effective Date *</label>
+            <div class="flex items-center space-x-1">
+              <button type="button" onclick="setIncreaseEffectiveOffset(0)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold transition">Today</button>
+              <button type="button" onclick="setIncreaseEffectiveOffset(30)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold transition">+30d Notice</button>
+              <button type="button" onclick="setIncreaseEffectiveOffset(60)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold transition">+60d Notice</button>
+              <button type="button" onclick="setIncreaseEffectiveNextMonth()" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold transition">1st Next Mo</button>
+            </div>
           </div>
-          <div>
-            <label class="block text-slate-400 font-bold mb-1">Notice Sent Date</label>
-            <input type="date" id="increase-notice-date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
-          </div>
+          <input type="date" id="increase-effective-date" onchange="recalcIncreasePreview()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Notice Sent Date</label>
+          <input type="date" id="increase-notice-date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <!-- Advance Notice Guidance Badge -->
+        <div id="increase-advance-notice-box" class="hidden p-2.5 rounded-xl bg-blue-950/40 border border-blue-900/60 text-blue-300 text-[11px] leading-relaxed">
+          📅 <strong>Advance Escalation Queued:</strong> Tenant remains on Month-to-Month terms. In-place rent will not change today; the background scheduler will automatically execute the new rate on the effective date.
         </div>
 
         <div>
           <label class="block text-slate-400 font-bold mb-1">Reason / Clause</label>
-          <input type="text" id="increase-reason" placeholder="e.g. Annual 3% lease escalation, market catch-up" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          <input type="text" id="increase-reason" placeholder="e.g. 60-day month-to-month notice, contractual escalation" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
         </div>
 
         <div class="flex space-x-2 pt-2">
           <button type="button" onclick="closeModal('modal-rent-increase')" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition">
             Cancel
           </button>
-          <button type="submit" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
+          <button type="submit" id="btn-submit-rent-increase" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
             Apply Escalation
           </button>
         </div>
@@ -1596,14 +1612,22 @@
         const monthsSince = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
         const isUnscheduledReviewDue = !hasDefinedSchedule && monthsSince >= 12;
 
-        // Payment status badge
-        let statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Pending</span>';
-        if (payment && payment.status === 'paid') {
+        // Payment status badge & snooze state
+        const isPaid = Boolean(payment && payment.status === 'paid');
+        const isSnoozed = Boolean(payment && payment.snooze_until && new Date(payment.snooze_until) >= now);
+        const isOverdue = Boolean(payment && payment.status === 'overdue');
+        const graceDays = lease.grace_period_days || 5;
+
+        let statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20" title="Rent due on day ${lease.payment_due_day || 1}">Due Day ${lease.payment_due_day || 1}</span>`;
+        if (isPaid) {
           statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✓ Paid</span>';
-        } else if (payment && payment.status === 'overdue') {
-          statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Overdue</span>';
+        } else if (isSnoozed) {
+          statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40" title="Alert snoozed until ${payment.snooze_until} (${graceDays}d dynamic grace period)">⏳ Snoozed (${payment.snooze_until.slice(5)})</span>`;
+        } else if (isOverdue) {
+          statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">⚠️ Overdue</span>';
         }
 
+        const isAdvanceScheduled = Boolean(nextEscDate && nextEscDate > now);
         const rentFormatted = parseFloat(lease.monthly_rent || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         rowsHtml += `
@@ -1620,7 +1644,7 @@
               $${rentFormatted}
             </td>
             <td class="py-3 px-4 text-slate-300 font-mono text-[11px]">
-              ${lease.lease_end_date ? lease.lease_end_date : 'Month-to-Month'}
+              ${lease.lease_end_date ? lease.lease_end_date : '<span class="text-amber-400/90 font-semibold">Month-to-Month</span>'}
             </td>
             <td class="py-3 px-4">
               <div class="flex flex-col space-y-0.5">
@@ -1628,6 +1652,8 @@
                   <span class="font-mono text-[11px] text-slate-300">${lease.last_rent_increase_date || lease.lease_start_date}</span>
                   ${isScheduledDue 
                     ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="Scheduled escalation date has arrived">⚠️ Escalation Due</span>'
+                    : isAdvanceScheduled
+                    ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[9px] font-bold" title="Scheduled advance increase queued for ${lease.next_escalation_date}">📅 Scheduled: ${lease.next_escalation_date}</span>`
                     : isUnscheduledReviewDue
                     ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="No escalation schedule in place (>12 months)">⚠️ Review Due</span>'
                     : hasDefinedSchedule
@@ -1647,13 +1673,21 @@
             </td>
             <td class="py-3 px-4 text-right">
               <div class="flex items-center justify-end space-x-1.5">
+                ${!isPaid ? `
+                  <button onclick="quickReconcilePayment('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-600 hover:bg-emerald-600 hover:text-white transition shadow-sm" title="1-Click Reconcile Full Rent">
+                    ✓ Pay
+                  </button>
+                  <button onclick="quickSnoozePayment('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-amber-300 bg-amber-950/80 border border-amber-600 hover:bg-amber-600 hover:text-white transition shadow-sm" title="Missing Rent (Snooze + Apply Dynamic Grace Policy of ${graceDays} Days)">
+                    ⏳ Snooze
+                  </button>
+                ` : ''}
                 <button onclick="openEditLeaseModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-800 transition" title="Edit Lease & Escalation Schedule">
                   ✎ Edit
                 </button>
-                <button onclick="openLogPaymentModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-800 transition" title="Log Payment">
-                  Log Pay
+                <button onclick="openLogPaymentModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-800 transition" title="Log Payment Details">
+                  Log
                 </button>
-                <button onclick="openRentIncreaseModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-300 bg-blue-950/60 border border-blue-800/60 hover:bg-blue-800 transition" title="Record Rent Escalation">
+                <button onclick="openRentIncreaseModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-blue-300 bg-blue-950/60 border border-blue-800/60 hover:bg-blue-800 transition" title="Record or Schedule Rent Escalation">
                   Escalate
                 </button>
                 <button onclick="openAuditTrailModal('${lease.id}')" class="p-1 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition" title="View Audit Trail">
@@ -1777,14 +1811,54 @@
       openModal('modal-rent-increase');
     }
 
+    function setIncreaseEffectiveOffset(days) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      const val = d.toISOString().split('T')[0];
+      const effEl = document.getElementById('increase-effective-date');
+      if (effEl) {
+        effEl.value = val;
+        recalcIncreasePreview();
+      }
+    }
+    window.setIncreaseEffectiveOffset = setIncreaseEffectiveOffset;
+
+    function setIncreaseEffectiveNextMonth() {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 1);
+      d.setDate(1);
+      const val = d.toISOString().split('T')[0];
+      const effEl = document.getElementById('increase-effective-date');
+      if (effEl) {
+        effEl.value = val;
+        recalcIncreasePreview();
+      }
+    }
+    window.setIncreaseEffectiveNextMonth = setIncreaseEffectiveNextMonth;
+
     function recalcIncreasePreview() {
       const oldRent = parseFloat(document.getElementById('increase-old-rent').value) || 0;
       const newRent = parseFloat(document.getElementById('increase-new-rent').value) || 0;
+      const effectiveDate = document.getElementById('increase-effective-date').value;
       const diff = newRent - oldRent;
       const pct = oldRent > 0 ? ((diff / oldRent) * 100).toFixed(1) : 0;
       const pill = document.getElementById('increase-delta-preview');
       if (pill) {
         pill.textContent = `Adjustment: ${diff >= 0 ? '+' : ''}$${diff.toFixed(2)} (${diff >= 0 ? '+' : ''}${pct}%)`;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const isFuture = effectiveDate > todayStr;
+      const noticeBox = document.getElementById('increase-advance-notice-box');
+      const submitBtn = document.getElementById('btn-submit-rent-increase');
+
+      if (noticeBox) {
+        if (isFuture) noticeBox.classList.remove('hidden');
+        else noticeBox.classList.add('hidden');
+      }
+
+      if (submitBtn) {
+        submitBtn.textContent = isFuture ? 'Schedule Advance Escalation' : 'Apply Escalation Immediately';
       }
     }
 
@@ -1797,17 +1871,23 @@
       const newRent = parseFloat(document.getElementById('increase-new-rent').value) || 0;
       const effectiveDate = document.getElementById('increase-effective-date').value;
       const noticeDate = document.getElementById('increase-notice-date').value;
-      const reason = document.getElementById('increase-reason').value;
+      const reason = document.getElementById('increase-reason').value || 'Scheduled rent adjustment';
 
       const user = window._currentUser;
       const isDemo = !window._supabase || (user && user.demo);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const isFuture = effectiveDate > todayStr;
 
       if (isDemo) {
         const lease = rawLeases.find(l => l.id === leaseId);
         if (lease) {
-          lease.previous_rent_amount = oldRent;
-          lease.monthly_rent = newRent;
-          lease.last_rent_increase_date = effectiveDate;
+          if (isFuture) {
+            lease.next_escalation_date = effectiveDate;
+          } else {
+            lease.previous_rent_amount = oldRent;
+            lease.monthly_rent = newRent;
+            lease.last_rent_increase_date = effectiveDate;
+          }
         }
         rawIncreases.unshift({
           id: 'inc-demo-' + Date.now(),
@@ -1819,7 +1899,9 @@
           reason: reason,
           notice_sent_date: noticeDate || null
         });
-        syncLeaseRollToDeal(dealId);
+        if (!isFuture) {
+          syncLeaseRollToDeal(dealId);
+        }
         closeModal('modal-rent-increase');
         renderOperationsUI();
         return;
@@ -1828,46 +1910,43 @@
       if (!user || !window._supabase) return;
 
       try {
-        // 1. Insert rent increase audit record
-        const { error: incErr } = await window._supabase
-          .from('rent_increases')
-          .insert({
-            user_id: user.id,
-            lease_id: leaseId,
-            deal_id: dealId,
-            effective_date: effectiveDate,
-            old_rent: oldRent,
-            new_rent: newRent,
-            reason: reason,
-            notice_sent_date: noticeDate || null
+        if (isFuture) {
+          // Schedule in advance: queue in rent_increases and set next_escalation_date without changing current rent
+          const { error: rpcErr } = await window._supabase.rpc('schedule_advance_rent_increase', {
+            p_lease_id: leaseId,
+            p_effective_date: effectiveDate,
+            p_new_rent: newRent,
+            p_reason: reason
           });
-        if (incErr) throw incErr;
+          if (rpcErr) throw rpcErr;
+        } else {
+          // Apply immediately: update rent, record increase, and recalculate deal equity
+          const { error: incErr } = await window._supabase
+            .from('rent_increases')
+            .insert({
+              user_id: user.id,
+              lease_id: leaseId,
+              deal_id: dealId,
+              effective_date: effectiveDate,
+              old_rent: oldRent,
+              new_rent: newRent,
+              reason: reason,
+              notice_sent_date: noticeDate || null
+            });
+          if (incErr) throw incErr;
 
-        // 2. Update lease with new monthly rent and last increase date
-        const { error: leaseErr } = await window._supabase
-          .from('leases')
-          .update({
-            monthly_rent: newRent,
-            previous_rent_amount: oldRent,
-            last_rent_increase_date: effectiveDate,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', leaseId);
-        if (leaseErr) throw leaseErr;
+          const { error: leaseErr } = await window._supabase
+            .from('leases')
+            .update({
+              monthly_rent: newRent,
+              previous_rent_amount: oldRent,
+              last_rent_increase_date: effectiveDate,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', leaseId);
+          if (leaseErr) throw leaseErr;
 
-        // 3. Dynamically keep deal inputs in public.deals synchronized
-        const deal = rawDeals.find(d => d.id === dealId);
-        if (deal && deal.inputs) {
-          const updatedInputs = {
-            ...deal.inputs,
-            monthlyRent: newRent,
-            grossRentPerMonth: newRent,
-            grossRentAnnual: newRent * 12
-          };
-          await window._supabase
-            .from('deals')
-            .update({ inputs: updatedInputs, updated_at: new Date().toISOString() })
-            .eq('id', dealId);
+          await syncLeaseRollToDeal(dealId);
         }
 
         closeModal('modal-rent-increase');
@@ -1876,6 +1955,144 @@
         alert('Error saving rent escalation: ' + err.message);
       }
     }
+
+    // 1-Click Quick Direct Reconciliation from Rent Roll Table
+    async function quickReconcilePayment(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+      const curPeriod = formatPeriodMonth(activeDate);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const user = window._currentUser;
+      const isDemo = !window._supabase || (user && user.demo);
+
+      const payload = {
+        user_id: user ? user.id : 'demo-user',
+        lease_id: lease.id,
+        deal_id: lease.deal_id,
+        period_month: curPeriod,
+        due_date: curPeriod,
+        amount_due: lease.monthly_rent,
+        amount_paid: lease.monthly_rent,
+        paid_date: todayStr,
+        status: 'paid',
+        payment_method: '1-Click Direct Reconcile',
+        reference_note: 'Direct 1-click verification'
+      };
+
+      if (isDemo) {
+        const existingIdx = rawPayments.findIndex(p => p.lease_id === lease.id && p.period_month === curPeriod);
+        if (existingIdx >= 0) {
+          rawPayments[existingIdx] = { ...rawPayments[existingIdx], ...payload };
+        } else {
+          payload.id = 'pay-demo-' + Date.now();
+          rawPayments.push(payload);
+        }
+        renderOperationsUI();
+        return;
+      }
+
+      if (!user || !window._supabase) return;
+
+      try {
+        const { error } = await window._supabase
+          .from('rent_payments')
+          .upsert(payload, { onConflict: 'lease_id,period_month' });
+        if (error) throw error;
+        await fetchAllOperationsData();
+      } catch (err) {
+        alert('Error reconciling payment: ' + err.message);
+      }
+    }
+    window.quickReconcilePayment = quickReconcilePayment;
+
+    // 1-Click Missing Rent Snooze with Dynamic Grace Period
+    async function quickSnoozePayment(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+      const curPeriod = formatPeriodMonth(activeDate);
+      const graceDays = lease.grace_period_days || 5;
+      const snoozeDate = new Date();
+      snoozeDate.setDate(snoozeDate.getDate() + graceDays);
+      const snoozeDateStr = snoozeDate.toISOString().split('T')[0];
+
+      const user = window._currentUser;
+      const isDemo = !window._supabase || (user && user.demo);
+
+      const payload = {
+        user_id: user ? user.id : 'demo-user',
+        lease_id: lease.id,
+        deal_id: lease.deal_id,
+        period_month: curPeriod,
+        due_date: curPeriod,
+        amount_due: lease.monthly_rent,
+        amount_paid: 0,
+        status: 'snoozed',
+        snooze_until: snoozeDateStr,
+        snoozed_at: new Date().toISOString(),
+        reference_note: `Snoozed by owner: dynamic grace policy of ${graceDays} days applied`
+      };
+
+      if (isDemo) {
+        const existingIdx = rawPayments.findIndex(p => p.lease_id === lease.id && p.period_month === curPeriod);
+        if (existingIdx >= 0) {
+          rawPayments[existingIdx] = { ...rawPayments[existingIdx], ...payload };
+        } else {
+          payload.id = 'pay-demo-' + Date.now();
+          rawPayments.push(payload);
+        }
+        renderOperationsUI();
+        return;
+      }
+
+      if (!user || !window._supabase) return;
+
+      try {
+        const { error } = await window._supabase
+          .from('rent_payments')
+          .upsert(payload, { onConflict: 'lease_id,period_month' });
+        if (error) throw error;
+        await fetchAllOperationsData();
+      } catch (err) {
+        alert('Error snoozing payment alert: ' + err.message);
+      }
+    }
+    window.quickSnoozePayment = quickSnoozePayment;
+
+    // Trigger Automated Daily Monitor & Equity Recalculation On-Demand
+    async function triggerDailyMonitorNow() {
+      const btn = document.getElementById('btn-run-daily-monitor');
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>Running Monitor...</span>';
+      }
+
+      try {
+        const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/cron-daily-lease-monitor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          const escCount = data.escalations?.leases_escalated || 0;
+          const dealsCount = data.escalations?.deals_recalculated || 0;
+          const emailsSent = data.due_date_notifications_sent || 0;
+          alert(`✓ Daily Monitor Completed Successfully!\n\n• Leases Escalated: ${escCount}\n• Deal Equity Recalculated: ${dealsCount}\n• Due Date Notifications Dispatched: ${emailsSent}`);
+          await fetchAllOperationsData();
+        } else {
+          alert('Notice from Daily Monitor: ' + (data?.error || 'Check edge function logs.'));
+        }
+      } catch (err) {
+        console.error('Error invoking daily monitor:', err);
+        alert('Daily Monitor invocation: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalHtml;
+        }
+      }
+    }
+    window.triggerDailyMonitorNow = triggerDailyMonitorNow;
 
     // Modal Trigger: Audit Trail
     function openAuditTrailModal(leaseId) {

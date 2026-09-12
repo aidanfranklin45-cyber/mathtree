@@ -239,6 +239,13 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
                         Partial
                       </span>
                     );
+                  } else if (status === 'snoozed') {
+                    statusBadge = (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/30" title={row.snooze_until ? `Snoozed until ${row.snooze_until}` : 'Alert Snoozed'}>
+                        <Clock className="w-3 h-3" />
+                        Snoozed {row.snooze_until ? `(${row.snooze_until.slice(5)})` : ''}
+                      </span>
+                    );
                   } else if (status === 'overdue') {
                     statusBadge = (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/30">

@@ -1881,17 +1881,23 @@
 
           <!-- Monte Carlo Simulation Card -->
           <div class="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-900 pb-3">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-900 pb-3 gap-2">
               <div>
                 <h3 class="text-sm font-bold text-white flex items-center space-x-2">
                   <span class="inline-block w-2.5 h-2.5 rounded-full bg-accent-violet"></span>
                   <span>Monte Carlo 1,000-Iteration Risk Analysis</span>
+                  <span id="mc-engine-badge" class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-accent-violet/20 border border-accent-violet/40 text-accent-violet font-semibold inline-flex items-center gap-1">⚡ Supabase Deno Edge</span>
                 </h3>
                 <p class="text-xs text-slate-400">Stochastic market volatility model (Rent Growth, Appreciation & Vacancy Shocks)</p>
               </div>
-              <button id="btn-run-mc" class="px-3 py-1.5 rounded-lg border border-accent-violet/40 bg-accent-violet/20 hover:bg-accent-violet/30 text-xs font-bold text-accent-violet transition flex items-center space-x-1.5">
-                <span>🎲 Re-Run 1,000 Runs</span>
-              </button>
+              <div class="flex items-center space-x-2">
+                <button type="button" id="btn-mc-primer" onclick="openStochasticPrimer()" class="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1.5 shadow-sm">
+                  <span>📖 Methodology Primer</span>
+                </button>
+                <button type="button" id="btn-run-mc" class="px-3 py-1.5 rounded-lg border border-accent-violet/40 bg-accent-violet/20 hover:bg-accent-violet/30 text-xs font-bold text-accent-violet transition flex items-center space-x-1.5 shadow-sm">
+                  <span>🎲 Re-Run 1,000 Runs</span>
+                </button>
+              </div>
             </div>
 
             <!-- Statistical Distribution Summary -->
@@ -1917,6 +1923,57 @@
                 <p id="mc-prob-neg" class="text-sm font-extrabold text-amber-400 mt-1">0.0%</p>
               </div>
             </div>
+
+            <!-- Executive Risk Attribution Narrative Strip -->
+            <div id="mc-narrative-summary" class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/80 text-xs text-slate-300 flex items-start space-x-3 transition-all">
+              <span class="text-lg leading-none">🛡️</span>
+              <div class="space-y-1 flex-1">
+                <div class="flex items-center justify-between">
+                  <span id="mc-narrative-title" class="font-bold text-white text-xs">Institutional Risk Assessment</span>
+                  <span id="mc-narrative-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Strong Downside Buffer</span>
+                </div>
+                <p id="mc-narrative-body" class="text-slate-400 text-xs leading-relaxed">
+                  Stochastic analysis simulates 1,000 randomized micro-economic paths around baseline underwriting. Click "Re-Run 1,000 Runs" or adjust volatility parameters below to test capital call vulnerability.
+                </p>
+              </div>
+            </div>
+
+            <!-- Collapsible Stochastic Volatility Assumptions -->
+            <details id="mc-volatility-accordion" class="group border border-slate-800/80 rounded-xl bg-slate-950/40 overflow-hidden">
+              <summary class="flex items-center justify-between px-3.5 py-2.5 cursor-pointer text-xs font-semibold text-slate-300 hover:text-white bg-slate-950/60 hover:bg-slate-900/50 transition select-none">
+                <span class="flex items-center gap-2">
+                  <span class="text-accent-violet">⚙️</span>
+                  <span>Stochastic Volatility Assumptions & Stress Parameters</span>
+                </span>
+                <span class="text-[11px] text-slate-500 group-open:rotate-180 transition-transform duration-200">▼</span>
+              </summary>
+              <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-900 bg-slate-950/30 text-xs">
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <label for="input-mc-vol-rent" class="text-slate-400 font-medium">Rent Growth Volatility (&sigma;)</label>
+                    <span id="label-mc-vol-rent" class="font-mono text-white font-bold">&plusmn;1.5%</span>
+                  </div>
+                  <input type="range" id="input-mc-vol-rent" min="0.5" max="5.0" step="0.25" value="1.5" class="w-full accent-accent-violet bg-slate-900 cursor-pointer" oninput="document.getElementById('label-mc-vol-rent').textContent = '±' + parseFloat(this.value).toFixed(2) + '%'">
+                  <p class="text-[10px] text-slate-500 mt-1">Randomized annual rent revision drift (&mu; = baseline, &sigma; standard deviation).</p>
+                </div>
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <label for="input-mc-vol-vacancy" class="text-slate-400 font-medium">Vacancy Shock Volatility (&sigma;)</label>
+                    <span id="label-mc-vol-vacancy" class="font-mono text-white font-bold">&plusmn;2.5%</span>
+                  </div>
+                  <input type="range" id="input-mc-vol-vacancy" min="1.0" max="8.0" step="0.5" value="2.5" class="w-full accent-accent-violet bg-slate-900 cursor-pointer" oninput="document.getElementById('label-mc-vol-vacancy').textContent = '±' + parseFloat(this.value).toFixed(1) + '%'">
+                  <p class="text-[10px] text-slate-500 mt-1">Tenant turnover & friction shock (&mu; = baseline vacancy, &sigma; standard deviation).</p>
+                </div>
+                <div>
+                  <div class="flex justify-between items-center mb-1">
+                    <label for="input-mc-vol-cap" class="text-slate-400 font-medium">Exit Cap Rate Spread (&sigma;)</label>
+                    <span id="label-mc-vol-cap" class="font-mono text-white font-bold">&plusmn;100 bps</span>
+                  </div>
+                  <input type="range" id="input-mc-vol-cap" min="25" max="300" step="25" value="100" class="w-full accent-accent-violet bg-slate-900 cursor-pointer" oninput="document.getElementById('label-mc-vol-cap').textContent = '±' + parseInt(this.value) + ' bps'">
+                  <p class="text-[10px] text-slate-500 mt-1">Capital markets expansion / liquidity uncertainty at terminal exit year.</p>
+                </div>
+              </div>
+            </details>
 
             <!-- Monte Carlo Distribution Chart -->
             <div class="h-64 w-full relative pt-2">
@@ -2651,6 +2708,125 @@
     </div>
   </div>
 
+  <!-- Stochastic Market Volatility Methodology Primer Modal -->
+  <div id="modal-stochastic-guide" role="dialog" aria-modal="true" aria-labelledby="modal-stochastic-title" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 hidden overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/60 sticky top-0 z-10">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-xl">📖</span>
+          <div>
+            <h3 id="modal-stochastic-title" class="text-base font-extrabold text-white tracking-tight">Stochastic Market Volatility & Monte Carlo Primer</h3>
+            <p class="text-xs text-slate-400">Institutional risk underwriting theory, mathematical mechanics, and distribution interpretation</p>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('modal-stochastic-guide').classList.add('hidden')" aria-label="Close modal" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition text-sm font-bold">✕</button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-6 overflow-y-auto space-y-6 text-xs text-slate-300 leading-relaxed">
+        <!-- Section 1: Deterministic vs. Stochastic -->
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
+            <span>1. Deterministic vs. Stochastic Underwriting</span>
+          </div>
+          <p>
+            Standard real estate pro-formas are <strong class="text-white">deterministic</strong>: they assume static, straight-line parameters—such as exactly 3.0% rent growth every year, exactly 5.0% vacancy every month, and an exact exit cap rate at Year 5. In reality, commercial real estate markets undergo economic cycles, inflation fluctuations, localized supply gluts, and credit volatility.
+          </p>
+          <p>
+            A <strong class="text-accent-violet">Stochastic Market Volatility Model</strong> executes 1,000 independent simulated market trajectories. Each iteration applies continuous Gaussian shocks (normal distribution sampling via the Box-Muller transform) to operational and terminal parameters, revealing the entire probability distribution of possible investment returns.
+          </p>
+        </div>
+
+        <!-- Section 2: The 3 Gaussian Shock Engines -->
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
+            <span>2. The 3 Random Shock Drivers</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <div class="flex items-center space-x-1.5 text-accent-violet font-bold">
+                <span>📈</span>
+                <span>Rent Growth Drift</span>
+              </div>
+              <p class="text-[11px] text-slate-400">
+                Samples &sigma; &asymp; 1.5% around baseline. Simulates localized tenant lease renewal friction, inflation dynamics, and wage growth variation.
+              </p>
+            </div>
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <div class="flex items-center space-x-1.5 text-accent-rose font-bold">
+                <span>📉</span>
+                <span>Vacancy Shocks</span>
+              </div>
+              <p class="text-[11px] text-slate-400">
+                Samples &sigma; &asymp; 2.5% around baseline (clamped at economic floor). Simulates unexpected tenant non-renewals, eviction delays, and concession surges.
+              </p>
+            </div>
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <div class="flex items-center space-x-1.5 text-amber-400 font-bold">
+                <span>🏛️</span>
+                <span>Exit Cap Rate Spread</span>
+              </div>
+              <p class="text-[11px] text-slate-400">
+                Samples &plusmn;100 bps spread at disposition. Captures macro liquidity tightening, interest rate cycle shifts, and capital market compression/expansion.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Interpreting the Key Institutional Metrics -->
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
+            <span>3. How to Read Distribution Metrics</span>
+          </div>
+          <div class="bg-slate-950/50 rounded-xl border border-slate-800 divide-y divide-slate-900 text-xs">
+            <div class="p-3 flex items-start space-x-3">
+              <span class="font-mono text-accent-rose font-bold min-w-[70px]">P5 (VaR):</span>
+              <div>
+                <strong class="text-white">Value at Risk (5th Percentile Floor):</strong> In 95% of simulated economic environments (950 out of 1,000 runs), your actual IRR will equal or exceed this number. This is your institutional downside safety net.
+              </div>
+            </div>
+            <div class="p-3 flex items-start space-x-3">
+              <span class="font-mono text-accent-violet font-bold min-w-[70px]">Median:</span>
+              <div>
+                <strong class="text-white">P50 Most Likely Outcome:</strong> The 50th percentile midpoint where half of scenarios are higher and half are lower. Unaffected by extreme outlier windfalls or catastrophic tails.
+              </div>
+            </div>
+            <div class="p-3 flex items-start space-x-3">
+              <span class="font-mono text-accent-emerald font-bold min-w-[70px]">P95:</span>
+              <div>
+                <strong class="text-white">Upside Bull Case (95th Percentile):</strong> Top 5% performance when rent growth accelerates and exit yields compress favorably.
+              </div>
+            </div>
+            <div class="p-3 flex items-start space-x-3">
+              <span class="font-mono text-amber-400 font-bold min-w-[70px]">Prob Neg:</span>
+              <div>
+                <strong class="text-white">Probability of Operating Deficit:</strong> Percentage of simulated years where Net Operating Income (NOI) drops below Annual Debt Service, necessitating an out-of-pocket cash injection (capital call).
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Dynamic Deal Attribution & High-Yield Leverage Breakdown -->
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
+            <span>4. Active Underwriting Deal Attribution & Leverage Mechanics</span>
+          </div>
+          <div id="primer-dynamic-deal-container">
+            <!-- Dynamically populated via openStochasticPrimer() -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3 border-t border-slate-800 flex justify-end bg-slate-950/60 sticky bottom-0">
+        <button type="button" onclick="document.getElementById('modal-stochastic-guide').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 font-bold text-white text-xs transition">
+          Got It, Return to Model
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Project Creation Wizard Modal (Connected to Supabase Edge Function) -->
   <!-- Math Logic Scripts -->
   <script src="math.js?v=3"></script>
@@ -2962,6 +3138,8 @@
         firstYearMonths: document.getElementById('input-prorate-first-year')?.checked ? 3 : 12
       };
 
+      inputs.leases = (currentLoadedDeal && currentLoadedDeal.inputs && currentLoadedDeal.inputs.leases) ? currentLoadedDeal.inputs.leases : [];
+
       if (activeTab === 'single-family') {
         inputs.arv = parseFloat(document.getElementById('input-arv').value) || 0;
         inputs.monthlyRent = parseFloat(document.getElementById('input-monthly-rent').value) || 0;
@@ -2977,6 +3155,8 @@
       } else if (activeTab === 'commercial') {
         inputs.leaseType = document.getElementById('input-lease-type').value || 'NNN';
         inputs.grossRentAnnual = parseFloat(document.getElementById('input-gross-rent-annual').value) || 0;
+        inputs.monthlyRent = inputs.grossRentAnnual > 0 ? (inputs.grossRentAnnual / 12) : (parseFloat(document.getElementById('input-monthly-rent')?.value) || (currentLoadedDeal?.inputs?.monthlyRent) || 0);
+        inputs.grossRentPerMonth = inputs.monthlyRent;
         inputs.commClass = document.getElementById('input-comm-class').value || 'Industrial';
         inputs.commTier = document.getElementById('input-comm-tier').value || 'Tier 1';
         inputs.marketTier = inputs.commTier;
@@ -3610,6 +3790,7 @@
       setVal('active-tab-indicator', assetNames[activeTab] || activeTab);
     }
 
+    let currentMonthlyMonths = 24;
     let currentMonthlyEndDate = null;
 
     function setMonthlyScheduleMonths(months) {
@@ -3960,6 +4141,16 @@
       if (typeof updateDealOverviewSnapshot === 'function') {
         updateDealOverviewSnapshot(inputs, res);
       }
+      if (currentWorkspaceView === 'sensitivity') {
+        if (typeof updateSensitivityMatrix === 'function') {
+          updateSensitivityMatrix(inputs, res);
+        }
+        if (typeof queueMonteCarloUpdate === 'function') {
+          queueMonteCarloUpdate(inputs);
+        } else if (typeof renderMonteCarlo === 'function') {
+          renderMonteCarlo(inputs);
+        }
+      }
     }
 
     // Helper to update dynamic system assumptions notes per tab
@@ -4185,14 +4376,21 @@
         window.history.replaceState({ tab: tabName }, '', url.toString());
       } catch (_) {}
 
+      currentWorkspaceView = tabName;
+
       // 5. Trigger tab-specific refresh routines
       if (tabName === 'proforma' && typeof renderMonthlyScheduleTable === 'function') {
         renderMonthlyScheduleTable();
       }
-      if (tabName === 'sensitivity' && typeof updateSensitivityMatrix === 'function') {
+      if (tabName === 'sensitivity') {
         const curInputs = getInputsFromForm();
-        const curRes = window.PropertyMath.calculateProjections(activeTab, curInputs);
-        updateSensitivityMatrix(curInputs, curRes);
+        if (typeof updateSensitivityMatrix === 'function') {
+          const curRes = window.PropertyMath.calculateProjections(activeTab, curInputs);
+          updateSensitivityMatrix(curInputs, curRes);
+        }
+        if (typeof renderMonteCarlo === 'function') {
+          renderMonteCarlo(curInputs);
+        }
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4447,32 +4645,186 @@
       }).join('');
     }
 
-    // Render Monte Carlo Simulation
-    function renderMonteCarlo(inputs) {
+    // Render Monte Carlo Simulation via Supabase Deno Edge Function
+    let isRunningMonteCarlo = false;
+    let mcDebounceTimer = null;
+
+    function queueMonteCarloUpdate(inputs) {
+      if (mcDebounceTimer) clearTimeout(mcDebounceTimer);
+      mcDebounceTimer = setTimeout(() => {
+        renderMonteCarlo(inputs);
+      }, 250);
+    }
+    window.queueMonteCarloUpdate = queueMonteCarloUpdate;
+
+    async function renderMonteCarlo(inputs) {
+      if (mcDebounceTimer) {
+        clearTimeout(mcDebounceTimer);
+        mcDebounceTimer = null;
+      }
+
       const chartCanvas = document.getElementById('monte-carlo-chart');
       if (!chartCanvas) return;
-      const mc = window.PropertyMath.runMonteCarloSimulation(activeTab, inputs, 1000);
+      if (isRunningMonteCarlo) return;
 
-      const mMean = document.getElementById('mc-mean-irr'); if (mMean) mMean.textContent = `${mc.meanIrr.toFixed(2)}%`;
-      const mMedian = document.getElementById('mc-median-irr'); if (mMedian) mMedian.textContent = `${mc.medianIrr.toFixed(2)}%`;
-      const mP5 = document.getElementById('mc-p5-irr'); if (mP5) mP5.textContent = `${mc.p5Irr.toFixed(2)}%`;
-      const mP95 = document.getElementById('mc-p95-irr'); if (mP95) mP95.textContent = `${mc.p95Irr.toFixed(2)}%`;
-      const mProb = document.getElementById('mc-prob-neg'); if (mProb) mProb.textContent = `${mc.probNegativeCashFlow.toFixed(1)}%`;
+      isRunningMonteCarlo = true;
+
+      // Merge active deal inputs with live form state for 100% dynamic deal fidelity
+      const activeDeal = currentLoadedDeal || window.currentLoadedDeal || {};
+      const formInputs = (typeof getInputsFromForm === 'function') ? getInputsFromForm() : {};
+      const mergedInputs = {
+        ...(activeDeal.inputs || {}),
+        ...formInputs,
+        ...(inputs || {})
+      };
+      mergedInputs.assetType = activeTab || activeDeal.asset_class || activeDeal.asset_type || mergedInputs.assetType || 'commercial';
+      if (!mergedInputs.title && (activeDeal.name || activeDeal.title)) {
+        mergedInputs.title = activeDeal.name || activeDeal.title;
+      }
+      if (!mergedInputs.dealName && (activeDeal.name || activeDeal.title)) {
+        mergedInputs.dealName = activeDeal.name || activeDeal.title;
+      }
+
+      const btnMc = document.getElementById('btn-run-mc');
+      if (btnMc) {
+        btnMc.disabled = true;
+        btnMc.classList.add('opacity-75', 'cursor-not-allowed');
+        btnMc.innerHTML = `
+          <svg class="animate-spin -ml-0.5 mr-1.5 h-3.5 w-3.5 text-accent-violet inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>Computing (Deno Edge)...</span>
+        `;
+      }
+
+      const statIds = ['mc-mean-irr', 'mc-median-irr', 'mc-p5-irr', 'mc-p95-irr', 'mc-prob-neg'];
+      statIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('opacity-40', 'animate-pulse');
+      });
+
+      // Extract custom stochastic volatility parameters from sliders if present
+      const rentGrowthVol = parseFloat(document.getElementById('input-mc-vol-rent')?.value) || 1.5;
+      const vacancyVol = parseFloat(document.getElementById('input-mc-vol-vacancy')?.value) || 2.5;
+      const exitCapSpread = parseFloat(document.getElementById('input-mc-vol-cap')?.value) || 100;
+
+      let mc = null;
+      let usedEngine = 'supabase-deno-edge';
+
+      try {
+        if (window.MathTreeClient && typeof window.MathTreeClient.runMonteCarlo === 'function') {
+          mc = await window.MathTreeClient.runMonteCarlo(mergedInputs, 1000, {
+            assetType: mergedInputs.assetType,
+            rentGrowthVolPct: rentGrowthVol,
+            vacancyVolPct: vacancyVol,
+            exitCapSpreadBps: exitCapSpread
+          });
+        }
+      } catch (err) {
+        console.warn('[Monte Carlo] Supabase Deno Edge function fallback:', err);
+      }
+
+      // Seamless fallback to local math.js engine if remote edge function fails or is offline
+      if (!mc || typeof mc.meanIrr === 'undefined') {
+        usedEngine = 'local-math-engine';
+        mc = window.PropertyMath.runMonteCarloSimulation(mergedInputs.assetType, mergedInputs, 1000);
+      }
+
+      statIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('opacity-40', 'animate-pulse');
+      });
+
+      if (btnMc) {
+        btnMc.disabled = false;
+        btnMc.classList.remove('opacity-75', 'cursor-not-allowed');
+        btnMc.innerHTML = `<span>🎲 Re-Run 1,000 Runs</span>`;
+      }
+
+      isRunningMonteCarlo = false;
+
+      if (!mc) return;
+
+      const mMean = document.getElementById('mc-mean-irr'); if (mMean) mMean.textContent = `${Number(mc.meanIrr).toFixed(2)}%`;
+      const mMedian = document.getElementById('mc-median-irr'); if (mMedian) mMedian.textContent = `${Number(mc.medianIrr || mc.p50Irr || (mc.summary && mc.summary.p50) || 0).toFixed(2)}%`;
+      const mP5 = document.getElementById('mc-p5-irr'); if (mP5) mP5.textContent = `${Number(mc.p5Irr || (mc.summary && mc.summary.p5) || 0).toFixed(2)}%`;
+      const mP95 = document.getElementById('mc-p95-irr'); if (mP95) mP95.textContent = `${Number(mc.p95Irr || (mc.summary && mc.summary.p95) || 0).toFixed(2)}%`;
+      const mProb = document.getElementById('mc-prob-neg'); if (mProb) mProb.textContent = `${Number(mc.probNegativeCashFlow || (mc.summary && mc.summary.probNegativeCashFlowPct) || 0).toFixed(1)}%`;
+
+      // Update Executive Risk Attribution Narrative Strip
+      const narrativeTitle = document.getElementById('mc-narrative-title');
+      const narrativeBadge = document.getElementById('mc-narrative-badge');
+      const narrativeBody = document.getElementById('mc-narrative-body');
+
+      if (narrativeTitle && narrativeBadge && narrativeBody) {
+        const meanVal = Number(mc.meanIrr || 0);
+        const medianVal = Number(mc.medianIrr || mc.p50Irr || (mc.summary && mc.summary.p50) || 0);
+        const p5Val = Number(mc.p5Irr || (mc.summary && mc.summary.p5) || 0);
+        const p95Val = Number(mc.p95Irr || (mc.summary && mc.summary.p95) || 0);
+        const probNeg = Number(mc.probNegativeCashFlow || (mc.summary && mc.summary.probNegativeCashFlowPct) || 0);
+        const skew = Number(mc.skewnessIndex || (mc.summary && mc.summary.skewnessIndex) || 0);
+        const riskClass = mc.riskClassification || (mc.summary && mc.summary.riskClassification) || 'Balanced Risk Profile';
+
+        narrativeTitle.textContent = riskClass;
+
+        if (p5Val > 25 && probNeg === 0) {
+          narrativeBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+          narrativeBadge.textContent = 'High-Yield Outperformer / Strong Downside Buffer';
+        } else if (p5Val < 0) {
+          narrativeBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30';
+          narrativeBadge.textContent = 'High Tail Risk / Capital Call Exposure';
+        } else {
+          narrativeBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-accent-violet/20 text-accent-violet border border-accent-violet/30';
+          narrativeBadge.textContent = 'Core-Plus Risk Profile';
+        }
+
+        let skewText = '';
+        if (skew < -0.05) {
+          skewText = `Left-skewed tail (${skew.toFixed(2)}) reflects fixed debt obligations: operational headwinds compress thin equity yields faster than growth expands them.`;
+        } else if (skew > 0.05) {
+          skewText = `Right-skewed tail (${skew.toFixed(2)}) reflects asymmetric upside from favorable cap rate compression.`;
+        } else {
+          skewText = `Symmetrically distributed around median (${medianVal.toFixed(2)}%).`;
+        }
+
+        const dealName = typeof resolveDealDisplayName === 'function' ? resolveDealDisplayName(currentLoadedDeal, typeof allDeals !== 'undefined' ? allDeals : [currentLoadedDeal]) : (currentLoadedDeal?.name || 'Current Asset');
+        const assetClassLabel = activeTab.replace('-', ' ').toUpperCase();
+
+        narrativeBody.innerHTML = `
+          For <strong class="text-white">${dealName}</strong> (${assetClassLabel}), across 1,000 simulated micro-economic cycles, expected IRR averages <strong class="text-white">${meanVal.toFixed(2)}%</strong> (P50 median: <strong class="text-accent-violet">${medianVal.toFixed(2)}%</strong>). 
+          In 95% of adverse market environments, your return remains above the <strong class="text-rose-400">${p5Val.toFixed(2)}% Value-at-Risk floor</strong>, with top-decile upside reaching <strong class="text-emerald-400">${p95Val.toFixed(2)}%</strong>. 
+          Probability of Year 1 cash flow deficit is <strong class="text-amber-400">${probNeg.toFixed(1)}%</strong>. ${skewText}
+        `;
+      }
+
+      // Update engine badge
+      const engineBadge = document.getElementById('mc-engine-badge');
+      if (engineBadge) {
+        if (usedEngine === 'supabase-deno-edge') {
+          engineBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-accent-violet/20 border border-accent-violet/40 text-accent-violet font-semibold inline-flex items-center gap-1';
+          engineBadge.innerHTML = '⚡ Supabase Deno Edge (1,000 Runs)';
+        } else {
+          engineBadge.className = 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-semibold inline-flex items-center gap-1';
+          engineBadge.innerHTML = '⚡ Local Engine (Offline Fallback)';
+        }
+      }
 
       const ctx = document.getElementById('monte-carlo-chart');
       if (!ctx) return;
 
       if (mcChart) mcChart.destroy();
 
+      const bins = mc.histogramBins || [];
       mcChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: mc.histogramBins.map(b => `${b.binStart}% to ${b.binEnd}%`),
+          labels: bins.map(b => `${b.binStart}% to ${b.binEnd}%`),
           datasets: [{
             label: 'Frequency (Number of Runs)',
-            data: mc.histogramBins.map(b => b.count),
-            backgroundColor: 'rgba(5, 150, 105, 0.65)',
-            borderColor: '#10b981',
+            data: bins.map(b => b.count),
+            backgroundColor: 'rgba(139, 92, 246, 0.65)',
+            borderColor: '#a78bfa',
             borderWidth: 1,
             borderRadius: 4
           }]
@@ -4490,6 +4842,166 @@
         }
       });
     }
+    window.renderMonteCarlo = renderMonteCarlo;
+
+    // === Methodology Primer Dynamic Deal Loader ===
+    function openStochasticPrimer() {
+      const modal = document.getElementById('modal-stochastic-guide');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+
+      const curInputs = getInputsFromForm();
+      const deal = currentLoadedDeal || {};
+      const dealName = typeof resolveDealDisplayName === 'function' ? resolveDealDisplayName(deal, typeof allDeals !== 'undefined' ? allDeals : [deal]) : (deal.name || 'Current Asset');
+      const res = window.PropertyMath ? window.PropertyMath.calculateProjections(activeTab, curInputs) : null;
+      const p1 = (res && res.projections && res.projections[0]) || {};
+
+      const dynamicContainer = document.getElementById('primer-dynamic-deal-container');
+      if (!dynamicContainer) return;
+
+      const leases = (curInputs.leases && curInputs.leases.length) ? curInputs.leases : (deal.inputs && deal.inputs.leases ? deal.inputs.leases : []);
+      let tenantInfoHtml = '';
+
+      if (activeTab === 'commercial') {
+        const lType = curInputs.leaseType || 'NNN';
+        const annRent = curInputs.grossRentAnnual || (p1.grossPotentialIncome || 0);
+        const moRent = annRent > 0 ? annRent / 12 : (curInputs.monthlyRent || 0);
+        const tName = leases.length ? leases[0].tenantName : (deal.name || 'Commercial Tenant');
+        tenantInfoHtml = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between text-white font-semibold gap-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-brand-400">🏢</span>
+              <span>${leases.length > 1 ? `${leases.length} Tenants` : 'Single-Tenant Property'}:</span>
+              <span class="text-slate-200">${tName}</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-accent-emerald font-bold">${formatCurrency(moRent)}/mo ${lType}</span>
+              <span class="text-slate-400 text-[11px]">(${formatCurrency(annRent)}/yr)</span>
+            </div>
+          </div>
+        `;
+      } else if (activeTab === 'multi-unit') {
+        const units = curInputs.unitCount || 1;
+        const rentPerUnit = curInputs.monthlyRentPerUnit || 0;
+        const annRent = p1.grossPotentialIncome || (units * rentPerUnit * 12);
+        tenantInfoHtml = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between text-white font-semibold gap-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-brand-400">🏢</span>
+              <span>Multi-Family Roll:</span>
+              <span class="text-slate-200">${units} Units</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <span class="text-accent-emerald font-bold">${formatCurrency(rentPerUnit)}/unit/mo</span>
+              <span class="text-slate-400 text-[11px]">(${formatCurrency(annRent)}/yr gross)</span>
+            </div>
+          </div>
+        `;
+      } else if (activeTab === 'storage') {
+        const units = curInputs.unitCount || curInputs.storageUnitCount || 0;
+        const annRent = p1.grossPotentialIncome || (curInputs.grossRentAnnual || 0);
+        tenantInfoHtml = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between text-white font-semibold gap-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-brand-400">📦</span>
+              <span>Self-Storage Hub:</span>
+              <span class="text-slate-200">${units} Units</span>
+            </div>
+            <span class="text-accent-emerald font-bold">${formatCurrency(annRent)}/yr gross</span>
+          </div>
+        `;
+      } else {
+        const moRent = curInputs.monthlyRent || 0;
+        tenantInfoHtml = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between text-white font-semibold gap-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-brand-400">🏠</span>
+              <span>Single-Family Rental</span>
+            </div>
+            <span class="text-accent-emerald font-bold">${formatCurrency(moRent)}/mo</span>
+          </div>
+        `;
+      }
+
+      const price = res ? res.purchasePrice : curInputs.purchasePrice;
+      const initialCash = res ? res.initialCashInvested : (curInputs.purchasePrice * (curInputs.downPaymentPercent / 100) + (curInputs.closingCosts || 0));
+      const downPct = curInputs.downPaymentPercent || 0;
+      const downAmt = res ? res.downPaymentAmount : (price * downPct / 100);
+      const closingCosts = curInputs.closingCosts || 0;
+      const loanAmt = res ? res.loanAmount : Math.max(0, price - downAmt);
+      const intRate = curInputs.interestRate || 0;
+      const term = curInputs.loanTerm || 30;
+      const holdYrs = curInputs.exitYear || 10;
+      const noi = p1.netOperatingIncome || 0;
+      const ds = p1.debtService || 0;
+      const cf = p1.cashFlow !== undefined ? p1.cashFlow : (noi - ds);
+      const coc = p1.cashOnCash !== undefined ? p1.cashOnCash : (initialCash > 0 ? (cf / initialCash) * 100 : 0);
+      const irr = res ? res.irr : (deal.irr || 0);
+      const oer = curInputs.expenseRatio || (p1.effectiveGrossIncome > 0 ? (p1.operatingExpenses / p1.effectiveGrossIncome * 100) : 0);
+
+      dynamicContainer.innerHTML = `
+        <div class="space-y-3 bg-slate-950/90 p-4 rounded-xl border border-slate-800">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2.5 gap-2">
+            <div class="flex items-center space-x-2">
+              <span class="text-base">📌</span>
+              <div>
+                <h4 class="font-extrabold text-white text-xs">${dealName}</h4>
+                <p class="text-[10px] text-slate-400 uppercase tracking-wider">${activeTab.replace('-', ' ')} &bull; ${curInputs.propertyClass || 'Class B'} &bull; ${curInputs.marketTier || 'Tier 2'}</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-500/20 text-brand-400 border border-brand-500/30">
+                Deterministic Baseline: ${irr.toFixed(2)}% IRR
+              </span>
+            </div>
+          </div>
+
+          <!-- Dynamic Income & Lease Description -->
+          <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80 text-xs">
+            ${tenantInfoHtml}
+          </div>
+
+          <!-- Capital Structure & Debt Breakdown -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800/60">
+              <span class="text-slate-500 block text-[9px] uppercase font-bold">Acquisition Price</span>
+              <span class="text-white font-bold text-xs">${formatCurrency(price)}</span>
+            </div>
+            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800/60">
+              <span class="text-slate-500 block text-[9px] uppercase font-bold">Initial Cash Out-of-Pocket</span>
+              <span class="text-white font-bold text-xs">${formatCurrency(initialCash)}</span>
+              <span class="text-[9px] text-slate-400 block">${downPct}% down ${closingCosts > 0 ? `+ ${formatCurrency(closingCosts)} costs` : ''}</span>
+            </div>
+            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800/60">
+              <span class="text-slate-500 block text-[9px] uppercase font-bold">Financing & Debt</span>
+              <span class="text-white font-bold text-xs">${formatCurrency(loanAmt)}</span>
+              <span class="text-[9px] text-slate-400 block">${intRate}% &bull; ${term}-Yr Term</span>
+            </div>
+            <div class="bg-slate-900/40 p-2 rounded-lg border border-slate-800/60">
+              <span class="text-slate-500 block text-[9px] uppercase font-bold">Year 1 Performance</span>
+              <span class="text-emerald-400 font-bold text-xs">${coc.toFixed(2)}% CoC</span>
+              <span class="text-[9px] text-slate-400 block">${formatCurrency(cf)}/yr net cash</span>
+            </div>
+          </div>
+
+          <!-- Detailed Dynamic Mathematical Attribution -->
+          <div class="text-xs text-slate-300 space-y-2 pt-1 leading-relaxed">
+            <p>
+              <strong class="text-white">Why is this deal's IRR projected at ${irr.toFixed(2)}%?</strong>
+              This return is driven by high structural leverage. On a <strong class="text-white">${formatCurrency(price)}</strong> acquisition with only <strong class="text-white">${formatCurrency(initialCash)}</strong> out-of-pocket initial cash invested (${downPct}% down payment), the property generates <strong class="text-white">${formatCurrency(noi)}/year in NOI</strong> (at an underwritten ${oer.toFixed(1)}% OpEx ratio). After paying annual debt service of <strong class="text-white">${formatCurrency(ds)}/year</strong>, the net operating cash flow of <strong class="text-emerald-400">${formatCurrency(cf)}/year</strong> yields a <strong class="text-emerald-400 font-bold">${coc.toFixed(2)}% Year 1 cash-on-cash return</strong> on cash flow alone.
+            </p>
+            <p>
+              Over the <strong class="text-white">${holdYrs}-year hold</strong>, continuous tenant-funded debt paydown and terminal valuation compound this high cash-on-cash yield to an annualized <strong class="text-brand-400 font-bold">${irr.toFixed(2)}% IRR</strong>.
+            </p>
+            <div class="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 text-[11px] text-slate-400">
+              <strong class="text-accent-violet">What Monte Carlo reveals about this specific return:</strong> 
+              Because debt service (${formatCurrency(ds)}/yr) is fixed while equity (${formatCurrency(initialCash)}) is lean, adverse operational shocks (e.g. temporary vacancy or tenant turnover) reduce equity cash flow rapidly. The Monte Carlo simulation tests 1,000 randomized micro-economic paths against these exact parameters to verify whether the downside floor (P5 Value-at-Risk) remains institutionally viable without requiring capital calls.
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    window.openStochasticPrimer = openStochasticPrimer;
 
     // Render Tax Depreciation & Refinance
     function renderTaxAndRefinance(inputs, baseRes) {
@@ -8071,7 +8583,13 @@
 
       // Monte Carlo Re-Run Button
       const btnMc = document.getElementById('btn-run-mc');
-      if (btnMc) btnMc.addEventListener('click', () => updateCalculations());
+      if (btnMc) {
+        btnMc.addEventListener('click', (e) => {
+          e.preventDefault();
+          const curInputs = getInputsFromForm();
+          renderMonteCarlo(curInputs);
+        });
+      }
 
       // Cost Segregation Checkbox
       const inputCostSeg = document.getElementById('input-cost-seg');

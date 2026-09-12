@@ -1,5 +1,6 @@
 // simulate-monte-carlo/index.ts
-// Institutional Monte Carlo Simulation Engine for MathTree (10,000 runs)
+// Institutional Stochastic Market Volatility & Monte Carlo Simulation Engine for MathTree
+// Powered by Unified Multi-Asset Pro-Forma Engine (Single-Family, Multi-Unit, Commercial, Storage)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 
@@ -17,26 +18,362 @@ function randomGaussian(mean: number, stdDev: number): number {
   return mean + z * stdDev;
 }
 
-function calculateQuickIRR(cashFlows: number[]): number {
+// -------------------------------------------------------------------------
+// 1. UNIFIED FINANCIAL ENGINE (Standardized from math.js)
+// -------------------------------------------------------------------------
+
+function calculateMonthlyPayment(loanAmount: number, annualRate: number, termYears: number): number {
+  if (loanAmount <= 0 || termYears <= 0) return 0;
+  const r = annualRate / 100 / 12;
+  const n = termYears * 12;
+  if (r === 0) return loanAmount / n;
+  return loanAmount * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+}
+
+function calculateRemainingBalance(loanAmount: number, annualRate: number, termYears: number, elapsedYears: number): number {
+  if (loanAmount <= 0) return 0;
+  if (elapsedYears >= termYears) return 0;
+  const r = annualRate / 100 / 12;
+  const n = termYears * 12;
+  const p = elapsedYears * 12;
+  if (r === 0) return loanAmount * (1 - p / n);
+  const monthlyPayment = calculateMonthlyPayment(loanAmount, annualRate, termYears);
+  return loanAmount * Math.pow(1 + r, p) - (monthlyPayment * (Math.pow(1 + r, p) - 1) / r);
+}
+
+function getAnnualAmortization(loanAmount: number, annualRate: number, termYears: number, options: any = {}): any[] {
+  const schedule: any[] = [];
+  const finType = String(options.financingType || 'fixed').toLowerCase();
+  const armInitial = parseInt(options.armInitialYears || 5, 10);
+  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(options.armAdjustmentRate) : (annualRate + 1.5);
+  const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : (annualRate + 4.0);
+  const ioYears = parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : (finType === 'interest_only' ? 3 : 0), 10);
+  const holdYears = parseInt(options.holdingPeriod || options.exitYear || 10, 10);
+  const maxYears = Math.max(1, Math.min(30, isNaN(holdYears) ? 10 : holdYears));
+
+  if (loanAmount <= 0 || termYears <= 0) {
+    for (let year = 1; year <= maxYears; year++) {
+      schedule.push({
+        year,
+        appliedRate: annualRate,
+        isInterestOnly: false,
+        beginningBalance: 0,
+        totalPayment: 0,
+        principalPaid: 0,
+        interestPaid: 0,
+        endingBalance: 0,
+        cumulativePrincipalPaid: 0
+      });
+    }
+    return schedule;
+  }
+
+  let currentBalance = loanAmount;
+  let cumulativePrincipal = 0;
+
+  for (let year = 1; year <= maxYears; year++) {
+    const startBalance = currentBalance;
+    let principalPaidThisYear = 0;
+    let interestPaidThisYear = 0;
+    let totalPaymentThisYear = 0;
+
+    if (currentBalance <= 0 || year > termYears) {
+      schedule.push({
+        year,
+        appliedRate: annualRate,
+        isInterestOnly: false,
+        beginningBalance: 0,
+        totalPayment: 0,
+        principalPaid: 0,
+        interestPaid: 0,
+        endingBalance: 0,
+        cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100
+      });
+      continue;
+    }
+
+    let yearRate = annualRate;
+    if (finType === 'arm' && year > armInitial) {
+      yearRate = Math.min(armCap, Math.max(0, armAdjRate));
+    }
+
+    const isInterestOnly = (finType === 'interest_only' || finType === 'bridge') && year <= ioYears;
+    const r = yearRate / 100 / 12;
+
+    if (isInterestOnly) {
+      const monthlyInterest = currentBalance * r;
+      interestPaidThisYear = monthlyInterest * 12;
+      principalPaidThisYear = 0;
+      totalPaymentThisYear = interestPaidThisYear;
+    } else {
+      let remainingYearsForPayment = termYears - (year - 1);
+      if (finType === 'interest_only') {
+        remainingYearsForPayment = Math.max(1, (termYears - ioYears) - (year - ioYears - 1));
+      }
+      if (remainingYearsForPayment < 1) remainingYearsForPayment = 1;
+
+      const monthlyPayment = calculateMonthlyPayment(currentBalance, yearRate, remainingYearsForPayment);
+
+      for (let month = 1; month <= 12; month++) {
+        let interestDue = currentBalance * r;
+        let principalDue = monthlyPayment - interestDue;
+        if (r === 0) {
+          interestDue = 0;
+          principalDue = monthlyPayment;
+        }
+        if (currentBalance < principalDue) principalDue = currentBalance;
+        totalPaymentThisYear += principalDue + interestDue;
+        interestPaidThisYear += interestDue;
+        principalPaidThisYear += principalDue;
+        currentBalance -= principalDue;
+        if (currentBalance <= 0) break;
+      }
+    }
+
+    cumulativePrincipal += principalPaidThisYear;
+
+    schedule.push({
+      year,
+      appliedRate: Math.round(yearRate * 100) / 100,
+      isInterestOnly,
+      beginningBalance: Math.round(startBalance * 100) / 100,
+      totalPayment: Math.round(totalPaymentThisYear * 100) / 100,
+      principalPaid: Math.round(principalPaidThisYear * 100) / 100,
+      interestPaid: Math.round(interestPaidThisYear * 100) / 100,
+      endingBalance: Math.max(0, Math.round(currentBalance * 100) / 100),
+      cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100
+    });
+  }
+
+  return schedule;
+}
+
+function calculateIRR(initialCash: number, cashFlows: number[]): number {
+  if (initialCash <= 0) return 0;
+
+  function getNPV(rate: number): number {
+    let sum = -initialCash;
+    for (let i = 0; i < cashFlows.length; i++) {
+      sum += cashFlows[i] / Math.pow(1 + rate, i + 1);
+    }
+    return sum;
+  }
+
   let low = -0.99;
   let high = 5.0;
-  let guess = 0.1;
 
-  for (let iter = 0; iter < 30; iter++) {
-    guess = (low + high) / 2.0;
-    let npv = 0;
-    for (let t = 0; t < cashFlows.length; t++) {
-      npv += cashFlows[t] / Math.pow(1.0 + guess, t);
+  let iterations = 0;
+  while (getNPV(high) > 0 && iterations < 80) {
+    high *= 2;
+    iterations++;
+  }
+
+  iterations = 0;
+  while (getNPV(low) < 0 && low > -0.999 && iterations < 80) {
+    low = (low - 1) / 2;
+    iterations++;
+  }
+
+  if (getNPV(low) * getNPV(high) > 0) {
+    if (getNPV(low) < 0 && getNPV(high) < 0) return -100;
+    if (getNPV(low) > 0 && getNPV(high) > 0) return Math.round(high * 10000) / 100;
+    return 0;
+  }
+
+  for (let i = 0; i < 80; i++) {
+    const mid = (low + high) / 2;
+    const npvVal = getNPV(mid);
+    if (Math.abs(npvVal) < 1e-4) return Math.round(mid * 10000) / 100;
+    if (npvVal > 0) low = mid;
+    else high = mid;
+  }
+
+  return Math.round(((low + high) / 2) * 10000) / 100;
+}
+
+function runDealProjections(assetType: string, inputs: any): { irr: number; cashFlows: number[]; initialCash: number } {
+  const purchasePrice = parseFloat(inputs.purchasePrice || inputs.price) || 0;
+  const downPaymentPercent = parseFloat(inputs.downPaymentPercent) || 0;
+  const interestRate = parseFloat(inputs.interestRate) || 0;
+  const loanTerm = parseInt(inputs.loanTerm || inputs.loanTermYears) || 30;
+  const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
+  const closingCosts = parseFloat(inputs.closingCosts) || 0;
+  const appreciationRate = parseFloat(inputs.appreciationRate) || 0;
+  const vacancyRate = parseFloat(inputs.vacancyRate) || 0;
+  const rentGrowth = parseFloat(inputs.rentGrowth) || 0;
+  const expenseRatio = parseFloat(inputs.expenseRatio || inputs.operatingExpenseRatio) || 0;
+  const targetCapRate = parseFloat(inputs.targetCapRate || inputs.targetExitCapRate || inputs.exitCapRate || inputs.appreciationRate) || 0;
+  const exitYear = Math.max(1, Math.min(30, parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10)));
+
+  let initialPropertyValue = purchasePrice;
+  let year1GrossIncome = 0;
+  let unitCount = 1;
+
+  switch (assetType) {
+    case 'single-family': {
+      const arv = parseFloat(inputs.arv) || 0;
+      initialPropertyValue = arv > 0 ? arv : purchasePrice;
+      let sfRent = parseFloat(inputs.monthlyRent) || parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.rent) || (parseFloat(inputs.grossRentAnnual) ? parseFloat(inputs.grossRentAnnual) / 12 : 0) || 0;
+      if (sfRent === 0 && Array.isArray(inputs.leases) && inputs.leases.length > 0) {
+        sfRent = parseFloat(inputs.leases[0].monthlyRent || inputs.leases[0].contractRent || inputs.leases[0].rent || inputs.leases[0].amount) || 0;
+      }
+      year1GrossIncome = sfRent * 12;
+      unitCount = 1;
+      break;
     }
-    if (Math.abs(npv) < 1.0) break;
-    if (npv > 0) {
-      low = guess;
-    } else {
-      high = guess;
+    case 'multi-unit': {
+      unitCount = parseInt(inputs.unitCount || inputs.numUnits) || 1;
+      let explicitMonthly = parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || (parseFloat(inputs.grossRentAnnual) ? parseFloat(inputs.grossRentAnnual) / 12 : 0) || 0;
+      if (explicitMonthly === 0 && Array.isArray(inputs.leases) && inputs.leases.length > 0) {
+        explicitMonthly = inputs.leases.reduce((sum: number, l: any) => sum + (parseFloat(l.monthlyRent || l.contractRent || l.rent || l.amount) || 0), 0);
+      }
+      let muRent = parseFloat(inputs.monthlyRentPerUnit || inputs.rentPerUnit) || 0;
+      if (explicitMonthly > 0 && unitCount > 0 && (!muRent || Math.abs((unitCount * muRent) - explicitMonthly) > 1)) {
+        muRent = explicitMonthly / unitCount;
+      }
+      year1GrossIncome = (muRent > 0 ? unitCount * muRent : explicitMonthly) * 12;
+      break;
+    }
+    case 'commercial': {
+      let commAnnualRent = parseFloat(inputs.grossRentAnnual) || (parseFloat(inputs.grossRentPerMonth) ? parseFloat(inputs.grossRentPerMonth) * 12 : 0) || (parseFloat(inputs.monthlyRent) ? parseFloat(inputs.monthlyRent) * 12 : 0) || 0;
+      if (commAnnualRent === 0 && Array.isArray(inputs.leases) && inputs.leases.length > 0) {
+        commAnnualRent = inputs.leases.reduce((sum: number, l: any) => {
+          const mRent = parseFloat(l.monthlyRent || l.contractRent || l.rent || l.amount) || 0;
+          return sum + (mRent * 12);
+        }, 0);
+      }
+      year1GrossIncome = commAnnualRent;
+      unitCount = 1;
+      break;
+    }
+    case 'storage': {
+      unitCount = parseInt(inputs.unitCount || inputs.storageUnitCount) || 0;
+      const storageRent = parseFloat(inputs.monthlyRentPerUnit || inputs.storageRentPerUnit) || 0;
+      const totalSqFt = parseFloat(inputs.totalSqFt || inputs.storageSqFt || inputs.gla) || 0;
+      const rentPerSqFt = parseFloat(inputs.rentPerSqFt || inputs.storageRentPerSqFt) || 0;
+      const explicitMonthly = parseFloat(inputs.grossRentPerMonth || inputs.monthlyRent) || (parseFloat(inputs.grossRentAnnual) ? parseFloat(inputs.grossRentAnnual) / 12 : 0);
+
+      if (explicitMonthly > 0) {
+        year1GrossIncome = explicitMonthly * 12;
+      } else if (storageRent > 0) {
+        year1GrossIncome = (unitCount || 1) * storageRent * 12;
+      } else if (totalSqFt > 0 && rentPerSqFt > 0) {
+        year1GrossIncome = totalSqFt * rentPerSqFt * 12;
+      }
+      break;
+    }
+    default: {
+      const fallbackRent = parseFloat(inputs.monthlyRent || inputs.rent) || (purchasePrice * 0.008);
+      year1GrossIncome = fallbackRent * 12;
+      break;
     }
   }
-  return Math.round(guess * 10000) / 100;
+
+  // Debt & Initial Equity
+  let loanAmount = 0;
+  let downPaymentAmount = 0;
+  if (inputs.loanAmount !== undefined && !isNaN(parseFloat(inputs.loanAmount))) {
+    loanAmount = Math.max(0, parseFloat(inputs.loanAmount));
+    downPaymentAmount = Math.max(0, purchasePrice - loanAmount);
+  } else {
+    downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
+    loanAmount = Math.max(0, purchasePrice - downPaymentAmount);
+  }
+
+  const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
+  const amortSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm, {
+    holdingPeriod: exitYear,
+    financingType: inputs.financingType || 'fixed'
+  });
+
+  let currentPropertyValue = initialPropertyValue;
+  let currentGrossIncome = year1GrossIncome;
+  let entryCapRate = targetCapRate;
+
+  const cashFlows: number[] = [];
+
+  for (let year = 1; year <= exitYear; year++) {
+    if (year > 1) {
+      currentGrossIncome *= (1 + rentGrowth / 100);
+      if (assetType !== 'commercial' && assetType !== 'storage') {
+        currentPropertyValue *= (1 + appreciationRate / 100);
+      }
+    }
+
+    let appliedVacancy = vacancyRate;
+    if (assetType === 'multi-unit') appliedVacancy = Math.max(5, vacancyRate);
+    else if (assetType === 'storage') appliedVacancy = vacancyRate + 5;
+
+    const vacancyLoss = currentGrossIncome * (appliedVacancy / 100);
+    const egi = currentGrossIncome - vacancyLoss;
+
+    let operatingExpenses = currentGrossIncome * (expenseRatio / 100);
+    let capexReserve = 0;
+
+    if (assetType === 'single-family') {
+      const maintenance = currentPropertyValue * 0.01;
+      const mgmt = inputs.manageProperty ? currentGrossIncome * 0.10 : 0;
+      operatingExpenses += mgmt + maintenance;
+      capexReserve = Math.max(500, currentGrossIncome * 0.08);
+    } else if (assetType === 'multi-unit') {
+      const mgmt = inputs.manageProperty ? currentGrossIncome * (unitCount <= 4 ? 0.09 : 0.05) : egi * 0.03;
+      operatingExpenses += mgmt;
+      capexReserve = unitCount * (unitCount <= 4 ? 500 : 300);
+    } else if (assetType === 'commercial') {
+      const mgmt = (String(inputs.leaseType || '').toUpperCase() !== 'NNN' && inputs.manageProperty) ? currentGrossIncome * 0.035 : 0;
+      operatingExpenses += mgmt;
+      const gla = parseFloat(inputs.gla) || 15000;
+      capexReserve = gla * 1.50;
+    } else if (assetType === 'storage') {
+      const mgmt = inputs.manageProperty ? currentGrossIncome * 0.06 : 0;
+      const payroll = currentGrossIncome * (inputs.isAutomated ? 0.04 : 0.13);
+      operatingExpenses += mgmt + payroll;
+      capexReserve = egi * 0.03;
+    }
+
+    const noi = egi - operatingExpenses;
+
+    if (year === 1) {
+      if (initialPropertyValue > 0 && noi > 0) entryCapRate = (noi / initialPropertyValue) * 100;
+      else entryCapRate = targetCapRate;
+    }
+
+    // Commercial / Storage capitalization mechanism
+    if (assetType === 'commercial' || assetType === 'storage') {
+      if (year === 1) {
+        currentPropertyValue = initialPropertyValue;
+      } else {
+        const tExit = exitYear > 1 ? exitYear : 10;
+        const currentCap = targetCapRate > 0
+          ? (entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate))
+          : entryCapRate;
+        if (currentCap > 0 && noi > 0) {
+          currentPropertyValue = noi / (currentCap / 100);
+        }
+      }
+    }
+
+    const yearAmort = amortSchedule[year - 1] || {};
+    const debtService = yearAmort.totalPayment || 0;
+    let netCf = noi - debtService;
+
+    const remainingBal = yearAmort.endingBalance !== undefined ? yearAmort.endingBalance : calculateRemainingBalance(loanAmount, interestRate, loanTerm, year);
+    const terminalEquity = currentPropertyValue - remainingBal;
+
+    if (year === exitYear) {
+      netCf += terminalEquity;
+    }
+
+    cashFlows.push(netCf);
+  }
+
+  const irr = calculateIRR(initialCashInvested, cashFlows);
+  return { irr, cashFlows, initialCash: initialCashInvested };
 }
+
+// -------------------------------------------------------------------------
+// 2. SERVERLESS REQUEST HANDLER
+// -------------------------------------------------------------------------
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -46,67 +383,46 @@ serve(async (req: Request) => {
   try {
     const payload = await req.json().catch(() => ({}));
     const inputs = payload.inputs || {};
-    const runs = Math.min(Math.max(parseInt(payload.runs || '10000', 10), 100), 20000);
+    const assetType = (payload.assetType || inputs.assetType || inputs.asset_class || 'single-family').toLowerCase();
+    const runs = Math.min(Math.max(parseInt(payload.runs || '1000', 10), 100), 10000);
 
-    const price = parseFloat(inputs.purchasePrice || inputs.price || 500000);
-    const downPct = parseFloat(inputs.downPaymentPercent || 25) / 100;
-    const initialEquity = price * downPct + parseFloat(inputs.rehabCosts || 0) + (price * 0.02);
-    const loanAmt = Math.max(0, price * (1 - downPct));
-    const intRate = parseFloat(inputs.interestRate || 6.5) / 100;
-    const loanTerm = parseInt(inputs.loanTerm || 30, 10);
+    const baseGrowth = parseFloat(inputs.rentGrowth || 2.5);
+    const baseVacancy = parseFloat(inputs.vacancyRate || 5.0);
+    const baseApprec = parseFloat(inputs.appreciationRate || 3.0);
+    const baseExitCap = parseFloat(inputs.targetCapRate || inputs.targetExitCapRate || inputs.exitCapRate || 6.5);
 
-    const monthlyRate = intRate / 12;
-    const numMonths = loanTerm * 12;
-    const monthlyDebt = loanAmt > 0 && intRate > 0
-      ? loanAmt * (monthlyRate * Math.pow(1 + monthlyRate, numMonths)) / (Math.pow(1 + monthlyRate, numMonths) - 1)
-      : 0;
-    const annualDebtService = monthlyDebt * 12;
-
-    const baseRentMonthly = parseFloat(inputs.monthlyRent || inputs.rent || (price * 0.008));
-    const baseRentAnnual = baseRentMonthly * 12;
-    const baseVacancy = parseFloat(inputs.vacancyRate || 5) / 100;
-    const baseOpex = parseFloat(inputs.operatingExpenseRatio || inputs.expenseRatio || 40) / 100;
-    const baseGrowth = parseFloat(inputs.rentGrowth || inputs.appreciationRate || 2.5) / 100;
-    const baseExitCap = parseFloat(inputs.targetExitCapRate || inputs.exitCapRate || 6.5) / 100;
-
-    const exitCapStdDev = (parseFloat(payload.exitCapSpreadBps || 100) / 10000);
-    const growthStdDev = (parseFloat(payload.rentGrowthVolPct || 2.0) / 100);
-    const vacancyStdDev = (parseFloat(payload.vacancyVolPct || 2.5) / 100);
+    const growthStdDev = parseFloat(payload.rentGrowthVolPct || 1.5);
+    const vacancyStdDev = parseFloat(payload.vacancyVolPct || 2.5);
+    const apprecStdDev = parseFloat(payload.apprecVolPct || 1.5);
+    const exitCapSpreadPct = (parseFloat(payload.exitCapSpreadBps || 100) / 100);
 
     const irrResults: number[] = new Array(runs);
     let totalIrr = 0;
-    let negativeRuns = 0;
+    let negativeIrrRuns = 0;
     let negativeCashFlowRuns = 0;
 
     for (let r = 0; r < runs; r++) {
-      const simGrowth = Math.max(-0.05, randomGaussian(baseGrowth, growthStdDev));
-      const simVacancy = Math.min(0.40, Math.max(0.01, randomGaussian(baseVacancy, vacancyStdDev)));
-      const simExitCap = Math.max(0.035, randomGaussian(baseExitCap, exitCapStdDev));
+      const sampledGrowth = randomGaussian(baseGrowth, growthStdDev);
+      const sampledVacancy = Math.max(1.0, Math.min(45.0, randomGaussian(baseVacancy, vacancyStdDev)));
+      const sampledApprec = randomGaussian(baseApprec, apprecStdDev);
+      const sampledExitCap = baseExitCap > 0 ? Math.max(3.0, randomGaussian(baseExitCap, exitCapSpreadPct)) : baseExitCap;
 
-      const cfs: number[] = [-initialEquity];
-      let curRent = baseRentAnnual;
+      const simInputs = {
+        ...inputs,
+        rentGrowth: sampledGrowth,
+        vacancyRate: sampledVacancy,
+        appreciationRate: sampledApprec,
+        targetCapRate: sampledExitCap,
+        targetExitCapRate: sampledExitCap
+      };
 
-      for (let y = 1; y <= 10; y++) {
-        if (y > 1) curRent *= (1 + simGrowth);
-        const egi = curRent * (1 - simVacancy);
-        const noi = egi * (1 - baseOpex);
-        let cf = noi - annualDebtService;
-
-        if (y === 10) {
-          const exitNoi = noi * (1 + simGrowth);
-          const exitVal = exitNoi / simExitCap;
-          const netProceeds = exitVal * 0.95 - (loanAmt * 0.75);
-          cf += Math.max(0, netProceeds);
-        }
-        cfs.push(cf);
-      }
-
-      if (cfs[1] < 0) negativeCashFlowRuns++;
-
-      const runIrr = calculateQuickIRR(cfs);
+      const result = runDealProjections(assetType, simInputs);
+      const runIrr = result.irr;
       irrResults[r] = runIrr;
       totalIrr += runIrr;
-      if (runIrr <= 0) negativeRuns++;
+
+      if (runIrr < 0) negativeIrrRuns++;
+      if (result.cashFlows[0] < 0) negativeCashFlowRuns++;
     }
 
     irrResults.sort((a, b) => a - b);
@@ -127,10 +443,24 @@ serve(async (req: Request) => {
       sumSquares += Math.pow(irrResults[i] - meanIrr, 2);
     }
     const stdDev = Math.round(Math.sqrt(sumSquares / runs) * 100) / 100;
-    const probOfLoss = Math.round((negativeRuns / runs) * 1000) / 10;
+    const probNegativeIrr = Math.round((negativeIrrRuns / runs) * 1000) / 10;
     const probNegativeCashFlow = Math.round((negativeCashFlowRuns / runs) * 1000) / 10;
 
-    // 10-bin histogram for standard chart presentation
+    // Advanced institutional risk indicators
+    const skewnessIndex = Math.round(((meanIrr - p50) / (stdDev || 1)) * 100) / 100;
+    const riskFreeRate = 4.25;
+    const sharpeRatio = Math.round(((meanIrr - riskFreeRate) / (stdDev || 1)) * 100) / 100;
+
+    let riskClassification = 'Balanced Core-Plus Risk';
+    if (p5 > 25 && probNegativeCashFlow === 0) {
+      riskClassification = 'High-Yield Outperformer / Strong Downside Buffer';
+    } else if (p5 < 0) {
+      riskClassification = 'High Leverage / Asymmetric Tail Risk Vulnerable';
+    } else if (probNegativeCashFlow > 15) {
+      riskClassification = 'Capital Call Vulnerable (Operating Cash Flow Risk)';
+    }
+
+    // 10-bin presentation histogram
     const bin10Count = 10;
     const bin10Width = Math.max(0.1, (maxIrr - minIrr) / bin10Count);
     const histogramBins: { label: string; binStart: number; binEnd: number; count: number }[] = [];
@@ -154,7 +484,7 @@ serve(async (req: Request) => {
       histogramBins[idx].count++;
     }
 
-    // 20-bin histogram for granular distribution analysis
+    // 20-bin granular histogram
     const binCount = 20;
     const binWidth = Math.max(0.1, (maxIrr - minIrr) / binCount);
     const histogram: { min: number; max: number; count: number; pct: number }[] = [];
@@ -180,13 +510,17 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify({
       success: true,
       runs,
+      assetType,
       engine: 'supabase-deno-edge',
       meanIrr,
       medianIrr: p50,
       p5Irr: p5,
       p95Irr: p95,
       probNegativeCashFlow,
-      probNegativeIrr: probOfLoss,
+      probNegativeIrr,
+      skewnessIndex,
+      sharpeRatio,
+      riskClassification,
       histogramBins,
       summary: {
         p5,
@@ -200,8 +534,11 @@ serve(async (req: Request) => {
         stdDev,
         min: minIrr,
         max: maxIrr,
-        probOfLossPct: probOfLoss,
-        probNegativeCashFlowPct: probNegativeCashFlow
+        probOfLossPct: probNegativeIrr,
+        probNegativeCashFlowPct: probNegativeCashFlow,
+        skewnessIndex,
+        sharpeRatio,
+        riskClassification
       },
       histogram
     }), {

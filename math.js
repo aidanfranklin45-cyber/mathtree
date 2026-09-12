@@ -1018,6 +1018,23 @@ function runMonteCarloSimulation(assetType, baseInputs, iterations = 1000) {
     });
   }
 
+  let sumSq = 0;
+  for (let i = 0; i < iterations; i++) {
+    sumSq += Math.pow(irrs[i] - meanIrr, 2);
+  }
+  const stdDev = Math.sqrt(sumSq / iterations);
+  const skewnessIndex = Math.round(((meanIrr - medianIrr) / (stdDev || 1)) * 100) / 100;
+  const sharpeRatio = Math.round(((meanIrr - 4.25) / (stdDev || 1)) * 100) / 100;
+
+  let riskClassification = 'Balanced Core-Plus Risk';
+  if (p5Irr > 25 && negativeCashFlowCount === 0) {
+    riskClassification = 'High-Yield Outperformer / Strong Downside Buffer';
+  } else if (p5Irr < 0) {
+    riskClassification = 'High Leverage / Asymmetric Tail Risk Vulnerable';
+  } else if ((negativeCashFlowCount / iterations) * 100 > 15) {
+    riskClassification = 'Capital Call Vulnerable (Operating Cash Flow Risk)';
+  }
+
   return {
     iterations,
     meanIrr: Math.round(meanIrr * 100) / 100,
@@ -1027,6 +1044,9 @@ function runMonteCarloSimulation(assetType, baseInputs, iterations = 1000) {
     meanNpv: Math.round(meanNpv * 100) / 100,
     probNegativeCashFlow: Math.round((negativeCashFlowCount / iterations) * 1000) / 10,
     probNegativeIrr: Math.round((negativeIrrCount / iterations) * 1000) / 10,
+    skewnessIndex,
+    sharpeRatio,
+    riskClassification,
     histogramBins: bins
   };
 }
