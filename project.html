@@ -9408,6 +9408,14 @@
         const absVariancePct = Math.abs(variancePct);
         const accuracyScore = Math.max(0, Math.min(100, Math.round(100 - absVariancePct)));
 
+        // If in-place rent matches pro-forma (variance < 5% or < $100/mo), hide the warning banner
+        if (absVariancePct < 5.0 || Math.abs(varianceUsd) < 100) {
+          banner.classList.add('hidden');
+          const syncBtn = document.getElementById('btn-fourleaf-sync-proforma');
+          if (syncBtn) syncBtn.remove();
+          return;
+        }
+
         banner.classList.remove('hidden');
         const actRentEl = document.getElementById('fourleaf-actual-rent');
         if (actRentEl) actRentEl.textContent = `$${Math.round(actualMonthlyRent).toLocaleString()}/mo`;

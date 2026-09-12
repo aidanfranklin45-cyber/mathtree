@@ -277,6 +277,11 @@ BEGIN
           jsonb_build_object('deal_id', v_deal.id, 'deal_title', v_deal.title)
         );
       END IF;
+    ELSE
+      -- Auto-dismiss if tenant now exists
+      UPDATE public.app_notifications
+      SET is_dismissed = true, is_read = true, updated_at = NOW()
+      WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'missing_lease' AND is_dismissed = false;
     END IF;
 
     -- RULE B: Owned deal without LLC entity assignment
@@ -298,6 +303,11 @@ BEGIN
           jsonb_build_object('deal_id', v_deal.id, 'deal_title', v_deal.title)
         );
       END IF;
+    ELSE
+      -- Auto-dismiss if entity assigned
+      UPDATE public.app_notifications
+      SET is_dismissed = true, is_read = true, updated_at = NOW()
+      WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'entity_missing' AND is_dismissed = false;
     END IF;
 
     -- RULE C: Revenue Variance Check (Reported Operations vs Pro-Forma)
@@ -338,8 +348,18 @@ BEGIN
               )
             );
           END IF;
+        ELSE
+          -- Auto-dismiss variance notification if rent matches pro-forma
+          UPDATE public.app_notifications
+          SET is_dismissed = true, is_read = true, updated_at = NOW()
+          WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'revenue_variance' AND is_dismissed = false;
         END IF;
       END IF;
+    ELSE
+      -- Auto-dismiss variance notification if no active leases
+      UPDATE public.app_notifications
+      SET is_dismissed = true, is_read = true, updated_at = NOW()
+      WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'revenue_variance' AND is_dismissed = false;
     END IF;
 
     -- RULE D: Incomplete Lease Terms (Missing Start Date)
