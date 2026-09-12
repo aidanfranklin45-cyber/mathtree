@@ -1568,7 +1568,7 @@
       activeDashboardProjects.forEach(d => {
         const isOwned = d.status === 'owned';
         const price = d.purchase_price || 0;
-        const cf = d.year1_cashflow || 0;
+        const cf = parseFloat(d.year1_cashflow !== undefined && d.year1_cashflow !== null ? d.year1_cashflow : (d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow ?? 0)) || 0;
         const eq = d.total_equity || (price * 0.25);
         const irr = d.irr || 0;
 
@@ -1704,9 +1704,10 @@
         const priceStr = formatCurrency(d.purchase_price || 0);
         const isZeroEq = (parseFloat(d.total_equity) <= 0 || (d.total_equity === undefined && parseFloat(d.inputs?.downPaymentPercent) === 0 && !parseFloat(d.inputs?.closingCosts) && !parseFloat(d.inputs?.rehabCosts))) && (d.purchase_price > 0 || d.inputs?.purchasePrice > 0);
         const irrStr = isZeroEq ? 'N/M' : `${(d.irr || 0).toFixed(1)}%`;
-        const cocStr = isZeroEq ? 'N/M' : `${(d.cash_on_cash || 0).toFixed(1)}%`;
-        const cfStr = formatCurrency(d.year1_cashflow || 0);
-        const locStr = d.location || 'United States';
+        const cfVal = d.year1_cashflow !== undefined && d.year1_cashflow !== null && !isNaN(parseFloat(d.year1_cashflow))
+          ? parseFloat(d.year1_cashflow)
+          : (parseFloat(d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow) || 0);
+        const cfStr = formatCurrency(cfVal);
         const dealTitle = resolveDealDisplayName(d, activeDashboardProjects);
         const tierStr = d.market_tier || d.inputs?.marketTier || d.inputs?.commTier || d.inputs?.storageTier || 'Tier 2';
         const classStr = d.property_class || d.inputs?.propertyClass || d.inputs?.commClass || d.inputs?.storageClass || 'Class B';
