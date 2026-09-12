@@ -964,27 +964,76 @@ function runMonteCarloSimulation(assetType, baseInputs, iterations = 1000) {
   let negativeCashFlowCount = 0;
   let negativeIrrCount = 0;
 
-  const baseApprec = parseFloat(baseInputs.appreciationRate) || 0;
-  const baseRentGrowth = parseFloat(baseInputs.rentGrowth) || 0;
-  const baseVacancy = parseFloat(baseInputs.vacancyRate) || 5;
+  const isCommercialOrStorage = assetType === 'commercial' || assetType === 'storage';
+
+  const baseApprec = baseInputs.appreciationRate !== undefined && !isNaN(parseFloat(baseInputs.appreciationRate)) ? parseFloat(baseInputs.appreciationRate) : 3.0;
+  const baseRentGrowth = baseInputs.rentGrowth !== undefined && !isNaN(parseFloat(baseInputs.rentGrowth)) ? parseFloat(baseInputs.rentGrowth) : 2.5;
+  const baseVacancy = baseInputs.vacancyRate !== undefined && !isNaN(parseFloat(baseInputs.vacancyRate)) ? parseFloat(baseInputs.vacancyRate) : 5.0;
+  const baseExitCap = (baseInputs.targetCapRate !== undefined && !isNaN(parseFloat(baseInputs.targetCapRate)))
+    ? parseFloat(baseInputs.targetCapRate)
+    : ((baseInputs.targetExitCapRate !== undefined && !isNaN(parseFloat(baseInputs.targetExitCapRate)))
+      ? parseFloat(baseInputs.targetExitCapRate)
+      : ((baseInputs.exitCapRate !== undefined && !isNaN(parseFloat(baseInputs.exitCapRate))) ? parseFloat(baseInputs.exitCapRate) : (isCommercialOrStorage ? 6.5 : 0)));
+
+  const growthStdDev = parseFloat(baseInputs.rentGrowthVolPct || 1.5);
+  const vacancyStdDev = parseFloat(baseInputs.vacancyVolPct || 2.5);
+  const apprecStdDev = parseFloat(baseInputs.apprecVolPct || 1.5);
+  const exitCapSpreadPct = (parseFloat(baseInputs.exitCapSpreadBps || 100) / 100);
+
+  const unitCount = parseInt(baseInputs.unitCount || baseInputs.storageUnitCount || 0, 10);
 
   for (let i = 0; i < iterations; i++) {
     // Generate stochastic variations
-    const sampledApprec = gaussianRandom(baseApprec, 1.5);
-    const sampledRentGrowth = gaussianRandom(baseRentGrowth, 1.0);
-    const sampledVacancy = Math.max(0, Math.min(50, gaussianRandom(baseVacancy, 2.5)));
+    const sampledApprec = gaussianRandom(baseApprec, apprecStdDev);
+    const sampledRentGrowth = gaussianRandom(baseRentGrowth, growthStdDev);
+    const sampledExitCap = baseExitCap > 0 ? Math.max(3.0, gaussianRandom(baseExitCap, exitCapSpreadPct)) : baseExitCap;
+
+    // Asset-specific stochastic vacancy mechanics
+    let sampledVacancy = baseVacancy;
+    if (assetType === 'single-family') {
+      // Single-Family 1-door discrete turnover model
+      const turnoverChance = Math.min(0.60, Math.max(0.10, (baseVacancy / 5.0) * 0.22));
+      if (Math.random() < turnoverChance) {
+        const downtimeRoll = Math.random();
+        if (downtimeRoll < 0.65) {
+          sampledVacancy = 8.33; // 1 month turn
+        } else if (downtimeRoll < 0.88) {
+          sampledVacancy = 16.67; // 2 months turn
+        } else {
+          sampledVacancy = 25.0 + Math.random() * 20.0; // extended vacancy/eviction
+        }
+      } else {
+        sampledVacancy = Math.max(0, gaussianRandom(0.5, 0.4));
+      }
+    } else if (assetType === 'multi-unit') {
+      const effectiveStdDev = vacancyStdDev / Math.sqrt(Math.max(1, (unitCount || 8) / 4));
+      sampledVacancy = Math.max(1.0, Math.min(45.0, gaussianRandom(baseVacancy, effectiveStdDev)));
+    } else if (assetType === 'commercial') {
+      const rollRiskRoll = Math.random();
+      if (rollRiskRoll < 0.06) {
+        sampledVacancy = Math.min(60.0, 25.0 + Math.random() * 25.0);
+      } else {
+        sampledVacancy = Math.max(0.5, Math.min(30.0, gaussianRandom(baseVacancy, vacancyStdDev * 0.75)));
+      }
+    } else if (assetType === 'storage') {
+      sampledVacancy = Math.max(2.0, Math.min(45.0, gaussianRandom(baseVacancy, vacancyStdDev * 1.15)));
+    } else {
+      sampledVacancy = Math.max(1.0, Math.min(45.0, gaussianRandom(baseVacancy, vacancyStdDev)));
+    }
 
     const simInputs = {
       ...baseInputs,
       appreciationRate: sampledApprec,
       rentGrowth: sampledRentGrowth,
-      vacancyRate: sampledVacancy
+      vacancyRate: sampledVacancy,
+      targetCapRate: sampledExitCap,
+      targetExitCapRate: sampledExitCap
     };
 
     const res = calculateProjections(assetType, simInputs);
     irrs.push(res.irr);
     npvs.push(res.npv);
-    const cf1 = res.projections[0] ? res.projections[0].cashFlow : 0;
+    const cf1 = res.projections && res.projections[0] ? res.projections[0].cashFlow : (res.cashFlows ? res.cashFlows[0] : 0);
     y1CashFlows.push(cf1);
 
     if (cf1 < 0) negativeCashFlowCount++;
@@ -1055,7 +1104,18 @@ function runMonteCarloSimulation(assetType, baseInputs, iterations = 1000) {
     skewnessIndex,
     sharpeRatio,
     riskClassification,
-    histogramBins: bins
+    histogramBins: bins,
+    telemetry: {
+      baselineRentGrowth: baseRentGrowth,
+      baselineVacancy: baseVacancy,
+      baselineExitMetric: isCommercialOrStorage ? baseExitCap : baseApprec,
+      exitMetricType: isCommercialOrStorage ? 'Exit Cap Rate' : 'Annual Appreciation',
+      rentGrowthRange: [Math.round((baseRentGrowth - growthStdDev) * 10) / 10, Math.round((baseRentGrowth + growthStdDev) * 10) / 10],
+      vacancyRange: assetType === 'single-family' ? [0.0, 25.0] : [Math.round(Math.max(0, baseVacancy - vacancyStdDev) * 10) / 10, Math.round((baseVacancy + vacancyStdDev) * 10) / 10],
+      exitMetricRange: isCommercialOrStorage
+        ? [Math.round(Math.max(1, baseExitCap - exitCapSpreadPct) * 100) / 100, Math.round((baseExitCap + exitCapSpreadPct) * 100) / 100]
+        : [Math.round((baseApprec - apprecStdDev) * 10) / 10, Math.round((baseApprec + apprecStdDev) * 10) / 10]
+    }
   };
 }
 

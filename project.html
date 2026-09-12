@@ -1950,6 +1950,21 @@
               </div>
             </div>
 
+            <!-- Dynamic Pro-Forma Underwriting & Simulation Bounds Telemetry Strip -->
+            <div id="mc-telemetry-strip" class="p-3 rounded-xl border border-slate-900 bg-slate-950/70 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-3 shadow-inner">
+              <div class="flex items-center gap-2">
+                <span class="text-accent-violet font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <span class="inline-block w-2 h-2 rounded-full bg-accent-violet animate-pulse"></span>
+                  Underwriting Baseline (&mu;):
+                </span>
+                <span id="mc-telemetry-baseline" class="font-mono text-slate-200 font-bold">Rent: 2.5% | Vacancy: 5.0% | Exit: 3.0%</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Simulated Stress Window (&mu; &plusmn; &sigma;):</span>
+                <span id="mc-telemetry-bounds" class="font-mono text-white font-bold bg-slate-900/90 px-2.5 py-0.5 rounded border border-slate-800">Rent [1.0% &ndash; 4.0%] | Exit [1.5% &ndash; 4.5%]</span>
+              </div>
+            </div>
+
             <!-- Collapsible Stochastic Volatility Assumptions -->
             <details id="mc-volatility-accordion" class="group border border-slate-800/80 rounded-xl bg-slate-950/40 overflow-hidden">
               <summary class="flex items-center justify-between px-3.5 py-2.5 cursor-pointer text-xs font-semibold text-slate-300 hover:text-white bg-slate-950/60 hover:bg-slate-900/50 transition select-none">
@@ -1987,8 +2002,20 @@
               </div>
             </details>
 
+            <!-- Monte Carlo Distribution Chart Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-2 pb-0.5 text-xs">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-white uppercase text-[11px] tracking-wide">Hold Period Total IRR Distribution (%)</span>
+                <span class="text-slate-500 font-normal text-[11px]">| 10 Frequency Bins</span>
+              </div>
+              <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <span class="text-amber-400 font-bold uppercase text-[10px] tracking-wider bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">Metric Scope</span>
+                <span>Top card tracks <strong class="text-amber-300">Year 1 Cash Deficit</strong>, chart plots <strong class="text-slate-200">Total Hold IRR</strong></span>
+              </div>
+            </div>
+
             <!-- Monte Carlo Distribution Chart -->
-            <div class="h-64 w-full relative pt-2">
+            <div class="h-64 w-full relative pt-1">
               <canvas id="monte-carlo-chart"></canvas>
             </div>
           </div>
@@ -2819,10 +2846,54 @@
           </div>
         </div>
 
-        <!-- Section 4: Dynamic Deal Attribution & High-Yield Leverage Breakdown -->
+        <!-- Section 4: Asset-Class Specific Stochastic Models & Degrees of Delta -->
         <div class="space-y-2">
           <div class="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
-            <span>4. Active Underwriting Deal Attribution & Leverage Mechanics</span>
+            <span>4. Asset-Class Specific Stochastic Models & Degrees of Delta</span>
+          </div>
+          <p>
+            Real estate risk is structurally non-uniform across property types. To reflect operational realities rather than theoretical approximations, our engine deploys dedicated stochastic architectures tailored to the asset class under review, each applying distinct degrees of delta:
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <span class="text-accent-violet">🏡</span> Single-Family Rental (SFR)
+              </span>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                <strong class="text-slate-200">Discrete 1-Door Turnover Model:</strong> A single-family rental cannot experience a continuous 5% fractional vacancy. Vacancy is modeled as a discrete tenant turnover event (~78% renewal vs. ~22% turnover probability). In turnover iterations, the engine samples integer month vacancies (1 month = 8.33% annual loss; 2 months = 16.67%; extended eviction/make-ready = 25%–50%). This accurately exposes mortgage debt service shortfalls and surfaces genuine Year 1 cash deficit vulnerabilities. Terminal proceeds follow home appreciation volatility (&sigma; &asymp; 1.5%).
+              </p>
+            </div>
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <span class="text-accent-emerald">🏢</span> Multifamily (Multi-Unit)
+              </span>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                <strong class="text-slate-200">Door-Aggregated Absorption Model:</strong> Multi-door properties benefit from tenant diversification and the law of large numbers. Staggered lease cycles dampen portfolio-wide volatility inversely to unit count (&sigma; / &radic;N). Vacancy fluctuates continuously around underwritten absorption targets, providing natural cash flow buffering against total revenue disruption.
+              </p>
+            </div>
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <span class="text-amber-400">🏭</span> Commercial (Office, Retail, Industrial)
+              </span>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                <strong class="text-slate-200">Lease-Roll Cliff & Cap Rate Spread:</strong> Multi-year leases (3–10 years) provide multi-year operating stability, but concentrate vulnerability into binary lease expiration years. The simulation models non-renewal downtime (6–12 months) and capital market liquidity swings via exit capitalization rate spreads (&plusmn;100 bps), capturing institutional disposition volatility.
+              </p>
+            </div>
+            <div class="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
+              <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                <span class="text-accent-rose">📦</span> Self-Storage
+              </span>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                <strong class="text-slate-200">High-Velocity Elasticity Model:</strong> Characterized by hundreds of short-term month-to-month contracts. Vacancy is subject to rapid tenant churn velocity, seasonal demand shifts (spring/summer move-in surges vs. winter slowdowns), and rent hike price elasticity, modeled with elevated operational delta.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Dynamic Deal Attribution & High-Yield Leverage Breakdown -->
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
+            <span>5. Active Underwriting Deal Attribution & Leverage Mechanics</span>
           </div>
           <div id="primer-dynamic-deal-container">
             <!-- Dynamically populated via openStochasticPrimer() -->
@@ -4819,6 +4890,29 @@
         `;
       }
 
+      // Update dynamic pro-forma telemetry strip
+      const telem = mc.telemetry || {
+        baselineRentGrowth: mergedInputs.rentGrowth !== undefined ? mergedInputs.rentGrowth : 2.5,
+        baselineVacancy: mergedInputs.vacancyRate !== undefined ? mergedInputs.vacancyRate : 5.0,
+        baselineExitMetric: (mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage')
+          ? (mergedInputs.targetCapRate || mergedInputs.targetExitCapRate || 6.5)
+          : (mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0),
+        exitMetricType: (mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage') ? 'Exit Cap' : 'Appreciation',
+        rentGrowthRange: [Math.round(((mergedInputs.rentGrowth !== undefined ? mergedInputs.rentGrowth : 2.5) - rentGrowthVol) * 10) / 10, Math.round(((mergedInputs.rentGrowth !== undefined ? mergedInputs.rentGrowth : 2.5) + rentGrowthVol) * 10) / 10],
+        exitMetricRange: (mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage')
+          ? [Math.round(Math.max(1, (mergedInputs.targetCapRate || 6.5) - exitCapSpread / 100) * 100) / 100, Math.round(((mergedInputs.targetCapRate || 6.5) + exitCapSpread / 100) * 100) / 100]
+          : [Math.round(((mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0) - 1.5) * 10) / 10, Math.round(((mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0) + 1.5) * 10) / 10]
+      };
+
+      const elBaseline = document.getElementById('mc-telemetry-baseline');
+      if (elBaseline) {
+        elBaseline.textContent = `Rent: ${Number(telem.baselineRentGrowth).toFixed(1)}% | Vacancy: ${Number(telem.baselineVacancy).toFixed(1)}% | ${telem.exitMetricType}: ${Number(telem.baselineExitMetric).toFixed(telem.exitMetricType.includes('Cap') ? 2 : 1)}%`;
+      }
+      const elBounds = document.getElementById('mc-telemetry-bounds');
+      if (elBounds) {
+        elBounds.textContent = `Rent [${telem.rentGrowthRange[0]}% – ${telem.rentGrowthRange[1]}%] | ${telem.exitMetricType} [${telem.exitMetricRange[0]}% – ${telem.exitMetricRange[1]}%]`;
+      }
+
       // Update engine badge
       const engineBadge = document.getElementById('mc-engine-badge');
       if (engineBadge) {
@@ -4854,11 +4948,29 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', weight: '600' } } }
+            legend: { labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', weight: '600' } } },
+            tooltip: {
+              callbacks: {
+                title: function(items) {
+                  return `Total Hold IRR: ${items[0]?.label || ''}`;
+                },
+                label: function(context) {
+                  return `Frequency: ${context.raw} runs (out of 1,000)`;
+                }
+              }
+            }
           },
           scales: {
-            x: { grid: { color: 'rgba(51, 65, 85, 0.15)' }, ticks: { color: '#64748b', font: { family: 'Inter' } } },
-            y: { grid: { color: 'rgba(51, 65, 85, 0.15)' }, ticks: { color: '#64748b', font: { family: 'Inter' } } }
+            x: { 
+              grid: { color: 'rgba(51, 65, 85, 0.15)' }, 
+              ticks: { color: '#64748b', font: { family: 'Inter' } },
+              title: { display: true, text: 'Total Hold Period IRR (%)', color: '#64748b', font: { size: 10, weight: 'bold' } }
+            },
+            y: { 
+              grid: { color: 'rgba(51, 65, 85, 0.15)' }, 
+              ticks: { color: '#64748b', font: { family: 'Inter' } },
+              title: { display: true, text: 'Runs', color: '#64748b', font: { size: 10, weight: 'bold' } }
+            }
           }
         }
       });

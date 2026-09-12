@@ -386,15 +386,23 @@ serve(async (req: Request) => {
     const assetType = (payload.assetType || inputs.assetType || inputs.asset_class || 'single-family').toLowerCase();
     const runs = Math.min(Math.max(parseInt(payload.runs || '1000', 10), 100), 10000);
 
-    const baseGrowth = parseFloat(inputs.rentGrowth || 2.5);
-    const baseVacancy = parseFloat(inputs.vacancyRate || 5.0);
-    const baseApprec = parseFloat(inputs.appreciationRate || 3.0);
-    const baseExitCap = parseFloat(inputs.targetCapRate || inputs.targetExitCapRate || inputs.exitCapRate || 6.5);
+    const isCommercialOrStorage = assetType === 'commercial' || assetType === 'storage';
+
+    const baseGrowth = inputs.rentGrowth !== undefined && !isNaN(parseFloat(inputs.rentGrowth)) ? parseFloat(inputs.rentGrowth) : 2.5;
+    const baseVacancy = inputs.vacancyRate !== undefined && !isNaN(parseFloat(inputs.vacancyRate)) ? parseFloat(inputs.vacancyRate) : 5.0;
+    const baseApprec = inputs.appreciationRate !== undefined && !isNaN(parseFloat(inputs.appreciationRate)) ? parseFloat(inputs.appreciationRate) : 3.0;
+    const baseExitCap = (inputs.targetCapRate !== undefined && !isNaN(parseFloat(inputs.targetCapRate)))
+      ? parseFloat(inputs.targetCapRate)
+      : ((inputs.targetExitCapRate !== undefined && !isNaN(parseFloat(inputs.targetExitCapRate)))
+        ? parseFloat(inputs.targetExitCapRate)
+        : ((inputs.exitCapRate !== undefined && !isNaN(parseFloat(inputs.exitCapRate))) ? parseFloat(inputs.exitCapRate) : (isCommercialOrStorage ? 6.5 : 0)));
 
     const growthStdDev = parseFloat(payload.rentGrowthVolPct || 1.5);
     const vacancyStdDev = parseFloat(payload.vacancyVolPct || 2.5);
     const apprecStdDev = parseFloat(payload.apprecVolPct || 1.5);
     const exitCapSpreadPct = (parseFloat(payload.exitCapSpreadBps || 100) / 100);
+
+    const unitCount = parseInt(inputs.unitCount || inputs.storageUnitCount || 0, 10);
 
     const irrResults: number[] = new Array(runs);
     let totalIrr = 0;
@@ -403,9 +411,50 @@ serve(async (req: Request) => {
 
     for (let r = 0; r < runs; r++) {
       const sampledGrowth = randomGaussian(baseGrowth, growthStdDev);
-      const sampledVacancy = Math.max(1.0, Math.min(45.0, randomGaussian(baseVacancy, vacancyStdDev)));
       const sampledApprec = randomGaussian(baseApprec, apprecStdDev);
       const sampledExitCap = baseExitCap > 0 ? Math.max(3.0, randomGaussian(baseExitCap, exitCapSpreadPct)) : baseExitCap;
+
+      // Asset-specific stochastic vacancy mechanics
+      let sampledVacancy = baseVacancy;
+      if (assetType === 'single-family') {
+        // Single-Family 1-door discrete turnover model
+        // Annual turnover chance scaled by baseline vacancy expectation (default ~22%)
+        const turnoverChance = Math.min(0.60, Math.max(0.10, (baseVacancy / 5.0) * 0.22));
+        if (Math.random() < turnoverChance) {
+          const downtimeRoll = Math.random();
+          if (downtimeRoll < 0.65) {
+            // 1 month turnover (~8.33% annual vacancy)
+            sampledVacancy = 8.33;
+          } else if (downtimeRoll < 0.88) {
+            // 2 months turnover (~16.67% annual vacancy)
+            sampledVacancy = 16.67;
+          } else {
+            // Extended vacancy / eviction / major make-ready (3 to 6 months)
+            sampledVacancy = 25.0 + Math.random() * 20.0;
+          }
+        } else {
+          // Tenancy sustained: near-zero operational friction
+          sampledVacancy = Math.max(0, randomGaussian(0.5, 0.4));
+        }
+      } else if (assetType === 'multi-unit') {
+        // Multi-Unit portfolio diversification: variance dampens across door count
+        const effectiveStdDev = vacancyStdDev / Math.sqrt(Math.max(1, (unitCount || 8) / 4));
+        sampledVacancy = Math.max(1.0, Math.min(45.0, randomGaussian(baseVacancy, effectiveStdDev)));
+      } else if (assetType === 'commercial') {
+        // Commercial: multi-year lease stability with binary lease-roll tail risk
+        const rollRiskRoll = Math.random();
+        if (rollRiskRoll < 0.06) {
+          // Key tenant rollover / renewal failure shock (6-12 months downtime)
+          sampledVacancy = Math.min(60.0, 25.0 + Math.random() * 25.0);
+        } else {
+          sampledVacancy = Math.max(0.5, Math.min(30.0, randomGaussian(baseVacancy, vacancyStdDev * 0.75)));
+        }
+      } else if (assetType === 'storage') {
+        // Storage: high turnover velocity, month-to-month elasticity
+        sampledVacancy = Math.max(2.0, Math.min(45.0, randomGaussian(baseVacancy, vacancyStdDev * 1.15)));
+      } else {
+        sampledVacancy = Math.max(1.0, Math.min(45.0, randomGaussian(baseVacancy, vacancyStdDev)));
+      }
 
       const simInputs = {
         ...inputs,
@@ -522,6 +571,17 @@ serve(async (req: Request) => {
       sharpeRatio,
       riskClassification,
       histogramBins,
+      telemetry: {
+        baselineRentGrowth: baseGrowth,
+        baselineVacancy: baseVacancy,
+        baselineExitMetric: isCommercialOrStorage ? baseExitCap : baseApprec,
+        exitMetricType: isCommercialOrStorage ? 'Exit Cap Rate' : 'Annual Appreciation',
+        rentGrowthRange: [Math.round((baseGrowth - growthStdDev) * 10) / 10, Math.round((baseGrowth + growthStdDev) * 10) / 10],
+        vacancyRange: assetType === 'single-family' ? [0.0, 25.0] : [Math.round(Math.max(0, baseVacancy - vacancyStdDev) * 10) / 10, Math.round((baseVacancy + vacancyStdDev) * 10) / 10],
+        exitMetricRange: isCommercialOrStorage
+          ? [Math.round(Math.max(1, baseExitCap - exitCapSpreadPct) * 100) / 100, Math.round((baseExitCap + exitCapSpreadPct) * 100) / 100]
+          : [Math.round((baseApprec - apprecStdDev) * 10) / 10, Math.round((baseApprec + apprecStdDev) * 10) / 10]
+      },
       summary: {
         p5,
         p10,
