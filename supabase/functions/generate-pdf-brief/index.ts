@@ -26,6 +26,100 @@ function fmtDec(num: any, decimals = 1): string {
   return n.toFixed(decimals);
 }
 
+// Helper to dynamically calculate institutional pro-forma projections if stored projections are missing or corrupted
+function computeFallbackProjections(assetClass: string, inputs: any, price: number): any[] {
+  const normAsset = (assetClass || 'commercial').toLowerCase();
+  const holdYears = Math.max(1, Math.min(30, parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10)));
+  const rentGrowth = parseFloat(inputs.rentGrowth || 3.0);
+  const vacancyRate = parseFloat(inputs.vacancyRate ?? 2.0);
+  const isNNN = (inputs.leaseType || '').toUpperCase() === 'NNN' || (inputs.leases && inputs.leases[0]?.leaseType === 'NNN');
+  
+  const rawExpenseRatio = parseFloat(inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? (normAsset === 'commercial' && isNNN ? 1.0 : 35.0));
+  const expenseRatio = Math.max(0, isNaN(rawExpenseRatio) ? (isNNN ? 1.0 : 35.0) : rawExpenseRatio);
+  
+  // Year 1 Gross Rent resolution
+  let monthlyRent = parseFloat(inputs.monthlyRent || inputs.grossRentPerMonth || 0);
+  if (!monthlyRent && inputs.leases && inputs.leases.length > 0) {
+    monthlyRent = inputs.leases.reduce((sum: number, l: any) => sum + parseFloat(l.monthlyRent || 0), 0);
+  }
+  if (!monthlyRent && inputs.grossRentAnnual) {
+    monthlyRent = parseFloat(inputs.grossRentAnnual) / 12;
+  }
+  if (!monthlyRent && price > 0) {
+    monthlyRent = price * 0.008;
+  }
+  let currentGross = monthlyRent * 12;
+
+  // Financing terms
+  const downPct = inputs.downPaymentPercent ? parseFloat(inputs.downPaymentPercent) : 25;
+  const loanAmt = parseFloat(inputs.loanAmount || (price * (1 - downPct / 100)));
+  const intRate = parseFloat(inputs.interestRate || 6.5);
+  const termYears = parseInt(inputs.loanTerm || 25, 10);
+  
+  let monthlyPayment = 0;
+  if (loanAmt > 0 && termYears > 0) {
+    const r = intRate / 100 / 12;
+    const n = termYears * 12;
+    monthlyPayment = r > 0 ? (loanAmt * (r * Math.pow(1 + r, n))) / (Math.pow(1 + r, n) - 1) : (loanAmt / n);
+  }
+  const annualDebtService = monthlyPayment * 12;
+
+  const projections: any[] = [];
+  let currentVal = price;
+  let remainingLoan = loanAmt;
+  const r = intRate / 100 / 12;
+  const initialCash = (price * (downPct / 100)) + parseFloat(inputs.closingCosts || 0);
+
+  for (let yr = 1; yr <= holdYears; yr++) {
+    if (yr > 1) {
+      currentGross *= (1 + rentGrowth / 100);
+      if (normAsset !== 'commercial' && normAsset !== 'storage') {
+        currentVal *= (1 + (parseFloat(inputs.appreciationRate || 2.5) / 100));
+      }
+    }
+
+    const vacancyLoss = isNNN ? 0 : (currentGross * (vacancyRate / 100));
+    const egi = currentGross - vacancyLoss;
+    
+    // NNN Commercial: Operating expenses (taxes, insurance, CAM) are paid/reimbursed by tenant.
+    // Standard institutional reserve/admin is 1% of gross rent.
+    const opex = currentGross * (expenseRatio / 100);
+    const noi = Math.max(0, egi - opex);
+    const ds = yr <= termYears ? annualDebtService : 0;
+    const cf = noi - ds;
+    const coc = initialCash > 0 ? (cf / initialCash) * 100 : 0;
+    const capRate = currentVal > 0 ? (noi / currentVal) * 100 : 0;
+
+    const elapsedMonths = yr * 12;
+    const n = termYears * 12;
+    if (elapsedMonths < n && r > 0) {
+      remainingLoan = loanAmt * Math.pow(1 + r, elapsedMonths) - (monthlyPayment * (Math.pow(1 + r, elapsedMonths) - 1) / r);
+    } else {
+      remainingLoan = 0;
+    }
+    const equity = Math.max(0, currentVal - remainingLoan);
+
+    projections.push({
+      year: yr,
+      propertyValue: Math.round(currentVal),
+      grossPotentialIncome: Math.round(currentGross * 100) / 100,
+      vacancyLoss: Math.round(vacancyLoss * 100) / 100,
+      effectiveGrossIncome: Math.round(egi * 100) / 100,
+      operatingExpenses: Math.round(opex * 100) / 100,
+      netOperatingIncome: Math.round(noi * 100) / 100,
+      debtService: Math.round(ds * 100) / 100,
+      cashFlow: Math.round(cf * 100) / 100,
+      netCashFlow: Math.round(cf * 100) / 100,
+      cashOnCash: Math.round(coc * 100) / 100,
+      capRate: Math.round(capRate * 100) / 100,
+      loanBalanceRemaining: Math.round(remainingLoan),
+      equity: Math.round(equity)
+    });
+  }
+
+  return projections;
+}
+
 // =========================================================================
 // 1. SINGLE-DEAL EXECUTIVE UNDERWRITING MEMORANDUM BUILDER
 // =========================================================================
@@ -38,10 +132,21 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
 
   const inputs = deal.inputs || {};
   const metrics = deal.metrics || {};
-  const proj: any[] = metrics.projections || [];
+  let proj: any[] = metrics.projections || [];
   const rawAssessor = inputs.assessorData || {};
 
   const price = parseFloat(deal.purchase_price || inputs.purchasePrice || 0);
+
+  // Validate or heal corrupted projections (e.g. 100% OpEx wipeout on an income-producing asset or NNN lease)
+  const isCorruptedProjections = proj.length === 0 || (
+    (proj[0]?.netOperatingIncome <= 0 && (inputs.monthlyRent > 0 || inputs.grossRentAnnual > 0 || (inputs.leases && inputs.leases.length > 0) || price > 0)) ||
+    (proj[0]?.operatingExpenses >= proj[0]?.effectiveGrossIncome && (proj[0]?.effectiveGrossIncome || 0) > 0)
+  );
+
+  if (isCorruptedProjections) {
+    proj = computeFallbackProjections(assetClass, inputs, price);
+  }
+
   const equity = parseFloat(deal.total_equity || metrics.initialEquity || metrics.initialCashInvested || (price * 0.25));
   const loanAmt = parseFloat(deal.loan_amount || metrics.loanAmount || Math.max(0, price - equity));
   const ltv = price > 0 ? Math.round((loanAmt / price) * 100) : (inputs.downPaymentPercent ? (100 - parseFloat(inputs.downPaymentPercent)) : 75);
@@ -51,10 +156,18 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const discountRate = parseFloat(inputs.discountRate || 8.0);
 
   const p0 = proj[0] || {};
-  const noi = parseFloat(metrics.noi || p0.netOperatingIncome || (deal.year1_cashflow ? deal.year1_cashflow * 1.5 : 0));
+  const noi = parseFloat(
+    (p0.netOperatingIncome && p0.netOperatingIncome > 0)
+      ? p0.netOperatingIncome
+      : (metrics.noi || (deal.year1_cashflow ? deal.year1_cashflow * 1.5 : 0))
+  );
   const debtService = parseFloat(metrics.annualDebtService || p0.debtService || 0);
-  const cashFlow = parseFloat(deal.year1_cashflow || metrics.year1Cashflow || p0.cashFlow || (noi - debtService));
-  const coc = parseFloat(deal.cash_on_cash || metrics.cashOnCash || p0.cashOnCash || (equity > 0 ? (cashFlow / equity) * 100 : 0));
+  const cashFlow = (p0.netCashFlow !== undefined || p0.cashFlow !== undefined)
+    ? parseFloat(p0.netCashFlow ?? p0.cashFlow)
+    : (deal.year1_cashflow !== undefined && parseFloat(deal.year1_cashflow) > 0 ? parseFloat(deal.year1_cashflow) : (noi - debtService));
+  const coc = (p0.cashOnCash !== undefined && !p0.isCoCNotMeaningful)
+    ? parseFloat(p0.cashOnCash)
+    : (equity > 0 ? (cashFlow / equity) * 100 : parseFloat(deal.cash_on_cash || metrics.cashOnCash || 0));
   const irr = parseFloat(deal.irr || metrics.irr || 0);
   const em = parseFloat(deal.equity_multiple || metrics.equityMultiplier || 1.0);
   const capRate = parseFloat(deal.cap_rate || metrics.capRate || (price > 0 ? (noi / price) * 100 : 0));

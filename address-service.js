@@ -16,7 +16,7 @@
   } else {
     root.AddressService = factory();
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+}(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : this)), function () {
 
   const YAKIMA_GIS_BASE = 'https://maps.yakimacounty.us/server/rest/services';
   const YAKIMA_ADDRESSING_URL = YAKIMA_GIS_BASE + '/Addressing/BuildingAddresses/FeatureServer/0/query';
@@ -50,12 +50,30 @@
     'HIGHWAY': 'HWY', 'WAY': 'WAY', 'LOOP': 'LOOP', 'PARKWAY': 'PKWY'
   };
 
+  const ORDINAL_MAP = {
+    'FIRST': '1ST', 'SECOND': '2ND', 'THIRD': '3RD', 'FOURTH': '4TH', 'FIFTH': '5TH',
+    'SIXTH': '6TH', 'SEVENTH': '7TH', 'EIGHTH': '8TH', 'NINTH': '9TH', 'TENTH': '10TH',
+    'ELEVENTH': '11TH', 'TWELFTH': '12TH', 'THIRTEENTH': '13TH', 'FOURTEENTH': '14TH',
+    'FIFTEENTH': '15TH', 'SIXTEENTH': '16TH'
+  };
+
+  function toOrdinal(numStr) {
+    const n = parseInt(numStr, 10);
+    if (isNaN(n) || n <= 0 || n > 150) return numStr;
+    const j = n % 10, k = n % 100;
+    if (j === 1 && k !== 11) return n + 'ST';
+    if (j === 2 && k !== 12) return n + 'ND';
+    if (j === 3 && k !== 13) return n + 'RD';
+    return n + 'TH';
+  }
+
   /**
    * Helper: Intelligently parse raw address strings into components
-   * Decouples street line from City, State, and Zip code.
+   * Decouples street line from City, State, and Zip code, strips unit/apt,
+   * normalizes ordinals (Third -> 3RD), directionals, and suffixes.
    */
   function parseAddressInput(raw) {
-    if (!raw) return { houseNumber: '', city: '', state: 'WA', zip: '', streetTokens: [], normalizedStreet: '' };
+    if (!raw) return { houseNumber: '', city: '', state: 'WA', zip: '', streetTokens: [], coreTokens: [], normalizedStreet: '' };
     let text = raw.trim();
 
     // 1. Extract and clean Zip Code if present (e.g. 98942, 98901)
@@ -83,14 +101,53 @@
       }
     }
 
-    // 4. Remove punctuation
+    // 4. Strip unit / apartment / suite prefixes and numbers
+    text = text.replace(/\b(APT|APARTMENT|SUITE|STE|UNIT|BLDG|BUILDING|DEPT|SPACE|SPC|RM|ROOM|LOT|NO)\b\s*#?\s*[A-Z0-9-]+\b/gi, ' ');
+    text = text.replace(/#\s*[A-Z0-9-]+\b/gi, ' ');
+
+    // 5. Remove punctuation
     text = text.replace(/[,#.]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // 5. Tokenize and normalize directionals and street suffixes
+    // 6. Tokenize words
     const rawTokens = text.toUpperCase().split(/\s+/).filter(Boolean);
-    const normalizedTokens = rawTokens.map(tok => DIR_MAP[tok] || SUFFIX_MAP[tok] || tok);
 
-    const houseNumber = rawTokens[0] && /^\d+/.test(rawTokens[0]) ? rawTokens[0] : '';
+    // Locate house number (the first pure-digit token or digit with letter, e.g. 411 or 411A)
+    let houseNumber = '';
+    let houseIdx = -1;
+    for (let i = 0; i < rawTokens.length; i++) {
+      const tok = rawTokens[i];
+      if (/^\d+[A-Z]?$/.test(tok) && !ORDINAL_MAP[tok]) {
+        houseNumber = tok;
+        houseIdx = i;
+        break;
+      }
+    }
+
+    // Normalize remaining tokens
+    const normalizedTokens = [];
+    const coreTokens = [];
+
+    for (let i = 0; i < rawTokens.length; i++) {
+      const tok = rawTokens[i];
+      if (i === houseIdx) {
+        normalizedTokens.push(tok);
+        continue;
+      }
+
+      let norm = DIR_MAP[tok] || SUFFIX_MAP[tok] || ORDINAL_MAP[tok] || tok;
+
+      // If a single or small number appears as a street token (e.g. '3' in '411 3 Selah'), convert to ordinal
+      if (/^\d{1,2}$/.test(norm)) {
+        norm = toOrdinal(norm);
+      }
+
+      normalizedTokens.push(norm);
+
+      // Core tokens are street tokens excluding house number and directionals (e.g. ['3RD', 'ST'])
+      if (!DIR_MAP[tok] && !Object.values(DIR_MAP).includes(norm)) {
+        coreTokens.push(norm);
+      }
+    }
 
     return {
       raw,
@@ -99,6 +156,7 @@
       state,
       zip,
       streetTokens: normalizedTokens,
+      coreTokens,
       normalizedStreet: normalizedTokens.join(' ')
     };
   }
@@ -143,8 +201,12 @@
 
   /**
    * 1. Search official Yakima County GIS (Addressing + Assessor Taxlots Layers)
-   * Uses multi-tier query strategies: APN lookup, parsed exact street + city,
-   * wildcard prefix, and assessor situs fallback.
+   * Multi-tier query strategies:
+   * - Direct 11-digit APN lookup against Addressing & Taxlots layers
+   * - Parsed exact normalized street with city
+   * - House number + core street tokens (handles missing/mistaken directionals like omitting 'South')
+   * - Ordinal variations (Third -> 3RD)
+   * - Multi-token wildcards across both Addressing and Taxlot layers
    */
   async function searchYakimaAddresses(query, limit = 8) {
     if (!query || query.trim().length < 2) return [];
@@ -168,47 +230,62 @@
             return mapArcGisFeatures(apnData.features);
           }
         }
+        // If not in BuildingAddresses (e.g. vacant land/taxlot), query Taxlots layer directly
+        const taxlotApnRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + new URLSearchParams({
+          where: apnWhere,
+          outFields: 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ORG_NAME,MKT_LAND,MKT_IMPVT',
+          f: 'json',
+          resultRecordCount: '5'
+        }));
+        if (taxlotApnRes.ok) {
+          const taxlotData = await taxlotApnRes.json();
+          if (taxlotData && taxlotData.features && taxlotData.features.length > 0) {
+            return mapArcGisFeatures(taxlotData.features);
+          }
+        }
       } catch (e) {
         console.warn('APN direct lookup error:', e);
       }
     }
 
-    // Generate prioritized list of candidate where-clauses for Building Addresses layer
+    // Build candidate WHERE clauses for Building Addresses layer
     const candidates = [];
+    const coreJoin = parsed.coreTokens.join('%');
 
-    // Priority 1: Normalized street with City constraint
+    // Priority 1: Full normalized street + City (e.g. "411 S 3RD ST" in "SELAH")
     if (parsed.normalizedStreet && parsed.city) {
       candidates.push("Address LIKE '" + parsed.normalizedStreet + "%' AND City = '" + parsed.city + "'");
     }
 
-    // Priority 2: Normalized street without City constraint
+    // Priority 2: House number + core street tokens + City (handles missing directionals, e.g. "411 3rd Selah" -> "411 %3RD% in SELAH")
+    if (parsed.houseNumber && coreJoin && parsed.city) {
+      candidates.push("Address LIKE '" + parsed.houseNumber + " %" + coreJoin + "%' AND City = '" + parsed.city + "'");
+    }
+
+    // Priority 3: Full normalized street without city constraint
     if (parsed.normalizedStreet) {
       candidates.push("Address LIKE '" + parsed.normalizedStreet + "%'");
     }
 
-    // Priority 3: House number + core street tokens with City
-    if (parsed.houseNumber && parsed.streetTokens.length >= 2) {
-      const core = parsed.streetTokens.filter(t => t !== parsed.houseNumber);
-      if (parsed.city) {
-        candidates.push("Address LIKE '" + parsed.houseNumber + " %" + core.join('%') + "%' AND City = '" + parsed.city + "'");
-      }
-      candidates.push("Address LIKE '" + parsed.houseNumber + " %" + core.join('%') + "%'");
+    // Priority 4: House number + core street tokens without city constraint
+    if (parsed.houseNumber && coreJoin) {
+      candidates.push("Address LIKE '" + parsed.houseNumber + " %" + coreJoin + "%'");
     }
 
-    // Priority 4: Broad wildcard with all normalized tokens
+    // Priority 5: Wildcard with all normalized tokens
     if (parsed.streetTokens.length > 0) {
       candidates.push("Address LIKE '%" + parsed.streetTokens.join('%') + "%'" + (parsed.city ? " AND City = '" + parsed.city + "'" : ""));
     }
 
-    // Priority 5: Fallback simple wildcard
+    // Priority 6: Legacy wildcard fallback
     const legacyLike = buildSqlLikeTerm(query.replace(/washington|wa|98\d{3}/gi, ''));
     if (legacyLike !== '%') {
       candidates.push("Address LIKE '" + legacyLike + "'");
     }
 
-    // Deduplicate candidate queries
     const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
 
+    // 1. Query BuildingAddresses layer
     for (const whereClause of uniqueCandidates) {
       try {
         const params = new URLSearchParams({
@@ -235,11 +312,25 @@
       }
     }
 
-    // Secondary layer: Fallback to Assessor Taxlots Layer (SITUS_ADDR)
+    // 2. Query Assessor Taxlots Layer (SITUS_ADDR) using matching candidate queries
+    const taxCandidates = [];
+    if (parsed.normalizedStreet && parsed.city) {
+      taxCandidates.push("SITUS_ADDR LIKE '" + parsed.normalizedStreet + "%' AND SITUS_CITY = '" + parsed.city + "'");
+    }
+    if (parsed.houseNumber && coreJoin && parsed.city) {
+      taxCandidates.push("SITUS_ADDR LIKE '" + parsed.houseNumber + " %" + coreJoin + "%' AND SITUS_CITY = '" + parsed.city + "'");
+    }
     if (parsed.normalizedStreet) {
+      taxCandidates.push("SITUS_ADDR LIKE '" + parsed.normalizedStreet + "%'");
+    }
+    if (parsed.houseNumber && coreJoin) {
+      taxCandidates.push("SITUS_ADDR LIKE '" + parsed.houseNumber + " %" + coreJoin + "%'");
+    }
+
+    const uniqueTaxCandidates = Array.from(new Set(taxCandidates)).filter(Boolean);
+
+    for (const taxWhere of uniqueTaxCandidates) {
       try {
-        let taxWhere = "SITUS_ADDR LIKE '" + parsed.normalizedStreet + "%'";
-        if (parsed.city) taxWhere += " AND SITUS_CITY = '" + parsed.city + "'";
         const taxParams = new URLSearchParams({
           where: taxWhere,
           outFields: 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ORG_NAME,MKT_LAND,MKT_IMPVT',
@@ -250,31 +341,11 @@
         if (taxRes.ok) {
           const taxData = await taxRes.json();
           if (taxData && taxData.features && taxData.features.length > 0) {
-            return taxData.features.map(f => {
-              const attr = f.attributes || {};
-              const street = (attr.SITUS_ADDR || '').trim();
-              const city = (attr.SITUS_CITY || 'Yakima').trim();
-              const state = 'WA';
-              const zip = attr.SITUS_ZIP ? String(attr.SITUS_ZIP).trim() : '';
-              const rawApn = attr.ASSESSOR_N ? String(attr.ASSESSOR_N).trim() : null;
-              const cleanApn = (rawApn && rawApn !== '0' && !/^0+$/.test(rawApn)) ? rawApn : null;
-              return {
-                formattedAddress: street + ', ' + city + ', ' + state + (zip ? ' ' + zip : ''),
-                street,
-                city,
-                state,
-                zip,
-                county: 'Yakima',
-                apn: cleanApn,
-                buildingClass: 1,
-                source: 'yakima_county_gis',
-                isYakimaCounty: true
-              };
-            });
+            return mapArcGisFeatures(taxData.features);
           }
         }
       } catch (err) {
-        console.warn('Yakima Taxlots fallback query failed:', err);
+        console.warn('Yakima Taxlots query failed for:', taxWhere, err);
       }
     }
 
@@ -642,6 +713,7 @@
     YAKIMA_COMM_URL,
     YAKIMA_ASCEND_PORTAL,
     buildSqlLikeTerm,
+    parseAddressInput,
     searchYakimaAddresses,
     searchNationwideAddresses,
     searchAddresses,
