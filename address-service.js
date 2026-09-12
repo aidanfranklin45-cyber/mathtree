@@ -30,9 +30,108 @@
   const YAKIMA_LAT = 46.602;
   const YAKIMA_LON = -120.505;
 
+  const YAKIMA_CITIES = [
+    'YAKIMA', 'SELAH', 'UNION GAP', 'SUNNYSIDE', 'GRANDVIEW',
+    'TOPPENISH', 'WAPATO', 'ZILLAH', 'MOXEE', 'TIETON',
+    'NACHES', 'GRANGER', 'HARRAH', 'WHITE SWAN', 'COWICHE',
+    'BUENA', 'TERRACE HEIGHTS', 'AHTANUM'
+  ];
+
+  const DIR_MAP = {
+    'SOUTH': 'S', 'NORTH': 'N', 'EAST': 'E', 'WEST': 'W',
+    'SOUTHEAST': 'SE', 'SOUTHWEST': 'SW', 'NORTHEAST': 'NE', 'NORTHWEST': 'NW',
+    'SO': 'S', 'NO': 'N', 'EA': 'E', 'WE': 'W'
+  };
+
+  const SUFFIX_MAP = {
+    'STREET': 'ST', 'STREETS': 'ST', 'AVENUE': 'AVE', 'AV': 'AVE',
+    'BOULEVARD': 'BLVD', 'BOUL': 'BLVD', 'ROAD': 'RD', 'DRIVE': 'DR',
+    'LANE': 'LN', 'COURT': 'CT', 'CIRCLE': 'CIR', 'PLACE': 'PL',
+    'HIGHWAY': 'HWY', 'WAY': 'WAY', 'LOOP': 'LOOP', 'PARKWAY': 'PKWY'
+  };
+
   /**
-   * Helper: Normalize search query into SQL LIKE format for ArcGIS
-   * e.g. "128 N 2nd" -> "%128%N%2ND%"
+   * Helper: Intelligently parse raw address strings into components
+   * Decouples street line from City, State, and Zip code.
+   */
+  function parseAddressInput(raw) {
+    if (!raw) return { houseNumber: '', city: '', state: 'WA', zip: '', streetTokens: [], normalizedStreet: '' };
+    let text = raw.trim();
+
+    // 1. Extract and clean Zip Code if present (e.g. 98942, 98901)
+    let zip = '';
+    const zipMatch = text.match(/\b(98\d{3})\b/);
+    if (zipMatch) {
+      zip = zipMatch[1];
+      text = text.replace(zipMatch[0], ' ');
+    }
+
+    // 2. Extract and clean State if present
+    let state = 'WA';
+    if (/\b(WA|WASHINGTON)\b/i.test(text)) {
+      text = text.replace(/\b(WA|WASHINGTON)\b/gi, ' ');
+    }
+
+    // 3. Extract and isolate known Yakima County City
+    let detectedCity = '';
+    for (const c of YAKIMA_CITIES) {
+      const regex = new RegExp('\\b' + c + '\\b', 'i');
+      if (regex.test(text)) {
+        detectedCity = c;
+        text = text.replace(regex, ' ');
+        break;
+      }
+    }
+
+    // 4. Remove punctuation
+    text = text.replace(/[,#.]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // 5. Tokenize and normalize directionals and street suffixes
+    const rawTokens = text.toUpperCase().split(/\s+/).filter(Boolean);
+    const normalizedTokens = rawTokens.map(tok => DIR_MAP[tok] || SUFFIX_MAP[tok] || tok);
+
+    const houseNumber = rawTokens[0] && /^\d+/.test(rawTokens[0]) ? rawTokens[0] : '';
+
+    return {
+      raw,
+      houseNumber,
+      city: detectedCity,
+      state,
+      zip,
+      streetTokens: normalizedTokens,
+      normalizedStreet: normalizedTokens.join(' ')
+    };
+  }
+
+  function mapArcGisFeatures(features) {
+    if (!features || !Array.isArray(features)) return [];
+    return features.map(f => {
+      const attr = f.attributes || {};
+      const city = (attr.City || attr.SITUS_CITY || 'Yakima').trim();
+      const state = (attr.State || 'WA').trim();
+      const zip = attr.ZipCode ? String(attr.ZipCode).trim() : (attr.SITUS_ZIP ? String(attr.SITUS_ZIP).trim() : '');
+      const street = (attr.Address || attr.SITUS_ADDR || '').trim();
+
+      const rawApn = attr.ASSESSOR_N ? String(attr.ASSESSOR_N).trim() : null;
+      const cleanApn = (rawApn && rawApn !== '0' && !/^0+$/.test(rawApn)) ? rawApn : null;
+
+      return {
+        formattedAddress: street + ', ' + city + ', ' + state + (zip ? ' ' + zip : ''),
+        street,
+        city,
+        state,
+        zip,
+        county: 'Yakima',
+        apn: cleanApn,
+        buildingClass: attr.BuildingClass || 1,
+        source: 'yakima_county_gis',
+        isYakimaCounty: true
+      };
+    });
+  }
+
+  /**
+   * Helper: Normalize search query into SQL LIKE format for ArcGIS fallback
    */
   function buildSqlLikeTerm(query) {
     if (!query) return '%';
@@ -43,50 +142,143 @@
   }
 
   /**
-   * 1. Search official Yakima County Building Addresses Layer
+   * 1. Search official Yakima County GIS (Addressing + Assessor Taxlots Layers)
+   * Uses multi-tier query strategies: APN lookup, parsed exact street + city,
+   * wildcard prefix, and assessor situs fallback.
    */
   async function searchYakimaAddresses(query, limit = 8) {
     if (!query || query.trim().length < 2) return [];
 
-    const likeTerm = buildSqlLikeTerm(query);
-    const params = new URLSearchParams({
-      where: "Address LIKE '" + likeTerm + "'",
-      outFields: 'Address,City,State,ZipCode,ASSESSOR_N,BuildingClass',
-      f: 'json',
-      resultRecordCount: String(limit)
-    });
+    const parsed = parseAddressInput(query);
+    const cleanDigits = query.replace(/[^0-9]/g, '');
 
-    try {
-      const response = await fetch(YAKIMA_ADDRESSING_URL + '?' + params.toString());
-      if (!response.ok) throw new Error('Yakima GIS error: ' + response.status);
-      const data = await response.json();
-
-      if (!data || !data.features) return [];
-
-      return data.features.map(f => {
-        const attr = f.attributes || {};
-        const city = (attr.City || 'Yakima').trim();
-        const state = (attr.State || 'WA').trim();
-        const zip = attr.ZipCode ? String(attr.ZipCode).trim() : '';
-        const street = (attr.Address || '').trim();
-
-        return {
-          formattedAddress: street + ', ' + city + ', ' + state + (zip ? ' ' + zip : ''),
-          street,
-          city,
-          state,
-          zip,
-          county: 'Yakima',
-          apn: attr.ASSESSOR_N ? String(attr.ASSESSOR_N).trim() : null,
-          buildingClass: attr.BuildingClass,
-          source: 'yakima_county_gis',
-          isYakimaCounty: true
-        };
-      });
-    } catch (err) {
-      console.warn('Yakima County GIS query failed, falling back to nationwide:', err);
-      return [];
+    // APN direct lookup: If query contains an 11-digit parcel number (e.g. 18130211474 or 181302-11474)
+    if (cleanDigits.length === 11) {
+      try {
+        const apnWhere = "ASSESSOR_N = '" + cleanDigits + "'";
+        const apnRes = await fetch(YAKIMA_ADDRESSING_URL + '?' + new URLSearchParams({
+          where: apnWhere,
+          outFields: 'Address,City,State,ZipCode,ASSESSOR_N,BuildingClass',
+          f: 'json',
+          resultRecordCount: '5'
+        }));
+        if (apnRes.ok) {
+          const apnData = await apnRes.json();
+          if (apnData && apnData.features && apnData.features.length > 0) {
+            return mapArcGisFeatures(apnData.features);
+          }
+        }
+      } catch (e) {
+        console.warn('APN direct lookup error:', e);
+      }
     }
+
+    // Generate prioritized list of candidate where-clauses for Building Addresses layer
+    const candidates = [];
+
+    // Priority 1: Normalized street with City constraint
+    if (parsed.normalizedStreet && parsed.city) {
+      candidates.push("Address LIKE '" + parsed.normalizedStreet + "%' AND City = '" + parsed.city + "'");
+    }
+
+    // Priority 2: Normalized street without City constraint
+    if (parsed.normalizedStreet) {
+      candidates.push("Address LIKE '" + parsed.normalizedStreet + "%'");
+    }
+
+    // Priority 3: House number + core street tokens with City
+    if (parsed.houseNumber && parsed.streetTokens.length >= 2) {
+      const core = parsed.streetTokens.filter(t => t !== parsed.houseNumber);
+      if (parsed.city) {
+        candidates.push("Address LIKE '" + parsed.houseNumber + " %" + core.join('%') + "%' AND City = '" + parsed.city + "'");
+      }
+      candidates.push("Address LIKE '" + parsed.houseNumber + " %" + core.join('%') + "%'");
+    }
+
+    // Priority 4: Broad wildcard with all normalized tokens
+    if (parsed.streetTokens.length > 0) {
+      candidates.push("Address LIKE '%" + parsed.streetTokens.join('%') + "%'" + (parsed.city ? " AND City = '" + parsed.city + "'" : ""));
+    }
+
+    // Priority 5: Fallback simple wildcard
+    const legacyLike = buildSqlLikeTerm(query.replace(/washington|wa|98\d{3}/gi, ''));
+    if (legacyLike !== '%') {
+      candidates.push("Address LIKE '" + legacyLike + "'");
+    }
+
+    // Deduplicate candidate queries
+    const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
+
+    for (const whereClause of uniqueCandidates) {
+      try {
+        const params = new URLSearchParams({
+          where: whereClause,
+          outFields: 'Address,City,State,ZipCode,ASSESSOR_N,BuildingClass',
+          f: 'json',
+          resultRecordCount: String(limit)
+        });
+        const response = await fetch(YAKIMA_ADDRESSING_URL + '?' + params.toString());
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.features && data.features.length > 0) {
+            const mapped = mapArcGisFeatures(data.features);
+            if (mapped.length > 0) {
+              if (parsed.city) {
+                mapped.sort((a, b) => (b.city.toUpperCase() === parsed.city ? 1 : 0) - (a.city.toUpperCase() === parsed.city ? 1 : 0));
+              }
+              return mapped;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Yakima Addressing query failed for:', whereClause, err);
+      }
+    }
+
+    // Secondary layer: Fallback to Assessor Taxlots Layer (SITUS_ADDR)
+    if (parsed.normalizedStreet) {
+      try {
+        let taxWhere = "SITUS_ADDR LIKE '" + parsed.normalizedStreet + "%'";
+        if (parsed.city) taxWhere += " AND SITUS_CITY = '" + parsed.city + "'";
+        const taxParams = new URLSearchParams({
+          where: taxWhere,
+          outFields: 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ORG_NAME,MKT_LAND,MKT_IMPVT',
+          f: 'json',
+          resultRecordCount: String(limit)
+        });
+        const taxRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + taxParams.toString());
+        if (taxRes.ok) {
+          const taxData = await taxRes.json();
+          if (taxData && taxData.features && taxData.features.length > 0) {
+            return taxData.features.map(f => {
+              const attr = f.attributes || {};
+              const street = (attr.SITUS_ADDR || '').trim();
+              const city = (attr.SITUS_CITY || 'Yakima').trim();
+              const state = 'WA';
+              const zip = attr.SITUS_ZIP ? String(attr.SITUS_ZIP).trim() : '';
+              const rawApn = attr.ASSESSOR_N ? String(attr.ASSESSOR_N).trim() : null;
+              const cleanApn = (rawApn && rawApn !== '0' && !/^0+$/.test(rawApn)) ? rawApn : null;
+              return {
+                formattedAddress: street + ', ' + city + ', ' + state + (zip ? ' ' + zip : ''),
+                street,
+                city,
+                state,
+                zip,
+                county: 'Yakima',
+                apn: cleanApn,
+                buildingClass: 1,
+                source: 'yakima_county_gis',
+                isYakimaCounty: true
+              };
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Yakima Taxlots fallback query failed:', err);
+      }
+    }
+
+    return [];
   }
 
   /**
@@ -143,16 +335,20 @@
 
   /**
    * 3. Unified Address Search:
-   * Prioritizes Yakima County official addresses if query matches or Central WA context,
-   * then merges unique results from nationwide OpenStreetMap.
+   * Prioritizes Yakima County official addresses with verified APNs,
+   * then falls back to nationwide OpenStreetMap if no county parcels match.
    */
   async function searchAddresses(query, options = {}) {
     if (!query || query.trim().length < 2) return [];
 
     const yakimaResults = await searchYakimaAddresses(query, options.limit || 8);
 
-    if (yakimaResults.length >= 3) {
-      return yakimaResults;
+    // If official Yakima GIS matches with real APNs are found, return them directly
+    if (yakimaResults.length > 0) {
+      const hasRealApn = yakimaResults.some(r => r.apn);
+      if (hasRealApn) {
+        return yakimaResults;
+      }
     }
 
     const nationResults = await searchNationwideAddresses(query, 5);

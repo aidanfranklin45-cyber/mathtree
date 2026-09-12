@@ -3400,9 +3400,11 @@
       let dHtml = '';
       results.forEach((item, idx) => {
         const isYakima = item.isYakimaCounty;
-        const badge = isYakima
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima County APN: ' + (item.apn || 'Linked') + '</span>'
-          : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>';
+        const badge = item.apn
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima County APN: ' + item.apn + '</span>'
+          : (isYakima
+              ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📍 Road / No Parcel</span>'
+              : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>');
 
         dHtml += '<div onclick="selectWizardAddress(' + idx + ', \'' + prefix + '\')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">';
         dHtml += '  <div class="flex items-center justify-between">';
@@ -3480,6 +3482,23 @@
             // Query for adjacent companion parcels owned by the same entity
             const companionParcels = await window.AddressService.detectNearbySameOwnerParcels(item.apn, assessorData.owner);
             renderMultiParcelUI(companionParcels);
+          }
+        }
+      } else if (prefix === 'edit') {
+        const editId = document.getElementById('edit-deal-id')?.value;
+        const deal = activeDashboardProjects.find(p => p.id === editId);
+        if (item.apn && deal) {
+          deal.inputs = deal.inputs || {};
+          deal.inputs.apn = item.apn;
+          deal.inputs.county = 'Yakima';
+          deal.apn = item.apn;
+          if (window.AddressService) {
+            window.AddressService.fetchYakimaAssessorData(item.apn).then(assessorData => {
+              if (assessorData && deal) {
+                deal.inputs.assessorData = assessorData;
+                deal.inputs.totalAssessedValue = assessorData.totalAssessedValue;
+              }
+            }).catch(e => console.warn('Assessor fetch warning:', e));
           }
         }
       }
