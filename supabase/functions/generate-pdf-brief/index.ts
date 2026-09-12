@@ -202,22 +202,44 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const bldgSqFt = parseInt(rawAssessor.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || (activeParcels[0]?.buildingSqFt) || 0, 10);
   const lotSqFt = parseInt(primParcel.sqft || rawAssessor.sqft || inputs.sqft || (activeParcels[0]?.sqft) || (acres > 0 ? Math.round(acres * 43560) : 0), 10);
 
-  // Pre-computed totals directly from Postgres view (with fallback to client array for manual drafts)
-  const pkgTotalAssessed = parcelPackage?.combined_assessed_value !== undefined 
+  // Pre-computed totals directly from Postgres view (with fallback to activeParcels if view has 0 parcels)
+  const viewHasData = parcelPackage && (parseInt(parcelPackage.total_parcels, 10) > 0 || parseFloat(parcelPackage.combined_assessed_value || 0) > 0);
+
+  const pkgTotalAssessed = (viewHasData && parseFloat(parcelPackage.combined_assessed_value || 0) > 0)
     ? parseFloat(parcelPackage.combined_assessed_value)
-    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.total_assessed_val || p.totalAssessedValue || p.assessedValue || 0), 0) : totalAssessed);
-  const pkgTotalLand = parcelPackage?.total_land_value !== undefined 
+    : (hasMultipleParcels 
+        ? activeParcels.reduce((s: number, p: any) => {
+            const val = parseFloat(p.total_assessed_val || p.totalAssessedValue || p.assessedValue || 0);
+            if (val > 0) return s + val;
+            const land = parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0);
+            const imp = parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0);
+            return s + (land + imp);
+          }, 0) 
+        : totalAssessed);
+
+  const pkgTotalLand = (viewHasData && parseFloat(parcelPackage.total_land_value || 0) > 0)
     ? parseFloat(parcelPackage.total_land_value)
-    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0), 0) : landVal);
-  const pkgTotalImp = parcelPackage?.total_improvement_value !== undefined 
+    : (hasMultipleParcels 
+        ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0), 0) 
+        : landVal);
+
+  const pkgTotalImp = (viewHasData && parseFloat(parcelPackage.total_improvement_value || 0) > 0)
     ? parseFloat(parcelPackage.total_improvement_value)
-    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0), 0) : impVal);
-  const pkgTotalAcres = parcelPackage?.total_package_acres !== undefined 
+    : (hasMultipleParcels 
+        ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0), 0) 
+        : impVal);
+
+  const pkgTotalAcres = (viewHasData && parseFloat(parcelPackage.total_package_acres || 0) > 0)
     ? parseFloat(parcelPackage.total_package_acres)
-    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.acres || 0), 0) : acres);
-  const pkgTotalSqFt = parcelPackage?.total_package_sqft !== undefined 
+    : (hasMultipleParcels 
+        ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.acres || p.acreage || (p.sqft ? p.sqft / 43560 : 0)), 0) 
+        : acres);
+
+  const pkgTotalSqFt = (viewHasData && parseFloat(parcelPackage.total_package_sqft || 0) > 0)
     ? parseFloat(parcelPackage.total_package_sqft)
-    : (hasMultipleParcels ? activeParcels.reduce((s: number, p: any) => s + parseInt(p.sqft || p.lotSqFt || (parseFloat(p.acres || 0) > 0 ? Math.round(parseFloat(p.acres) * 43560) : 0), 10), 0) : lotSqFt);
+    : (hasMultipleParcels 
+        ? activeParcels.reduce((s: number, p: any) => s + parseInt(p.sqft || p.lotSqFt || p.lotSqft || (parseFloat(p.acres || 0) > 0 ? Math.round(parseFloat(p.acres) * 43560) : 0), 10), 0) 
+        : lotSqFt);
   const zoning = rawAssessor.zoning || inputs.zoning || 'B-2 General Commercial';
   const useCode = rawAssessor.useCode || inputs.useCode || 'Commercial / Mixed';
   const yearBuilt = rawAssessor.yearBuilt || inputs.yearBuilt || '2022';

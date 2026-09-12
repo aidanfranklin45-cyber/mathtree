@@ -51,13 +51,23 @@ export const PropertyTab: React.FC<PropertyTabProps> = ({ deal }) => {
   const primaryApn = primaryParcel?.formatted_apn || primaryParcel?.apn || deal.inputs.primaryApn || assessor.apn || '181216-13002';
   const county = deal.inputs.county || assessor.county || 'Yakima County, WA';
 
-  // Relational view values with fallback
+  // Relational view values with resilient fallback
   const totalParcelsCount = packageData?.total_parcels || (deal.inputs.parcels?.length ?? 1);
-  const totalAssessed = packageData?.combined_assessed_value ?? (assessor.totalAssessedValue || 3150000);
-  const landVal = packageData?.total_land_value ?? (assessor.marketLandValue || 950000);
-  const impVal = packageData?.total_improvement_value ?? (assessor.marketImprovementValue || 2200000);
-  const totalAcres = packageData?.total_package_acres ?? (assessor.acres || 2.85);
-  const totalSqFt = packageData?.total_package_sqft ?? (assessor.sqft || (totalAcres > 0 ? Math.round(totalAcres * 43560) : 0));
+  const totalAssessed = (packageData?.combined_assessed_value && packageData.combined_assessed_value > 0)
+    ? packageData.combined_assessed_value
+    : (assessor.totalAssessedValue || 3150000);
+  const landVal = (packageData?.total_land_value && packageData.total_land_value > 0)
+    ? packageData.total_land_value
+    : (assessor.marketLandValue || 950000);
+  const impVal = (packageData?.total_improvement_value && packageData.total_improvement_value > 0)
+    ? packageData.total_improvement_value
+    : (assessor.marketImprovementValue || 2200000);
+  const totalAcres = (packageData?.total_package_acres && packageData.total_package_acres > 0)
+    ? packageData.total_package_acres
+    : (assessor.acres || 2.85);
+  const totalSqFt = (packageData?.total_package_sqft && packageData.total_package_sqft > 0)
+    ? packageData.total_package_sqft
+    : (assessor.sqft || (totalAcres > 0 ? Math.round(totalAcres * 43560) : 0));
 
   return (
     <div className="space-y-6">
