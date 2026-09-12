@@ -1508,16 +1508,19 @@
         if (!loadedFromSupabase) {
           let storedDeals = [];
           try {
-            const raw = localStorage.getItem('mathtree_local_deals');
+            const raw = localStorage.getItem(getActiveStorageKey()) || localStorage.getItem('mathtree_local_deals');
             if (raw) storedDeals = JSON.parse(raw);
           } catch (e) {}
-          activeDashboardProjects = (storedDeals || []).map(mapSupabaseDeal);
+          if (storedDeals && storedDeals.length > 0) {
+            activeDashboardProjects = storedDeals.map(mapSupabaseDeal);
+          }
+        } else if (activeDashboardProjects.length > 0) {
+          // Cache this user's deals locally only when successfully fetched
+          try {
+            localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
+            localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
+          } catch(e) {}
         }
-
-        // Cache this user's deals locally
-        try {
-          localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
-        } catch(e) {}
       } else {
         // 2. DEMO SANDBOX: Dynamically fetch authentic synthetic benchmarks from Supabase (is_demo = true)
         let demoDeals = [];
@@ -1540,15 +1543,17 @@
           try {
             const raw = localStorage.getItem('mathtree_demo_deals');
             if (raw) demoDeals = JSON.parse(raw);
-          } catch(e) {}
+          } catch (e) {}
         }
         activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
       }
 
-      // Sync local cache
-      try {
-        localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
-      } catch(e) {}
+      // Sync local cache only if deals were loaded from Supabase or valid
+      if (loadedFromSupabase && activeDashboardProjects.length > 0) {
+        try {
+          localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
+        } catch(e) {}
+      }
 
       // Calculate separate metrics for Owned vs Pipeline
       let ownedVal = 0, ownedCashFlow = 0, ownedEquity = 0, ownedCount = 0;
@@ -3765,6 +3770,14 @@
       }
     }
     window.setupRealtimeDashboardSubscriptions = setupRealtimeDashboardSubscriptions;
+
+    // Automatically re-fetch deals and restore portfolio when network reconnects
+    window.addEventListener('online', () => {
+      console.log('[Network] Connectivity restored. Synchronizing dashboard with Supabase...');
+      if (typeof loadDashboardProjects === 'function') {
+        loadDashboardProjects();
+      }
+    });
 
     document.addEventListener('DOMContentLoaded', () => {
       // Set greeting with demo privacy isolation
