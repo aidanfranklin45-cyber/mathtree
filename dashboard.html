@@ -198,6 +198,12 @@
         <a href="operations.html" class="md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition">
           <span>Operations</span>
         </a>
+        <!-- Action Center / Notification Hub -->
+        <button id="btn-notification-hub" onclick="window.MathTreeClient.toggleNotificationHub()" class="relative flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Action Center & Institutional Alerts">
+          <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="hidden sm:inline">Alerts</span>
+          <span id="notif-badge" class="notif-badge hidden -top-1 -right-1 absolute flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-extrabold text-white animate-pulse">0</span>
+        </button>
         <button id="btn-export-portfolio-pdf" onclick="exportDashboardPortfolioPDF()" class="flex items-center space-x-1.5 py-1.5 px-2 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Export Portfolio & Pipeline Executive Brief (PDF)">
           <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
           <span class="hidden md:inline">Export PDF</span>
@@ -1897,6 +1903,14 @@
       // Update isolated storage
       saveActiveDealsToStorage();
 
+      // If marked as owned, capture initial underwriting baseline & refresh notifications
+      if (nextStatus === 'owned' && window._supabase) {
+        try {
+          await window._supabase.rpc('rpc_capture_deal_baseline', { p_deal_id: deal.id });
+          if (window.MathTreeClient) window.MathTreeClient.getNotifications();
+        } catch (e) {}
+      }
+
       // Immediately sync via Edge Function and Database
       await syncDealViaEdgeFunction(deal);
 
@@ -2287,16 +2301,16 @@
         document.getElementById('edit-deal-tenant-name').value = primaryLease.tenantName || inputs.tenantName || deal.name || '';
       }
       if (document.getElementById('edit-deal-lease-start')) {
-        document.getElementById('edit-deal-lease-start').value = primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '2024-06-01';
+        document.getElementById('edit-deal-lease-start').value = primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '';
       }
       if (document.getElementById('edit-deal-lease-end')) {
-        document.getElementById('edit-deal-lease-end').value = primaryLease.leaseEndDate || inputs.leaseEndDate || '2029-05-31';
+        document.getElementById('edit-deal-lease-end').value = primaryLease.leaseEndDate || inputs.leaseEndDate || '';
       }
       if (document.getElementById('edit-deal-escalation-type')) {
         document.getElementById('edit-deal-escalation-type').value = primaryLease.escalationType || 'Percentage Bump (%)';
       }
       if (document.getElementById('edit-deal-next-escalation')) {
-        document.getElementById('edit-deal-next-escalation').value = primaryLease.nextEscalationDate || '2026-06-01';
+        document.getElementById('edit-deal-next-escalation').value = primaryLease.nextEscalationDate || '';
       }
 
       let preAnnual = 0;
@@ -2432,11 +2446,11 @@
 
       // Capture and persist in-place lease terms
       const tenantName = document.getElementById('edit-deal-tenant-name')?.value?.trim() || deal.name;
-      const leaseStart = document.getElementById('edit-deal-lease-start')?.value || deal.inputs.closingDate || '2024-06-01';
-      const leaseEnd = document.getElementById('edit-deal-lease-end')?.value || '2029-05-31';
+      const leaseStart = document.getElementById('edit-deal-lease-start')?.value || deal.inputs.closingDate || '';
+      const leaseEnd = document.getElementById('edit-deal-lease-end')?.value || '';
       const escType = document.getElementById('edit-deal-escalation-type')?.value || 'Percentage Bump (%)';
       const escRate = deal.inputs.rentGrowth || 3.0;
-      const nextEscDate = document.getElementById('edit-deal-next-escalation')?.value || '2026-06-01';
+      const nextEscDate = document.getElementById('edit-deal-next-escalation')?.value || '';
       const monthlyRentVal = deal.inputs.monthlyRent || deal.inputs.grossRentPerMonth || 0;
 
       const updatedLease = {
@@ -2518,8 +2532,8 @@
               tenant_name: l.tenantName,
               monthly_rent: l.monthlyRent,
               security_deposit: l.monthlyRent * 2,
-              lease_start_date: l.leaseStartDate,
-              lease_end_date: l.leaseEndDate,
+              lease_start_date: l.leaseStartDate || null,
+              lease_end_date: l.leaseEndDate || null,
               lease_type: l.leaseType || 'NNN',
               escalation_type: l.escalationType || 'Percentage Bump (%)',
               escalation_rate: l.escalationRate || 3.0,

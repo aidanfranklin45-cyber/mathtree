@@ -259,6 +259,12 @@
 
       <!-- Actions Bar: Edit Inputs and Clean Menu -->
       <div class="flex items-center space-x-2">
+        <!-- Action Center / Notification Hub -->
+        <button id="btn-notification-hub" onclick="window.MathTreeClient.toggleNotificationHub()" class="relative flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Action Center & Institutional Alerts">
+          <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="hidden sm:inline">Alerts</span>
+          <span id="notif-badge" class="notif-badge hidden -top-1 -right-1 absolute flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-extrabold text-white animate-pulse">0</span>
+        </button>
         <button id="btn-edit-inputs" onclick="openEditDealModalFromProject()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5 shadow-sm" title="Edit Underwriting Baseline Inputs">
           <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           <span>Edit Inputs</span>
@@ -7814,8 +7820,8 @@
                 tenant_name: l.tenantName || deal.name,
                 monthly_rent: l.monthlyRent || 0,
                 security_deposit: (l.monthlyRent || 0) * 2,
-                lease_start_date: l.leaseStartDate || '2024-06-01',
-                lease_end_date: l.leaseEndDate || '2029-05-31',
+                lease_start_date: l.leaseStartDate || null,
+                lease_end_date: l.leaseEndDate || null,
                 lease_type: l.leaseType || 'NNN',
                 escalation_type: l.escalationType || 'Percentage Bump (%)',
                 escalation_rate: l.escalationRate || 3.0,
@@ -8964,10 +8970,10 @@
 
       const primaryLease = (inputs.leases && inputs.leases[0]) || {};
       setVal('edit-deal-tenant-name', primaryLease.tenantName || inputs.tenantName || currentLoadedDeal.name || '');
-      setVal('edit-deal-lease-start', primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '2024-06-01');
-      setVal('edit-deal-lease-end', primaryLease.leaseEndDate || inputs.leaseEndDate || '2029-05-31');
+      setVal('edit-deal-lease-start', primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '');
+      setVal('edit-deal-lease-end', primaryLease.leaseEndDate || inputs.leaseEndDate || '');
       setVal('edit-deal-escalation-type', primaryLease.escalationType || 'Percentage Bump (%)');
-      setVal('edit-deal-next-escalation', primaryLease.nextEscalationDate || '2026-06-01');
+      setVal('edit-deal-next-escalation', primaryLease.nextEscalationDate || '');
 
       let preAnnual = 0;
       let preMonthly = 0;
@@ -9087,11 +9093,11 @@
 
       // Capture and persist in-place lease terms
       const tenantName = document.getElementById('edit-deal-tenant-name')?.value?.trim() || currentLoadedDeal.name;
-      const leaseStart = document.getElementById('edit-deal-lease-start')?.value || currentLoadedDeal.inputs.closingDate || '2024-06-01';
-      const leaseEnd = document.getElementById('edit-deal-lease-end')?.value || '2029-05-31';
+      const leaseStart = document.getElementById('edit-deal-lease-start')?.value || currentLoadedDeal.inputs.closingDate || '';
+      const leaseEnd = document.getElementById('edit-deal-lease-end')?.value || '';
       const escType = document.getElementById('edit-deal-escalation-type')?.value || 'Percentage Bump (%)';
       const escRate = currentLoadedDeal.inputs.rentGrowth || 3.0;
-      const nextEscDate = document.getElementById('edit-deal-next-escalation')?.value || '2026-06-01';
+      const nextEscDate = document.getElementById('edit-deal-next-escalation')?.value || '';
       const monthlyRentVal = currentLoadedDeal.inputs.monthlyRent || currentLoadedDeal.inputs.grossRentPerMonth || 0;
 
       const updatedLease = {
@@ -9284,7 +9290,101 @@
       };
       return deal;
     }
-    window.mapSupabaseDeal = mapSupabaseDeal;
+    function toggleFourLeafVarianceDetails() {
+      const details = document.getElementById('fourleaf-variance-details');
+      const btn = document.getElementById('fourleaf-variance-toggle-btn');
+      if (!details) return;
+      if (details.classList.contains('hidden')) {
+        details.classList.remove('hidden');
+        if (btn) btn.textContent = 'Hide Details ▴';
+      } else {
+        details.classList.add('hidden');
+        if (btn) btn.textContent = 'View Details ▾';
+      }
+    }
+    window.toggleFourLeafVarianceDetails = toggleFourLeafVarianceDetails;
+
+    async function checkDealProFormaVariance(deal) {
+      const banner = document.getElementById('fourleaf-variance-banner');
+      if (!banner || !deal || !deal.id) return;
+      if (!window._supabase) return;
+
+      try {
+        const { data: leases } = await window._supabase
+          .from('leases')
+          .select('*')
+          .eq('deal_id', deal.id)
+          .eq('is_active', true);
+
+        if (!leases || leases.length === 0) {
+          banner.classList.add('hidden');
+          return;
+        }
+
+        const actualMonthlyRent = leases.reduce((sum, l) => sum + (parseFloat(l.monthly_rent) || 0), 0);
+        const inputs = deal.inputs || {};
+        const projAnnual = parseFloat(inputs.grossRentAnnual) || 0;
+        const projMonthly = projAnnual > 0 ? (projAnnual / 12) : (parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || 0);
+
+        if (projMonthly <= 0 && actualMonthlyRent <= 0) {
+          banner.classList.add('hidden');
+          return;
+        }
+
+        const varianceUsd = actualMonthlyRent - projMonthly;
+        const variancePct = projMonthly > 0 ? (varianceUsd / projMonthly) * 100 : 0;
+        const absVariancePct = Math.abs(variancePct);
+        const accuracyScore = Math.max(0, Math.min(100, Math.round(100 - absVariancePct)));
+
+        banner.classList.remove('hidden');
+        const actRentEl = document.getElementById('fourleaf-actual-rent');
+        if (actRentEl) actRentEl.textContent = `$${Math.round(actualMonthlyRent).toLocaleString()}/mo`;
+        const actAnnEl = document.getElementById('fourleaf-actual-annual');
+        if (actAnnEl) actAnnEl.textContent = `$${Math.round(actualMonthlyRent * 12).toLocaleString()}/yr`;
+        const modRentEl = document.getElementById('fourleaf-modeled-rent');
+        if (modRentEl) modRentEl.textContent = `$${Math.round(projMonthly).toLocaleString()}/mo`;
+        const modAnnEl = document.getElementById('fourleaf-modeled-annual');
+        if (modAnnEl) modAnnEl.textContent = `$${Math.round(projMonthly * 12).toLocaleString()}/yr`;
+
+        const deltaEl = document.getElementById('fourleaf-delta-rent');
+        if (deltaEl) {
+          deltaEl.textContent = `${varianceUsd >= 0 ? '+' : ''}$${Math.round(varianceUsd).toLocaleString()}/mo`;
+          deltaEl.className = `font-bold text-sm block mt-0.5 ${absVariancePct <= 2.0 ? 'text-emerald-400' : (varianceUsd > 0 ? 'text-teal-400' : 'text-amber-400')}`;
+        }
+        const pctEl = document.getElementById('fourleaf-delta-pct');
+        if (pctEl) {
+          pctEl.textContent = `${variancePct >= 0 ? '+' : ''}${variancePct.toFixed(1)}% spread • ${accuracyScore}% Model Accuracy`;
+        }
+
+        const summaryEl = document.getElementById('fourleaf-variance-summary');
+        if (summaryEl) {
+          if (absVariancePct <= 2.0) {
+            summaryEl.innerHTML = `<span class="text-emerald-400 font-bold">✓ In-Place Operations Aligned with Pro-Forma ($${Math.round(actualMonthlyRent).toLocaleString()}/mo)</span>`;
+          } else {
+            summaryEl.innerHTML = `In-Place Rent: <strong class="text-white font-mono">$${Math.round(actualMonthlyRent).toLocaleString()}/mo</strong> vs Pro-Forma: <strong class="text-white font-mono">$${Math.round(projMonthly).toLocaleString()}/mo</strong> (${variancePct >= 0 ? '+' : ''}${variancePct.toFixed(1)}% spread • ${accuracyScore}% Accuracy)`;
+          }
+        }
+
+        // Add 1-click sync button if variance >= 5%
+        let syncBtn = document.getElementById('btn-fourleaf-sync-proforma');
+        if (absVariancePct >= 5.0 && actualMonthlyRent > 0) {
+          if (!syncBtn) {
+            syncBtn = document.createElement('button');
+            syncBtn.id = 'btn-fourleaf-sync-proforma';
+            syncBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition flex items-center space-x-1';
+            const actionContainer = banner.querySelector('.flex.items-center.space-x-2.shrink-0');
+            if (actionContainer) actionContainer.insertBefore(syncBtn, actionContainer.firstChild);
+          }
+          syncBtn.innerHTML = `<span>⚡ Sync Pro-Forma ($${Math.round(actualMonthlyRent).toLocaleString()}/mo)</span>`;
+          syncBtn.onclick = () => window.MathTreeClient.syncProFormaToActuals(deal.id, actualMonthlyRent);
+        } else if (syncBtn) {
+          syncBtn.remove();
+        }
+      } catch (err) {
+        console.warn('[Project] checkDealProFormaVariance notice:', err);
+      }
+    }
+    window.checkDealProFormaVariance = checkDealProFormaVariance;
 
     async function initProjectView() {
       // Demo Mode: hide assumptions cards grid cleanly
@@ -9497,6 +9597,11 @@
       if (typeof updateCountyDossierUI === 'function') {
         updateCountyDossierUI(currentLoadedDeal);
       }
+
+      // Check In-Place vs Pro-Forma Variance
+      if (typeof checkDealProFormaVariance === 'function') {
+        checkDealProFormaVariance(currentLoadedDeal);
+      }
     }
 
     function updateDealStatusUI(status) {
@@ -9550,6 +9655,10 @@
       if (window._supabase && user && !user.demo && !currentLoadedDeal.id.startsWith('proj-') && !currentLoadedDeal.id.startsWith('demo-')) {
         try {
           await window._supabase.from('deals').update({ status: next }).eq('id', currentLoadedDeal.id).eq('user_id', user.id);
+          if (next === 'owned') {
+            await window._supabase.rpc('rpc_capture_deal_baseline', { p_deal_id: currentLoadedDeal.id });
+            if (window.MathTreeClient) window.MathTreeClient.getNotifications();
+          }
         } catch(e) {
           console.warn('Error updating status in Supabase:', e);
         }

@@ -165,6 +165,12 @@
 
       <!-- User Actions & Global Profile -->
       <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- Action Center / Notification Hub -->
+        <button id="btn-notification-hub" onclick="window.MathTreeClient.toggleNotificationHub()" class="relative flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Action Center & Institutional Alerts">
+          <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="hidden sm:inline">Alerts</span>
+          <span id="notif-badge" class="notif-badge hidden -top-1 -right-1 absolute flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-extrabold text-white animate-pulse">0</span>
+        </button>
         <button onclick="openAlertSettingsModal()" class="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Rent Reconciliation & Alert Email Settings">
           <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           <span class="hidden sm:inline">Alert Emails</span>
@@ -310,6 +316,43 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Underwriting vs. Actuals Performance Tracking & Model Accuracy -->
+    <div id="section-performance-tracking" class="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
+      <div class="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90">
+        <div>
+          <h3 class="text-sm sm:text-base font-extrabold text-white flex items-center space-x-2">
+            <span>⚖️ Underwriting vs. Actuals (Performance & Model Accuracy)</span>
+            <span id="model-accuracy-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">--% Alignment</span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Compare realized operational rent rolls against initial underwritten pro-forma baselines.
+          </p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-[11px] text-slate-400">Platform Benchmark: <strong class="text-emerald-400 font-mono" id="platform-health-label">Institutional Grade</strong></span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
+              <th class="py-3 px-4">Property Asset</th>
+              <th class="py-3 px-4 text-right">Pro-Forma Rent (Proj)</th>
+              <th class="py-3 px-4 text-right">In-Place Rent (Actual)</th>
+              <th class="py-3 px-4 text-right">Monthly Variance ($)</th>
+              <th class="py-3 px-4 text-right">Variance (%)</th>
+              <th class="py-3 px-4 text-center">Forecast Accuracy</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="performance-tracking-tbody" class="divide-y divide-slate-800/60">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Master Rent Roll Section -->
@@ -1218,13 +1261,13 @@
         tenantName: l.tenant_name || 'Commercial Tenant',
         monthlyRent: parseFloat(l.monthly_rent) || 0,
         annualRent: (parseFloat(l.monthly_rent) || 0) * 12,
-        leaseStartDate: l.lease_start_date || (deal.inputs.closingDate || '2025-01-01'),
-        leaseEndDate: l.lease_end_date || '2030-12-31',
+        leaseStartDate: l.lease_start_date || (deal.inputs.closingDate || ''),
+        leaseEndDate: l.lease_end_date || '',
         leaseType: l.lease_type || deal.inputs.leaseType || 'NNN',
         escalationType: l.escalation_type || 'Percentage Bump (%)',
         escalationRate: l.escalation_rate !== undefined && l.escalation_rate !== null ? parseFloat(l.escalation_rate) : 3.0,
         escalationFrequency: l.escalation_frequency || 'Annual on Anniversary',
-        nextEscalationDate: l.next_escalation_date || '2026-06-01'
+        nextEscalationDate: l.next_escalation_date || ''
       }));
 
       // Calculate full pro-forma projections with updated rent & leases
@@ -1536,11 +1579,11 @@
               tenant_phone: inputs.tenantPhone || null,
               monthly_rent: rentVal,
               security_deposit: inputs.securityDeposit || 0,
-              lease_start_date: inputs.closingDate || inputs.loiDate || (deal.created_at ? deal.created_at.split('T')[0] : '2025-07-15'),
+              lease_start_date: inputs.closingDate || inputs.loiDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
               lease_end_date: inputs.leaseExpiration || null,
               payment_due_day: 1,
               grace_period_days: 5,
-              last_rent_increase_date: inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : '2025-07-15'),
+              last_rent_increase_date: inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
               previous_rent_amount: rentVal,
               escalation_type: escType,
               escalation_rate: rentGrowth,
@@ -1785,6 +1828,119 @@
       });
 
       tbody.innerHTML = rowsHtml;
+
+      // Render Performance Tracking & Model Accuracy Table
+      renderPerformanceTracking(scopedDeals, scopedLeases);
+    }
+
+    function renderPerformanceTracking(scopedDeals, scopedLeases) {
+      const tbody = document.getElementById('performance-tracking-tbody');
+      if (!tbody) return;
+
+      if (!scopedDeals || scopedDeals.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="p-8 text-center text-slate-500 font-semibold">
+              No property models loaded in this scope.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let sumAccuracy = 0;
+      let countMeasured = 0;
+
+      const rows = scopedDeals.map(deal => {
+        const activeLeases = (rawLeases || []).filter(l => String(l.deal_id) === String(deal.id) && l.is_active !== false);
+        const actualMonthlyRent = activeLeases.reduce((sum, l) => sum + (parseFloat(l.monthly_rent) || 0), 0);
+
+        // Projected monthly rent from initial pro-forma
+        const inputs = deal.inputs || {};
+        const projAnnual = parseFloat(inputs.grossRentAnnual) || 0;
+        const projMonthly = projAnnual > 0 
+          ? (projAnnual / 12) 
+          : (parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || 0);
+
+        const varianceUsd = actualMonthlyRent - projMonthly;
+        const variancePct = projMonthly > 0 ? (varianceUsd / projMonthly) * 100 : 0;
+        const absVariancePct = Math.abs(variancePct);
+        const accuracyScore = Math.max(0, Math.min(100, Math.round(100 - absVariancePct)));
+
+        if (projMonthly > 0) {
+          sumAccuracy += accuracyScore;
+          countMeasured++;
+        }
+
+        const varianceColor = absVariancePct <= 2.0 
+          ? 'text-emerald-400' 
+          : (varianceUsd > 0 ? 'text-teal-400' : 'text-amber-400');
+
+        const varianceBadge = absVariancePct <= 2.0 
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Aligned</span>'
+          : (varianceUsd > 0 
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">+${variancePct.toFixed(1)}% Outperforming</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">${variancePct.toFixed(1)}% Trailing</span>`);
+
+        const accuracyBarColor = accuracyScore >= 90 ? 'bg-emerald-500' : (accuracyScore >= 75 ? 'bg-amber-500' : 'bg-rose-500');
+
+        let actionBtn = '';
+        if (absVariancePct >= 5.0 && actualMonthlyRent > 0) {
+          actionBtn = `
+            <button onclick="window.MathTreeClient.syncProFormaToActuals('${deal.id}', ${actualMonthlyRent})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition flex items-center space-x-1" title="Update Underwriting Pro-Forma to reflect real revenue">
+              <span>⚡ Sync Pro-Forma</span>
+            </button>
+          `;
+        } else {
+          actionBtn = `
+            <span class="text-[11px] font-semibold text-slate-500 flex items-center space-x-1">
+              <span>✓ Pro-Forma Aligned</span>
+            </span>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-slate-850/50 transition">
+            <td class="py-3 px-4">
+              <div class="font-bold text-white">${deal.title || deal.name}</div>
+              <div class="text-[10px] text-slate-400 capitalize">${deal.status || 'prospect'} • ${deal.asset_class || deal.asset_type || 'Commercial'}</div>
+            </td>
+            <td class="py-3 px-4 text-right font-mono text-slate-300">
+              $${Math.round(projMonthly).toLocaleString()} / mo
+            </td>
+            <td class="py-3 px-4 text-right font-mono font-bold text-white">
+              $${Math.round(actualMonthlyRent).toLocaleString()} / mo
+            </td>
+            <td class="py-3 px-4 text-right font-mono font-bold ${varianceColor}">
+              ${varianceUsd >= 0 ? '+' : ''}$${Math.round(varianceUsd).toLocaleString()}
+            </td>
+            <td class="py-3 px-4 text-right">
+              ${varianceBadge}
+            </td>
+            <td class="py-3 px-4">
+              <div class="flex items-center space-x-2 max-w-[140px] mx-auto">
+                <div class="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div class="h-full rounded-full ${accuracyBarColor}" style="width: ${accuracyScore}%"></div>
+                </div>
+                <span class="font-mono text-[10px] font-bold text-slate-300">${accuracyScore}%</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right">
+              ${actionBtn}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.innerHTML = rows;
+
+      // Platform benchmark badge
+      const avgAccuracy = countMeasured > 0 ? Math.round(sumAccuracy / countMeasured) : 100;
+      const accBadge = document.getElementById('model-accuracy-badge');
+      if (accBadge) {
+        accBadge.textContent = `${avgAccuracy}% Forecast Alignment`;
+        accBadge.className = `px-2 py-0.5 rounded-full text-[10px] font-bold ${avgAccuracy >= 90 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`;
+      }
     }
 
     // Modal Trigger: Log Payment
@@ -2454,19 +2610,21 @@
     window.updateNextEscalationDefault = updateNextEscalationDefault;
 
     // Modal: Add Unit & Lease
-    function openAddLeaseModal() {
+    function openAddLeaseModal(targetDealId) {
       const dealSelect = document.getElementById('new-lease-deal-id');
       if (dealSelect) {
         let html = '';
         rawDeals.forEach(d => {
-          html += `<option value="${d.id}">${d.title}</option>`;
+          const isSel = (targetDealId && String(d.id) === String(targetDealId)) ? 'selected' : '';
+          html += `<option value="${d.id}" ${isSel}>${d.title}</option>`;
         });
         dealSelect.innerHTML = html;
+        if (targetDealId) dealSelect.value = targetDealId;
       }
-      const today = new Date().toISOString().split('T')[0];
       const startEl = document.getElementById('new-lease-start');
-      if (startEl) startEl.value = today;
-      updateNextEscalationDefault();
+      if (startEl) startEl.value = '';
+      const nextEscEl = document.getElementById('new-lease-next-escalation');
+      if (nextEscEl) nextEscEl.value = '';
       openModal('modal-add-lease');
     }
 
@@ -2477,8 +2635,8 @@
       const unitType = document.getElementById('new-lease-unit-type').value.trim() || 'Commercial';
       const tenantName = document.getElementById('new-lease-tenant-name').value.trim();
       const rent = parseFloat(document.getElementById('new-lease-rent').value) || 0;
-      const startDate = document.getElementById('new-lease-start').value;
-      const endDate = document.getElementById('new-lease-end').value;
+      const startDate = document.getElementById('new-lease-start').value || null;
+      const endDate = document.getElementById('new-lease-end').value || null;
       const email = document.getElementById('new-lease-email').value.trim();
       const phone = document.getElementById('new-lease-phone').value.trim();
 
@@ -2518,12 +2676,12 @@
             tenant_name: tenantName,
             monthly_rent: rent,
             security_deposit: rent * 2,
-            lease_start_date: startDate,
+            lease_start_date: startDate || null,
             lease_end_date: endDate || null,
             tenant_email: email || null,
             tenant_phone: phone || null,
             notification_email: document.getElementById('new-lease-notification-email')?.value?.trim() || null,
-            last_rent_increase_date: startDate,
+            last_rent_increase_date: startDate || null,
             escalation_type: escType !== 'none' ? escType : null,
             escalation_rate: escRate > 0 ? escRate : null,
             escalation_frequency: escType !== 'none' ? escFreq : null,
