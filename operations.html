@@ -102,7 +102,8 @@
       if (isDemoUser) {
         window._isDemoUser = true;
         window._currentUser = { email: 'demo@mathtree.app', user_metadata: { full_name: 'Demo Investor' }, demo: true };
-        window._supabase = null;
+        const { createClient } = window.supabase;
+        window._supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
         window._demoMode = true;
         try {
           if (isUrlDemo) {
@@ -1045,10 +1046,28 @@
     }
 
     function handleSignOut() {
-      if (window._supabase && window._supabase.auth) {
-        window._supabase.auth.signOut().then(() => window.location.replace('index.html'));
+      try {
+        localStorage.removeItem('mathtree_local_deals');
+        localStorage.removeItem('mathtree_demo_deals');
+        localStorage.removeItem('mathtree_demo_mode');
+        localStorage.removeItem('mathtree_active_user');
+        localStorage.removeItem('mathtree_active_deal');
+        localStorage.removeItem('mathtree_active_deal_id');
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('mathtree_deals_') || key.startsWith('mathtree_local_') || key.startsWith('mathtree_demo_'))) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch(e) {}
+      if (window.MathTreeSession) {
+        window.MathTreeSession.logout('user', window._supabase);
       } else {
-        window.location.replace('index.html');
+        if (window._supabase && window._supabase.auth) {
+          window._supabase.auth.signOut().then(() => window.location.replace('index.html'));
+        } else {
+          window.location.replace('index.html');
+        }
       }
     }
 
@@ -1112,34 +1131,33 @@
           rawPayments = (resPayments.status === 'fulfilled' && resPayments.value.data) || [];
           rawIncreases = (resIncreases.status === 'fulfilled' && resIncreases.value.data) || [];
 
-          // If authenticated account has 0 deals yet, fallback to benchmark deals from Supabase
-          if (rawDeals.length === 0) {
-            const { data: demoDeals } = await client.from('deals').select('*').eq('is_demo', true).order('title', { ascending: true });
-            if (demoDeals && demoDeals.length > 0) {
-              rawDeals = demoDeals;
-            }
-          }
-          if (rawLeases.length === 0 && rawDeals.length > 0) {
-            const dealIds = rawDeals.map(d => d.id);
-            const { data: demoLeases } = await client.from('leases').select('*').in('deal_id', dealIds).order('is_active', { ascending: false });
-            if (demoLeases && demoLeases.length > 0) {
-              rawLeases = demoLeases;
-            }
-          }
-          if (rawUnits.length === 0 && rawDeals.length > 0) {
-            const dealIds = rawDeals.map(d => d.id);
-            const { data: demoUnits } = await client.from('units').select('*').in('deal_id', dealIds).order('unit_number', { ascending: true });
-            if (demoUnits && demoUnits.length > 0) {
-              rawUnits = demoUnits;
-            }
-          }
         } catch (err) {
           console.error('Error loading operations data from Supabase:', err);
         }
+      } else if (isDemo) {
+        if (client) {
+          try {
+            const { data: demoDeals } = await client.from('deals').select('*').eq('is_demo', true).order('title', { ascending: true });
+            if (demoDeals && demoDeals.length > 0) {
+              rawDeals = demoDeals;
+              const dealIds = demoDeals.map(d => d.id);
+              const [resUnits, resLeases, resIncreases] = await Promise.allSettled([
+                client.from('units').select('*').in('deal_id', dealIds).order('unit_number', { ascending: true }),
+                client.from('leases').select('*').in('deal_id', dealIds).order('is_active', { ascending: false }),
+                client.from('rent_increases').select('*').in('deal_id', dealIds).order('effective_date', { ascending: false })
+              ]);
+              if (resUnits.status === 'fulfilled' && resUnits.value.data?.length > 0) rawUnits = resUnits.value.data;
+              if (resLeases.status === 'fulfilled' && resLeases.value.data?.length > 0) rawLeases = resLeases.value.data;
+              if (resIncreases.status === 'fulfilled' && resIncreases.value.data?.length > 0) rawIncreases = resIncreases.value.data;
+            }
+          } catch(e) {
+            console.warn('Error fetching demo data from Supabase:', e);
+          }
+        }
       }
 
-      // Benchmark Fallback: Guarantee 100% consistent, cross-referenced mock suite for demo sandbox or 0-record accounts
-      if (!rawEntities.length || isDemo) {
+      // Benchmark Fallback: Guarantee 100% consistent, cross-referenced mock suite for demo sandbox
+      if (isDemo && !rawEntities.length) {
         rawEntities = [
           {
             id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
@@ -1152,7 +1170,7 @@
         ];
       }
 
-      if (!rawDeals.length || isDemo) {
+      if (isDemo && !rawDeals.length) {
         rawDeals = [
           {
             id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
@@ -1207,7 +1225,7 @@
         ];
       }
 
-      if (!rawUnits.length || isDemo) {
+      if (isDemo && !rawUnits.length) {
         rawUnits = [
           { id: 'u-1', deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49', unit_number: 'Bay A (Logistics)', unit_type: 'Industrial Bay', sqft: 18000, market_rent: 5500, status: 'occupied' },
           { id: 'u-2', deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49', unit_number: 'Bay B (Cold Storage)', unit_type: 'Cold Storage', sqft: 14000, market_rent: 4200, status: 'occupied' },
@@ -1217,7 +1235,7 @@
         ];
       }
 
-      if (!rawLeases.length || isDemo) {
+      if (isDemo && !rawLeases.length) {
         rawLeases = [
           {
             id: 'l-1',
@@ -1324,7 +1342,7 @@
 
       // Synchronize in-place benchmark payments for active billing cycle
       const currentPeriodMonthStr = formatPeriodMonth(activeDate);
-      if (!rawPayments.length || isDemo) {
+      if (isDemo && !rawPayments.length) {
         rawPayments = [
           {
             id: 'pay-demo-1',
@@ -1395,7 +1413,7 @@
       }
 
       // Predetermined scheduled future rent escalations + historical applied audit trail
-      if (!rawIncreases.length || isDemo) {
+      if (isDemo && !rawIncreases.length) {
         rawIncreases = [
           {
             id: 'inc-demo-1',
@@ -1571,7 +1589,12 @@
 
       // Synchronize localStorage deal caches so dashboard and pro-forma immediately reflect real in-place leases
       try {
-        ['mathtree_local_deals', 'mathtree_demo_deals'].forEach(key => {
+        const keys = ['mathtree_local_deals', 'mathtree_demo_deals'];
+        const user = window._currentUser;
+        if (user && user.id) {
+          keys.push('mathtree_deals_' + user.id);
+        }
+        keys.forEach(key => {
           const stored = localStorage.getItem(key);
           if (stored) {
             const list = JSON.parse(stored);

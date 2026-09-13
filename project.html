@@ -6599,8 +6599,18 @@
     ];
 
     function getActiveStorageKey() {
-      const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
-      return isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
+      const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo) || (typeof currentUser !== 'undefined' && currentUser && currentUser.demo);
+      if (isDemo) return 'mathtree_demo_deals';
+      const usr = (window._currentUser && window._currentUser.id) ? window._currentUser : ((typeof currentUser !== 'undefined' && currentUser && currentUser.id) ? currentUser : null);
+      if (usr && usr.id) return 'mathtree_deals_' + usr.id;
+      try {
+        const au = localStorage.getItem('mathtree_active_user');
+        if (au) {
+          const parsed = JSON.parse(au);
+          if (parsed && parsed.id) return 'mathtree_deals_' + parsed.id;
+        }
+      } catch(e) {}
+      return 'mathtree_local_deals';
     }
 
     async function loadDashboardProjects(filter = currentDashFilter) {
@@ -7958,15 +7968,13 @@
       // 1. Immediately persist to localStorage
       try {
         let allDeals = [];
-        const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
-        const storageKey = isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
-        const raw = localStorage.getItem(storageKey) || localStorage.getItem('mathtree_local_deals');
+        const storageKey = getActiveStorageKey();
+        const raw = localStorage.getItem(storageKey);
         if (raw) allDeals = JSON.parse(raw);
         const idx = allDeals.findIndex(d => d.id === deal.id);
         if (idx !== -1) allDeals[idx] = deal;
         else allDeals.unshift(deal);
         localStorage.setItem(storageKey, JSON.stringify(allDeals));
-        localStorage.setItem('mathtree_local_deals', JSON.stringify(allDeals));
       } catch(e) {}
 
       // 2. Direct Supabase PostgreSQL update for deals & leases and Edge Function invocation
@@ -9098,7 +9106,7 @@
       }
       if (!deal) {
         try {
-          const rawLocal = localStorage.getItem('mathtree_local_deals');
+          const rawLocal = localStorage.getItem(getActiveStorageKey());
           if (rawLocal) {
             const arr = JSON.parse(rawLocal);
             if (Array.isArray(arr) && arr.length) deal = arr[0];
@@ -9577,6 +9585,33 @@
     }
     window.checkDealProFormaVariance = checkDealProFormaVariance;
 
+    function showDealAccessDenied(dealId) {
+      const modal = document.createElement('div');
+      modal.id = 'deal-access-denied-modal';
+      modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4';
+      modal.innerHTML = `
+        <div class="max-w-md w-full bg-slate-900 border border-red-500/40 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-2xl">
+          <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto text-2xl">
+            🔒
+          </div>
+          <div class="space-y-1.5">
+            <h2 class="text-lg font-bold text-white">Access Denied or Property Not Found</h2>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              You do not have permission to view or edit this underwriting model, or the property does not exist in your portfolio.
+            </p>
+          </div>
+          <div class="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a href="dashboard.html" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-900/30 transition flex items-center justify-center space-x-1.5">
+              <span>Return to Portfolio Dashboard</span>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    window.showDealAccessDenied = showDealAccessDenied;
+
     async function initProjectView() {
       // Demo Mode: hide assumptions cards grid cleanly
       if (window._demoMode || (window._currentUser && window._currentUser.demo) || localStorage.getItem('mathtree_demo_mode')) {
@@ -9585,6 +9620,7 @@
       }
 
       currentLoadedDealId = getDealIdFromUrl();
+      const urlRequestedId = new URLSearchParams(window.location.search).get('id');
       const user = (window._supabase && (await window._supabase.auth.getSession()).data?.session?.user) || window._currentUser;
 
       // 1. First attempt to load directly from Supabase by UUID
@@ -9593,14 +9629,39 @@
         try {
           const { data, error } = await window._supabase.from('deals').select('*').eq('id', currentLoadedDealId).maybeSingle();
           if (!error && data) {
-            currentLoadedDeal = mapSupabaseDeal(data);
+            // Verify access permission: user owns deal OR deal is a public benchmark
+            if (data.is_demo || (user && data.user_id === user.id)) {
+              currentLoadedDeal = mapSupabaseDeal(data);
+            } else {
+              showDealAccessDenied(currentLoadedDealId);
+              return;
+            }
           }
         } catch(e) {
           console.warn('Supabase project fetch error:', e);
         }
       }
 
-      // 2. If not found by UUID, dynamically query Supabase (user custom deals first, then benchmark deals)
+      // If a specific deal ID was requested in the URL, check local storage before giving up
+      if (urlRequestedId && !currentLoadedDeal) {
+        try {
+          const raw = localStorage.getItem(getActiveStorageKey());
+          if (raw) {
+            const list = JSON.parse(raw);
+            const found = list.find(d => String(d.id) === String(urlRequestedId));
+            if (found) currentLoadedDeal = mapSupabaseDeal(found);
+          }
+        } catch(e) {}
+      }
+
+      // If a specific deal ID was requested in URL but could NOT be loaded from DB or scoped storage:
+      // Stop immediately and show access denied screen instead of silently loading an unrelated deal!
+      if (urlRequestedId && !currentLoadedDeal) {
+        showDealAccessDenied(urlRequestedId);
+        return;
+      }
+
+      // 2. If no specific URL ID or general navigation, dynamically query Supabase (user custom deals first, then benchmark deals)
       if (!currentLoadedDeal && window._supabase) {
         try {
           if (user && !user.demo) {
@@ -9632,56 +9693,46 @@
         }
       }
 
-      // 3. Fallback to localStorage
+      // 3. Fallback to user-scoped localStorage
       if (!currentLoadedDeal) {
         try {
-          const rawActive = localStorage.getItem('mathtree_active_deal');
-          if (rawActive) currentLoadedDeal = JSON.parse(rawActive);
+          const raw = localStorage.getItem(getActiveStorageKey());
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list) && list.length > 0) {
+              currentLoadedDeal = (currentLoadedDealId && list.find(d => d.id === currentLoadedDealId)) || list[0];
+            }
+          }
         } catch(e) {}
       }
-      if (!currentLoadedDeal) {
-        let allDeals = [];
-        const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
-        const storageKeys = isDemo ? ['mathtree_demo_deals', 'mathtree_local_deals'] : ['mathtree_local_deals', 'mathtree_demo_deals'];
-        for (const sk of storageKeys) {
-          try {
-            const raw = localStorage.getItem(sk);
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) allDeals.push(...parsed);
-            }
-          } catch(e) {}
-        }
-        currentLoadedDeal = (currentLoadedDealId && allDeals.find(d => d.id === currentLoadedDealId)) || allDeals[0];
-      }
 
-      // 4. Default fallback: build default institutional benchmark deal
+      // 4. Default fallback: build institutional benchmark deal
       if (!currentLoadedDeal) {
         currentLoadedDeal = {
           id: 'deal-default-benchmark',
-          name: 'Valvoline - Yakima 2239 Longfibre Rd',
+          name: 'Highland Executive Center Benchmark',
           asset_class: 'commercial',
           status: 'owned',
-          location: '2239 Longfibre Rd, Union Gap, WA 98903',
-          market_tier: 'Tier 2',
+          location: 'Denver, CO',
+          market_tier: 'Tier 1',
           property_class: 'Class A',
-          facility_type: 'Industrial Logistics / Warehouse',
-          purchase_price: 1850000,
-          irr: 18.47,
-          equity_multiple: 4.91,
-          cash_on_cash: 2.01,
-          year1_cashflow: 9798.01,
-          total_equity: 462500,
+          facility_type: 'Commercial Office / Tech Hub',
+          purchase_price: 3400000,
+          irr: 17.5,
+          equity_multiple: 2.1,
+          cash_on_cash: 9.1,
+          year1_cashflow: 77350,
+          total_equity: 850000,
           inputs: {
-            purchasePrice: 1850000,
+            purchasePrice: 3400000,
             downPaymentPercent: 25,
             interestRate: 6.5,
-            monthlyRent: 10500,
-            grossRentAnnual: 126000,
+            monthlyRent: 24500,
+            grossRentAnnual: 294000,
             rentGrowth: 3.0,
             leaseType: 'NNN',
-            facilityType: 'Industrial Logistics / Warehouse',
-            marketTier: 'Tier 2',
+            facilityType: 'Commercial Office / Tech Hub',
+            marketTier: 'Tier 1',
             propertyClass: 'Class A'
           }
         };

@@ -97,6 +97,17 @@
         storage.removeItem(STORAGE_KEY_DEMO);
         storage.removeItem('mathtree_local_deals');
         storage.removeItem('mathtree_demo_deals');
+        storage.removeItem('mathtree_active_user');
+        storage.removeItem('mathtree_active_deal');
+        storage.removeItem('mathtree_active_deal_id');
+        if (typeof storage.length === 'number' && typeof storage.key === 'function') {
+          for (var i = storage.length - 1; i >= 0; i--) {
+            var key = storage.key(i);
+            if (key && (key.indexOf('mathtree_deals_') === 0 || key.indexOf('mathtree_local_') === 0 || key.indexOf('mathtree_demo_') === 0)) {
+              storage.removeItem(key);
+            }
+          }
+        }
       } catch (e) {}
     }
   }

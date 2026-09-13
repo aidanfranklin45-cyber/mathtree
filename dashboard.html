@@ -142,7 +142,8 @@
         window._isDemoUser = true;
         window._demoMode = true;
         window._currentUser = { email: 'demo@mathtree.app', user_metadata: { full_name: 'Demo Investor' }, demo: true };
-        window._supabase = null;
+        const { createClient } = window.supabase;
+        window._supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
         try {
           if (isUrlDemo) {
             localStorage.setItem('mathtree_demo_mode', JSON.stringify({ demo: true, email: 'demo@mathtree.app', name: 'Demo Investor' }));
@@ -1412,7 +1413,16 @@
     // === Isolated Storage Key Selector ===
     function getActiveStorageKey() {
       const isDemo = window._demoMode || (window._currentUser && window._currentUser.demo);
-      return isDemo ? 'mathtree_demo_deals' : 'mathtree_local_deals';
+      if (isDemo) return 'mathtree_demo_deals';
+      if (window._currentUser && window._currentUser.id) return 'mathtree_deals_' + window._currentUser.id;
+      try {
+        const au = localStorage.getItem('mathtree_active_user');
+        if (au) {
+          const parsed = JSON.parse(au);
+          if (parsed && parsed.id) return 'mathtree_deals_' + parsed.id;
+        }
+      } catch(e) {}
+      return 'mathtree_local_deals';
     }
 
     function saveActiveDealsToStorage() {
@@ -1535,16 +1545,9 @@
             activeDashboardProjects = resDeals.data.map(mapSupabaseDeal);
             loadedFromSupabase = true;
           } else if (!resDeals.error && resDeals.data && resDeals.data.length === 0) {
-            // New user account with no custom deals yet: fetch benchmark deals from PostgreSQL so dashboard is populated!
-            const { data: demoDeals } = await window._supabase
-              .from('deals')
-              .select('*')
-              .eq('is_demo', true)
-              .order('created_at', { ascending: false });
-            if (demoDeals && demoDeals.length > 0) {
-              activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
-              loadedFromSupabase = true;
-            }
+            // New user account with no custom deals yet: keep clean empty pipeline
+            activeDashboardProjects = [];
+            loadedFromSupabase = true;
           } else if (resDeals.error && (resDeals.error.code === 'PGRST303' || resDeals.error.message?.includes('JWT'))) {
             try {
               const refreshRes = await window._supabase.auth.refreshSession();
@@ -1570,16 +1573,15 @@
         if (!loadedFromSupabase) {
           let storedDeals = [];
           try {
-            const raw = localStorage.getItem(getActiveStorageKey()) || localStorage.getItem('mathtree_local_deals');
+            const raw = localStorage.getItem(getActiveStorageKey());
             if (raw) storedDeals = JSON.parse(raw);
           } catch (e) {}
           if (storedDeals && storedDeals.length > 0) {
             activeDashboardProjects = storedDeals.map(mapSupabaseDeal);
           }
-        } else if (activeDashboardProjects.length > 0) {
-          // Cache this user's deals locally only when successfully fetched
+        } else {
+          // Cache this user's deals locally strictly under their isolated user key
           try {
-            localStorage.setItem('mathtree_local_deals', JSON.stringify(activeDashboardProjects));
             localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
           } catch(e) {}
         }
@@ -1606,6 +1608,66 @@
             const raw = localStorage.getItem('mathtree_demo_deals');
             if (raw) demoDeals = JSON.parse(raw);
           } catch (e) {}
+        }
+        if (!demoDeals.length) {
+          demoDeals = [
+            {
+              id: 'demo-pecan-grove',
+              title: 'Pecan Grove Single Family Portfolio',
+              asset_class: 'single-family',
+              status: 'prospect',
+              location: 'Dallas, TX',
+              purchase_price: 1250000,
+              irr: 19.2,
+              equity_multiple: 2.3,
+              cash_on_cash: 8.5,
+              year1_cashflow: 26500,
+              total_equity: 312500,
+              is_synthetic: true
+            },
+            {
+              id: 'demo-highland-exec',
+              title: 'Highland Executive Center',
+              asset_class: 'commercial',
+              status: 'owned',
+              location: 'Denver, CO',
+              purchase_price: 3400000,
+              irr: 17.5,
+              equity_multiple: 2.1,
+              cash_on_cash: 9.1,
+              year1_cashflow: 77350,
+              total_equity: 850000,
+              is_synthetic: true
+            },
+            {
+              id: 'demo-westfield-ind',
+              title: 'Westfield Industrial Logistics Bay',
+              asset_class: 'commercial',
+              status: 'owned',
+              location: 'Phoenix, AZ',
+              purchase_price: 4200000,
+              irr: 18.8,
+              equity_multiple: 2.4,
+              cash_on_cash: 9.6,
+              year1_cashflow: 100800,
+              total_equity: 1050000,
+              is_synthetic: true
+            },
+            {
+              id: 'demo-oakridge-12plex',
+              title: 'Oakridge 12-Plex Multi-Family',
+              asset_class: 'multi-unit',
+              status: 'prospect',
+              location: 'Atlanta, GA',
+              purchase_price: 2100000,
+              irr: 21.4,
+              equity_multiple: 2.6,
+              cash_on_cash: 10.2,
+              year1_cashflow: 53550,
+              total_equity: 525000,
+              is_synthetic: true
+            }
+          ];
         }
         activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
       }
@@ -1735,6 +1797,33 @@
       }
 
       if (filtered.length === 0) {
+        if (activeDashboardProjects.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full p-10 text-center bg-slate-900/40 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
+              <div class="w-14 h-14 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-400 flex items-center justify-center mx-auto text-2xl">
+                🏢
+              </div>
+              <div class="max-w-md mx-auto space-y-1.5">
+                <h3 class="text-base font-bold text-white">Welcome to your MathTree Portfolio</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                  You don't have any properties or prospective acquisitions in your pipeline yet. Start by underwriting your first deal or explore our institutional benchmark models.
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button onclick="openProjectWizard()" class="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-lg shadow-brand-900/30 transition flex items-center space-x-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  <span>Underwrite New Property</span>
+                </button>
+                <a href="dashboard.html?demo=true" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs transition flex items-center space-x-1.5">
+                  <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  <span>Explore Demo Sandbox Models</span>
+                </a>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
         grid.innerHTML = `
           <div class="col-span-full p-12 text-center bg-slate-900/30 rounded-3xl border border-slate-900 space-y-3">
             <svg class="w-10 h-10 text-slate-600 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
@@ -3814,6 +3903,15 @@
         localStorage.removeItem('mathtree_local_deals');
         localStorage.removeItem('mathtree_demo_deals');
         localStorage.removeItem('mathtree_demo_mode');
+        localStorage.removeItem('mathtree_active_user');
+        localStorage.removeItem('mathtree_active_deal');
+        localStorage.removeItem('mathtree_active_deal_id');
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('mathtree_deals_') || key.startsWith('mathtree_local_') || key.startsWith('mathtree_demo_'))) {
+            localStorage.removeItem(key);
+          }
+        }
       } catch(e) {}
       if (window.MathTreeSession) {
         window.MathTreeSession.logout('user', window._supabase);
