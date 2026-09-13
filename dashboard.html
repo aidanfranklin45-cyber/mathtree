@@ -120,18 +120,36 @@
         return;
       }
 
+      var isUrlDemo = new URLSearchParams(window.location.search).get('demo') === 'true';
       var demoRaw = localStorage.getItem('mathtree_demo_mode');
-      if (demoRaw) {
+      var activeUserRaw = localStorage.getItem('mathtree_active_user');
+      var isDemoUser = isUrlDemo;
+
+      if (!isDemoUser && demoRaw) {
         try {
           var demo = JSON.parse(demoRaw);
-          if (demo && demo.demo) {
-            window._currentUser = { email: demo.email, user_metadata: { full_name: demo.name }, demo: true };
-            window._supabase = null;
-            window._demoMode = true;
-            if (window.MathTreeSession) window.MathTreeSession.startWatcher(null);
-            return;
+          if (demo && demo.demo) isDemoUser = true;
+        } catch(e) {}
+      }
+      if (!isDemoUser && activeUserRaw) {
+        try {
+          var au = JSON.parse(activeUserRaw);
+          if (au && au.demo) isDemoUser = true;
+        } catch(e) {}
+      }
+
+      if (isDemoUser) {
+        window._isDemoUser = true;
+        window._demoMode = true;
+        window._currentUser = { email: 'demo@mathtree.app', user_metadata: { full_name: 'Demo Investor' }, demo: true };
+        window._supabase = null;
+        try {
+          if (isUrlDemo) {
+            localStorage.setItem('mathtree_demo_mode', JSON.stringify({ demo: true, email: 'demo@mathtree.app', name: 'Demo Investor' }));
           }
         } catch(e) {}
+        if (window.MathTreeSession) window.MathTreeSession.startWatcher(null);
+        return;
       }
 
       const { createClient } = window.supabase;
@@ -154,6 +172,39 @@
         }
       });
     })();
+
+    function isDemoActive() {
+      if (window._demoMode || window._isDemoUser) return true;
+      if (window._currentUser && window._currentUser.demo) return true;
+      if (new URLSearchParams(window.location.search).get('demo') === 'true') return true;
+      try {
+        const demoMode = localStorage.getItem('mathtree_demo_mode');
+        if (demoMode && JSON.parse(demoMode).demo) return true;
+        const activeUser = localStorage.getItem('mathtree_active_user');
+        if (activeUser && JSON.parse(activeUser).demo) return true;
+      } catch (e) {}
+      return false;
+    }
+    window.isDemoActive = isDemoActive;
+
+    function getOperationsUrl(extraQuery = '') {
+      const isDemo = isDemoActive();
+      const params = new URLSearchParams();
+      if (extraQuery) {
+        const clean = extraQuery.startsWith('?') ? extraQuery.slice(1) : extraQuery;
+        clean.split('&').forEach(part => {
+          if (!part) return;
+          const [k, v] = part.split('=');
+          if (k) params.set(k, v !== undefined ? decodeURIComponent(v) : '');
+        });
+      }
+      if (isDemo) {
+        params.set('demo', 'true');
+      }
+      const qs = params.toString();
+      return 'operations.html' + (qs ? '?' + qs : '');
+    }
+    window.getOperationsUrl = getOperationsUrl;
   </script>
 
   <!-- Clean Dashboard Header -->
@@ -187,7 +238,7 @@
         <a href="dashboard.html" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm transition">
           Portfolio & Pipeline
         </a>
-        <a href="operations.html" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5">
+        <a href="operations.html" id="nav-operations-link" onclick="this.href=getOperationsUrl();" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5">
           <span>Property Management</span>
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         </a>
@@ -195,7 +246,7 @@
 
       <!-- User Account & Actions -->
       <div class="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
-        <a href="operations.html" class="md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition">
+        <a href="operations.html" id="mobile-nav-operations-link" onclick="this.href=getOperationsUrl();" class="md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition">
           <span>Operations</span>
         </a>
         <!-- Action Center / Notification Hub -->
@@ -1432,6 +1483,12 @@
         else demoBanner.classList.add('hidden');
       }
 
+      // Ensure operations links reflect current demo state
+      const navOpLink = document.getElementById('nav-operations-link');
+      if (navOpLink) navOpLink.href = getOperationsUrl();
+      const mobOpLink = document.getElementById('mobile-nav-operations-link');
+      if (mobOpLink) mobOpLink.href = getOperationsUrl();
+
       // Update greeting and user email with privacy controls
       if (user) {
         const heroTitle = document.getElementById('dash-hero-title');
@@ -1712,6 +1769,7 @@
         const tierStr = d.market_tier || d.inputs?.marketTier || d.inputs?.commTier || d.inputs?.storageTier || 'Tier 2';
         const classStr = d.property_class || d.inputs?.propertyClass || d.inputs?.commClass || d.inputs?.storageClass || 'Class B';
         const facilityStr = d.facility_type || d.inputs?.facilityType || '';
+        const locStr = d.location || d.inputs?.propertyAddress || d.address || 'Yakima, WA';
 
         const stageMap = {
           'screening': { label: 'Underwriting', class: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
@@ -1780,7 +1838,7 @@
                       <button onclick="event.stopPropagation(); window.location.href='project-proforma.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
                         <span>📊</span><span>Pro-Forma & Cash Flows</span>
                       </button>
-                      <button onclick="event.stopPropagation(); window.location.href='operations.html'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-emerald-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
+                      <button onclick="event.stopPropagation(); window.location.href=getOperationsUrl('deal_id=' + '${d.id}')" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-emerald-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
                         <span>📋</span><span>Property Management</span>
                       </button>
                       <button onclick="event.stopPropagation(); window.location.href='project-property.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
@@ -3673,7 +3731,7 @@
     window.closeInvestorProfileModal = closeInvestorProfileModal;
 
     function openEntityManagementModal() {
-      window.location.href = 'operations.html?action=manage-entities';
+      window.location.href = getOperationsUrl('action=manage-entities');
     }
     window.openEntityManagementModal = openEntityManagementModal;
 

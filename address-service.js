@@ -9,12 +9,14 @@
  */
 
 (function (root, factory) {
+  const service = factory();
+  if (root) {
+    root.AddressService = service;
+  }
   if (typeof define === 'function' && define.amd) {
-    define([], factory);
+    define([], function () { return service; });
   } else if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
-  } else {
-    root.AddressService = factory();
+    module.exports = service;
   }
 }(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : this)), function () {
 
@@ -24,6 +26,8 @@
   const YAKIMA_CHAR_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/50/query';
   const YAKIMA_COMM_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/70/query';
   const YAKIMA_ASCEND_PORTAL = 'https://yes.co.yakima.wa.us/ascend/';
+  const WA_CADASTRE_URL = 'https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre/MapServer/0/query';
+  const WA_CADASTRE_FALLBACK_URL = 'https://services.arcgis.com/Ie0K5n4UyLAfvdiX/arcgis/rest/services/Washington_2024_DOR_Parcels/FeatureServer/0/query';
   const PHOTON_API_URL = 'https://photon.komoot.io/api/';
 
   // Central Washington coordinates (Yakima, WA) for spatial search bias
@@ -186,6 +190,79 @@
         isYakimaCounty: true
       };
     });
+  }
+
+  /**
+   * Helper: Map raw ESRI attributes from WA State Statewide Cadastre into standardized parcel entity
+   */
+  function mapWaCadastreFeature(f) {
+    if (!f) return null;
+    const attr = f.attributes || {};
+
+    const rawApn = attr.PARCEL_ID || attr.COUNTY_PARCEL_NO || attr.APN || attr.PIN || attr.PARCEL_NUMBER || attr.PRCL_REVW_NORMALIZED_PRCL_ID || attr.ASSESSOR_N || '';
+    const apn = String(rawApn).trim();
+
+    const county = String(attr.COUNTY || attr.COUNTY_NAME || attr.COUNTY_LABEL_NM || attr.COUNTY_DESC_TXT || (attr.CO_NO ? ('County ' + attr.CO_NO) : '') || '').trim();
+
+    let acres = parseFloat(attr.ACRES || attr.ACREAGE || attr.CALC_ACRES || attr.PRCL_REVW_TOTAL_ACRES || attr.GIS_ACRES) || 0;
+    if (!acres && attr.Shape__Area) {
+      acres = parseFloat(attr.Shape__Area) / 43560;
+    }
+    if (!acres && attr.SHAPE_Area) {
+      acres = parseFloat(attr.SHAPE_Area) / 43560;
+    }
+    acres = Math.round(acres * 1000) / 1000;
+    const sqft = Math.round(acres * 43560);
+
+    const owner = (attr.OWN_NAME || attr.OWNER || attr.OWNER_NAME || attr.LANDOWNERS || attr.PRIMARY_OWNER || attr.ORG_NAME ||
+      [attr.FIRST_NAME, attr.LAST_NAME].filter(Boolean).join(' ') || 'Owner of Record').toString().trim();
+
+    const street = (attr.SITUS_ADDR || attr.SITUS_ADDRESS || attr.PHY_ADDR1 || attr.FFPA_PRCL_ADDR || attr.ADDRESS || '').toString().trim();
+    const city = (attr.SITUS_CITY || attr.PHY_CITY || attr.CITY || '').toString().trim();
+    const zip = (attr.SITUS_ZIP || attr.PHY_ZIPCD || attr.ZIP || attr.ZIPCODE || '').toString().trim();
+    const state = 'WA';
+
+    let formattedAddress = '';
+    if (street) {
+      formattedAddress = street + (city ? ', ' + city : '') + ', WA' + (zip ? ' ' + zip : '');
+    } else if (apn) {
+      formattedAddress = 'Parcel ' + apn + (county ? ' (' + county + ' County)' : '') + ', WA';
+    } else {
+      formattedAddress = (county || 'Washington') + ' Parcel, WA';
+    }
+
+    const landVal = parseFloat(attr.LND_VAL || attr.MKT_LAND || attr.LAND_VALUE) || 0;
+    const impVal = parseFloat(attr.IMP_VAL || attr.MKT_IMPVT || attr.IMPROVEMENT_VALUE) || 0;
+    const totalVal = parseFloat(attr.TOTAL_VAL || attr.TV_SD || attr.TOTAL_ASSESSED_VALUE || attr.JV) || (landVal + impVal);
+
+    const useCode = (attr.DOR_UC || attr.DOR_LAND_USE_CD || attr.USE_CODE || attr.LAND_USE || 'Cadastral Parcel').toString().trim();
+    const legal = (attr.S_LEGAL || attr.LEGAL || attr.LEGAL_DESC || attr.PARCEL_DESC_TXT || '').toString().trim();
+
+    return {
+      apn,
+      formattedApn: apn,
+      address: formattedAddress,
+      formattedAddress: formattedAddress,
+      street,
+      city,
+      state,
+      zip,
+      county: county || 'Washington',
+      acres,
+      sqft,
+      lotSqft: sqft,
+      marketLandValue: landVal,
+      marketImprovementValue: impVal,
+      totalAssessedValue: totalVal,
+      taxYear: attr.ASMNT_YR || attr.TAX_YEAR || new Date().getFullYear(),
+      zoning: attr.ZONING || attr.ZONE || 'WA State Cadastre',
+      useCode,
+      owner,
+      legalDescription: legal,
+      source: 'wa_state_cadastre',
+      isYakimaCounty: /yakima/i.test(county),
+      isWaStatewideBackup: true
+    };
   }
 
   /**
@@ -405,9 +482,108 @@
   }
 
   /**
+   * Search Washington State Statewide Cadastre (MapServer / FeatureServer)
+   * Retrieves parcel APN, acreage, owner, and county information as backup coverage
+   * when Yakima returns no features or the address is outside Yakima County.
+   */
+  async function searchWaCadastreAddresses(query, limit = 6) {
+    if (!query || query.trim().length < 2) return [];
+
+    const cleanDigits = query.replace(/[^0-9]/g, '');
+    const cleanTerm = query.trim().toUpperCase().replace(/'/g, "''").replace(/[^A-Z0-9\s]/g, ' ');
+    const tokens = cleanTerm.split(/\s+/).filter(Boolean);
+
+    const endpoints = [WA_CADASTRE_URL, WA_CADASTRE_FALLBACK_URL];
+
+    for (const url of endpoints) {
+      try {
+        const candidates = [];
+        if (cleanDigits.length >= 6) {
+          candidates.push("PARCEL_ID LIKE '%" + cleanDigits + "%' OR COUNTY_PARCEL_NO LIKE '%" + cleanDigits + "%' OR APN LIKE '%" + cleanDigits + "%'");
+        }
+        if (tokens.length > 0) {
+          const joined = tokens.slice(0, 3).join('%');
+          candidates.push("SITUS_ADDR LIKE '%" + joined + "%' OR PHY_ADDR1 LIKE '%" + joined + "%'");
+        }
+
+        for (const where of candidates) {
+          const params = new URLSearchParams({
+            where,
+            outFields: '*',
+            f: 'json',
+            resultRecordCount: String(limit)
+          });
+          const res = await fetch(url + '?' + params.toString());
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.features) && data.features.length > 0) {
+              const mapped = data.features.map(mapWaCadastreFeature).filter(Boolean);
+              if (mapped.length > 0) return mapped;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('WA State Cadastre search failed on endpoint:', url, err);
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Fetch parcel record from Washington State Statewide Cadastre by APN
+   */
+  async function fetchWaCadastreData(assessorNumber) {
+    if (!assessorNumber) return null;
+    const clean = String(assessorNumber).trim().replace(/[^0-9A-Za-z-]/g, '');
+    const cleanDigits = clean.replace(/[^0-9]/g, '');
+
+    const endpoints = [WA_CADASTRE_URL, WA_CADASTRE_FALLBACK_URL];
+
+    for (const baseUrl of endpoints) {
+      try {
+        const whereClauses = [
+          "PARCEL_ID = '" + clean + "'",
+          "COUNTY_PARCEL_NO = '" + clean + "'",
+          "APN = '" + clean + "'",
+          "PIN = '" + clean + "'"
+        ];
+        if (cleanDigits && cleanDigits !== clean) {
+          whereClauses.push("PARCEL_ID = '" + cleanDigits + "'");
+          whereClauses.push("COUNTY_PARCEL_NO = '" + cleanDigits + "'");
+        }
+        if (baseUrl === WA_CADASTRE_FALLBACK_URL) {
+          whereClauses.push("PARCEL_ID LIKE '%" + clean + "%'");
+        }
+
+        for (const where of whereClauses) {
+          const params = new URLSearchParams({
+            where,
+            outFields: '*',
+            f: 'json',
+            resultRecordCount: '1'
+          });
+
+          const res = await fetch(baseUrl + '?' + params.toString());
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.features) && data.features.length > 0) {
+              return mapWaCadastreFeature(data.features[0]);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('WA Cadastre APN query failed on endpoint:', baseUrl, err);
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * 3. Unified Address Search:
-   * Prioritizes Yakima County official addresses with verified APNs,
-   * then falls back to nationwide OpenStreetMap if no county parcels match.
+   * Prioritizes Yakima County official addresses with verified APNs.
+   * If Yakima returns no features or the address is outside Yakima County,
+   * queries Washington State Statewide Cadastre backup, then falls back to nationwide Photon.
    */
   async function searchAddresses(query, options = {}) {
     if (!query || query.trim().length < 2) return [];
@@ -422,22 +598,33 @@
       }
     }
 
+    // Issue #13: WA Statewide Cadastre backup if Yakima returns no features or address is outside Yakima County
+    const waCadastreResults = await searchWaCadastreAddresses(query, options.limit || 6);
+
     const nationResults = await searchNationwideAddresses(query, 5);
 
     const seen = new Set();
     const merged = [];
 
     yakimaResults.forEach(item => {
-      const key = item.formattedAddress.toLowerCase();
-      if (!seen.has(key)) {
+      const key = (item.formattedAddress || item.street || '').toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        merged.push(item);
+      }
+    });
+
+    waCadastreResults.forEach(item => {
+      const key = (item.formattedAddress || item.street || '').toLowerCase();
+      if (key && !seen.has(key)) {
         seen.add(key);
         merged.push(item);
       }
     });
 
     nationResults.forEach(item => {
-      const key = item.formattedAddress.toLowerCase();
-      if (!seen.has(key)) {
+      const key = (item.formattedAddress || item.street || '').toLowerCase();
+      if (key && !seen.has(key)) {
         seen.add(key);
         merged.push(item);
       }
@@ -448,6 +635,9 @@
 
   /**
    * 4. Fetch official Yakima County Assessor Taxlot Record by APN
+   * Yakima County GIS remains the primary high-detail source for Yakima properties.
+   * If Yakima returns no features or the APN is outside Yakima County,
+   * queries Washington State Statewide Cadastre FeatureServer as backup coverage.
    */
   async function fetchYakimaAssessorData(assessorNumber) {
     if (!assessorNumber) return null;
@@ -468,7 +658,8 @@
 
       const data = taxlotRes.status === 'fulfilled' ? taxlotRes.value : null;
       if (!data || !data.features || data.features.length === 0) {
-        return null;
+        // Issue #13: If Yakima returns no features, query WA State Cadastre as backup coverage
+        return await fetchWaCadastreData(assessorNumber);
       }
 
       const commData = commRes.status === 'fulfilled' ? commRes.value : null;
@@ -555,8 +746,8 @@
         bathrooms: bathrooms
       };
     } catch (err) {
-      console.error('Failed to fetch Yakima assessor data:', err);
-      return null;
+      console.warn('Failed to fetch Yakima assessor data, falling back to WA State Cadastre:', err);
+      return await fetchWaCadastreData(assessorNumber);
     }
   }
 
@@ -572,10 +763,49 @@
     return YAKIMA_ASCEND_PORTAL;
   }
 
+  /**
+   * Helper: Map companion parcel features into standard package parcel model
+   */
+  function mapCompanionFeatures(features) {
+    if (!Array.isArray(features)) return [];
+    return features.map(f => {
+      const a = f.attributes || {};
+      const landVal = parseFloat(a.MKT_LAND) || 0;
+      const impVal = parseFloat(a.MKT_IMPVT) || 0;
+      const totalVal = landVal + impVal;
+      const acres = parseFloat(a.ACRES) || 0;
+      const apn = String(a.ASSESSOR_N || '').trim();
+
+      const owner = [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ') +
+        (a.ORG_NAME ? (a.FIRST_NAME || a.LAST_NAME ? ' / ' : '') + a.ORG_NAME : '');
+
+      return {
+        apn,
+        formattedApn: apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn,
+        address: a.SITUS_ADDR ? (a.SITUS_ADDR + ', ' + (a.SITUS_CITY || 'Yakima')) : 'Adjacent Parcel',
+        street: a.SITUS_ADDR || 'Adjacent Parcel',
+        city: a.SITUS_CITY || 'Yakima',
+        state: 'WA',
+        zip: a.SITUS_ZIP || '',
+        acres: Math.round(acres * 1000) / 1000,
+        sqft: Math.round(acres * 43560),
+        marketLandValue: landVal,
+        marketImprovementValue: impVal,
+        totalAssessedValue: totalVal,
+        useCode: a.USE_CODE || 'Complementary Parcel',
+        owner: owner || 'Same Owner of Record',
+        legalDescription: a.LEGAL || '',
+        isPrimary: false,
+        included: false
+      };
+    });
+  }
 
   /**
    * 6. Detect Nearby Parcels Owned by the Same Entity (Multi-Parcel Package Detection)
-   * Searches the same 6-digit section/block (RTS) for companion parcels with matching owner.
+   * Issue #12: Fetches primary parcel bounding geometry/envelope from Yakima GIS (returnGeometry=true),
+   * and queries adjacent parcels using ESRI spatial envelope intersection (geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects),
+   * while falling back to owner matching within the section/block if spatial queries return empty.
    */
   async function detectNearbySameOwnerParcels(primaryApn, ownerName) {
     if (!primaryApn) return [];
@@ -583,66 +813,110 @@
     if (cleanApn.length < 6) return [];
 
     const prefix = cleanApn.slice(0, 6);
-    let whereClause = "ASSESSOR_N LIKE '" + prefix + "%' AND ASSESSOR_N <> '" + cleanApn + "'";
+    const outFields = 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ACRES,MKT_LAND,MKT_IMPVT,USE_CODE,ORG_NAME,FIRST_NAME,LAST_NAME,LEGAL';
 
+    // Parse owner name filter if available
+    let ownerFilter = '';
     if (ownerName && typeof ownerName === 'string' && ownerName.trim().length > 2) {
       const cleanOwner = ownerName.trim().toUpperCase().replace(/'/g, "''").replace(/[^A-Z0-9\s]/g, '');
-      const ownerTerms = cleanOwner.split(/\s+/).filter(w => w.length > 2);
-      if (ownerTerms.length > 0) {
-        // Match either ORG_NAME or LAST_NAME containing primary owner term
-        const term = ownerTerms[0];
-        whereClause += " AND (UPPER(ORG_NAME) LIKE '%" + term + "%' OR UPPER(LAST_NAME) LIKE '%" + term + "%')";
+      const ownerTerms = cleanOwner.split(/\s+/).filter(w => w.length > 2 && !['LLC', 'INC', 'CORP', 'CO', 'THE', 'AND', 'OF'].includes(w));
+      const term = ownerTerms[0] || cleanOwner.split(/\s+/)[0];
+      if (term) {
+        ownerFilter = "(UPPER(ORG_NAME) LIKE '%" + term + "%' OR UPPER(LAST_NAME) LIKE '%" + term + "%')";
       }
     }
 
-    const params = new URLSearchParams({
-      where: whereClause,
-      outFields: 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ACRES,MKT_LAND,MKT_IMPVT,USE_CODE,ORG_NAME,FIRST_NAME,LAST_NAME,LEGAL',
-      f: 'json',
-      resultRecordCount: '15'
-    });
-
+    // Strategy 1: Spatial Envelope Intersection via Yakima GIS
     try {
-      const response = await fetch(YAKIMA_TAXLOTS_URL + '?' + params.toString());
-      if (!response.ok) return [];
-      const data = await response.json();
-      if (!data || !data.features) return [];
-
-      return data.features.map(f => {
-        const a = f.attributes || {};
-        const landVal = parseFloat(a.MKT_LAND) || 0;
-        const impVal = parseFloat(a.MKT_IMPVT) || 0;
-        const totalVal = landVal + impVal;
-        const acres = parseFloat(a.ACRES) || 0;
-        const apn = String(a.ASSESSOR_N || '').trim();
-
-        const owner = [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ') +
-          (a.ORG_NAME ? (a.FIRST_NAME || a.LAST_NAME ? ' / ' : '') + a.ORG_NAME : '');
-
-        return {
-          apn,
-          formattedApn: apn.length === 11 ? (apn.slice(0, 6) + '-' + apn.slice(6)) : apn,
-          address: a.SITUS_ADDR ? (a.SITUS_ADDR + ', ' + (a.SITUS_CITY || 'Yakima')) : 'Adjacent Parcel',
-          street: a.SITUS_ADDR || 'Adjacent Parcel',
-          city: a.SITUS_CITY || 'Yakima',
-          state: 'WA',
-          zip: a.SITUS_ZIP || '',
-          acres: Math.round(acres * 1000) / 1000,
-          sqft: Math.round(acres * 43560),
-          marketLandValue: landVal,
-          marketImprovementValue: impVal,
-          totalAssessedValue: totalVal,
-          useCode: a.USE_CODE || 'Complementary Parcel',
-          owner: owner || 'Same Owner of Record',
-          legalDescription: a.LEGAL || '',
-          isPrimary: false,
-          included: false
-        };
+      const primaryGeomParams = new URLSearchParams({
+        where: "ASSESSOR_N = '" + cleanApn + "'",
+        outFields: 'ASSESSOR_N',
+        returnGeometry: 'true',
+        f: 'json'
       });
-    } catch (err) {
-      console.warn('Failed to detect nearby same-owner parcels:', err);
-      return [];
+      const primaryRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + primaryGeomParams.toString());
+      if (primaryRes.ok) {
+        const primaryData = await primaryRes.json();
+        const primaryFeature = primaryData?.features?.[0];
+        const rings = primaryFeature?.geometry?.rings;
+
+        if (Array.isArray(rings) && rings.length > 0) {
+          let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+          for (const ring of rings) {
+            for (const [x, y] of ring) {
+              if (x < xmin) xmin = x;
+              if (x > xmax) xmax = x;
+              if (y < ymin) ymin = y;
+              if (y > ymax) ymax = y;
+            }
+          }
+
+          if (xmin !== Infinity && ymin !== Infinity) {
+            // Buffer envelope by 50 feet (State Plane South WKID 2286 / 102749) to capture adjacent/touching parcels
+            const buffer = 50;
+            const envelope = {
+              xmin: xmin - buffer,
+              ymin: ymin - buffer,
+              xmax: xmax + buffer,
+              ymax: ymax + buffer,
+              spatialReference: primaryFeature.geometry.spatialReference || primaryData.spatialReference || { wkid: 102749, latestWkid: 2286 }
+            };
+
+            let spatialWhere = "ASSESSOR_N <> '" + cleanApn + "'";
+            if (ownerFilter) {
+              spatialWhere += " AND " + ownerFilter;
+            }
+
+            const spatialParams = new URLSearchParams({
+              geometry: JSON.stringify(envelope),
+              geometryType: 'esriGeometryEnvelope',
+              spatialRel: 'esriSpatialRelIntersects',
+              where: spatialWhere,
+              outFields: outFields,
+              f: 'json',
+              resultRecordCount: '15'
+            });
+
+            const spatialRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + spatialParams.toString());
+            if (spatialRes.ok) {
+              const spatialData = await spatialRes.json();
+              if (Array.isArray(spatialData?.features) && spatialData.features.length > 0) {
+                return mapCompanionFeatures(spatialData.features);
+              }
+            }
+          }
+        }
+      }
+    } catch (spatialErr) {
+      console.warn('Spatial envelope query failed, falling back to owner matching:', spatialErr);
     }
+
+    // Strategy 2: Fallback to owner matching within section/block (RTS prefix)
+    try {
+      let fallbackWhere = "ASSESSOR_N LIKE '" + prefix + "%' AND ASSESSOR_N <> '" + cleanApn + "'";
+      if (ownerFilter) {
+        fallbackWhere += " AND " + ownerFilter;
+      }
+
+      const fallbackParams = new URLSearchParams({
+        where: fallbackWhere,
+        outFields: outFields,
+        f: 'json',
+        resultRecordCount: '15'
+      });
+
+      const fallbackRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + fallbackParams.toString());
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        if (Array.isArray(fallbackData?.features) && fallbackData.features.length > 0) {
+          return mapCompanionFeatures(fallbackData.features);
+        }
+      }
+    } catch (fallbackErr) {
+      console.warn('Fallback owner matching query failed:', fallbackErr);
+    }
+
+    return [];
   }
 
   /**
@@ -712,12 +986,15 @@
     YAKIMA_CHAR_URL,
     YAKIMA_COMM_URL,
     YAKIMA_ASCEND_PORTAL,
+    WA_CADASTRE_URL,
     buildSqlLikeTerm,
     parseAddressInput,
     searchYakimaAddresses,
     searchNationwideAddresses,
+    searchWaCadastreAddresses,
     searchAddresses,
     fetchYakimaAssessorData,
+    fetchWaCadastreData,
     getYakimaAssessorPortalUrl,
     detectNearbySameOwnerParcels,
     aggregateParcelPackage,

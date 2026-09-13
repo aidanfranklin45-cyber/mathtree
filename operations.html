@@ -49,16 +49,24 @@
     }
   </script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-brand-500/30 selection:text-brand-200">
+<body class="bg-slate-950 text-slate-100 min-h-full flex flex-col selection:bg-brand-500/30 selection:text-brand-200 relative overflow-x-hidden">
+
+  <!-- Ambient background radial glow -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div class="absolute -top-40 left-1/4 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/3 -right-40 w-[500px] h-[500px] bg-teal-500/5 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-40 left-1/3 w-[600px] h-[600px] bg-emerald-950/20 rounded-full blur-3xl"></div>
+  </div>
 
   <!-- Demo Sandbox Mode Top Banner -->
-  <div id="demo-sandbox-banner" class="hidden bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
-    <div class="flex items-center space-x-2">
-      <span class="text-sm">🧪</span>
-      <span><strong>Interactive Demo Sandbox Active</strong> — You are viewing simulated property management data. Any edits you make update the portfolio analysis in real-time.</span>
+  <div id="demo-sandbox-banner" class="hidden bg-gradient-to-r from-amber-500/15 via-amber-600/10 to-emerald-500/10 border-b border-amber-500/30 px-4 py-2.5 text-xs text-amber-200 flex items-center justify-between z-40 backdrop-blur-md">
+    <div class="flex items-center space-x-2.5">
+      <span class="flex h-5 w-5 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 shadow-sm">🧪</span>
+      <span><strong class="text-white font-bold tracking-wide">Interactive Demo Sandbox Active</strong> — You are viewing simulated property management data. Any edits you make update the portfolio analysis in real-time.</span>
     </div>
-    <button onclick="exitDemoMode()" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-bold transition">
-      Exit Demo Mode
+    <button onclick="exitDemoMode()" class="px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 hover:text-white border border-amber-500/40 text-xs font-bold transition shadow-sm flex items-center space-x-1.5">
+      <span>Exit Demo</span>
+      <span>✕</span>
     </button>
   </div>
 
@@ -73,16 +81,18 @@
         return;
       }
 
+      var urlParams = new URLSearchParams(window.location.search);
+      var isUrlDemo = urlParams.get('demo') === 'true';
       var demoRaw = localStorage.getItem('mathtree_demo_mode');
       var activeUserRaw = localStorage.getItem('mathtree_active_user');
-      var isDemoUser = false;
-      if (demoRaw) {
+      var isDemoUser = isUrlDemo;
+      if (!isDemoUser && demoRaw) {
         try {
           var demo = JSON.parse(demoRaw);
           if (demo && demo.demo) isDemoUser = true;
         } catch(e) {}
       }
-      if (activeUserRaw) {
+      if (!isDemoUser && activeUserRaw) {
         try {
           var au = JSON.parse(activeUserRaw);
           if (au && au.demo) isDemoUser = true;
@@ -90,9 +100,15 @@
       }
 
       if (isDemoUser) {
+        window._isDemoUser = true;
         window._currentUser = { email: 'demo@mathtree.app', user_metadata: { full_name: 'Demo Investor' }, demo: true };
         window._supabase = null;
         window._demoMode = true;
+        try {
+          if (isUrlDemo) {
+            localStorage.setItem('mathtree_demo_mode', JSON.stringify({ demo: true, email: 'demo@mathtree.app', name: 'Demo Investor' }));
+          }
+        } catch(e) {}
         if (window.MathTreeSession) window.MathTreeSession.startWatcher(null);
         if (typeof window.initOperationsView === 'function') {
           window.initOperationsView();
@@ -131,7 +147,7 @@
       
       <!-- Brand & Hub Nav -->
       <div class="flex items-center space-x-4 sm:space-x-6 shrink-0">
-        <a href="dashboard.html" class="flex items-center space-x-2.5 sm:space-x-3 group">
+        <a href="dashboard.html" onclick="this.href='dashboard.html' + (window._demoMode || window._isDemoUser || new URLSearchParams(window.location.search).get('demo') === 'true' ? '?demo=true' : '');" class="flex items-center space-x-2.5 sm:space-x-3 group">
           <div class="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 relative">
             <svg class="h-5 w-5 sm:h-6 sm:w-6 text-white relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 21V12" stroke-linecap="round" />
@@ -154,7 +170,7 @@
 
         <!-- Dual Hub Switcher Tabs -->
         <nav class="hidden md:flex items-center space-x-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-          <a href="dashboard.html" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+          <a href="dashboard.html" onclick="this.href='dashboard.html' + (window._demoMode || window._isDemoUser || new URLSearchParams(window.location.search).get('demo') === 'true' ? '?demo=true' : '');" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
             Portfolio & Pipeline
           </a>
           <a href="operations.html" class="px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm transition">
@@ -261,58 +277,58 @@
 
     </div>
 
-    <!-- 4 High-Impact Pulse Scorecards (Clean & Minimalist) -->
+    <!-- 4 High-Impact Institutional KPI Tiles -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       
-      <!-- 1. Total In-Place Rent Roll -->
-      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-emerald-700/40 transition">
+      <!-- 1. Portfolio Monthly Rent -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-xl backdrop-blur-sm hover:border-emerald-700/50 transition">
         <div class="flex items-center justify-between text-slate-400">
-          <span class="text-[10px] font-bold uppercase tracking-wider">In-Place Rent Roll</span>
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-[10px] font-bold uppercase tracking-wider">Portfolio Monthly Rent</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50"></span>
         </div>
-        <span id="kpi-monthly-rent" class="text-xl sm:text-2xl font-black text-white mt-1.5 block">$0</span>
-        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+        <span id="kpi-monthly-rent" class="text-xl sm:text-2xl font-black text-white mt-1.5 block font-mono">$0</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/80">
           <span>Run-Rate:</span>
           <span id="kpi-annual-rent" class="text-emerald-400 font-bold font-mono">$0 / yr</span>
         </div>
       </div>
 
-      <!-- 2. Physical Occupancy -->
-      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-emerald-700/40 transition">
+      <!-- 2. Physical Occupancy % -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-xl backdrop-blur-sm hover:border-blue-700/50 transition">
         <div class="flex items-center justify-between text-slate-400">
           <span class="text-[10px] font-bold uppercase tracking-wider">Physical Occupancy</span>
-          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+          <span class="w-2 h-2 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50"></span>
         </div>
-        <span id="kpi-occupancy-rate" class="text-xl sm:text-2xl font-black text-white mt-1.5 block">0%</span>
-        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+        <span id="kpi-occupancy-rate" class="text-xl sm:text-2xl font-black text-white mt-1.5 block font-mono">0%</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/80">
           <span>Units Leased:</span>
           <span id="kpi-occupied-units" class="text-blue-400 font-bold font-mono">0 / 0</span>
         </div>
       </div>
 
-      <!-- 3. Current Month Collections -->
-      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-emerald-700/40 transition">
+      <!-- 3. 30-Day Collections -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-xl backdrop-blur-sm hover:border-emerald-700/50 transition">
         <div class="flex items-center justify-between text-slate-400">
-          <span class="text-[10px] font-bold uppercase tracking-wider">Collections</span>
-          <span id="kpi-collection-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-[10px] font-bold uppercase tracking-wider">30-Day Collections</span>
+          <span id="kpi-collection-dot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50"></span>
         </div>
-        <span id="kpi-collected-pct" class="text-xl sm:text-2xl font-black text-emerald-400 mt-1.5 block">100%</span>
-        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
+        <span id="kpi-collected-pct" class="text-xl sm:text-2xl font-black text-emerald-400 mt-1.5 block font-mono">100%</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/80">
           <span>Status:</span>
           <span id="kpi-collection-breakdown" class="text-slate-300 font-medium text-[10px]">0 Paid • 0 Pending</span>
         </div>
       </div>
 
-      <!-- 4. Rent Reviews Due (>12 mos) -->
-      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl hover:border-amber-700/40 transition">
+      <!-- 4. Upcoming Escalations -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-xl backdrop-blur-sm hover:border-amber-700/50 transition">
         <div class="flex items-center justify-between text-slate-400">
-          <span class="text-[10px] font-bold uppercase tracking-wider">Reviews Due (>12m)</span>
+          <span class="text-[10px] font-bold uppercase tracking-wider">Upcoming Escalations</span>
           <span id="kpi-reviews-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
         </div>
-        <span id="kpi-reviews-count" class="text-xl sm:text-2xl font-black text-white mt-1.5 block">0 Leases</span>
-        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/70">
-          <span>Rent Optimization:</span>
-          <span id="kpi-reviews-sub" class="text-slate-400 text-[10px]">All Up-to-Date</span>
+        <span id="kpi-reviews-count" class="text-xl sm:text-2xl font-black text-white mt-1.5 block font-mono">0 Leases</span>
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-800/80">
+          <span>Next Scheduled:</span>
+          <span id="kpi-reviews-sub" class="text-slate-400 text-[10px] truncate max-w-[140px]">All Up-to-Date</span>
         </div>
       </div>
 
@@ -740,7 +756,7 @@
 
   <!-- 6. Add Unit & Lease Modal -->
   <div id="modal-add-lease" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
         <h3 class="text-base font-bold text-white flex items-center space-x-2">
           <span class="text-emerald-400">📝</span>
@@ -806,41 +822,41 @@
           <input type="email" id="new-lease-notification-email" placeholder="manager@example.com (defaults to your account email if blank)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none text-xs">
         </div>
 
-        <!-- Scheduled Rent Escalation (Optional) -->
-        <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800/80 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Scheduled Rent Escalation (Optional)</span>
-            <span class="text-[10px] text-slate-500">Auto-calculated</span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
+        <!-- Predetermined Rent Increases (Escalation Schedule) -->
+        <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/90 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-slate-800/80">
             <div>
-              <label class="block text-slate-400 font-bold mb-1">Escalation Type</label>
-              <select id="new-lease-escalation-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
-                <option value="none">None / Manual</option>
-                <option value="Percentage Bump (%)">Percentage Bump (%)</option>
-                <option value="Fixed Dollar ($)">Fixed Dollar ($)</option>
-              </select>
+              <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+                <span>📈</span>
+                <span>Predetermined Rent Increases (Escalation Schedule)</span>
+              </span>
+              <p class="text-[10px] text-slate-400">Configure contractual future rent increases. Persisted with audit precision.</p>
             </div>
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Escalation Rate / Amount</label>
-              <input type="number" step="0.01" id="new-lease-escalation-rate" placeholder="e.g. 3.00 or 100.00" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            <div class="flex items-center space-x-1.5 shrink-0 pt-1 sm:pt-0">
+              <button type="button" onclick="autoGenerateAnnualEscalations('add')" class="px-2 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 text-[10px] font-semibold transition" title="Auto-populate annual 3% anniversary increases">
+                ⚡ Auto Annual 3%
+              </button>
+              <button type="button" onclick="addScheduledEscalationRow('add')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition shadow-sm flex items-center space-x-1">
+                <span>+</span><span>Add Step</span>
+              </button>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Escalation Frequency</label>
-              <select id="new-lease-escalation-freq" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
-                <option value="Annual on Anniversary">Annual on Anniversary</option>
-                <option value="Bi-Annual">Bi-Annual</option>
-                <option value="Triennial">Triennial</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Next Escalation Date</label>
-              <input type="date" id="new-lease-next-escalation" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
-            </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/60">
+                  <th class="pb-1.5 pr-2">Effective Date *</th>
+                  <th class="pb-1.5 pr-2">Escalation Type</th>
+                  <th class="pb-1.5 pr-2">Scheduled Value</th>
+                  <th class="pb-1.5 pr-2">Notes / Reason</th>
+                  <th class="pb-1.5 text-right w-8"></th>
+                </tr>
+              </thead>
+              <tbody id="add-lease-scheduled-increases-tbody" class="divide-y divide-slate-800/40">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -859,7 +875,7 @@
 
   <!-- 6. Edit Lease & Escalation Schedule Modal -->
   <div id="modal-edit-lease" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
         <h3 class="text-base font-bold text-white flex items-center space-x-2">
           <span class="text-emerald-400">📝</span>
@@ -927,41 +943,41 @@
           </div>
         </div>
 
-        <!-- Scheduled Rent Escalation Schedule -->
-        <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800/80 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Scheduled Rent Escalation</span>
-            <span class="text-[10px] text-slate-500">Contractual terms</span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
+        <!-- Predetermined Rent Increases (Escalation Schedule) -->
+        <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/90 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1 border-b border-slate-800/80">
             <div>
-              <label class="block text-slate-400 font-bold mb-1">Escalation Type</label>
-              <select id="edit-lease-escalation-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
-                <option value="none">None / Manual</option>
-                <option value="Percentage Bump (%)">Percentage Bump (%)</option>
-                <option value="Fixed Dollar ($)">Fixed Dollar ($)</option>
-              </select>
+              <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+                <span>📈</span>
+                <span>Predetermined Rent Increases (Escalation Schedule)</span>
+              </span>
+              <p class="text-[10px] text-slate-400">Configure contractual future rent increases. Persisted with audit precision.</p>
             </div>
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Escalation Rate / Amount</label>
-              <input type="number" step="0.01" id="edit-lease-escalation-rate" placeholder="e.g. 3.00 or 100.00" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            <div class="flex items-center space-x-1.5 shrink-0 pt-1 sm:pt-0">
+              <button type="button" onclick="autoGenerateAnnualEscalations('edit')" class="px-2 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 text-[10px] font-semibold transition" title="Auto-populate annual 3% anniversary increases">
+                ⚡ Auto Annual 3%
+              </button>
+              <button type="button" onclick="addScheduledEscalationRow('edit')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition shadow-sm flex items-center space-x-1">
+                <span>+</span><span>Add Step</span>
+              </button>
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Escalation Frequency</label>
-              <select id="edit-lease-escalation-freq" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none">
-                <option value="Annual on Anniversary">Annual on Anniversary</option>
-                <option value="Bi-Annual">Bi-Annual</option>
-                <option value="Triennial">Triennial</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Next Escalation Date</label>
-              <input type="date" id="edit-lease-next-escalation" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
-            </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/60">
+                  <th class="pb-1.5 pr-2">Effective Date *</th>
+                  <th class="pb-1.5 pr-2">Escalation Type</th>
+                  <th class="pb-1.5 pr-2">Scheduled Value</th>
+                  <th class="pb-1.5 pr-2">Notes / Reason</th>
+                  <th class="pb-1.5 text-right w-8"></th>
+                </tr>
+              </thead>
+              <tbody id="edit-lease-scheduled-increases-tbody" class="divide-y divide-slate-800/40">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -1057,6 +1073,8 @@
       const client = window._supabase;
       const user = window._currentUser;
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const isParamDemo = urlParams.get('demo') === 'true';
       let activeUserDemo = false;
       try {
         const storedUser = localStorage.getItem('mathtree_active_user');
@@ -1065,7 +1083,7 @@
         if (demoMode && JSON.parse(demoMode).demo) activeUserDemo = true;
       } catch (e) {}
 
-      const isDemo = !window._supabase || (user && user.demo) || activeUserDemo;
+      const isDemo = isParamDemo || window._demoMode || window._isDemoUser || !window._supabase || (user && user.demo) || activeUserDemo;
 
       // Show/Hide Demo Sandbox top banner
       const demoBanner = document.getElementById('demo-sandbox-banner');
@@ -1074,31 +1092,14 @@
         else demoBanner.classList.add('hidden');
       }
 
-      if (client) {
+      if (client && !isDemo) {
         try {
-          const dealQuery = (user && !user.demo && !activeUserDemo)
-            ? client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true })
-            : client.from('deals').select('*').eq('is_demo', true).order('title', { ascending: true });
-
-          const leaseQuery = (user && !user.demo && !activeUserDemo)
-            ? client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false })
-            : client.from('leases').select('*').order('is_active', { ascending: false });
-
-          const unitQuery = (user && !user.demo && !activeUserDemo)
-            ? client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true })
-            : client.from('units').select('*').order('unit_number', { ascending: true });
-
-          const entityQuery = (user && !user.demo && !activeUserDemo)
-            ? client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true })
-            : client.from('entities').select('*').order('name', { ascending: true });
-
-          const paymentQuery = (user && !user.demo && !activeUserDemo)
-            ? client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false })
-            : client.from('rent_payments').select('*').order('period_month', { ascending: false });
-
-          const increaseQuery = (user && !user.demo && !activeUserDemo)
-            ? client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false })
-            : client.from('rent_increases').select('*').order('effective_date', { ascending: false });
+          const dealQuery = client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true });
+          const leaseQuery = client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false });
+          const unitQuery = client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true });
+          const entityQuery = client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true });
+          const paymentQuery = client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false });
+          const increaseQuery = client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false });
 
           const [resEntities, resDeals, resUnits, resLeases, resPayments, resIncreases] = await Promise.allSettled([
             entityQuery, dealQuery, unitQuery, leaseQuery, paymentQuery, increaseQuery
@@ -1137,7 +1138,8 @@
         }
       }
 
-      if (!rawEntities.length) {
+      // Benchmark Fallback: Guarantee 100% consistent, cross-referenced mock suite for demo sandbox or 0-record accounts
+      if (!rawEntities.length || isDemo) {
         rawEntities = [
           {
             id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
@@ -1150,7 +1152,7 @@
         ];
       }
 
-      if (!rawDeals.length) {
+      if (!rawDeals.length || isDemo) {
         rawDeals = [
           {
             id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
@@ -1159,80 +1161,325 @@
             city: 'Union Gap',
             state: 'WA',
             zip: '98903',
-            entity_id: rawEntities[0]?.id || 'b1a42178-a979-4234-b018-eabaf8b7c481',
+            entity_id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
             status: 'owned',
             asset_class: 'commercial',
             purchase_price: 3850000,
             irr: 18.4,
             cash_on_cash: 9.8,
             equity_multiple: 2.1,
+            is_demo: true,
             inputs: {
               squareFeet: 42000,
               monthlyRent: 12500,
               grossRentPerMonth: 12500,
               grossRentAnnual: 150000,
               operatingExpensesAnnual: 28500,
-              closingDate: '2025-01-01',
+              closingDate: '2024-01-01',
+              leaseType: 'NNN'
+            }
+          },
+          {
+            id: 'd10e823f-42bc-449e-bdf1-2794ac88e520',
+            title: 'Cascade Gateway Commerce Park',
+            address: '1410 S 18th St',
+            city: 'Yakima',
+            state: 'WA',
+            zip: '98901',
+            entity_id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
+            status: 'owned',
+            asset_class: 'commercial',
+            purchase_price: 2450000,
+            irr: 16.8,
+            cash_on_cash: 8.9,
+            equity_multiple: 1.95,
+            is_demo: true,
+            inputs: {
+              squareFeet: 28000,
+              monthlyRent: 8400,
+              grossRentPerMonth: 8400,
+              grossRentAnnual: 100800,
+              operatingExpensesAnnual: 19200,
+              closingDate: '2024-06-01',
               leaseType: 'NNN'
             }
           }
         ];
       }
 
-      if (!rawUnits.length && rawDeals.length) {
+      if (!rawUnits.length || isDemo) {
         rawUnits = [
-          { id: 'u-1', deal_id: rawDeals[0].id, unit_number: 'Bay A (Logistics)', square_feet: 18000, market_rent: 5500 },
-          { id: 'u-2', deal_id: rawDeals[0].id, unit_number: 'Bay B (Cold Storage)', square_feet: 14000, market_rent: 4200 },
-          { id: 'u-3', deal_id: rawDeals[0].id, unit_number: 'Bay C (Flex Office)', square_feet: 10000, market_rent: 2800 }
+          { id: 'u-1', deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49', unit_number: 'Bay A (Logistics)', unit_type: 'Industrial Bay', sqft: 18000, market_rent: 5500, status: 'occupied' },
+          { id: 'u-2', deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49', unit_number: 'Bay B (Cold Storage)', unit_type: 'Cold Storage', sqft: 14000, market_rent: 4200, status: 'occupied' },
+          { id: 'u-3', deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49', unit_number: 'Bay C (Flex Office)', unit_type: 'Flex Office', sqft: 10000, market_rent: 2800, status: 'occupied' },
+          { id: 'u-4', deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520', unit_number: 'Suite 100 (HQ)', unit_type: 'Commercial Office', sqft: 16000, market_rent: 4800, status: 'occupied' },
+          { id: 'u-5', deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520', unit_number: 'Suite 200 (Wholesale)', unit_type: 'Warehouse/Showroom', sqft: 12000, market_rent: 3600, status: 'occupied' }
         ];
       }
 
-      if (!rawLeases.length && rawDeals.length) {
+      if (!rawLeases.length || isDemo) {
         rawLeases = [
           {
             id: 'l-1',
-            deal_id: rawDeals[0].id,
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            unit_id: 'u-1',
             tenant_name: 'Cascade Cold Logistics LLC',
             monthly_rent: 5500,
             unit_number: 'Bay A (Logistics)',
             lease_start_date: '2024-01-01',
             lease_end_date: '2029-12-31',
             lease_type: 'NNN',
-            escalation_type: 'Percentage Bump (%)',
+            escalation_type: 'percentage',
             escalation_rate: 3.0,
             escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-01-01',
+            next_escalation_date: '2026-11-01',
+            last_rent_increase_date: '2025-01-01',
+            previous_rent_amount: 5340,
+            payment_due_day: 1,
+            grace_period_days: 5,
             is_active: true
           },
           {
             id: 'l-2',
-            deal_id: rawDeals[0].id,
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            unit_id: 'u-2',
             tenant_name: 'Pacific Freight Lines',
             monthly_rent: 4200,
             unit_number: 'Bay B (Cold Storage)',
             lease_start_date: '2023-06-01',
             lease_end_date: '2028-05-31',
             lease_type: 'NNN',
-            escalation_type: 'Percentage Bump (%)',
+            escalation_type: 'percentage',
             escalation_rate: 3.5,
             escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-06-01',
+            next_escalation_date: '2026-12-01',
+            last_rent_increase_date: '2025-06-01',
+            previous_rent_amount: 4058,
+            payment_due_day: 1,
+            grace_period_days: 5,
             is_active: true
           },
           {
             id: 'l-3',
-            deal_id: rawDeals[0].id,
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            unit_id: 'u-3',
             tenant_name: 'Valley Distribution Corp',
             monthly_rent: 2800,
             unit_number: 'Bay C (Flex Office)',
             lease_start_date: '2024-03-01',
             lease_end_date: '2027-02-28',
             lease_type: 'Modified Gross',
-            escalation_type: 'Fixed Dollar ($)',
+            escalation_type: 'fixed_step',
             escalation_rate: 150.0,
             escalation_frequency: 'Annual on Anniversary',
-            next_escalation_date: '2026-03-01',
+            next_escalation_date: '2027-03-01',
+            last_rent_increase_date: '2025-03-01',
+            previous_rent_amount: 2650,
+            payment_due_day: 1,
+            grace_period_days: 5,
             is_active: true
+          },
+          {
+            id: 'l-4',
+            deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520',
+            unit_id: 'u-4',
+            tenant_name: 'Inland Northwest Medical Logistics',
+            monthly_rent: 4800,
+            unit_number: 'Suite 100 (HQ)',
+            lease_start_date: '2024-06-01',
+            lease_end_date: '2029-05-31',
+            lease_type: 'NNN',
+            escalation_type: 'percentage',
+            escalation_rate: 3.0,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2027-06-01',
+            last_rent_increase_date: '2025-06-01',
+            previous_rent_amount: 4660,
+            payment_due_day: 1,
+            grace_period_days: 5,
+            is_active: true
+          },
+          {
+            id: 'l-5',
+            deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520',
+            unit_id: 'u-5',
+            tenant_name: 'Evergreen Supply Network',
+            monthly_rent: 3600,
+            unit_number: 'Suite 200 (Wholesale)',
+            lease_start_date: '2023-09-01',
+            lease_end_date: '2028-08-31',
+            lease_type: 'NNN',
+            escalation_type: 'percentage',
+            escalation_rate: 3.0,
+            escalation_frequency: 'Annual on Anniversary',
+            next_escalation_date: '2026-10-01',
+            last_rent_increase_date: '2025-09-01',
+            previous_rent_amount: 3495,
+            payment_due_day: 1,
+            grace_period_days: 5,
+            is_active: true
+          }
+        ];
+      }
+
+      // Synchronize in-place benchmark payments for active billing cycle
+      const currentPeriodMonthStr = formatPeriodMonth(activeDate);
+      if (!rawPayments.length || isDemo) {
+        rawPayments = [
+          {
+            id: 'pay-demo-1',
+            lease_id: 'l-1',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            period_month: currentPeriodMonthStr,
+            due_date: `${currentPeriodMonthStr.slice(0, 7)}-01`,
+            amount_due: 5500,
+            amount_paid: 5500,
+            paid_date: `${currentPeriodMonthStr.slice(0, 7)}-02`,
+            status: 'paid',
+            payment_method: 'ach',
+            reference_note: 'ACH Direct Dep #4489'
+          },
+          {
+            id: 'pay-demo-2',
+            lease_id: 'l-2',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            period_month: currentPeriodMonthStr,
+            due_date: `${currentPeriodMonthStr.slice(0, 7)}-01`,
+            amount_due: 4200,
+            amount_paid: 4200,
+            paid_date: `${currentPeriodMonthStr.slice(0, 7)}-03`,
+            status: 'paid',
+            payment_method: 'ach',
+            reference_note: 'ACH AutoPay #9120'
+          },
+          {
+            id: 'pay-demo-3',
+            lease_id: 'l-3',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            period_month: currentPeriodMonthStr,
+            due_date: `${currentPeriodMonthStr.slice(0, 7)}-01`,
+            amount_due: 2800,
+            amount_paid: 0,
+            paid_date: null,
+            status: 'pending',
+            payment_method: 'check',
+            reference_note: 'Pending Check Clearing'
+          },
+          {
+            id: 'pay-demo-4',
+            lease_id: 'l-4',
+            deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520',
+            period_month: currentPeriodMonthStr,
+            due_date: `${currentPeriodMonthStr.slice(0, 7)}-01`,
+            amount_due: 4800,
+            amount_paid: 4800,
+            paid_date: `${currentPeriodMonthStr.slice(0, 7)}-01`,
+            status: 'paid',
+            payment_method: 'ach',
+            reference_note: 'ACH Direct Dep #8821'
+          },
+          {
+            id: 'pay-demo-5',
+            lease_id: 'l-5',
+            deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520',
+            period_month: currentPeriodMonthStr,
+            due_date: `${currentPeriodMonthStr.slice(0, 7)}-01`,
+            amount_due: 3600,
+            amount_paid: 3600,
+            paid_date: `${currentPeriodMonthStr.slice(0, 7)}-04`,
+            status: 'paid',
+            payment_method: 'wire',
+            reference_note: 'Wire Conf #7712'
+          }
+        ];
+      }
+
+      // Predetermined scheduled future rent escalations + historical applied audit trail
+      if (!rawIncreases.length || isDemo) {
+        rawIncreases = [
+          {
+            id: 'inc-demo-1',
+            lease_id: 'l-1',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            effective_date: '2026-11-01',
+            increase_type: 'percentage',
+            scheduled_amount: 3.0,
+            is_applied: false,
+            reason: 'Year 3 Contractual 3.0% Escalation',
+            old_rent: 5500,
+            new_rent: 5665,
+            percentage_change: 3.0,
+            increase_amount: 165
+          },
+          {
+            id: 'inc-demo-2',
+            lease_id: 'l-1',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            effective_date: '2027-11-01',
+            increase_type: 'percentage',
+            scheduled_amount: 3.0,
+            is_applied: false,
+            reason: 'Year 4 Contractual 3.0% Escalation',
+            old_rent: 5665,
+            new_rent: 5835,
+            percentage_change: 3.0,
+            increase_amount: 170
+          },
+          {
+            id: 'inc-demo-3',
+            lease_id: 'l-2',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            effective_date: '2026-12-01',
+            increase_type: 'percentage',
+            scheduled_amount: 3.5,
+            is_applied: false,
+            reason: 'Annual Contractual 3.5% Escalation',
+            old_rent: 4200,
+            new_rent: 4347,
+            percentage_change: 3.5,
+            increase_amount: 147
+          },
+          {
+            id: 'inc-demo-4',
+            lease_id: 'l-3',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            effective_date: '2027-03-01',
+            increase_type: 'fixed_step',
+            scheduled_amount: 150.0,
+            is_applied: false,
+            reason: 'Contractual Step Bump (+$150/mo)',
+            old_rent: 2800,
+            new_rent: 2950,
+            percentage_change: 5.36,
+            increase_amount: 150
+          },
+          {
+            id: 'inc-demo-5',
+            lease_id: 'l-5',
+            deal_id: 'd10e823f-42bc-449e-bdf1-2794ac88e520',
+            effective_date: '2026-10-01',
+            increase_type: 'percentage',
+            scheduled_amount: 3.0,
+            is_applied: false,
+            reason: 'Year 4 Contractual 3.0% Escalation',
+            old_rent: 3600,
+            new_rent: 3708,
+            percentage_change: 3.0,
+            increase_amount: 108
+          },
+          {
+            id: 'inc-hist-1',
+            lease_id: 'l-1',
+            deal_id: 'd8c7075e-c3eb-4606-bd5b-014ecda7bb49',
+            effective_date: '2025-01-01',
+            increase_type: 'percentage',
+            scheduled_amount: 3.0,
+            is_applied: true,
+            reason: 'Year 2 Contractual 3.0% Escalation',
+            old_rent: 5340,
+            new_rent: 5500,
+            percentage_change: 3.0,
+            increase_amount: 160
           }
         ];
       }
@@ -1339,6 +1586,139 @@
     }
     window.syncLeaseRollToDeal = syncLeaseRollToDeal;
 
+    // === Predetermined Rent Increase Schedule Manager (Issue #2 & #8) ===
+    function addScheduledEscalationRow(mode, initialData = {}) {
+      const tbody = document.getElementById(`${mode}-lease-scheduled-increases-tbody`);
+      if (!tbody) return;
+
+      const row = document.createElement('tr');
+      row.className = 'hover:bg-slate-800/40 transition group';
+      if (initialData.id) {
+        row.dataset.increaseId = initialData.id;
+      }
+
+      const effectiveDate = initialData.effective_date || '';
+      const increaseType = initialData.increase_type || 'percentage';
+      const scheduledAmount = initialData.scheduled_amount !== undefined 
+        ? initialData.scheduled_amount 
+        : (initialData.percentage_change !== undefined ? initialData.percentage_change : 3.0);
+      const reason = initialData.reason || '';
+
+      row.innerHTML = `
+        <td class="py-1.5 pr-2">
+          <input type="date" class="esc-effective-date bg-slate-950/70 border border-slate-700/70 rounded-lg px-2 py-1 text-slate-200 text-xs w-full focus:outline-none focus:border-emerald-500" value="${effectiveDate}" required>
+        </td>
+        <td class="py-1.5 pr-2">
+          <select class="esc-type bg-slate-950/70 border border-slate-700/70 rounded-lg px-2 py-1 text-slate-200 text-xs w-full focus:outline-none focus:border-emerald-500" onchange="handleEscTypeChange(this)">
+            <option value="percentage" ${increaseType === 'percentage' ? 'selected' : ''}>Percentage (%)</option>
+            <option value="fixed_step" ${increaseType === 'fixed_step' ? 'selected' : ''}>Fixed Step ($)</option>
+            <option value="cpi" ${increaseType === 'cpi' ? 'selected' : ''}>CPI Index</option>
+          </select>
+        </td>
+        <td class="py-1.5 pr-2">
+          <div class="relative flex items-center">
+            <input type="number" step="0.01" class="esc-scheduled-amount bg-slate-950/70 border border-slate-700/70 rounded-lg px-2 py-1 text-slate-200 text-xs w-full focus:outline-none focus:border-emerald-500" placeholder="3.0" value="${scheduledAmount}">
+          </div>
+        </td>
+        <td class="py-1.5 pr-2">
+          <input type="text" class="esc-reason bg-slate-950/70 border border-slate-700/70 rounded-lg px-2 py-1 text-slate-300 text-xs w-full focus:outline-none focus:border-emerald-500" placeholder="e.g. Year 2 Contractual 3%" value="${reason}">
+        </td>
+        <td class="py-1.5 text-right w-8">
+          <button type="button" onclick="removeScheduledEscalationRow(this)" class="text-slate-500 hover:text-rose-400 p-1 transition" title="Remove step">✕</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    }
+    window.addScheduledEscalationRow = addScheduledEscalationRow;
+
+    function removeScheduledEscalationRow(btn) {
+      const row = btn.closest('tr');
+      if (row) row.remove();
+    }
+    window.removeScheduledEscalationRow = removeScheduledEscalationRow;
+
+    function handleEscTypeChange(selectEl) {
+      const row = selectEl.closest('tr');
+      if (!row) return;
+      const amtInput = row.querySelector('.esc-scheduled-amount');
+      if (!amtInput) return;
+      if (selectEl.value === 'percentage') {
+        if (!amtInput.value || parseFloat(amtInput.value) > 50) amtInput.value = '3.0';
+        amtInput.placeholder = '3.0';
+      } else if (selectEl.value === 'fixed_step') {
+        if (!amtInput.value || parseFloat(amtInput.value) <= 10) amtInput.value = '150';
+        amtInput.placeholder = '150';
+      } else if (selectEl.value === 'cpi') {
+        amtInput.placeholder = 'CPI Cap % (e.g. 3.5)';
+      }
+    }
+    window.handleEscTypeChange = handleEscTypeChange;
+
+    function autoGenerateAnnualEscalations(mode) {
+      const startEl = document.getElementById(`${mode}-lease-start`);
+      const endEl = document.getElementById(`${mode}-lease-end`);
+      const tbody = document.getElementById(`${mode}-lease-scheduled-increases-tbody`);
+      if (!tbody) return;
+
+      const startDateStr = startEl?.value;
+      let startYear = new Date().getFullYear();
+      let startMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+      let startDay = '01';
+
+      if (startDateStr && startDateStr.includes('-')) {
+        const parts = startDateStr.split('-');
+        startYear = parseInt(parts[0], 10);
+        startMonth = parts[1];
+        startDay = parts[2];
+      }
+
+      let numYears = 3;
+      if (endEl?.value && endEl.value.includes('-')) {
+        const endYear = parseInt(endEl.value.split('-')[0], 10);
+        if (endYear > startYear) {
+          numYears = Math.min(Math.max(endYear - startYear, 1), 10);
+        }
+      }
+
+      tbody.innerHTML = '';
+      for (let i = 1; i <= numYears; i++) {
+        const effYear = startYear + i;
+        const effDate = `${effYear}-${startMonth}-${startDay}`;
+        addScheduledEscalationRow(mode, {
+          effective_date: effDate,
+          increase_type: 'percentage',
+          scheduled_amount: 3.0,
+          reason: `Year ${i + 1} Contractual 3% Escalation`
+        });
+      }
+    }
+    window.autoGenerateAnnualEscalations = autoGenerateAnnualEscalations;
+
+    function getScheduledEscalationsFromForm(mode) {
+      const tbody = document.getElementById(`${mode}-lease-scheduled-increases-tbody`);
+      if (!tbody) return [];
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const escalations = [];
+      rows.forEach(tr => {
+        const dateInput = tr.querySelector('.esc-effective-date');
+        const typeSelect = tr.querySelector('.esc-type');
+        const amtInput = tr.querySelector('.esc-scheduled-amount');
+        const reasonInput = tr.querySelector('.esc-reason');
+        if (dateInput && dateInput.value) {
+          escalations.push({
+            id: tr.dataset.increaseId || null,
+            effective_date: dateInput.value,
+            increase_type: typeSelect ? typeSelect.value : 'percentage',
+            scheduled_amount: amtInput ? (parseFloat(amtInput.value) || 0) : 0,
+            reason: reasonInput ? reasonInput.value.trim() : ''
+          });
+        }
+      });
+      escalations.sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
+      return escalations;
+    }
+    window.getScheduledEscalationsFromForm = getScheduledEscalationsFromForm;
+
     // Modal Trigger: Edit Lease & Schedule
     function openEditLeaseModal(leaseId) {
       const lease = rawLeases.find(l => l.id === leaseId);
@@ -1357,13 +1737,31 @@
       document.getElementById('edit-lease-end').value = lease.lease_end_date || '';
       document.getElementById('edit-lease-email').value = lease.tenant_email || '';
       document.getElementById('edit-lease-phone').value = lease.tenant_phone || '';
-      document.getElementById('edit-lease-deposit').value = lease.deposit_amount || '';
+      document.getElementById('edit-lease-deposit').value = lease.security_deposit || lease.deposit_amount || '';
       document.getElementById('edit-lease-status').value = lease.is_active === false ? 'terminated' : 'active';
 
       document.getElementById('edit-lease-escalation-type').value = lease.escalation_type || 'none';
       document.getElementById('edit-lease-escalation-rate').value = lease.escalation_rate || '';
       document.getElementById('edit-lease-escalation-freq').value = lease.escalation_frequency || 'Annual on Anniversary';
       document.getElementById('edit-lease-next-escalation').value = lease.next_escalation_date || '';
+
+      // Populate Predetermined Rent Increase Schedule Table
+      const editTbody = document.getElementById('edit-lease-scheduled-increases-tbody');
+      if (editTbody) {
+        editTbody.innerHTML = '';
+        const scheduled = rawIncreases.filter(inc => inc.lease_id === leaseId && inc.is_applied !== true);
+        if (scheduled.length > 0) {
+          scheduled.sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
+          scheduled.forEach(step => addScheduledEscalationRow('edit', step));
+        } else if (lease.next_escalation_date) {
+          addScheduledEscalationRow('edit', {
+            effective_date: lease.next_escalation_date,
+            increase_type: (lease.escalation_type && lease.escalation_type.toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
+            scheduled_amount: lease.escalation_rate || 3.0,
+            reason: `Scheduled ${lease.escalation_frequency || 'Annual'} Escalation`
+          });
+        }
+      }
 
       openModal('modal-edit-lease');
     }
@@ -1382,32 +1780,45 @@
       const phone = document.getElementById('edit-lease-phone').value.trim() || null;
       const deposit = parseFloat(document.getElementById('edit-lease-deposit').value) || 0;
       const isActive = document.getElementById('edit-lease-status').value === 'active';
-      const escType = document.getElementById('edit-lease-escalation-type').value;
-      const escRate = parseFloat(document.getElementById('edit-lease-escalation-rate').value) || 0;
+      let escType = document.getElementById('edit-lease-escalation-type').value;
+      let escRate = parseFloat(document.getElementById('edit-lease-escalation-rate').value) || 0;
       const escFreq = document.getElementById('edit-lease-escalation-freq').value;
-      const nextEscDate = document.getElementById('edit-lease-next-escalation').value || null;
+      let nextEscDate = document.getElementById('edit-lease-next-escalation').value || null;
 
-      // Update in memory
-      const lease = rawLeases.find(l => l.id === leaseId);
-      if (lease) {
-        lease.tenant_name = tenantName;
-        lease.monthly_rent = monthlyRent;
-        lease.lease_start_date = startDate;
-        lease.lease_end_date = endDate;
-        lease.tenant_email = email;
-        lease.tenant_phone = phone;
-        lease.security_deposit = deposit;
-        lease.is_active = isActive;
-        lease.escalation_type = escType;
-        lease.escalation_rate = escRate;
-        lease.escalation_frequency = escFreq;
-        lease.next_escalation_date = nextEscDate;
+      // Extract Predetermined Escalation Schedule Steps
+      const scheduledSteps = getScheduledEscalationsFromForm('edit');
+      if (scheduledSteps.length > 0) {
+        const firstStep = scheduledSteps[0];
+        nextEscDate = firstStep.effective_date;
+        escRate = firstStep.scheduled_amount;
+        escType = firstStep.increase_type === 'fixed_step' ? 'Fixed Step ($)' : (firstStep.increase_type === 'cpi' ? 'CPI Index' : 'Percentage Bump (%)');
       }
 
-      // Always persist to Supabase public.leases table
-      if (window._supabase) {
+      // Update in memory
+      let lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) {
+        lease = { id: leaseId, deal_id: dealId };
+        rawLeases.push(lease);
+      }
+      lease.tenant_name = tenantName;
+      lease.monthly_rent = monthlyRent;
+      lease.lease_start_date = startDate;
+      lease.lease_end_date = endDate;
+      lease.tenant_email = email;
+      lease.tenant_phone = phone;
+      lease.security_deposit = deposit;
+      lease.is_active = isActive;
+      lease.escalation_type = escType;
+      lease.escalation_rate = escRate;
+      lease.escalation_frequency = escFreq;
+      lease.next_escalation_date = nextEscDate;
+
+      // Persist to Supabase public.leases and public.rent_increases
+      if (window._supabase && !window._demoMode) {
         try {
-          const { error } = await window._supabase.from('leases').update({
+          const { error } = await window._supabase.from('leases').upsert({
+            id: leaseId.startsWith('deal-lease-') ? undefined : leaseId,
+            deal_id: dealId,
             tenant_name: tenantName,
             monthly_rent: monthlyRent,
             lease_start_date: startDate,
@@ -1421,16 +1832,55 @@
             escalation_frequency: escFreq,
             next_escalation_date: nextEscDate,
             updated_at: new Date().toISOString()
-          }).eq('id', leaseId);
-
+          });
           if (error) console.error('Error updating lease in Supabase:', error);
-          else console.log('✓ Successfully updated lease in Supabase public.leases');
+
+          // Update rent_increases: delete unapplied scheduled ones for this lease, insert new steps
+          await window._supabase.from('rent_increases').delete().eq('lease_id', leaseId).eq('is_applied', false);
+          if (scheduledSteps.length > 0) {
+            const newIncreases = scheduledSteps.map(step => ({
+              user_id: window._currentUser?.id || null,
+              lease_id: leaseId,
+              deal_id: dealId,
+              effective_date: step.effective_date,
+              increase_type: step.increase_type,
+              scheduled_amount: step.scheduled_amount,
+              old_rent: monthlyRent,
+              new_rent: step.increase_type === 'percentage' 
+                ? Math.round(monthlyRent * (1 + step.scheduled_amount / 100) * 100) / 100
+                : (monthlyRent + step.scheduled_amount),
+              reason: step.reason || `Scheduled ${step.increase_type} increase`,
+              is_applied: false
+            }));
+            await window._supabase.from('rent_increases').insert(newIncreases);
+          }
         } catch (err) {
-          console.error('Error updating lease in Supabase:', err);
+          console.error('Error updating lease / scheduled increases in Supabase:', err);
         }
       }
 
-      // Automatically recalculate deal financial analysis and persist to deals table in Supabase
+      // Update in-memory rawIncreases
+      rawIncreases = rawIncreases.filter(inc => !(inc.lease_id === leaseId && inc.is_applied !== true));
+      scheduledSteps.forEach((step, idx) => {
+        rawIncreases.push({
+          id: step.id || ('inc-' + Date.now() + '-' + idx),
+          lease_id: leaseId,
+          deal_id: dealId,
+          effective_date: step.effective_date,
+          increase_type: step.increase_type,
+          scheduled_amount: step.scheduled_amount,
+          old_rent: monthlyRent,
+          new_rent: step.increase_type === 'percentage'
+            ? Math.round(monthlyRent * (1 + step.scheduled_amount / 100) * 100) / 100
+            : (monthlyRent + step.scheduled_amount),
+          percentage_change: step.increase_type === 'percentage' ? step.scheduled_amount : (monthlyRent > 0 ? ((step.scheduled_amount / monthlyRent) * 100).toFixed(1) : 0),
+          increase_amount: step.increase_type === 'percentage' ? ((monthlyRent * step.scheduled_amount) / 100) : step.scheduled_amount,
+          reason: step.reason || `Scheduled ${step.increase_type} increase`,
+          is_applied: false
+        });
+      });
+
+      // Recalculate deal pro-forma and sync
       await syncLeaseRollToDeal(dealId);
 
       closeModal('modal-edit-lease');
@@ -1656,41 +2106,77 @@
         collDot.className = `w-2 h-2 rounded-full ${overdueCount > 0 ? 'bg-rose-400 animate-pulse' : (pendingCount > 0 ? 'bg-amber-400' : 'bg-emerald-400')}`;
       }
 
-      // 4. Rent Reviews Due (Only for leases WITHOUT a defined schedule, or with an overdue scheduled date)
+      // 4. Rent Reviews & Upcoming Escalations Scorecard
       const now = new Date();
-      let reviewsDueCount = 0;
+      let escalationsDueCount = 0;
       let scheduledCount = 0;
+      let earliestUpcomingStep = null;
 
-      scopedLeases.forEach(l => {
-        const hasDefinedSchedule = Boolean((l.escalation_type && l.escalation_type !== 'none') || (parseFloat(l.escalation_rate) > 0) || l.next_escalation_date);
-        const nextEscDate = l.next_escalation_date ? new Date(l.next_escalation_date) : null;
-        const isScheduledDue = Boolean(nextEscDate && nextEscDate <= now);
+      scopedLeases.forEach(lease => {
+        // Collect all unapplied scheduled escalations for this lease
+        const leaseIncreases = rawIncreases.filter(inc => inc.lease_id === lease.id && inc.is_applied !== true);
+        const hasDefinedSchedule = Boolean((lease.escalation_type && lease.escalation_type !== 'none') || (parseFloat(lease.escalation_rate) > 0) || lease.next_escalation_date || leaseIncreases.length > 0);
 
-        if (hasDefinedSchedule) {
+        // Check if any scheduled step is due or future
+        let hasDueStep = false;
+        leaseIncreases.forEach(inc => {
           scheduledCount++;
-          if (isScheduledDue) {
-            reviewsDueCount++; // Contractual escalation date arrived and needs action
+          const effDate = new Date(inc.effective_date);
+          if (effDate <= now) {
+            hasDueStep = true;
+          } else {
+            if (!earliestUpcomingStep || effDate < new Date(earliestUpcomingStep.effective_date)) {
+              earliestUpcomingStep = inc;
+            }
           }
-        } else {
+        });
+
+        const nextEscDate = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+        if (nextEscDate) {
+          if (nextEscDate <= now) {
+            hasDueStep = true;
+          } else if (!earliestUpcomingStep || nextEscDate < new Date(earliestUpcomingStep.effective_date)) {
+            earliestUpcomingStep = {
+              effective_date: lease.next_escalation_date,
+              increase_type: (lease.escalation_type && lease.escalation_type.toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
+              scheduled_amount: lease.escalation_rate || 3.0
+            };
+          }
+        }
+
+        if (hasDueStep) {
+          escalationsDueCount++;
+        } else if (!hasDefinedSchedule) {
           // No schedule defined: check if over 12 months since last increase or start
-          const refDate = l.last_rent_increase_date ? new Date(l.last_rent_increase_date) : new Date(l.lease_start_date);
+          const refDate = lease.last_rent_increase_date ? new Date(lease.last_rent_increase_date) : new Date(lease.lease_start_date);
           const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
           if (diffMonths >= 12) {
-            reviewsDueCount++;
+            escalationsDueCount++;
           }
         }
       });
 
-      document.getElementById('kpi-reviews-count').textContent = `${reviewsDueCount} Leases`;
+      const reviewsCountEl = document.getElementById('kpi-reviews-count');
       const reviewsSub = document.getElementById('kpi-reviews-sub');
       const reviewsDot = document.getElementById('kpi-reviews-dot');
-      if (reviewsDueCount > 0) {
-        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-amber-400 font-bold">Review Required</span>`;
+
+      if (escalationsDueCount > 0) {
+        if (reviewsCountEl) reviewsCountEl.textContent = `${escalationsDueCount} Due Now`;
+        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-amber-400 font-bold">Action Required</span>`;
         if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+      } else if (earliestUpcomingStep) {
+        if (reviewsCountEl) reviewsCountEl.textContent = `${scheduledCount || scopedLeases.length} Scheduled`;
+        const valStr = earliestUpcomingStep.increase_type === 'fixed_step' 
+          ? `+$${earliestUpcomingStep.scheduled_amount}` 
+          : `+${earliestUpcomingStep.scheduled_amount}%`;
+        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-cyan-300 font-mono font-medium">${earliestUpcomingStep.effective_date} (${valStr})</span>`;
+        if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
       } else if (scheduledCount > 0) {
+        if (reviewsCountEl) reviewsCountEl.textContent = `${scheduledCount} Scheduled`;
         if (reviewsSub) reviewsSub.innerHTML = `<span class="text-emerald-400 font-bold">Defined Schedule</span>`;
         if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
       } else {
+        if (reviewsCountEl) reviewsCountEl.textContent = '0 Leases';
         if (reviewsSub) reviewsSub.textContent = 'All Up-to-Date';
         if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
       }
@@ -1732,13 +2218,29 @@
         const payment = rawPayments.find(p => p.lease_id === lease.id && p.period_month === currentPeriodMonthStr);
 
         // Rent Review / Escalation Schedule Status
-        const hasDefinedSchedule = Boolean((lease.escalation_type && lease.escalation_type !== 'none') || (parseFloat(lease.escalation_rate) > 0) || lease.next_escalation_date);
-        const nextEscDate = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+        const leaseScheduledSteps = rawIncreases.filter(inc => inc.lease_id === lease.id && inc.is_applied !== true);
+        const hasDefinedSchedule = Boolean((lease.escalation_type && lease.escalation_type !== 'none') || (parseFloat(lease.escalation_rate) > 0) || lease.next_escalation_date || leaseScheduledSteps.length > 0);
+        
+        let nearestScheduled = leaseScheduledSteps.length > 0 ? leaseScheduledSteps[0] : null;
+        if (!nearestScheduled && lease.next_escalation_date) {
+          nearestScheduled = {
+            effective_date: lease.next_escalation_date,
+            increase_type: (lease.escalation_type && lease.escalation_type.toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
+            scheduled_amount: lease.escalation_rate || 3.0
+          };
+        }
+
+        const nextEscDate = nearestScheduled ? new Date(nearestScheduled.effective_date) : null;
         const isScheduledDue = Boolean(nextEscDate && nextEscDate <= now);
+        const isAdvanceScheduled = Boolean(nextEscDate && nextEscDate > now);
 
         const refDate = lease.last_rent_increase_date ? new Date(lease.last_rent_increase_date) : new Date(lease.lease_start_date);
         const monthsSince = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
         const isUnscheduledReviewDue = !hasDefinedSchedule && monthsSince >= 12;
+
+        const scheduledValStr = nearestScheduled 
+          ? (nearestScheduled.increase_type === 'fixed_step' ? `+$${nearestScheduled.scheduled_amount}` : `+${nearestScheduled.scheduled_amount}%`)
+          : '';
 
         // Payment status badge & snooze state
         const isPaid = Boolean(payment && payment.status === 'paid');
@@ -1755,7 +2257,6 @@
           statusBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">⚠️ Overdue</span>';
         }
 
-        const isAdvanceScheduled = Boolean(nextEscDate && nextEscDate > now);
         const rentFormatted = parseFloat(lease.monthly_rent || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         rowsHtml += `
@@ -1781,7 +2282,7 @@
                   ${isScheduledDue 
                     ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="Scheduled escalation date has arrived">⚠️ Escalation Due</span>'
                     : isAdvanceScheduled
-                    ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[9px] font-bold" title="Scheduled advance increase queued for ${lease.next_escalation_date}">📅 Scheduled: ${lease.next_escalation_date}</span>`
+                    ? `<span class="px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[9px] font-bold" title="Scheduled contractual increase queued for ${nearestScheduled.effective_date}">📈 Scheduled: ${scheduledValStr} on ${nearestScheduled.effective_date}</span>`
                     : isUnscheduledReviewDue
                     ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold" title="No escalation schedule in place (>12 months)">⚠️ Review Due</span>'
                     : hasDefinedSchedule
@@ -1790,8 +2291,9 @@
                 </div>
                 ${hasDefinedSchedule ? `
                   <span class="text-[10px] text-slate-400">
-                    ${lease.escalation_frequency || 'Annual'}: <strong class="text-slate-300">${lease.escalation_rate ? `+${lease.escalation_rate}%` : (lease.escalation_type || 'Scheduled')}</strong>
-                    ${lease.next_escalation_date ? ` • Next: <span class="font-mono text-slate-300">${lease.next_escalation_date}</span>` : ''}
+                    ${lease.escalation_frequency || 'Annual'}: <strong class="text-slate-300">${scheduledValStr || (lease.escalation_rate ? `+${lease.escalation_rate}%` : (lease.escalation_type || 'Scheduled'))}</strong>
+                    ${nearestScheduled ? ` • Next: <span class="font-mono text-slate-300">${nearestScheduled.effective_date}</span>` : ''}
+                    ${leaseScheduledSteps.length > 1 ? ` <span class="text-[9px] text-cyan-400/90 font-medium">(${leaseScheduledSteps.length} steps queued)</span>` : ''}
                   </span>
                 ` : ''}
               </div>
@@ -2352,26 +2854,44 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="5" class="py-6 text-center text-slate-500 italic">
-              No historical rent increases logged yet for this lease. Initial starting rent: $${parseFloat(lease.monthly_rent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}.
+              No historical or scheduled rent increases logged yet for this lease. Initial starting rent: $${parseFloat(lease.monthly_rent || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}.
             </td>
           </tr>
         `;
       } else {
-        tbody.innerHTML = records.map(r => `
-          <tr class="hover:bg-slate-800/50">
-            <td class="py-2 px-3 font-mono text-slate-200">${r.effective_date}</td>
-            <td class="py-2 px-3 font-mono text-slate-400">$${parseFloat(r.old_rent).toFixed(2)}</td>
-            <td class="py-2 px-3 font-mono text-emerald-400 font-bold">$${parseFloat(r.new_rent).toFixed(2)}</td>
-            <td class="py-2 px-3 text-right font-mono font-semibold text-emerald-400">
-              +$${(r.new_rent - r.old_rent).toFixed(2)} (+${r.percentage_change || ((r.new_rent - r.old_rent)/r.old_rent*100).toFixed(1)}%)
-            </td>
-            <td class="py-2 px-3 text-slate-300 text-[11px]">${r.reason || 'Contractual Escalation'}</td>
-          </tr>
-        `).join('');
+        records.sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
+        tbody.innerHTML = records.map(r => {
+          const isApplied = r.is_applied !== false;
+          const statusBadge = isApplied
+            ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">✓ Applied</span>'
+            : '<span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30">📅 Scheduled</span>';
+          const oldRent = parseFloat(r.old_rent) || 0;
+          const newRent = parseFloat(r.new_rent) || 0;
+          const diff = newRent - oldRent;
+          const pct = r.percentage_change || (oldRent > 0 ? ((diff / oldRent) * 100).toFixed(1) : '0.0');
+
+          return `
+            <tr class="hover:bg-slate-800/50">
+              <td class="py-2 px-3 font-mono text-slate-200">
+                <div class="flex items-center space-x-1.5">
+                  <span>${r.effective_date}</span>
+                  ${statusBadge}
+                </div>
+              </td>
+              <td class="py-2 px-3 font-mono text-slate-400">$${oldRent.toFixed(2)}</td>
+              <td class="py-2 px-3 font-mono text-emerald-400 font-bold">$${newRent.toFixed(2)}</td>
+              <td class="py-2 px-3 text-right font-mono font-semibold text-emerald-400">
+                +${diff > 0 ? '$' + diff.toFixed(2) : '$0.00'} (+${pct}%)
+              </td>
+              <td class="py-2 px-3 text-slate-300 text-[11px]">${r.reason || (isApplied ? 'Historical Escalation' : 'Scheduled Escalation')}</td>
+            </tr>
+          `;
+        }).join('');
       }
 
       openModal('modal-audit-trail');
     }
+    window.openAuditTrailModal = openAuditTrailModal;
 
     // Modal: Alert & Notification Email Settings
     async function openAlertSettingsModal() {
@@ -2625,8 +3145,17 @@
       if (startEl) startEl.value = '';
       const nextEscEl = document.getElementById('new-lease-next-escalation');
       if (nextEscEl) nextEscEl.value = '';
+
+      // Reset scheduled increases table for new lease modal
+      const addTbody = document.getElementById('add-lease-scheduled-increases-tbody');
+      if (addTbody) {
+        addTbody.innerHTML = '';
+        addScheduledEscalationRow('add');
+      }
+
       openModal('modal-add-lease');
     }
+    window.openAddLeaseModal = openAddLeaseModal;
 
     async function handleSaveNewLease(e) {
       e.preventDefault();
@@ -2640,14 +3169,23 @@
       const email = document.getElementById('new-lease-email').value.trim();
       const phone = document.getElementById('new-lease-phone').value.trim();
 
-      const escType = document.getElementById('new-lease-escalation-type')?.value || 'none';
-      const escRate = parseFloat(document.getElementById('new-lease-escalation-rate')?.value) || 0;
+      let escType = document.getElementById('new-lease-escalation-type')?.value || 'none';
+      let escRate = parseFloat(document.getElementById('new-lease-escalation-rate')?.value) || 0;
       const escFreq = document.getElementById('new-lease-escalation-freq')?.value || 'Annual on Anniversary';
-      const nextEscDate = document.getElementById('new-lease-next-escalation')?.value || null;
+      let nextEscDate = document.getElementById('new-lease-next-escalation')?.value || null;
+
+      // Extract scheduled escalation steps from schedule table
+      const scheduledSteps = getScheduledEscalationsFromForm('add');
+      if (scheduledSteps.length > 0) {
+        const firstStep = scheduledSteps[0];
+        nextEscDate = firstStep.effective_date;
+        escRate = firstStep.scheduled_amount;
+        escType = firstStep.increase_type === 'fixed_step' ? 'Fixed Step ($)' : (firstStep.increase_type === 'cpi' ? 'CPI Index' : 'Percentage Bump (%)');
+      }
 
       const user = window._currentUser;
 
-      if (window._supabase) {
+      if (window._supabase && !window._demoMode) {
         try {
           // 1. Create Unit
           let unitId = null;
@@ -2666,6 +3204,7 @@
 
           if (!unitErr && unitData) {
             unitId = unitData.id;
+            rawUnits.push(unitData);
           }
 
           // 2. Create Lease
@@ -2699,41 +3238,100 @@
 
           if (leaseData) {
             rawLeases.push(leaseData);
-          }
 
-          // 3. Record planned escalation in rent_increases if configured
-          if (escType !== 'none' && escRate > 0 && leaseData) {
-            const plannedNewRent = escType.includes('Percentage')
-              ? Math.round((rent * (1 + escRate / 100)) * 100) / 100
-              : (rent + escRate);
-            const escReason = `Scheduled ${escType.includes('Percentage') ? escRate + '%' : '$' + escRate} ${escFreq} escalation`;
-            await window._supabase
-              .from('rent_increases')
-              .insert({
+            // 3. Record planned escalations in rent_increases
+            if (scheduledSteps.length > 0) {
+              const newIncreases = scheduledSteps.map(step => ({
                 user_id: user?.id || null,
                 lease_id: leaseData.id,
                 deal_id: dealId,
-                effective_date: nextEscDate || startDate,
+                effective_date: step.effective_date,
+                increase_type: step.increase_type,
+                scheduled_amount: step.scheduled_amount,
                 old_rent: rent,
-                new_rent: plannedNewRent,
-                reason: escReason,
-                notice_sent_date: null
+                new_rent: step.increase_type === 'percentage' 
+                  ? Math.round(rent * (1 + step.scheduled_amount / 100) * 100) / 100
+                  : (rent + step.scheduled_amount),
+                reason: step.reason || `Scheduled ${step.increase_type} increase`,
+                is_applied: false
+              }));
+              await window._supabase.from('rent_increases').insert(newIncreases);
+              newIncreases.forEach((inc, idx) => {
+                rawIncreases.push({ ...inc, id: 'inc-' + Date.now() + '-' + idx });
               });
+            }
           }
 
-          // 4. Synchronize with parent deal
           await syncLeaseRollToDeal(dealId);
-
           document.getElementById('form-add-lease').reset();
           closeModal('modal-add-lease');
-          await fetchAllOperationsData();
+          renderOperationsUI();
           return;
         } catch (err) {
           console.error('Error creating lease in Supabase:', err);
           alert('Error creating unit and lease: ' + err.message);
         }
+      } else {
+        // DEMO SANDBOX / LOCAL FALLBACK MODE
+        const newUnitId = 'demo-unit-' + Date.now();
+        const newUnit = {
+          id: newUnitId,
+          deal_id: dealId,
+          unit_number: unitNum || 'Suite ' + (rawUnits.length + 101),
+          unit_type: unitType,
+          market_rent: rent,
+          status: 'occupied'
+        };
+        rawUnits.push(newUnit);
+
+        const newLeaseId = 'demo-lease-' + Date.now();
+        const newLease = {
+          id: newLeaseId,
+          unit_id: newUnitId,
+          deal_id: dealId,
+          tenant_name: tenantName || 'Commercial Tenant',
+          monthly_rent: rent,
+          security_deposit: rent * 2,
+          lease_start_date: startDate || new Date().toISOString().split('T')[0],
+          lease_end_date: endDate || null,
+          tenant_email: email || null,
+          tenant_phone: phone || null,
+          notification_email: document.getElementById('new-lease-notification-email')?.value?.trim() || null,
+          last_rent_increase_date: startDate || null,
+          escalation_type: escType !== 'none' ? escType : null,
+          escalation_rate: escRate > 0 ? escRate : null,
+          escalation_frequency: escType !== 'none' ? escFreq : null,
+          next_escalation_date: escType !== 'none' ? nextEscDate : null,
+          is_active: true
+        };
+        rawLeases.push(newLease);
+
+        scheduledSteps.forEach((step, idx) => {
+          rawIncreases.push({
+            id: 'demo-inc-' + Date.now() + '-' + idx,
+            lease_id: newLeaseId,
+            deal_id: dealId,
+            effective_date: step.effective_date,
+            increase_type: step.increase_type,
+            scheduled_amount: step.scheduled_amount,
+            old_rent: rent,
+            new_rent: step.increase_type === 'percentage'
+              ? Math.round(rent * (1 + step.scheduled_amount / 100) * 100) / 100
+              : (rent + step.scheduled_amount),
+            percentage_change: step.increase_type === 'percentage' ? step.scheduled_amount : (rent > 0 ? ((step.scheduled_amount / rent) * 100).toFixed(1) : 0),
+            increase_amount: step.increase_type === 'percentage' ? ((rent * step.scheduled_amount) / 100) : step.scheduled_amount,
+            reason: step.reason || `Scheduled ${step.increase_type} increase`,
+            is_applied: false
+          });
+        });
+
+        await syncLeaseRollToDeal(dealId);
+        document.getElementById('form-add-lease').reset();
+        closeModal('modal-add-lease');
+        renderOperationsUI();
       }
     }
+    window.handleSaveNewLease = handleSaveNewLease;
 
 
     // Realtime Postgres sync for Property Management

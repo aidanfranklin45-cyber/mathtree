@@ -373,6 +373,8 @@
           uId = sessionRes.data?.session?.user?.id;
         }
         if (!uId) return [];
+        const isUuid = typeof uId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uId);
+        if (!isUuid) return [];
 
         const evalRes = await client.rpc('rpc_evaluate_deal_notifications', { p_user_id: uId });
         if (!evalRes.error && evalRes.data) {

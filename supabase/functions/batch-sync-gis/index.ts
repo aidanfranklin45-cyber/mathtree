@@ -8,6 +8,49 @@ const corsHeaders = {
 };
 
 const YAKIMA_TAXLOTS_URL = "https://maps.yakimacounty.us/server/rest/services/Assessor/Taxlots/FeatureServer/2/query";
+const WA_CADASTRE_URL = "https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre/MapServer/0/query";
+const WA_CADASTRE_FALLBACK_URL = "https://services.arcgis.com/Ie0K5n4UyLAfvdiX/arcgis/rest/services/Washington_2024_DOR_Parcels/FeatureServer/0/query";
+
+function mapWaCadastreRecord(f: Record<string, unknown>): Record<string, unknown> | null {
+  if (!f) return null;
+  const a = (f.attributes as Record<string, unknown>) || {};
+  const apn = String(a.PARCEL_ID || a.COUNTY_PARCEL_NO || a.APN || a.PIN || a.ASSESSOR_N || "").trim();
+  if (!apn) return null;
+
+  const county = String(a.COUNTY || a.COUNTY_NAME || a.COUNTY_LABEL_NM || (a.CO_NO ? `County ${a.CO_NO}` : "") || "").trim();
+  let acres = parseFloat(String(a.ACRES || a.ACREAGE || a.CALC_ACRES || a.PRCL_REVW_TOTAL_ACRES || 0)) || 0;
+  if (!acres && a.Shape__Area) {
+    acres = parseFloat(String(a.Shape__Area)) / 43560;
+  }
+  const land = parseFloat(String(a.LND_VAL || a.MKT_LAND || 0)) || 0;
+  const imp = parseFloat(String(a.IMP_VAL || a.MKT_IMPVT || 0)) || 0;
+  const total = parseFloat(String(a.TOTAL_VAL || a.TOTAL_ASSESSED_VALUE || a.JV || 0)) || (land + imp);
+
+  const street = String(a.SITUS_ADDR || a.SITUS_ADDRESS || a.PHY_ADDR1 || a.ADDRESS || "").trim();
+  const city = String(a.SITUS_CITY || a.PHY_CITY || a.CITY || "").trim();
+  const zip = String(a.SITUS_ZIP || a.PHY_ZIPCD || "").trim();
+  const address = street ? [street, city, "WA", zip].filter(Boolean).join(", ") : `Parcel ${apn} (${county || "WA"})`;
+
+  const owner = String(a.OWN_NAME || a.OWNER || a.LANDOWNERS || [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(" ") || "Owner of Record").trim();
+
+  return {
+    apn,
+    formattedApn: apn,
+    address,
+    marketLandValue: land,
+    marketImprovementValue: imp,
+    totalAssessedValue: total,
+    acres: Math.round(acres * 1000) / 1000,
+    sqft: Math.round(acres * 43560),
+    taxYear: a.ASMNT_YR || a.TAX_YEAR || new Date().getFullYear(),
+    zoning: String(a.ZONING || a.ZONE || "WA State Cadastre"),
+    useCode: String(a.DOR_UC || a.USE_CODE || "General"),
+    owner,
+    legal: String(a.S_LEGAL || a.LEGAL || ""),
+    county: county || "Washington",
+    source: "wa_state_cadastre"
+  };
+}
 
 function getEnv(key: string): string {
   try {
@@ -144,6 +187,52 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
     }
 
+    // 3b. Fallback: Query WA State Statewide Cadastre for APNs not resolved in Yakima County
+    const missingApns = uniqueApns.filter(a => !parcelDataMap.has(a));
+    let statewideResolvedCount = 0;
+
+    if (missingApns.length > 0) {
+      console.log(`[batch-sync-gis] ${missingApns.length} APNs not found in Yakima County GIS. Initiating WA State Cadastre fallback...`);
+      const waEndpoints = [WA_CADASTRE_URL, WA_CADASTRE_FALLBACK_URL];
+
+      for (const apn of missingApns) {
+        let resolved = false;
+        for (const url of waEndpoints) {
+          if (resolved) break;
+          try {
+            const whereClause = url === WA_CADASTRE_URL
+              ? `PARCEL_ID = '${apn}' OR COUNTY_PARCEL_NO = '${apn}' OR APN = '${apn}'`
+              : `PARCEL_ID = '${apn}' OR PARCEL_ID LIKE '%${apn}%'`;
+
+            const params = new URLSearchParams({
+              where: whereClause,
+              outFields: "*",
+              f: "json",
+              resultRecordCount: "1"
+            });
+
+            const waRes = await fetch(`${url}?${params.toString()}`);
+            if (waRes.ok) {
+              const waData = await waRes.json();
+              if (Array.isArray(waData?.features) && waData.features.length > 0) {
+                const mapped = mapWaCadastreRecord(waData.features[0]);
+                if (mapped) {
+                  parcelDataMap.set(apn, mapped);
+                  statewideResolvedCount++;
+                  resolved = true;
+                  console.log(`[batch-sync-gis] Resolved APN ${apn} via WA State Cadastre (${mapped.county || "WA"})`);
+                }
+              }
+            } else {
+              console.warn(`[batch-sync-gis] WA Cadastre request failed with HTTP ${waRes.status} on ${url}`);
+            }
+          } catch (waErr) {
+            console.warn(`[batch-sync-gis] Error querying WA State Cadastre for APN ${apn}:`, waErr);
+          }
+        }
+      }
+    }
+
     // 4. Update deals with refreshed parcel and assessor information
     let updatedCount = 0;
     const nowIso = new Date().toISOString();
@@ -175,7 +264,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           const fresh = parcelDataMap.get(pApn);
           if (fresh) {
             hasUpdate = true;
-            const updatedP = {
+            const updatedP: Record<string, unknown> = {
               ...pObj,
               marketLandValue: fresh.marketLandValue,
               marketImprovementValue: fresh.marketImprovementValue,
@@ -198,9 +287,10 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
 
       if (hasUpdate) {
+        const isStatewide = primaryData && primaryData.source === "wa_state_cadastre";
         updatedInputs.gisSync = {
           lastSyncedAt: nowIso,
-          syncSource: "yakima_arcgis",
+          syncSource: isStatewide ? "wa_state_cadastre" : "yakima_arcgis",
           status: "active",
           batchJob: true
         };
@@ -220,6 +310,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       totalDeals: deals.length,
       apnsQueried: uniqueApns.length,
       parcelsRefreshed: parcelDataMap.size,
+      yakimaRefreshed: uniqueApns.length - missingApns.length,
+      statewideFallbackCount: statewideResolvedCount,
       updatedDeals: updatedCount,
       durationMs: Date.now() - startTime,
       syncedAt: nowIso

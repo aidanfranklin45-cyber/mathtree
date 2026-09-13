@@ -1708,7 +1708,7 @@ if (typeof exports !== 'undefined') {
   exports.getBenchmarkCapRateRange = getBenchmarkCapRateRange;
   exports.calculateHoldingPeriodWealth = calculateHoldingPeriodWealth;
 }
-const globalScope = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
+var globalScope = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
 globalScope.PropertyMath = {
   calculateProjections,
   calculateMonthlyProjections,
