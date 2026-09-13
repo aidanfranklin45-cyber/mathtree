@@ -401,12 +401,15 @@ export type Database = {
           effective_date: string
           id: string
           increase_amount: number | null
+          increase_type: string
+          is_applied: boolean
           lease_id: string
-          new_rent: number
+          new_rent: number | null
           notice_sent_date: string | null
-          old_rent: number
+          old_rent: number | null
           percentage_change: number | null
           reason: string | null
+          scheduled_amount: number | null
           user_id: string | null
         }
         Insert: {
@@ -415,12 +418,15 @@ export type Database = {
           effective_date: string
           id?: string
           increase_amount?: number | null
+          increase_type?: string
+          is_applied?: boolean
           lease_id: string
-          new_rent: number
+          new_rent?: number | null
           notice_sent_date?: string | null
-          old_rent: number
+          old_rent?: number | null
           percentage_change?: number | null
           reason?: string | null
+          scheduled_amount?: number | null
           user_id?: string | null
         }
         Update: {
@@ -429,12 +435,15 @@ export type Database = {
           effective_date?: string
           id?: string
           increase_amount?: number | null
+          increase_type?: string
+          is_applied?: boolean
           lease_id?: string
-          new_rent?: number
+          new_rent?: number | null
           notice_sent_date?: string | null
-          old_rent?: number
+          old_rent?: number | null
           percentage_change?: number | null
           reason?: string | null
+          scheduled_amount?: number | null
           user_id?: string | null
         }
         Relationships: [
@@ -742,6 +751,10 @@ export type Database = {
         Args: { p_deal_id: string; p_new_inputs?: Json }
         Returns: Json
       }
+      rpc_get_portfolio_operations_summary: {
+        Args: { p_user_id?: string | null }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -887,4 +900,46 @@ export type RentPaymentUpdate = Database['public']['Tables']['rent_payments']['U
 export type LeaseRow = Database['public']['Tables']['leases']['Row'];
 export type UnitRow = Database['public']['Tables']['units']['Row'];
 export type EntityRow = Database['public']['Tables']['entities']['Row'];
+export type RentIncreaseRow = Database['public']['Tables']['rent_increases']['Row'];
+export type RentIncreaseInsert = Database['public']['Tables']['rent_increases']['Insert'];
+export type RentIncreaseUpdate = Database['public']['Tables']['rent_increases']['Update'];
+
+export interface ScheduledUpcomingIncrease {
+  id: string;
+  lease_id: string;
+  deal_id: string;
+  deal_title: string;
+  tenant_name: string;
+  unit_number: string | null;
+  effective_date: string;
+  increase_type: 'percentage' | 'fixed_step' | 'cpi' | string;
+  scheduled_amount: number | null;
+  current_rent: number;
+  old_rent: number | null;
+  new_rent: number | null;
+  projected_increase_amount: number;
+  reason: string | null;
+  is_applied: boolean;
+  created_at: string;
+}
+
+export interface PortfolioOperationsSummary {
+  success: boolean;
+  user_id: string | null;
+  is_demo: boolean;
+  current_period: string;
+  total_monthly_rent: number;
+  total_annual_rent: number;
+  active_leases_count: number;
+  total_units: number;
+  occupied_units: number;
+  vacant_units: number;
+  occupancy_rate: number;
+  total_billed_current_month: number;
+  total_collected_current_month: number;
+  pending_collections_amount: number;
+  pending_collections_count: number;
+  upcoming_increases_count: number;
+  scheduled_upcoming_increases: ScheduledUpcomingIncrease[];
+}
 
