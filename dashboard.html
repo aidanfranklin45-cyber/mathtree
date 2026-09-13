@@ -15,7 +15,7 @@
   <script src="session.js"></script>
   <script src="mathtree-client.js"></script>
   <script src="profile.js"></script>
-  <script src="math.js?v=4"></script>
+  <script src="math.js?v=5"></script>
   <script src="address-service.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1395,7 +1395,6 @@
 
 
   <!-- Math Logic Scripts -->
-  <script src="math.js?v=4"></script>
   <script>
     // System variables
     let currentStatusFilter = 'owned'; // 'all' | 'prospect' | 'owned'
@@ -1765,6 +1764,10 @@
           ? parseFloat(d.year1_cashflow)
           : (parseFloat(d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow) || 0);
         const cfStr = formatCurrency(cfVal);
+        const cocVal = d.cash_on_cash !== undefined && d.cash_on_cash !== null && !isNaN(parseFloat(d.cash_on_cash))
+          ? parseFloat(d.cash_on_cash)
+          : (parseFloat(d.metrics?.year1CoC ?? d.metrics?.cashOnCash) || (cfVal && parseFloat(d.total_equity) > 0 ? (cfVal / parseFloat(d.total_equity) * 100) : 0));
+        const cocStr = isZeroEq ? 'N/M' : `${cocVal.toFixed(1)}%`;
         const dealTitle = resolveDealDisplayName(d, activeDashboardProjects);
         const tierStr = d.market_tier || d.inputs?.marketTier || d.inputs?.commTier || d.inputs?.storageTier || 'Tier 2';
         const classStr = d.property_class || d.inputs?.propertyClass || d.inputs?.commClass || d.inputs?.storageClass || 'Class B';

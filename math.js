@@ -1708,25 +1708,28 @@ if (typeof exports !== 'undefined') {
   exports.getBenchmarkCapRateRange = getBenchmarkCapRateRange;
   exports.calculateHoldingPeriodWealth = calculateHoldingPeriodWealth;
 }
-var globalScope = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
-globalScope.PropertyMath = {
-  calculateProjections,
-  calculateMonthlyProjections,
-  calculateMonthlyPayment,
-  getAnnualAmortization,
-  getMonthlyAmortization,
-  calculateRemainingBalance,
-  calculateSensitivityMatrix,
-  runMonteCarloSimulation,
-  calculateTaxAndDepreciation,
-  calculateRefinanceEvent,
-  solveTargetPurchasePrice,
-  aggregatePortfolio,
-  auditDealRisks,
-  generateScenarioVariants,
-  getBenchmarkCapRateRange,
-  calculateHoldingPeriodWealth
-};
-if (typeof window !== 'undefined') {
-  window.PropertyMath = globalScope.PropertyMath;
-}
+(function () {
+  var target = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
+  target.PropertyMath = {
+    calculateProjections,
+    calculateMonthlyProjections,
+    calculateMonthlyPayment,
+    getAnnualAmortization,
+    getMonthlyAmortization,
+    calculateRemainingBalance,
+    calculateSensitivityMatrix,
+    runMonteCarloSimulation,
+    calculateTaxAndDepreciation,
+    calculateRefinanceEvent,
+    solveTargetPurchasePrice,
+    aggregatePortfolio,
+    auditDealRisks,
+    generateScenarioVariants,
+    getBenchmarkCapRateRange,
+    calculateHoldingPeriodWealth
+  };
+  if (typeof window !== 'undefined') {
+    window.PropertyMath = target.PropertyMath;
+  }
+})();
+
