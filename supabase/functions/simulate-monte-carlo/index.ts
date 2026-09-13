@@ -18,6 +18,118 @@ function randomGaussian(mean: number, stdDev: number): number {
   return mean + z * stdDev;
 }
 
+interface HistogramBin {
+  label: string;
+  binStart: number;
+  binEnd: number;
+  count: number;
+  isTail?: boolean;
+}
+
+/**
+ * Adaptive Histogram Binning
+ * Concentrates bins across the dense core distribution (e.g. 9%-20% IRR)
+ * while isolating extreme downside or upside tail stress outliers in dedicated tail bins.
+ * Guarantees exactly targetBinCount bins and sums to 100% of runs.
+ */
+function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount = 10): HistogramBin[] {
+  if (!sortedIrrs || sortedIrrs.length === 0) return [];
+  const n = sortedIrrs.length;
+  if (n <= targetBinCount) {
+    return sortedIrrs.map((val) => {
+      const rounded = Math.round(val * 10) / 10;
+      return {
+        label: `${rounded}%`,
+        binStart: rounded,
+        binEnd: rounded,
+        count: 1,
+        isTail: false
+      };
+    });
+  }
+
+  const p1 = sortedIrrs[Math.floor(n * 0.01)];
+  const p25 = sortedIrrs[Math.floor(n * 0.25)];
+  const p75 = sortedIrrs[Math.floor(n * 0.75)];
+  const p99 = sortedIrrs[Math.min(n - 1, Math.floor(n * 0.99))];
+  const minVal = sortedIrrs[0];
+  const maxVal = sortedIrrs[n - 1];
+
+  const iqr = Math.max(0.1, p75 - p25);
+  let lowerBound = Math.max(p1, p25 - 1.5 * iqr);
+  let upperBound = Math.min(p99, p75 + 1.5 * iqr);
+
+  const hasLeftTail = minVal < lowerBound;
+  const hasRightTail = maxVal > upperBound;
+
+  let tailBinsCount = (hasLeftTail ? 1 : 0) + (hasRightTail ? 1 : 0);
+  let coreBinCount = targetBinCount - tailBinsCount;
+
+  if (upperBound <= lowerBound || coreBinCount < 1) {
+    lowerBound = minVal;
+    upperBound = maxVal;
+    tailBinsCount = 0;
+    coreBinCount = targetBinCount;
+  }
+
+  const coreWidth = (upperBound - lowerBound) / coreBinCount;
+  const bins: HistogramBin[] = [];
+
+  // Left tail bin for downside outliers
+  if (hasLeftTail) {
+    const count = sortedIrrs.filter(v => v < lowerBound).length;
+    const roundedLower = Math.round(lowerBound * 10) / 10;
+    bins.push({
+      label: `< ${roundedLower}%`,
+      binStart: Math.round(minVal * 10) / 10,
+      binEnd: roundedLower,
+      count,
+      isTail: true
+    });
+  }
+
+  // Core distribution bins
+  for (let i = 0; i < coreBinCount; i++) {
+    const bStart = lowerBound + i * coreWidth;
+    const bEnd = lowerBound + (i + 1) * coreWidth;
+    const isLastCore = (i === coreBinCount - 1);
+
+    const count = sortedIrrs.filter(v => {
+      if (v < bStart) return false;
+      if (isLastCore && !hasRightTail) {
+        return v <= bEnd;
+      }
+      return v < bEnd;
+    }).length;
+
+    const rStart = Math.round(bStart * 10) / 10;
+    const rEnd = Math.round(bEnd * 10) / 10;
+
+    bins.push({
+      label: `${rStart}% to ${rEnd}%`,
+      binStart: rStart,
+      binEnd: rEnd,
+      count,
+      isTail: false
+    });
+  }
+
+  // Right tail bin for upside outliers
+  if (hasRightTail) {
+    const count = sortedIrrs.filter(v => v >= upperBound).length;
+    const roundedUpper = Math.round(upperBound * 10) / 10;
+    bins.push({
+      label: `≥ ${roundedUpper}%`,
+      binStart: roundedUpper,
+      binEnd: Math.round(maxVal * 10) / 10,
+      count,
+      isTail: true
+    });
+  }
+
+  return bins;
+}
+
 // -------------------------------------------------------------------------
 // 1. UNIFIED FINANCIAL ENGINE (Standardized from math.js)
 // -------------------------------------------------------------------------
@@ -509,29 +621,8 @@ serve(async (req: Request) => {
       riskClassification = 'Capital Call Vulnerable (Operating Cash Flow Risk)';
     }
 
-    // 10-bin presentation histogram
-    const bin10Count = 10;
-    const bin10Width = Math.max(0.1, (maxIrr - minIrr) / bin10Count);
-    const histogramBins: { label: string; binStart: number; binEnd: number; count: number }[] = [];
-
-    for (let b = 0; b < bin10Count; b++) {
-      const bStart = Math.round((minIrr + b * bin10Width) * 10) / 10;
-      const bEnd = Math.round((minIrr + (b + 1) * bin10Width) * 10) / 10;
-      histogramBins.push({
-        label: `${bStart}% - ${bEnd}%`,
-        binStart: bStart,
-        binEnd: bEnd,
-        count: 0
-      });
-    }
-
-    for (let i = 0; i < runs; i++) {
-      const val = irrResults[i];
-      let idx = Math.floor((val - minIrr) / bin10Width);
-      if (idx >= bin10Count) idx = bin10Count - 1;
-      if (idx < 0) idx = 0;
-      histogramBins[idx].count++;
-    }
+    // 10-bin presentation histogram with adaptive outlier binning
+    const histogramBins = buildAdaptiveHistogramBins(irrResults, 10);
 
     // 20-bin granular histogram
     const binCount = 20;

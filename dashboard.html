@@ -1402,7 +1402,141 @@
     let currentAssetFilter = 'all';  // 'all' | 'single-family' | 'multi-unit' | 'commercial' | 'storage'
     let activeDashboardProjects = [];
 
-    // Synthetic benchmarks are loaded dynamically from Supabase (is_demo = true)
+    // Verified real Yakima County Assessor benchmark records (is_demo = true)
+    const REAL_COUNTY_BENCHMARKS = [
+      {
+        id: '37177115-f7de-49ac-b417-7995b9a52149',
+        title: '128 N 2nd St Commercial Facility',
+        asset_class: 'commercial',
+        asset_type: 'commercial',
+        status: 'prospect',
+        location: '128 N 2nd St, Yakima, WA 98901',
+        purchase_price: 14500000,
+        irr: 16.8,
+        equity_multiple: 2.2,
+        cash_on_cash: 8.9,
+        year1_cashflow: 322500,
+        total_equity: 3625000,
+        is_synthetic: true,
+        inputs: {
+          purchasePrice: 14500000,
+          propertyAddress: '128 N 2ND ST, YAKIMA, WA 98901',
+          primaryApn: '19131922484',
+          apn: '19131922484',
+          formattedApn: '191319-22484',
+          county: 'Yakima County, WA',
+          totalAssessedValue: 14488800,
+          marketLandValue: 849000,
+          marketImprovementValue: 13639800,
+          acres: 1.95,
+          sqft: 84903,
+          zoning: '(CBD) Central Business District',
+          useCode: '67 Service - Governmental',
+          owner: 'PUBLIC SERVICES-FACILITIES',
+          legalDescription: 'YAKIMA: LOTS 6 THRU 28 BLK 29',
+          taxYear: 2027
+        }
+      },
+      {
+        id: '6b7a86af-ce7c-442e-805e-83b57d0f5b37',
+        title: '2239 Longfibre Rd Logistics Center',
+        asset_class: 'commercial',
+        asset_type: 'commercial',
+        status: 'owned',
+        location: '2239 Longfibre Rd, Yakima, WA 98903',
+        purchase_price: 1850000,
+        irr: 18.2,
+        equity_multiple: 2.35,
+        cash_on_cash: 10.4,
+        year1_cashflow: 48100,
+        total_equity: 462500,
+        is_synthetic: true,
+        inputs: {
+          purchasePrice: 1850000,
+          propertyAddress: '2239 LONGFIBRE RD, YAKIMA, WA 98903',
+          primaryApn: '19133143417',
+          apn: '19133143417',
+          formattedApn: '191331-43417',
+          county: 'Yakima County, WA',
+          totalAssessedValue: 1542600,
+          marketLandValue: 613500,
+          marketImprovementValue: 929100,
+          acres: 0.70,
+          sqft: 30675,
+          zoning: '(M-1) Light Industrial',
+          useCode: '64 Service - Repair',
+          owner: 'AMJ VALLEY MALL LLC',
+          legalDescription: 'Section 31 Township 13 N Range 19: SP# 8185030 LOT 1',
+          taxYear: 2027
+        }
+      },
+      {
+        id: '46d3d161-2c23-4486-a488-9f697aaa7a89',
+        title: '9150 Occidental Rd Apple Tree Vistas',
+        asset_class: 'multi-unit',
+        asset_type: 'multi-unit',
+        status: 'prospect',
+        location: '9150 Occidental Rd, Yakima, WA 98908',
+        purchase_price: 980000,
+        irr: 19.4,
+        equity_multiple: 2.45,
+        cash_on_cash: 9.8,
+        year1_cashflow: 24000,
+        total_equity: 245000,
+        is_synthetic: true,
+        inputs: {
+          purchasePrice: 980000,
+          propertyAddress: '9150 OCCIDENTAL RD, YAKIMA, WA 98908',
+          primaryApn: '17120111403',
+          apn: '17120111403',
+          formattedApn: '171201-11403',
+          county: 'Yakima County, WA',
+          totalAssessedValue: 517800,
+          marketLandValue: 37300,
+          marketImprovementValue: 480500,
+          acres: 0.02,
+          sqft: 800,
+          zoning: '(R-3) Multi-Family Residential',
+          useCode: '11 Single Unit',
+          owner: 'MARK P & MARCIA D JOHNSON',
+          legalDescription: 'Section 01 Township 12 Range 17: Condominium THE VISTAS AT APPLE TREE NO. 1 UNIT #1 AF# 7344001',
+          taxYear: 2027
+        }
+      },
+      {
+        id: '5895f66c-1c35-4f35-a43b-7a03aa39aef9',
+        title: '9202 Occidental Rd West Valley Estate',
+        asset_class: 'single-family',
+        asset_type: 'single-family',
+        status: 'owned',
+        location: '9202 Occidental Rd, Yakima, WA 98908',
+        purchase_price: 575000,
+        irr: 15.2,
+        equity_multiple: 2.15,
+        cash_on_cash: 8.2,
+        year1_cashflow: 9430,
+        total_equity: 115000,
+        is_synthetic: true,
+        inputs: {
+          purchasePrice: 575000,
+          propertyAddress: '9202 OCCIDENTAL RD, YAKIMA, WA 98908',
+          primaryApn: '17120111005',
+          apn: '17120111005',
+          formattedApn: '171201-11005',
+          county: 'Yakima County, WA',
+          totalAssessedValue: 565100,
+          marketLandValue: 181600,
+          marketImprovementValue: 383500,
+          acres: 4.17,
+          sqft: 181600,
+          zoning: '(R-1) Single-Family Residential',
+          useCode: '11 Single Unit',
+          owner: 'STEPHEN M & ELIZABETH J HULL',
+          legalDescription: 'Section 01 Township 12 Range 17 Quarter NE',
+          taxYear: 2027
+        }
+      }
+    ];
 
 
     function formatCurrency(val) {
@@ -1542,11 +1676,24 @@
           window._dashboardEntities = resEntities.data || [];
 
           if (!resDeals.error && resDeals.data && resDeals.data.length > 0) {
+            // Existing user with custom deals: EXCLUSIVELY show their deals (0 demos)
             activeDashboardProjects = resDeals.data.map(mapSupabaseDeal);
+            window._isViewingNewUserDemos = false;
             loadedFromSupabase = true;
           } else if (!resDeals.error && resDeals.data && resDeals.data.length === 0) {
-            // New user account with no custom deals yet: keep clean empty pipeline
-            activeDashboardProjects = [];
+            // New user account with 0 custom deals: fall back gracefully to real Yakima County benchmarks
+            let demoDeals = [];
+            try {
+              const { data: bDeals } = await window._supabase
+                .from('deals')
+                .select('*')
+                .eq('is_demo', true)
+                .order('created_at', { ascending: false });
+              if (bDeals && bDeals.length > 0) demoDeals = bDeals;
+            } catch (e) {}
+            if (!demoDeals.length) demoDeals = REAL_COUNTY_BENCHMARKS;
+            activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
+            window._isViewingNewUserDemos = true;
             loadedFromSupabase = true;
           } else if (resDeals.error && (resDeals.error.code === 'PGRST303' || resDeals.error.message?.includes('JWT'))) {
             try {
@@ -1557,8 +1704,18 @@
                   .select('*')
                   .eq('user_id', user.id)
                   .order('created_at', { ascending: false });
-                if (!retryDeals.error && retryDeals.data) {
+                if (!retryDeals.error && retryDeals.data && retryDeals.data.length > 0) {
                   activeDashboardProjects = retryDeals.data.map(mapSupabaseDeal);
+                  window._isViewingNewUserDemos = false;
+                  loadedFromSupabase = true;
+                } else if (!retryDeals.error) {
+                  const { data: bDeals } = await window._supabase
+                    .from('deals')
+                    .select('*')
+                    .eq('is_demo', true)
+                    .order('created_at', { ascending: false });
+                  activeDashboardProjects = (bDeals && bDeals.length > 0 ? bDeals : REAL_COUNTY_BENCHMARKS).map(mapSupabaseDeal);
+                  window._isViewingNewUserDemos = true;
                   loadedFromSupabase = true;
                 }
               }
@@ -1578,15 +1735,18 @@
           } catch (e) {}
           if (storedDeals && storedDeals.length > 0) {
             activeDashboardProjects = storedDeals.map(mapSupabaseDeal);
+          } else {
+            activeDashboardProjects = REAL_COUNTY_BENCHMARKS.map(mapSupabaseDeal);
+            window._isViewingNewUserDemos = true;
           }
-        } else {
+        } else if (!window._isViewingNewUserDemos) {
           // Cache this user's deals locally strictly under their isolated user key
           try {
             localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));
           } catch(e) {}
         }
       } else {
-        // 2. DEMO SANDBOX: Dynamically fetch authentic synthetic benchmarks from Supabase (is_demo = true)
+        // 2. DEMO SANDBOX: Dynamically fetch authentic real-county benchmarks from Supabase (is_demo = true)
         let demoDeals = [];
         if (window._supabase) {
           try {
@@ -1610,66 +1770,30 @@
           } catch (e) {}
         }
         if (!demoDeals.length) {
-          demoDeals = [
-            {
-              id: 'demo-pecan-grove',
-              title: 'Pecan Grove Single Family Portfolio',
-              asset_class: 'single-family',
-              status: 'prospect',
-              location: 'Dallas, TX',
-              purchase_price: 1250000,
-              irr: 19.2,
-              equity_multiple: 2.3,
-              cash_on_cash: 8.5,
-              year1_cashflow: 26500,
-              total_equity: 312500,
-              is_synthetic: true
-            },
-            {
-              id: 'demo-highland-exec',
-              title: 'Highland Executive Center',
-              asset_class: 'commercial',
-              status: 'owned',
-              location: 'Denver, CO',
-              purchase_price: 3400000,
-              irr: 17.5,
-              equity_multiple: 2.1,
-              cash_on_cash: 9.1,
-              year1_cashflow: 77350,
-              total_equity: 850000,
-              is_synthetic: true
-            },
-            {
-              id: 'demo-westfield-ind',
-              title: 'Westfield Industrial Logistics Bay',
-              asset_class: 'commercial',
-              status: 'owned',
-              location: 'Phoenix, AZ',
-              purchase_price: 4200000,
-              irr: 18.8,
-              equity_multiple: 2.4,
-              cash_on_cash: 9.6,
-              year1_cashflow: 100800,
-              total_equity: 1050000,
-              is_synthetic: true
-            },
-            {
-              id: 'demo-oakridge-12plex',
-              title: 'Oakridge 12-Plex Multi-Family',
-              asset_class: 'multi-unit',
-              status: 'prospect',
-              location: 'Atlanta, GA',
-              purchase_price: 2100000,
-              irr: 21.4,
-              equity_multiple: 2.6,
-              cash_on_cash: 10.2,
-              year1_cashflow: 53550,
-              total_equity: 525000,
-              is_synthetic: true
-            }
-          ];
+          demoDeals = REAL_COUNTY_BENCHMARKS;
         }
         activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
+      }
+
+      // Show/Hide demo banner for new users or sandbox mode
+      const demoBanner = document.getElementById('demo-sandbox-banner');
+      if (demoBanner) {
+        if (isDemo) {
+          demoBanner.classList.remove('hidden');
+        } else if (window._isViewingNewUserDemos) {
+          demoBanner.classList.remove('hidden');
+          demoBanner.innerHTML = `
+            <div class="flex items-center space-x-2">
+              <span class="text-sm">🌱</span>
+              <span><strong>Welcome to MathTree</strong> — You don't have any custom properties yet. You are viewing sample prospects backed by real Yakima County Assessor data. Click <strong>"+ New Project"</strong> above to analyze your first property.</span>
+            </div>
+            <button onclick="openWizardModal()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition">
+              + New Project
+            </button>
+          `;
+        } else {
+          demoBanner.classList.add('hidden');
+        }
       }
 
       // Sync local cache only if deals were loaded from Supabase or valid

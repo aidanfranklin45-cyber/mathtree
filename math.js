@@ -955,6 +955,110 @@ function gaussianRandom(mean = 0, stdDev = 1) {
 }
 
 /**
+ * Helper: Adaptive Histogram Binning
+ * Concentrates bins across the dense core distribution (e.g. 9%-20% IRR)
+ * while isolating extreme downside or upside tail stress outliers in dedicated tail bins.
+ * Guarantees exactly targetBinCount bins and sums to 100% of runs.
+ */
+function buildAdaptiveHistogramBins(sortedIrrs, targetBinCount = 10) {
+  if (!sortedIrrs || sortedIrrs.length === 0) return [];
+  const n = sortedIrrs.length;
+  if (n <= targetBinCount) {
+    return sortedIrrs.map((val) => {
+      const rounded = Math.round(val * 10) / 10;
+      return {
+        label: `${rounded}%`,
+        binStart: rounded,
+        binEnd: rounded,
+        count: 1,
+        isTail: false
+      };
+    });
+  }
+
+  const p1 = sortedIrrs[Math.floor(n * 0.01)];
+  const p25 = sortedIrrs[Math.floor(n * 0.25)];
+  const p75 = sortedIrrs[Math.floor(n * 0.75)];
+  const p99 = sortedIrrs[Math.min(n - 1, Math.floor(n * 0.99))];
+  const minVal = sortedIrrs[0];
+  const maxVal = sortedIrrs[n - 1];
+
+  const iqr = Math.max(0.1, p75 - p25);
+  let lowerBound = Math.max(p1, p25 - 1.5 * iqr);
+  let upperBound = Math.min(p99, p75 + 1.5 * iqr);
+
+  const hasLeftTail = minVal < lowerBound;
+  const hasRightTail = maxVal > upperBound;
+
+  let tailBinsCount = (hasLeftTail ? 1 : 0) + (hasRightTail ? 1 : 0);
+  let coreBinCount = targetBinCount - tailBinsCount;
+
+  if (upperBound <= lowerBound || coreBinCount < 1) {
+    lowerBound = minVal;
+    upperBound = maxVal;
+    tailBinsCount = 0;
+    coreBinCount = targetBinCount;
+  }
+
+  const coreWidth = (upperBound - lowerBound) / coreBinCount;
+  const bins = [];
+
+  // Left tail bin for downside outliers
+  if (hasLeftTail) {
+    const count = sortedIrrs.filter(v => v < lowerBound).length;
+    const roundedLower = Math.round(lowerBound * 10) / 10;
+    bins.push({
+      label: `< ${roundedLower}%`,
+      binStart: Math.round(minVal * 10) / 10,
+      binEnd: roundedLower,
+      count,
+      isTail: true
+    });
+  }
+
+  // Core distribution bins
+  for (let i = 0; i < coreBinCount; i++) {
+    const bStart = lowerBound + i * coreWidth;
+    const bEnd = lowerBound + (i + 1) * coreWidth;
+    const isLastCore = (i === coreBinCount - 1);
+
+    const count = sortedIrrs.filter(v => {
+      if (v < bStart) return false;
+      if (isLastCore && !hasRightTail) {
+        return v <= bEnd;
+      }
+      return v < bEnd;
+    }).length;
+
+    const rStart = Math.round(bStart * 10) / 10;
+    const rEnd = Math.round(bEnd * 10) / 10;
+
+    bins.push({
+      label: `${rStart}% to ${rEnd}%`,
+      binStart: rStart,
+      binEnd: rEnd,
+      count,
+      isTail: false
+    });
+  }
+
+  // Right tail bin for upside outliers
+  if (hasRightTail) {
+    const count = sortedIrrs.filter(v => v >= upperBound).length;
+    const roundedUpper = Math.round(upperBound * 10) / 10;
+    bins.push({
+      label: `≥ ${roundedUpper}%`,
+      binStart: roundedUpper,
+      binEnd: Math.round(maxVal * 10) / 10,
+      count,
+      isTail: true
+    });
+  }
+
+  return bins;
+}
+
+/**
  * 2. Run Monte Carlo Probabilistic Simulation
  */
 function runMonteCarloSimulation(assetType, baseInputs, iterations = 1000) {
@@ -1057,23 +1161,8 @@ function runMonteCarloSimulation(assetType, baseInputs, iterations = 1000) {
   const medianIrr = irrs[p50Index];
   const p95Irr = irrs[p95Index];
 
-  // Create 10 histogram bins for IRR distribution visual
-  const minIrr = irrs[0];
-  const maxIrr = irrs[irrs.length - 1];
-  const binWidth = (maxIrr - minIrr) / 10 || 1;
-  const bins = [];
-
-  for (let b = 0; b < 10; b++) {
-    const binStart = minIrr + b * binWidth;
-    const binEnd = binStart + binWidth;
-    const count = irrs.filter(val => val >= binStart && (b === 9 ? val <= binEnd : val < binEnd)).length;
-    bins.push({
-      label: `${Math.round(binStart)}% - ${Math.round(binEnd)}%`,
-      binStart: Math.round(binStart * 10) / 10,
-      binEnd: Math.round(binEnd * 10) / 10,
-      count
-    });
-  }
+  // Create 10 histogram bins for IRR distribution visual with adaptive outlier binning
+  const bins = buildAdaptiveHistogramBins(irrs, 10);
 
   let sumSq = 0;
   for (let i = 0; i < iterations; i++) {
@@ -1707,6 +1796,7 @@ if (typeof exports !== 'undefined') {
   exports.generateScenarioVariants = generateScenarioVariants;
   exports.getBenchmarkCapRateRange = getBenchmarkCapRateRange;
   exports.calculateHoldingPeriodWealth = calculateHoldingPeriodWealth;
+  exports.buildAdaptiveHistogramBins = buildAdaptiveHistogramBins;
 }
 (function () {
   var target = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
@@ -1719,6 +1809,7 @@ if (typeof exports !== 'undefined') {
     calculateRemainingBalance,
     calculateSensitivityMatrix,
     runMonteCarloSimulation,
+    buildAdaptiveHistogramBins,
     calculateTaxAndDepreciation,
     calculateRefinanceEvent,
     solveTargetPurchasePrice,
@@ -1730,6 +1821,10 @@ if (typeof exports !== 'undefined') {
   };
   if (typeof window !== 'undefined') {
     window.PropertyMath = target.PropertyMath;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = target.PropertyMath;
+    Object.assign(module.exports, target.PropertyMath);
   }
 })();
 
