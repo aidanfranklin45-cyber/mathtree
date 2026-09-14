@@ -207,8 +207,83 @@
     }
     window.getOperationsUrl = getOperationsUrl;
 
+    // =========================================================================
+    // MathTree Click & Modal Diagnostics Modulator
+    // Intercepts all clicks on Profile & Edit Inputs buttons, logs exact geometry,
+    // computed styles, DOM obstruction tests, and execution traces into the console.
+    // =========================================================================
+    (function initMathTreeClickModulator() {
+      console.log('%c[MathTree Modulator] Click & Error Diagnostics Modulator Active', 'background: #047857; color: #fff; font-weight: 800; padding: 3px 8px; border-radius: 4px;');
+
+      // Global capture click listener — intercepts BEFORE stopPropagation
+      window.addEventListener('click', function(event) {
+        try {
+          const target = event.target;
+          const profileBtn = target.closest ? target.closest('#btn-open-investor-profile') : null;
+          const editBtn = target.closest ? target.closest('button[onclick*="openEditDealModal"], button[title*="Edit Deal"]') : null;
+
+          if (profileBtn || editBtn) {
+            const btn = profileBtn || editBtn;
+            const btnType = profileBtn ? 'Investor Profile Button' : 'Edit Deal Inputs Button';
+            console.group('%c[MathTree Modulator] Click Detected: ' + btnType, 'background: #0284c7; color: white; font-weight: bold; padding: 2px 6px; border-radius: 4px;');
+            
+            // 1. Geometry & DOM state
+            const rect = btn.getBoundingClientRect();
+            const comp = window.getComputedStyle(btn);
+            const topElementAtPoint = document.elementFromPoint(event.clientX, event.clientY);
+            const isObstructed = topElementAtPoint && topElementAtPoint !== btn && !btn.contains(topElementAtPoint);
+
+            console.log('Button DOM Element:', btn);
+            console.log('Button ID:', btn.id || '(none)');
+            console.log('Position / Dimensions:', {
+              top: rect.top,
+              left: rect.left,
+              width: rect.width,
+              height: rect.height,
+              inViewport: rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight
+            });
+            console.log('Computed Styles:', {
+              display: comp.display,
+              visibility: comp.visibility,
+              opacity: comp.opacity,
+              pointerEvents: comp.pointerEvents,
+              zIndex: comp.zIndex,
+              offsetParent: btn.offsetParent !== null ? 'Visible in layout' : 'NULL (Considered Hidden by browser)'
+            });
+
+            if (isObstructed) {
+              console.warn('%c[MathTree Modulator] WARNING: Button is OBSTRUCTED by another element!', 'color: #f43f5e; font-weight: bold;', topElementAtPoint);
+            } else {
+              console.log('%c[MathTree Modulator] Click path clear: Top element is button or child.', 'color: #10b981;');
+            }
+
+            // Check target modal existence
+            const targetModalId = profileBtn ? 'investor-profile-modal' : 'edit-deal-modal';
+            const targetModal = document.getElementById(targetModalId);
+            console.log('Target Modal Element (' + targetModalId + '):', targetModal);
+            if (targetModal) {
+              const mComp = window.getComputedStyle(targetModal);
+              console.log('Modal Current Computed Styles:', {
+                display: mComp.display,
+                visibility: mComp.visibility,
+                opacity: mComp.opacity,
+                zIndex: mComp.zIndex,
+                classList: Array.from(targetModal.classList)
+              });
+            } else {
+              console.error('[MathTree Modulator] ERROR: Target modal #' + targetModalId + ' does NOT exist in DOM!');
+            }
+            console.groupEnd();
+          }
+        } catch (diagErr) {
+          console.error('[MathTree Modulator] Internal diagnostic error:', diagErr);
+        }
+      }, true); // Use capture phase so we see it before any stopPropagation
+    })();
+
     // Early safe stub for investor profile modal before main script execution
     window.openInvestorProfileModal = function() {
+      console.log('[MathTree Modulator] Early openInvestorProfileModal invoked');
       if (typeof window._openInvestorProfileModalImpl === 'function') {
         window._openInvestorProfileModalImpl();
       } else if (document.readyState === 'loading') {
@@ -2631,15 +2706,38 @@
 
 
     function openEditDealModal(dealId) {
+      console.group('%c[MathTree Modulator] openEditDealModal(' + dealId + ') called', 'background: #10b981; color: black; font-weight: bold; padding: 2px 6px;');
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
-      const deal = activeDashboardProjects.find(p => String(p.id) === String(dealId)) || getDashboardDealById(dealId);
+
+      let deal = (typeof activeDashboardProjects !== 'undefined' && Array.isArray(activeDashboardProjects))
+        ? activeDashboardProjects.find(p => String(p.id) === String(dealId))
+        : null;
+
+      if (!deal && typeof getDashboardDealById === 'function') {
+        deal = getDashboardDealById(dealId);
+      }
+
+      if (!deal && typeof REAL_COUNTY_BENCHMARKS !== 'undefined' && Array.isArray(REAL_COUNTY_BENCHMARKS)) {
+        const benchmark = REAL_COUNTY_BENCHMARKS.find(p => String(p.id) === String(dealId));
+        if (benchmark) {
+          deal = typeof mapSupabaseDeal === 'function' ? mapSupabaseDeal(benchmark) : benchmark;
+        }
+      }
+
+      console.log('[MathTree Modulator] Resolved deal object:', deal);
+
       if (!deal) {
-        console.warn('Deal not found for modal edit:', dealId);
+        console.error('%c[MathTree Modulator] ERROR: Deal not found for modal edit with ID: ' + dealId, 'color: #f43f5e; font-weight: bold;');
+        console.groupEnd();
         return;
       }
 
       const modal = document.getElementById('edit-deal-modal');
-      if (!modal) return;
+      if (!modal) {
+        console.error('%c[MathTree Modulator] ERROR: #edit-deal-modal not found in DOM!', 'color: #f43f5e; font-weight: bold;');
+        console.groupEnd();
+        return;
+      }
 
       try {
         const inputs = deal.inputs || {};
@@ -2790,10 +2888,20 @@
           }
         });
       } catch (err) {
-        console.warn('Warning during edit modal setup:', err);
+        console.error('[MathTree Modulator] Error during edit deal modal setup:', err);
       } finally {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('z-index', '99999', 'important');
+        const afterComp = window.getComputedStyle(modal);
+        console.log('[MathTree Modulator] Edit Modal successfully displayed! Computed styles:', {
+          display: afterComp.display,
+          visibility: afterComp.visibility,
+          opacity: afterComp.opacity,
+          zIndex: afterComp.zIndex
+        });
+        console.groupEnd();
       }
     }
 
@@ -2802,6 +2910,7 @@
       if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        modal.style.setProperty('display', 'none', 'important');
       }
     }
 
@@ -4102,43 +4211,65 @@
     window.updateProfileLiveNpvPreview = updateProfileLiveNpvPreview;
 
     function openInvestorProfileModal() {
+      console.group('%c[MathTree Modulator] openInvestorProfileModal() called', 'background: #10b981; color: black; font-weight: bold; padding: 2px 6px;');
       const modal = document.getElementById('investor-profile-modal');
-      if (!modal) return;
-      const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
-
-      const fNameEl = document.getElementById('prof-full-name');
-      if (fNameEl) fNameEl.value = prof.fullName || '';
-
-      const compEl = document.getElementById('prof-company-name');
-      if (compEl) compEl.value = prof.companyName || '';
-
-      const drEl = document.getElementById('prof-discount-rate');
-      if (drEl) {
-        drEl.value = prof.discountRate ?? 8.0;
-        if (!drEl._hasNpvListener) {
-          drEl.addEventListener('input', updateProfileLiveNpvPreview);
-          drEl.addEventListener('change', updateProfileLiveNpvPreview);
-          drEl._hasNpvListener = true;
-        }
+      if (!modal) {
+        console.error('%c[MathTree Modulator] ERROR: #investor-profile-modal not found in DOM!', 'color: #f43f5e; font-weight: bold;');
+        console.groupEnd();
+        return;
       }
 
-      const eyEl = document.getElementById('prof-exit-year');
-      if (eyEl) eyEl.value = prof.exitYear ?? 10;
-
-      const tierEl = document.getElementById('prof-market-tier');
-      if (tierEl) tierEl.value = prof.marketTier || 'Tier 2';
-
-      const timingRadios = document.getElementsByName('prof-exit-cap-timing');
-      for (const r of timingRadios) {
-        r.checked = (r.value === (prof.exitCapTiming || 'amortized'));
-      }
-
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
       try {
-        updateProfileLiveNpvPreview();
+        const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : {};
+        console.log('[MathTree Modulator] Current investor profile:', prof);
+
+        const fNameEl = document.getElementById('prof-full-name');
+        if (fNameEl) fNameEl.value = prof.fullName || '';
+
+        const compEl = document.getElementById('prof-company-name');
+        if (compEl) compEl.value = prof.companyName || '';
+
+        const drEl = document.getElementById('prof-discount-rate');
+        if (drEl) {
+          drEl.value = prof.discountRate ?? 8.0;
+          if (!drEl._hasNpvListener) {
+            drEl.addEventListener('input', updateProfileLiveNpvPreview);
+            drEl.addEventListener('change', updateProfileLiveNpvPreview);
+            drEl._hasNpvListener = true;
+          }
+        }
+
+        const eyEl = document.getElementById('prof-exit-year');
+        if (eyEl) eyEl.value = prof.exitYear ?? 10;
+
+        const tierEl = document.getElementById('prof-market-tier');
+        if (tierEl) tierEl.value = prof.marketTier || 'Tier 2';
+
+        const timingRadios = document.getElementsByName('prof-exit-cap-timing');
+        for (const r of timingRadios) {
+          r.checked = (r.value === (prof.exitCapTiming || 'amortized'));
+        }
+
+        try {
+          updateProfileLiveNpvPreview();
+        } catch (err) {
+          console.warn('[MathTree Modulator] Live NPV preview notice:', err);
+        }
       } catch (err) {
-        console.warn('Live NPV preview notice:', err);
+        console.error('[MathTree Modulator] Error during profile modal setup:', err);
+      } finally {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('z-index', '99999', 'important');
+        const afterComp = window.getComputedStyle(modal);
+        console.log('[MathTree Modulator] Profile Modal successfully displayed! Computed styles:', {
+          display: afterComp.display,
+          visibility: afterComp.visibility,
+          opacity: afterComp.opacity,
+          zIndex: afterComp.zIndex
+        });
+        console.groupEnd();
       }
     }
     window._openInvestorProfileModalImpl = openInvestorProfileModal;
@@ -4149,6 +4280,7 @@
       if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
+        modal.style.setProperty('display', 'none', 'important');
       }
     }
     window.closeInvestorProfileModal = closeInvestorProfileModal;
