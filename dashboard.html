@@ -211,12 +211,20 @@
     window.openInvestorProfileModal = function() {
       if (typeof window._openInvestorProfileModalImpl === 'function') {
         window._openInvestorProfileModalImpl();
-      } else {
+      } else if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
-          if (typeof window.openInvestorProfileModal === 'function') {
+          if (typeof window._openInvestorProfileModalImpl === 'function') {
+            window._openInvestorProfileModalImpl();
+          } else if (typeof window.openInvestorProfileModal === 'function') {
             window.openInvestorProfileModal();
           }
         }, { once: true });
+      } else {
+        setTimeout(function() {
+          if (typeof window._openInvestorProfileModalImpl === 'function') {
+            window._openInvestorProfileModalImpl();
+          }
+        }, 50);
       }
     };
   </script>
@@ -923,7 +931,7 @@
 
 
   <!-- Investor Profile & Underwriting Settings Modal -->
-  <div id="investor-profile-modal" role="dialog" aria-modal="true" onclick="if (event.target === this) closeInvestorProfileModal();" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+  <div id="investor-profile-modal" role="dialog" aria-modal="true" onclick="if (event.target === this) closeInvestorProfileModal();" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl my-6">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
@@ -2785,12 +2793,16 @@
         console.warn('Warning during edit modal setup:', err);
       } finally {
         modal.classList.remove('hidden');
+        modal.classList.add('flex');
       }
     }
 
     function closeEditDealModal() {
       const modal = document.getElementById('edit-deal-modal');
-      if (modal) modal.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
     }
 
     async function saveEditDealModal(e) {
@@ -2983,13 +2995,20 @@
 
     // === Dashboard Deal Lookup Helper ===
     function getDashboardDealById(id) {
-      let deal = activeDashboardProjects.find(p => String(p.id) === String(id));
+      if (!id) return null;
+      let deal = (activeDashboardProjects || []).find(p => String(p.id) === String(id));
       if (deal) return deal;
       try {
         const stored = JSON.parse(localStorage.getItem(getActiveStorageKey() || 'mathtree_local_deals') || '[]');
-        deal = stored.find(p => String(p.id) === String(id));
+        deal = (stored || []).find(p => String(p.id) === String(id));
         if (deal) return deal;
       } catch (e) {}
+      if (typeof REAL_COUNTY_BENCHMARKS !== 'undefined' && Array.isArray(REAL_COUNTY_BENCHMARKS)) {
+        const benchmark = REAL_COUNTY_BENCHMARKS.find(p => String(p.id) === String(id));
+        if (benchmark) {
+          return typeof mapSupabaseDeal === 'function' ? mapSupabaseDeal(benchmark) : benchmark;
+        }
+      }
       return null;
     }
 
@@ -4116,7 +4135,11 @@
 
       modal.classList.remove('hidden');
       modal.classList.add('flex');
-      updateProfileLiveNpvPreview();
+      try {
+        updateProfileLiveNpvPreview();
+      } catch (err) {
+        console.warn('Live NPV preview notice:', err);
+      }
     }
     window._openInvestorProfileModalImpl = openInvestorProfileModal;
     window.openInvestorProfileModal = openInvestorProfileModal;
