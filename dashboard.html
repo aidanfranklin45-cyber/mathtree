@@ -2046,7 +2046,7 @@
           : '';
 
         return `
-          <div onclick="navigateToProject(event, '${d.id}')" class="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-hidden w-full">
+          <div onclick="navigateToProject(event, '${d.id}')" class="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full">
             <div class="space-y-4">
               
               <!-- Top Meta Row: Icon, Asset Type, Benchmark Tag, Status & Menu -->
@@ -2068,7 +2068,7 @@
                       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/></svg>
                     </button>
                     <!-- Dropdown Options -->
-                    <div id="card-menu-${d.id}" class="card-dropdown-menu hidden absolute right-0 top-8 w-52 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-30">
+                    <div id="card-menu-${d.id}" class="card-dropdown-menu hidden absolute right-0 top-8 w-52 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-50">
                       <button onclick="toggleDealStatus('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
                         <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                         <span>${isOwned ? 'Move to Pipeline (Prospect)' : 'Mark as Acquired (Owned)'}</span>
@@ -2582,155 +2582,159 @@
       const modal = document.getElementById('edit-deal-modal');
       if (!modal) return;
 
-      const inputs = deal.inputs || {};
-      const aClass = deal.asset_class || deal.assetType || 'commercial';
+      try {
+        const inputs = deal.inputs || {};
+        const aClass = deal.asset_class || deal.assetType || 'commercial';
 
-      setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
+        setModalExitCapTimingUI(inputs.exitCapTiming || 'amortized');
 
-      document.getElementById('edit-deal-id').value = deal.id;
-      document.getElementById('edit-deal-asset-class').value = aClass;
-      document.getElementById('edit-deal-name').value = resolveDealDisplayName(deal, activeDashboardProjects);
-      document.getElementById('edit-deal-location').value = deal.location || '';
-      document.getElementById('edit-deal-status').value = deal.status || 'prospect';
+        if (document.getElementById('edit-deal-id')) document.getElementById('edit-deal-id').value = deal.id;
+        if (document.getElementById('edit-deal-asset-class')) document.getElementById('edit-deal-asset-class').value = aClass;
+        if (document.getElementById('edit-deal-name')) document.getElementById('edit-deal-name').value = resolveDealDisplayName(deal, activeDashboardProjects);
+        if (document.getElementById('edit-deal-location')) document.getElementById('edit-deal-location').value = deal.location || '';
+        if (document.getElementById('edit-deal-status')) document.getElementById('edit-deal-status').value = deal.status || 'prospect';
 
-      const price = deal.purchase_price || inputs.purchasePrice || 0;
-      document.getElementById('edit-deal-price').value = price;
+        const price = deal.purchase_price || inputs.purchasePrice || 0;
+        if (document.getElementById('edit-deal-price')) document.getElementById('edit-deal-price').value = price;
 
-      const subTitle = document.getElementById('edit-modal-deal-subtitle');
-      if (subTitle) {
-        subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Comprehensive Baseline Underwriting Parameters`;
-      }
-
-      if (document.getElementById('edit-deal-market-tier')) {
-        document.getElementById('edit-deal-market-tier').value = deal.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2';
-      }
-      if (document.getElementById('edit-deal-property-class')) {
-        document.getElementById('edit-deal-property-class').value = deal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B';
-      }
-      if (document.getElementById('edit-deal-facility-type')) {
-        document.getElementById('edit-deal-facility-type').value = deal.facility_type || inputs.facilityType || '';
-      }
-
-      const primaryLease = (inputs.leases && inputs.leases[0]) || {};
-      if (document.getElementById('edit-deal-tenant-name')) {
-        document.getElementById('edit-deal-tenant-name').value = primaryLease.tenantName || inputs.tenantName || deal.name || '';
-      }
-      if (document.getElementById('edit-deal-lease-start')) {
-        document.getElementById('edit-deal-lease-start').value = primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '';
-      }
-      if (document.getElementById('edit-deal-lease-end')) {
-        document.getElementById('edit-deal-lease-end').value = primaryLease.leaseEndDate || inputs.leaseEndDate || '';
-      }
-      if (document.getElementById('edit-deal-escalation-type')) {
-        document.getElementById('edit-deal-escalation-type').value = primaryLease.escalationType || 'Percentage Bump (%)';
-      }
-      if (document.getElementById('edit-deal-next-escalation')) {
-        document.getElementById('edit-deal-next-escalation').value = primaryLease.nextEscalationDate || '';
-      }
-
-      let preAnnual = 0;
-      let preMonthly = 0;
-      if (aClass === 'commercial') {
-        const pLease = (inputs.leases && inputs.leases[0]) || {};
-        preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0) || pLease.annualRent || (pLease.monthlyRent ? pLease.monthlyRent * 12 : 0);
-        preMonthly = 0;
-      } else if (aClass === 'single-family') {
-        preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
-        preAnnual  = preMonthly ? preMonthly * 12 : 0;
-      } else if (aClass === 'multi-unit') {
-        preMonthly = inputs.monthlyRentPerUnit || 0;
-        preAnnual  = 0;
-      } else if (aClass === 'storage') {
-        const uCount = inputs.storageUnitCount || inputs.unitCount || 20;
-        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
-        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
-      } else if (aClass === 'multi-unit') {
-        const uCount = inputs.unitCount || inputs.numUnits || 4;
-        preMonthly = inputs.monthlyRentPerUnit || inputs.rentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0);
-        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
-      }
-
-      document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
-      document.getElementById('edit-deal-gross-rent-monthly').value = preMonthly > 0 ? preMonthly : '';
-
-      document.getElementById('edit-deal-vacancy-rate').value = inputs.vacancyRate ?? 5;
-      document.getElementById('edit-deal-rent-growth').value = inputs.rentGrowth ?? inputs.annualRentGrowth ?? 3;
-      const appRate = (aClass === 'commercial' || aClass === 'storage')
-        ? (inputs.targetCapRate ?? inputs.targetExitCapRate ?? inputs.appreciationRate ?? 6.5)
-        : (inputs.appreciationRate ?? 3.5);
-      document.getElementById('edit-deal-appreciation-rate').value = appRate;
-
-      document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
-      const finType = inputs.financingType || 'fixed';
-      if (document.getElementById('edit-deal-financing-type')) {
-        document.getElementById('edit-deal-financing-type').value = finType;
-        toggleEditModalFinancing(finType);
-      }
-      if (document.getElementById('edit-deal-arm-initial')) document.getElementById('edit-deal-arm-initial').value = inputs.armInitialYears ?? 5;
-      if (document.getElementById('edit-deal-arm-rate')) document.getElementById('edit-deal-arm-rate').value = inputs.armAdjustmentRate ?? 7.75;
-      if (document.getElementById('edit-deal-arm-cap')) document.getElementById('edit-deal-arm-cap').value = inputs.armRateCap ?? 9.5;
-      if (document.getElementById('edit-deal-io-years')) document.getElementById('edit-deal-io-years').value = inputs.interestOnlyYears ?? 3;
-      document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
-      document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
-      document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
-
-      document.getElementById('edit-deal-rehab-costs').value = inputs.rehabCosts ?? inputs.rehabBudget ?? 0;
-      document.getElementById('edit-deal-closing-costs').value = inputs.closingCosts ?? 0;
-      document.getElementById('edit-deal-exit-year').value = inputs.exitYear ?? 10;
-      const currentProfile = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : { discountRate: 8 };
-      if (document.getElementById('edit-deal-discount-rate')) {
-        document.getElementById('edit-deal-discount-rate').value = inputs.discountRate ?? currentProfile.discountRate ?? 8;
-      }
-      
-      const mgmtEl = document.getElementById('edit-deal-manage-property');
-      if (mgmtEl) mgmtEl.checked = inputs.manageProperty !== false;
-
-      // Asset specific fields
-      if (document.getElementById('edit-deal-lease-type')) {
-        document.getElementById('edit-deal-lease-type').value = inputs.leaseType || 'NNN';
-      }
-      if (document.getElementById('edit-deal-gla')) {
-        document.getElementById('edit-deal-gla').value = inputs.gla || 15000;
-      }
-      if (document.getElementById('edit-deal-unit-count')) {
-        document.getElementById('edit-deal-unit-count').value = inputs.unitCount || inputs.numUnits || 4;
-      }
-      if (document.getElementById('edit-deal-storage-units')) {
-        document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100);
-      }
-      if (document.getElementById('edit-deal-storage-sqft')) {
-        document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || inputs.gla || (aClass === 'storage' ? 2000 : 10000);
-      }
-      if (document.getElementById('edit-deal-storage-automated')) {
-        document.getElementById('edit-deal-storage-automated').checked = inputs.isAutomated !== undefined ? !!inputs.isAutomated : true;
-      }
-      if (document.getElementById('edit-deal-arv')) {
-        document.getElementById('edit-deal-arv').value = inputs.arv || '';
-      }
-
-      // Show appropriate asset-specific group
-      ['commercial', 'multi', 'storage', 'sfr'].forEach(t => {
-        const el = document.getElementById(`edit-asset-group-${t}`);
-        if (el) el.classList.add('hidden');
-      });
-      if (aClass === 'commercial') document.getElementById('edit-asset-group-commercial')?.classList.remove('hidden');
-      else if (aClass === 'multi-unit') document.getElementById('edit-asset-group-multi')?.classList.remove('hidden');
-      else if (aClass === 'storage') document.getElementById('edit-asset-group-storage')?.classList.remove('hidden');
-      else if (aClass === 'single-family') document.getElementById('edit-asset-group-sfr')?.classList.remove('hidden');
-
-      // Live Pro-Forma preview update
-      updateEditModalLivePreview();
-
-      // Bind input events for live reactivity
-      document.querySelectorAll('#edit-deal-form input, #edit-deal-form select').forEach(el => {
-        if (!el._previewBound) {
-          el.addEventListener('input', updateEditModalLivePreview);
-          el.addEventListener('change', updateEditModalLivePreview);
-          el._previewBound = true;
+        const subTitle = document.getElementById('edit-modal-deal-subtitle');
+        if (subTitle) {
+          subTitle.textContent = `${aClass.toUpperCase().replace('-', ' ')} • Comprehensive Baseline Underwriting Parameters`;
         }
-      });
 
-      modal.classList.remove('hidden');
+        if (document.getElementById('edit-deal-market-tier')) {
+          document.getElementById('edit-deal-market-tier').value = deal.market_tier || inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2';
+        }
+        if (document.getElementById('edit-deal-property-class')) {
+          document.getElementById('edit-deal-property-class').value = deal.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B';
+        }
+        if (document.getElementById('edit-deal-facility-type')) {
+          document.getElementById('edit-deal-facility-type').value = deal.facility_type || inputs.facilityType || '';
+        }
+
+        const primaryLease = (inputs.leases && inputs.leases[0]) || {};
+        if (document.getElementById('edit-deal-tenant-name')) {
+          document.getElementById('edit-deal-tenant-name').value = primaryLease.tenantName || inputs.tenantName || deal.name || '';
+        }
+        if (document.getElementById('edit-deal-lease-start')) {
+          document.getElementById('edit-deal-lease-start').value = primaryLease.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || '';
+        }
+        if (document.getElementById('edit-deal-lease-end')) {
+          document.getElementById('edit-deal-lease-end').value = primaryLease.leaseEndDate || inputs.leaseEndDate || '';
+        }
+        if (document.getElementById('edit-deal-escalation-type')) {
+          document.getElementById('edit-deal-escalation-type').value = primaryLease.escalationType || 'Percentage Bump (%)';
+        }
+        if (document.getElementById('edit-deal-next-escalation')) {
+          document.getElementById('edit-deal-next-escalation').value = primaryLease.nextEscalationDate || '';
+        }
+
+        let preAnnual = 0;
+        let preMonthly = 0;
+        if (aClass === 'commercial') {
+          const pLease = (inputs.leases && inputs.leases[0]) || {};
+          preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0) || pLease.annualRent || (pLease.monthlyRent ? pLease.monthlyRent * 12 : 0);
+          preMonthly = 0;
+        } else if (aClass === 'single-family') {
+          preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
+          preAnnual  = preMonthly ? preMonthly * 12 : 0;
+        } else if (aClass === 'multi-unit') {
+          preMonthly = inputs.monthlyRentPerUnit || 0;
+          preAnnual  = 0;
+        } else if (aClass === 'storage') {
+          const uCount = inputs.storageUnitCount || inputs.unitCount || 20;
+          preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
+          preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
+        }
+
+        if (document.getElementById('edit-deal-gross-rent-annual')) document.getElementById('edit-deal-gross-rent-annual').value  = preAnnual  > 0 ? preAnnual  : '';
+        if (document.getElementById('edit-deal-gross-rent-monthly')) document.getElementById('edit-deal-gross-rent-monthly').value = preMonthly > 0 ? preMonthly : '';
+
+        if (document.getElementById('edit-deal-vacancy-rate')) document.getElementById('edit-deal-vacancy-rate').value = inputs.vacancyRate ?? 5;
+        if (document.getElementById('edit-deal-rent-growth')) document.getElementById('edit-deal-rent-growth').value = inputs.rentGrowth ?? inputs.annualRentGrowth ?? 3;
+        const appRate = (aClass === 'commercial' || aClass === 'storage')
+          ? (inputs.targetCapRate ?? inputs.targetExitCapRate ?? inputs.appreciationRate ?? 6.5)
+          : (inputs.appreciationRate ?? 3.5);
+        if (document.getElementById('edit-deal-appreciation-rate')) document.getElementById('edit-deal-appreciation-rate').value = appRate;
+
+        if (document.getElementById('edit-deal-opex-ratio')) document.getElementById('edit-deal-opex-ratio').value = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
+        const finType = inputs.financingType || 'fixed';
+        if (document.getElementById('edit-deal-financing-type')) {
+          document.getElementById('edit-deal-financing-type').value = finType;
+          toggleEditModalFinancing(finType);
+        }
+        if (document.getElementById('edit-deal-arm-initial')) document.getElementById('edit-deal-arm-initial').value = inputs.armInitialYears ?? 5;
+        if (document.getElementById('edit-deal-arm-rate')) document.getElementById('edit-deal-arm-rate').value = inputs.armAdjustmentRate ?? 7.75;
+        if (document.getElementById('edit-deal-arm-cap')) document.getElementById('edit-deal-arm-cap').value = inputs.armRateCap ?? 9.5;
+        if (document.getElementById('edit-deal-io-years')) document.getElementById('edit-deal-io-years').value = inputs.interestOnlyYears ?? 3;
+        if (document.getElementById('edit-deal-down-payment')) document.getElementById('edit-deal-down-payment').value = inputs.downPaymentPercent ?? 25;
+        if (document.getElementById('edit-deal-interest-rate')) document.getElementById('edit-deal-interest-rate').value = inputs.interestRate ?? 6.5;
+        if (document.getElementById('edit-deal-loan-term')) document.getElementById('edit-deal-loan-term').value = inputs.loanTerm ?? 30;
+
+        if (document.getElementById('edit-deal-rehab-costs')) document.getElementById('edit-deal-rehab-costs').value = inputs.rehabCosts ?? inputs.rehabBudget ?? 0;
+        if (document.getElementById('edit-deal-closing-costs')) document.getElementById('edit-deal-closing-costs').value = inputs.closingCosts ?? 0;
+        if (document.getElementById('edit-deal-exit-year')) document.getElementById('edit-deal-exit-year').value = inputs.exitYear ?? 10;
+        const currentProfile = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : { discountRate: 8 };
+        if (document.getElementById('edit-deal-discount-rate')) {
+          document.getElementById('edit-deal-discount-rate').value = inputs.discountRate ?? currentProfile.discountRate ?? 8;
+        }
+        
+        const mgmtEl = document.getElementById('edit-deal-manage-property');
+        if (mgmtEl) mgmtEl.checked = inputs.manageProperty !== false;
+
+        // Asset specific fields
+        if (document.getElementById('edit-deal-lease-type')) {
+          document.getElementById('edit-deal-lease-type').value = inputs.leaseType || 'NNN';
+        }
+        if (document.getElementById('edit-deal-gla')) {
+          document.getElementById('edit-deal-gla').value = inputs.gla || 15000;
+        }
+        if (document.getElementById('edit-deal-unit-count')) {
+          document.getElementById('edit-deal-unit-count').value = inputs.unitCount || inputs.numUnits || 4;
+        }
+        if (document.getElementById('edit-deal-storage-units')) {
+          document.getElementById('edit-deal-storage-units').value = inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100);
+        }
+        if (document.getElementById('edit-deal-storage-sqft')) {
+          document.getElementById('edit-deal-storage-sqft').value = inputs.storageSqFt || inputs.totalSqFt || inputs.gla || (aClass === 'storage' ? 2000 : 10000);
+        }
+        if (document.getElementById('edit-deal-storage-automated')) {
+          document.getElementById('edit-deal-storage-automated').checked = inputs.isAutomated !== undefined ? !!inputs.isAutomated : true;
+        }
+        if (document.getElementById('edit-deal-arv')) {
+          document.getElementById('edit-deal-arv').value = inputs.arv || '';
+        }
+
+        // Show appropriate asset-specific group
+        ['commercial', 'multi', 'storage', 'sfr'].forEach(t => {
+          const el = document.getElementById(`edit-asset-group-${t}`);
+          if (el) el.classList.add('hidden');
+        });
+        if (aClass === 'commercial') document.getElementById('edit-asset-group-commercial')?.classList.remove('hidden');
+        else if (aClass === 'multi-unit') document.getElementById('edit-asset-group-multi')?.classList.remove('hidden');
+        else if (aClass === 'storage') document.getElementById('edit-asset-group-storage')?.classList.remove('hidden');
+        else if (aClass === 'single-family') document.getElementById('edit-asset-group-sfr')?.classList.remove('hidden');
+
+        // Live Pro-Forma preview update
+        try {
+          updateEditModalLivePreview();
+        } catch (prevErr) {
+          console.warn('Live preview update notice:', prevErr);
+        }
+
+        // Bind input events for live reactivity
+        document.querySelectorAll('#edit-deal-form input, #edit-deal-form select').forEach(el => {
+          if (!el._previewBound) {
+            el.addEventListener('input', updateEditModalLivePreview);
+            el.addEventListener('change', updateEditModalLivePreview);
+            el._previewBound = true;
+          }
+        });
+      } catch (err) {
+        console.warn('Warning during edit modal setup:', err);
+      } finally {
+        modal.classList.remove('hidden');
+      }
     }
 
     function closeEditDealModal() {
