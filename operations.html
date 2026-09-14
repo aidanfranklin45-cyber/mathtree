@@ -387,9 +387,20 @@
           </p>
         </div>
         <div class="flex items-center space-x-2">
-          <button onclick="triggerDailyMonitorNow()" id="btn-run-daily-monitor" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition" title="Trigger Automated Rent Due & Escalation Monitor">
+          <!-- Background Autonomous Daily Monitor Status Indicator -->
+          <div class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs font-semibold text-slate-300" title="Autonomously scheduled via Supabase pg_cron & edge functions to execute daily at 06:00 UTC. Automatically applies escalations, reconciles due dates, and sends zero-login 1-click email notifications.">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span class="text-slate-300 text-xs font-medium">Daily Automation: <strong class="text-emerald-400 font-bold">Active</strong></span>
+            <span class="text-[10px] text-slate-500 font-mono hidden md:inline">(06:00 UTC)</span>
+          </div>
+
+          <!-- Secondary on-demand test/diagnostic trigger -->
+          <button onclick="triggerDailyMonitorNow()" id="btn-run-daily-monitor" class="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium transition" title="Force immediate diagnostic run (simulates background daily cycle on-demand)">
             <span>⚡</span>
-            <span>Run Daily Monitor</span>
+            <span class="hidden sm:inline">Force Sync</span>
           </button>
           <button onclick="refreshOperationsData()" class="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800 border border-slate-700 hover:border-slate-600 transition" title="Refresh Live Database">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -2830,13 +2841,13 @@
     }
     window.quickSnoozePayment = quickSnoozePayment;
 
-    // Trigger Automated Daily Monitor & Equity Recalculation On-Demand
+    // Trigger Automated Daily Monitor & Equity Recalculation On-Demand (Manual Test)
     async function triggerDailyMonitorNow() {
       const btn = document.getElementById('btn-run-daily-monitor');
       const originalHtml = btn ? btn.innerHTML : '';
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span>⏳</span><span>Running Monitor...</span>';
+        btn.innerHTML = '<span>⏳</span><span class="hidden sm:inline">Syncing...</span>';
       }
 
       try {
@@ -2849,7 +2860,7 @@
           const escCount = data.escalations?.leases_escalated || 0;
           const dealsCount = data.escalations?.deals_recalculated || 0;
           const emailsSent = data.due_date_notifications_sent || 0;
-          alert(`✓ Daily Monitor Completed Successfully!\n\n• Leases Escalated: ${escCount}\n• Deal Equity Recalculated: ${dealsCount}\n• Due Date Notifications Dispatched: ${emailsSent}`);
+          alert(`✓ Background Monitor Run Completed!\n\n• Leases Escalated: ${escCount}\n• Deal Equity Recalculated: ${dealsCount}\n• Due Date Notifications Dispatched: ${emailsSent}\n\nNote: This routine executes autonomously every morning at 06:00 UTC via Supabase pg_cron without requiring manual clicks.`);
           await fetchAllOperationsData();
         } else {
           alert('Notice from Daily Monitor: ' + (data?.error || 'Check edge function logs.'));
