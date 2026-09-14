@@ -300,7 +300,33 @@ export async function handleRequest(req: Request): Promise<Response> {
           .update({ inputs: updatedInputs })
           .eq("id", deal.id);
 
-        if (!updateErr) updatedCount++;
+        if (!updateErr) {
+          updatedCount++;
+
+          // Upsert relational parcel record for view_deal_parcel_packages
+          if (primaryApn && primaryData) {
+            try {
+              await supabase.from("parcels").upsert({
+                deal_id: deal.id,
+                user_id: deal.user_id,
+                apn: primaryApn,
+                formatted_apn: String(primaryData.formattedApn || primaryApn),
+                is_primary: true,
+                included: true,
+                situs_address: String(primaryData.address || deal.location || ""),
+                legal_description: String(primaryData.legal || ""),
+                use_code: String(primaryData.useCode || ""),
+                zoning: String(primaryData.zoning || ""),
+                acres: Number(primaryData.acres || 0),
+                market_land_val: Number(primaryData.marketLandValue || 0),
+                market_imp_val: Number(primaryData.marketImprovementValue || 0),
+                updated_at: nowIso
+              }, { onConflict: "deal_id,apn" });
+            } catch (pErr) {
+              console.warn("Parcels table sync warning:", pErr);
+            }
+          }
+        }
       }
     }
 
