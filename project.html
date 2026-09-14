@@ -4233,7 +4233,9 @@
         updateDealOverviewSnapshot(inputs, res);
       }
       if (currentWorkspaceView === 'sensitivity') {
-        if (typeof updateSensitivityMatrix === 'function') {
+        if (typeof renderSensitivityMatrix === 'function') {
+          renderSensitivityMatrix(inputs);
+        } else if (typeof updateSensitivityMatrix === 'function') {
           updateSensitivityMatrix(inputs, res);
         }
         if (typeof queueMonteCarloUpdate === 'function') {
@@ -4475,7 +4477,9 @@
       }
       if (tabName === 'sensitivity') {
         const curInputs = getInputsFromForm();
-        if (typeof updateSensitivityMatrix === 'function') {
+        if (typeof renderSensitivityMatrix === 'function') {
+          renderSensitivityMatrix(curInputs);
+        } else if (typeof updateSensitivityMatrix === 'function') {
           const curRes = window.PropertyMath.calculateProjections(activeTab, curInputs);
           updateSensitivityMatrix(curInputs, curRes);
         }
@@ -4663,9 +4667,28 @@
       const rowParam = rowSelect.value || 'interestRate';
       const colParam = document.getElementById('sens-col-param')?.value || 'targetCapRate';
 
+      const baseInputs = inputs || ((typeof getInputsFromForm === 'function') ? getInputsFromForm() : {});
+      const activeDeal = currentLoadedDeal || window.currentLoadedDeal || {};
+      const dealInputs = activeDeal.inputs || {};
+      const mergedInputs = {
+        ...dealInputs,
+        ...baseInputs
+      };
+
+      if (!mergedInputs.targetCapRate) {
+        mergedInputs.targetCapRate = mergedInputs.targetExitCapRate || mergedInputs.exitCapRate || mergedInputs.appreciationRate || 6.5;
+      }
+
       // Generate dynamic ranges centered around current inputs
-      const rowBase = parseFloat(inputs[rowParam]) || (rowParam === 'purchasePrice' ? 300000 : 6);
-      const colBase = parseFloat(inputs[colParam]) || (colParam === 'targetCapRate' ? 7 : 5);
+      const rowRaw = mergedInputs[rowParam];
+      const rowBase = (rowRaw !== undefined && !isNaN(parseFloat(rowRaw)) && parseFloat(rowRaw) > 0)
+        ? parseFloat(rowRaw)
+        : (rowParam === 'purchasePrice' ? 300000 : 6);
+
+      const colRaw = mergedInputs[colParam];
+      const colBase = (colRaw !== undefined && !isNaN(parseFloat(colRaw)) && parseFloat(colRaw) > 0)
+        ? parseFloat(colRaw)
+        : (colParam === 'targetCapRate' ? 6.5 : 5);
 
       const rowValues = [];
       const colValues = [];
@@ -4682,12 +4705,17 @@
         colValues.push(Math.max(0.5, Math.round((colBase + c * 0.75) * 100) / 100));
       }
 
-      const sensRes = window.PropertyMath.calculateSensitivityMatrix(activeTab, inputs, rowParam, rowValues, colParam, colValues);
+      if (!window.PropertyMath || typeof window.PropertyMath.calculateSensitivityMatrix !== 'function') {
+        console.warn('PropertyMath.calculateSensitivityMatrix is not available yet.');
+        return;
+      }
+
+      const sensRes = window.PropertyMath.calculateSensitivityMatrix(activeTab, mergedInputs, rowParam, rowValues, colParam, colValues);
 
       const headContainer = document.getElementById('sens-table-head');
       const bodyContainer = document.getElementById('sens-table-body');
 
-      if (!headContainer || !bodyContainer) return;
+      if (!headContainer || !bodyContainer || !sensRes || !Array.isArray(sensRes.matrix)) return;
 
       const colLabels = {
         targetCapRate: 'Exit Cap Rate',
@@ -4703,38 +4731,54 @@
 
       headContainer.innerHTML = `
         <tr class="border-b border-slate-900 text-slate-400">
-          <th class="py-2.5 px-3 text-left">${rowLabels[rowParam]} \\ ${colLabels[colParam]}</th>
-          ${colValues.map(cv => `<th class="py-2.5 px-3 text-center font-bold text-white">${colParam === 'purchasePrice' ? formatCurrency(cv) : cv + '%'}</th>`).join('')}
+          <th class="py-2.5 px-3 text-left font-bold">${rowLabels[rowParam] || rowParam} \\ ${colLabels[colParam] || colParam}</th>
+          ${colValues.map((cv, cIdx) => `
+            <th class="py-2.5 px-3 text-center font-bold ${cIdx === 2 ? 'text-brand-300 bg-brand-500/10 rounded-t-lg' : 'text-white'}">
+              ${colParam === 'purchasePrice' ? formatCurrency(cv) : cv + '%'}
+              ${cIdx === 2 ? '<span class="block text-[9px] font-normal text-brand-400">Base</span>' : ''}
+            </th>
+          `).join('')}
         </tr>
       `;
 
       bodyContainer.innerHTML = sensRes.matrix.map((row, rIdx) => {
         const rowVal = rowValues[rIdx];
-        const cellsHtml = row.map(cell => {
+        const isBaseRow = (rIdx === 2);
+        const cellsHtml = row.map((cell, cIdx) => {
+          const isBaseCell = (rIdx === 2 && cIdx === 2);
+          const irrNum = (cell && typeof cell.irr === 'number' && !isNaN(cell.irr)) ? cell.irr : 0;
+          const npvVal = (cell && typeof cell.npv === 'number' && !isNaN(cell.npv)) ? cell.npv : 0;
+
           let bgClass = 'bg-slate-950/80 text-white';
-          if (cell.irr >= 15) bgClass = 'bg-emerald-950/80 text-emerald-300 font-extrabold border border-emerald-800/40';
-          else if (cell.irr >= 10) bgClass = 'bg-brand-950/60 text-brand-300 font-bold border border-brand-800/30';
-          else if (cell.irr >= 5) bgClass = 'bg-slate-900/80 text-slate-300';
+          if (irrNum >= 15) bgClass = 'bg-emerald-950/80 text-emerald-300 font-extrabold border border-emerald-800/40';
+          else if (irrNum >= 10) bgClass = 'bg-brand-950/60 text-brand-300 font-bold border border-brand-800/30';
+          else if (irrNum >= 5) bgClass = 'bg-slate-900/80 text-slate-300';
           else bgClass = 'bg-rose-950/50 text-rose-300 font-semibold border border-rose-900/30';
 
+          const baseHighlight = isBaseCell ? ' ring-2 ring-brand-400 ring-offset-1 ring-offset-slate-950' : '';
+
           return `
-            <td class="py-3 px-3 ${bgClass} rounded-lg m-0.5">
-              <div class="text-sm">${cell.irr.toFixed(1)}%</div>
-              <div class="text-[10px] opacity-75">${formatCurrency(cell.npv)}</div>
+            <td class="py-3 px-3 ${bgClass}${baseHighlight} rounded-lg m-0.5 transition-transform hover:scale-105">
+              <div class="text-sm font-bold">${irrNum.toFixed(1)}%</div>
+              <div class="text-[10px] opacity-75">${formatCurrency(npvVal)}</div>
+              ${isBaseCell ? '<div class="text-[8px] uppercase tracking-wider font-extrabold text-brand-300 mt-0.5">Current</div>' : ''}
             </td>
           `;
         }).join('');
 
         return `
           <tr>
-            <td class="py-2.5 px-3 font-bold text-white text-left bg-slate-950/90 border-r border-slate-900">
+            <td class="py-2.5 px-3 font-bold ${isBaseRow ? 'text-brand-300 bg-brand-500/10' : 'text-white bg-slate-950/90'} text-left border-r border-slate-900">
               ${rowParam === 'purchasePrice' ? formatCurrency(rowVal) : rowVal + '%'}
+              ${isBaseRow ? '<span class="block text-[9px] font-normal text-brand-400">Base</span>' : ''}
             </td>
             ${cellsHtml}
           </tr>
         `;
       }).join('');
     }
+    window.renderSensitivityMatrix = renderSensitivityMatrix;
+    window.updateSensitivityMatrix = renderSensitivityMatrix;
 
     // Render Monte Carlo Simulation via Supabase Deno Edge Function
     let isRunningMonteCarlo = false;
@@ -8805,9 +8849,17 @@
 
       // Sensitivity Selectors
       const sensRow = document.getElementById('sens-row-param');
-      if (sensRow) sensRow.addEventListener('change', () => updateCalculations());
+      if (sensRow) sensRow.addEventListener('change', () => {
+        const curInputs = getInputsFromForm();
+        renderSensitivityMatrix(curInputs);
+        updateCalculations();
+      });
       const sensCol = document.getElementById('sens-col-param');
-      if (sensCol) sensCol.addEventListener('change', () => updateCalculations());
+      if (sensCol) sensCol.addEventListener('change', () => {
+        const curInputs = getInputsFromForm();
+        renderSensitivityMatrix(curInputs);
+        updateCalculations();
+      });
 
       // Monte Carlo Re-Run Button
       const btnMc = document.getElementById('btn-run-mc');
