@@ -27,6 +27,38 @@
     ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.7); }
 
+    /* Bulletproof Modal Overlay & Viewport Sizing */
+    #investor-profile-modal,
+    #edit-deal-modal,
+    #cloud-sync-modal,
+    #typed-delete-modal,
+    #project-wizard-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background-color: rgba(2, 6, 23, 0.85) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      z-index: 99999 !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 1rem !important;
+      overflow-y: auto !important;
+      box-sizing: border-box !important;
+    }
+
+    #investor-profile-modal.hidden,
+    #edit-deal-modal.hidden,
+    #cloud-sync-modal.hidden,
+    #typed-delete-modal.hidden,
+    #project-wizard-modal.hidden {
+      display: none !important;
+    }
+
     @media screen {
       #printable-brief {
         position: fixed !important;
@@ -2893,13 +2925,26 @@
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('position', 'fixed', 'important');
+        modal.style.setProperty('top', '0px', 'important');
+        modal.style.setProperty('left', '0px', 'important');
+        modal.style.setProperty('right', '0px', 'important');
+        modal.style.setProperty('bottom', '0px', 'important');
+        modal.style.setProperty('width', '100vw', 'important');
+        modal.style.setProperty('height', '100vh', 'important');
         modal.style.setProperty('z-index', '99999', 'important');
+        modal.style.setProperty('background-color', 'rgba(2, 6, 23, 0.85)', 'important');
+        modal.style.setProperty('align-items', 'center', 'important');
+        modal.style.setProperty('justify-content', 'center', 'important');
+        document.body.style.overflow = 'hidden';
         const afterComp = window.getComputedStyle(modal);
-        console.log('[MathTree Modulator] Edit Modal successfully displayed! Computed styles:', {
+        const bRect = modal.getBoundingClientRect();
+        console.log('[MathTree Modulator] Edit Modal successfully displayed! Geometry & Styles:', {
           display: afterComp.display,
           visibility: afterComp.visibility,
           opacity: afterComp.opacity,
-          zIndex: afterComp.zIndex
+          zIndex: afterComp.zIndex,
+          rect: { top: bRect.top, left: bRect.left, width: bRect.width, height: bRect.height }
         });
         console.groupEnd();
       }
@@ -2911,6 +2956,7 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         modal.style.setProperty('display', 'none', 'important');
+        document.body.style.overflow = '';
       }
     }
 
@@ -4261,13 +4307,26 @@
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('position', 'fixed', 'important');
+        modal.style.setProperty('top', '0px', 'important');
+        modal.style.setProperty('left', '0px', 'important');
+        modal.style.setProperty('right', '0px', 'important');
+        modal.style.setProperty('bottom', '0px', 'important');
+        modal.style.setProperty('width', '100vw', 'important');
+        modal.style.setProperty('height', '100vh', 'important');
         modal.style.setProperty('z-index', '99999', 'important');
+        modal.style.setProperty('background-color', 'rgba(2, 6, 23, 0.85)', 'important');
+        modal.style.setProperty('align-items', 'center', 'important');
+        modal.style.setProperty('justify-content', 'center', 'important');
+        document.body.style.overflow = 'hidden';
         const afterComp = window.getComputedStyle(modal);
-        console.log('[MathTree Modulator] Profile Modal successfully displayed! Computed styles:', {
+        const bRect = modal.getBoundingClientRect();
+        console.log('[MathTree Modulator] Profile Modal successfully displayed! Geometry & Styles:', {
           display: afterComp.display,
           visibility: afterComp.visibility,
           opacity: afterComp.opacity,
-          zIndex: afterComp.zIndex
+          zIndex: afterComp.zIndex,
+          rect: { top: bRect.top, left: bRect.left, width: bRect.width, height: bRect.height }
         });
         console.groupEnd();
       }
@@ -4281,6 +4340,7 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         modal.style.setProperty('display', 'none', 'important');
+        document.body.style.overflow = '';
       }
     }
     window.closeInvestorProfileModal = closeInvestorProfileModal;
