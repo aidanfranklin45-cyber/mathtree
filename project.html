@@ -3536,46 +3536,7 @@
     }
     window.switchForecastView = switchForecastView;
 
-    function renderMonthlyScheduleTable() {
-      const tbody = document.getElementById('monthly-schedule-table-body');
-      if (!tbody) return;
-      tbody.innerHTML = '';
 
-      const inputs = getInputsFromForm();
-      const monthlyData = window.PropertyMath.calculateMonthlyProjections(activeTab, inputs, {
-        startDate: inputs.closingDate || '2026-10-01',
-        totalMonths: 24
-      });
-
-      if (!monthlyData || !monthlyData.monthlyProjections) return;
-
-      monthlyData.monthlyProjections.forEach(m => {
-        const tr = document.createElement('tr');
-        tr.className = 'border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition';
-        const isDeficit = m.netCashFlow < 0;
-        const isCumDeficit = m.cumulativeCashFlow < 0;
-
-        tr.innerHTML = `
-          <td class="py-3 px-5">
-            <div class="text-white font-bold text-xs">${m.label}</div>
-            <div class="text-[10px] text-slate-500 font-medium">Month ${m.monthNumber}</div>
-          </td>
-          <td class="py-3.5 px-4 text-slate-400 font-mono">Yr ${m.operatingYear}</td>
-          <td class="py-3.5 px-4">${formatCurrency(m.grossIncome)}</td>
-          <td class="py-3.5 px-4 text-accent-rose/85">${formatCurrency(m.vacancyLoss)}</td>
-          <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.operatingExpenses)}</td>
-          <td class="py-3.5 px-4 text-white font-semibold">${formatCurrency(m.netOperatingIncome)}</td>
-          <td class="py-3.5 px-4 text-slate-400">${formatCurrency(m.debtService)}</td>
-          <td class="py-3.5 px-4 text-emerald-400 font-medium">${formatCurrency(m.principalPaid)}</td>
-          <td class="py-3.5 px-4 text-slate-500">${formatCurrency(m.interestPaid)}</td>
-          <td class="py-3.5 px-4 text-slate-400 font-mono">${formatCurrency(m.remainingLoanBalance)}</td>
-          <td class="py-3.5 px-4 font-bold ${isDeficit ? 'text-accent-rose' : 'text-accent-emerald'}">${isDeficit ? '-' : ''}${formatCurrency(Math.abs(m.netCashFlow))}</td>
-          <td class="py-3.5 px-4 pr-5 font-bold ${isCumDeficit ? 'text-accent-rose' : 'text-emerald-400'}">${isCumDeficit ? '-' : ''}${formatCurrency(Math.abs(m.cumulativeCashFlow))}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-    window.renderMonthlyScheduleTable = renderMonthlyScheduleTable;
 
     // Controller for Amortization Wealth & Equity Realization Studio
     function updateWealthRealizationStudio(inputs, res) {
@@ -3901,26 +3862,41 @@
 
     let currentMonthlyMonths = 24;
     let currentMonthlyEndDate = null;
+    window._monthlyHorizonUserSelected = false;
 
     function setMonthlyScheduleMonths(months) {
+      window._monthlyHorizonUserSelected = true;
       months = Math.max(1, Math.min(360, parseInt(months, 10) || 24));
       currentMonthlyMonths = months;
       currentMonthlyEndDate = null;
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.monthlyEndDate = null;
+        currentLoadedDeal.inputs.monthlyTotalMonths = months;
+      }
       renderMonthlyScheduleTable();
     }
     window.setMonthlyScheduleMonths = setMonthlyScheduleMonths;
 
     function onMonthlySliderChange(val) {
+      window._monthlyHorizonUserSelected = true;
       const months = Math.max(1, Math.min(360, parseInt(val, 10) || 24));
       currentMonthlyMonths = months;
       currentMonthlyEndDate = null;
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.monthlyEndDate = null;
+        currentLoadedDeal.inputs.monthlyTotalMonths = months;
+      }
       renderMonthlyScheduleTable();
     }
     window.onMonthlySliderChange = onMonthlySliderChange;
 
     function onMonthlyEndDateChange(dateStr) {
       if (!dateStr) return;
+      window._monthlyHorizonUserSelected = true;
       currentMonthlyEndDate = dateStr;
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.monthlyEndDate = dateStr;
+      }
       renderMonthlyScheduleTable();
     }
     window.onMonthlyEndDateChange = onMonthlyEndDateChange;
@@ -3984,17 +3960,17 @@
       tbody.innerHTML = '';
 
       const inputs = getInputsFromForm();
-      if (currentLoadedDeal && currentLoadedDeal.inputs) {
-        if (!currentMonthlyEndDate && currentLoadedDeal.inputs.monthlyEndDate) {
-          currentMonthlyEndDate = currentLoadedDeal.inputs.monthlyEndDate;
-        }
-        if (currentMonthlyMonths === 24 && currentLoadedDeal.inputs.monthlyTotalMonths) {
-          currentMonthlyMonths = parseInt(currentLoadedDeal.inputs.monthlyTotalMonths, 10) || 24;
-        }
+      const closingDate = inputs.closingDate || currentLoadedDeal?.inputs?.closingDate || '2026-10-01';
+
+      if (!currentMonthlyEndDate && !window._monthlyHorizonUserSelected && currentLoadedDeal?.inputs?.monthlyEndDate) {
+        currentMonthlyEndDate = currentLoadedDeal.inputs.monthlyEndDate;
+      }
+      if (currentMonthlyMonths === 24 && !window._monthlyHorizonUserSelected && currentLoadedDeal?.inputs?.monthlyTotalMonths) {
+        currentMonthlyMonths = parseInt(currentLoadedDeal.inputs.monthlyTotalMonths, 10) || 24;
       }
 
       const options = {
-        startDate: inputs.closingDate || '2026-10-01',
+        startDate: closingDate,
         totalMonths: currentMonthlyMonths
       };
       if (currentMonthlyEndDate) {
@@ -4006,6 +3982,11 @@
 
       currentMonthlyMonths = monthlyData.totalMonths;
       currentMonthlyEndDate = monthlyData.endDateISO;
+
+      if (currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.monthlyTotalMonths = currentMonthlyMonths;
+        currentLoadedDeal.inputs.monthlyEndDate = currentMonthlyEndDate;
+      }
 
       // Synchronize UI Controls
       const dateInput = document.getElementById('input-monthly-end-date');

@@ -772,7 +772,8 @@ function calculateMonthlyProjections(assetType, inputs, options = {}) {
 
   // Resolve target monthsCount: either directly or derived from arbitrary endDate
   let monthsCount = 24; // Standard 2-year default
-  const rawEnd = options.endDate || inputs.monthlyEndDate || options.targetEndDate;
+  const hasExplicitMonths = options.totalMonths !== undefined || options.monthsCount !== undefined;
+  const rawEnd = options.endDate || (!hasExplicitMonths ? (inputs.monthlyEndDate || options.targetEndDate) : null);
   if (rawEnd) {
     let endYear = null;
     let endMonth = null;
