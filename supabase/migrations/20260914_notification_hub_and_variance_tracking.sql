@@ -279,9 +279,9 @@ BEGIN
       END IF;
     ELSE
       -- Auto-dismiss if tenant now exists
-      UPDATE public.app_notifications
+      UPDATE public.app_notifications an
       SET is_dismissed = true, is_read = true, updated_at = NOW()
-      WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'missing_lease' AND is_dismissed = false;
+      WHERE an.user_id = p_user_id AND an.deal_id = v_deal.id AND an.type = 'missing_lease' AND an.is_dismissed = false;
     END IF;
 
     -- RULE B: Owned deal without LLC entity assignment
@@ -305,17 +305,17 @@ BEGIN
       END IF;
     ELSE
       -- Auto-dismiss if entity assigned
-      UPDATE public.app_notifications
+      UPDATE public.app_notifications an
       SET is_dismissed = true, is_read = true, updated_at = NOW()
-      WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'entity_missing' AND is_dismissed = false;
+      WHERE an.user_id = p_user_id AND an.deal_id = v_deal.id AND an.type = 'entity_missing' AND an.is_dismissed = false;
     END IF;
 
     -- RULE C: Revenue Variance Check (Reported Operations vs Pro-Forma)
     IF v_active_leases_count > 0 THEN
       v_projected_rent_monthly := COALESCE(
-        NULLIF((v_deal.inputs->>'grossRentAnnual')::numeric, 0) / 12.0,
-        (v_deal.inputs->>'grossRentPerMonth')::numeric,
-        (v_deal.inputs->>'monthlyRent')::numeric,
+        NULLIF(NULLIF(v_deal.inputs->>'grossRentAnnual', '')::numeric, 0) / 12.0,
+        NULLIF(v_deal.inputs->>'grossRentPerMonth', '')::numeric,
+        NULLIF(v_deal.inputs->>'monthlyRent', '')::numeric,
         0
       );
 
@@ -350,16 +350,16 @@ BEGIN
           END IF;
         ELSE
           -- Auto-dismiss variance notification if rent matches pro-forma
-          UPDATE public.app_notifications
+          UPDATE public.app_notifications an
           SET is_dismissed = true, is_read = true, updated_at = NOW()
-          WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'revenue_variance' AND is_dismissed = false;
+          WHERE an.user_id = p_user_id AND an.deal_id = v_deal.id AND an.type = 'revenue_variance' AND an.is_dismissed = false;
         END IF;
       END IF;
     ELSE
       -- Auto-dismiss variance notification if no active leases
-      UPDATE public.app_notifications
+      UPDATE public.app_notifications an
       SET is_dismissed = true, is_read = true, updated_at = NOW()
-      WHERE user_id = p_user_id AND deal_id = v_deal.id AND type = 'revenue_variance' AND is_dismissed = false;
+      WHERE an.user_id = p_user_id AND an.deal_id = v_deal.id AND an.type = 'revenue_variance' AND an.is_dismissed = false;
     END IF;
 
     -- RULE D: Incomplete Lease Terms (Missing Start Date)
