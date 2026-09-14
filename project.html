@@ -4500,13 +4500,15 @@
       // 1. Property Snapshot
       const addrEl = document.getElementById('overview-snapshot-address');
       if (addrEl) {
-        addrEl.textContent = (currentLoadedDeal && (currentLoadedDeal.location || currentLoadedDeal.name)) || '2239 Longfibre Rd, Yakima, WA';
+        const displayAddr = (currentLoadedDeal && (currentLoadedDeal.location || currentLoadedDeal.inputs?.location || currentLoadedDeal.inputs?.assessorData?.address || currentLoadedDeal.inputs?.address || currentLoadedDeal.name)) || 'Location Pending';
+        addrEl.textContent = displayAddr;
       }
 
       const apnEl = document.getElementById('overview-snapshot-apn');
       if (apnEl) {
-        const apn = (currentLoadedDeal && (currentLoadedDeal.apn || currentLoadedDeal.parcel_id)) || '191331-43417';
-        apnEl.textContent = `APN: ${apn}`;
+        const rawApn = (currentLoadedDeal && (currentLoadedDeal.inputs?.primaryApn || currentLoadedDeal.inputs?.apn || currentLoadedDeal.inputs?.assessorData?.apn || currentLoadedDeal.apn || currentLoadedDeal.parcel_id)) || (inputs && (inputs.primaryApn || inputs.apn)) || '';
+        const formattedApn = rawApn ? (rawApn.length === 11 ? (rawApn.slice(0, 6) + '-' + rawApn.slice(6)) : rawApn) : 'Pending Link';
+        apnEl.textContent = `APN: ${formattedApn}`;
       }
 
       const classEl = document.getElementById('overview-snapshot-class');
@@ -4518,8 +4520,15 @@
 
       const assessedEl = document.getElementById('overview-snapshot-assessed');
       if (assessedEl) {
-        const assessed = (currentLoadedDeal && currentLoadedDeal.assessed_value) || Math.round(inputs.purchasePrice * 0.92);
-        assessedEl.textContent = formatCurrency(assessed);
+        const rawAssessor = (currentLoadedDeal && currentLoadedDeal.inputs && currentLoadedDeal.inputs.assessorData) || {};
+        const trueAssessed = Number(currentLoadedDeal && currentLoadedDeal.combined_assessed_value) ||
+                             Number(inputs && inputs.combinedAssessedValue) ||
+                             Number(rawAssessor.totalAssessedValue) ||
+                             Number(inputs && inputs.totalAssessedValue) ||
+                             Number(currentLoadedDeal && currentLoadedDeal.inputs && currentLoadedDeal.inputs.totalAssessedValue) ||
+                             Number(currentLoadedDeal && currentLoadedDeal.assessed_value) ||
+                             0;
+        assessedEl.textContent = trueAssessed > 0 ? formatCurrency(trueAssessed) : 'Pending Assessment';
       }
 
       // 2. Debt Snapshot
@@ -7420,7 +7429,7 @@
         if (text) text.textContent = 'Yakima APN: ' + apn + parcelCount;
       }
 
-      // 30-Day Cache Freshness Badge
+      // 30-Day Cache Freshness Badge & Zero-Click Background Auto-Sync
       if (syncBadge && currentLoadedDeal?.inputs) {
         const lastSync = currentLoadedDeal.inputs.gisSync?.lastSyncedAt;
         syncBadge.classList.remove('hidden');
@@ -7428,6 +7437,7 @@
 
         if (!lastSync) {
           syncText.textContent = 'GIS Sync Pending';
+          autoSyncCountyGisInBackground(currentLoadedDeal);
         } else {
           const isStale = window.AddressService ? window.AddressService.isGisDataStale(lastSync, 30) : false;
           const diffDays = Math.floor((Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60 * 24));
@@ -7437,6 +7447,7 @@
             syncText.textContent = 'GIS Synced ' + diffDays + 'd ago';
           } else {
             syncText.innerHTML = '<span class="text-amber-400 font-bold">GIS Sync Due (>30d)</span>';
+            autoSyncCountyGisInBackground(currentLoadedDeal);
           }
         }
       }
@@ -7444,6 +7455,81 @@
       updateCountyDossierUI(currentLoadedDeal);
     }
     window.updateHeaderApnBadge = updateHeaderApnBadge;
+
+    async function autoSyncCountyGisInBackground(deal) {
+      if (!deal || !deal.inputs || deal._isAutoGisSyncing) return;
+      if (!window.AddressService) return;
+
+      const lastSync = deal.inputs.gisSync?.lastSyncedAt;
+      const isStale = !lastSync || window.AddressService.isGisDataStale(lastSync, 30);
+      if (!isStale) return;
+
+      deal._isAutoGisSyncing = true;
+      const syncText = document.getElementById('header-gis-sync-text');
+
+      try {
+        let apn = deal.inputs.primaryApn || deal.inputs.apn || deal.inputs.assessorData?.apn;
+        const propAddress = deal.location || deal.inputs.location || deal.inputs.address || '';
+
+        // Auto-resolve APN from street address if missing
+        if (!apn && propAddress && /\d+/.test(propAddress)) {
+          if (syncText) syncText.textContent = 'Auto-Syncing County GIS...';
+          const results = await window.AddressService.searchYakimaAddresses(propAddress);
+          if (results && results.length > 0 && results[0].apn) {
+            apn = results[0].apn;
+            deal.location = results[0].formattedAddress || deal.location;
+            deal.inputs.primaryApn = apn;
+            deal.inputs.apn = apn;
+            deal.inputs.county = 'Yakima County, WA';
+          }
+        }
+
+        if (apn) {
+          if (syncText) syncText.textContent = 'Syncing County Records...';
+          const data = await window.AddressService.fetchYakimaAssessorData(apn);
+          if (data) {
+            deal.inputs.assessorData = data;
+            deal.inputs.totalAssessedValue = data.totalAssessedValue;
+            deal.inputs.marketLandValue = data.marketLandValue;
+            deal.inputs.marketImprovementValue = data.marketImprovementValue;
+            deal.inputs.acres = data.acres;
+            deal.inputs.sqft = data.sqft;
+            deal.inputs.yearBuilt = data.yearBuilt;
+            deal.inputs.buildingSqFt = data.buildingSqFt;
+            deal.inputs.stories = data.stories;
+            deal.inputs.constructionType = data.constructionType;
+            deal.inputs.condition = data.condition;
+            deal.inputs.hvac = data.hvac;
+            deal.inputs.zoning = data.zoning;
+            deal.inputs.useCode = data.useCode;
+            deal.inputs.owner = data.owner;
+            deal.inputs.legalDescription = data.legalDescription;
+            deal.inputs.gisSync = {
+              lastSyncedAt: new Date().toISOString(),
+              syncSource: data.source || 'yakima_arcgis',
+              status: 'active',
+              autoBackground: true
+            };
+
+            if (typeof saveCurrentDealChanges === 'function') {
+              saveCurrentDealChanges(false);
+            }
+            if (typeof autoSaveDealToSupabase === 'function') {
+              autoSaveDealToSupabase(deal);
+            }
+
+            if (syncText) syncText.textContent = 'GIS Synced Today';
+            if (typeof updateCalculations === 'function') updateCalculations();
+            if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(deal);
+          }
+        }
+      } catch (err) {
+        console.warn('Background auto-GIS sync error:', err);
+      } finally {
+        deal._isAutoGisSyncing = false;
+      }
+    }
+    window.autoSyncCountyGisInBackground = autoSyncCountyGisInBackground;
 
     function updateCountyDossierUI(deal) {
       const dossierCard = document.getElementById('property-county-dossier-card');
@@ -8160,6 +8246,36 @@
                 await window._supabase.from('leases').update(leasePayload).eq('id', existingLease.id);
               } else {
                 await window._supabase.from('leases').insert(leasePayload);
+              }
+            }
+
+            // Synchronize primary parcel into public.parcels table
+            const primaryApn = deal.inputs?.primaryApn || deal.inputs?.apn;
+            if (primaryApn && window._supabase) {
+              try {
+                const assessor = deal.inputs?.assessorData || {};
+                const sess = await window._supabase.auth.getSession();
+                const uId = sess?.data?.session?.user?.id || window._currentUser?.id;
+                if (uId) {
+                  await window._supabase.from('parcels').upsert({
+                    deal_id: deal.id,
+                    user_id: uId,
+                    apn: primaryApn,
+                    formatted_apn: assessor.formattedApn || primaryApn,
+                    is_primary: true,
+                    included: true,
+                    situs_address: assessor.address || deal.location || null,
+                    legal_description: assessor.legalDescription || null,
+                    use_code: assessor.useCode || null,
+                    zoning: assessor.zoning || null,
+                    acres: assessor.acres || deal.inputs?.acres || 0,
+                    market_land_val: assessor.marketLandValue || deal.inputs?.marketLandValue || 0,
+                    market_imp_val: assessor.marketImprovementValue || deal.inputs?.marketImprovementValue || 0,
+                    updated_at: new Date().toISOString()
+                  }, { onConflict: 'deal_id,apn' });
+                }
+              } catch(parcelErr) {
+                console.warn('Parcels upsert warning:', parcelErr);
               }
             }
           }
@@ -9885,6 +10001,27 @@
       }
       currentLoadedDealId = currentLoadedDeal.id;
       window.currentLoadedDeal = currentLoadedDeal;
+
+      // Hydrate official relational parcel package from Supabase if deal has UUID
+      if (window._supabase && currentLoadedDeal && isUuid) {
+        try {
+          const { data: pkgRow } = await window._supabase
+            .from('view_deal_parcel_packages')
+            .select('*')
+            .eq('deal_id', currentLoadedDeal.id)
+            .maybeSingle();
+          if (pkgRow && Number(pkgRow.combined_assessed_value) > 0) {
+            currentLoadedDeal.combined_assessed_value = Number(pkgRow.combined_assessed_value);
+            currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
+            currentLoadedDeal.inputs.combinedAssessedValue = Number(pkgRow.combined_assessed_value);
+            if (!currentLoadedDeal.inputs.totalAssessedValue || currentLoadedDeal.inputs.totalAssessedValue <= 0) {
+              currentLoadedDeal.inputs.totalAssessedValue = Number(pkgRow.combined_assessed_value);
+            }
+          }
+        } catch(pkgErr) {
+          console.warn('Parcel package view query warning:', pkgErr);
+        }
+      }
       try { localStorage.setItem("mathtree_active_deal", JSON.stringify(currentLoadedDeal)); } catch(e) {}
 
       const aType = currentLoadedDeal.asset_class || currentLoadedDeal.assetType || 'commercial';
@@ -9971,11 +10108,13 @@
 
       // Check for multi-parcel package or official assessed valuation
       let packageAssessedVal = 0;
-      if (Array.isArray(rawInputs.parcels) && rawInputs.parcels.length > 0 && window.AddressService) {
+      if (currentLoadedDeal && Number(currentLoadedDeal.combined_assessed_value) > 0) {
+        packageAssessedVal = Number(currentLoadedDeal.combined_assessed_value);
+      } else if (Array.isArray(rawInputs.parcels) && rawInputs.parcels.length > 0 && window.AddressService) {
         const pkg = window.AddressService.aggregateParcelPackage(rawInputs.parcels);
         packageAssessedVal = pkg.totalAssessedValue || 0;
       } else {
-        packageAssessedVal = parseFloat(rawInputs.totalAssessedValue) || parseFloat(rawInputs.assessorData?.totalAssessedValue) || 0;
+        packageAssessedVal = parseFloat(rawInputs.combinedAssessedValue) || parseFloat(rawInputs.totalAssessedValue) || parseFloat(rawInputs.assessorData?.totalAssessedValue) || 0;
       }
 
       // Check if price was stuck on legacy preset default (300k, 800k, 2M) or single parcel value
