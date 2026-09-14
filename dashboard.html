@@ -415,7 +415,7 @@
           Hey, <span id="dash-greeting-name" class="text-brand-400">Investor</span>
         </h2>
         <p id="dash-hero-sub" class="text-xs sm:text-sm text-slate-400 max-w-2xl">
-          Welcome to your Underwriting & Portfolio Studio. Distinguish between active pipeline prospects you're evaluating and properties you currently own.
+          Welcome to your Comprehensive Analysis and Administration Platform for Real Estate.
         </p>
       </div>
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
@@ -4212,7 +4212,7 @@
       const rate = parseFloat(drEl.value);
       const discountRate = isNaN(rate) ? 8.0 : Math.max(0, Math.min(100, rate));
 
-      // Benchmark against current deal in dashboard pipeline or first active project
+      // Benchmark against the first real deal in the pipeline
       let targetDeal = (activeDashboardProjects && activeDashboardProjects.length > 0)
         ? activeDashboardProjects[0]
         : (typeof REAL_COUNTY_BENCHMARKS !== 'undefined' ? REAL_COUNTY_BENCHMARKS[0] : null);
@@ -4221,8 +4221,25 @@
       if (targetDeal && window.PropertyMath && typeof window.PropertyMath.calculateProjections === 'function') {
         try {
           const aType = targetDeal.asset_class || targetDeal.asset_type || 'commercial';
-          const inps = Object.assign({}, targetDeal.inputs || {}, {
-            purchasePrice: targetDeal.purchase_price || targetDeal.inputs?.purchasePrice || 1000000,
+          // Merge all stored inputs fully — card-level fields fill any gaps
+          const savedInputs = targetDeal.inputs || {};
+          const inps = Object.assign({
+            purchasePrice: 1000000,
+            grossRentPerMonth: 0,
+            monthlyRent: 0,
+            noi: 0,
+            vacancyRate: 5,
+            expenseRatio: 35,
+            rentGrowth: 3,
+            appreciationRate: 3,
+            exitYear: 10,
+            loanAmount: 0,
+            interestRate: 7,
+            loanTerm: 30
+          }, savedInputs, {
+            // Card-level fields override saved inputs as they may be more current
+            purchasePrice: targetDeal.purchase_price || savedInputs.purchasePrice || 1000000,
+            // Always apply the live hurdle rate from the slider
             discountRate: discountRate
           });
           res = window.PropertyMath.calculateProjections(aType, inps);

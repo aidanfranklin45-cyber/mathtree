@@ -3159,7 +3159,8 @@
       document.getElementById('input-rent-growth').value = values.rentGrowth ?? values.annualRentGrowth ?? 3;
       document.getElementById('input-expense-ratio').value = values.expenseRatio ?? values.operatingExpenseRatio ?? 35;
       const activeProfile = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : { discountRate: 8 };
-      document.getElementById('input-discount-rate').value = values.discountRate ?? activeProfile.discountRate ?? 8;
+      // Profile hurdle rate is the source of truth — overrides whatever discount rate was last saved with the deal
+      document.getElementById('input-discount-rate').value = activeProfile.discountRate ?? values.discountRate ?? 8;
       document.getElementById('input-exit-year').value = values.exitYear ?? 10;
       document.getElementById('input-manage-property').checked = values.manageProperty ?? true;
       if (document.getElementById('input-prorate-first-year')) {
