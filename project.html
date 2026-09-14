@@ -2579,7 +2579,7 @@
         </div>
 
         <!-- Global Opportunity Cost / Hurdle Rate -->
-        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2">
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2.5">
           <div class="flex items-center justify-between">
             <label class="text-xs font-extrabold text-emerald-400">Target Discount Rate / Hurdle Rate (%)</label>
             <span class="text-[10px] uppercase font-bold text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Opportunity Cost</span>
@@ -2596,6 +2596,24 @@
               <button type="button" onclick="setProfileDiscountRate(8.0)" class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700">8% (Core)</button>
               <button type="button" onclick="setProfileDiscountRate(10.0)" class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700">10% (Growth)</button>
               <button type="button" onclick="setProfileDiscountRate(12.0)" class="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700">12% (Opportunistic)</button>
+            </div>
+          </div>
+
+          <!-- Dynamic Live NPV & Opportunity Cost Feedback -->
+          <div id="prof-npv-preview-card" class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between mt-2">
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Underwriting NPV</span>
+              <span id="prof-live-npv-val" class="text-base font-black text-emerald-400 font-mono">$0</span>
+            </div>
+            <div class="text-center px-2">
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Hurdle Spread</span>
+              <span id="prof-live-hurdle-spread" class="text-xs font-bold text-slate-200 font-mono">+0.0%</span>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider mb-0.5">Decision Rule</span>
+              <span id="prof-hurdle-status-badge" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Clears Hurdle
+              </span>
             </div>
           </div>
         </div>
@@ -7907,6 +7925,63 @@
       }
     });
 
+    function updateProfileLiveNpvPreview() {
+      const drEl = document.getElementById('prof-discount-rate');
+      if (!drEl) return;
+      const rate = parseFloat(drEl.value);
+      const discountRate = isNaN(rate) ? 8.0 : Math.max(0, Math.min(100, rate));
+
+      // 1. Live propagate to the active proforma discount rate input on the page
+      const inputDisc = document.getElementById('input-discount-rate');
+      if (inputDisc && parseFloat(inputDisc.value) !== discountRate) {
+        inputDisc.value = discountRate;
+      }
+      if (typeof currentLoadedDeal !== 'undefined' && currentLoadedDeal && currentLoadedDeal.inputs) {
+        currentLoadedDeal.inputs.discountRate = discountRate;
+      }
+
+      // 2. Compute projections with current discount rate
+      let res = null;
+      try {
+        if (typeof getInputsFromForm === 'function' && window.PropertyMath) {
+          const formInputs = getInputsFromForm();
+          res = window.PropertyMath.calculateProjections(activeTab, { ...formInputs, discountRate: discountRate });
+        }
+      } catch (err) {
+        console.warn('Error calculating live NPV preview:', err);
+      }
+
+      const npvValEl = document.getElementById('prof-live-npv-val');
+      const spreadEl = document.getElementById('prof-live-hurdle-spread');
+      const badgeEl = document.getElementById('prof-hurdle-status-badge');
+
+      if (res && npvValEl && spreadEl && badgeEl) {
+        const npv = res.npv ?? 0;
+        const irr = res.irr ?? 0;
+        const spread = irr - discountRate;
+
+        npvValEl.textContent = formatCurrency(npv);
+        npvValEl.className = 'text-base font-black font-mono ' + (npv >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+        spreadEl.textContent = (spread >= 0 ? '+' : '') + spread.toFixed(1) + '%';
+        spreadEl.className = 'text-xs font-bold font-mono ' + (spread >= 0 ? 'text-emerald-300' : 'text-rose-300');
+
+        if (npv >= 0) {
+          badgeEl.textContent = 'Clears Hurdle (Positive NPV)';
+          badgeEl.className = 'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+        } else {
+          badgeEl.textContent = 'Below Hurdle (Negative NPV)';
+          badgeEl.className = 'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+        }
+      }
+
+      // 3. Live update the main background proforma if available
+      if (typeof updateCalculations === 'function') {
+        updateCalculations();
+      }
+    }
+    window.updateProfileLiveNpvPreview = updateProfileLiveNpvPreview;
+
     function openInvestorProfileModal() {
       const modal = document.getElementById('investor-profile-modal');
       if (!modal) return;
@@ -7919,7 +7994,14 @@
       if (compEl) compEl.value = prof.companyName || '';
 
       const drEl = document.getElementById('prof-discount-rate');
-      if (drEl) drEl.value = prof.discountRate ?? 8.0;
+      if (drEl) {
+        drEl.value = prof.discountRate ?? 8.0;
+        if (!drEl._hasNpvListener) {
+          drEl.addEventListener('input', updateProfileLiveNpvPreview);
+          drEl.addEventListener('change', updateProfileLiveNpvPreview);
+          drEl._hasNpvListener = true;
+        }
+      }
 
       const eyEl = document.getElementById('prof-exit-year');
       if (eyEl) eyEl.value = prof.exitYear ?? 10;
@@ -7933,6 +8015,7 @@
       }
 
       modal.classList.remove('hidden');
+      updateProfileLiveNpvPreview();
     }
     window.openInvestorProfileModal = openInvestorProfileModal;
 
@@ -7944,7 +8027,10 @@
 
     function setProfileDiscountRate(rate) {
       const el = document.getElementById('prof-discount-rate');
-      if (el) el.value = rate;
+      if (el) {
+        el.value = rate;
+        updateProfileLiveNpvPreview();
+      }
     }
     window.setProfileDiscountRate = setProfileDiscountRate;
 
