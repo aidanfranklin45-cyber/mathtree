@@ -2550,7 +2550,7 @@
 
 </main>
   <!-- Investor Profile & Underwriting Settings Modal -->
-  <div id="investor-profile-modal" role="dialog" aria-modal="true" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+  <div id="investor-profile-modal" role="dialog" aria-modal="true" onclick="if (event.target === this) closeInvestorProfileModal();" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl my-6">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
@@ -8082,13 +8082,17 @@
       }
 
       modal.classList.remove('hidden');
+      modal.classList.add('flex');
       updateProfileLiveNpvPreview();
     }
     window.openInvestorProfileModal = openInvestorProfileModal;
 
     function closeInvestorProfileModal() {
       const modal = document.getElementById('investor-profile-modal');
-      if (modal) modal.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
     }
     window.closeInvestorProfileModal = closeInvestorProfileModal;
 
