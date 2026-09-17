@@ -1,6 +1,11 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import { calculateProjections, calculateMonthlyProjections, auditDealRisks, DealInputs } from "./math-engine.ts";
+import {
+  calculateProjections as computeEngineProjections,
+  calculateMonthlyProjections,
+  auditDealRisks,
+  DealInputs
+} from "./math-engine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,6 +87,57 @@ export interface EditPropertyPayload {
   demo?: boolean;
 }
 
+// Authoritative calculateProjections RPC endpoint returning { projections, monthlyProjections, monthlySummary }
+export async function calculateProjections(payload: EditPropertyPayload): Promise<Response> {
+  const rawAsset = String(payload.assetType ?? payload.asset_class ?? "commercial").toLowerCase().replace(/_/g, "-");
+  const validAssets = ["single-family", "multi-unit", "commercial", "storage"];
+  const assetType = validAssets.includes(rawAsset) ? rawAsset : (rawAsset === "multifamily" ? "multi-unit" : "commercial");
+  const calcInputs = (payload.inputs && typeof payload.inputs === "object" ? payload.inputs : (payload.updates || {})) as Record<string, unknown>;
+
+  if (payload.operatingExpenses && typeof payload.operatingExpenses === "object") {
+    calcInputs.operatingExpenses = {
+      ...(typeof calcInputs.operatingExpenses === "object" ? (calcInputs.operatingExpenses as Record<string, unknown>) : {}),
+      ...payload.operatingExpenses
+    };
+  }
+
+  const projectionsResult = computeEngineProjections(assetType, calcInputs as DealInputs);
+  const monthlyProjectionsResult = calculateMonthlyProjections(
+    assetType,
+    calcInputs as DealInputs & Record<string, unknown>,
+    payload.options || {}
+  );
+  const risks = auditDealRisks(assetType, calcInputs as DealInputs, projectionsResult);
+  const y1 = projectionsResult.projections[0];
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      action: "calculate_projections",
+      assetType,
+      metrics: projectionsResult,
+      projections: projectionsResult.projections,
+      monthlyProjections: monthlyProjectionsResult.monthlyProjections,
+      monthlySummary: monthlyProjectionsResult.summary,
+      risks: risks,
+      summary: {
+        irr: projectionsResult.irr,
+        equityMultiple: projectionsResult.equityMultiplier,
+        noi: y1?.netOperatingIncome ?? 0,
+        cashOnCash: y1?.cashOnCash ?? 0,
+        purchasePrice: projectionsResult.purchasePrice,
+        loanAmount: projectionsResult.loanAmount,
+        initialCashInvested: projectionsResult.initialCashInvested,
+        debtService: projectionsResult.annualDebtService
+      }
+    }),
+    {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    }
+  );
+}
+
 export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -136,6 +192,40 @@ export async function handleRequest(req: Request): Promise<Response> {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
+    }
+
+    const action = String(payload.action || req.headers.get("x-action") || "").toLowerCase();
+
+    // Authoritative RPC calculateProjections Fast-Path Endpoint
+    if (action === "calculate_projections" || action === "calculateprojections" || action === "calculate") {
+      return await calculateProjections(payload);
+    }
+
+    if (action === "calculate_monthly_projections" || action === "calculatemonthlyprojections") {
+      const rawAsset = String(payload.assetType ?? payload.asset_class ?? "commercial").toLowerCase().replace(/_/g, "-");
+      const validAssets = ["single-family", "multi-unit", "commercial", "storage"];
+      const assetType = validAssets.includes(rawAsset) ? rawAsset : (rawAsset === "multifamily" ? "multi-unit" : "commercial");
+      const calcInputs = (payload.inputs && typeof payload.inputs === "object" ? payload.inputs : (payload.updates || {})) as Record<string, unknown>;
+
+      const monthlyProjectionsResult = calculateMonthlyProjections(
+        assetType,
+        calcInputs as DealInputs & Record<string, unknown>,
+        payload.options || {}
+      );
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: "calculate_monthly_projections",
+          assetType,
+          monthlyProjections: monthlyProjectionsResult.monthlyProjections,
+          monthlySummary: monthlyProjectionsResult.summary,
+          summary: monthlyProjectionsResult.summary
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
     }
 
     const dealId = String(payload.dealId ?? payload.id ?? "").trim();

@@ -1,10 +1,10 @@
-﻿/**
+/**
  * math.js - Lightweight UI Slider & Mortgage Math Utilities
  * Heavy multi-year proforma projections and portfolio calculations are migrated to Supabase Edge Functions.
  */
 
 // Helper to compute monthly mortgage payment for UI sliders & interactive inputs
-export function calculateMonthlyPayment(loanAmount, annualRate, termYears) {
+function calculateMonthlyPayment(loanAmount, annualRate, termYears) {
   if (loanAmount <= 0 || termYears <= 0) return 0;
   const r = annualRate / 100 / 12;
   const n = termYears * 12;
@@ -13,7 +13,7 @@ export function calculateMonthlyPayment(loanAmount, annualRate, termYears) {
 }
 
 // Helper to compute remaining loan balance after elapsed years
-export function calculateRemainingBalance(loanAmount, annualRate, termYears, elapsedYears) {
+function calculateRemainingBalance(loanAmount, annualRate, termYears, elapsedYears) {
   if (loanAmount <= 0) return 0;
   if (elapsedYears >= termYears) return 0;
   
@@ -30,7 +30,7 @@ export function calculateRemainingBalance(loanAmount, annualRate, termYears, ela
 }
 
 // Helper to compute annual amortization schedule for UI tables & graphs
-export function getAnnualAmortization(loanAmount, annualRate, termYears, options = {}) {
+function getAnnualAmortization(loanAmount, annualRate, termYears, options = {}) {
   const schedule = [];
   const finType = String(options.financingType || 'fixed').toLowerCase();
   const armInitial = parseInt(options.armInitialYears || 5, 10);
@@ -143,7 +143,7 @@ export function getAnnualAmortization(loanAmount, annualRate, termYears, options
 }
 
 // Helper to compute a month-by-month amortization schedule
-export function getMonthlyAmortization(loanAmount, annualRate, termYears, options = {}) {
+function getMonthlyAmortization(loanAmount, annualRate, termYears, options = {}) {
   const schedule = [];
   if (loanAmount <= 0 || termYears <= 0) return schedule;
 
@@ -227,15 +227,184 @@ export function getMonthlyAmortization(loanAmount, annualRate, termYears, option
   return schedule;
 }
 
+// Authoritative calculation delegator that invokes Supabase Edge Function RPC and syncs useDealStore
+function calculateProjections(assetType, inputs) {
+  inputs = inputs || {};
+  var SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MjczMzQsImV4cCI6MjA0MTAwMzMzNH0.fP8d22yY5X4d34V517xS3Z45Y2Z5X1d34V517xS3Z44';
+
+  var calcPromise;
+  if (typeof window !== 'undefined' && window.MathTreeClient && typeof window.MathTreeClient.calculateProjections === 'function') {
+    calcPromise = window.MathTreeClient.calculateProjections(assetType, inputs);
+  } else if (typeof fetch === 'function') {
+    calcPromise = fetch(SUPABASE_URL + '/functions/v1/edit-property-inputs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        action: 'calculate_projections',
+        assetType: assetType || 'commercial',
+        inputs: inputs
+      })
+    }).then(function(res) {
+      if (!res.ok) throw new Error('Edge Function HTTP error (' + res.status + ')');
+      return res.json();
+    });
+  } else {
+    calcPromise = Promise.resolve({ success: false, error: 'Network client unavailable' });
+  }
+
+  return calcPromise.then(function(res) {
+    if (res && typeof window !== 'undefined' && window.__dealStore) {
+      if (typeof window.__dealStore.syncDeal === 'function' && (res.deal || res)) {
+        window.__dealStore.syncDeal(res.deal || res);
+      }
+      if (typeof window.__dealStore.syncMetrics === 'function' && res.metrics) {
+        window.__dealStore.syncMetrics(res.metrics);
+      }
+    }
+    return res;
+  }).catch(function(err) {
+    console.warn('[PropertyMath] calculateProjections RPC notice:', err);
+    if (typeof window !== 'undefined' && window.MathTreeClient && typeof window.MathTreeClient.showNetworkErrorNotification === 'function') {
+      window.MathTreeClient.showNetworkErrorNotification('Server calculation failed: ' + (err.message || 'Edge Function unreachable.'));
+    }
+    throw err;
+  });
+}
+
+function calculateMonthlyProjections(assetType, inputs, options) {
+  inputs = inputs || {};
+  options = options || {};
+  if (typeof window !== 'undefined' && window.MathTreeClient && typeof window.MathTreeClient.calculateMonthlyProjections === 'function') {
+    return window.MathTreeClient.calculateMonthlyProjections(assetType, inputs, options);
+  }
+  var SUPABASE_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU0MjczMzQsImV4cCI6MjA0MTAwMzMzNH0.fP8d22yY5X4d34V517xS3Z45Y2Z5X1d34V517xS3Z44';
+  return fetch(SUPABASE_URL + '/functions/v1/edit-property-inputs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({
+      action: 'calculate_monthly_projections',
+      assetType: assetType || 'commercial',
+      inputs: inputs,
+      options: options
+    })
+  }).then(function(res) {
+    if (!res.ok) throw new Error('Edge Function HTTP error (' + res.status + ')');
+    return res.json();
+  });
+}
+
+function calculateHoldingPeriodWealth(inputs, projections, amortizationSchedule, holdYear) {
+  if (!projections || projections.length === 0) return null;
+  var year = Math.max(1, Math.min(projections.length, parseInt(holdYear, 10) || 1));
+  var yearIdx = year - 1;
+  var proj = projections[yearIdx];
+  var purchasePrice = parseFloat(inputs.purchasePrice) || 0;
+  var downPaymentPercent = isNaN(parseFloat(inputs.downPaymentPercent)) ? 25 : parseFloat(inputs.downPaymentPercent);
+  var downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
+  var initialCashInvested = downPaymentAmount + (parseFloat(inputs.rehabCosts) || 0) + (parseFloat(inputs.closingCosts) || 0);
+  var initialLoan = Math.max(0, purchasePrice - downPaymentAmount);
+
+  var currentPropertyValue = proj ? proj.propertyValue : purchasePrice;
+  var remainingLoanBalance = proj ? proj.loanBalanceRemaining : initialLoan;
+
+  var principalPaydownEquity = Math.max(0, initialLoan - remainingLoanBalance);
+  var appreciationEquity = Math.max(0, currentPropertyValue - purchasePrice);
+  var totalNetEquity = Math.max(0, currentPropertyValue - remainingLoanBalance);
+
+  var cumulativeCashFlow = 0;
+  for (var i = 0; i <= yearIdx; i++) {
+    cumulativeCashFlow += (projections[i] ? projections[i].cashFlow : 0);
+  }
+
+  var totalNetWealth = totalNetEquity + cumulativeCashFlow;
+  var netProfit = totalNetWealth - initialCashInvested;
+  var totalNetBenefit = totalNetWealth;
+
+  var prevEquity = yearIdx === 0 ? initialCashInvested : (projections[yearIdx - 1] ? projections[yearIdx - 1].equity : 0);
+  var currentCashFlow = proj ? proj.cashFlow : 0;
+  var roe = prevEquity > 0 ? (currentCashFlow / prevEquity) * 100 : null;
+  var roeDisplay = roe !== null ? roe.toFixed(2) + '%' : 'N/M';
+
+  var discountRate = isNaN(parseFloat(inputs.discountRate)) ? 8 : parseFloat(inputs.discountRate);
+  var holdNpv = -initialCashInvested;
+  for (var t = 1; t <= year; t++) {
+    var cf = projections[t - 1] ? projections[t - 1].cashFlow : 0;
+    if (t === year) {
+      cf += (projections[t - 1] ? projections[t - 1].equity : 0);
+    }
+    holdNpv += cf / Math.pow(1 + discountRate / 100, t);
+  }
+
+  return {
+    holdYear: year,
+    propertyValue: Math.round(currentPropertyValue * 100) / 100,
+    initialLoan: Math.round(initialLoan * 100) / 100,
+    remainingLoanBalance: Math.round(remainingLoanBalance * 100) / 100,
+    principalPaydownEquity: Math.round(principalPaydownEquity * 100) / 100,
+    appreciationEquity: Math.round(appreciationEquity * 100) / 100,
+    totalNetEquity: Math.round(totalNetEquity * 100) / 100,
+    initialCashInvested: Math.round(initialCashInvested * 100) / 100,
+    cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
+    isDeficit: cumulativeCashFlow < 0,
+    cashDeficit: cumulativeCashFlow < 0 ? Math.round(Math.abs(cumulativeCashFlow) * 100) / 100 : 0,
+    totalNetBenefit: Math.round(totalNetBenefit * 100) / 100,
+    totalNetWealth: Math.round(totalNetWealth * 100) / 100,
+    netProfit: Math.round(netProfit * 100) / 100,
+    currentCashFlow: Math.round(currentCashFlow * 100) / 100,
+    roe: roe !== null ? Math.round(roe * 100) / 100 : null,
+    roeDisplay: roeDisplay,
+    holdNpv: Math.round(holdNpv * 100) / 100
+  };
+}
+
+function auditDealRisks(assetType, inputs, res) {
+  var risks = [];
+  if (!res || !res.projections || res.projections.length === 0) return risks;
+  var dscrValues = res.projections.map(function(p) { return p.dscr; }).filter(function(d) { return d !== null && d !== undefined; });
+  if (dscrValues.length > 0) {
+    var minDscr = Math.min.apply(Math, dscrValues);
+    if (minDscr < 1.0) {
+      risks.push({ level: 'danger', title: 'Critical Debt Service Risk (Min DSCR: ' + minDscr.toFixed(2) + 'x)', description: 'Net operating income fails to cover scheduled debt service.' });
+    } else if (minDscr < 1.25) {
+      risks.push({ level: 'warning', title: 'Tight Debt Coverage (Min DSCR: ' + minDscr.toFixed(2) + 'x)', description: 'Adequate but sensitive to minor vacancy spikes.' });
+    } else {
+      risks.push({ level: 'safe', title: 'Healthy Debt Coverage (Min DSCR: ' + minDscr.toFixed(2) + 'x)', description: 'Strong cash flow margin protecting against mortgage default.' });
+    }
+  }
+  return risks;
+}
+
+function getBenchmarkCapRateRange(assetType, tier, pClass) {
+  return { min: 5.5, max: 7.5 };
+}
+
 (function () {
-  var target = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this);
+  var target = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this);
   target.PropertyMath = {
-    calculateMonthlyPayment,
-    calculateRemainingBalance,
-    getAnnualAmortization,
-    getMonthlyAmortization
+    calculateMonthlyPayment: calculateMonthlyPayment,
+    calculateRemainingBalance: calculateRemainingBalance,
+    getAnnualAmortization: getAnnualAmortization,
+    getMonthlyAmortization: getMonthlyAmortization,
+    calculateProjections: calculateProjections,
+    calculateMonthlyProjections: calculateMonthlyProjections,
+    calculateHoldingPeriodWealth: calculateHoldingPeriodWealth,
+    auditDealRisks: auditDealRisks,
+    getBenchmarkCapRateRange: getBenchmarkCapRateRange
   };
   if (typeof window !== 'undefined') {
     window.PropertyMath = target.PropertyMath;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = target.PropertyMath;
   }
 })();

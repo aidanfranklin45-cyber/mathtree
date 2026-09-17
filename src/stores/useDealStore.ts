@@ -190,6 +190,30 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     }
   }, [deal, metrics]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__dealStore = {
+        getDeal: () => deal,
+        getMetrics: () => metrics,
+        syncDeal: (updated: any) => {
+          if (updated) {
+            const mapped = mapSupabaseDeal(updated);
+            setDeal(mapped);
+            recalculate(mapped);
+          }
+        },
+        syncMetrics: (newMetrics: any) => {
+          if (newMetrics) {
+            setMetrics(newMetrics);
+          }
+        },
+        updateInputs,
+        saveDeal,
+        loadDeal,
+      };
+    }
+  }, [deal, metrics, recalculate, updateInputs, saveDeal, loadDeal]);
+
   return {
     deal,
     metrics,

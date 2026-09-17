@@ -99,6 +99,17 @@
         }
         const data = await edgeRes.json();
         if (data.error) throw new Error(data.error);
+
+        // Synchronize returned projections and deal into useDealStore
+        if (typeof window !== 'undefined' && window.__dealStore) {
+          if (typeof window.__dealStore.syncDeal === 'function' && (data.deal || data)) {
+            window.__dealStore.syncDeal(data.deal || data);
+          }
+          if (typeof window.__dealStore.syncMetrics === 'function' && data.metrics) {
+            window.__dealStore.syncMetrics(data.metrics);
+          }
+        }
+
         return data;
       } catch (err) {
         console.error('[MathTreeClient] calculateProjections failure:', err);
@@ -755,4 +766,15 @@
   }
 
   window.MathTreeClient = MathTreeClient;
+
+  // Ensure window.PropertyMath delegates calculateProjections to MathTreeClient Edge Function RPC
+  if (typeof window !== 'undefined') {
+    window.PropertyMath = window.PropertyMath || {};
+    window.PropertyMath.calculateProjections = function(assetType, inputs) {
+      return MathTreeClient.calculateProjections(assetType, inputs);
+    };
+    window.PropertyMath.calculateMonthlyProjections = function(assetType, inputs, options) {
+      return MathTreeClient.calculateMonthlyProjections(assetType, inputs, options);
+    };
+  }
 })(window);

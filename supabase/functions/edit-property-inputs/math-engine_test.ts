@@ -1,0 +1,158 @@
+import { assertEquals, assert } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import {
+  calculateProjections,
+  auditDealRisks,
+  calculateMonthlyPayment,
+  calculateRemainingBalance,
+  calculateIRR,
+  getAnnualAmortization,
+  getMonthlyAmortization,
+  calculateMonthlyProjections,
+  calculateHoldingPeriodWealth,
+  getBenchmarkCapRateRange
+} from "./math-engine.ts";
+
+Deno.test("math-engine - calculateMonthlyPayment", () => {
+  const p = calculateMonthlyPayment(300000, 6.0, 30);
+  assert(Math.abs(p - 1798.65) < 0.5, `Expected payment around $1798.65, got ${p}`);
+
+  assertEquals(calculateMonthlyPayment(0, 6, 30), 0);
+  assertEquals(calculateMonthlyPayment(300000, 0, 30), 300000 / (30 * 12));
+});
+
+Deno.test("math-engine - calculateRemainingBalance", () => {
+  const bal = calculateRemainingBalance(300000, 6.0, 30, 5);
+  assert(bal > 270000 && bal < 290000);
+  assertEquals(calculateRemainingBalance(300000, 6.0, 30, 30), 0);
+});
+
+Deno.test("math-engine - calculateIRR", () => {
+  const irr = calculateIRR(100000, [10000, 10000, 10000, 110000]);
+  assert(Math.abs(irr - 10) < 0.1, `Expected IRR 10%, got ${irr}`);
+
+  assertEquals(calculateIRR(100000, [0, 0, 0, 0]), -100);
+  assertEquals(calculateIRR(100000, [-1000, -1000]), -100);
+  assertEquals(calculateIRR(0, [1000]), 0);
+});
+
+Deno.test("math-engine - Guided Wizard Payload Support", () => {
+  const wizardPayload = {
+    purchasePrice: 1200000,
+    downPaymentPercent: 25,
+    closingCosts: 24000,
+    rehabBudget: 50000,
+    grossRentPerMonth: 12500,
+    otherIncome: 500,
+    vacancyRate: 5.0,
+    annualRentGrowth: 3.0,
+    operatingExpenseRatio: 35.0,
+    expenseGrowthRate: 2.5,
+    interestRate: 6.5,
+    amortizationYears: 30,
+    loanTermYears: 30,
+    targetExitCapRate: 6.75,
+    appreciationRate: 3.5,
+    gla: 15000
+  };
+
+  const res = calculateProjections("commercial", wizardPayload);
+  assertEquals(res.purchasePrice, 1200000);
+  assertEquals(res.loanAmount, 900000);
+  assertEquals(res.initialCashInvested, 300000 + 50000 + 24000);
+  assert(res.projections[0].grossPotentialIncome === 156000);
+  assert(res.projections[0].netOperatingIncome > 0);
+  assert(res.projections[0].cashFlow > 0);
+  assert(res.irr > 0);
+  assert(res.equityMultiplier > 1);
+
+  const risks = auditDealRisks("commercial", wizardPayload, res);
+  assert(risks.length > 0);
+});
+
+Deno.test("math-engine - Negative and Zero Edge Cases", () => {
+  const zeroInput = {
+    purchasePrice: 0,
+    downPaymentPercent: 0,
+    interestRate: 0,
+    loanTerm: 0
+  };
+  const zeroRes = calculateProjections("single-family", zeroInput);
+  assertEquals(zeroRes.purchasePrice, 0);
+  assertEquals(zeroRes.loanAmount, 0);
+  assertEquals(zeroRes.irr, 0);
+  assertEquals(zeroRes.projections[0].cashOnCash, 0);
+
+  const negInput = {
+    purchasePrice: -100000,
+    downPaymentPercent: -10,
+    interestRate: -5,
+    loanTerm: -10,
+    operatingExpensesAnnual: -5000
+  };
+  const negRes = calculateProjections("single-family", negInput);
+  assertEquals(negRes.purchasePrice, 0);
+  assertEquals(negRes.loanAmount, 0);
+  assertEquals(negRes.projections[0].operatingExpenses, 0);
+});
+
+Deno.test("math-engine - Dynamic Holding Periods (1 to 30 Years)", () => {
+  const baseInput = {
+    purchasePrice: 500000,
+    downPaymentPercent: 20,
+    interestRate: 6.0,
+    loanTerm: 30,
+    monthlyRent: 3500
+  };
+
+  // Default is 10 years
+  const defaultRes = calculateProjections("single-family", baseInput);
+  assertEquals(defaultRes.projections.length, 10);
+
+  // 15-Year hold
+  const hold15Res = calculateProjections("single-family", { ...baseInput, holdingPeriod: 15 });
+  assertEquals(hold15Res.projections.length, 15);
+  assertEquals(hold15Res.projections[14].year, 15);
+
+  // 30-Year hold with 15-year loan payoff
+  const hold30Res = calculateProjections("single-family", { ...baseInput, loanTerm: 15, holdingPeriod: 30 });
+  assertEquals(hold30Res.projections.length, 30);
+  assertEquals(hold30Res.projections[29].debtService, 0);
+  assertEquals(hold30Res.projections[29].loanBalanceRemaining, 0);
+  assertEquals(hold30Res.projections[29].equity, hold30Res.projections[29].propertyValue);
+});
+
+Deno.test("math-engine - Monthly Projections Breakdown", () => {
+  const baseInput = {
+    purchasePrice: 600000,
+    downPaymentPercent: 25,
+    interestRate: 6.5,
+    loanTerm: 30,
+    monthlyRent: 4000
+  };
+
+  const monthlyRes = calculateMonthlyProjections("single-family", baseInput, { totalMonths: 24 });
+  assertEquals(monthlyRes.totalMonths, 24);
+  assertEquals(monthlyRes.monthlyProjections.length, 24);
+  assert(monthlyRes.summary.totalGrossIncome > 0);
+  assert(monthlyRes.summary.totalDebtService > 0);
+});
+
+Deno.test("math-engine - Annual Amortization Schedule and Wealth Projections", () => {
+  const sched = getAnnualAmortization(400000, 6.0, 30, { holdingPeriod: 10 });
+  assertEquals(sched.length, 10);
+  assertEquals(sched[0].year, 1);
+  assert(sched[0].annualPayment > 0);
+  assert(sched[0].principalPaid > 0);
+  assert(sched[0].interestPaid > 0);
+
+  const baseInput = { purchasePrice: 500000, downPaymentPercent: 20, interestRate: 6.0, loanTerm: 30, monthlyRent: 3500 };
+  const projRes = calculateProjections("single-family", baseInput);
+  const wealth = calculateHoldingPeriodWealth(baseInput, projRes.projections, sched, 5);
+  assert(wealth !== null);
+  assertEquals(wealth?.holdYear, 5);
+  assert(wealth!.totalNetWealth > 0);
+
+  const benchmark = getBenchmarkCapRateRange("commercial", "tier-1", "class-a");
+  assert(benchmark.min > 0);
+  assert(benchmark.max > benchmark.min);
+});

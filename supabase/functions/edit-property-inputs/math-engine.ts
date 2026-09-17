@@ -26,6 +26,7 @@ export interface DealInputs {
   expenseRatio?: number | string;
   operatingExpenseRatio?: number | string;
   opexRatio?: number | string;
+  operatingExpensesAnnual?: number | string;
   targetCapRate?: number | string;
   targetExitCapRate?: number | string;
   exitCap?: number | string;
@@ -973,4 +974,45 @@ export function calculateMonthlyProjections(
       endingLoanBalance: monthlyRows.length > 0 ? monthlyRows[monthlyRows.length - 1].remainingLoanBalance : 0
     }
   };
+}
+
+export function getAnnualAmortization(
+  loanAmount: number,
+  annualRate: number,
+  termYears: number,
+  options: { holdingPeriod?: number } = {}
+) {
+  const schedule = [];
+  if (loanAmount <= 0 || termYears <= 0) return schedule;
+
+  const holdYears = Math.min(termYears, Math.max(1, options.holdingPeriod || 10));
+  const annualPayment = calculateMonthlyPayment(loanAmount, annualRate, termYears) * 12;
+
+  let currentBalance = loanAmount;
+  let cumulativePrincipal = 0;
+  let cumulativeInterest = 0;
+
+  for (let y = 1; y <= holdYears; y++) {
+    const startBal = currentBalance;
+    const endBal = calculateRemainingBalance(loanAmount, annualRate, termYears, y);
+    const principalPaid = Math.max(0, startBal - endBal);
+    const interestPaid = Math.max(0, annualPayment - principalPaid);
+
+    cumulativePrincipal += principalPaid;
+    cumulativeInterest += interestPaid;
+    currentBalance = endBal;
+
+    schedule.push({
+      year: y,
+      beginningBalance: Math.round(startBal * 100) / 100,
+      annualPayment: Math.round(annualPayment * 100) / 100,
+      principalPaid: Math.round(principalPaid * 100) / 100,
+      interestPaid: Math.round(interestPaid * 100) / 100,
+      endingBalance: Math.round(endBal * 100) / 100,
+      cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100,
+      cumulativeInterestPaid: Math.round(cumulativeInterest * 100) / 100
+    });
+  }
+
+  return schedule;
 }
