@@ -79,6 +79,63 @@
       }
     },
 
+    calculateProjections: async function(assetType, inputs) {
+      try {
+        const edgeRes = await fetch(`${SUPABASE_URL}/functions/v1/edit-property-inputs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            action: 'calculate_projections',
+            assetType: assetType || 'commercial',
+            inputs: inputs || {}
+          })
+        });
+        if (!edgeRes.ok) {
+          throw new Error(`Edge Function HTTP error (${edgeRes.status})`);
+        }
+        const data = await edgeRes.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } catch (err) {
+        console.error('[MathTreeClient] calculateProjections failure:', err);
+        this.showNetworkErrorNotification('Server calculation failed: ' + (err.message || 'Edge Function unreachable.'));
+        throw err;
+      }
+    },
+
+    calculateMonthlyProjections: async function(assetType, inputs, options) {
+      try {
+        const edgeRes = await fetch(`${SUPABASE_URL}/functions/v1/edit-property-inputs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            action: 'calculate_monthly_projections',
+            assetType: assetType || 'commercial',
+            inputs: inputs || {},
+            options: options || {}
+          })
+        });
+        if (!edgeRes.ok) {
+          throw new Error(`Edge Function HTTP error (${edgeRes.status})`);
+        }
+        const data = await edgeRes.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } catch (err) {
+        console.error('[MathTreeClient] calculateMonthlyProjections failure:', err);
+        this.showNetworkErrorNotification('Server calculation failed: ' + (err.message || 'Edge Function unreachable.'));
+        throw err;
+      }
+    },
+
     recalculateDeal: async function(dealId, newInputs) {
       const client = this.getClient();
 
@@ -102,9 +159,12 @@
           this.notifyChange(edgeData.deal);
           return edgeData.deal;
         }
+        if (edgeData.error) {
+          throw new Error(edgeData.error);
+        }
       } catch (edgeErr) {
         console.error('[MathTreeClient] recalculateDeal Edge Function network failure:', edgeErr);
-        this.showNetworkErrorNotification('Server calculation failed: Edge Function unreachable.');
+        this.showNetworkErrorNotification('Server calculation failed: ' + (edgeErr.message || 'Edge Function unreachable.'));
       }
 
       // Postgres RPC fallback if available
@@ -351,6 +411,20 @@
 
     notifyChange: function(deal) {
       this.bindUI(document, deal);
+      if (typeof window !== 'undefined') {
+        if (window.__dealStore && typeof window.__dealStore.syncDeal === 'function') {
+          try {
+            window.__dealStore.syncDeal(deal);
+          } catch (e) {
+            console.warn('[MathTreeClient] useDealStore sync notice:', e);
+          }
+        }
+        if (typeof window.dispatchEvent === 'function') {
+          try {
+            window.dispatchEvent(new CustomEvent('mathtree:deal-updated', { detail: deal }));
+          } catch (e) {}
+        }
+      }
       for (let i = 0; i < this._listeners.length; i++) {
         try {
           this._listeners[i](deal);

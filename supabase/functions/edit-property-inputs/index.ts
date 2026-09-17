@@ -1,6 +1,6 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import { calculateProjections, auditDealRisks, DealInputs } from "./math-engine.ts";
+import { calculateProjections, calculateMonthlyProjections, auditDealRisks, DealInputs } from "./math-engine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,6 +62,7 @@ export interface LeaseInput {
 }
 
 export interface EditPropertyPayload {
+  action?: string;
   dealId?: string;
   id?: string;
   title?: string;
@@ -73,9 +74,11 @@ export interface EditPropertyPayload {
   entityId?: string;
   entity_id?: string;
   inputs?: Record<string, unknown>;
+  updates?: Record<string, unknown>;
   units?: UnitInput[];
   leases?: LeaseInput[];
   operatingExpenses?: Record<string, unknown>;
+  options?: Record<string, unknown>;
   demo?: boolean;
 }
 
@@ -347,6 +350,11 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     // 3. Compute Institutional Math Projections & Risk Audit
     const projectionsResult = calculateProjections(assetType, mergedInputs as DealInputs);
+    const monthlyProjectionsResult = calculateMonthlyProjections(
+      assetType,
+      mergedInputs as DealInputs & Record<string, unknown>,
+      payload.options || {}
+    );
     const risks = auditDealRisks(assetType, mergedInputs as DealInputs, projectionsResult);
 
     const y1 = projectionsResult.projections[0];
@@ -429,6 +437,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         units: syncedUnits,
         leases: syncedLeases,
         projections: projectionsResult.projections,
+        monthlyProjections: monthlyProjectionsResult.monthlyProjections,
+        monthlySummary: monthlyProjectionsResult.summary,
         risks: risks,
         summary: {
           irr: projectionsResult.irr,

@@ -84,6 +84,7 @@ export interface ProjectionYear {
   debtService: number;
   cashFlow: number;
   netCashFlow: number;
+  monthlyCashFlow: number;
   cumulativeCashFlow: number;
   cashOnCash: number;
   cashOnCashDisplay?: string;
@@ -91,6 +92,10 @@ export interface ProjectionYear {
   capRate: number;
   loanBalanceRemaining: number;
   equity: number;
+  cumulativeEquity: number;
+  principalPaid: number;
+  interestPaid: number;
+  cumulativePrincipalPaid: number;
   dscr: number | null;
   ltv: number;
 }
@@ -292,6 +297,7 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
   let currentGrossIncome = year1GrossIncome;
   let cumulativeCashInvested = initialCashInvested;
   let cumulativeCashFlow = 0;
+  let cumulativePrincipalPaid = 0;
   let entryCapRate = targetCapRate;
 
   for (let year = 1; year <= holdingPeriod; year++) {
@@ -330,8 +336,10 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
       operatingExpenses = currentGrossIncome * (expenseRatio / 100);
     }
 
-    // Ensure finite operating expenses
-    if (!isFinite(operatingExpenses)) operatingExpenses = 0;
+    // Ensure finite non-negative operating expenses
+    if (!isFinite(operatingExpenses) || isNaN(operatingExpenses) || operatingExpenses < 0) {
+      operatingExpenses = 0;
+    }
 
     const netOperatingIncome = effectiveGrossIncome - operatingExpenses;
     if (year === 1) {
@@ -377,6 +385,10 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
     const cashOnCashDisplay = isCoCNotMeaningful ? 'N/M' : `${(Math.round(cashOnCash * 100) / 100).toFixed(2)}%`;
     const capRate = currentPropertyValue > 0 ? (netOperatingIncome / currentPropertyValue) * 100 : 0;
     const remainingLoan = calculateRemainingBalance(loanAmount, interestRate, loanTerm, year);
+    const prevLoan = calculateRemainingBalance(loanAmount, interestRate, loanTerm, year - 1);
+    const principalPaid = Math.max(0, prevLoan - remainingLoan);
+    const interestPaid = Math.max(0, currentDebtService - principalPaid);
+    cumulativePrincipalPaid += principalPaid;
     const equity = currentPropertyValue - remainingLoan;
     const dscr = currentDebtService > 0 ? (netOperatingIncome / currentDebtService) : null;
     const ltv = currentPropertyValue > 0 ? (remainingLoan / currentPropertyValue) * 100 : 0;
@@ -392,6 +404,7 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
       debtService: Math.round(currentDebtService * 100) / 100,
       cashFlow: Math.round(cashFlow * 100) / 100,
       netCashFlow: Math.round(cashFlow * 100) / 100,
+      monthlyCashFlow: Math.round((cashFlow / 12) * 100) / 100,
       cumulativeCashFlow: Math.round(cumulativeCashFlow * 100) / 100,
       cashOnCash: Math.round(cashOnCash * 100) / 100,
       cashOnCashDisplay,
@@ -399,6 +412,10 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
       capRate: Math.round(capRate * 100) / 100,
       loanBalanceRemaining: Math.round(remainingLoan * 100) / 100,
       equity: Math.round(equity * 100) / 100,
+      cumulativeEquity: Math.round(equity * 100) / 100,
+      principalPaid: Math.round(principalPaid * 100) / 100,
+      interestPaid: Math.round(interestPaid * 100) / 100,
+      cumulativePrincipalPaid: Math.round(cumulativePrincipalPaid * 100) / 100,
       dscr: dscr !== null ? Math.round(dscr * 100) / 100 : null,
       ltv: Math.round(ltv * 100) / 100
     });
@@ -658,5 +675,302 @@ export function calculateHoldingPeriodWealth(inputs: DealInputs, projections: Pr
     roe: roe !== null ? Math.round(roe * 100) / 100 : null,
     roeDisplay,
     holdNpv: Math.round(holdNpv * 100) / 100
+  };
+}
+
+export interface MonthlyAmortizationRow {
+  month: number;
+  appliedRate: number;
+  isInterestOnly: boolean;
+  beginningBalance: number;
+  payment: number;
+  principalPaid: number;
+  interestPaid: number;
+  endingBalance: number;
+  cumulativePrincipalPaid: number;
+  cumulativeInterestPaid: number;
+}
+
+export function getMonthlyAmortization(
+  loanAmount: number,
+  annualRate: number,
+  termYears: number,
+  options: Record<string, unknown> = {}
+): MonthlyAmortizationRow[] {
+  const schedule: MonthlyAmortizationRow[] = [];
+  if (loanAmount <= 0 || termYears <= 0) return schedule;
+
+  const totalMonths = parseInt(String(options.totalMonths || ((Number(options.holdingPeriod) || 10) * 12)), 10);
+  const finType = String(options.financingType || 'fixed').toLowerCase();
+  const armInitialMonths = parseInt(String(options.armInitialYears || 5), 10) * 12;
+  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(String(options.armAdjustmentRate)) : (annualRate + 1.5);
+  const armCap = options.armRateCap !== undefined ? parseFloat(String(options.armRateCap)) : (annualRate + 4.0);
+  const ioMonths = parseInt(String(options.interestOnlyYears !== undefined ? options.interestOnlyYears : (finType === 'interest_only' ? 3 : 0)), 10) * 12;
+
+  let currentBalance = loanAmount;
+  let cumulativePrincipal = 0;
+  let cumulativeInterest = 0;
+
+  for (let m = 1; m <= totalMonths; m++) {
+    const startBal = currentBalance;
+    if (currentBalance <= 0 || m > (termYears * 12)) {
+      schedule.push({
+        month: m,
+        appliedRate: annualRate,
+        isInterestOnly: false,
+        beginningBalance: 0,
+        payment: 0,
+        principalPaid: 0,
+        interestPaid: 0,
+        endingBalance: 0,
+        cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100,
+        cumulativeInterestPaid: Math.round(cumulativeInterest * 100) / 100
+      });
+      continue;
+    }
+
+    let monthRate = annualRate;
+    if (finType === 'arm' && m > armInitialMonths) {
+      monthRate = Math.min(armCap, Math.max(0, armAdjRate));
+    }
+
+    let isIO = false;
+    if (finType === 'interest_only' && m <= ioMonths) isIO = true;
+    else if (finType === 'bridge') isIO = true;
+    else if (finType === 'seller_financing' && ioMonths > 0 && m <= ioMonths) isIO = true;
+
+    const r = monthRate / 100 / 12;
+    let payment = 0;
+    let interestPaid = 0;
+    let principalPaid = 0;
+
+    if (isIO) {
+      interestPaid = currentBalance * r;
+      principalPaid = 0;
+      payment = interestPaid;
+    } else {
+      const remainingMonths = Math.max(1, (termYears * 12) - (m - 1));
+      payment = calculateMonthlyPayment(currentBalance, monthRate, remainingMonths / 12);
+      interestPaid = r === 0 ? 0 : currentBalance * r;
+      principalPaid = payment - interestPaid;
+      if (currentBalance < principalPaid) {
+        principalPaid = currentBalance;
+        payment = principalPaid + interestPaid;
+      }
+      currentBalance = Math.max(0, currentBalance - principalPaid);
+    }
+
+    cumulativePrincipal += principalPaid;
+    cumulativeInterest += interestPaid;
+
+    schedule.push({
+      month: m,
+      appliedRate: Math.round(monthRate * 100) / 100,
+      isInterestOnly: isIO,
+      beginningBalance: Math.round(startBal * 100) / 100,
+      payment: Math.round(payment * 100) / 100,
+      principalPaid: Math.round(principalPaid * 100) / 100,
+      interestPaid: Math.round(interestPaid * 100) / 100,
+      endingBalance: Math.round(currentBalance * 100) / 100,
+      cumulativePrincipalPaid: Math.round(cumulativePrincipal * 100) / 100,
+      cumulativeInterestPaid: Math.round(cumulativeInterest * 100) / 100
+    });
+  }
+
+  return schedule;
+}
+
+export interface MonthlyProjectionRow {
+  monthNumber: number;
+  calendarYear: number;
+  calendarMonth: number;
+  calendarMonthName: string;
+  label: string;
+  operatingYear: number;
+  grossIncome: number;
+  vacancyLoss: number;
+  effectiveGrossIncome: number;
+  operatingExpenses: number;
+  netOperatingIncome: number;
+  debtService: number;
+  principalPaid: number;
+  interestPaid: number;
+  netCashFlow: number;
+  cashFlow: number;
+  cumulativeCashFlow: number;
+  remainingLoanBalance: number;
+}
+
+export interface MonthlyProjectionsResult {
+  startYear: number;
+  startMonth: number;
+  startMonthName: string;
+  startDateISO: string;
+  endYear: number;
+  endMonth: number;
+  endMonthName: string;
+  endDateISO: string;
+  totalMonths: number;
+  monthlyProjections: MonthlyProjectionRow[];
+  summary: {
+    totalGrossIncome: number;
+    totalNOI: number;
+    totalDebtService: number;
+    totalPrincipalPaid: number;
+    totalInterestPaid: number;
+    netCumulativeCashFlow: number;
+    endingLoanBalance: number;
+  };
+}
+
+export function calculateMonthlyProjections(
+  assetType: string,
+  inputs: DealInputs & Record<string, unknown>,
+  options: Record<string, unknown> = {}
+): MonthlyProjectionsResult {
+  const rawDate = (inputs.closingDate || options.closingDate || options.startDate || '2026-10-01') as string;
+  let startYear = 2026;
+  let startMonth = 10;
+  if (rawDate) {
+    const parts = String(rawDate).split(/[-/]/);
+    if (parts.length >= 2) {
+      if (parts[0].length === 4) {
+        startYear = parseInt(parts[0], 10);
+        startMonth = parseInt(parts[1], 10);
+      } else {
+        startMonth = parseInt(parts[0], 10);
+        startYear = parseInt(parts[2] || parts[1], 10);
+      }
+    }
+  }
+
+  let monthsCount = 24;
+  const hasExplicitMonths = options.totalMonths !== undefined || options.monthsCount !== undefined;
+  const rawEnd = options.endDate || (!hasExplicitMonths ? (inputs.monthlyEndDate || options.targetEndDate) : null);
+  if (rawEnd) {
+    let endYear: number | null = null;
+    let endMonth: number | null = null;
+    if (rawEnd instanceof Date && !isNaN(rawEnd.getTime())) {
+      endYear = rawEnd.getFullYear();
+      endMonth = rawEnd.getMonth() + 1;
+    } else {
+      const strEnd = String(rawEnd).trim();
+      const parts = strEnd.split(/[-/]/);
+      if (parts.length >= 2) {
+        if (parts[0].length === 4) {
+          endYear = parseInt(parts[0], 10);
+          endMonth = parseInt(parts[1], 10);
+        } else {
+          endMonth = parseInt(parts[0], 10);
+          endYear = parseInt(parts[2] || parts[1], 10);
+        }
+      }
+    }
+    if (endYear && endMonth && !isNaN(endYear) && !isNaN(endMonth)) {
+      const diffMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+      if (!isNaN(diffMonths) && diffMonths > 0) {
+        monthsCount = Math.min(360, Math.max(1, diffMonths));
+      }
+    }
+  } else if (options.monthsCount !== undefined || options.totalMonths !== undefined || inputs.monthlyTotalMonths !== undefined) {
+    const rawCount = parseInt(String(options.monthsCount !== undefined ? options.monthsCount : (options.totalMonths !== undefined ? options.totalMonths : inputs.monthlyTotalMonths)), 10);
+    if (!isNaN(rawCount) && rawCount > 0) {
+      monthsCount = Math.min(360, Math.max(1, rawCount));
+    }
+  }
+
+  const requiredYears = Math.min(30, Math.max(10, Math.ceil(monthsCount / 12)));
+  const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears });
+  const purchasePrice = annualBase.purchasePrice;
+  const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (parseFloat(String(inputs.downPaymentPercent || 25)) / 100)));
+  const interestRate = parseFloat(String(inputs.interestRate || 6.5));
+  const loanTerm = parseInt(String(inputs.loanTerm || 30), 10);
+
+  const finOptions = {
+    financingType: inputs.financingType || 'fixed',
+    armInitialYears: inputs.armInitialYears ?? 5,
+    armAdjustmentRate: inputs.armAdjustmentRate,
+    armRateCap: inputs.armRateCap,
+    interestOnlyYears: inputs.interestOnlyYears,
+    totalMonths: monthsCount
+  };
+  const monthlyAmort = getMonthlyAmortization(loanAmount, interestRate, loanTerm, finOptions);
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyRows: MonthlyProjectionRow[] = [];
+  let cumulativeCash = 0;
+
+  for (let m = 1; m <= monthsCount; m++) {
+    const month0 = (startMonth - 1 + (m - 1)) % 12;
+    const calYear = startYear + Math.floor((startMonth - 1 + (m - 1)) / 12);
+    const calMonthName = monthNames[month0];
+    const monthLabel = `${calMonthName} ${calYear}`;
+
+    const opYear = Math.floor((m - 1) / 12) + 1;
+    const yearProj = annualBase.projections[Math.min(opYear - 1, annualBase.projections.length - 1)] || {} as Partial<ProjectionYear>;
+
+    const monthlyGross = (yearProj.grossPotentialIncome || 0) / 12;
+    const monthlyVacancy = (yearProj.vacancyLoss || 0) / 12;
+    const monthlyEGI = monthlyGross - monthlyVacancy;
+    const monthlyOpex = (yearProj.operatingExpenses || 0) / 12;
+    const monthlyNOI = monthlyEGI - monthlyOpex;
+
+    const amort = monthlyAmort[m - 1] || {} as Partial<MonthlyAmortizationRow>;
+    const debtPayment = amort.payment || 0;
+    const principalPaid = amort.principalPaid || 0;
+    const interestPaid = amort.interestPaid || 0;
+    const endingLoanBal = amort.endingBalance !== undefined ? amort.endingBalance : 0;
+
+    const netCashFlow = monthlyNOI - debtPayment;
+    cumulativeCash += netCashFlow;
+
+    monthlyRows.push({
+      monthNumber: m,
+      calendarYear: calYear,
+      calendarMonth: month0 + 1,
+      calendarMonthName: calMonthName,
+      label: monthLabel,
+      operatingYear: opYear,
+      grossIncome: Math.round(monthlyGross * 100) / 100,
+      vacancyLoss: Math.round(monthlyVacancy * 100) / 100,
+      effectiveGrossIncome: Math.round(monthlyEGI * 100) / 100,
+      operatingExpenses: Math.round(monthlyOpex * 100) / 100,
+      netOperatingIncome: Math.round(monthlyNOI * 100) / 100,
+      debtService: Math.round(debtPayment * 100) / 100,
+      principalPaid: Math.round(principalPaid * 100) / 100,
+      interestPaid: Math.round(interestPaid * 100) / 100,
+      netCashFlow: Math.round(netCashFlow * 100) / 100,
+      cashFlow: Math.round(netCashFlow * 100) / 100,
+      cumulativeCashFlow: Math.round(cumulativeCash * 100) / 100,
+      remainingLoanBalance: Math.round(endingLoanBal * 100) / 100
+    });
+  }
+
+  const endCalYear = startYear + Math.floor((startMonth - 1 + (monthsCount - 1)) / 12);
+  const endCalMonth0 = (startMonth - 1 + (monthsCount - 1)) % 12;
+  const endMonthName = monthNames[endCalMonth0];
+  const endDateISO = `${endCalYear}-${String(endCalMonth0 + 1).padStart(2, '0')}`;
+  const startDateISO = `${startYear}-${String(startMonth).padStart(2, '0')}`;
+
+  return {
+    startYear,
+    startMonth,
+    startMonthName: monthNames[startMonth - 1],
+    startDateISO,
+    endYear: endCalYear,
+    endMonth: endCalMonth0 + 1,
+    endMonthName,
+    endDateISO,
+    totalMonths: monthsCount,
+    monthlyProjections: monthlyRows,
+    summary: {
+      totalGrossIncome: Math.round(monthlyRows.reduce((sum, r) => sum + (r.grossIncome || 0), 0) * 100) / 100,
+      totalNOI: Math.round(monthlyRows.reduce((sum, r) => sum + (r.netOperatingIncome || 0), 0) * 100) / 100,
+      totalDebtService: Math.round(monthlyRows.reduce((sum, r) => sum + (r.debtService || 0), 0) * 100) / 100,
+      totalPrincipalPaid: Math.round(monthlyRows.reduce((sum, r) => sum + (r.principalPaid || 0), 0) * 100) / 100,
+      totalInterestPaid: Math.round(monthlyRows.reduce((sum, r) => sum + (r.interestPaid || 0), 0) * 100) / 100,
+      netCumulativeCashFlow: Math.round(cumulativeCash * 100) / 100,
+      endingLoanBalance: monthlyRows.length > 0 ? monthlyRows[monthlyRows.length - 1].remainingLoanBalance : 0
+    }
   };
 }
