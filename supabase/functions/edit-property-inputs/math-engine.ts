@@ -309,7 +309,9 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
     const effectiveGrossIncome = currentGrossIncome - vacancyLoss;
 
     let operatingExpenses = 0;
-    if (normalizedAsset === 'single-family') {
+    if (inputs.operatingExpensesAnnual !== undefined && !isNaN(parseFloat(String(inputs.operatingExpensesAnnual)))) {
+      operatingExpenses = parseFloat(String(inputs.operatingExpensesAnnual));
+    } else if (normalizedAsset === 'single-family') {
       const routineMaintenance = currentPropertyValue * 0.01;
       const turnover = (currentGrossIncome / 12) * 0.5 * (vacancyRate / 100 * 12);
       const mgmt = inputs.manageProperty ? currentGrossIncome * 0.10 : 0;
@@ -328,11 +330,14 @@ export function calculateProjections(assetType: string, inputs: DealInputs): Pro
       operatingExpenses = currentGrossIncome * (expenseRatio / 100);
     }
 
+    // Ensure finite operating expenses
+    if (!isFinite(operatingExpenses)) operatingExpenses = 0;
+
     const netOperatingIncome = effectiveGrossIncome - operatingExpenses;
     if (year === 1) {
       entryCapRate = (initialPropertyValue > 0 && netOperatingIncome > 0)
         ? (netOperatingIncome / initialPropertyValue) * 100
-        : targetCapRate;
+        : (targetCapRate || 0);
     }
 
     if (normalizedAsset === 'commercial' || normalizedAsset === 'storage') {

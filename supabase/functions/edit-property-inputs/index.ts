@@ -163,9 +163,13 @@ export async function handleRequest(req: Request): Promise<Response> {
       ? existingDeal.inputs
       : {}) as Record<string, unknown>;
 
+    const inputUpdates = (payload.updates && typeof payload.updates === "object"
+      ? payload.updates
+      : (payload.inputs && typeof payload.inputs === "object" ? payload.inputs : {})) as Record<string, unknown>;
+
     const mergedInputs: Record<string, unknown> = {
       ...existingInputs,
-      ...(payload.inputs && typeof payload.inputs === "object" ? payload.inputs : {})
+      ...inputUpdates
     };
 
     if (payload.operatingExpenses && typeof payload.operatingExpenses === "object") {

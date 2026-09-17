@@ -65,34 +65,37 @@
     },
 
     // === 2. Direct Postgres RPC Functions ===
+    showNetworkErrorNotification: function(message) {
+      if (typeof showActionToast === 'function') {
+        showActionToast(message, 'danger');
+      } else if (typeof document !== 'undefined' && document.body) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 z-[99999] bg-rose-900/90 text-rose-200 border border-rose-700 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      } else {
+        console.error('[MathTreeClient] Network error:', message);
+      }
+    },
 
     recalculateDeal: async function(dealId, newInputs) {
       const client = this.getClient();
-      if (!client) return null;
 
-      try {
-        // Try native Postgres RPC first (fastest, runs in microseconds)
-        const res = await client.rpc('rpc_recalculate_deal', {
-          p_deal_id: dealId,
-          p_new_inputs: newInputs || {}
-        });
-
-        if (!res.error && res.data) {
-          this._currentDeal = res.data;
-          this.notifyChange(res.data);
-          return res.data;
-        }
-      } catch (e) {
-        console.warn('[MathTreeClient] rpc_recalculate_deal error, trying Edge Function:', e);
-      }
-
-      // Fallback to active Edge Function
+      // Prioritize authoritative Supabase Edge Function for calculations
       try {
         const edgeRes = await fetch(`${SUPABASE_URL}/functions/v1/edit-property-inputs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
           body: JSON.stringify({ dealId, updates: newInputs })
         });
+        if (!edgeRes.ok) {
+          throw new Error(`Edge Function HTTP error (${edgeRes.status})`);
+        }
         const edgeData = await edgeRes.json();
         if (edgeData.success && edgeData.deal) {
           this._currentDeal = edgeData.deal;
@@ -100,8 +103,28 @@
           return edgeData.deal;
         }
       } catch (edgeErr) {
-        console.error('[MathTreeClient] recalculateDeal failed both RPC and Edge:', edgeErr);
+        console.error('[MathTreeClient] recalculateDeal Edge Function network failure:', edgeErr);
+        this.showNetworkErrorNotification('Server calculation failed: Edge Function unreachable.');
       }
+
+      // Postgres RPC fallback if available
+      if (client) {
+        try {
+          const res = await client.rpc('rpc_recalculate_deal', {
+            p_deal_id: dealId,
+            p_new_inputs: newInputs || {}
+          });
+
+          if (!res.error && res.data) {
+            this._currentDeal = res.data;
+            this.notifyChange(res.data);
+            return res.data;
+          }
+        } catch (e) {
+          console.warn('[MathTreeClient] rpc_recalculate_deal fallback notice:', e);
+        }
+      }
+
       return null;
     },
 
