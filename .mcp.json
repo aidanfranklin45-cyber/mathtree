@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mathtree-queue": {
+      "command": "python",
+      "args": [
+        "C:/Users/Aidan/OneDrive/Desktop/Antigravity_Workspace/Studio/studio.py",
+        "--mcp"
+      ],
+      "env": {
+        "STUDIO_TARGET_WORKSPACE": "C:/Users/Aidan/OneDrive/Desktop/Antigravity_Workspace/MathTree"
+      }
+    }
+  }
+}

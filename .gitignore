@@ -7,3 +7,4 @@ test_*_diagnostic.js
 test_*_sim.js
 dist/
 
+.aider*

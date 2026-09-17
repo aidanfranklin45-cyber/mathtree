@@ -1,5 +1,13 @@
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const assert = require('assert');
-const { calculateProjections, calculateMonthlyPayment, calculateRemainingBalance, calculateHoldingPeriodWealth } = require('./math.js');
+require('./math.js');
+const { calculateProjections, calculateMonthlyPayment, calculateRemainingBalance, calculateHoldingPeriodWealth } = globalThis.PropertyMath || {};
+
+const filterArg = process.argv.slice(2).join(' ').toLowerCase();
+if (filterArg) {
+  console.log(`[FILTER] Running only tests matching: "${filterArg}"\n`);
+}
 
 console.log('--- Starting math.js Unit Test Suite ---\n');
 
@@ -7,6 +15,9 @@ let testsPassed = 0;
 let testsFailed = 0;
 
 function runTest(name, fn) {
+  if (filterArg && !name.toLowerCase().includes(filterArg)) {
+    return;
+  }
   try {
     fn();
     console.log(`[PASS] ${name}`);
