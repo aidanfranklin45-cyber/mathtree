@@ -12,10 +12,12 @@ export interface DealStoreState {
   isEditModalOpen: boolean;
   selectedEntityId: string | null;
   selectedLLC: string | null;
+  filteredLeases: any[];
   setActiveTab: (tab: string) => void;
   setIsEditModalOpen: (open: boolean) => void;
   setSelectedEntityId: (id: string | null) => void;
   setSelectedLLC: (llc: string | null) => void;
+  filterLeasesByEntity: (entityId: string | null) => any[];
   updateInputs: (newInputs: Partial<DealInputs>) => void;
   saveDeal: () => Promise<boolean>;
   loadDeal: (dealId?: string) => Promise<void>;
@@ -275,6 +277,14 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     }
   }, [deal, metrics]);
 
+  const filterLeasesByEntity = useCallback((entityId: string | null) => {
+    if (!deal || !deal.inputs?.leases) return [];
+    if (!entityId || entityId === 'all') return deal.inputs.leases;
+    return deal.inputs.leases.filter((l: any) => (l && (l.entity_id === entityId || l.entityId === entityId || l.llc_id === entityId)));
+  }, [deal]);
+
+  const filteredLeases = (deal && deal.inputs && Array.isArray(deal.inputs.leases)) ? filterLeasesByEntity(selectedEntityId) : [];
+
   return {
     deal,
     metrics,
@@ -284,10 +294,12 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     isEditModalOpen,
     selectedEntityId,
     selectedLLC,
+    filteredLeases,
     setActiveTab,
     setIsEditModalOpen,
     setSelectedEntityId,
     setSelectedLLC,
+    filterLeasesByEntity,
     updateInputs,
     saveDeal,
     loadDeal,
