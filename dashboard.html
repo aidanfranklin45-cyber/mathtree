@@ -114,12 +114,33 @@
       overflow-x: hidden;
     }
     @media screen and (max-width: 768px) {
-      header .max-w-7xl {
+      header .max-w-7xl,
+      header > div {
+        flex-direction: column !important;
+        align-items: stretch !important;
         flex-wrap: wrap !important;
         gap: 0.5rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+      }
+      header .max-w-7xl > div {
+        width: 100% !important;
+        justify-content: space-between !important;
+        flex-wrap: wrap !important;
+      }
+      .analysis-section,
+      .analysis-panel,
+      .dashboard-panel {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
       }
       .overflow-x-auto, [class*="overflow-x-auto"] {
+        overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
+      }
+      button, a, select, input {
+        touch-action: manipulation;
       }
     }
   </style>
