@@ -4102,7 +4102,10 @@
       const sliderEl = document.getElementById('input-year-inspector');
       const targetYearInput = sliderEl ? (parseInt(sliderEl.value) || 1) : 1;
       const yearIdx = Math.max(0, Math.min(9, targetYearInput - 1));
-      const targetYearProj = res.projections[yearIdx];
+      if (!res || !res.projections || !('0' in res.projections || res.projections[0])) {
+        return;
+      }
+      const targetYearProj = res.projections[yearIdx] || res.projections[0];
 
       const startYr = getProjectionStartYear();
       const currentCalYear = startYr + targetYearInput - 1;
@@ -8799,6 +8802,9 @@
       originalUpdateCalculations();
       const inputs = getInputsFromForm();
       const res = window.PropertyMath.calculateProjections(activeTab, inputs);
+      if (!res || !res.projections || !('0' in res.projections || res.projections[0])) {
+        return;
+      }
 
       renderDealAuditor(inputs, res);
       updateBriefSummaryContainer(inputs);
