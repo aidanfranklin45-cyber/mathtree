@@ -2162,45 +2162,108 @@
       let earliestUpcomingStep = null;
 
       scopedLeases.forEach(lease => {
+        if (!lease) return;
         // Collect all unapplied scheduled escalations for this lease
-        const leaseIncreases = rawIncreases.filter(inc => inc.lease_id === lease.id && inc.is_applied !== true);
+        const leaseIncreases = (rawIncreases || []).filter(inc => inc && inc.lease_id === lease.id && inc.is_applied !== true);
         const hasDefinedSchedule = Boolean((lease.escalation_type && lease.escalation_type !== 'none') || (parseFloat(lease.escalation_rate) > 0) || lease.next_escalation_date || leaseIncreases.length > 0);
+
+        const freqStr = String(lease.escalation_frequency || lease.term_type || lease.lease_term_type || 'annual').toLowerCase();
+        const isAnnualLease = freqStr.includes('annual') || freqStr === 'yearly' || freqStr === 'anniversary';
 
         // Check if any scheduled step is due or future
         let hasDueStep = false;
-        leaseIncreases.forEach(inc => {
-          scheduledCount++;
-          const effDate = new Date(inc.effective_date);
-          if (effDate <= now) {
-            hasDueStep = true;
-          } else {
-            if (!earliestUpcomingStep || effDate < new Date(earliestUpcomingStep.effective_date)) {
-              earliestUpcomingStep = inc;
+        let hasUpcomingForLease = false;
+
+        if (isAnnualLease) {
+          // Annual lease logic: limit to exactly 1 upcoming escalation step per anniversary
+          if (leaseIncreases.length > 0) {
+            const sortedIncreases = [...leaseIncreases].sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
+            const dueStep = sortedIncreases.find(inc => inc.effective_date && new Date(inc.effective_date) <= now);
+            if (dueStep) {
+              hasDueStep = true;
+            }
+
+            // Count only the single next upcoming escalation step per anniversary date / lease
+            const nextFutureStep = sortedIncreases.find(inc => inc.effective_date && new Date(inc.effective_date) > now);
+            if (nextFutureStep) {
+              hasUpcomingForLease = true;
+              if (!earliestUpcomingStep || new Date(nextFutureStep.effective_date) < new Date(earliestUpcomingStep.effective_date)) {
+                earliestUpcomingStep = nextFutureStep;
+              }
             }
           }
-        });
 
-        const nextEscDate = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
-        if (nextEscDate) {
-          if (nextEscDate <= now) {
-            hasDueStep = true;
-          } else if (!earliestUpcomingStep || nextEscDate < new Date(earliestUpcomingStep.effective_date)) {
-            earliestUpcomingStep = {
-              effective_date: lease.next_escalation_date,
-              increase_type: (lease.escalation_type && lease.escalation_type.toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
-              scheduled_amount: lease.escalation_rate || 3.0
-            };
+          const nextEscDate = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+          if (nextEscDate) {
+            if (nextEscDate <= now) {
+              hasDueStep = true;
+            } else {
+              hasUpcomingForLease = true;
+              if (!earliestUpcomingStep || nextEscDate < new Date(earliestUpcomingStep.effective_date)) {
+                earliestUpcomingStep = {
+                  effective_date: lease.next_escalation_date,
+                  increase_type: (lease.escalation_type && String(lease.escalation_type).toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
+                  scheduled_amount: lease.escalation_rate || 3.0
+                };
+              }
+            }
           }
-        }
 
-        if (hasDueStep) {
-          escalationsDueCount++;
-        } else if (!hasDefinedSchedule) {
-          // No schedule defined: check if over 12 months since last increase or start
-          const refDate = lease.last_rent_increase_date ? new Date(lease.last_rent_increase_date) : new Date(lease.lease_start_date);
-          const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
-          if (diffMonths >= 12) {
+          if (hasDueStep) {
             escalationsDueCount++;
+          } else if (hasUpcomingForLease) {
+            scheduledCount++;
+          } else if (hasDefinedSchedule && !lease.last_rent_increase_date) {
+            scheduledCount++;
+          } else if (!hasDefinedSchedule) {
+            // No schedule defined: check if over 12 months since last increase or start
+            const refDateStr = lease.last_rent_increase_date || lease.lease_start_date;
+            if (refDateStr) {
+              const refDate = new Date(refDateStr);
+              const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+              if (diffMonths >= 12) {
+                escalationsDueCount++;
+              }
+            }
+          }
+        } else {
+          // Non-annual lease types (monthly, quarterly, etc.): unmodified path
+          leaseIncreases.forEach(inc => {
+            scheduledCount++;
+            const effDate = new Date(inc.effective_date);
+            if (effDate <= now) {
+              hasDueStep = true;
+            } else {
+              if (!earliestUpcomingStep || effDate < new Date(earliestUpcomingStep.effective_date)) {
+                earliestUpcomingStep = inc;
+              }
+            }
+          });
+
+          const nextEscDate = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+          if (nextEscDate) {
+            if (nextEscDate <= now) {
+              hasDueStep = true;
+            } else if (!earliestUpcomingStep || nextEscDate < new Date(earliestUpcomingStep.effective_date)) {
+              earliestUpcomingStep = {
+                effective_date: lease.next_escalation_date,
+                increase_type: (lease.escalation_type && String(lease.escalation_type).toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
+                scheduled_amount: lease.escalation_rate || 3.0
+              };
+            }
+          }
+
+          if (hasDueStep) {
+            escalationsDueCount++;
+          } else if (!hasDefinedSchedule) {
+            const refDateStr = lease.last_rent_increase_date || lease.lease_start_date;
+            if (refDateStr) {
+              const refDate = new Date(refDateStr);
+              const diffMonths = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
+              if (diffMonths >= 12) {
+                escalationsDueCount++;
+              }
+            }
           }
         }
       });
@@ -2213,17 +2276,18 @@
         if (reviewsCountEl) reviewsCountEl.textContent = `${escalationsDueCount} Due Now`;
         if (reviewsSub) reviewsSub.innerHTML = `<span class="text-amber-400 font-bold">Action Required</span>`;
         if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
-      } else if (earliestUpcomingStep) {
-        if (reviewsCountEl) reviewsCountEl.textContent = `${scheduledCount || scopedLeases.length} Scheduled`;
-        const valStr = earliestUpcomingStep.increase_type === 'fixed_step' 
-          ? `+$${earliestUpcomingStep.scheduled_amount}` 
-          : `+${earliestUpcomingStep.scheduled_amount}%`;
-        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-cyan-300 font-mono font-medium">${earliestUpcomingStep.effective_date} (${valStr})</span>`;
-        if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
       } else if (scheduledCount > 0) {
         if (reviewsCountEl) reviewsCountEl.textContent = `${scheduledCount} Scheduled`;
-        if (reviewsSub) reviewsSub.innerHTML = `<span class="text-emerald-400 font-bold">Defined Schedule</span>`;
-        if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        if (earliestUpcomingStep) {
+          const valStr = earliestUpcomingStep.increase_type === 'fixed_step' 
+            ? `+$${earliestUpcomingStep.scheduled_amount}` 
+            : `+${earliestUpcomingStep.scheduled_amount}%`;
+          if (reviewsSub) reviewsSub.innerHTML = `<span class="text-cyan-300 font-mono font-medium">${earliestUpcomingStep.effective_date} (${valStr})</span>`;
+          if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-cyan-400';
+        } else {
+          if (reviewsSub) reviewsSub.innerHTML = `<span class="text-emerald-400 font-bold">Defined Schedule</span>`;
+          if (reviewsDot) reviewsDot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        }
       } else {
         if (reviewsCountEl) reviewsCountEl.textContent = '0 Leases';
         if (reviewsSub) reviewsSub.textContent = 'All Up-to-Date';
