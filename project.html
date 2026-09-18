@@ -4095,8 +4095,8 @@
       savePresetValues(activeTab, inputs);
 
       // Perform projections
-      const mappedTab = activeTab;
-      const res = window.PropertyMath.calculateProjections(mappedTab, inputs);
+      const mappedTab = (activeTab === 'proforma' || !activeTab) ? 'commercial' : activeTab;
+      const res = (window.PropertyMath && typeof window.PropertyMath.calculateProjections === 'function') ? window.PropertyMath.calculateProjections(mappedTab, inputs) : null;
 
       // Read target year from inspector slider
       const sliderEl = document.getElementById('input-year-inspector');
@@ -4219,8 +4219,8 @@
       const dLoan = document.getElementById('debt-loan-amount'); if (dLoan) dLoan.textContent = formatCurrency(res.loanAmount);
       const dLtv = document.getElementById('debt-ltv'); if (dLtv) dLtv.textContent = `${res.ltv.toFixed(1)}%`;
       const dPay = document.getElementById('debt-monthly-payment'); if (dPay) dPay.textContent = `${formatCurrency(res.monthlyMortgagePayment)}/mo`;
-      const dDscr = document.getElementById('debt-y1-dscr'); if (dDscr) dDscr.textContent = res.projections[0].dscr !== null ? `${res.projections[0].dscr.toFixed(2)}x` : 'N/A';
-      const dYield = document.getElementById('debt-y1-yield'); if (dYield) dYield.textContent = res.projections[0].debtYield !== null ? `${res.projections[0].debtYield.toFixed(2)}%` : 'N/A';
+      const dDscr = document.getElementById('debt-y1-dscr'); if (dDscr) dDscr.textContent = (res && res.projections && res.projections[0] && res.projections[0].dscr !== null && res.projections[0].dscr !== undefined) ? `${res.projections[0].dscr.toFixed(2)}x` : 'N/A';
+      const dYield = document.getElementById('debt-y1-yield'); if (dYield) dYield.textContent = (res && res.projections && res.projections[0] && res.projections[0].debtYield !== null && res.projections[0].debtYield !== undefined) ? `${res.projections[0].debtYield.toFixed(2)}%` : 'N/A';
 
       // Update graphical elements and spreadsheet logs
       updateProjectionsChart(res.projections);
