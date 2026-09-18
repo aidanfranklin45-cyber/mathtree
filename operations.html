@@ -27,10 +27,11 @@
     ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.7); }
 
     @media (max-width: 640px) {
-      html, body {
+      html, body, main, header, footer, .max-w-7xl {
         overflow-x: hidden !important;
         max-width: 100vw !important;
         width: 100% !important;
+        box-sizing: border-box !important;
       }
     }
 
