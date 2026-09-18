@@ -156,6 +156,11 @@
       header .max-w-7xl > div {
         width: 100% !important;
         justify-content: space-between !important;
+        flex-wrap: wrap !important;
+      }
+      #header-actions {
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
       }
       #header-analysis-nav {
         order: 3;
@@ -171,6 +176,9 @@
       }
       .analysis-section,
       .analysis-panel,
+      .dashboard-panel,
+      .operations-panel,
+      .deal-analysis-container,
       #modeler-grid-container {
         display: flex !important;
         flex-direction: column !important;
