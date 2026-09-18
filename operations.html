@@ -1948,28 +1948,42 @@
       // 1. Entity Filter
       const entitySelect = document.getElementById('entity-filter-select');
       if (entitySelect) {
-        const currentVal = entitySelect.value;
+        const storedEntityId = localStorage.getItem('mathtree_selected_entity_id');
+        const currentVal = entitySelect.value || storedEntityId || 'all';
         let html = '<option value="all">All Entities (Consolidated Portfolio)</option>';
-        rawEntities.forEach(ent => {
-          html += `<option value="${ent.id}">${ent.name}</option>`;
+        (rawEntities || []).forEach(ent => {
+          if (ent && ent.id) {
+            html += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          }
         });
         entitySelect.innerHTML = html;
         if (currentVal && Array.from(entitySelect.options).some(o => o.value === currentVal)) {
           entitySelect.value = currentVal;
+        } else {
+          entitySelect.value = 'all';
         }
       }
 
       // 2. Property Filter (Only owned deals or all deals)
       const propSelect = document.getElementById('property-filter-select');
       if (propSelect) {
+        const selectedEntityId = entitySelect ? entitySelect.value : 'all';
+        let filteredDeals = rawDeals || [];
+        if (selectedEntityId && selectedEntityId !== 'all') {
+          filteredDeals = filteredDeals.filter(d => d && d.entity_id === selectedEntityId);
+        }
         const currentVal = propSelect.value;
         let html = '<option value="all">All Properties</option>';
-        rawDeals.forEach(d => {
-          html += `<option value="${d.id}">${d.title} (${d.status === 'owned' ? 'Owned' : 'Pipeline'})</option>`;
+        filteredDeals.forEach(d => {
+          if (d && d.id) {
+            html += `<option value="${d.id}">${d.title || d.name || 'Property'} (${d.status === 'owned' ? 'Owned' : 'Pipeline'})</option>`;
+          }
         });
         propSelect.innerHTML = html;
         if (currentVal && Array.from(propSelect.options).some(o => o.value === currentVal)) {
           propSelect.value = currentVal;
+        } else {
+          propSelect.value = 'all';
         }
       }
 
@@ -1977,8 +1991,10 @@
       const newLeaseDealSelect = document.getElementById('new-lease-deal-id');
       if (newLeaseDealSelect) {
         let html = '';
-        rawDeals.forEach(d => {
-          html += `<option value="${d.id}">${d.title}</option>`;
+        (rawDeals || []).forEach(d => {
+          if (d && d.id) {
+            html += `<option value="${d.id}">${d.title || d.name || 'Property'}</option>`;
+          }
         });
         newLeaseDealSelect.innerHTML = html;
       }
@@ -1986,19 +2002,41 @@
 
     function handleEntityFilterChange() {
       // Filter properties dropdown based on selected entity
-      const selectedEntityId = document.getElementById('entity-filter-select').value;
-      const propSelect = document.getElementById('property-filter-select');
+      const entitySelect = document.getElementById('entity-filter-select');
+      const selectedEntityId = (entitySelect && entitySelect.value) ? entitySelect.value : 'all';
       
-      let filteredDeals = rawDeals;
-      if (selectedEntityId !== 'all') {
-        filteredDeals = rawDeals.filter(d => d.entity_id === selectedEntityId);
+      // Persist / sync cross-tab and cross-component
+      if (selectedEntityId && selectedEntityId !== 'all') {
+        localStorage.setItem('mathtree_selected_entity_id', selectedEntityId);
+      } else {
+        localStorage.removeItem('mathtree_selected_entity_id');
       }
 
-      let html = '<option value="all">All Properties</option>';
-      filteredDeals.forEach(d => {
-        html += `<option value="${d.id}">${d.title}</option>`;
-      });
-      propSelect.innerHTML = html;
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const channel = new BroadcastChannel('mathtree_store_channel');
+          channel.postMessage({ type: 'ENTITY_CHANGED', entityId: selectedEntityId === 'all' ? null : selectedEntityId });
+          channel.close();
+        }
+      } catch(e) {}
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: selectedEntityId === 'all' ? null : selectedEntityId } }));
+
+      const propSelect = document.getElementById('property-filter-select');
+      if (propSelect) {
+        let filteredDeals = rawDeals || [];
+        if (selectedEntityId && selectedEntityId !== 'all') {
+          filteredDeals = filteredDeals.filter(d => d && d.entity_id === selectedEntityId);
+        }
+
+        let html = '<option value="all">All Properties</option>';
+        filteredDeals.forEach(d => {
+          if (d && d.id) {
+            html += `<option value="${d.id}">${d.title || d.name || 'Property'}</option>`;
+          }
+        });
+        propSelect.innerHTML = html;
+        propSelect.value = 'all';
+      }
 
       renderOperationsUI();
     }
@@ -3487,6 +3525,34 @@
       }
       await initOperationsView();
       setupRealtimeOperationsSubscriptions();
+
+      // Cross-tab and store entity selection sync
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'mathtree_selected_entity_id') {
+          const select = document.getElementById('entity-filter-select');
+          if (select) {
+            const val = e.newValue || 'all';
+            select.value = val;
+            handleEntityFilterChange();
+          }
+        }
+      });
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('mathtree_store_channel');
+          bc.onmessage = (msg) => {
+            if (msg.data?.type === 'ENTITY_CHANGED') {
+              const select = document.getElementById('entity-filter-select');
+              if (select) {
+                const val = msg.data.entityId || 'all';
+                select.value = val;
+                handleEntityFilterChange();
+              }
+            }
+          };
+        }
+      } catch(e) {}
     });
   </script>
 

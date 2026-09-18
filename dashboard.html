@@ -4373,6 +4373,10 @@
     window.closeInvestorProfileModal = closeInvestorProfileModal;
 
     function openEntityManagementModal() {
+      const compEl = document.getElementById('prof-company-name');
+      if (compEl && compEl.value.trim() && window.MathTreeProfile) {
+        window.MathTreeProfile.saveProfile({ companyName: compEl.value.trim() }, window._supabase, window._currentUser);
+      }
       window.location.href = getOperationsUrl('action=manage-entities');
     }
     window.openEntityManagementModal = openEntityManagementModal;

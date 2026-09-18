@@ -2581,7 +2581,12 @@
             <input type="text" id="prof-full-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Alex Morgan">
           </div>
           <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Fund / Entity Name</label>
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-slate-400">Fund / Entity Name</label>
+              <button type="button" onclick="openEntityManagementModal()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
+                <span>+ Manage LLCs</span>
+              </button>
+            </div>
             <input type="text" id="prof-company-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Apex Real Estate Capital">
           </div>
         </div>
@@ -8107,6 +8112,15 @@
       }
     }
     window.closeInvestorProfileModal = closeInvestorProfileModal;
+
+    function openEntityManagementModal() {
+      const compEl = document.getElementById('prof-company-name');
+      if (compEl && compEl.value.trim() && window.MathTreeProfile) {
+        window.MathTreeProfile.saveProfile({ companyName: compEl.value.trim() }, window._supabase, window._currentUser);
+      }
+      window.location.href = 'operations.html?action=manage-entities';
+    }
+    window.openEntityManagementModal = openEntityManagementModal;
 
     function setProfileDiscountRate(rate) {
       const el = document.getElementById('prof-discount-rate');

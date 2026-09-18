@@ -10,8 +10,12 @@ export interface DealStoreState {
   error: string | null;
   activeTab: string;
   isEditModalOpen: boolean;
+  selectedEntityId: string | null;
+  selectedLLC: string | null;
   setActiveTab: (tab: string) => void;
   setIsEditModalOpen: (open: boolean) => void;
+  setSelectedEntityId: (id: string | null) => void;
+  setSelectedLLC: (llc: string | null) => void;
   updateInputs: (newInputs: Partial<DealInputs>) => void;
   saveDeal: () => Promise<boolean>;
   loadDeal: (dealId?: string) => Promise<void>;
@@ -78,6 +82,87 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+
+  const initialStoredEntity = typeof window !== 'undefined' ? localStorage.getItem('mathtree_selected_entity_id') : null;
+  const normalizedInitialEntity = (initialStoredEntity && initialStoredEntity !== 'all') ? initialStoredEntity : null;
+  const [selectedEntityId, setSelectedEntityIdState] = useState<string | null>(normalizedInitialEntity);
+  const [selectedLLC, setSelectedLLCState] = useState<string | null>(null);
+
+  // Reactive cross-tab and cross-component synchronization
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'mathtree_selected_entity_id') {
+        const val = e.newValue && e.newValue !== 'all' ? e.newValue : null;
+        setSelectedEntityIdState(val);
+      }
+    };
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('mathtree_store_channel');
+        bc.onmessage = (msg) => {
+          if (msg.data?.type === 'ENTITY_CHANGED') {
+            const val = msg.data.entityId && msg.data.entityId !== 'all' ? msg.data.entityId : null;
+            setSelectedEntityIdState(val);
+          }
+        };
+      }
+    } catch (e) {}
+
+    const handleCustom = (e: Event) => {
+      const customEvent = e as CustomEvent<{ entityId?: string | null; llc?: string | null }>;
+      if (customEvent.detail?.entityId !== undefined) {
+        const val = customEvent.detail.entityId && customEvent.detail.entityId !== 'all' ? customEvent.detail.entityId : null;
+        setSelectedEntityIdState(val);
+      }
+      if (customEvent.detail?.llc !== undefined) {
+        setSelectedLLCState(customEvent.detail.llc || null);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('mathtree:entity-changed', handleCustom);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('mathtree:entity-changed', handleCustom);
+      if (bc) {
+        try { bc.close(); } catch(e) {}
+      }
+    };
+  }, []);
+
+  const setSelectedEntityId = useCallback((id: string | null) => {
+    const val = (id && id !== 'all') ? id : null;
+    setSelectedEntityIdState(val);
+    if (typeof window !== 'undefined') {
+      if (val) {
+        localStorage.setItem('mathtree_selected_entity_id', val);
+      } else {
+        localStorage.removeItem('mathtree_selected_entity_id');
+      }
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('mathtree_store_channel');
+          bc.postMessage({ type: 'ENTITY_CHANGED', entityId: val });
+          bc.close();
+        }
+      } catch (e) {}
+
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: val } }));
+    }
+  }, []);
+
+  const setSelectedLLC = useCallback((llc: string | null) => {
+    setSelectedLLCState(llc);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { llc } }));
+    }
+  }, []);
 
   const recalculate = useCallback((currentDeal: DealRecord) => {
     try {
@@ -197,8 +282,12 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     error,
     activeTab,
     isEditModalOpen,
+    selectedEntityId,
+    selectedLLC,
     setActiveTab,
     setIsEditModalOpen,
+    setSelectedEntityId,
+    setSelectedLLC,
     updateInputs,
     saveDeal,
     loadDeal,
