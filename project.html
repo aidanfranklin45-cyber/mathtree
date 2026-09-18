@@ -46,6 +46,46 @@
   <script src="math.js?v=5"></script>
   <script src="address-service.js"></script>
   <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(6, 40, 24, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.7); }
+
+    /* Bulletproof Modal Overlay & Viewport Sizing */
+    #investor-profile-modal,
+    #edit-deal-modal,
+    #cloud-sync-modal,
+    #delete-deal-modal,
+    #typed-delete-modal,
+    #project-wizard-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background-color: rgba(2, 6, 23, 0.85) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      z-index: 99999 !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 1rem !important;
+      overflow-y: auto !important;
+      box-sizing: border-box !important;
+    }
+
+    #investor-profile-modal.hidden,
+    #edit-deal-modal.hidden,
+    #cloud-sync-modal.hidden,
+    #delete-deal-modal.hidden,
+    #typed-delete-modal.hidden,
+    #project-wizard-modal.hidden {
+      display: none !important;
+    }
+
     @media screen {
       #printable-brief {
         position: fixed !important;
