@@ -344,6 +344,27 @@
         }, 50);
       }
     };
+
+    // Client-side in-place routing for Manage Entity Relationship Container
+    function handleInPlaceEntityRouting() {
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      if (params.get('action') === 'manage-entities' || params.get('modal') === 'manage-entities' || hash === '#manage-entities') {
+        if (typeof window.openEntityManagementModal === 'function') {
+          window.openEntityManagementModal();
+        } else if (window.mountManageEntitiesModal) {
+          window.mountManageEntitiesModal();
+          if (typeof window.openEntityManagementModal === 'function') window.openEntityManagementModal();
+        }
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', handleInPlaceEntityRouting);
+    } else {
+      handleInPlaceEntityRouting();
+    }
+    window.addEventListener('hashchange', handleInPlaceEntityRouting);
   </script>
 
   <!-- Clean Dashboard Header -->

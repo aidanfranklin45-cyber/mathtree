@@ -8,7 +8,6 @@ export interface LegalEntity {
   id: string;
   name: string;
   formation_state?: string;
-  ein?: string;
   bank_name?: string;
   depository_bank?: string;
 }

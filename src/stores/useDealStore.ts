@@ -13,12 +13,15 @@ export interface DealStoreState {
   selectedEntityId: string | null;
   selectedLLC: string | null;
   selectedLLCFilter: string | null;
+  entities: any[];
   filteredLeases: any[];
   setActiveTab: (tab: string) => void;
   setIsEditModalOpen: (open: boolean) => void;
   setSelectedEntityId: (id: string | null) => void;
   setSelectedLLC: (llc: string | null) => void;
   setSelectedLLCFilter: (llc: string | null) => void;
+  setEntities: (entities: any[]) => void;
+  loadEntities: () => Promise<any[]>;
   filterLeasesByEntity: (entityId: string | null) => any[];
   filterLeasesByLLC: (llc: string | null) => any[];
   updateInputs: (newInputs: Partial<DealInputs>) => void;
@@ -94,6 +97,57 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const [selectedLLC, setSelectedLLCState] = useState<string | null>(null);
   const [selectedLLCFilter, setSelectedLLCFilterState] = useState<string | null>(normalizedInitialEntity);
 
+  const [entities, setEntitiesState] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('mathtree_entities_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [
+      { id: 'ent-demo-1', name: 'Apex Real Estate Capital LLC', formation_state: 'WA', bank_name: 'Chase Commercial (*4892)' },
+      { id: 'ent-demo-2', name: 'Cascade Property Holdings LLC', formation_state: 'DE', bank_name: 'Wells Fargo Real Estate (*1042)' }
+    ];
+  });
+
+  const loadEntities = useCallback(async (): Promise<any[]> => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (user) {
+        const { data, error } = await supabase
+          .from('entities')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('name', { ascending: true });
+        if (!error && data) {
+          setEntitiesState(data);
+          if (typeof window !== 'undefined') {
+            try { localStorage.setItem('mathtree_entities_cache', JSON.stringify(data)); } catch(e) {}
+          }
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch entities from Supabase:', e);
+    }
+    return entities;
+  }, [entities]);
+
+  const setEntities = useCallback((newEntities: any[]) => {
+    setEntitiesState(newEntities);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('mathtree_entities_cache', JSON.stringify(newEntities));
+      } catch (e) {}
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: selectedEntityId, llc: selectedLLC } }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: selectedEntityId, llc: selectedLLC } }));
+    }
+  }, [selectedEntityId, selectedLLC]);
+
   // Reactive cross-tab and cross-component synchronization
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -103,6 +157,12 @@ export function useDealStore(initialDealId?: string): DealStoreState {
         const val = e.newValue && e.newValue !== 'all' ? e.newValue : null;
         setSelectedEntityIdState(val);
         setSelectedLLCFilterState(val);
+      }
+      if (e.key === 'mathtree_entities_cache' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setEntitiesState(parsed);
+        } catch(e) {}
       }
     };
 
@@ -134,6 +194,14 @@ export function useDealStore(initialDealId?: string): DealStoreState {
           setSelectedLLCFilterState(lVal);
         }
       }
+      // Re-read entities cache if present
+      try {
+        const cached = localStorage.getItem('mathtree_entities_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) setEntitiesState(parsed);
+        }
+      } catch (err) {}
     };
 
     window.addEventListener('storage', handleStorage);
@@ -349,12 +417,15 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     selectedEntityId,
     selectedLLC,
     selectedLLCFilter,
+    entities,
     filteredLeases,
     setActiveTab,
     setIsEditModalOpen,
     setSelectedEntityId,
     setSelectedLLC,
     setSelectedLLCFilter,
+    setEntities,
+    loadEntities,
     filterLeasesByEntity,
     filterLeasesByLLC,
     updateInputs,
