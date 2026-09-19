@@ -12,12 +12,15 @@ export interface DealStoreState {
   isEditModalOpen: boolean;
   selectedEntityId: string | null;
   selectedLLC: string | null;
+  selectedLLCFilter: string | null;
   filteredLeases: any[];
   setActiveTab: (tab: string) => void;
   setIsEditModalOpen: (open: boolean) => void;
   setSelectedEntityId: (id: string | null) => void;
   setSelectedLLC: (llc: string | null) => void;
+  setSelectedLLCFilter: (llc: string | null) => void;
   filterLeasesByEntity: (entityId: string | null) => any[];
+  filterLeasesByLLC: (llc: string | null) => any[];
   updateInputs: (newInputs: Partial<DealInputs>) => void;
   saveDeal: () => Promise<boolean>;
   loadDeal: (dealId?: string) => Promise<void>;
@@ -89,6 +92,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const normalizedInitialEntity = (initialStoredEntity && initialStoredEntity !== 'all') ? initialStoredEntity : null;
   const [selectedEntityId, setSelectedEntityIdState] = useState<string | null>(normalizedInitialEntity);
   const [selectedLLC, setSelectedLLCState] = useState<string | null>(null);
+  const [selectedLLCFilter, setSelectedLLCFilterState] = useState<string | null>(normalizedInitialEntity);
 
   // Reactive cross-tab and cross-component synchronization
   useEffect(() => {
@@ -98,6 +102,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       if (e.key === 'mathtree_selected_entity_id') {
         const val = e.newValue && e.newValue !== 'all' ? e.newValue : null;
         setSelectedEntityIdState(val);
+        setSelectedLLCFilterState(val);
       }
     };
 
@@ -109,6 +114,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
           if (msg.data?.type === 'ENTITY_CHANGED') {
             const val = msg.data.entityId && msg.data.entityId !== 'all' ? msg.data.entityId : null;
             setSelectedEntityIdState(val);
+            setSelectedLLCFilterState(val);
           }
         };
       }
@@ -119,9 +125,14 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       if (customEvent.detail?.entityId !== undefined) {
         const val = customEvent.detail.entityId && customEvent.detail.entityId !== 'all' ? customEvent.detail.entityId : null;
         setSelectedEntityIdState(val);
+        setSelectedLLCFilterState(val);
       }
       if (customEvent.detail?.llc !== undefined) {
         setSelectedLLCState(customEvent.detail.llc || null);
+        if (customEvent.detail.llc !== undefined) {
+          const lVal = customEvent.detail.llc && customEvent.detail.llc !== 'all' ? customEvent.detail.llc : null;
+          setSelectedLLCFilterState(lVal);
+        }
       }
     };
 
@@ -140,22 +151,27 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const setSelectedEntityId = useCallback((id: string | null) => {
     const val = (id && id !== 'all') ? id : null;
     setSelectedEntityIdState(val);
+    setSelectedLLCFilterState(val);
     if (typeof window !== 'undefined') {
-      if (val) {
-        localStorage.setItem('mathtree_selected_entity_id', val);
-      } else {
-        localStorage.removeItem('mathtree_selected_entity_id');
-      }
+      try {
+        if (val) {
+          localStorage.setItem('mathtree_selected_entity_id', val);
+          sessionStorage.setItem('mathtree_selected_entity_id', val);
+        } else {
+          localStorage.removeItem('mathtree_selected_entity_id');
+          sessionStorage.removeItem('mathtree_selected_entity_id');
+        }
+      } catch (e) {}
 
       try {
         if (typeof BroadcastChannel !== 'undefined') {
           const bc = new BroadcastChannel('mathtree_store_channel');
-          bc.postMessage({ type: 'ENTITY_CHANGED', entityId: val });
+          bc.postMessage({ type: 'ENTITY_CHANGED', entityId: val, llc: val });
           bc.close();
         }
       } catch (e) {}
 
-      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: val } }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: val, llc: val } }));
     }
   }, []);
 
@@ -163,6 +179,33 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     setSelectedLLCState(llc);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { llc } }));
+    }
+  }, []);
+
+  const setSelectedLLCFilter = useCallback((llc: string | null) => {
+    const val = (llc && llc !== 'all') ? llc : null;
+    setSelectedLLCFilterState(val);
+    setSelectedEntityIdState(val);
+    if (typeof window !== 'undefined') {
+      try {
+        if (val) {
+          localStorage.setItem('mathtree_selected_entity_id', val);
+          sessionStorage.setItem('mathtree_selected_entity_id', val);
+        } else {
+          localStorage.removeItem('mathtree_selected_entity_id');
+          sessionStorage.removeItem('mathtree_selected_entity_id');
+        }
+      } catch (e) {}
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('mathtree_store_channel');
+          bc.postMessage({ type: 'ENTITY_CHANGED', entityId: val, llc: val });
+          bc.close();
+        }
+      } catch (e) {}
+
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: val, llc: val } }));
     }
   }, []);
 
@@ -280,10 +323,16 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const filterLeasesByEntity = useCallback((entityId: string | null) => {
     if (!deal || !deal.inputs?.leases) return [];
     if (!entityId || entityId === 'all') return deal.inputs.leases;
-    return deal.inputs.leases.filter((l: any) => (l && (l.entity_id === entityId || l.entityId === entityId || l.llc_id === entityId)));
+    return deal.inputs.leases.filter((l: any) => (l && (l.entity_id === entityId || l.entityId === entityId || l.llc_id === entityId || l.entity === entityId)));
   }, [deal]);
 
-  const filteredLeases = (deal && deal.inputs && Array.isArray(deal.inputs.leases)) ? filterLeasesByEntity(selectedEntityId) : [];
+  const filterLeasesByLLC = useCallback((llc: string | null) => {
+    if (!deal || !deal.inputs?.leases) return [];
+    if (!llc || llc === 'all') return deal.inputs.leases;
+    return deal.inputs.leases.filter((l: any) => (l && (l.entity_id === llc || l.entityId === llc || l.llc_id === llc || l.entity === llc)));
+  }, [deal]);
+
+  const filteredLeases = (deal && deal.inputs && Array.isArray(deal.inputs.leases)) ? filterLeasesByLLC(selectedLLCFilter || selectedEntityId) : [];
 
   return {
     deal,
@@ -294,12 +343,15 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     isEditModalOpen,
     selectedEntityId,
     selectedLLC,
+    selectedLLCFilter,
     filteredLeases,
     setActiveTab,
     setIsEditModalOpen,
     setSelectedEntityId,
     setSelectedLLC,
+    setSelectedLLCFilter,
     filterLeasesByEntity,
+    filterLeasesByLLC,
     updateInputs,
     saveDeal,
     loadDeal,

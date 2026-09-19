@@ -1064,20 +1064,37 @@
       </div>
 
       <form id="investor-profile-form" onsubmit="saveInvestorProfileForm(event)" class="space-y-4">
-        <!-- Investor Identity -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="space-y-1">
-            <label class="text-[11px] font-bold text-slate-400">Investor / Sponsor Name</label>
-            <input type="text" id="prof-full-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Alex Morgan">
+        <!-- Investor Identity & Primary LLC Configuration -->
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Investor & Legal Entity Configuration</span>
+            <button type="button" onclick="openEntityManagementModal()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
+              <span>+ Manage LLCs</span>
+            </button>
           </div>
-          <div class="space-y-1">
-            <div class="flex items-center justify-between">
-              <label class="text-[11px] font-bold text-slate-400">Fund / Entity Name</label>
-              <button type="button" onclick="openEntityManagementModal()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
-                <span>+ Manage LLCs</span>
-              </button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Investor / Sponsor Name</label>
+              <input type="text" id="prof-full-name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Alex Morgan">
             </div>
-            <input type="text" id="prof-company-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Apex Real Estate Capital">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Primary LLC / Entity Name</label>
+              <input type="text" id="prof-company-name" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Apex Real Estate Capital LLC">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-0.5">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Formation State</label>
+              <input type="text" id="prof-entity-state" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. WA, DE">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">EIN / Tax ID</label>
+              <input type="text" id="prof-entity-ein" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. 12-3456789">
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Operating Bank</label>
+              <input type="text" id="prof-entity-bank" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500" placeholder="e.g. Chase Commercial">
+            </div>
           </div>
         </div>
 
@@ -4302,6 +4319,15 @@
         const compEl = document.getElementById('prof-company-name');
         if (compEl) compEl.value = prof.companyName || '';
 
+        const stateEl = document.getElementById('prof-entity-state');
+        if (stateEl) stateEl.value = prof.formationState || '';
+
+        const einEl = document.getElementById('prof-entity-ein');
+        if (einEl) einEl.value = prof.ein || '';
+
+        const bankEl = document.getElementById('prof-entity-bank');
+        if (bankEl) bankEl.value = prof.bankName || '';
+
         const drEl = document.getElementById('prof-discount-rate');
         if (drEl) {
           drEl.value = prof.discountRate ?? 8.0;
@@ -4374,8 +4400,17 @@
 
     function openEntityManagementModal() {
       const compEl = document.getElementById('prof-company-name');
+      const stateEl = document.getElementById('prof-entity-state');
+      const einEl = document.getElementById('prof-entity-ein');
+      const bankEl = document.getElementById('prof-entity-bank');
+
       if (compEl && compEl.value.trim() && window.MathTreeProfile) {
-        window.MathTreeProfile.saveProfile({ companyName: compEl.value.trim() }, window._supabase, window._currentUser);
+        window.MathTreeProfile.saveProfile({
+          companyName: compEl.value.trim(),
+          formationState: stateEl?.value?.trim() || '',
+          ein: einEl?.value?.trim() || '',
+          bankName: bankEl?.value?.trim() || ''
+        }, window._supabase, window._currentUser);
       }
       window.location.href = getOperationsUrl('action=manage-entities');
     }
@@ -4394,6 +4429,9 @@
       if (e && e.preventDefault) e.preventDefault();
       const fullName = document.getElementById('prof-full-name')?.value.trim() || 'Investor';
       const companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+      const formationState = document.getElementById('prof-entity-state')?.value.trim() || '';
+      const ein = document.getElementById('prof-entity-ein')?.value.trim() || '';
+      const bankName = document.getElementById('prof-entity-bank')?.value.trim() || '';
       const discountRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || 8.0;
       const exitYear = parseInt(document.getElementById('prof-exit-year')?.value, 10) || 10;
       const marketTier = document.getElementById('prof-market-tier')?.value || 'Tier 2';
@@ -4407,6 +4445,9 @@
       const updates = {
         fullName,
         companyName,
+        formationState,
+        ein,
+        bankName,
         discountRate,
         exitYear,
         marketTier,
