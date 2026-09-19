@@ -12,7 +12,6 @@
       id: 'ent-demo-1',
       name: 'Apex Real Estate Capital LLC',
       formation_state: 'WA',
-      ein: '91-1234567',
       bank_name: 'Chase Commercial (*4892)',
       depository_bank: 'Chase Commercial (*4892)'
     },
@@ -20,7 +19,6 @@
       id: 'ent-demo-2',
       name: 'Cascade Property Holdings LLC',
       formation_state: 'DE',
-      ein: '82-7654321',
       bank_name: 'Wells Fargo Real Estate (*1042)',
       depository_bank: 'Wells Fargo Real Estate (*1042)'
     }
@@ -80,15 +78,9 @@
             <input type="text" id="new-entity-name" required placeholder="e.g. Cascade Property Group LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Formation State</label>
-              <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">EIN / Tax ID</label>
-              <input type="text" id="new-entity-ein" placeholder="XX-XXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
-            </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Formation State</label>
+            <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
           </div>
 
           <div>
@@ -179,7 +171,7 @@
       <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
         <div class="min-w-0">
           <span class="block font-bold text-white text-xs truncate">${e.name}</span>
-          <span class="block text-[10px] text-slate-400 truncate">${e.formation_state ? e.formation_state + ' LLC' : 'Entity'} ${e.ein ? '• EIN: ' + e.ein : ''} ${e.bank_name ? '• ' + e.bank_name : ''}</span>
+          <span class="block text-[10px] text-slate-400 truncate">${e.formation_state ? e.formation_state + ' LLC' : 'Entity'} ${e.bank_name ? '• ' + e.bank_name : ''}</span>
         </div>
         <div class="flex items-center space-x-1.5 shrink-0">
           <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">Active</span>
@@ -207,21 +199,18 @@
 
     const nameInput = document.getElementById('new-entity-name');
     const stateInput = document.getElementById('new-entity-state');
-    const einInput = document.getElementById('new-entity-ein');
     const bankInput = document.getElementById('new-entity-bank');
 
     const name = nameInput?.value?.trim();
     if (!name) return;
 
     const state = stateInput?.value?.trim() || '';
-    const ein = einInput?.value?.trim() || '';
     const bank = bankInput?.value?.trim() || '';
 
     let newEntity = {
       id: 'ent-' + Date.now(),
       name: name,
       formation_state: state,
-      ein: ein,
       bank_name: bank,
       depository_bank: bank
     };
@@ -245,7 +234,6 @@
             user_id: currentUserId,
             name: name,
             formation_state: state || null,
-            ein: ein || null,
             bank_name: bank || null
           })
           .select()
