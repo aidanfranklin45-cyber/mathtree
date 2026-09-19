@@ -2670,6 +2670,57 @@
     </div>
   </div>
 
+  <!-- Entity (LLC) Management Modal -->
+  <div id="modal-manage-entities" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+      <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400">🏛️</span>
+          <span>Manage Legal Entities (LLCs)</span>
+        </h3>
+        <button onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <!-- Current Entities List -->
+      <div class="space-y-2 mb-5">
+        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+        <div id="entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Create New LLC Form -->
+      <form id="form-create-entity" onsubmit="handleCreateEntity(event)" class="border-t border-slate-800 pt-4 space-y-3 text-xs">
+        <span class="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider">+ Register New LLC Entity</span>
+        
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Entity Legal Name *</label>
+          <input type="text" id="new-entity-name" required placeholder="e.g. Cascade Property Group LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Formation State</label>
+            <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">EIN / Tax ID</label>
+            <input type="text" id="new-entity-ein" placeholder="XX-XXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 font-bold mb-1">Operating Bank / Depository</label>
+          <input type="text" id="new-entity-bank" placeholder="e.g. Chase Commercial Banking (*4892)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30 flex items-center justify-center space-x-2">
+          <span>Save Entity</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- Supabase Cloud Sync & Accounts Modal -->
   <div id="cloud-sync-modal" role="dialog" aria-modal="true" aria-labelledby="cloud-modal-title" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden space-y-4 p-6">
