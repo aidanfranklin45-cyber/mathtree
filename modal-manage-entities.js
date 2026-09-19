@@ -26,7 +26,7 @@
     }
   ];
 
-  // Try to load cached entities from localStorage
+  // Load cached entities from localStorage
   try {
     const cached = localStorage.getItem('mathtree_entities_cache');
     if (cached) {
@@ -44,11 +44,15 @@
   }
 
   function mountManageEntitiesModal() {
-    if (document.getElementById('modal-manage-entities')) return;
+    let modalDiv = document.getElementById('modal-manage-entities');
+    if (modalDiv) {
+      modalDiv.className = 'hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
+      return modalDiv;
+    }
 
-    const modalDiv = document.createElement('div');
+    modalDiv = document.createElement('div');
     modalDiv.id = 'modal-manage-entities';
-    modalDiv.className = 'hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
+    modalDiv.className = 'hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
     modalDiv.innerHTML = `
       <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-4 sm:p-6 relative my-auto max-h-[92vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
@@ -100,6 +104,7 @@
     `;
 
     document.body.appendChild(modalDiv);
+    return modalDiv;
   }
 
   function closeModal(modalId) {
@@ -127,12 +132,23 @@
   }
 
   async function fetchEntities() {
-    if (window._supabase && window._currentUser && !window._currentUser.demo) {
+    let currentUserId = window._currentUser?.id;
+    if (!currentUserId && window._supabase) {
+      try {
+        const { data: userData } = await window._supabase.auth.getUser();
+        if (userData?.user) {
+          currentUserId = userData.user.id;
+          window._currentUser = userData.user;
+        }
+      } catch (e) {}
+    }
+
+    if (window._supabase && currentUserId && !window._currentUser?.demo) {
       try {
         const { data, error } = await window._supabase
           .from('entities')
           .select('*')
-          .eq('user_id', window._currentUser.id)
+          .eq('user_id', currentUserId)
           .order('name', { ascending: true });
         if (!error && data) {
           localEntities = data;
@@ -151,7 +167,11 @@
     if (!container) return;
 
     if (!entities || entities.length === 0) {
-      container.innerHTML = '<div class="text-xs text-slate-500 italic p-2 text-center bg-slate-950 rounded-xl border border-slate-800/60">No legal entities registered yet.</div>';
+      container.innerHTML = `
+        <div class="text-xs text-slate-500 italic p-3 text-center bg-slate-950 rounded-xl border border-slate-800/60">
+          No legal entities registered yet. Click below to add one.
+        </div>
+      `;
       return;
     }
 
@@ -172,11 +192,10 @@
   }
 
   async function openEntityManagementModal() {
-    mountManageEntitiesModal();
+    const modal = mountManageEntitiesModal();
     const entities = await fetchEntities();
     renderEntitiesList(entities);
 
-    const modal = document.getElementById('modal-manage-entities');
     if (modal) {
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -207,12 +226,23 @@
       depository_bank: bank
     };
 
-    if (window._supabase && window._currentUser && !window._currentUser.demo) {
+    let currentUserId = window._currentUser?.id;
+    if (!currentUserId && window._supabase) {
+      try {
+        const { data: userData } = await window._supabase.auth.getUser();
+        if (userData?.user) {
+          currentUserId = userData.user.id;
+          window._currentUser = userData.user;
+        }
+      } catch (err) {}
+    }
+
+    if (window._supabase && currentUserId && !window._currentUser?.demo) {
       try {
         const { data, error } = await window._supabase
           .from('entities')
           .insert({
-            user_id: window._currentUser.id,
+            user_id: currentUserId,
             name: name,
             formation_state: state || null,
             ein: ein || null,
@@ -246,12 +276,14 @@
   async function handleDeleteEntity(entityId) {
     if (!confirm('Are you sure you want to remove this entity? Any properties assigned to it will be unassigned.')) return;
 
-    if (window._supabase && window._currentUser && !window._currentUser.demo) {
+    let currentUserId = window._currentUser?.id;
+    if (window._supabase && currentUserId && !window._currentUser?.demo) {
       try {
         await window._supabase
           .from('entities')
           .delete()
-          .eq('id', entityId);
+          .eq('id', entityId)
+          .eq('user_id', currentUserId);
       } catch (err) {
         console.warn('[ManageEntities] Supabase delete warning:', err);
       }
@@ -268,7 +300,23 @@
     }
   }
 
-  // Expose on window
+  // Reactive listener for entity changes to avoid stale list in open modal
+  let renderDebounceTimer = null;
+  function handleExternalEntityChange() {
+    const modal = document.getElementById('modal-manage-entities');
+    if (modal && !modal.classList.contains('hidden')) {
+      if (renderDebounceTimer) clearTimeout(renderDebounceTimer);
+      renderDebounceTimer = setTimeout(async () => {
+        const entities = await fetchEntities();
+        renderEntitiesList(entities);
+      }, 100);
+    }
+  }
+
+  window.addEventListener('mathtree:entity-changed', handleExternalEntityChange);
+  window.addEventListener('mathtree:entity-changedd', handleExternalEntityChange);
+
+  // Authoritative Window Action Exposure
   window.mountManageEntitiesModal = mountManageEntitiesModal;
   window.openEntityManagementModal = openEntityManagementModal;
   window.closeModal = closeModal;

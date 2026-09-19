@@ -279,10 +279,6 @@
           <svg class="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           <span>Edit Inputs</span>
         </button>
-        <button id="btn-header-manage-entities" onclick="openEntityManagementModal()" class="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/60 transition flex items-center space-x-1.5 shadow-sm" title="Manage Legal Entities (LLCs)">
-          <span class="text-emerald-400">🏛️</span>
-          <span class="hidden sm:inline">+ Manage LLCs</span>
-        </button>
 
         <!-- Compact Actions Dropdown for Profile, Export PDF & CSV -->
         <div class="relative" id="project-header-menu-container">
@@ -2671,7 +2667,7 @@
   </div>
 
   <!-- Entity (LLC) Management Modal -->
-  <div id="modal-manage-entities" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+  <div id="modal-manage-entities" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
       <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
         <h3 class="text-base font-bold text-white flex items-center space-x-2">
@@ -8165,18 +8161,6 @@
       }
     }
     window.closeInvestorProfileModal = closeInvestorProfileModal;
-
-    function openEntityManagementModal() {
-      if (typeof window.mountManageEntitiesModal === 'function') {
-        window.mountManageEntitiesModal();
-      }
-      const modal = document.getElementById('modal-manage-entities');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
-    }
-    window.openEntityManagementModal = openEntityManagementModal;
 
     function setProfileDiscountRate(rate) {
       const el = document.getElementById('prof-discount-rate');
