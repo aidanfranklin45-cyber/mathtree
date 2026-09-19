@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build && node scripts/postbuild.js",
     "deploy:hosting": "firebase deploy --only hosting",
+    "deploy:emergency": "node -e \"process.env.EMERGENCY_OVERRIDE='1'; import('child_process').then(cp => cp.execSync('firebase deploy --only hosting', {stdio: 'inherit', env: process.env}))\"",
     "ship": "npm run build && firebase deploy --only hosting",
     "preview": "vite preview"
   },

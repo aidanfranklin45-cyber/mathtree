@@ -15,3 +15,9 @@ globs: "**/*"
 
 ## 2. ARCHITECTURAL BLUEPRINT (ON DEMAND)
 - **Do Not Guess Schemas:** For database entities, Supabase tables/views, math formulas, or component layouts, read `@ARCHITECTURE.md` on demand.
+
+## 3. STRICT BRANCH & DEPLOYMENT GATEKEEPING
+- **No Manual Merging or Production Pushes:** NEVER run `git checkout main`, `git merge`, or `git push origin main`.
+- **No Direct Firebase Deployments:** NEVER run `firebase deploy`. Deployments are strictly gated by `assert-evaluator-approved.js` and can only be triggered after the Master Evaluator approves task completion via `complete_task`.
+- **Exclusive Completion Path:** All task completions must route through the `complete_task` tool in MathTree Studio.
+

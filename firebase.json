@@ -4,7 +4,8 @@
     "public": "dist",
     "cleanUrls": true,
     "predeploy": [
-      "npm run build"
+      "npm run build",
+      "node scripts/assert-evaluator-approved.js"
     ],
     "ignore": [
       "firebase.json",
