@@ -19,6 +19,7 @@ const RUNTIME_FILES = [
   'mathtree-client.js',
   'profile.js',
   'address-service.js',
+  'modal-manage-entities.js',
   // Favicons & icons
   'favicon.ico',
   'favicon.png',

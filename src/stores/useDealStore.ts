@@ -138,10 +138,12 @@ export function useDealStore(initialDealId?: string): DealStoreState {
 
     window.addEventListener('storage', handleStorage);
     window.addEventListener('mathtree:entity-changed', handleCustom);
+    window.addEventListener('mathtree:entity-changedd', handleCustom);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('mathtree:entity-changed', handleCustom);
+      window.removeEventListener('mathtree:entity-changedd', handleCustom);
       if (bc) {
         try { bc.close(); } catch(e) {}
       }
@@ -166,12 +168,13 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       try {
         if (typeof BroadcastChannel !== 'undefined') {
           const bc = new BroadcastChannel('mathtree_store_channel');
-          bc.postMessage({ type: 'ENTITY_CHANGED', entityId: val, llc: val });
+          bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: val, llc: val });
           bc.close();
         }
       } catch (e) {}
 
       window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: val, llc: val } }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: val, llc: val } }));
     }
   }, []);
 
@@ -179,6 +182,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     setSelectedLLCState(llc);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { llc } }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { llc } }));
     }
   }, []);
 
@@ -200,12 +204,13 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       try {
         if (typeof BroadcastChannel !== 'undefined') {
           const bc = new BroadcastChannel('mathtree_store_channel');
-          bc.postMessage({ type: 'ENTITY_CHANGED', entityId: val, llc: val });
+          bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: val, llc: val });
           bc.close();
         }
       } catch (e) {}
 
       window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: val, llc: val } }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: val, llc: val } }));
     }
   }, []);
 

@@ -2042,11 +2042,12 @@
       try {
         if (typeof BroadcastChannel !== 'undefined') {
           const channel = new BroadcastChannel('mathtree_store_channel');
-          channel.postMessage({ type: 'ENTITY_CHANGED', entityId: selectedEntityId === 'all' ? null : selectedEntityId });
+          channel.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: selectedEntityId === 'all' ? null : selectedEntityId });
           channel.close();
         }
       } catch(e) {}
       window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: selectedEntityId === 'all' ? null : selectedEntityId } }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: selectedEntityId === 'all' ? null : selectedEntityId } }));
 
       const propSelect = document.getElementById('property-filter-select');
       if (propSelect) {
@@ -3251,6 +3252,15 @@
           .eq('id', entityId);
         if (error) throw error;
         await fetchAllOperationsData();
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('mathtree_store_channel');
+            bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: null, llc: null });
+            bc.close();
+          }
+        } catch(e) {}
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: null, llc: null } }));
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: null, llc: null } }));
         openEntityManagementModal();
       } catch (err) {
         alert('Error deleting entity: ' + err.message);
@@ -3266,17 +3276,27 @@
 
       const user = window._currentUser;
       if (!window._supabase) {
-        rawEntities.push({
+        const newEnt = {
           id: 'ent-demo-' + Date.now(),
           name: name,
           formation_state: state || 'WA',
           ein: ein || '99-0000000',
           bank_name: bank || 'Chase Commercial (*4892)',
           depository_bank: bank || 'Chase Commercial (*4892)'
-        });
+        };
+        rawEntities.push(newEnt);
         document.getElementById('form-create-entity').reset();
         populateFilterDropdowns();
         renderOperationsUI();
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('mathtree_store_channel');
+            bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: newEnt.id, llc: newEnt.name });
+            bc.close();
+          }
+        } catch(e) {}
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: newEnt.id, llc: newEnt.name } }));
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: newEnt.id, llc: newEnt.name } }));
         openEntityManagementModal();
         return;
       }
@@ -3299,6 +3319,16 @@
 
         document.getElementById('form-create-entity').reset();
         await fetchAllOperationsData();
+        const createdId = data && data[0] ? data[0].id : null;
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('mathtree_store_channel');
+            bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: createdId, llc: name });
+            bc.close();
+          }
+        } catch(e) {}
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: createdId, llc: name } }));
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: createdId, llc: name } }));
         openEntityManagementModal();
       } catch (err) {
         alert('Error creating entity: ' + err.message);
