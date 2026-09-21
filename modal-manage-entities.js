@@ -24,6 +24,8 @@
     }
   ];
 
+  let lastFocusedElement = null;
+
   // Load cached entities from localStorage
   try {
     const cached = localStorage.getItem('mathtree_entities_cache');
@@ -45,7 +47,11 @@
     if (e) {
       if (e.preventDefault) e.preventDefault();
       if (e.stopPropagation) e.stopPropagation();
+      lastFocusedElement = e.currentTarget || e.target;
+    } else if (document.activeElement && document.activeElement !== document.body) {
+      lastFocusedElement = document.activeElement;
     }
+
     let modalDiv = document.getElementById('modal-manage-entities');
     if (!modalDiv) {
       modalDiv = document.createElement('div');
@@ -113,6 +119,12 @@
     fetchEntities().then(function(entities) {
       renderEntitiesList(entities);
     });
+
+    setTimeout(function() {
+      const input = modalDiv.querySelector('#new-entity-name');
+      if (input) input.focus();
+    }, 50);
+
     return modalDiv;
   }
 
@@ -122,6 +134,11 @@
       el.classList.add('hidden');
       el.classList.remove('flex');
       el.style.setProperty('display', 'none', 'important');
+    }
+    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      try {
+        lastFocusedElement.focus();
+      } catch (err) {}
     }
   }
 
@@ -331,6 +348,7 @@
       const modal = document.getElementById('modal-manage-entities');
       if (modal && !modal.classList.contains('hidden') && modal.style.display !== 'none') {
         closeModal('modal-manage-entities');
+        e.preventDefault();
         e.stopPropagation();
       }
     }
@@ -373,7 +391,6 @@
   // Pre-mount if document is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      // Don't display, just ensure element or stubs exist
       let modalDiv = document.getElementById('modal-manage-entities');
       if (modalDiv) {
         modalDiv.style.setProperty('z-index', '100000', 'important');
