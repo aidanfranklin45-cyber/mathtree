@@ -345,6 +345,38 @@
       }
     };
 
+    // Early safe stub for Manage LLCs popup overlay
+    window.mountManageEntitiesModal = function(e) {
+      if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      let modal = document.getElementById('modal-manage-entities');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.style.setProperty('display', 'flex', 'important');
+        modal.style.setProperty('z-index', '100000', 'important');
+        if (typeof window.fetchEntities === 'function') {
+          window.fetchEntities().then(function(ents) {
+            if (typeof window.renderEntitiesList === 'function') window.renderEntitiesList(ents);
+          });
+        }
+        return modal;
+      }
+    };
+    window.openEntityManagementModal = window.mountManageEntitiesModal;
+
+    // Delegated click listener ensuring immediate in-place mounting for any Manage LLCs trigger
+    window.addEventListener('click', function(event) {
+      const target = event.target;
+      if (target && (target.textContent?.trim() === '+ Manage LLCs' || target.textContent?.includes('Manage LLCs') || target.closest?.('#btn-dash-manage-llcs, #btn-menu-manage-entities'))) {
+        if (typeof window.mountManageEntitiesModal === 'function') {
+          window.mountManageEntitiesModal(event);
+        }
+      }
+    }, true);
+
     // Client-side in-place routing for Manage Entity Relationship Container
     function handleInPlaceEntityRouting() {
       const params = new URLSearchParams(window.location.search);
