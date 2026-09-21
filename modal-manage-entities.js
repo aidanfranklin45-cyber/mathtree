@@ -44,13 +44,13 @@
   function mountManageEntitiesModal() {
     let modalDiv = document.getElementById('modal-manage-entities');
     if (modalDiv) {
-      modalDiv.className = 'hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
+      modalDiv.className = 'hidden fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
       return modalDiv;
     }
 
     modalDiv = document.createElement('div');
     modalDiv.id = 'modal-manage-entities';
-    modalDiv.className = 'hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
+    modalDiv.className = 'hidden fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
     modalDiv.innerHTML = `
       <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-4 sm:p-6 relative my-auto max-h-[92vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
