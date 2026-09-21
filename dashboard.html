@@ -1090,8 +1090,8 @@
         <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
           <div class="flex items-center justify-between">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Investor & Legal Entity Configuration</span>
-            <button type="button" onclick="openEntityManagementModal()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
-              <span onclick="openEntityManagementModal()">+ Manage LLCs</span>
+            <button type="button" id="btn-dash-manage-llcs" onclick="mountManageEntitiesModal(event)" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
+              <span onclick="mountManageEntitiesModal(event)">+ Manage LLCs</span>
             </button>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -4614,16 +4614,66 @@
     }
     window.handleSelectAllEntities = handleSelectAllEntities;
 
-    async function openEntityManagementModal() {
-      const modal = document.getElementById('modal-manage-entities');
+    async function mountManageEntitiesModal(e) {
+      if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      let modal = document.getElementById('modal-manage-entities');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-manage-entities';
+        modal.className = 'hidden fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm';
+        modal.setAttribute('onclick', 'if (event.target === this) closeModal("modal-manage-entities");');
+        modal.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+              <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                <span class="text-emerald-400">🏛️</span>
+                <span>Manage Legal Entities (LLCs)</span>
+              </h3>
+              <button type="button" onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+            </div>
+            <div class="space-y-2 mb-5">
+              <div class="flex items-center justify-between">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+                <button type="button" onclick="handleSelectAllEntities()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition">
+                  View All Entities
+                </button>
+              </div>
+              <div id="entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+            </div>
+            <form id="form-create-entity" onsubmit="handleCreateEntity(event)" class="border-t border-slate-800 pt-4 space-y-3 text-xs">
+              <span class="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider">+ Register New LLC Entity</span>
+              <div>
+                <label class="block text-slate-400 font-bold mb-1">Entity Legal Name *</label>
+                <input type="text" id="new-entity-name" required placeholder="e.g. Cascade Property Group LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-bold mb-1">Formation State</label>
+                <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-bold mb-1">Operating Bank / Depository</label>
+                <input type="text" id="new-entity-bank" placeholder="e.g. Chase Commercial Banking (*4892)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+              </div>
+              <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30 flex items-center justify-center space-x-2">
+                <span>Save Entity</span>
+              </button>
+            </form>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      }
+
       const entities = await fetchEntities();
       renderEntitiesList(entities);
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      return modal;
     }
-    window.openEntityManagementModal = openEntityManagementModal;
+    window.mountManageEntitiesModal = mountManageEntitiesModal;
+    window.openEntityManagementModal = mountManageEntitiesModal;
 
     function closeModal(modalId) {
       const el = document.getElementById(modalId || 'modal-manage-entities');
