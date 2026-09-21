@@ -354,15 +354,7 @@
     }
   }, true);
 
-  // Delegated click listener ensuring immediate in-place mounting for any Manage LLCs trigger
-  window.addEventListener('click', function(event) {
-    const target = event.target;
-    if (target && (target.textContent?.trim() === '+ Manage LLCs' || target.textContent?.includes('Manage LLCs') || target.closest?.('#btn-dash-manage-llcs, #btn-menu-manage-entities'))) {
-      if (typeof window.mountManageEntitiesModal === 'function') {
-        window.mountManageEntitiesModal(event);
-      }
-    }
-  }, true);
+
 
   // Client-side in-place routing for Manage Entity Relationship Container
   function handleInPlaceEntityRouting() {
