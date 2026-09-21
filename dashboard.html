@@ -1091,7 +1091,7 @@
           <div class="flex items-center justify-between">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Investor & Legal Entity Configuration</span>
             <button type="button" onclick="openEntityManagementModal()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
-              <span>+ Manage LLCs</span>
+              <span onclick="openEntityManagementModal()">+ Manage LLCs</span>
             </button>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1203,19 +1203,24 @@
   </div>
 
   <!-- Entity (LLC) Management Modal -->
-  <div id="modal-manage-entities" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+  <div id="modal-manage-entities" onclick="if (event.target === this) closeModal('modal-manage-entities');" class="hidden fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl p-6 relative">
       <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
         <h3 class="text-base font-bold text-white flex items-center space-x-2">
           <span class="text-emerald-400">🏛️</span>
           <span>Manage Legal Entities (LLCs)</span>
         </h3>
-        <button onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+        <button type="button" onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
       </div>
 
       <!-- Current Entities List -->
       <div class="space-y-2 mb-5">
-        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+        <div class="flex items-center justify-between">
+          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+          <button type="button" onclick="handleSelectAllEntities()" class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition">
+            View All Entities
+          </button>
+        </div>
         <div id="entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
           <!-- Populated dynamically -->
         </div>
@@ -4507,6 +4512,236 @@
       await loadDashboardProjects();
     }
     window.saveInvestorProfileForm = saveInvestorProfileForm;
+
+    // =========================================================================
+    // Authoritative Inline In-Place LLC & Entity Management Controller
+    // =========================================================================
+    let _dashLocalEntities = [
+      { id: 'ent-demo-1', name: 'Apex Real Estate Capital LLC', formation_state: 'WA', bank_name: 'Chase Commercial (*4892)' },
+      { id: 'ent-demo-2', name: 'Cascade Property Holdings LLC', formation_state: 'DE', bank_name: 'Wells Fargo Real Estate (*1042)' }
+    ];
+
+    try {
+      const cached = localStorage.getItem('mathtree_entities_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) _dashLocalEntities = parsed;
+      }
+    } catch(e) {}
+
+    function saveLocalEntitiesCache() {
+      try {
+        localStorage.setItem('mathtree_entities_cache', JSON.stringify(_dashLocalEntities));
+      } catch(e) {}
+    }
+
+    function broadcastEntityChange(entityId, llcName) {
+      const detail = { entityId: entityId || null, llc: llcName || null };
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail }));
+      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail }));
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('mathtree_store_channel');
+          bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId, llc: llcName });
+          bc.close();
+        }
+      } catch(e) {}
+    }
+
+    async function fetchEntities() {
+      let currentUserId = window._currentUser?.id;
+      if (!currentUserId && window._supabase) {
+        try {
+          const { data: userData } = await window._supabase.auth.getUser();
+          if (userData?.user) {
+            currentUserId = userData.user.id;
+            window._currentUser = userData.user;
+          }
+        } catch(e) {}
+      }
+      if (window._supabase && currentUserId && !window._currentUser?.demo) {
+        try {
+          const { data, error } = await window._supabase
+            .from('entities')
+            .select('*')
+            .eq('user_id', currentUserId)
+            .order('name', { ascending: true });
+          if (!error && data) {
+            _dashLocalEntities = data;
+            saveLocalEntitiesCache();
+            return _dashLocalEntities;
+          }
+        } catch(e) {
+          console.warn('[ManageEntities] Supabase fetch warning:', e);
+        }
+      }
+      return _dashLocalEntities;
+    }
+
+    function renderEntitiesList(entities) {
+      const container = document.getElementById('entities-list-container');
+      if (!container) return;
+      if (!entities || entities.length === 0) {
+        container.innerHTML = `
+          <div class="text-xs text-slate-500 italic p-3 text-center bg-slate-950 rounded-xl border border-slate-800/60">
+            No legal entities registered yet. Click below to add one.
+          </div>
+        `;
+        return;
+      }
+      container.innerHTML = entities.map(e => `
+        <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <span class="block font-bold text-white text-xs truncate">${e.name}</span>
+            <span class="block text-[10px] text-slate-400 truncate">${e.formation_state ? e.formation_state + ' LLC' : 'Entity'} ${e.bank_name ? '• ' + e.bank_name : ''}</span>
+          </div>
+          <div class="flex items-center space-x-1.5 shrink-0">
+            <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">Active</span>
+            <button type="button" onclick="handleDeleteEntity('${e.id}')" class="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-900 transition" title="Delete Entity">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function handleSelectAllEntities() {
+      try {
+        localStorage.setItem('mathtree_selected_entity_id', 'all');
+        sessionStorage.setItem('mathtree_selected_entity_id', 'all');
+      } catch(e) {}
+      broadcastEntityChange('all', 'all');
+    }
+    window.handleSelectAllEntities = handleSelectAllEntities;
+
+    async function openEntityManagementModal() {
+      const modal = document.getElementById('modal-manage-entities');
+      const entities = await fetchEntities();
+      renderEntitiesList(entities);
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+    window.openEntityManagementModal = openEntityManagementModal;
+
+    function closeModal(modalId) {
+      const el = document.getElementById(modalId || 'modal-manage-entities');
+      if (el) {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+      }
+    }
+    window.closeModal = closeModal;
+
+    async function handleCreateEntity(e) {
+      if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      const nameInput = document.getElementById('new-entity-name');
+      const stateInput = document.getElementById('new-entity-state');
+      const bankInput = document.getElementById('new-entity-bank');
+      const name = nameInput?.value?.trim();
+      if (!name) return;
+      const state = stateInput?.value?.trim() || '';
+      const bank = bankInput?.value?.trim() || '';
+
+      let newEntity = {
+        id: 'ent-' + Date.now(),
+        name: name,
+        formation_state: state,
+        bank_name: bank,
+        depository_bank: bank
+      };
+
+      let currentUserId = window._currentUser?.id;
+      if (!currentUserId && window._supabase) {
+        try {
+          const { data: userData } = await window._supabase.auth.getUser();
+          if (userData?.user) {
+            currentUserId = userData.user.id;
+            window._currentUser = userData.user;
+          }
+        } catch(err) {}
+      }
+
+      if (window._supabase && currentUserId && !window._currentUser?.demo) {
+        try {
+          const { data, error } = await window._supabase
+            .from('entities')
+            .insert({
+              user_id: currentUserId,
+              name: name,
+              formation_state: state || null,
+              bank_name: bank || null
+            })
+            .select()
+            .single();
+          if (!error && data) newEntity = data;
+        } catch(err) {
+          console.warn('[ManageEntities] Supabase insert warning:', err);
+        }
+      }
+
+      _dashLocalEntities.push(newEntity);
+      saveLocalEntitiesCache();
+      const form = document.getElementById('form-create-entity');
+      if (form) form.reset();
+      renderEntitiesList(_dashLocalEntities);
+      broadcastEntityChange(newEntity.id, newEntity.name);
+    }
+    window.handleCreateEntity = handleCreateEntity;
+
+    async function handleDeleteEntity(entityId) {
+      if (!confirm('Are you sure you want to remove this entity? Any properties assigned to it will be unassigned.')) return;
+      let currentUserId = window._currentUser?.id;
+      if (window._supabase && currentUserId && !window._currentUser?.demo) {
+        try {
+          await window._supabase
+            .from('entities')
+            .delete()
+            .eq('id', entityId)
+            .eq('user_id', currentUserId);
+        } catch(err) {
+          console.warn('[ManageEntities] Supabase delete warning:', err);
+        }
+      }
+      _dashLocalEntities = _dashLocalEntities.filter(e => e.id !== entityId);
+      saveLocalEntitiesCache();
+      renderEntitiesList(_dashLocalEntities);
+      broadcastEntityChange(null, null);
+    }
+    window.handleDeleteEntity = handleDeleteEntity;
+
+    // Single-attach event listener guard for entity changes
+    if (!window._hasEntityChangedListener) {
+      window._hasEntityChangedListener = true;
+      let debounceTimer = null;
+      const onEntityChanged = () => {
+        const modal = document.getElementById('modal-manage-entities');
+        if (modal && !modal.classList.contains('hidden')) {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(async () => {
+            const entities = await fetchEntities();
+            renderEntitiesList(entities);
+          }, 100);
+        }
+      };
+      window.addEventListener('mathtree:entity-changed', onEntityChanged);
+      window.addEventListener('mathtree:entity-changedd', onEntityChanged);
+    }
+
+    // Escape key listener to close modal-manage-entities without closing parent modal
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('modal-manage-entities');
+        if (modal && !modal.classList.contains('hidden')) {
+          closeModal('modal-manage-entities');
+          e.stopPropagation();
+        }
+      }
+    });
 
     
     function toggleWizardFinancingFields(type) {
