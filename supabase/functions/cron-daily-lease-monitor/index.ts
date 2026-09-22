@@ -53,6 +53,8 @@ async function sendEmailWithResend(
   } catch (err: any) {
     return { success: false, error: err?.message || "Network error sending email" };
   }
+}
+
 async function resolveRecipientEmail(
   adminClient: any,
   leaseUserId: string | null | undefined,
