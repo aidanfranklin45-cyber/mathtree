@@ -562,6 +562,7 @@
             <p class="text-xs text-slate-400 mt-0.5">Live loan amortization, remaining principal balances, and debt service powered by Supabase Realtime.</p>
           </div>
           <div class="flex items-center space-x-2">
+            <input type="text" id="supabase-studio-insert-trigger" data-testid="supabase-studio-insert-trigger" placeholder="Simulate Realtime Payment..." class="bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1 text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500 w-36 sm:w-48 transition" />
             <span id="amortization-entity-badge" class="px-2.5 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold text-emerald-400">
               All Entities
             </span>
@@ -5157,6 +5158,71 @@
     }
     window.setupRealtimeDashboardSubscriptions = setupRealtimeDashboardSubscriptions;
 
+    // Supabase Studio Live Simulation Handler
+    function initSupabaseStudioTriggerListener() {
+      const triggerInp = document.getElementById('supabase-studio-insert-trigger');
+      if (!triggerInp || triggerInp._hasStudioListener) return;
+      triggerInp._hasStudioListener = true;
+
+      const handleTrigger = (val) => {
+        if (!val) return;
+        try {
+          let paymentAmount = 0;
+          let dealId = null;
+          let status = 'paid';
+
+          if (typeof val === 'string' && val.trim().startsWith('{')) {
+            const parsed = JSON.parse(val);
+            const record = parsed.new || parsed.record || parsed;
+            paymentAmount = parseFloat(record.amount_paid || record.amount || record.principal_paid || record.payment || 0);
+            dealId = record.deal_id || record.dealId || null;
+            status = record.status || 'paid';
+          } else {
+            paymentAmount = parseFloat(val) || 0;
+          }
+
+          if (paymentAmount > 0) {
+            if (Array.isArray(_dashboardAmortizationData) && _dashboardAmortizationData.length > 0) {
+              const targetRow = _dashboardAmortizationData.find(r => !dealId || r.deal_id === dealId) || _dashboardAmortizationData[0];
+              if (targetRow) {
+                targetRow.principal_paid = (targetRow.principal_paid || 0) + paymentAmount;
+                targetRow.ending_balance = Math.max(0, (targetRow.ending_balance || 0) - paymentAmount);
+                targetRow.net_equity = (targetRow.net_equity || 0) + paymentAmount;
+                targetRow.status = status;
+              }
+              renderAmortizationScheduleUI();
+            }
+
+            let totalGav = 0, totalDebt = 0, totalEq = 0;
+            activeDashboardProjects.forEach(d => {
+              if (d.status === 'owned') {
+                totalGav += (d.purchase_price || 0);
+                const initLoan = (d.purchase_price || 0) * 0.75;
+                const dDebt = Math.max(0, initLoan - paymentAmount);
+                totalDebt += dDebt;
+                totalEq += Math.max(0, (d.purchase_price || 0) - dDebt);
+              }
+            });
+
+            if (totalGav > 0) {
+              const ltv = Math.round((totalDebt / totalGav) * 100);
+              const curValEl = document.getElementById('kpi-owned-value');
+              const curEqEl = document.getElementById('kpi-owned-equity');
+              const curDebtEl = document.getElementById('kpi-owned-debt-ltv');
+              if (curValEl) curValEl.textContent = formatCurrency(totalGav);
+              if (curEqEl) curEqEl.textContent = formatCurrency(totalEq);
+              if (curDebtEl) curDebtEl.textContent = `${ltv}% LTV • Debt: ${formatCurrency(totalDebt)}`;
+            }
+          }
+        } catch(err) {
+          console.warn('[Studio Trigger] Notice:', err);
+        }
+      };
+
+      triggerInp.addEventListener('input', (e) => handleTrigger(e.target.value));
+      triggerInp.addEventListener('change', (e) => handleTrigger(e.target.value));
+    }
+
     // Automatically re-fetch deals and restore portfolio when network reconnects
     window.addEventListener('online', () => {
       console.log('[Network] Connectivity restored. Synchronizing dashboard with Supabase...');
@@ -5192,6 +5258,7 @@
       // Load Projects & Subscribe to Realtime Updates
       loadDashboardProjects();
       setupRealtimeDashboardSubscriptions();
+      initSupabaseStudioTriggerListener();
 
             // Wizard Navigation & Actions
       const btnWizClose = document.getElementById('btn-wizard-close');
