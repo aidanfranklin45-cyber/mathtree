@@ -527,6 +527,14 @@
           </button>
         </div>
 
+        <!-- Portfolio Entity Filter Controls -->
+        <div class="flex items-center space-x-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full" id="portfolio-entity-filter-container">
+          <button id="portfolio-filter-all-entities-btn" onclick="setDashboardEntityFilter('all')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap">
+            All Entities
+          </button>
+          <div id="portfolio-entity-buttons" class="flex items-center space-x-1"></div>
+        </div>
+
         <!-- Asset Class Filter Pills -->
         <div class="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-900 overflow-x-auto max-w-full" id="dash-filter-container">
           <button data-dash-filter="all" onclick="setDashboardAssetFilter('all')" class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap">All</button>
@@ -2268,9 +2276,39 @@
       setEl('count-prospect', pipelineCount);
       setEl('count-owned', ownedCount);
 
+      // Render Entity Filter Buttons
+      const entBtnContainer = document.getElementById('portfolio-entity-buttons');
+      const allEntBtn = document.getElementById('portfolio-filter-all-entities-btn');
+      if (allEntBtn) {
+        allEntBtn.className = (!currentEntityId || currentEntityId === 'all')
+          ? 'px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap'
+          : 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap';
+      }
+      if (entBtnContainer && window._dashboardEntities && window._dashboardEntities.length > 0) {
+        entBtnContainer.innerHTML = window._dashboardEntities.map(e => {
+          const isActive = currentEntityId === e.id;
+          const cls = isActive
+            ? 'px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap'
+            : 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap';
+          return `<button onclick="setDashboardEntityFilter('${e.id}')" class="${cls}" title="${e.name}">${e.name.length > 15 ? e.name.slice(0, 15) + '...' : e.name}</button>`;
+        }).join('');
+      }
+
       // Render Filtered Project Grid
       renderFilteredGrid();
     }
+
+    function setDashboardEntityFilter(entityId) {
+      try {
+        localStorage.setItem('mathtree_selected_entity_id', entityId);
+        sessionStorage.setItem('mathtree_selected_entity_id', entityId);
+      } catch(e) {}
+      broadcastEntityChange(entityId, entityId === 'all' ? 'All Entities' : null);
+      if (typeof loadDashboardProjects === 'function') {
+        loadDashboardProjects();
+      }
+    }
+    window.setDashboardEntityFilter = setDashboardEntityFilter;
     function setDashboardStatusFilter(status) {
       currentStatusFilter = status;
       const btnAll = document.getElementById('btn-status-all');
@@ -4694,6 +4732,7 @@
             .order('name', { ascending: true });
           if (!error && data) {
             _dashLocalEntities = data;
+            window._dashboardEntities = data;
             saveLocalEntitiesCache();
             return _dashLocalEntities;
           }
@@ -4701,6 +4740,7 @@
           console.warn('[ManageEntities] Supabase fetch warning:', e);
         }
       }
+      window._dashboardEntities = _dashLocalEntities;
       return _dashLocalEntities;
     }
 
