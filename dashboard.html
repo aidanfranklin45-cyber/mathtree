@@ -460,8 +460,8 @@
       </div>
     </div>
 
-    <!-- 4 Portfolio & Pipeline Executive KPI Tiles -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <!-- 4 Portfolio & Pipeline Executive KPI Tiles / Equity Scorecard -->
+    <div class="equity-scorecard grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" id="portfolio-equity-scorecard">
       
       <!-- Owned Portfolio Value (GAV & Net Equity NAV) -->
       <div class="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-5 rounded-2xl transition">
@@ -469,10 +469,10 @@
           <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">Gross Asset Value</span>
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
         </div>
-        <span id="kpi-owned-value" class="text-lg sm:text-2xl font-black text-emerald-400 mt-1 sm:mt-2 block">$0</span>
+        <span id="kpi-owned-value" class="equity-scorecard-gross-asset-value text-lg sm:text-2xl font-black text-emerald-400 mt-1 sm:mt-2 block">$0</span>
         <div class="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900">
-          <span>Net Equity: <strong id="kpi-owned-equity" class="text-slate-200 font-bold">$0</strong></span>
-          <span id="kpi-owned-debt-ltv" class="text-slate-500 font-mono text-[9px] sm:text-[10px]">0% LTV</span>
+          <span>Net Equity: <strong id="kpi-owned-equity" class="equity-scorecard-net-equity-nav text-slate-200 font-bold">$0</strong></span>
+          <span id="kpi-owned-debt-ltv" class="equity-scorecard-blended-ltv equity-scorecard-debt-ltv text-slate-500 font-mono text-[9px] sm:text-[10px]">0% LTV</span>
         </div>
       </div>
 
@@ -482,8 +482,8 @@
           <span class="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">Owned Annual Cash Flow</span>
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
         </div>
-        <span id="kpi-owned-cashflow" class="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block">$0/yr</span>
-        <span id="kpi-owned-yield" class="text-[10px] sm:text-[11px] text-emerald-400 mt-0.5 block truncate">0.0% Avg Cash-on-Cash</span>
+        <span id="kpi-owned-cashflow" class="equity-scorecard-cashflow text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block">$0/yr</span>
+        <span id="kpi-owned-yield" class="equity-scorecard-yield text-[10px] sm:text-[11px] text-emerald-400 mt-0.5 block truncate">0.0% Avg Cash-on-Cash</span>
       </div>
 
       <!-- Active Pipeline Volume -->
