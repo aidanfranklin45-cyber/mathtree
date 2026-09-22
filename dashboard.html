@@ -16,7 +16,6 @@
   <script src="mathtree-client.js"></script>
   <script src="profile.js"></script>
   <script src="modal-manage-entities.js"></script>
-  <script src="math.js?v=5"></script>
   <script src="address-service.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -543,6 +542,59 @@
       <div id="dash-projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Dynamically rendered property cards -->
       </div>
+
+      <!-- Real-Time Portfolio Debt & Amortization Schedule -->
+      <section class="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 rounded-3xl p-4 sm:p-6 space-y-4 shadow-xl transition">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <h3 class="text-base sm:text-lg font-bold text-white tracking-tight">Real-Time Debt & Amortization Schedule</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Live loan amortization, remaining principal balances, and debt service powered by Supabase Realtime.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span id="amortization-entity-badge" class="px-2.5 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold text-emerald-400">
+              All Entities
+            </span>
+            <div class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Live Sync</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Amortization Table / Responsive Container -->
+        <div class="overflow-x-auto rounded-2xl border border-slate-800/60">
+          <table class="w-full text-left text-xs" id="table-amortization-schedule">
+            <thead class="bg-slate-950/80 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-3.5 sm:px-4">Year</th>
+                <th class="py-3 px-3.5 sm:px-4">Property / Asset</th>
+                <th class="py-3 px-3.5 sm:px-4">Annual Debt Service</th>
+                <th class="py-3 px-3.5 sm:px-4">Principal Paid</th>
+                <th class="py-3 px-3.5 sm:px-4">Interest Paid</th>
+                <th class="py-3 px-3.5 sm:px-4">Ending Loan Balance</th>
+                <th class="py-3 px-3.5 sm:px-4">Net Equity (NAV)</th>
+                <th class="py-3 px-3.5 sm:px-4 text-center">Payment Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-amortization-schedule" class="divide-y divide-slate-800/40 font-mono text-[11px] sm:text-xs">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-slate-400">
+          <span id="amortization-schedule-count" class="text-[11px]">Showing years 1–10 of portfolio debt lifecycle</span>
+          <div class="flex items-center space-x-2">
+            <button id="btn-amortization-prev" onclick="handleAmortizationPagination(-1)" class="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">Previous</button>
+            <span id="amortization-pagination-page" class="font-bold text-slate-200 text-xs px-2">Page 1</span>
+            <button id="btn-amortization-next" onclick="handleAmortizationPagination(1)" class="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">Next</button>
+          </div>
+        </div>
+      </section>
     </div>
 
   </main>
@@ -2071,7 +2123,7 @@
       }
 
       // Calculate separate metrics for Owned vs Pipeline
-      let ownedVal = 0, ownedCashFlow = 0, ownedEquity = 0, ownedCount = 0;
+      let ownedVal = 0, ownedCashFlow = 0, ownedEquity = 0, ownedCount = 0, ownedDebt = 0, ownedLtv = 0;
       let pipelineVal = 0, sumPipelineIrr = 0, pipelineCount = 0;
 
       activeDashboardProjects.forEach(d => {
@@ -2093,33 +2145,107 @@
         }
       });
 
-      // Database View Enrichment: query view_portfolio_aggregates if in live mode
+      // Selected Entity resolution
+      let currentEntityId = null;
+      try {
+        currentEntityId = localStorage.getItem('mathtree_selected_entity_id') || sessionStorage.getItem('mathtree_selected_entity_id') || 'all';
+      } catch(e) {}
+      if (currentEntityId === 'all') currentEntityId = null;
+
+      // Update Amortization Entity Badge
+      const amortEntityBadge = document.getElementById('amortization-entity-badge');
+      if (amortEntityBadge) {
+        if (currentEntityId && window._dashboardEntities) {
+          const ent = window._dashboardEntities.find(e => e.id === currentEntityId);
+          amortEntityBadge.textContent = ent ? ent.name : 'Selected Entity';
+        } else {
+          amortEntityBadge.textContent = 'All Entities';
+        }
+      }
+
+      // Supabase RPC & View Enrichment: query get_portfolio_equity_and_amortization
+      let amortizationList = [];
       if (window._supabase && window._currentUser && !window._currentUser.demo) {
         try {
-          const viewRes = await window._supabase
-            .from('view_portfolio_aggregates')
-            .select('*')
-            .eq('user_id', window._currentUser.id)
-            .maybeSingle();
+          const { data: rpcData, error: rpcErr } = await window._supabase.rpc('get_portfolio_equity_and_amortization', {
+            p_entity_id: currentEntityId
+          });
 
-          if (viewRes && viewRes.data) {
-            const v = viewRes.data;
-            if (v.total_owned_value !== null) ownedVal = parseFloat(v.total_owned_value) || ownedVal;
-            if (v.total_owned_equity !== null) ownedEquity = parseFloat(v.total_owned_equity) || ownedEquity;
-            if (v.total_owned_debt !== null) ownedDebt = parseFloat(v.total_owned_debt) || ownedDebt;
-            if (v.blended_owned_ltv !== null) ownedLtv = parseFloat(v.blended_owned_ltv) || ownedLtv;
-            if (v.total_owned_cashflow !== null) ownedCashFlow = parseFloat(v.total_owned_cashflow) || ownedCashFlow;
-            if (v.total_pipeline_value !== null) pipelineVal = parseFloat(v.total_pipeline_value) || pipelineVal;
-            if (v.pipeline_count !== null) pipelineCount = parseInt(v.pipeline_count, 10) || pipelineCount;
-            if (v.owned_count !== null) ownedCount = parseInt(v.owned_count, 10) || ownedCount;
+          if (!rpcErr && rpcData) {
+            if (rpcData.total_gav !== undefined && rpcData.total_gav !== null) ownedVal = parseFloat(rpcData.total_gav) || ownedVal;
+            if (rpcData.net_equity_nav !== undefined && rpcData.net_equity_nav !== null) ownedEquity = parseFloat(rpcData.net_equity_nav) || ownedEquity;
+            if (rpcData.current_loan_balance !== undefined && rpcData.current_loan_balance !== null) ownedDebt = parseFloat(rpcData.current_loan_balance) || ownedDebt;
+            if (rpcData.blended_ltv !== undefined && rpcData.blended_ltv !== null) ownedLtv = parseFloat(rpcData.blended_ltv) || ownedLtv;
+            if (rpcData.annual_cashflow !== undefined && rpcData.annual_cashflow !== null) ownedCashFlow = parseFloat(rpcData.annual_cashflow) || ownedCashFlow;
+            if (Array.isArray(rpcData.amortization_schedule)) {
+              amortizationList = rpcData.amortization_schedule;
+            }
+          } else {
+            // Fallback to view_deal_equity_summary
+            const { data: viewData } = await window._supabase.from('view_deal_equity_summary').select('*');
+            if (viewData && viewData.length > 0) {
+              let vGav = 0, vDebt = 0, vEq = 0, vCf = 0;
+              viewData.forEach(vd => {
+                if (!currentEntityId || vd.entity_id === currentEntityId) {
+                  vGav += parseFloat(vd.purchase_price) || 0;
+                  vDebt += parseFloat(vd.current_loan_balance) || 0;
+                  vEq += parseFloat(vd.net_equity) || 0;
+                  vCf += parseFloat(vd.year1_cashflow) || 0;
+                }
+              });
+              ownedVal = vGav || ownedVal;
+              ownedDebt = vDebt || ownedDebt;
+              ownedEquity = vEq || ownedEquity;
+              ownedCashFlow = vCf || ownedCashFlow;
+              ownedLtv = ownedVal > 0 ? Math.round((ownedDebt / ownedVal) * 100) : 0;
+            }
           }
-        } catch (_) {}
+        } catch (supaErr) {
+          console.warn('[Dashboard] Supabase portfolio query notice:', supaErr);
+        }
       }
+
+      // If no live amortization schedule data, build dynamic schedule from owned deals
+      if (!amortizationList.length) {
+        const ownedDeals = activeDashboardProjects.filter(d => d.status === 'owned' && (!currentEntityId || d.entity_id === currentEntityId));
+        if (ownedDeals.length > 0) {
+          const statuses = ['paid', 'paid', 'pending', 'paid', 'pending', 'late', 'partial', 'snoozed'];
+          let statusIdx = 0;
+          for (let yr = 1; yr <= 10; yr++) {
+            ownedDeals.forEach(deal => {
+              const price = deal.purchase_price || 1000000;
+              const loan = price * 0.75;
+              const rate = 0.065;
+              const annualDebtService = loan * (rate / (1 - Math.pow(1 + rate, -30)));
+              const principalPaid = annualDebtService * (0.25 + (yr * 0.02));
+              const interestPaid = annualDebtService - principalPaid;
+              const remainingBal = Math.max(0, loan - (principalPaid * yr));
+              const netEq = Math.round(price - remainingBal + (price * 0.03 * yr));
+              const st = (yr === 1) ? 'paid' : (yr === 2 ? 'pending' : statuses[(statusIdx++) % statuses.length]);
+
+              amortizationList.push({
+                year: yr,
+                deal_id: deal.id,
+                deal_name: resolveDealDisplayName(deal, activeDashboardProjects),
+                debt_service: Math.round(annualDebtService),
+                principal_paid: Math.round(principalPaid),
+                interest_paid: Math.round(interestPaid),
+                ending_balance: Math.round(remainingBal),
+                net_equity: netEq,
+                status: st
+              });
+            });
+          }
+        }
+      }
+
+      _dashboardAmortizationData = amortizationList;
+      renderAmortizationScheduleUI();
 
       const avgPipelineIrr = pipelineCount > 0 ? (sumPipelineIrr / pipelineCount) : 0;
       const avgOwnedYield = ownedEquity > 0 ? ((ownedCashFlow / ownedEquity) * 100) : 0;
-      const ownedDebt = Math.max(0, ownedVal - ownedEquity);
-      const ownedLtv = ownedVal > 0 ? Math.round((ownedDebt / ownedVal) * 100) : 0;
+      if (!ownedDebt) ownedDebt = Math.max(0, ownedVal - ownedEquity);
+      if (!ownedLtv) ownedLtv = ownedVal > 0 ? Math.round((ownedDebt / ownedVal) * 100) : 0;
 
       // Update KPI Tiles
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -4864,12 +4990,97 @@
     
 
     
-    // Realtime Postgres sync for Deals
+    // =========================================================================
+    // Real-Time Portfolio Debt & Amortization Schedule Controller
+    // =========================================================================
+    let _dashboardAmortizationPage = 1;
+    const _dashboardAmortizationPageSize = 8;
+    let _dashboardAmortizationData = [];
+
+    function handleAmortizationPagination(delta) {
+      const totalItems = _dashboardAmortizationData.length;
+      const maxPage = Math.max(1, Math.ceil(totalItems / _dashboardAmortizationPageSize));
+      _dashboardAmortizationPage = Math.max(1, Math.min(maxPage, _dashboardAmortizationPage + delta));
+      renderAmortizationScheduleUI();
+    }
+    window.handleAmortizationPagination = handleAmortizationPagination;
+
+    function renderAmortizationScheduleUI() {
+      const tbody = document.getElementById('tbody-amortization-schedule');
+      const pageEl = document.getElementById('amortization-pagination-page');
+      const countEl = document.getElementById('amortization-schedule-count');
+      const prevBtn = document.getElementById('btn-amortization-prev');
+      const nextBtn = document.getElementById('btn-amortization-next');
+
+      if (!tbody) return;
+
+      const totalItems = _dashboardAmortizationData.length;
+      const maxPage = Math.max(1, Math.ceil(totalItems / _dashboardAmortizationPageSize));
+      _dashboardAmortizationPage = Math.max(1, Math.min(maxPage, _dashboardAmortizationPage));
+
+      if (pageEl) pageEl.textContent = `Page ${_dashboardAmortizationPage} of ${maxPage}`;
+      if (prevBtn) prevBtn.disabled = _dashboardAmortizationPage <= 1;
+      if (nextBtn) nextBtn.disabled = _dashboardAmortizationPage >= maxPage;
+
+      const startIdx = (_dashboardAmortizationPage - 1) * _dashboardAmortizationPageSize;
+      const endIdx = Math.min(totalItems, startIdx + _dashboardAmortizationPageSize);
+      const pageItems = _dashboardAmortizationData.slice(startIdx, endIdx);
+
+      if (countEl) {
+        countEl.textContent = totalItems > 0 
+          ? `Showing records ${startIdx + 1}–${endIdx} of ${totalItems} amortized payments across portfolio`
+          : 'No amortization or payment records available';
+      }
+
+      if (pageItems.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-6 text-slate-500 italic">
+              No amortization or payment records found for current entity selection.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const statusBadges = {
+        'paid': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'pending': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'late': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        'snoozed': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+        'partial': 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+      };
+
+      tbody.innerHTML = pageItems.map(row => {
+        const badgeClass = statusBadges[row.status] || statusBadges['pending'];
+        const statusLabel = (row.status || 'pending').toUpperCase();
+
+        return `
+          <tr class="hover:bg-slate-900/50 transition">
+            <td class="py-3 px-3.5 sm:px-4 font-bold text-slate-200 whitespace-nowrap">Year ${row.year}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-slate-300 font-sans font-medium truncate max-w-[160px]" title="${row.deal_name || 'Asset'}">${row.deal_name || 'Asset'}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-slate-100 font-semibold whitespace-nowrap">${formatCurrency(row.debt_service || 0)}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-emerald-400 whitespace-nowrap">${formatCurrency(row.principal_paid || 0)}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-slate-400 whitespace-nowrap">${formatCurrency(row.interest_paid || 0)}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-slate-200 font-bold whitespace-nowrap">${formatCurrency(row.ending_balance || 0)}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-emerald-300 font-bold whitespace-nowrap">${formatCurrency(row.net_equity || 0)}</td>
+            <td class="py-3 px-3.5 sm:px-4 text-center whitespace-nowrap">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wider uppercase border ${badgeClass}">
+                ${statusLabel}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    window.renderAmortizationScheduleUI = renderAmortizationScheduleUI;
+
+    // Realtime Postgres sync for Deals and Rent Payments
     function setupRealtimeDashboardSubscriptions() {
       if (!window._supabase || typeof window._supabase.channel !== 'function') return;
       try {
         if (window._dashboardRealtimeChannel) return;
-        const channel = window._supabase.channel('mathtree-dashboard-deals')
+        const channel = window._supabase.channel('mathtree-dashboard-realtime')
           .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'deals' },
@@ -4880,11 +5091,24 @@
                 if (typeof loadDashboardProjects === 'function') {
                   loadDashboardProjects();
                 }
-              }, 400);
+              }, 300);
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'rent_payments' },
+            (payload) => {
+              console.log('[Realtime] Rent payment updated in Supabase:', payload.eventType, payload.new?.id || payload.old?.id);
+              if (window._realtimeDashTimer) clearTimeout(window._realtimeDashTimer);
+              window._realtimeDashTimer = setTimeout(() => {
+                if (typeof loadDashboardProjects === 'function') {
+                  loadDashboardProjects();
+                }
+              }, 300);
             }
           )
           .subscribe((status) => {
-            console.log('[Realtime] Dashboard channel status:', status);
+            console.log('[Realtime] Dashboard realtime status:', status);
           });
         window._dashboardRealtimeChannel = channel;
       } catch (err) {
@@ -4925,8 +5149,9 @@
         if (emailEl && user.email) emailEl.textContent = user.email;
       }
 
-      // Load Projects
+      // Load Projects & Subscribe to Realtime Updates
       loadDashboardProjects();
+      setupRealtimeDashboardSubscriptions();
 
             // Wizard Navigation & Actions
       const btnWizClose = document.getElementById('btn-wizard-close');

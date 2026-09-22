@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
-import { calculateProjections } from '../lib/math/calculator';
 import { DealRecord, DealInputs, DealMetrics } from '../lib/math/types';
 
 export interface DealStoreState {
@@ -15,6 +14,11 @@ export interface DealStoreState {
   selectedLLCFilter: string | null;
   entities: any[];
   filteredLeases: any[];
+  netEquityNAV: number;
+  totalGAV: number;
+  currentLoanBalance: number;
+  blendedLTV: number;
+  amortizationSchedule: any[];
   setActiveTab: (tab: string) => void;
   setIsEditModalOpen: (open: boolean) => void;
   setSelectedEntityId: (id: string | null) => void;
@@ -27,6 +31,7 @@ export interface DealStoreState {
   updateInputs: (newInputs: Partial<DealInputs>) => void;
   saveDeal: () => Promise<boolean>;
   loadDeal: (dealId?: string) => Promise<void>;
+  loadPortfolioEquityAndAmortization: (entityId?: string | null) => Promise<void>;
 }
 
 // Map Postgres deal row into standard DealRecord
@@ -91,6 +96,12 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
+  const [netEquityNAV, setNetEquityNAV] = useState<number>(0);
+  const [totalGAV, setTotalGAV] = useState<number>(0);
+  const [currentLoanBalance, setCurrentLoanBalance] = useState<number>(0);
+  const [blendedLTV, setBlendedLTV] = useState<number>(0);
+  const [amortizationSchedule, setAmortizationSchedule] = useState<any[]>([]);
+
   const initialStoredEntity = typeof window !== 'undefined' ? localStorage.getItem('mathtree_selected_entity_id') : null;
   const normalizedInitialEntity = (initialStoredEntity && initialStoredEntity !== 'all') ? initialStoredEntity : null;
   const [selectedEntityId, setSelectedEntityIdState] = useState<string | null>(normalizedInitialEntity);
@@ -148,6 +159,114 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     }
   }, [selectedEntityId, selectedLLC]);
 
+  // Load portfolio equity and amortization schedule from Supabase (Server-side accuracy)
+  const loadPortfolioEquityAndAmortization = useCallback(async (entityIdFilter?: string | null) => {
+    try {
+      const targetEntity = (entityIdFilter && entityIdFilter !== 'all') ? entityIdFilter : null;
+
+      // Try RPC first if available
+      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc('get_portfolio_equity_and_amortization', {
+        p_entity_id: targetEntity || null
+      });
+
+      if (!rpcErr && rpcData) {
+        if (rpcData.summary) {
+          setTotalGAV(Number(rpcData.summary.totalGAV) || 0);
+          setCurrentLoanBalance(Number(rpcData.summary.totalLoanBalance) || 0);
+          setNetEquityNAV(Number(rpcData.summary.netEquityNAV) || 0);
+          setBlendedLTV(Number(rpcData.summary.blendedLTV) || 0);
+        }
+        if (Array.isArray(rpcData.amortizationSchedule)) {
+          setAmortizationSchedule(rpcData.amortizationSchedule);
+        }
+        return;
+      }
+
+      // Fallback: Query view_deal_equity_summary and rent_payments with distinct deal aggregation
+      let dealsQuery = supabase.from('deals').select('id, purchase_price, loan_amount, total_equity, entity_id, status, metrics');
+      if (targetEntity) {
+        dealsQuery = dealsQuery.eq('entity_id', targetEntity);
+      }
+
+      const { data: dealsData, error: dealsErr } = await dealsQuery;
+
+      if (!dealsErr && dealsData && dealsData.length > 0) {
+        const dealIds = dealsData.map((d: any) => d.id);
+        
+        let paymentsQuery = supabase.from('rent_payments').select('id, deal_id, lease_id, period_month, due_date, amount_due, amount_paid, paid_date, status, payment_method, reference_note, snooze_until').in('deal_id', dealIds);
+        const { data: paymentsData } = await paymentsQuery;
+
+        const paymentsByDeal = new Map<string, number>();
+        (paymentsData || []).forEach((p: any) => {
+          if (p.status === 'paid' || p.status === 'partial') {
+            const cur = paymentsByDeal.get(p.deal_id) || 0;
+            paymentsByDeal.set(p.deal_id, cur + (Number(p.amount_paid) || 0));
+          }
+        });
+
+        let sumGAV = 0;
+        let sumLoan = 0;
+        let sumEquity = 0;
+
+        dealsData.forEach((d: any) => {
+          const price = Number(d.purchase_price) || 0;
+          const initialLoan = Number(d.loan_amount) || (price * 0.75);
+          const paid = paymentsByDeal.get(d.id) || 0;
+          const curLoan = Math.max(0, initialLoan - paid);
+          const curEquity = Math.max(0, price - curLoan);
+
+          sumGAV += price;
+          sumLoan += curLoan;
+          sumEquity += curEquity;
+        });
+
+        setTotalGAV(sumGAV);
+        setCurrentLoanBalance(sumLoan);
+        setNetEquityNAV(sumEquity);
+        setBlendedLTV(sumGAV > 0 ? Number(((sumLoan / sumGAV) * 100).toFixed(2)) : 0);
+
+        if (paymentsData) {
+          const sorted = [...paymentsData].sort((a: any, b: any) => new Date(b.period_month).getTime() - new Date(a.period_month).getTime());
+          setAmortizationSchedule(sorted);
+        }
+      }
+    } catch (err) {
+      console.warn('[Store] Could not load realtime equity/amortization:', err);
+    }
+  }, []);
+
+  // Realtime Supabase Channel Subscription for rent_payments and deals
+  useEffect(() => {
+    loadPortfolioEquityAndAmortization(selectedEntityId);
+
+    const channelName = `mathtree_realtime_equity_${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rent_payments' },
+        (payload) => {
+          console.log('[Store Realtime] rent_payments changed:', payload.eventType);
+          loadPortfolioEquityAndAmortization(selectedEntityId);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deals' },
+        (payload) => {
+          console.log('[Store Realtime] deals changed:', payload.eventType);
+          loadPortfolioEquityAndAmortization(selectedEntityId);
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Store Realtime] Channel status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadPortfolioEquityAndAmortization, selectedEntityId]);
+
   // Reactive cross-tab and cross-component synchronization
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -194,7 +313,6 @@ export function useDealStore(initialDealId?: string): DealStoreState {
           setSelectedLLCFilterState(lVal);
         }
       }
-      // Re-read entities cache if present
       try {
         const cached = localStorage.getItem('mathtree_entities_cache');
         if (cached) {
@@ -282,15 +400,6 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     }
   }, []);
 
-  const recalculate = useCallback((currentDeal: DealRecord) => {
-    try {
-      const calculated = calculateProjections(currentDeal.asset_class, currentDeal.inputs);
-      setMetrics(calculated);
-    } catch (err: any) {
-      console.error('Recalculation error:', err);
-    }
-  }, []);
-
   const loadDeal = useCallback(async (requestedId?: string) => {
     setLoading(true);
     setError(null);
@@ -341,7 +450,9 @@ export function useDealStore(initialDealId?: string): DealStoreState {
 
       if (loadedDeal) {
         setDeal(loadedDeal);
-        recalculate(loadedDeal);
+        if (loadedDeal.metrics) {
+          setMetrics(loadedDeal.metrics as any);
+        }
         sessionStorage.setItem('mathtree_active_deal_id', loadedDeal.id);
         localStorage.setItem('mathtree_active_deal_id', loadedDeal.id);
       }
@@ -351,7 +462,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     } finally {
       setLoading(false);
     }
-  }, [recalculate]);
+  }, []);
 
   useEffect(() => {
     loadDeal(initialDealId);
@@ -362,22 +473,15 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       if (!prev) return null;
       const mergedInputs: DealInputs = { ...prev.inputs, ...newInputs };
       const updatedDeal: DealRecord = { ...prev, inputs: mergedInputs };
-      recalculate(updatedDeal);
       return updatedDeal;
     });
-  }, [recalculate]);
+  }, []);
 
   const saveDeal = useCallback(async (): Promise<boolean> => {
     if (!deal) return false;
     try {
-      const calculated = metrics || calculateProjections(deal.asset_class, deal.inputs);
       const payload = {
         purchase_price: deal.inputs.purchasePrice,
-        irr: calculated.irr,
-        cash_on_cash: calculated.cashOnCash,
-        equity_multiple: calculated.equityMultiplier,
-        year1_cashflow: calculated.year1Cashflow,
-        metrics: calculated as any,
         inputs: deal.inputs as any,
         updated_at: new Date().toISOString(),
       };
@@ -391,7 +495,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       console.error('Failed to save deal:', err);
       return false;
     }
-  }, [deal, metrics]);
+  }, [deal]);
 
   const filterLeasesByEntity = useCallback((entityId: string | null) => {
     if (!deal || !deal.inputs?.leases) return [];
@@ -419,6 +523,11 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     selectedLLCFilter,
     entities,
     filteredLeases,
+    netEquityNAV,
+    totalGAV,
+    currentLoanBalance,
+    blendedLTV,
+    amortizationSchedule,
     setActiveTab,
     setIsEditModalOpen,
     setSelectedEntityId,
@@ -431,5 +540,6 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     updateInputs,
     saveDeal,
     loadDeal,
+    loadPortfolioEquityAndAmortization,
   };
 }
