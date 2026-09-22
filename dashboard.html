@@ -563,6 +563,10 @@
           </div>
           <div class="flex items-center space-x-2">
             <input type="text" id="supabase-studio-insert-trigger" data-testid="supabase-studio-insert-trigger" placeholder="Simulate Realtime Payment..." class="bg-slate-950/80 border border-slate-800 rounded-xl px-2.5 py-1 text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500 w-36 sm:w-48 transition" />
+            <button id="amortization-collapse-toggle" onclick="toggleAmortizationScheduleCollapse()" class="px-2.5 py-1 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] font-semibold text-slate-300 hover:text-white transition flex items-center space-x-1" title="Toggle Amortization Schedule Visibility">
+              <span id="amortization-collapse-icon">▼</span>
+              <span id="amortization-collapse-label">Collapse</span>
+            </button>
             <span id="amortization-entity-badge" class="px-2.5 py-1 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold text-emerald-400">
               All Entities
             </span>
@@ -573,34 +577,37 @@
           </div>
         </div>
 
-        <!-- Amortization Table / Responsive Container -->
-        <div class="overflow-x-auto rounded-2xl border border-slate-800/60">
-          <table class="w-full text-left text-xs" id="table-amortization-schedule">
-            <thead class="bg-slate-950/80 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800">
-              <tr>
-                <th class="py-3 px-3.5 sm:px-4">Year</th>
-                <th class="py-3 px-3.5 sm:px-4">Property / Asset</th>
-                <th class="py-3 px-3.5 sm:px-4">Annual Debt Service</th>
-                <th class="py-3 px-3.5 sm:px-4">Principal Paid</th>
-                <th class="py-3 px-3.5 sm:px-4">Interest Paid</th>
-                <th class="py-3 px-3.5 sm:px-4">Ending Loan Balance</th>
-                <th class="py-3 px-3.5 sm:px-4">Net Equity (NAV)</th>
-                <th class="py-3 px-3.5 sm:px-4 text-center">Payment Status</th>
-              </tr>
-            </thead>
-            <tbody id="tbody-amortization-schedule" class="divide-y divide-slate-800/40 font-mono text-[11px] sm:text-xs">
-              <!-- Dynamically populated rows -->
-            </tbody>
-          </table>
-        </div>
+        <!-- Amortization Table & Controls Wrapper -->
+        <div id="amortization-table-wrapper" class="space-y-4">
+          <!-- Amortization Table / Responsive Container -->
+          <div class="overflow-x-auto rounded-2xl border border-slate-800/60">
+            <table class="w-full text-left text-xs" id="table-amortization-schedule">
+              <thead class="bg-slate-950/80 text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800">
+                <tr>
+                  <th class="py-3 px-3.5 sm:px-4">Year</th>
+                  <th class="py-3 px-3.5 sm:px-4">Property / Asset</th>
+                  <th class="py-3 px-3.5 sm:px-4">Annual Debt Service</th>
+                  <th class="py-3 px-3.5 sm:px-4">Principal Paid</th>
+                  <th class="py-3 px-3.5 sm:px-4">Interest Paid</th>
+                  <th class="py-3 px-3.5 sm:px-4">Ending Loan Balance</th>
+                  <th class="py-3 px-3.5 sm:px-4">Net Equity (NAV)</th>
+                  <th class="py-3 px-3.5 sm:px-4 text-center">Payment Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-amortization-schedule" class="divide-y divide-slate-800/40 font-mono text-[11px] sm:text-xs">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+          </div>
 
-        <!-- Pagination Controls -->
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-slate-400">
-          <span id="amortization-schedule-count" class="text-[11px]">Showing years 1–10 of portfolio debt lifecycle</span>
-          <div class="flex items-center space-x-2">
-            <button id="btn-amortization-prev" onclick="handleAmortizationPagination(-1)" class="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">Previous</button>
-            <span id="amortization-pagination-page" class="font-bold text-slate-200 text-xs px-2">Page 1</span>
-            <button id="btn-amortization-next" onclick="handleAmortizationPagination(1)" class="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">Next</button>
+          <!-- Pagination Controls -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-slate-400">
+            <span id="amortization-schedule-count" class="text-[11px]">Showing years 1–10 of portfolio debt lifecycle</span>
+            <div class="flex items-center space-x-2">
+              <button id="btn-amortization-prev" onclick="handleAmortizationPagination(-1)" class="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">Previous</button>
+              <span id="amortization-pagination-page" class="font-bold text-slate-200 text-xs px-2">Page 1</span>
+              <button id="btn-amortization-next" onclick="handleAmortizationPagination(1)" class="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">Next</button>
+            </div>
           </div>
         </div>
       </section>
@@ -5115,6 +5122,17 @@
       }).join('');
     }
     window.renderAmortizationScheduleUI = renderAmortizationScheduleUI;
+
+    function toggleAmortizationScheduleCollapse() {
+      const container = document.getElementById('amortization-table-wrapper');
+      const icon = document.getElementById('amortization-collapse-icon');
+      const label = document.getElementById('amortization-collapse-label');
+      if (!container) return;
+      const isHidden = container.classList.toggle('hidden');
+      if (icon) icon.textContent = isHidden ? '▶' : '▼';
+      if (label) label.textContent = isHidden ? 'Expand' : 'Collapse';
+    }
+    window.toggleAmortizationScheduleCollapse = toggleAmortizationScheduleCollapse;
 
     // Realtime Postgres sync for Deals and Rent Payments
     function setupRealtimeDashboardSubscriptions() {
