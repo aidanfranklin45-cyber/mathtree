@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Reconciliation | MathTree Operations</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%236ee7b7%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2310b981%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%230f172a%22%2F%3E%3Cpath%20d%3D%22M16%2026V15M16%2019c0%200-4-4-7-4m7%202c0%200%204-4%207-4%22%20stroke%3D%22url(%23g)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #020617;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .glow {
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(2, 6, 23, 0) 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .card {
+      position: relative;
+      z-index: 1;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 20px;
+      padding: 40px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03);
+      text-align: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 20px;
+      box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.2);
+    }
+    .badge.notice {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #f59e0b;
+      box-shadow: 0 0 20px -3px rgba(245, 158, 11, 0.2);
+    }
+    .badge.error {
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: #f43f5e;
+      box-shadow: 0 0 20px -3px rgba(244, 63, 94, 0.2);
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    p.subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.55;
+      margin-bottom: 24px;
+    }
+    .details {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(30, 41, 59, 0.6);
+    }
+    .row:last-child {
+      border-bottom: none;
+    }
+    .label {
+      color: #64748b;
+      font-weight: 600;
+    }
+    .val {
+      color: #f8fafc;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: right;
+    }
+    .val.highlight {
+      color: #34d399;
+      font-size: 15px;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+      border: none;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: #10b981;
+      color: #022c22;
+      box-shadow: 0 4px 14px -2px rgba(16, 185, 129, 0.35);
+    }
+    .btn-primary:hover {
+      background: #34d399;
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.7);
+      color: #94a3b8;
+      border: 1px solid #334155;
+    }
+    .btn-secondary:hover {
+      background: #1e293b;
+      color: #f1f5f9;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #475569;
+      letter-spacing: 0.02em;
+    }
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(16, 185, 129, 0.2);
+      border-radius: 50%;
+      border-top-color: #10b981;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="card" id="card-container">
+    <div class="badge" id="card-badge">
+      <div class="spinner" id="spinner"></div>
+    </div>
+    <h1 id="card-title">Processing Action</h1>
+    <p class="subtitle" id="card-subtitle">Connecting to MathTree ledger...</p>
+
+    <div class="details" id="card-details" style="display: none;"></div>
+
+    <div class="btn-group" id="card-actions">
+      <a href="operations.html" class="btn btn-primary" id="btn-primary">Open Operations</a>
+      <button class="btn btn-secondary" id="btn-undo" style="display: none;">Undo This Action</button>
+    </div>
+
+    <div class="footer">
+      MathTree Institutional Asset Management &bull; Zero-Login Secure Action
+    </div>
+  </div>
+
+  <script>
+    (async function() {
+      const SUPABASE_FN_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/reconcile-action';
+      const params = new URLSearchParams(window.location.search);
+
+      const status = (params.get('status') || '').toLowerCase().trim();
+      const action = (params.get('action') || '').toLowerCase().trim();
+      const token = (params.get('token') || '').trim();
+      let undoToken = (params.get('undo_token') || '').trim();
+
+      const badgeEl = document.getElementById('card-badge');
+      const titleEl = document.getElementById('card-title');
+      const subtitleEl = document.getElementById('card-subtitle');
+      const detailsEl = document.getElementById('card-details');
+      const primaryBtn = document.getElementById('btn-primary');
+      const undoBtn = document.getElementById('btn-undo');
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"']/g, function(m) {
+          switch (m) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return m;
+          }
+        });
+      }
+
+      function renderSuccessConfirm(data) {
+        badgeEl.className = 'badge';
+        badgeEl.textContent = '✓';
+        titleEl.textContent = 'Payment Reconciled ✓';
+        document.title = 'Payment Reconciled | MathTree Operations';
+        subtitleEl.textContent = 'Rent collection has been confirmed and recorded directly to the PostgreSQL ledger.';
+
+        let html = '';
+        if (data.deal_title) {
+          html += `<div class="row"><span class="label">Property / Asset</span><span class="val">${escapeHtml(data.deal_title)}</span></div>`;
+        }
+        if (data.tenant_name) {
+          html += `<div class="row"><span class="label">Tenant</span><span class="val">${escapeHtml(data.tenant_name)}</span></div>`;
+        }
+        if (data.period_month) {
+          html += `<div class="row"><span class="label">Period</span><span class="val">${escapeHtml(data.period_month)}</span></div>`;
+        }
+        if (data.amount_paid) {
+          const amtStr = typeof data.amount_paid === 'string' && data.amount_paid.startsWith('$')
+            ? data.amount_paid
+            : '$' + Math.round(Number(data.amount_paid || 0)).toLocaleString('en-US');
+          html += `<div class="row"><span class="label">Amount Paid</span><span class="val highlight">${escapeHtml(amtStr)}</span></div>`;
+        }
+        if (data.paid_date) {
+          html += `<div class="row"><span class="label">Reconciled Date</span><span class="val">${escapeHtml(data.paid_date)}</span></div>`;
+        }
+
+        if (html) {
+          detailsEl.innerHTML = html;
+          detailsEl.style.display = 'block';
+        }
+
+        primaryBtn.textContent = 'View in Operations';
+        primaryBtn.href = 'operations.html';
+
+        if (data.undo_token) {
+          undoToken = data.undo_token;
+          undoBtn.style.display = 'inline-block';
+          undoBtn.onclick = handleUndoClick;
+        }
+      }
+
+      function renderSuccessSnooze(data) {
+        badgeEl.className = 'badge notice';
+        badgeEl.textContent = '⏳';
+        titleEl.textContent = 'Alert Snoozed ⏳';
+        document.title = 'Alert Snoozed | MathTree Operations';
+        subtitleEl.textContent = 'Dynamic late policy activated. Rent reminder has been snoozed according to lease terms.';
+
+        let html = '';
+        if (data.deal_title) {
+          html += `<div class="row"><span class="label">Property / Asset</span><span class="val">${escapeHtml(data.deal_title)}</span></div>`;
+        }
+        if (data.tenant_name) {
+          html += `<div class="row"><span class="label">Tenant</span><span class="val">${escapeHtml(data.tenant_name)}</span></div>`;
+        }
+        if (data.grace_period_days) {
+          html += `<div class="row"><span class="label">Grace Policy</span><span class="val highlight">${escapeHtml(data.grace_period_days)} Days</span></div>`;
+        }
+        if (data.snooze_until) {
+          html += `<div class="row"><span class="label">Next Alert Date</span><span class="val">${escapeHtml(data.snooze_until)}</span></div>`;
+        }
+
+        if (html) {
+          detailsEl.innerHTML = html;
+          detailsEl.style.display = 'block';
+        }
+
+        primaryBtn.textContent = 'Open Operations';
+        primaryBtn.href = 'operations.html';
+
+        if (data.undo_token) {
+          undoToken = data.undo_token;
+          undoBtn.style.display = 'inline-block';
+          undoBtn.onclick = handleUndoClick;
+        }
+      }
+
+      function renderNotice(message, title) {
+        badgeEl.className = 'badge notice';
+        badgeEl.textContent = '⚠️';
+        titleEl.textContent = title || 'Reconciliation Notice';
+        document.title = (title || 'Reconciliation Notice') + ' | MathTree Operations';
+        subtitleEl.textContent = message || 'This action has already been completed or processed.';
+        detailsEl.style.display = 'none';
+        primaryBtn.textContent = 'Open Operations';
+        primaryBtn.href = 'operations.html';
+        undoBtn.style.display = 'none';
+      }
+
+      function renderError(message) {
+        badgeEl.className = 'badge error';
+        badgeEl.textContent = '✕';
+        titleEl.textContent = 'Action Error';
+        document.title = 'Action Error | MathTree Operations';
+        subtitleEl.textContent = message || 'An unexpected error occurred while processing this request.';
+        detailsEl.style.display = 'none';
+        primaryBtn.textContent = 'Return to Operations';
+        primaryBtn.href = 'operations.html';
+        undoBtn.style.display = 'none';
+      }
+
+      const SUPABASE_REST_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co/rest/v1/rpc';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
+
+      async function executeRpc(rpcName, rpcParams) {
+        try {
+          const res = await fetch(`${SUPABASE_REST_URL}/${rpcName}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify(rpcParams)
+          });
+          return await res.json();
+        } catch (e) {
+          const fnUrl = `https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/reconcile-action?action=${encodeURIComponent(rpcParams.action || 'confirm')}&token=${encodeURIComponent(rpcParams.p_token || '')}`;
+          const res2 = await fetch(fnUrl, { headers: { 'Accept': 'application/json' } });
+          return await res2.json();
+        }
+      }
+
+      async function handleUndoClick() {
+        if (!undoToken) return;
+        undoBtn.disabled = true;
+        undoBtn.textContent = 'Reverting action...';
+
+        try {
+          const json = await executeRpc('undo_rent_reconciliation', { p_token: undoToken, action: 'undo' });
+
+          if (json && json.success) {
+            badgeEl.className = 'badge notice';
+            badgeEl.textContent = '↩';
+            titleEl.textContent = 'Action Reverted';
+            document.title = 'Action Reverted | MathTree Operations';
+            subtitleEl.textContent = 'The previous reconciliation or snooze has been reverted. Lease status is now pending.';
+            detailsEl.style.display = 'none';
+            undoBtn.style.display = 'none';
+            primaryBtn.textContent = 'Open Operations';
+          } else {
+            const err = (json && (json.error || json.message)) || 'Could not revert this action.';
+            alert('Undo Notice: ' + err);
+            undoBtn.disabled = false;
+            undoBtn.textContent = 'Undo This Action';
+          }
+        } catch (e) {
+          alert('Network error while reverting action.');
+          undoBtn.disabled = false;
+          undoBtn.textContent = 'Undo This Action';
+        }
+      }
+
+      // Case 1: Status already supplied in URL (Redirected directly from Edge Function)
+      if (status === 'success') {
+        const payload = {
+          deal_title: params.get('deal'),
+          tenant_name: params.get('tenant'),
+          period_month: params.get('period'),
+          amount_paid: params.get('amount'),
+          paid_date: params.get('date'),
+          grace_period_days: params.get('grace_days'),
+          snooze_until: params.get('snooze_until'),
+          undo_token: undoToken
+        };
+        if (action === 'snooze') {
+          renderSuccessSnooze(payload);
+        } else {
+          renderSuccessConfirm(payload);
+        }
+        return;
+      }
+
+      if (status === 'notice') {
+        renderNotice(params.get('message') || 'This payment has already been reconciled.');
+        return;
+      }
+
+      if (status === 'error') {
+        renderError(params.get('message') || 'Invalid or expired reconciliation link.');
+        return;
+      }
+
+      // Case 2: Direct link with token (Direct browser visit to reconcile.html?action=confirm&token=...)
+      if (token) {
+        try {
+          const reqAction = action || 'confirm';
+          let data;
+          if (reqAction === 'snooze') {
+            data = await executeRpc('snooze_rent_payment_by_token', { p_token: token, action: 'snooze' });
+          } else {
+            data = await executeRpc('confirm_rent_payment_by_token', { p_token: token, p_payment_method: '1-Click Direct Email', action: 'confirm' });
+          }
+
+          if (data && data.success) {
+            if (reqAction === 'snooze') {
+              renderSuccessSnooze(data);
+            } else {
+              renderSuccessConfirm(data);
+            }
+          } else {
+            const errMsg = data?.error || data?.message || 'Could not reconcile payment.';
+            renderNotice(errMsg, 'Reconciliation Notice');
+          }
+        } catch (err) {
+          console.error('Reconciliation error:', err);
+          renderError('Network connection issue. Please verify in Operations.');
+        }
+        return;
+      }
+
+      // Case 3: No parameters supplied
+      renderNotice('No active reconciliation token found. Please use the button inside your notification email.', 'MathTree Reconciliation');
+    })();
+  </script>
+</body>
+</html>

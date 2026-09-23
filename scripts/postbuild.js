@@ -13,6 +13,7 @@ const RUNTIME_FILES = [
   'project-property.html',
   'project-sensitivity.html',
   'project-tax.html',
+  'reconcile.html',
   // Client scripts & engines
   'session.js',
   'math.js',

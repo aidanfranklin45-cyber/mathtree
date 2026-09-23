@@ -130,12 +130,24 @@
             <span id="deal-asset-pill" class="hidden xs:inline-block text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 capitalize shrink-0">
               Commercial
             </span>
+            <span id="deal-tenancy-pill" class="hidden sm:inline-block text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+              Single-Tenant
+            </span>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5">
             <p id="deal-location-display" class="flex items-center space-x-1">
               <svg class="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
               <span>Austin, TX</span>
             </p>
+            <div id="header-multi-address-container" class="relative inline-block hidden">
+              <button type="button" id="header-multi-address-badge" onclick="toggleHeaderAddressPopover(event)" class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-800/60 text-cyan-300 text-[10px] font-semibold hover:border-cyan-600 transition shadow-sm" title="View all parcels & addresses in this assemblage">
+                <span>📍</span><span id="header-multi-address-text">3 Parcels</span> ▾
+              </button>
+              <div id="header-multi-address-popover" class="hidden absolute left-0 top-full mt-1 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-2.5 z-50 text-[11px] space-y-1.5">
+                <div class="font-bold text-white text-[10px] uppercase tracking-wider pb-1 border-b border-slate-800">Constituent Assemblage Parcels</div>
+                <div id="header-multi-address-list" class="space-y-1 max-h-44 overflow-y-auto"></div>
+              </div>
+            </div>
             <a id="header-apn-badge" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="hidden items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-[10px] font-semibold hover:border-emerald-700 transition" title="Open official Yakima County Assessor Tax Card">
               <span>🏛️ <span id="header-apn-text">Yakima APN</span> ↗</span>
             </a>
@@ -1186,7 +1198,7 @@
                 <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">🏛️</div>
                 <div>
                   <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Property & Site Snapshot</h3>
-                  <span class="text-[10px] text-emerald-400">Yakima County Assessor Data</span>
+                  <span id="overview-snapshot-county-subtitle" class="text-[10px] text-emerald-400">County Assessor Data</span>
                 </div>
               </div>
               <span id="overview-property-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">GIS Synced</span>
@@ -1194,8 +1206,12 @@
 
             <div class="grid grid-cols-2 gap-3 text-xs">
               <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Property Address</span>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Property Address</span>
+                  <span id="overview-snapshot-multi-badge" class="hidden text-[9px] font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.5 rounded">Assemblage</span>
+                </div>
                 <span id="overview-snapshot-address" class="text-xs font-bold text-slate-200 mt-1 block truncate">--</span>
+                <span id="overview-snapshot-multi-subtext" class="hidden text-[10px] text-cyan-300/80 mt-0.5 block truncate"></span>
               </div>
               <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-900">
                 <span class="text-[10px] font-bold text-slate-500 uppercase">APN & County</span>
@@ -1209,6 +1225,21 @@
                 <span class="text-[10px] font-bold text-slate-500 uppercase">County Assessed Value</span>
                 <span id="overview-snapshot-assessed" class="text-xs font-bold text-emerald-400 mt-1 block truncate">--</span>
               </div>
+            </div>
+
+            <!-- Tenancy & Rent Roll Summary Banner -->
+            <div id="overview-snapshot-tenancy-banner" class="p-3 rounded-xl bg-slate-950/80 border border-slate-900 text-xs flex items-center justify-between shadow-inner">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-sm shrink-0">👥</div>
+                <div class="min-w-0">
+                  <span id="overview-snapshot-tenancy-title" class="font-bold text-white text-[11px] block truncate">Single-Tenant Asset</span>
+                  <span id="overview-snapshot-tenancy-subtitle" class="text-[10px] text-slate-400 block truncate">100% Occupied</span>
+                </div>
+              </div>
+              <button type="button" onclick="switchDealTab('operations')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-emerald-400 border border-slate-800 hover:border-emerald-500/40 transition flex items-center space-x-1">
+                <span>Rent Roll</span>
+                <span>➔</span>
+              </button>
             </div>
 
             <button type="button" onclick="switchDealTab('property')" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 transition shadow-sm group">
@@ -1991,27 +2022,27 @@
               <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-900 bg-slate-950/30 text-xs">
                 <div>
                   <div class="flex justify-between items-center mb-1">
-                    <label for="input-mc-vol-rent" class="text-slate-400 font-medium">Rent Growth Volatility (&sigma;)</label>
+                    <label for="input-mc-vol-rent" id="label-title-vol-rent" class="text-slate-400 font-medium">Rent Growth Volatility (&sigma;)</label>
                     <span id="label-mc-vol-rent" class="font-mono text-white font-bold">&plusmn;1.5%</span>
                   </div>
                   <input type="range" id="input-mc-vol-rent" min="0.5" max="5.0" step="0.25" value="1.5" class="w-full accent-accent-violet bg-slate-900 cursor-pointer" oninput="document.getElementById('label-mc-vol-rent').textContent = '±' + parseFloat(this.value).toFixed(2) + '%'">
-                  <p class="text-[10px] text-slate-500 mt-1">Randomized annual rent revision drift (&mu; = baseline, &sigma; standard deviation).</p>
+                  <p id="desc-vol-rent" class="text-[10px] text-slate-500 mt-1">Randomized annual rent revision drift (&mu; = baseline, &sigma; standard deviation).</p>
                 </div>
                 <div>
                   <div class="flex justify-between items-center mb-1">
-                    <label for="input-mc-vol-vacancy" class="text-slate-400 font-medium">Vacancy Shock Volatility (&sigma;)</label>
+                    <label for="input-mc-vol-vacancy" id="label-title-vol-vacancy" class="text-slate-400 font-medium">Vacancy Shock Volatility (&sigma;)</label>
                     <span id="label-mc-vol-vacancy" class="font-mono text-white font-bold">&plusmn;2.5%</span>
                   </div>
                   <input type="range" id="input-mc-vol-vacancy" min="1.0" max="8.0" step="0.5" value="2.5" class="w-full accent-accent-violet bg-slate-900 cursor-pointer" oninput="document.getElementById('label-mc-vol-vacancy').textContent = '±' + parseFloat(this.value).toFixed(1) + '%'">
-                  <p class="text-[10px] text-slate-500 mt-1">Tenant turnover & friction shock (&mu; = baseline vacancy, &sigma; standard deviation).</p>
+                  <p id="desc-vol-vacancy" class="text-[10px] text-slate-500 mt-1">Tenant turnover & friction shock (&mu; = baseline vacancy, &sigma; standard deviation).</p>
                 </div>
                 <div>
                   <div class="flex justify-between items-center mb-1">
-                    <label for="input-mc-vol-cap" class="text-slate-400 font-medium">Exit Cap Rate Spread (&sigma;)</label>
+                    <label for="input-mc-vol-cap" id="label-title-vol-cap" class="text-slate-400 font-medium">Exit Cap Rate Spread (&sigma;)</label>
                     <span id="label-mc-vol-cap" class="font-mono text-white font-bold">&plusmn;100 bps</span>
                   </div>
                   <input type="range" id="input-mc-vol-cap" min="25" max="300" step="25" value="100" class="w-full accent-accent-violet bg-slate-900 cursor-pointer" oninput="document.getElementById('label-mc-vol-cap').textContent = '±' + parseInt(this.value) + ' bps'">
-                  <p class="text-[10px] text-slate-500 mt-1">Capital markets expansion / liquidity uncertainty at terminal exit year.</p>
+                  <p id="desc-vol-cap" class="text-[10px] text-slate-500 mt-1">Capital markets expansion / liquidity uncertainty at terminal exit year.</p>
                 </div>
               </div>
             </details>
@@ -2242,14 +2273,14 @@
           <div class="space-y-1 relative">
             <div class="flex items-center justify-between">
               <label class="text-[11px] font-bold text-slate-400">Location / Street Address</label>
-              <span class="text-[9px] text-emerald-400 font-semibold">🏛️ Yakima GIS</span>
+              <span id="proj-edit-gis-header-badge" class="text-[9px] text-emerald-400 font-semibold">🏛️ Live County GIS</span>
             </div>
             <input type="text" id="edit-deal-location" oninput="onProjEditLocationInput(this.value)" autocomplete="off" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             <div id="proj-edit-address-dropdown" class="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-52 overflow-y-auto hidden"></div>
           </div>
         </div>
 
-        <!-- Row 2: Status & Price -->
+        <!-- Row 2: Status, Ownership Entity & Price -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Portfolio Status</label>
@@ -2258,7 +2289,17 @@
               <option value="owned">Owned Portfolio Asset</option>
             </select>
           </div>
-          <div class="space-y-1 sm:col-span-2">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label for="edit-deal-entity" class="text-[11px] font-bold text-slate-400">Ownership Entity</label>
+              <button type="button" onclick="if (typeof openEntityManagementModal === 'function') openEntityManagementModal(event);" class="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition">+ Manage</button>
+            </div>
+            <select id="edit-deal-entity"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-semibold focus:outline-none focus:border-brand-500">
+              <option value="">No Entity (Unassigned)</option>
+            </select>
+          </div>
+          <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Acquisition Price ($)</label>
             <input type="number" id="edit-deal-price" required min="0" step="any" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
           </div>
@@ -3216,7 +3257,9 @@
         if (document.getElementById('input-multi-type')) document.getElementById('input-multi-type').value = values.facilityType || 'Garden-Style Community';
       } else if (activeTab === 'commercial') {
         document.getElementById('input-lease-type').value = values.leaseType ?? 'NNN';
-        const annualRent = values.grossRentAnnual || (values.grossRentPerMonth ? values.grossRentPerMonth * 12 : (values.monthlyRent ? values.monthlyRent * 12 : ''));
+        const annualRent = (values.grossRentAnnual !== undefined && values.grossRentAnnual !== null)
+          ? values.grossRentAnnual
+          : (values.grossRentPerMonth ? values.grossRentPerMonth * 12 : (values.monthlyRent ? values.monthlyRent * 12 : ''));
         document.getElementById('input-gross-rent-annual').value = annualRent;
         document.getElementById('input-comm-class').value = values.commClass ?? 'Industrial';
         document.getElementById('input-comm-tier').value = values.marketTier || values.commTier || 'Tier 1';
@@ -3271,25 +3314,36 @@
         firstYearMonths: document.getElementById('input-prorate-first-year')?.checked ? 3 : 12
       };
 
-      inputs.leases = (currentLoadedDeal && currentLoadedDeal.inputs && currentLoadedDeal.inputs.leases) ? currentLoadedDeal.inputs.leases : [];
+      inputs.leases = (currentLoadedDeal && currentLoadedDeal.inputs && Array.isArray(currentLoadedDeal.inputs.leases)) ? currentLoadedDeal.inputs.leases : [];
 
       if (activeTab === 'single-family') {
         inputs.arv = parseFloat(document.getElementById('input-arv').value) || 0;
-        inputs.monthlyRent = parseFloat(document.getElementById('input-monthly-rent').value) || 0;
+        const sfMoRent = parseFloat(document.getElementById('input-monthly-rent').value);
+        inputs.monthlyRent = isNaN(sfMoRent) ? 0 : Math.max(0, sfMoRent);
+        inputs.grossRentPerMonth = inputs.monthlyRent;
+        inputs.grossRentAnnual = inputs.monthlyRent * 12;
         inputs.marketTier = document.getElementById('input-sf-tier')?.value || 'Tier 2';
         inputs.propertyClass = document.getElementById('input-sf-class')?.value || 'Class B';
         inputs.facilityType = document.getElementById('input-sf-type')?.value || 'BRRRR Value-Add Single-Family';
       } else if (activeTab === 'multi-unit') {
         inputs.unitCount = parseInt(document.getElementById('input-unit-count').value) || 0;
-        inputs.monthlyRentPerUnit = parseFloat(document.getElementById('input-monthly-rent-per-unit').value) || 0;
+        const muRpu = parseFloat(document.getElementById('input-monthly-rent-per-unit').value);
+        inputs.monthlyRentPerUnit = isNaN(muRpu) ? 0 : Math.max(0, muRpu);
+        inputs.grossRentPerMonth = inputs.monthlyRentPerUnit * inputs.unitCount;
+        inputs.monthlyRent = inputs.grossRentPerMonth;
+        inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
         inputs.marketTier = document.getElementById('input-multi-tier')?.value || 'Tier 2';
         inputs.propertyClass = document.getElementById('input-multi-class')?.value || 'Class B';
         inputs.facilityType = document.getElementById('input-multi-type')?.value || 'Garden-Style Community';
       } else if (activeTab === 'commercial') {
         inputs.leaseType = document.getElementById('input-lease-type').value || 'NNN';
-        inputs.grossRentAnnual = parseFloat(document.getElementById('input-gross-rent-annual').value) || 0;
-        inputs.monthlyRent = inputs.grossRentAnnual > 0 ? (inputs.grossRentAnnual / 12) : (parseFloat(document.getElementById('input-monthly-rent')?.value) || (currentLoadedDeal?.inputs?.monthlyRent) || 0);
+        const rawCommAnnual = document.getElementById('input-gross-rent-annual')?.value?.trim();
+        inputs.grossRentAnnual = (rawCommAnnual !== '' && rawCommAnnual !== undefined && !isNaN(parseFloat(rawCommAnnual))) ? Math.max(0, parseFloat(rawCommAnnual)) : 0;
+        inputs.monthlyRent = inputs.grossRentAnnual > 0 ? (inputs.grossRentAnnual / 12) : 0;
         inputs.grossRentPerMonth = inputs.monthlyRent;
+        if (inputs.grossRentAnnual === 0) {
+          inputs.leases = [];
+        }
         inputs.commClass = document.getElementById('input-comm-class').value || 'Industrial';
         inputs.commTier = document.getElementById('input-comm-tier').value || 'Tier 1';
         inputs.marketTier = inputs.commTier;
@@ -4534,17 +4588,51 @@
       const startYr = getProjectionStartYear();
 
       // 1. Property Snapshot
+      const countySubtitleEl = document.getElementById('overview-snapshot-county-subtitle');
+      const rawCounty = (currentLoadedDeal && (currentLoadedDeal.inputs?.county || currentLoadedDeal.inputs?.parcels?.[0]?.county)) || (inputs && inputs.county) || '';
+      const cleanCounty = rawCounty ? rawCounty.replace(/\s*County.*$/i, '').trim() : '';
+      if (countySubtitleEl) {
+        countySubtitleEl.textContent = cleanCounty ? `${cleanCounty} County Assessor Data` : 'County Assessor Data';
+      }
+
       const addrEl = document.getElementById('overview-snapshot-address');
       if (addrEl) {
         const displayAddr = (currentLoadedDeal && (currentLoadedDeal.location || currentLoadedDeal.inputs?.location || currentLoadedDeal.inputs?.assessorData?.address || currentLoadedDeal.inputs?.address || currentLoadedDeal.name)) || 'Location Pending';
         addrEl.textContent = displayAddr;
       }
 
+      // Multi-Address & Assemblage detection for Snapshot Card
+      const curInputs = (currentLoadedDeal && currentLoadedDeal.inputs) || inputs || {};
+      const addrsList = Array.isArray(curInputs.addresses) && curInputs.addresses.length > 1
+        ? curInputs.addresses
+        : (Array.isArray(curInputs.adjacentParcels) && curInputs.adjacentParcels.length > 0)
+          ? [currentLoadedDeal?.location || 'Primary Address', ...curInputs.adjacentParcels.map(p => p.address || `APN: ${p.apn || p.parcelNumber}`)]
+          : (Array.isArray(curInputs.parcels) && curInputs.parcels.length > 1)
+            ? curInputs.parcels.map(p => typeof p === 'string' ? p : (p.address || `APN: ${p.apn || p.parcelNumber}`))
+            : [];
+      
+      const multiBadgeEl = document.getElementById('overview-snapshot-multi-badge');
+      const multiSubtextEl = document.getElementById('overview-snapshot-multi-subtext');
+      if (addrsList.length > 1) {
+        if (multiBadgeEl) {
+          multiBadgeEl.classList.remove('hidden');
+          multiBadgeEl.textContent = `${addrsList.length} Parcels`;
+        }
+        if (multiSubtextEl) {
+          multiSubtextEl.classList.remove('hidden');
+          multiSubtextEl.textContent = `+ ${addrsList.length - 1} adjacent parcel${addrsList.length > 2 ? 's' : ''} in assemblage`;
+        }
+      } else {
+        if (multiBadgeEl) multiBadgeEl.classList.add('hidden');
+        if (multiSubtextEl) multiSubtextEl.classList.add('hidden');
+      }
+
       const apnEl = document.getElementById('overview-snapshot-apn');
       if (apnEl) {
         const rawApn = (currentLoadedDeal && (currentLoadedDeal.inputs?.primaryApn || currentLoadedDeal.inputs?.apn || currentLoadedDeal.inputs?.assessorData?.apn || currentLoadedDeal.apn || currentLoadedDeal.parcel_id)) || (inputs && (inputs.primaryApn || inputs.apn)) || '';
         const formattedApn = rawApn ? (rawApn.length === 11 ? (rawApn.slice(0, 6) + '-' + rawApn.slice(6)) : rawApn) : 'Pending Link';
-        apnEl.textContent = `APN: ${formattedApn}`;
+        const apnExtra = addrsList.length > 1 ? ` (+${addrsList.length - 1} more)` : '';
+        apnEl.textContent = cleanCounty ? `${cleanCounty} • ${formattedApn}${apnExtra}` : `APN: ${formattedApn}${apnExtra}`;
       }
 
       const classEl = document.getElementById('overview-snapshot-class');
@@ -4567,6 +4655,32 @@
         assessedEl.textContent = trueAssessed > 0 ? formatCurrency(trueAssessed) : 'Pending Assessment';
       }
 
+      // Tenancy & Rent Roll Snapshot Banner
+      const leases = (curInputs.leases && Array.isArray(curInputs.leases))
+        ? curInputs.leases.filter(l => l && (l.tenantName || parseFloat(l.monthlyRent) > 0 || parseFloat(l.annualRent) > 0))
+        : [];
+      const unitCount = parseInt(curInputs.unitCount || curInputs.numUnits || curInputs.storageUnitCount || 0, 10);
+      const tenancyTitleEl = document.getElementById('overview-snapshot-tenancy-title');
+      const tenancySubEl = document.getElementById('overview-snapshot-tenancy-subtitle');
+      if (tenancyTitleEl && tenancySubEl) {
+        if (leases.length > 1) {
+          tenancyTitleEl.textContent = `Multi-Tenant (${leases.length} Active Leases)`;
+          const names = leases.map(l => l.tenantName || 'Unit Lease').filter(Boolean);
+          const topNames = names.slice(0, 2).join(', ');
+          const moreCount = names.length > 2 ? ` (+${names.length - 2} more)` : '';
+          tenancySubEl.textContent = `${topNames}${moreCount} • 100% Contracted`;
+        } else if (unitCount > 1) {
+          tenancyTitleEl.textContent = `Multi-Unit Asset (${unitCount} Total Units)`;
+          tenancySubEl.textContent = `Master Rent Roll & Unit Mix Active`;
+        } else if (leases.length === 1 && leases[0].tenantName) {
+          tenancyTitleEl.textContent = `Single-Tenant: ${leases[0].tenantName}`;
+          tenancySubEl.textContent = `${leases[0].leaseType || 'NNN'} Lease • 100% Occupied`;
+        } else {
+          tenancyTitleEl.textContent = `Single-Tenant Asset`;
+          tenancySubEl.textContent = `100% Baseline Occupancy`;
+        }
+      }
+
       // 2. Debt Snapshot
       const loanEl = document.getElementById('overview-snapshot-loan');
       if (loanEl) loanEl.textContent = formatCurrency(res.loanAmount);
@@ -4580,8 +4694,13 @@
       const dscrEl = document.getElementById('overview-snapshot-dscr');
       if (dscrEl) {
         const y1Dscr = res.projections[0].dscr;
-        dscrEl.textContent = y1Dscr !== null ? `${y1Dscr.toFixed(2)}x` : 'N/A';
-        dscrEl.className = (y1Dscr !== null && y1Dscr >= 1.25) ? 'text-xs font-bold text-emerald-400 mt-1 block truncate' : 'text-xs font-bold text-amber-400 mt-1 block truncate';
+        if (res.projections[0].grossPotentialIncome <= 0 || res.projections[0].netOperatingIncome <= 0) {
+          dscrEl.textContent = 'Vacant (Carry)';
+          dscrEl.className = 'text-xs font-bold text-amber-400 mt-1 block truncate';
+        } else {
+          dscrEl.textContent = y1Dscr !== null ? `${y1Dscr.toFixed(2)}x` : 'N/A';
+          dscrEl.className = (y1Dscr !== null && y1Dscr >= 1.25) ? 'text-xs font-bold text-emerald-400 mt-1 block truncate' : 'text-xs font-bold text-amber-400 mt-1 block truncate';
+        }
       }
 
       // 3. 5-Year Milestone Table (Years 1, 3, 5, 7, 10)
@@ -4977,27 +5096,60 @@
         `;
       }
 
+      // Detect zero-rent vacant lot / empty land deal
+      const isZeroRent = (parseFloat(mergedInputs.grossRentAnnual) || 0) <= 0 &&
+                         (parseFloat(mergedInputs.grossRentPerMonth) || 0) <= 0 &&
+                         (parseFloat(mergedInputs.monthlyRent) || 0) <= 0 &&
+                         (!Array.isArray(mergedInputs.leases) || mergedInputs.leases.length === 0 || !mergedInputs.leases.some(l => (parseFloat(l.monthlyRent) || 0) > 0));
+
+      // Dynamically adapt volatility slider labels if unrented lot
+      const lblVolRent = document.getElementById('label-title-vol-rent');
+      const descVolRent = document.getElementById('desc-vol-rent');
+      const lblVolCap = document.getElementById('label-title-vol-cap');
+      const descVolCap = document.getElementById('desc-vol-cap');
+      if (isZeroRent) {
+        if (lblVolRent) lblVolRent.innerHTML = 'Holding Cost Inflation (&sigma;)';
+        if (descVolRent) descVolRent.textContent = 'Annual holding carry & expense inflation volatility.';
+        if (lblVolCap) lblVolCap.innerHTML = 'Land Appreciation Volatility (&sigma;)';
+        if (descVolCap) descVolCap.textContent = 'Stochastic land value appreciation variance over the 10-year holding period.';
+      } else {
+        if (lblVolRent) lblVolRent.innerHTML = 'Rent Growth Volatility (&sigma;)';
+        if (descVolRent) descVolRent.textContent = 'Randomized annual rent revision drift (μ = baseline, σ standard deviation).';
+        if (lblVolCap) lblVolCap.innerHTML = 'Exit Cap Rate Spread (&sigma;)';
+        if (descVolCap) descVolCap.textContent = 'Capital markets expansion / liquidity uncertainty at terminal exit year.';
+      }
+
       // Update dynamic pro-forma telemetry strip
       const telem = mc.telemetry || {
         baselineRentGrowth: mergedInputs.rentGrowth !== undefined ? mergedInputs.rentGrowth : 2.5,
         baselineVacancy: mergedInputs.vacancyRate !== undefined ? mergedInputs.vacancyRate : 5.0,
-        baselineExitMetric: (mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage')
+        baselineExitMetric: ((mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage') && !isZeroRent)
           ? (mergedInputs.targetCapRate || mergedInputs.targetExitCapRate || 6.5)
           : (mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0),
-        exitMetricType: (mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage') ? 'Exit Cap' : 'Appreciation',
+        exitMetricType: ((mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage') && !isZeroRent) ? 'Exit Cap' : 'Land Appreciation',
         rentGrowthRange: [Math.round(((mergedInputs.rentGrowth !== undefined ? mergedInputs.rentGrowth : 2.5) - rentGrowthVol) * 10) / 10, Math.round(((mergedInputs.rentGrowth !== undefined ? mergedInputs.rentGrowth : 2.5) + rentGrowthVol) * 10) / 10],
-        exitMetricRange: (mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage')
+        exitMetricRange: ((mergedInputs.assetType === 'commercial' || mergedInputs.assetType === 'storage') && !isZeroRent)
           ? [Math.round(Math.max(1, (mergedInputs.targetCapRate || 6.5) - exitCapSpread / 100) * 100) / 100, Math.round(((mergedInputs.targetCapRate || 6.5) + exitCapSpread / 100) * 100) / 100]
-          : [Math.round(((mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0) - 1.5) * 10) / 10, Math.round(((mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0) + 1.5) * 10) / 10]
+          : [Math.round(((mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0) - (exitCapSpread / 40)) * 10) / 10, Math.round(((mergedInputs.appreciationRate !== undefined ? mergedInputs.appreciationRate : 3.0) + (exitCapSpread / 40)) * 10) / 10]
       };
 
       const elBaseline = document.getElementById('mc-telemetry-baseline');
       if (elBaseline) {
-        elBaseline.textContent = `Rent: ${Number(telem.baselineRentGrowth).toFixed(1)}% | Vacancy: ${Number(telem.baselineVacancy).toFixed(1)}% | ${telem.exitMetricType}: ${Number(telem.baselineExitMetric).toFixed(telem.exitMetricType.includes('Cap') ? 2 : 1)}%`;
+        if (isZeroRent) {
+          const annualTax = (parseFloat(mergedInputs.propertyTaxesAnnual) || 0) > 0 ? parseFloat(mergedInputs.propertyTaxesAnnual) : (parseFloat(mergedInputs.initialPropertyValue || mergedInputs.purchasePrice || 0) * 0.015);
+          const totalHoldingCarry = annualTax + 600 + 600;
+          elBaseline.textContent = `Holding Carry: $${Math.round(totalHoldingCarry).toLocaleString()}/yr | Appreciation: ${Number(telem.baselineExitMetric).toFixed(1)}%`;
+        } else {
+          elBaseline.textContent = `Rent: ${Number(telem.baselineRentGrowth).toFixed(1)}% | Vacancy: ${Number(telem.baselineVacancy).toFixed(1)}% | ${telem.exitMetricType}: ${Number(telem.baselineExitMetric).toFixed(telem.exitMetricType.includes('Cap') ? 2 : 1)}%`;
+        }
       }
       const elBounds = document.getElementById('mc-telemetry-bounds');
       if (elBounds) {
-        elBounds.textContent = `Rent [${telem.rentGrowthRange[0]}% – ${telem.rentGrowthRange[1]}%] | ${telem.exitMetricType} [${telem.exitMetricRange[0]}% – ${telem.exitMetricRange[1]}%]`;
+        if (isZeroRent) {
+          elBounds.textContent = `Land Appreciation [${telem.exitMetricRange[0]}% – ${telem.exitMetricRange[1]}%]`;
+        } else {
+          elBounds.textContent = `Rent [${telem.rentGrowthRange[0]}% – ${telem.rentGrowthRange[1]}%] | ${telem.exitMetricType} [${telem.exitMetricRange[0]}% – ${telem.exitMetricRange[1]}%]`;
+        }
       }
 
       // Update engine badge
@@ -7240,6 +7392,17 @@
     
     // === Address Autocomplete & Yakima County GIS Integration ===
     async function onProjEditLocationInput(val) {
+      const headerBadge = document.getElementById('proj-edit-gis-header-badge');
+      if (headerBadge && val) {
+        if (/spokane/i.test(val)) {
+          headerBadge.textContent = '🏛️ Spokane County GIS';
+        } else if (/yakima|selah|union gap|sunnyside|toppenish|wapato|zillah/i.test(val)) {
+          headerBadge.textContent = '🏛️ Yakima GIS';
+        } else {
+          headerBadge.textContent = '🏛️ Live County GIS';
+        }
+      }
+
       if (!val || val.length < 2) return;
       if (!window.AddressService) return;
       const dropdown = document.getElementById('proj-edit-address-dropdown');
@@ -7253,11 +7416,14 @@
 
       let html = '';
       results.forEach((item, idx) => {
-        const isYakima = item.isYakimaCounty;
+        const isYakima = item.isYakimaCounty || /yakima/i.test(item.county || '');
+        const isSpokane = item.isSpokaneCounty || /spokane/i.test(item.county || '');
+        const rawCounty = (item.county || (isYakima ? 'Yakima' : (isSpokane ? 'Spokane' : ''))).replace(/\s*County/i, '').trim();
+        const countyLabel = rawCounty ? (rawCounty + ' County') : '';
         const badge = item.apn
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima APN: ' + item.apn + '</span>'
-          : (isYakima
-              ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📍 Road / No Parcel</span>'
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ ' + (countyLabel ? countyLabel + ' ' : '') + 'APN: ' + item.apn + '</span>'
+          : (countyLabel
+              ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-500/10 text-brand-400 border border-brand-500/20">📍 ' + countyLabel + ' • Geocoded</span>'
               : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>');
 
         html += '<div onclick="selectProjAddress(' + idx + ')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">';
@@ -7286,21 +7452,32 @@
       const dropdown = document.getElementById('proj-edit-address-dropdown');
       if (dropdown) dropdown.classList.add('hidden');
 
-      if (item.apn && currentLoadedDeal) {
+      if (currentLoadedDeal && window.AddressService) {
         currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
-        currentLoadedDeal.inputs.apn = item.apn;
-        currentLoadedDeal.inputs.county = 'Yakima';
-        updateHeaderApnBadge(item.apn);
-        if (window.AddressService) {
-          window.AddressService.fetchYakimaAssessorData(item.apn).then(data => {
-            if (data && currentLoadedDeal) {
-              currentLoadedDeal.inputs.assessorData = data;
-              currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
-              updateCountyDossierUI(currentLoadedDeal);
-            }
-          }).catch(e => console.warn('Assessor fetch warning:', e));
+        currentLoadedDeal.location = item.formattedAddress || currentLoadedDeal.location;
+        const data = await window.AddressService.resolveParcelDetails(item);
+        if (data) {
+          const rawCounty = (data.county || '').replace(/\s*County/i, '').trim();
+          const headerBadge = document.getElementById('proj-edit-gis-header-badge');
+          if (headerBadge && rawCounty) {
+            headerBadge.textContent = '🏛️ ' + rawCounty + ' County GIS';
+          }
+
+          currentLoadedDeal.inputs.apn = data.apn;
+          currentLoadedDeal.inputs.primaryApn = data.apn;
+          currentLoadedDeal.inputs.county = rawCounty ? (rawCounty + ' County, WA') : 'Washington';
+          currentLoadedDeal.inputs.assessorData = data;
+          currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
+          currentLoadedDeal.inputs.marketLandValue = data.marketLandValue;
+          currentLoadedDeal.inputs.marketImprovementValue = data.marketImprovementValue;
+          currentLoadedDeal.inputs.acres = data.acres;
+          currentLoadedDeal.inputs.sqft = data.sqft;
+          currentLoadedDeal.inputs.zoning = data.zoning;
+          currentLoadedDeal.inputs.useCode = data.useCode;
+          currentLoadedDeal.inputs.owner = data.owner;
+          updateHeaderApnBadge(data.apn, data.county);
+          updateCountyDossierUI(currentLoadedDeal);
         }
-        updateCountyDossierUI(currentLoadedDeal);
       }
     }
     window.selectProjAddress = selectProjAddress;
@@ -7336,7 +7513,7 @@
       if (!dd || !window.AddressService) return;
 
       const cleanApn = val.replace(/[^0-9]/g, '');
-      if (cleanApn.length === 11) {
+      if (cleanApn.length === 11 || cleanApn.length === 10) {
         dd.innerHTML = `
           <div onclick="quickLinkDossierParcel('${cleanApn}', '${val.trim()}')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">
             <div class="flex items-center justify-between">
@@ -7359,11 +7536,14 @@
       window._lastDossierSearchResults = results;
       let html = '';
       results.forEach((item, idx) => {
-        const isYakima = item.isYakimaCounty;
+        const isYakima = item.isYakimaCounty || /yakima/i.test(item.county || '');
+        const isSpokane = item.isSpokaneCounty || /spokane/i.test(item.county || '');
+        const rawCounty = (item.county || (isYakima ? 'Yakima' : (isSpokane ? 'Spokane' : ''))).replace(/\s*County/i, '').trim();
+        const countyLabel = rawCounty ? (rawCounty + ' County') : '';
         const badge = item.apn
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima APN: ' + item.apn + '</span>'
-          : (isYakima
-              ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📍 Road / No Parcel</span>'
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ ' + (countyLabel ? countyLabel + ' ' : '') + 'APN: ' + item.apn + '</span>'
+          : (countyLabel
+              ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-500/10 text-brand-400 border border-brand-500/20">📍 ' + countyLabel + ' • Geocoded</span>'
               : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>');
 
         html += `<div onclick="selectDossierAddress(${idx})" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">
@@ -7384,11 +7564,11 @@
       const results = window._lastDossierSearchResults;
       if (!results || !results[idx]) return;
       const item = results[idx];
-      quickLinkDossierParcel(item.apn, item.formattedAddress);
+      quickLinkDossierParcel(item, item.formattedAddress);
     }
     window.selectDossierAddress = selectDossierAddress;
 
-    async function quickLinkDossierParcel(apn, formattedAddress) {
+    async function quickLinkDossierParcel(itemOrApn, formattedAddress) {
       if (!currentLoadedDeal) return;
       currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
 
@@ -7404,51 +7584,53 @@
         if (locEl) locEl.innerHTML = `<svg class="w-3 h-3 text-slate-500 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>${formattedAddress}</span>`;
       }
 
-      if (apn && window.AddressService) {
-        currentLoadedDeal.inputs.primaryApn = apn;
-        currentLoadedDeal.inputs.apn = apn;
-        currentLoadedDeal.inputs.county = 'Yakima County, WA';
-        try {
-          const data = await window.AddressService.fetchYakimaAssessorData(apn);
-          if (data) {
-            currentLoadedDeal.inputs.assessorData = data;
-            currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
-            currentLoadedDeal.inputs.marketLandValue = data.marketLandValue;
-            currentLoadedDeal.inputs.marketImprovementValue = data.marketImprovementValue;
-            currentLoadedDeal.inputs.acres = data.acres;
-            currentLoadedDeal.inputs.sqft = data.sqft;
-            currentLoadedDeal.inputs.yearBuilt = data.yearBuilt;
-            currentLoadedDeal.inputs.buildingSqFt = data.buildingSqFt;
-            currentLoadedDeal.inputs.stories = data.stories;
-            currentLoadedDeal.inputs.constructionType = data.constructionType;
-            currentLoadedDeal.inputs.condition = data.condition;
-            currentLoadedDeal.inputs.hvac = data.hvac;
-            currentLoadedDeal.inputs.zoning = data.zoning;
-            currentLoadedDeal.inputs.useCode = data.useCode;
-            currentLoadedDeal.inputs.owner = data.owner;
-            currentLoadedDeal.inputs.legalDescription = data.legalDescription;
-            currentLoadedDeal.inputs.gisSync = {
-              lastSyncedAt: new Date().toISOString(),
-              syncSource: 'yakima_arcgis',
-              status: 'active'
-            };
-          }
-        } catch(err) {
-          console.error('Error fetching assessor data for parcel:', err);
+      if (window.AddressService) {
+        let data = null;
+        if (typeof itemOrApn === 'object' && itemOrApn !== null) {
+          data = await window.AddressService.resolveParcelDetails(itemOrApn);
+        } else if (typeof itemOrApn === 'string') {
+          const cleanApn = itemOrApn.trim();
+          data = await window.AddressService.resolveParcelDetails({ apn: cleanApn, county: currentLoadedDeal.inputs?.county });
+        }
+
+        if (data) {
+          const countyLabel = data.county ? (data.county + ' County, WA') : 'Washington';
+          currentLoadedDeal.inputs.primaryApn = data.apn;
+          currentLoadedDeal.inputs.apn = data.apn;
+          currentLoadedDeal.inputs.county = countyLabel;
+          currentLoadedDeal.inputs.assessorData = data;
+          currentLoadedDeal.inputs.totalAssessedValue = data.totalAssessedValue;
+          currentLoadedDeal.inputs.marketLandValue = data.marketLandValue;
+          currentLoadedDeal.inputs.marketImprovementValue = data.marketImprovementValue;
+          currentLoadedDeal.inputs.acres = data.acres;
+          currentLoadedDeal.inputs.sqft = data.sqft;
+          currentLoadedDeal.inputs.yearBuilt = data.yearBuilt;
+          currentLoadedDeal.inputs.buildingSqFt = data.buildingSqFt;
+          currentLoadedDeal.inputs.stories = data.stories;
+          currentLoadedDeal.inputs.constructionType = data.constructionType;
+          currentLoadedDeal.inputs.condition = data.condition;
+          currentLoadedDeal.inputs.hvac = data.hvac;
+          currentLoadedDeal.inputs.zoning = data.zoning;
+          currentLoadedDeal.inputs.useCode = data.useCode;
+          currentLoadedDeal.inputs.owner = data.owner;
+          currentLoadedDeal.inputs.legalDescription = data.legalDescription;
+          currentLoadedDeal.inputs.gisSync = {
+            lastSyncedAt: new Date().toISOString(),
+            syncSource: data.source || 'gis_service',
+            status: 'active'
+          };
+          updateHeaderApnBadge(data.apn, data.county);
         }
       }
 
       if (typeof saveCurrentDealChanges === 'function') {
         saveCurrentDealChanges(false);
       }
-      if (typeof updateHeaderApnBadge === 'function') {
-        updateHeaderApnBadge(apn);
-      }
       updateCountyDossierUI(currentLoadedDeal);
     }
     window.quickLinkDossierParcel = quickLinkDossierParcel;
 
-    function updateHeaderApnBadge(apn) {
+    function updateHeaderApnBadge(apn, county) {
       const badge = document.getElementById('header-apn-badge');
       const text = document.getElementById('header-apn-text');
       const syncBadge = document.getElementById('header-gis-sync-badge');
@@ -7457,12 +7639,14 @@
       if (badge && apn) {
         badge.classList.remove('hidden');
         badge.classList.add('flex');
-        badge.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + apn;
+        const countyName = county || currentLoadedDeal?.inputs?.county || 'County';
+        badge.href = window.AddressService ? window.AddressService.getAssessorPortalUrl(countyName, apn) : ('https://yes.co.yakima.wa.us/ascend/?mParcelID=' + apn);
         
         // Multi-parcel count badge
         const parcels = currentLoadedDeal?.inputs?.parcels;
         const parcelCount = Array.isArray(parcels) && parcels.length > 1 ? ' (' + parcels.length + ' Parcels)' : '';
-        if (text) text.textContent = 'Yakima APN: ' + apn + parcelCount;
+        const prefix = /spokane/i.test(countyName) ? 'Spokane APN: ' : (/yakima/i.test(countyName) ? 'Yakima APN: ' : 'APN: ');
+        if (text) text.textContent = prefix + apn + parcelCount;
       }
 
       // 30-Day Cache Freshness Badge & Zero-Click Background Auto-Sync
@@ -7639,10 +7823,10 @@
       const ascendLink = document.getElementById('dossier-ascend-link');
       if (ascendLink) {
         if (propApn) {
-          ascendLink.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + propApn;
+          ascendLink.href = window.AddressService ? window.AddressService.getAssessorPortalUrl(propCounty, propApn) : ('https://yes.co.yakima.wa.us/ascend/?mParcelID=' + propApn);
           ascendLink.classList.remove('opacity-50', 'pointer-events-none');
         } else {
-          ascendLink.href = 'https://yes.co.yakima.wa.us/ascend/';
+          ascendLink.href = window.AddressService ? window.AddressService.getAssessorPortalUrl(propCounty) : 'https://yes.co.yakima.wa.us/ascend/';
         }
       }
 
@@ -8216,6 +8400,21 @@
             }
           }, 100);
         }
+        const editEntitySelect = document.getElementById('edit-deal-entity');
+        if (editEntitySelect) {
+          let entities = [];
+          try {
+            const raw = localStorage.getItem('mathtree_entities_cache');
+            if (raw) entities = JSON.parse(raw);
+          } catch(e) {}
+          const curVal = editEntitySelect.value;
+          let entHtml = '<option value="">No Entity (Unassigned)</option>';
+          (entities || []).forEach(ent => {
+            if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          });
+          editEntitySelect.innerHTML = entHtml;
+          if (curVal) editEntitySelect.value = curVal;
+        }
       };
       window.addEventListener('mathtree:entity-changed', onEntityChanged);
       window.addEventListener('mathtree:entity-changedd', onEntityChanged);
@@ -8299,6 +8498,7 @@
               title: deal.name,
               asset_type: deal.asset_class || deal.asset_type,
               status: deal.status || 'prospect',
+              entity_id: deal.entity_id || null,
               purchase_price: deal.purchase_price,
               irr: deal.irr,
               equity_multiple: deal.equity_multiple,
@@ -8311,8 +8511,10 @@
             }).eq('id', deal.id);
 
             // Synchronize in-place lease into public.leases
-            if (deal.inputs?.leases?.[0]) {
-              const l = deal.inputs.leases[0];
+            const firstLease = deal.inputs?.leases?.[0];
+            const hasActiveLeaseRent = firstLease && (parseFloat(firstLease.monthlyRent) > 0 || parseFloat(firstLease.annualRent) > 0);
+            if (hasActiveLeaseRent) {
+              const l = firstLease;
               const { data: existingLease } = await window._supabase
                 .from('leases')
                 .select('id')
@@ -8340,6 +8542,9 @@
               } else {
                 await window._supabase.from('leases').insert(leasePayload);
               }
+            } else {
+              // Deactivate existing leases when rent is 0 or empty lot carry
+              await window._supabase.from('leases').update({ is_active: false, updated_at: new Date().toISOString() }).eq('deal_id', deal.id);
             }
 
             // Synchronize primary parcel into public.parcels table
@@ -9326,8 +9531,10 @@
       };
 
       const aClass = document.getElementById('edit-deal-asset-class')?.value || (currentLoadedDeal && (currentLoadedDeal.asset_class || currentLoadedDeal.assetType)) || 'commercial';
-      const annualRentVal  = numVal('edit-deal-gross-rent-annual', 0);
-      const monthlyRentVal = numVal('edit-deal-gross-rent-monthly', 0);
+      const annualRentRaw = document.getElementById('edit-deal-gross-rent-annual')?.value?.trim();
+      const monthlyRentRaw = document.getElementById('edit-deal-gross-rent-monthly')?.value?.trim();
+      const annualRentVal = (annualRentRaw !== undefined && annualRentRaw !== '' && !isNaN(parseFloat(annualRentRaw))) ? Math.max(0, parseFloat(annualRentRaw)) : null;
+      const monthlyRentVal = (monthlyRentRaw !== undefined && monthlyRentRaw !== '' && !isNaN(parseFloat(monthlyRentRaw))) ? Math.max(0, parseFloat(monthlyRentRaw)) : null;
       const appRate        = numVal('edit-deal-appreciation-rate', 3.5);
 
       const inputs = {
@@ -9361,34 +9568,48 @@
       };
 
       if (aClass === 'single-family') {
-        if (monthlyRentVal > 0) inputs.monthlyRent = monthlyRentVal;
-        else if (annualRentVal > 0) inputs.monthlyRent = Math.round(annualRentVal / 12);
-        inputs.grossRentPerMonth = inputs.monthlyRent || 0;
-        inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
+        if (monthlyRentVal !== null) {
+          inputs.monthlyRent = monthlyRentVal;
+        } else if (annualRentVal !== null) {
+          inputs.monthlyRent = Math.round(annualRentVal / 12);
+        } else {
+          inputs.monthlyRent = currentLoadedDeal?.inputs?.monthlyRent ?? 0;
+        }
+        inputs.grossRentPerMonth = inputs.monthlyRent;
+        inputs.grossRentAnnual = inputs.monthlyRent * 12;
         inputs.arv = numVal('edit-deal-arv', 0);
       } else if (aClass === 'multi-unit') {
         inputs.unitCount = intVal('edit-deal-unit-count', 4);
         inputs.numUnits = inputs.unitCount;
-        if (monthlyRentVal > 0) {
+        if (monthlyRentVal !== null) {
           inputs.monthlyRentPerUnit = monthlyRentVal;
           inputs.grossRentPerMonth = monthlyRentVal * inputs.unitCount;
           inputs.monthlyRent = inputs.grossRentPerMonth;
           inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
-        } else if (annualRentVal > 0) {
-          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+        } else if (annualRentVal !== null) {
+          inputs.monthlyRentPerUnit = inputs.unitCount > 0 ? Math.round(annualRentVal / 12 / inputs.unitCount) : 0;
           inputs.grossRentAnnual = annualRentVal;
           inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
           inputs.monthlyRent = inputs.grossRentPerMonth;
+        } else {
+          inputs.grossRentAnnual = currentLoadedDeal?.inputs?.grossRentAnnual ?? 0;
+          inputs.grossRentPerMonth = currentLoadedDeal?.inputs?.grossRentPerMonth ?? 0;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.monthlyRentPerUnit = currentLoadedDeal?.inputs?.monthlyRentPerUnit ?? 0;
         }
       } else if (aClass === 'commercial') {
-        if (annualRentVal > 0) {
+        if (annualRentVal !== null) {
           inputs.grossRentAnnual = annualRentVal;
           inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
           inputs.monthlyRent = inputs.grossRentPerMonth;
-        } else if (monthlyRentVal > 0) {
+        } else if (monthlyRentVal !== null) {
           inputs.grossRentAnnual = monthlyRentVal * 12;
           inputs.grossRentPerMonth = monthlyRentVal;
           inputs.monthlyRent = monthlyRentVal;
+        } else {
+          inputs.grossRentAnnual = currentLoadedDeal?.inputs?.grossRentAnnual ?? 0;
+          inputs.grossRentPerMonth = currentLoadedDeal?.inputs?.grossRentPerMonth ?? 0;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
         }
         inputs.leaseType = document.getElementById('edit-deal-lease-type')?.value || 'NNN';
         inputs.gla = numVal('edit-deal-gla', 15000);
@@ -9398,17 +9619,21 @@
         inputs.storageSqFt = numVal('edit-deal-storage-sqft', 2000);
         inputs.totalSqFt = inputs.storageSqFt;
         inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? true;
-        if (monthlyRentVal > 0) {
+        if (monthlyRentVal !== null) {
           inputs.monthlyRentPerUnit = monthlyRentVal;
           inputs.storageRentPerUnit = monthlyRentVal;
           inputs.grossRentPerMonth = monthlyRentVal * inputs.storageUnitCount;
           inputs.monthlyRent = inputs.grossRentPerMonth;
           inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
-        } else if (annualRentVal > 0) {
-          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.storageUnitCount);
+        } else if (annualRentVal !== null) {
+          inputs.monthlyRentPerUnit = inputs.storageUnitCount > 0 ? Math.round(annualRentVal / 12 / inputs.storageUnitCount) : 0;
           inputs.storageRentPerUnit = inputs.monthlyRentPerUnit;
           inputs.grossRentAnnual = annualRentVal;
           inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+        } else {
+          inputs.grossRentAnnual = currentLoadedDeal?.inputs?.grossRentAnnual ?? 0;
+          inputs.grossRentPerMonth = currentLoadedDeal?.inputs?.grossRentPerMonth ?? 0;
           inputs.monthlyRent = inputs.grossRentPerMonth;
         }
       }
@@ -9438,6 +9663,12 @@
         try {
           const aClass = document.getElementById('edit-deal-asset-class')?.value || (currentLoadedDeal && (currentLoadedDeal.asset_class || currentLoadedDeal.assetType)) || 'commercial';
           const tempInputs = getEditModalInputs();
+          delete tempInputs.loanAmount;
+          delete tempInputs.initialEquity;
+          delete tempInputs.downPaymentAmount;
+          if (tempInputs.grossRentAnnual === 0 || tempInputs.monthlyRent === 0) {
+            tempInputs.leases = [];
+          }
           const res = window.PropertyMath.calculateProjections(aClass, tempInputs);
           if (res && res.projections && res.projections[0]) {
             const cf = res.projections[0].cashFlow ?? res.projections[0].netCashFlow ?? 0;
@@ -9505,6 +9736,21 @@
       setVal('edit-deal-location', currentLoadedDeal.location || '');
       setVal('edit-deal-status', currentLoadedDeal.status || 'prospect');
 
+      const entitySelect = document.getElementById('edit-deal-entity');
+      if (entitySelect) {
+        let entities = [];
+        try {
+          const raw = localStorage.getItem('mathtree_entities_cache');
+          if (raw) entities = JSON.parse(raw);
+        } catch(e) {}
+        let entHtml = '<option value="">No Entity (Unassigned)</option>';
+        (entities || []).forEach(ent => {
+          if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+        });
+        entitySelect.innerHTML = entHtml;
+        entitySelect.value = currentLoadedDeal.entity_id || inputs.entity_id || '';
+      }
+
       const price = currentLoadedDeal.purchase_price || inputs.purchasePrice || 0;
       setVal('edit-deal-price', price);
 
@@ -9527,23 +9773,35 @@
       let preAnnual = 0;
       let preMonthly = 0;
       if (aClass === 'commercial') {
-        preAnnual  = inputs.grossRentAnnual || (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0);
+        preAnnual  = (inputs.grossRentAnnual !== undefined && inputs.grossRentAnnual !== null)
+          ? inputs.grossRentAnnual
+          : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0);
         preMonthly = 0;
       } else if (aClass === 'single-family') {
-        preMonthly = inputs.monthlyRent || inputs.grossRentPerMonth || (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0);
+        preMonthly = (inputs.monthlyRent !== undefined && inputs.monthlyRent !== null)
+          ? inputs.monthlyRent
+          : (inputs.grossRentPerMonth ?? (inputs.grossRentAnnual ? Math.round(inputs.grossRentAnnual / 12) : 0));
         preAnnual  = preMonthly ? preMonthly * 12 : 0;
       } else if (aClass === 'multi-unit') {
         const uCount = inputs.unitCount || inputs.numUnits || 4;
-        preMonthly = inputs.monthlyRentPerUnit || inputs.rentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0);
-        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
+        preMonthly = (inputs.monthlyRentPerUnit !== undefined && inputs.monthlyRentPerUnit !== null)
+          ? inputs.monthlyRentPerUnit
+          : (inputs.rentPerUnit ?? (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0));
+        preAnnual  = (inputs.grossRentAnnual !== undefined && inputs.grossRentAnnual !== null)
+          ? inputs.grossRentAnnual
+          : (preMonthly ? preMonthly * uCount * 12 : 0);
       } else if (aClass === 'storage') {
         const uCount = inputs.storageUnitCount || inputs.unitCount || 20;
-        preMonthly = inputs.storageRentPerUnit || inputs.monthlyRentPerUnit || (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : (inputs.monthlyRent ? Math.round(inputs.monthlyRent / uCount) : 0));
-        preAnnual  = inputs.grossRentAnnual || (preMonthly ? preMonthly * uCount * 12 : (inputs.grossRentPerMonth ? inputs.grossRentPerMonth * 12 : 0));
+        preMonthly = (inputs.storageRentPerUnit !== undefined && inputs.storageRentPerUnit !== null)
+          ? inputs.storageRentPerUnit
+          : (inputs.monthlyRentPerUnit ?? (inputs.grossRentPerMonth ? Math.round(inputs.grossRentPerMonth / uCount) : 0));
+        preAnnual  = (inputs.grossRentAnnual !== undefined && inputs.grossRentAnnual !== null)
+          ? inputs.grossRentAnnual
+          : (preMonthly ? preMonthly * uCount * 12 : 0);
       }
 
-      setVal('edit-deal-gross-rent-annual', preAnnual > 0 ? preAnnual : '');
-      setVal('edit-deal-gross-rent-monthly', preMonthly > 0 ? preMonthly : '');
+      setVal('edit-deal-gross-rent-annual', (preAnnual !== undefined && preAnnual !== null) ? preAnnual : 0);
+      setVal('edit-deal-gross-rent-monthly', (preMonthly !== undefined && preMonthly !== null) ? preMonthly : 0);
 
       setVal('edit-deal-vacancy-rate', inputs.vacancyRate ?? 5);
       setVal('edit-deal-rent-growth', inputs.rentGrowth ?? inputs.annualRentGrowth ?? 3);
@@ -9631,14 +9889,20 @@
       currentLoadedDeal.name = typeof cleanTitleFromAddress === 'function' ? cleanTitleFromAddress(rawEnteredName, currentLoadedDeal.location) : (rawEnteredName || 'Underwriting Project');
       currentLoadedDeal.location = document.getElementById('edit-deal-location')?.value?.trim() || currentLoadedDeal.location || '';
       currentLoadedDeal.status = document.getElementById('edit-deal-status')?.value || currentLoadedDeal.status || 'prospect';
+      const chosenEntityId = document.getElementById('edit-deal-entity')?.value || null;
+      currentLoadedDeal.entity_id = chosenEntityId;
       currentLoadedDeal.market_tier = parsedInputs.marketTier;
       currentLoadedDeal.property_class = parsedInputs.propertyClass;
       currentLoadedDeal.facility_type = parsedInputs.facilityType;
 
       currentLoadedDeal.inputs = {
         ...(currentLoadedDeal.inputs || {}),
-        ...parsedInputs
+        ...parsedInputs,
+        entity_id: chosenEntityId
       };
+      delete currentLoadedDeal.inputs.loanAmount;
+      delete currentLoadedDeal.inputs.initialEquity;
+      delete currentLoadedDeal.inputs.downPaymentAmount;
 
       // Capture and persist in-place lease terms
       const tenantName = document.getElementById('edit-deal-tenant-name')?.value?.trim() || currentLoadedDeal.name;
@@ -9649,20 +9913,25 @@
       const nextEscDate = document.getElementById('edit-deal-next-escalation')?.value || '';
       const monthlyRentVal = currentLoadedDeal.inputs.monthlyRent || currentLoadedDeal.inputs.grossRentPerMonth || 0;
 
-      const updatedLease = {
-        tenantName: tenantName,
-        monthlyRent: monthlyRentVal,
-        annualRent: monthlyRentVal * 12,
-        leaseStartDate: leaseStart,
-        leaseEndDate: leaseEnd,
-        leaseType: currentLoadedDeal.inputs.leaseType || 'NNN',
-        escalationType: escType,
-        escalationRate: escRate,
-        escalationFrequency: 'Annual on Anniversary',
-        nextEscalationDate: nextEscDate
-      };
+      if (monthlyRentVal > 0) {
+        const updatedLease = {
+          tenantName: tenantName,
+          monthlyRent: monthlyRentVal,
+          annualRent: monthlyRentVal * 12,
+          leaseStartDate: leaseStart,
+          leaseEndDate: leaseEnd,
+          leaseType: currentLoadedDeal.inputs.leaseType || 'NNN',
+          escalationType: escType,
+          escalationRate: escRate,
+          escalationFrequency: 'Annual on Anniversary',
+          nextEscalationDate: nextEscDate,
+          is_active: true
+        };
+        currentLoadedDeal.inputs.leases = [updatedLease];
+      } else {
+        currentLoadedDeal.inputs.leases = [];
+      }
 
-      currentLoadedDeal.inputs.leases = [updatedLease];
       currentLoadedDeal.inputs.tenantName = tenantName;
       currentLoadedDeal.inputs.leaseStartDate = leaseStart;
       currentLoadedDeal.inputs.leaseEndDate = leaseEnd;
@@ -9676,12 +9945,18 @@
       currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
       currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
       currentLoadedDeal.total_equity = res.initialCashInvested;
+      currentLoadedDeal.inputs.loanAmount = res.loanAmount;
+      currentLoadedDeal.inputs.downPaymentAmount = res.downPaymentAmount;
+      currentLoadedDeal.inputs.initialEquity = res.initialEquity;
+      currentLoadedDeal.inputs.initialCashInvested = res.initialCashInvested;
       currentLoadedDeal.metrics = {
         irr: res.irr,
         equityMultiplier: res.equityMultiplier,
         year1CoC: p1.cashOnCash || 0,
         year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
-        initialCashInvested: res.initialCashInvested
+        initialCashInvested: res.initialCashInvested,
+        loanAmount: res.loanAmount,
+        npv: res.npv
       };
 
       // Update UI title and badges
@@ -9710,7 +9985,7 @@
       try {
         if (typeof updateDealStatusUI === 'function') updateDealStatusUI(currentLoadedDeal.status);
         if (typeof updateFormFields === 'function') updateFormFields(currentLoadedDeal.inputs);
-        if (typeof saveCurrentDealChanges === 'function') saveCurrentDealChanges(false);
+        if (typeof autoSaveDealToSupabase === 'function') autoSaveDealToSupabase(currentLoadedDeal);
         if (typeof updateCalculations === 'function') updateCalculations();
         if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(currentLoadedDeal);
         if (typeof updateHeaderApnBadge === 'function') updateHeaderApnBadge(currentLoadedDeal.inputs.primaryApn || currentLoadedDeal.inputs.apn);
@@ -9719,6 +9994,27 @@
       }
     }
     window.saveEditDealModalFromProject = saveEditDealModalFromProject;
+
+    // Header Multi-Address / Assemblage Popover Controller
+    function toggleHeaderAddressPopover(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const popover = document.getElementById('header-multi-address-popover');
+      if (popover) {
+        popover.classList.toggle('hidden');
+      }
+    }
+    window.toggleHeaderAddressPopover = toggleHeaderAddressPopover;
+    document.addEventListener('click', function(e) {
+      const popover = document.getElementById('header-multi-address-popover');
+      if (popover && !popover.classList.contains('hidden')) {
+        if (!e.target.closest('#header-multi-address-container')) {
+          popover.classList.add('hidden');
+        }
+      }
+    });
 
     
     // --- Intelligent Deal Title & Address Deduplication Helpers ---
@@ -10143,6 +10439,56 @@
       const tier = currentLoadedDeal.market_tier || rawInputs.marketTier || rawInputs.commTier || rawInputs.storageTier || 'Tier 2';
       const pClass = currentLoadedDeal.property_class || rawInputs.propertyClass || rawInputs.commClass || rawInputs.storageClass || 'Class B';
       const fType = currentLoadedDeal.facility_type || rawInputs.facilityType || '';
+
+      // Tenancy Header Pill
+      const leasesList = (rawInputs.leases && Array.isArray(rawInputs.leases))
+        ? rawInputs.leases.filter(l => l && (l.tenantName || parseFloat(l.monthlyRent) > 0))
+        : [];
+      const unitCount = parseInt(rawInputs.unitCount || rawInputs.numUnits || rawInputs.storageUnitCount || 0, 10);
+      const tenancyPill = document.getElementById('deal-tenancy-pill');
+      if (tenancyPill) {
+        if (leasesList.length > 1) {
+          tenancyPill.textContent = `👥 Multi-Tenant (${leasesList.length} Leases)`;
+          tenancyPill.className = 'hidden sm:inline-block text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0';
+          tenancyPill.classList.remove('hidden');
+        } else if (unitCount > 1) {
+          tenancyPill.textContent = `🏢 ${unitCount} Units`;
+          tenancyPill.className = 'hidden sm:inline-block text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0';
+          tenancyPill.classList.remove('hidden');
+        } else if (leasesList.length === 1 && leasesList[0].tenantName) {
+          tenancyPill.textContent = `👤 ${leasesList[0].tenantName}`;
+          tenancyPill.className = 'hidden sm:inline-block text-[9px] sm:text-[10px] font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 shrink-0';
+          tenancyPill.classList.remove('hidden');
+        } else {
+          tenancyPill.classList.add('hidden');
+        }
+      }
+
+      // Multi-Address & Assemblage Header Popover
+      const addressesList = Array.isArray(rawInputs.addresses) && rawInputs.addresses.length > 1
+        ? rawInputs.addresses
+        : (Array.isArray(rawInputs.adjacentParcels) && rawInputs.adjacentParcels.length > 0)
+          ? [currentLoadedDeal.location || 'Primary Address', ...rawInputs.adjacentParcels.map(p => p.address || `APN: ${p.apn || p.parcelNumber}`)]
+          : (Array.isArray(rawInputs.parcels) && rawInputs.parcels.length > 1)
+            ? rawInputs.parcels.map(p => typeof p === 'string' ? p : (p.address || `APN: ${p.apn || p.parcelNumber}`))
+            : [];
+      const multiAddrContainer = document.getElementById('header-multi-address-container');
+      const multiAddrText = document.getElementById('header-multi-address-text');
+      const multiAddrList = document.getElementById('header-multi-address-list');
+      if (multiAddrContainer && multiAddrText && multiAddrList) {
+        if (addressesList.length > 1) {
+          multiAddrContainer.classList.remove('hidden');
+          multiAddrText.textContent = `${addressesList.length} Parcels`;
+          multiAddrList.innerHTML = addressesList.map((addr, idx) => `
+            <div class="p-1.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+              <span class="text-slate-200 truncate mr-2 font-medium text-xs">${addr}</span>
+              <span class="text-[9px] uppercase font-bold text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800/40 shrink-0">${idx === 0 ? 'Primary' : `Parcel ${idx + 1}`}</span>
+            </div>
+          `).join('');
+        } else {
+          multiAddrContainer.classList.add('hidden');
+        }
+      }
 
       const tierPill = document.getElementById('deal-tier-class-pill');
       if (tierPill) tierPill.textContent = `• ${tier} • ${pClass}`;

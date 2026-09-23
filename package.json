@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && node scripts/postbuild.js",
-    "deploy:hosting": "firebase deploy --only hosting",
-    "deploy:emergency": "firebase deploy --only hosting",
-    "ship": "npm run build && firebase deploy --only hosting",
+    "deploy:hosting": "npx firebase deploy --only hosting",
+    "deploy:emergency": "npx firebase deploy --only hosting",
+    "ship": "npm run build && npx firebase deploy --only hosting",
     "preview": "vite preview"
   },
   "dependencies": {

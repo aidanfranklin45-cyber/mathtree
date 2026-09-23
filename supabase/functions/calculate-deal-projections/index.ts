@@ -71,6 +71,10 @@ export async function handleRequest(req: Request): Promise<Response> {
   let dbClient: ReturnType<typeof createClient> | null = null;
   let userId: string | null = null;
 
+  if (supabaseUrl && supabaseServiceKey) {
+    dbClient = createClient(supabaseUrl, supabaseServiceKey);
+  }
+
   if (supabaseUrl && supabaseAnonKey && authHeader) {
     try {
       const userClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -79,10 +83,6 @@ export async function handleRequest(req: Request): Promise<Response> {
       const { data, error } = await userClient.auth.getUser();
       if (!error && data?.user) {
         userId = data.user.id;
-        // Use service-role for DB reads/writes to bypass RLS
-        if (supabaseServiceKey) {
-          dbClient = createClient(supabaseUrl, supabaseServiceKey);
-        }
       }
     } catch (authErr) {
       console.warn("[calculate-deal-projections] Auth check warning:", authErr);
@@ -102,7 +102,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   }
 
   // ── Resolve asset class ──
-  const assetClass = normalizeAssetClass(body.assetClass);
+  let assetClass = normalizeAssetClass(body.assetClass);
 
   // ── Resolve inputs: if dealId provided, fetch from DB and merge ──
   let baseInputs: DealInputs = {};
@@ -116,12 +116,20 @@ export async function handleRequest(req: Request): Promise<Response> {
     try {
       const { data: dealRow, error: fetchErr } = await dbClient
         .from("deals")
-        .select("inputs, asset_class")
+        .select("inputs, asset_type, purchase_price")
         .eq("id", dealId)
         .maybeSingle();
 
-      if (!fetchErr && dealRow?.inputs && typeof dealRow.inputs === "object") {
-        baseInputs = dealRow.inputs as DealInputs;
+      if (!fetchErr && dealRow) {
+        if (dealRow.inputs && typeof dealRow.inputs === "object") {
+          baseInputs = dealRow.inputs as DealInputs;
+        }
+        if (!baseInputs.purchasePrice && dealRow.purchase_price) {
+          baseInputs.purchasePrice = Number(dealRow.purchase_price);
+        }
+        if (!body.assetClass && dealRow.asset_type) {
+          assetClass = normalizeAssetClass(dealRow.asset_type);
+        }
       }
     } catch (dbErr) {
       console.warn(
@@ -158,11 +166,14 @@ export async function handleRequest(req: Request): Promise<Response> {
         await dbClient
           .from("deals")
           .update({
+            purchase_price: metrics.purchasePrice,
             irr: metrics.irr,
             cash_on_cash: metrics.cashOnCash,
             equity_multiple: metrics.equityMultiplier,
             year1_cashflow: metrics.year1Cashflow,
             total_equity: metrics.initialCashInvested,
+            npv: metrics.npv,
+            inputs: mergedInputs,
             metrics: metrics as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString(),
           })

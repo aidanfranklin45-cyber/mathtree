@@ -19,6 +19,7 @@
   <script src="profile.js"></script>
   <script src="math.js?v=5"></script>
   <script src="address-service.js"></script>
+  <script src="modal-manage-entities.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
@@ -565,24 +566,44 @@
     <!-- Filter Bar: Status Distinction (Owned vs Prospects) & Asset Classes -->
     <div class="space-y-4">
       <div
-        class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-900 pb-3 sm:pb-4">
+        class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-900 pb-3 sm:pb-4">
 
-        <!-- Primary Status Filter Pills: Owned Assets (Default Active), Prospects, All Deals -->
-        <div
-          class="flex items-center space-x-1 bg-slate-900/80 p-1 sm:p-1.5 rounded-2xl border border-slate-800 overflow-x-auto max-w-full">
-          <button id="btn-status-owned" onclick="setDashboardStatusFilter('owned')"
-            class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm flex items-center space-x-1.5 whitespace-nowrap">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
-            <span>Owned (<span id="count-owned">0</span>)</span>
-          </button>
-          <button id="btn-status-prospect" onclick="setDashboardStatusFilter('prospect')"
-            class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5 whitespace-nowrap">
-            <span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
-            <span><span class="hidden sm:inline">Prospects / </span>Pipeline (<span id="count-prospect">0</span>)</span>
-          </button>
-          <button id="btn-status-all" onclick="setDashboardStatusFilter('all')"
-            class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition whitespace-nowrap">
-            All (<span id="count-all">0</span>)
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Primary Status Filter Pills: Owned Assets (Default Active), Prospects, All Deals -->
+          <div
+            class="flex items-center space-x-1 bg-slate-900/80 p-1 sm:p-1.5 rounded-2xl border border-slate-800 overflow-x-auto max-w-full">
+            <button id="btn-status-owned" onclick="setDashboardStatusFilter('owned')"
+              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm flex items-center space-x-1.5 whitespace-nowrap">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+              <span>Owned (<span id="count-owned">0</span>)</span>
+            </button>
+            <button id="btn-status-prospect" onclick="setDashboardStatusFilter('prospect')"
+              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5 whitespace-nowrap">
+              <span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
+              <span><span class="hidden sm:inline">Prospects / </span>Pipeline (<span id="count-prospect">0</span>)</span>
+            </button>
+            <button id="btn-status-all" onclick="setDashboardStatusFilter('all')"
+              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition whitespace-nowrap">
+              All (<span id="count-all">0</span>)
+            </button>
+          </div>
+
+          <!-- Ownership Entity (LLC) Filter Dropdown -->
+          <div class="relative flex items-center">
+            <select id="dash-entity-filter-select" onchange="handleDashboardEntityFilterChange()"
+              class="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 focus:outline-none focus:border-brand-500 pr-8 appearance-none cursor-pointer shadow-sm">
+              <option value="all">All Entities (Consolidated)</option>
+            </select>
+            <div class="pointer-events-none absolute right-2.5 text-slate-400">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          
+          <button type="button" onclick="openEntityManagementModal(event)"
+            class="px-2.5 py-2 rounded-xl text-[11px] font-bold text-slate-400 hover:text-emerald-400 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 transition flex items-center space-x-1"
+            title="Manage Legal Entities (LLCs)">
+            <span>🏛️</span>
+            <span class="hidden sm:inline">LLCs</span>
           </button>
         </div>
 
@@ -657,6 +678,29 @@
               class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-medium">
           </div>
 
+          <!-- Quick Ownership Entity (LLC) Attachment Dropdown -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label for="wiz-entity-select" class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                Ownership Entity (LLC)
+              </label>
+              <button type="button" onclick="openEntityManagementModal(event)"
+                class="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
+                <span>+</span>
+                <span>Manage / Add LLC</span>
+              </button>
+            </div>
+            <div class="relative">
+              <select id="wiz-entity-select"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3.5 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 appearance-none cursor-pointer">
+                <option value="">No Entity Assigned (Holding / Unassigned)</option>
+              </select>
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+            </div>
+          </div>
+
           <input type="hidden" id="wiz-asset-class" value="commercial">
           <div class="space-y-2">
             <label class="text-xs font-bold uppercase tracking-wider text-slate-300">Select Property Asset Class</label>
@@ -713,7 +757,7 @@
               <label for="wiz-location" class="text-xs font-bold uppercase tracking-wider text-slate-300">Location /
                 Street Address</label>
               <span class="text-[10px] text-emerald-400 font-semibold flex items-center space-x-1">
-                <span>🏛️ Yakima GIS</span>
+                <span id="wiz-gis-header-badge">🏛️ Live County GIS</span>
                 <span id="wiz-location-spinner" class="hidden animate-spin text-[10px]">⏳</span>
               </span>
             </div>
@@ -830,12 +874,12 @@
             </div>
           </div>
 
-          <!-- Dynamic Yakima County Assessor Live Card in Wizard -->
+          <!-- Dynamic County Assessor Live Card in Wizard -->
           <div id="wiz-yakima-assessor-card"
             class="hidden p-3.5 bg-emerald-950/25 border border-emerald-900/60 rounded-2xl space-y-2 text-xs">
             <div class="flex items-center justify-between border-b border-emerald-900/40 pb-2">
               <div class="flex items-center space-x-2">
-                <span class="text-emerald-400 font-extrabold text-xs">🏛️ Yakima County Assessor Record</span>
+                <span id="wiz-assessor-title" class="text-emerald-400 font-extrabold text-xs">🏛️ Assessor Record</span>
                 <span id="wiz-assessor-apn-badge"
                   class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono font-bold">APN:
                   --</span>
@@ -843,7 +887,7 @@
               <a id="wiz-assessor-portal-link" href="https://yes.co.yakima.wa.us/ascend/" target="_blank"
                 rel="noopener noreferrer"
                 class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline flex items-center space-x-1">
-                <span>View Ascend Tax Card ↗</span>
+                <span id="wiz-assessor-portal-text">View Assessor Portal ↗</span>
               </a>
             </div>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
@@ -886,9 +930,8 @@
               </div>
               <span class="text-[10px] text-slate-400 font-medium">Contiguous / Same Owner</span>
             </div>
-            <p class="text-[11px] text-slate-300 leading-relaxed">
-              We identified adjacent or companion parcels owned by the same entity on this block. Select the parcels
-              included in this transaction:
+            <p class="text-[11px] text-slate-200 leading-relaxed">
+              We identified adjacent or companion parcels owned by the same entity on this block. <span class="text-amber-300 font-semibold">Does the sale include these properties as well?</span> Select all that apply:
             </p>
             <div id="wiz-multi-parcel-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
               <!-- Dynamically populated parcel checkboxes -->
@@ -1553,7 +1596,7 @@
           <div class="space-y-1 relative">
             <div class="flex items-center justify-between">
               <label class="text-[11px] font-bold text-slate-400">Location / Street Address</label>
-              <span class="text-[9px] text-emerald-400 font-semibold">🏛️ Yakima GIS</span>
+              <span id="edit-gis-header-badge" class="text-[9px] text-emerald-400 font-semibold">🏛️ Live County GIS</span>
             </div>
             <input type="text" id="edit-deal-location" oninput="onWizardLocationInput(this.value, 'edit')"
               autocomplete="off" required
@@ -1564,7 +1607,7 @@
           </div>
         </div>
 
-        <!-- Row 2: Status & Price -->
+        <!-- Row 2: Status, Ownership Entity & Price -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Portfolio Status</label>
@@ -1574,7 +1617,17 @@
               <option value="owned">Owned Portfolio Asset</option>
             </select>
           </div>
-          <div class="space-y-1 sm:col-span-2">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label for="edit-deal-entity" class="text-[11px] font-bold text-slate-400">Ownership Entity</label>
+              <button type="button" onclick="openEntityManagementModal(event)" class="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition">+ Manage</button>
+            </div>
+            <select id="edit-deal-entity"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-semibold focus:outline-none focus:border-brand-500">
+              <option value="">No Entity (Unassigned)</option>
+            </select>
+          </div>
+          <div class="space-y-1">
             <label class="text-[11px] font-bold text-slate-400">Acquisition Price ($)</label>
             <input type="number" id="edit-deal-price" required min="0" step="any"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
@@ -2409,14 +2462,107 @@
       setEl('kpi-pipeline-count', `${pipelineCount} active prospective ${pipelineCount === 1 ? 'deal' : 'deals'}`);
       setEl('kpi-pipeline-irr', `${avgPipelineIrr.toFixed(1)}%`);
 
-      // Update Count Badges on Filters
-      setEl('count-all', activeDashboardProjects.length);
-      setEl('count-prospect', pipelineCount);
-      setEl('count-owned', ownedCount);
+      // Populate Entity Dropdowns
+      await populateDashboardEntityDropdowns();
 
       // Render Filtered Project Grid
       renderFilteredGrid();
     }
+
+    async function populateDashboardEntityDropdowns() {
+      const dashEntitySelect = document.getElementById('dash-entity-filter-select');
+      const wizEntitySelect = document.getElementById('wiz-entity-select');
+      if (!dashEntitySelect && !wizEntitySelect) return;
+
+      let entities = window._dashboardEntities || [];
+      if ((!entities || entities.length === 0) && window._supabase && window._currentUser && !window._currentUser.demo) {
+        try {
+          const { data } = await window._supabase
+            .from('entities')
+            .select('*')
+            .eq('user_id', window._currentUser.id)
+            .order('name', { ascending: true });
+          if (data && data.length > 0) {
+            entities = data;
+            window._dashboardEntities = data;
+          }
+        } catch(e) {}
+      }
+
+      if (!entities || entities.length === 0) {
+        try {
+          const raw = localStorage.getItem('mathtree_entities_cache');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              entities = parsed;
+              window._dashboardEntities = parsed;
+            }
+          }
+        } catch(e) {}
+      }
+
+      const storedEntityId = localStorage.getItem('mathtree_selected_entity_id');
+
+      if (dashEntitySelect) {
+        const curDashVal = dashEntitySelect.value || storedEntityId || 'all';
+        let dashHtml = '<option value="all">All Entities (Consolidated)</option>';
+        (entities || []).forEach(ent => {
+          if (ent && ent.id) {
+            dashHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          }
+        });
+        dashEntitySelect.innerHTML = dashHtml;
+        if (curDashVal && Array.from(dashEntitySelect.options).some(o => o.value === curDashVal)) {
+          dashEntitySelect.value = curDashVal;
+        } else {
+          dashEntitySelect.value = 'all';
+        }
+      }
+
+      if (wizEntitySelect) {
+        const curWizVal = wizEntitySelect.value || '';
+        let wizHtml = '<option value="">No Entity Assigned (Holding / Unassigned)</option>';
+        (entities || []).forEach(ent => {
+          if (ent && ent.id) {
+            wizHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          }
+        });
+        wizEntitySelect.innerHTML = wizHtml;
+        if (curWizVal && Array.from(wizEntitySelect.options).some(o => o.value === curWizVal)) {
+          wizEntitySelect.value = curWizVal;
+        }
+      }
+
+      const editEntitySelect = document.getElementById('edit-deal-entity');
+      if (editEntitySelect) {
+        const curEditVal = editEntitySelect.value || '';
+        let editHtml = '<option value="">No Entity (Unassigned)</option>';
+        (entities || []).forEach(ent => {
+          if (ent && ent.id) {
+            editHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          }
+        });
+        editEntitySelect.innerHTML = editHtml;
+        if (curEditVal && Array.from(editEntitySelect.options).some(o => o.value === curEditVal)) {
+          editEntitySelect.value = curEditVal;
+        }
+      }
+    }
+    window.populateDashboardEntityDropdowns = populateDashboardEntityDropdowns;
+
+    function handleDashboardEntityFilterChange() {
+      const select = document.getElementById('dash-entity-filter-select');
+      const val = select ? select.value : 'all';
+      if (val !== 'all') {
+        localStorage.setItem('mathtree_selected_entity_id', val);
+      } else {
+        localStorage.removeItem('mathtree_selected_entity_id');
+      }
+      renderFilteredGrid();
+    }
+    window.handleDashboardEntityFilterChange = handleDashboardEntityFilterChange;
+
     function setDashboardStatusFilter(status) {
       currentStatusFilter = status;
       const btnAll = document.getElementById('btn-status-all');
@@ -2452,12 +2598,29 @@
 
       let filtered = activeDashboardProjects;
 
+      const entityFilter = document.getElementById('dash-entity-filter-select')?.value || 'all';
+      if (entityFilter !== 'all') {
+        filtered = filtered.filter(d => d.entity_id === entityFilter || d.inputs?.entity_id === entityFilter);
+      }
+
       if (currentStatusFilter !== 'all') {
         filtered = filtered.filter(d => (d.status || 'prospect') === currentStatusFilter);
       }
       if (currentAssetFilter !== 'all') {
         filtered = filtered.filter(d => (d.asset_class || d.assetType) === currentAssetFilter);
       }
+
+      // Update count badges
+      const allMatchingEntity = (entityFilter === 'all')
+        ? activeDashboardProjects
+        : activeDashboardProjects.filter(d => d.entity_id === entityFilter || d.inputs?.entity_id === entityFilter);
+      const ownedMatches = allMatchingEntity.filter(d => (d.status || 'prospect') === 'owned').length;
+      const pipelineMatches = allMatchingEntity.filter(d => (d.status || 'prospect') !== 'owned').length;
+
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setEl('count-all', allMatchingEntity.length);
+      setEl('count-prospect', pipelineMatches);
+      setEl('count-owned', ownedMatches);
 
       if (filtered.length === 0) {
         if (activeDashboardProjects.length === 0) {
@@ -2543,6 +2706,61 @@
         const entityBadge = matchedEntity
           ? `<span class="text-[10px] font-semibold text-emerald-300 bg-emerald-950/50 border border-emerald-800/50 px-2 py-0.5 rounded-lg inline-flex items-center space-x-1 shrink-0" title="Owned by ${matchedEntity.name}"><span>🏛️</span><span class="truncate max-w-[140px]">${matchedEntity.name}</span></span>`
           : '';
+
+        const addressesList = Array.isArray(d.inputs?.addresses) && d.inputs.addresses.length > 1
+          ? d.inputs.addresses
+          : (Array.isArray(d.inputs?.adjacentParcels) && d.inputs.adjacentParcels.length > 0)
+            ? [locStr, ...d.inputs.adjacentParcels.map(p => p.address || `APN: ${p.apn || p.parcelNumber}`)]
+            : (Array.isArray(d.inputs?.parcels) && d.inputs.parcels.length > 1)
+              ? d.inputs.parcels.map(p => typeof p === 'string' ? p : (p.address || `APN: ${p.apn || p.parcelNumber}`))
+              : [];
+        const isMultiAddress = addressesList.length > 1;
+        const multiAddressBadge = isMultiAddress
+          ? `<span class="text-[10px] font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded-lg inline-flex items-center space-x-1 shrink-0 shadow-sm" title="${addressesList.join(' • ')}"><span>📍</span><span>${addressesList.length} Parcels / Addrs</span></span>`
+          : '';
+
+        const leasesList = (d.inputs?.leases && Array.isArray(d.inputs.leases))
+          ? d.inputs.leases.filter(l => l && (l.tenantName || parseFloat(l.monthlyRent) > 0 || parseFloat(l.annualRent) > 0))
+          : [];
+        const unitCount = parseInt(d.inputs?.unitCount || d.inputs?.numUnits || d.inputs?.storageUnitCount || 0, 10);
+        
+        let tenancyRow = '';
+        if (leasesList.length > 1) {
+          const tenantNames = leasesList.map(l => l.tenantName || 'Unit Lease').filter(Boolean);
+          const topNames = tenantNames.slice(0, 2).join(', ');
+          const moreCount = tenantNames.length > 2 ? ` (+${tenantNames.length - 2})` : '';
+          tenancyRow = `
+            <div class="flex items-center justify-between text-[11px] bg-slate-950/50 px-2.5 py-1.5 rounded-xl border border-slate-900/80 text-slate-300">
+              <span class="flex items-center space-x-1.5 truncate max-w-[210px]" title="${tenantNames.join(', ')}">
+                <span class="text-xs">👥</span>
+                <span class="font-bold text-slate-200 whitespace-nowrap">${leasesList.length} Tenants</span>
+                <span class="text-slate-500 truncate">• ${topNames}${moreCount}</span>
+              </span>
+              <span class="text-emerald-400 font-semibold text-[10px] whitespace-nowrap">Active Leases</span>
+            </div>
+          `;
+        } else if (unitCount > 1) {
+          tenancyRow = `
+            <div class="flex items-center justify-between text-[11px] bg-slate-950/50 px-2.5 py-1.5 rounded-xl border border-slate-900/80 text-slate-300">
+              <span class="flex items-center space-x-1.5 truncate max-w-[210px]">
+                <span class="text-xs">🏢</span>
+                <span class="font-bold text-slate-200 whitespace-nowrap">${unitCount} Units</span>
+                <span class="text-slate-500 truncate">• Multi-Unit Asset</span>
+              </span>
+              <span class="text-cyan-400 font-semibold text-[10px] whitespace-nowrap">Rent Roll</span>
+            </div>
+          `;
+        } else if (leasesList.length === 1 && leasesList[0].tenantName) {
+          tenancyRow = `
+            <div class="flex items-center justify-between text-[11px] bg-slate-950/50 px-2.5 py-1.5 rounded-xl border border-slate-900/80 text-slate-300">
+              <span class="flex items-center space-x-1.5 truncate max-w-[210px]" title="${leasesList[0].tenantName}">
+                <span class="text-xs">👤</span>
+                <span class="font-bold text-slate-200 truncate">${leasesList[0].tenantName}</span>
+              </span>
+              <span class="text-slate-400 text-[10px] whitespace-nowrap">${leasesList[0].leaseType || 'Single-Tenant'}</span>
+            </div>
+          `;
+        }
 
         return `
           <div onclick="navigateToProject(event, '${d.id}')" class="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full">
@@ -2634,8 +2852,10 @@
                     <svg class="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     <span class="truncate">${locStr}</span>
                   </span>
+                  ${multiAddressBadge}
                   ${entityBadge}
                 </div>
+                ${tenancyRow}
               </div>
 
               <!-- Deal Metrics Grid -->
@@ -3020,6 +3240,9 @@
           const currentDeal = (typeof activeDashboardProjects !== 'undefined' ? activeDashboardProjects.find(p => String(p.id) === String(dealId)) : null) || (typeof getDashboardDealById === 'function' ? getDashboardDealById(dealId) : null);
           const baseInputs = currentDeal?.inputs || {};
           const tempInputs = { ...baseInputs, ...getEditModalInputs() };
+          delete tempInputs.loanAmount;
+          delete tempInputs.initialEquity;
+          delete tempInputs.downPaymentAmount;
 
           const res = window.PropertyMath.calculateProjections(aClass, tempInputs);
           if (res) {
@@ -3149,6 +3372,23 @@
         if (document.getElementById('edit-deal-name')) document.getElementById('edit-deal-name').value = resolveDealDisplayName(deal, activeDashboardProjects);
         if (document.getElementById('edit-deal-location')) document.getElementById('edit-deal-location').value = deal.location || '';
         if (document.getElementById('edit-deal-status')) document.getElementById('edit-deal-status').value = deal.status || 'prospect';
+
+        const entitySelect = document.getElementById('edit-deal-entity');
+        if (entitySelect) {
+          let entities = window._dashboardEntities || [];
+          if (!entities.length) {
+            try {
+              const raw = localStorage.getItem('mathtree_entities_cache');
+              if (raw) entities = JSON.parse(raw);
+            } catch (e) { }
+          }
+          let entHtml = '<option value="">No Entity (Unassigned)</option>';
+          (entities || []).forEach(ent => {
+            if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          });
+          entitySelect.innerHTML = entHtml;
+          entitySelect.value = deal.entity_id || inputs.entity_id || '';
+        }
 
         const price = deal.purchase_price || inputs.purchasePrice || 0;
         if (document.getElementById('edit-deal-price')) document.getElementById('edit-deal-price').value = price;
@@ -3339,14 +3579,20 @@
       deal.name = cleanTitleFromAddress(document.getElementById('edit-deal-name').value.trim(), deal.location);
       deal.location = document.getElementById('edit-deal-location').value.trim();
       deal.status = document.getElementById('edit-deal-status').value;
+      const chosenEntityId = document.getElementById('edit-deal-entity')?.value || null;
+      deal.entity_id = chosenEntityId;
       deal.market_tier = parsedInputs.marketTier;
       deal.property_class = parsedInputs.propertyClass;
       deal.facility_type = parsedInputs.facilityType;
 
       deal.inputs = {
         ...(deal.inputs || {}),
-        ...parsedInputs
+        ...parsedInputs,
+        entity_id: chosenEntityId
       };
+      delete deal.inputs.loanAmount;
+      delete deal.inputs.initialEquity;
+      delete deal.inputs.downPaymentAmount;
 
       // Capture and persist in-place lease terms
       const tenantName = document.getElementById('edit-deal-tenant-name')?.value?.trim() || deal.name;
@@ -3384,12 +3630,18 @@
       deal.cash_on_cash = p1.cashOnCash || 0;
       deal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
       deal.total_equity = res.initialCashInvested;
+      deal.inputs.loanAmount = res.loanAmount;
+      deal.inputs.downPaymentAmount = res.downPaymentAmount;
+      deal.inputs.initialEquity = res.initialEquity;
+      deal.inputs.initialCashInvested = res.initialCashInvested;
       deal.metrics = {
         irr: res.irr,
         equityMultiplier: res.equityMultiplier,
         year1CoC: p1.cashOnCash || 0,
         year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
-        initialCashInvested: res.initialCashInvested
+        initialCashInvested: res.initialCashInvested,
+        loanAmount: res.loanAmount,
+        npv: res.npv
       };
 
       // Immediate local save and UI grid refresh
@@ -3415,6 +3667,7 @@
             title: deal.name,
             location: deal.location,
             status: deal.status,
+            entity_id: deal.entity_id || null,
             purchase_price: Number(deal.purchase_price) || 0,
             irr: isFinite(deal.irr) ? Number(deal.irr) : 0,
             equity_multiple: isFinite(deal.equity_multiple) ? Number(deal.equity_multiple) : 0,
@@ -3469,7 +3722,7 @@
           }
         }
 
-        // 3. Invoke edit-property-inputs Edge Function with apikey and Bearer token
+        // 3. Invoke calculate-deal-projections Edge Function with apikey and Bearer token
         const sessionToken = (await window._supabase?.auth.getSession())?.data?.session?.access_token;
         const headers = {
           'Content-Type': 'application/json',
@@ -3481,37 +3734,34 @@
           headers['Authorization'] = `Bearer ${window.SUPABASE_ANON_KEY}`;
         }
 
-        const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
+        const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/calculate-deal-projections', {
           method: 'POST',
           headers: headers,
           body: JSON.stringify({
             dealId: deal.id,
-            title: deal.name,
-            assetType: deal.asset_class || deal.assetType,
-            status: deal.status,
-            location: deal.location,
-            purchasePrice: deal.purchase_price,
-            inputs: deal.inputs,
-            leases: deal.inputs.leases
+            assetClass: deal.asset_class || deal.assetType || 'commercial',
+            inputs: deal.inputs
           })
         });
 
         if (edgeRes.ok) {
           const edgeData = await edgeRes.json();
-          if (edgeData?.deal) {
-            deal.irr = edgeData.deal.irr ?? deal.irr;
-            deal.equity_multiple = edgeData.deal.equity_multiple ?? deal.equity_multiple;
-            deal.cash_on_cash = edgeData.deal.cash_on_cash ?? deal.cash_on_cash;
-            deal.year1_cashflow = edgeData.deal.year1_cashflow ?? deal.year1_cashflow;
-            if (edgeData.deal.metrics) deal.metrics = edgeData.deal.metrics;
-            if (edgeData.deal.inputs) deal.inputs = { ...deal.inputs, ...edgeData.deal.inputs };
+          if (edgeData?.metrics) {
+            deal.irr = edgeData.metrics.irr ?? deal.irr;
+            deal.equity_multiple = edgeData.metrics.equityMultiplier ?? deal.equity_multiple;
+            deal.cash_on_cash = edgeData.metrics.cashOnCash ?? deal.cash_on_cash;
+            deal.year1_cashflow = edgeData.metrics.year1Cashflow ?? deal.year1_cashflow;
+            deal.total_equity = edgeData.metrics.initialCashInvested ?? deal.total_equity;
+            deal.purchase_price = edgeData.metrics.purchasePrice ?? deal.purchase_price;
+            deal.metrics = edgeData.metrics;
+            if (edgeData.metrics.loanAmount !== undefined) deal.inputs.loanAmount = edgeData.metrics.loanAmount;
             saveActiveDealsToStorage();
           }
         } else {
-          console.warn('Edge function returned status:', edgeRes.status);
+          console.warn('calculate-deal-projections returned status:', edgeRes.status);
         }
       } catch (err) {
-        console.warn('edit-property-inputs sync warning:', err);
+        console.warn('calculate-deal-projections sync warning:', err);
       }
     }
 
@@ -3822,6 +4072,9 @@
     function openProjectWizard() {
       const modal = document.getElementById('project-wizard-modal');
       if (!modal) return;
+      if (typeof populateDashboardEntityDropdowns === 'function') {
+        populateDashboardEntityDropdowns();
+      }
       setWizardStep(1);
       modal.classList.remove('hidden');
     }
@@ -4207,6 +4460,7 @@
         exitYear: (window.MathTreeProfile ? window.MathTreeProfile.getProfile().exitYear : 10),
         discountRate: (window.MathTreeProfile ? window.MathTreeProfile.getProfile().discountRate : 8),
         exitCapTiming: (window.MathTreeProfile ? window.MathTreeProfile.getProfile().exitCapTiming : 'amortized'),
+        county: _wizAssessorCache?.county || null,
         primaryApn: _wizAssessorCache?.apn || null,
         totalAcreage: _wizAssessorCache?.packageAcres || _wizAssessorCache?.acres || null,
         totalAssessedValue: _wizAssessorCache?.totalAssessedValue || null,
@@ -4224,14 +4478,19 @@
         useCode: _wizAssessorCache?.useCode || null,
         owner: _wizAssessorCache?.owner || null,
         legalDescription: _wizAssessorCache?.legalDescription || null,
+        assessorPortalUrl: _wizAssessorCache?.assessorPortalUrl || null,
+        taxYear: _wizAssessorCache?.taxYear || null,
         assessorData: _wizAssessorCache || null,
         parcels: window._wizardParcelPackage || (_wizAssessorCache ? [_wizAssessorCache] : []),
         gisSync: {
           lastSyncedAt: new Date().toISOString(),
-          syncSource: 'yakima_arcgis',
+          syncSource: _wizAssessorCache?.source || 'county_arcgis',
           status: 'active'
         }
       };
+
+      const chosenEntityId = document.getElementById('wiz-entity-select')?.value || null;
+      inputs.entity_id = chosenEntityId;
 
       const res = window.PropertyMath.calculateProjections(assetClass, inputs);
       const p1 = res.projections[0] || {};
@@ -4244,6 +4503,7 @@
         try {
           const { data, error } = await window._supabase.from('deals').insert({
             user_id: user.id,
+            entity_id: chosenEntityId,
             title: name,
             asset_type: assetClass,
             status: 'prospect',
@@ -4275,6 +4535,7 @@
       const newDeal = {
         id: dealId,
         name: name,
+        entity_id: chosenEntityId,
         asset_class: assetClass,
         status: 'prospect',
         location: location,
@@ -4313,6 +4574,17 @@
       const dropdown = document.getElementById(prefix + '-address-dropdown');
       const spinner = document.getElementById('wiz-location-spinner');
       if (!dropdown) return;
+
+      const headerBadge = document.getElementById(prefix === 'wiz' ? 'wiz-gis-header-badge' : 'edit-gis-header-badge');
+      if (headerBadge && val) {
+        if (/spokane/i.test(val)) {
+          headerBadge.textContent = '🏛️ Spokane County GIS';
+        } else if (/yakima|selah|union gap|sunnyside|toppenish|wapato|zillah/i.test(val)) {
+          headerBadge.textContent = '🏛️ Yakima GIS';
+        } else {
+          headerBadge.textContent = '🏛️ Live County GIS';
+        }
+      }
 
       if (!val || val.trim().length < 2) {
         dropdown.classList.add('hidden');
@@ -4354,11 +4626,14 @@
 
       let dHtml = '';
       results.forEach((item, idx) => {
-        const isYakima = item.isYakimaCounty;
+        const isYakima = item.isYakimaCounty || /yakima/i.test(item.county || '');
+        const isSpokane = item.isSpokaneCounty || /spokane/i.test(item.county || '');
+        const rawCounty = (item.county || (isYakima ? 'Yakima' : (isSpokane ? 'Spokane' : ''))).replace(/\s*County/i, '').trim();
+        const countyLabel = rawCounty ? (rawCounty + ' County') : '';
         const badge = item.apn
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ Yakima County APN: ' + item.apn + '</span>'
-          : (isYakima
-            ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">📍 Road / No Parcel</span>'
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🏛️ ' + (countyLabel ? countyLabel + ' ' : '') + 'APN: ' + item.apn + '</span>'
+          : (countyLabel
+            ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-500/10 text-brand-400 border border-brand-500/20">📍 ' + countyLabel + ' • Geocoded</span>'
             : '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400">OpenStreetMap</span>');
 
         dHtml += '<div onclick="selectWizardAddress(' + idx + ', \'' + prefix + '\')" class="p-2.5 hover:bg-slate-800/80 cursor-pointer border-b border-slate-800/60 last:border-0 transition text-left">';
@@ -4388,35 +4663,63 @@
       if (dropdown) dropdown.classList.add('hidden');
 
       if (prefix === 'wiz') {
-        if (item.isYakimaCounty) {
+        const isYakima = item.isYakimaCounty || /yakima/i.test(item.county || '');
+        const isSpokane = item.isSpokaneCounty || /spokane/i.test(item.county || '');
+        const rawCounty = (item.county || (isYakima ? 'Yakima' : (isSpokane ? 'Spokane' : ''))).replace(/\s*County/i, '').trim();
+        const headerBadge = document.getElementById('wiz-gis-header-badge');
+        if (headerBadge && rawCounty) {
+          headerBadge.textContent = '🏛️ ' + rawCounty + ' County GIS';
+        }
+
+        if (isYakima || isSpokane) {
           const tierEl = document.getElementById('wiz-market-tier');
           if (tierEl) {
-            tierEl.value = 'Tier 3';
+            tierEl.value = isSpokane ? 'Tier 2' : 'Tier 3';
             if (typeof onWizardClassificationChanged === 'function') onWizardClassificationChanged();
           }
         }
 
-        if (item.apn && window.AddressService) {
-          const card = document.getElementById('wiz-yakima-assessor-card');
-          if (card) card.classList.remove('hidden');
-
-          const apnBadge = document.getElementById('wiz-assessor-apn-badge');
-          if (apnBadge) apnBadge.textContent = 'APN: ' + item.apn;
-
-          const portalLink = document.getElementById('wiz-assessor-portal-link');
-          if (portalLink) portalLink.href = 'https://yes.co.yakima.wa.us/ascend/?mParcelID=' + item.apn;
-
-          const assessorData = await window.AddressService.fetchYakimaAssessorData(item.apn);
+        if (window.AddressService) {
+          const assessorData = await window.AddressService.resolveParcelDetails(item);
           if (assessorData) {
             _wizAssessorCache = assessorData;
+            const card = document.getElementById('wiz-yakima-assessor-card');
+            if (card) card.classList.remove('hidden');
+
+            const titleEl = document.getElementById('wiz-assessor-title');
+            if (titleEl) {
+              const countyName = assessorData.county || rawCounty || 'County';
+              titleEl.textContent = '🏛️ ' + countyName + ' Assessor Record';
+            }
+
+            const apnBadge = document.getElementById('wiz-assessor-apn-badge');
+            if (apnBadge && assessorData.apn) apnBadge.textContent = 'APN: ' + assessorData.apn;
+
+            const portalLink = document.getElementById('wiz-assessor-portal-link');
+            const portalText = document.getElementById('wiz-assessor-portal-text');
+            if (portalLink && assessorData.assessorPortalUrl) {
+              portalLink.href = assessorData.assessorPortalUrl;
+              if (portalText) {
+                if (isSpokane || /spokane/i.test(assessorData.county || '')) {
+                  portalText.textContent = 'View SCOUT Tax Card ↗';
+                } else if (isYakima || /yakima/i.test(assessorData.county || '')) {
+                  portalText.textContent = 'View Ascend Tax Card ↗';
+                } else {
+                  portalText.textContent = 'View Assessor Portal ↗';
+                }
+              }
+            }
+
             const totalEl = document.getElementById('wiz-assessor-total-val');
-            if (totalEl) totalEl.textContent = '$' + assessorData.totalAssessedValue.toLocaleString();
+            if (totalEl && assessorData.totalAssessedValue) totalEl.textContent = '$' + assessorData.totalAssessedValue.toLocaleString();
 
             const splitEl = document.getElementById('wiz-assessor-split-val');
-            if (splitEl) splitEl.textContent = '$' + Math.round(assessorData.marketLandValue / 1000) + 'k / $' + Math.round(assessorData.marketImprovementValue / 1000) + 'k';
+            if (splitEl && (assessorData.marketLandValue || assessorData.marketImprovementValue)) {
+              splitEl.textContent = '$' + Math.round(assessorData.marketLandValue / 1000) + 'k / $' + Math.round(assessorData.marketImprovementValue / 1000) + 'k';
+            }
 
             const acresEl = document.getElementById('wiz-assessor-acres');
-            if (acresEl) acresEl.textContent = assessorData.acres + ' Acres (' + assessorData.sqft.toLocaleString() + ' sqft)';
+            if (acresEl && assessorData.acres) acresEl.textContent = assessorData.acres + ' Acres (' + assessorData.sqft.toLocaleString() + ' sqft)';
 
             const zoningEl = document.getElementById('wiz-assessor-zoning');
             if (zoningEl) zoningEl.textContent = (assessorData.zoning || 'Standard') + ' • ' + (assessorData.useCode || '').slice(0, 18);
@@ -4434,27 +4737,27 @@
               { ...assessorData, isPrimary: true, included: true }
             ];
 
-            // Query for adjacent companion parcels owned by the same entity
-            const companionParcels = await window.AddressService.detectNearbySameOwnerParcels(item.apn, assessorData.owner);
-            renderMultiParcelUI(companionParcels);
+            // Query for adjacent companion parcels owned by the same entity across counties
+            if (assessorData.apn) {
+              const companionParcels = await window.AddressService.detectNearbySameOwnerParcels(assessorData.apn, assessorData.owner, assessorData);
+              renderMultiParcelUI(companionParcels);
+            }
           }
         }
       } else if (prefix === 'edit') {
         const editId = document.getElementById('edit-deal-id')?.value;
         const deal = activeDashboardProjects.find(p => p.id === editId);
-        if (item.apn && deal) {
-          deal.inputs = deal.inputs || {};
-          deal.inputs.apn = item.apn;
-          deal.inputs.county = 'Yakima';
-          deal.apn = item.apn;
-          if (window.AddressService) {
-            window.AddressService.fetchYakimaAssessorData(item.apn).then(assessorData => {
-              if (assessorData && deal) {
-                deal.inputs.assessorData = assessorData;
-                deal.inputs.totalAssessedValue = assessorData.totalAssessedValue;
-              }
-            }).catch(e => console.warn('Assessor fetch warning:', e));
-          }
+        if (deal && window.AddressService) {
+          window.AddressService.resolveParcelDetails(item).then(assessorData => {
+            if (assessorData && deal) {
+              deal.inputs = deal.inputs || {};
+              deal.inputs.apn = assessorData.apn;
+              deal.inputs.county = assessorData.county;
+              deal.inputs.assessorData = assessorData;
+              deal.inputs.totalAssessedValue = assessorData.totalAssessedValue;
+              deal.apn = assessorData.apn;
+            }
+          }).catch(e => console.warn('Assessor resolve warning:', e));
         }
       }
     }
@@ -4473,7 +4776,9 @@
       }
 
       companionParcels.forEach(p => {
-        window._wizardParcelPackage.push({ ...p, isPrimary: false, included: false });
+        if (!window._wizardParcelPackage.some(existing => existing.apn === p.apn)) {
+          window._wizardParcelPackage.push({ ...p, isPrimary: false, included: false });
+        }
       });
 
       if (countBadge) countBadge.textContent = companionParcels.length + ' Adjacent Parcel' + (companionParcels.length > 1 ? 's' : '') + ' Found';
@@ -4481,6 +4786,7 @@
       let mpHtml = '';
       window._wizardParcelPackage.forEach((p, idx) => {
         const isPrim = p.isPrimary;
+        const portalUrl = p.assessorPortalUrl || (window.AddressService ? window.AddressService.getAssessorPortalUrl(p.apn, p.county) : '#');
         mpHtml += '<div class="p-2.5 rounded-xl border transition flex items-center justify-between ' +
           (p.included ? 'bg-emerald-950/20 border-emerald-800/60 text-slate-100' : 'bg-slate-950/60 border-slate-800 text-slate-400') + '">';
         mpHtml += '  <div class="flex items-center space-x-3">';
@@ -4498,7 +4804,7 @@
         mpHtml += '  </div>';
         mpHtml += '  <div class="text-right">';
         mpHtml += '    <span class="text-xs font-bold text-white block">$' + (p.totalAssessedValue || 0).toLocaleString() + '</span>';
-        mpHtml += '    <a href="https://yes.co.yakima.wa.us/ascend/?mParcelID=' + p.apn + '" target="_blank" class="text-[10px] text-emerald-400 underline hover:text-emerald-300">Card ↗</a>';
+        mpHtml += '    <a href="' + portalUrl + '" target="_blank" rel="noopener noreferrer" class="text-[10px] text-emerald-400 underline hover:text-emerald-300">Card ↗</a>';
         mpHtml += '  </div>';
         mpHtml += '</div>';
       });
@@ -4853,6 +5159,43 @@
         loadDashboardProjects();
       }
     });
+
+    // Listen for entity updates across modal and operations
+    function onDashboardEntityChanged(e) {
+      if (typeof fetchEntities === 'function') {
+        fetchEntities().then(ents => {
+          window._dashboardEntities = ents;
+          if (typeof populateDashboardEntityDropdowns === 'function') {
+            populateDashboardEntityDropdowns();
+          }
+          if (e && e.detail && e.detail.entityId !== undefined) {
+            const dashSelect = document.getElementById('dash-entity-filter-select');
+            if (dashSelect) {
+              dashSelect.value = e.detail.entityId || 'all';
+            }
+          }
+          renderFilteredGrid();
+        });
+      } else {
+        if (typeof populateDashboardEntityDropdowns === 'function') {
+          populateDashboardEntityDropdowns();
+        }
+        renderFilteredGrid();
+      }
+    }
+    window.addEventListener('mathtree:entity-changed', onDashboardEntityChanged);
+    window.addEventListener('mathtree:entity-changedd', onDashboardEntityChanged);
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const dashBc = new BroadcastChannel('mathtree_store_channel');
+        dashBc.onmessage = (ev) => {
+          if (ev.data && (ev.data.type === 'ENTITY_CHANGED' || ev.data.event === 'mathtree:entity-changedd')) {
+            onDashboardEntityChanged({ detail: { entityId: ev.data.entityId, llc: ev.data.llc } });
+          }
+        };
+      }
+    } catch(e) {}
 
     document.addEventListener('DOMContentLoaded', () => {
       // Set greeting with demo privacy isolation

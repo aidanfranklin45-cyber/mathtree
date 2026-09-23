@@ -9,14 +9,12 @@
  */
 
 (function (root, factory) {
-  const service = factory();
-  if (root) {
-    root.AddressService = service;
-  }
-  if (typeof define === 'function' && define.amd) {
-    define([], function () { return service; });
-  } else if (typeof module === 'object' && module.exports) {
-    module.exports = service;
+  if (typeof module === 'object' && typeof module.exports === 'object') {
+    module.exports = factory();
+  } else if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  } else {
+    root.AddressService = factory();
   }
 }(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : this)), function () {
 
@@ -26,7 +24,8 @@
   const YAKIMA_CHAR_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/50/query';
   const YAKIMA_COMM_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/70/query';
   const YAKIMA_ASCEND_PORTAL = 'https://yes.co.yakima.wa.us/ascend/';
-  const WA_CADASTRE_URL = 'https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre/MapServer/0/query';
+  const SPOKANE_PARCELS_URL = 'https://services1.arcgis.com/ozNll27nt9ZtPWOn/arcgis/rest/services/Parcels/FeatureServer/0/query';
+  const WA_CADASTRE_URL = 'https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre_OpenData/MapServer/2/query';
   const WA_CADASTRE_FALLBACK_URL = 'https://services.arcgis.com/Ie0K5n4UyLAfvdiX/arcgis/rest/services/Washington_2024_DOR_Parcels/FeatureServer/0/query';
   const PHOTON_API_URL = 'https://photon.komoot.io/api/';
 
@@ -39,6 +38,11 @@
     'TOPPENISH', 'WAPATO', 'ZILLAH', 'MOXEE', 'TIETON',
     'NACHES', 'GRANGER', 'HARRAH', 'WHITE SWAN', 'COWICHE',
     'BUENA', 'TERRACE HEIGHTS', 'AHTANUM'
+  ];
+
+  const SPOKANE_CITIES = [
+    'SPOKANE', 'SPOKANE VALLEY', 'LIBERTY LAKE', 'CHENEY',
+    'AIRWAY HEIGHTS', 'DEER PARK', 'MEDICAL LAKE', 'MILLWOOD'
   ];
 
   const DIR_MAP = {
@@ -94,14 +98,27 @@
       text = text.replace(/\b(WA|WASHINGTON)\b/gi, ' ');
     }
 
-    // 3. Extract and isolate known Yakima County City
+    // 3. Extract and isolate known County City
     let detectedCity = '';
+    let detectedCounty = '';
     for (const c of YAKIMA_CITIES) {
       const regex = new RegExp('\\b' + c + '\\b', 'i');
       if (regex.test(text)) {
         detectedCity = c;
+        detectedCounty = 'Yakima';
         text = text.replace(regex, ' ');
         break;
+      }
+    }
+    if (!detectedCity) {
+      for (const c of SPOKANE_CITIES) {
+        const regex = new RegExp('\\b' + c + '\\b', 'i');
+        if (regex.test(text)) {
+          detectedCity = c;
+          detectedCounty = 'Spokane';
+          text = text.replace(regex, ' ');
+          break;
+        }
       }
     }
 
@@ -157,6 +174,7 @@
       raw,
       houseNumber,
       city: detectedCity,
+      county: detectedCounty,
       state,
       zip,
       streetTokens: normalizedTokens,
@@ -190,6 +208,58 @@
         isYakimaCounty: true
       };
     });
+  }
+
+  /**
+   * Helper: Map raw ESRI attributes from Spokane County GIS FeatureServer
+   */
+  function mapSpokaneFeature(f) {
+    if (!f) return null;
+    const attr = f.attributes || {};
+    const rawApn = attr.parcel || attr.PID_NUM || '';
+    const apn = String(rawApn).trim();
+    const cleanApn = (apn && apn !== '0' && !/^0+$/.test(apn)) ? apn : null;
+
+    const street = (attr.site_address || '').trim();
+    const city = (attr.site_city || 'Spokane').trim();
+    const state = (attr.site_state || 'WA').trim();
+    const zip = (attr.site_zip || '').trim();
+    const formattedAddress = street ? (street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '')) : ('Parcel ' + apn + ', Spokane, WA');
+
+    const acres = parseFloat(attr.acreage) || 0;
+    const sqft = Math.round(acres * 43560);
+    const totalVal = parseFloat(attr.assessed_amt || attr.taxable_amt) || 0;
+    const landVal = parseFloat(attr.land_value) || 0;
+    const impVal = Math.max(0, totalVal - landVal);
+    const useDesc = (attr.prop_use_desc || '').trim();
+    const useCode = (attr.prop_use_code || '').trim();
+    const zoning = useDesc ? (useDesc + (useCode ? ' (' + useCode + ')' : '')) : 'Spokane County GIS';
+
+    return {
+      apn: cleanApn,
+      formattedApn: cleanApn,
+      address: formattedAddress,
+      formattedAddress: formattedAddress,
+      street,
+      city,
+      state,
+      zip,
+      county: 'Spokane',
+      acres: Math.round(acres * 1000) / 1000,
+      sqft,
+      lotSqft: sqft,
+      marketLandValue: landVal,
+      marketImprovementValue: impVal,
+      totalAssessedValue: totalVal,
+      taxYear: attr.tax_year || new Date().getFullYear(),
+      zoning,
+      useCode: useDesc || (attr.res_com_flag === 'C' ? 'Commercial' : 'Residential'),
+      owner: 'Spokane County Parcel of Record',
+      source: 'spokane_county_gis',
+      isYakimaCounty: false,
+      isSpokaneCounty: true,
+      assessorPortalUrl: cleanApn ? ('https://cp.spokanecounty.org/scout/SCOUTDashboard/?ParcelNumber=' + cleanApn.replace(/[^0-9]/g, '')) : 'https://cp.spokanecounty.org/scout/'
+    };
   }
 
   /**
@@ -430,7 +500,78 @@
   }
 
   /**
-   * 2. Search nationwide addresses via Photon (OpenStreetMap) with Central WA bias
+   * 2. Search official Spokane County GIS (Parcels Layer)
+   */
+  async function searchSpokaneAddresses(query, limit = 8) {
+    if (!query || query.trim().length < 2) return [];
+
+    const parsed = parseAddressInput(query);
+    const cleanDigits = query.replace(/[^0-9]/g, '');
+
+    // APN direct lookup
+    if (cleanDigits.length >= 6) {
+      try {
+        const apnWhere = "parcel LIKE '%" + cleanDigits + "%' OR PID_NUM LIKE '%" + cleanDigits + "%'";
+        const params = new URLSearchParams({
+          where: apnWhere,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        });
+        const res = await fetch(SPOKANE_PARCELS_URL + '?' + params.toString());
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapSpokaneFeature).filter(Boolean);
+          }
+        }
+      } catch (e) {
+        console.warn('Spokane APN direct lookup error:', e);
+      }
+    }
+
+    const candidates = [];
+    if (parsed.houseNumber && parsed.coreTokens.length > 0) {
+      const streetPart = parsed.coreTokens[0];
+      candidates.push("site_str_nbr = " + parsed.houseNumber + " AND site_str_name LIKE '%" + streetPart + "%'");
+      if (parsed.coreTokens.length > 1) {
+        candidates.push("site_str_nbr = " + parsed.houseNumber + " AND site_str_name LIKE '%" + parsed.coreTokens.join('%') + "%'");
+      }
+    }
+    if (parsed.houseNumber) {
+      candidates.push("site_str_nbr = " + parsed.houseNumber);
+    }
+    if (parsed.coreTokens.length > 0) {
+      candidates.push("site_str_name LIKE '%" + parsed.coreTokens[0] + "%'");
+    }
+
+    const uniqueCandidates = Array.from(new Set(candidates)).filter(Boolean);
+
+    for (const where of uniqueCandidates) {
+      try {
+        const params = new URLSearchParams({
+          where,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        });
+        const res = await fetch(SPOKANE_PARCELS_URL + '?' + params.toString());
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapSpokaneFeature).filter(Boolean);
+          }
+        }
+      } catch (err) {
+        console.warn('Spokane parcel query error:', where, err);
+      }
+    }
+
+    return [];
+  }
+
+  /**
+   * 3. Search nationwide addresses via Photon (OpenStreetMap) with Central WA bias
    */
   async function searchNationwideAddresses(query, limit = 6) {
     if (!query || query.trim().length < 2) return [];
@@ -462,6 +603,7 @@
         const formatted = parts.join(', ') + (zip ? ' ' + zip : '');
 
         const isYakima = /yakima/i.test(county) || /yakima/i.test(city);
+        const isSpokane = /spokane/i.test(county) || /spokane/i.test(city);
 
         return {
           formattedAddress: formatted || p.name || 'Unknown Location',
@@ -469,10 +611,11 @@
           city,
           state,
           zip,
-          county: county || (isYakima ? 'Yakima' : ''),
+          county: county || (isYakima ? 'Yakima' : (isSpokane ? 'Spokane' : '')),
           coordinates: f.geometry ? f.geometry.coordinates : null,
           source: 'openstreetmap',
-          isYakimaCounty: isYakima
+          isYakimaCounty: isYakima,
+          isSpokaneCounty: isSpokane
         };
       });
     } catch (err) {
@@ -484,7 +627,7 @@
   /**
    * Search Washington State Statewide Cadastre (MapServer / FeatureServer)
    * Retrieves parcel APN, acreage, owner, and county information as backup coverage
-   * when Yakima returns no features or the address is outside Yakima County.
+   * when Yakima or Spokane returns no features.
    */
   async function searchWaCadastreAddresses(query, limit = 6) {
     if (!query || query.trim().length < 2) return [];
@@ -493,7 +636,7 @@
     const cleanTerm = query.trim().toUpperCase().replace(/'/g, "''").replace(/[^A-Z0-9\s]/g, ' ');
     const tokens = cleanTerm.split(/\s+/).filter(Boolean);
 
-    const endpoints = [WA_CADASTRE_URL, WA_CADASTRE_FALLBACK_URL];
+    const endpoints = [WA_CADASTRE_FALLBACK_URL];
 
     for (const url of endpoints) {
       try {
@@ -537,7 +680,7 @@
     const clean = String(assessorNumber).trim().replace(/[^0-9A-Za-z-]/g, '');
     const cleanDigits = clean.replace(/[^0-9]/g, '');
 
-    const endpoints = [WA_CADASTRE_URL, WA_CADASTRE_FALLBACK_URL];
+    const endpoints = [WA_CADASTRE_FALLBACK_URL];
 
     for (const baseUrl of endpoints) {
       try {
@@ -551,9 +694,7 @@
           whereClauses.push("PARCEL_ID = '" + cleanDigits + "'");
           whereClauses.push("COUNTY_PARCEL_NO = '" + cleanDigits + "'");
         }
-        if (baseUrl === WA_CADASTRE_FALLBACK_URL) {
-          whereClauses.push("PARCEL_ID LIKE '%" + clean + "%'");
-        }
+        whereClauses.push("PARCEL_ID LIKE '%" + clean + "%'");
 
         for (const where of whereClauses) {
           const params = new URLSearchParams({
@@ -580,57 +721,272 @@
   }
 
   /**
-   * 3. Unified Address Search:
-   * Prioritizes Yakima County official addresses with verified APNs.
-   * If Yakima returns no features or the address is outside Yakima County,
-   * queries Washington State Statewide Cadastre backup, then falls back to nationwide Photon.
+   * Fetch official Spokane County Assessor Taxlot Record by APN
+   */
+  async function fetchSpokaneAssessorData(assessorNumber) {
+    if (!assessorNumber) return null;
+    const clean = String(assessorNumber).trim();
+    const cleanDigits = clean.replace(/[^0-9]/g, '');
+
+    try {
+      const where = "parcel = '" + clean + "' OR parcel = '" + cleanDigits + "' OR PID_NUM = '" + clean + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
+      const params = new URLSearchParams({
+        where,
+        outFields: '*',
+        f: 'json',
+        resultRecordCount: '1'
+      });
+      const res = await fetch(SPOKANE_PARCELS_URL + '?' + params.toString());
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.features) && data.features.length > 0) {
+          return mapSpokaneFeature(data.features[0]);
+        }
+      }
+    } catch (e) {
+      console.warn('fetchSpokaneAssessorData error:', e);
+    }
+    return null;
+  }
+
+  /**
+   * Fetch parcel record via ESRI Point-in-Polygon spatial query (WGS84 Lat/Lon)
+   */
+  async function fetchParcelByCoordinates(lat, lon) {
+    if (!lat || !lon) return null;
+    const pointGeom = JSON.stringify({
+      x: lon,
+      y: lat,
+      spatialReference: { wkid: 4326 }
+    });
+    const spatialParams = new URLSearchParams({
+      geometry: pointGeom,
+      geometryType: 'esriGeometryPoint',
+      inSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects',
+      outFields: '*',
+      f: 'json',
+      resultRecordCount: '1'
+    }).toString();
+
+    // 1. If in Yakima County bounding box (~lat 46.0-47.0, lon -121.5 - -119.5)
+    if (lat >= 46.0 && lat <= 47.0 && lon >= -121.5 && lon <= -119.5) {
+      try {
+        const yakimaRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + spatialParams);
+        if (yakimaRes.ok) {
+          const data = await yakimaRes.json();
+          if (data?.features?.[0]?.attributes?.ASSESSOR_N) {
+            return await fetchYakimaAssessorData(data.features[0].attributes.ASSESSOR_N);
+          }
+        }
+      } catch (e) {
+        console.warn('Yakima spatial lookup error:', e);
+      }
+    }
+
+    // 2. Spokane County GIS FeatureServer
+    try {
+      const spokaneRes = await fetch(SPOKANE_PARCELS_URL + '?' + spatialParams);
+      if (spokaneRes.ok) {
+        const data = await spokaneRes.json();
+        if (data && Array.isArray(data.features) && data.features.length > 0) {
+          return mapSpokaneFeature(data.features[0]);
+        }
+      }
+    } catch (e) {
+      console.warn('Spokane spatial lookup error:', e);
+    }
+
+    // 3. Fallback to WA DOR Statewide Parcels
+    try {
+      const waDorRes = await fetch(WA_CADASTRE_FALLBACK_URL + '?' + spatialParams);
+      if (waDorRes.ok) {
+        const data = await waDorRes.json();
+        if (data && Array.isArray(data.features) && data.features.length > 0) {
+          return mapWaCadastreFeature(data.features[0]);
+        }
+      }
+    } catch (e) {
+      console.warn('WA DOR spatial lookup error:', e);
+    }
+
+    return null;
+  }
+
+  /**
+   * 4. Unified Address Search:
+   * Prioritizes Yakima and Spokane County official GIS addresses with verified APNs.
+   * If not found, falls back to statewide cadastre and nationwide OpenStreetMap geocoding.
    */
   async function searchAddresses(query, options = {}) {
     if (!query || query.trim().length < 2) return [];
 
-    const yakimaResults = await searchYakimaAddresses(query, options.limit || 8);
+    const parsed = parseAddressInput(query);
+    const isSpokaneQuery = parsed.county === 'Spokane' || /spokane/i.test(query);
+    const isYakimaQuery = parsed.county === 'Yakima' || /yakima|selah|union gap|sunnyside|grandview|toppenish|wapato|zillah|moxee|naches/i.test(query);
 
-    // If official Yakima GIS matches with real APNs are found, return them directly
-    if (yakimaResults.length > 0) {
-      const hasRealApn = yakimaResults.some(r => r.apn);
-      if (hasRealApn) {
-        return yakimaResults;
-      }
+    let yakimaResults = [];
+    let spokaneResults = [];
+
+    if (isYakimaQuery) {
+      yakimaResults = await searchYakimaAddresses(query, options.limit || 8);
+    } else if (isSpokaneQuery) {
+      spokaneResults = await searchSpokaneAddresses(query, options.limit || 8);
+    } else {
+      [yakimaResults, spokaneResults] = await Promise.all([
+        searchYakimaAddresses(query, 5),
+        searchSpokaneAddresses(query, 5)
+      ]);
     }
 
-    // Issue #13: WA Statewide Cadastre backup if Yakima returns no features or address is outside Yakima County
+    // If official Yakima GIS matches with real APNs are found, return them directly
+    if (yakimaResults.length > 0 && yakimaResults.some(r => r.apn)) {
+      return yakimaResults;
+    }
+    // If official Spokane GIS matches with real APNs are found, return them directly
+    if (spokaneResults.length > 0 && spokaneResults.some(r => r.apn)) {
+      return spokaneResults;
+    }
+
+    // WA Statewide Cadastre backup
     const waCadastreResults = await searchWaCadastreAddresses(query, options.limit || 6);
 
-    const nationResults = await searchNationwideAddresses(query, 5);
+    // Nationwide OpenStreetMap fallback
+    const nationResults = await searchNationwideAddresses(query, 6);
 
     const seen = new Set();
     const merged = [];
 
-    yakimaResults.forEach(item => {
-      const key = (item.formattedAddress || item.street || '').toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        merged.push(item);
-      }
-    });
+    const addItems = (list) => {
+      list.forEach(item => {
+        const key = (item.formattedAddress || item.street || item.apn || '').toLowerCase().trim();
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          merged.push(item);
+        }
+      });
+    };
 
-    waCadastreResults.forEach(item => {
-      const key = (item.formattedAddress || item.street || '').toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        merged.push(item);
-      }
-    });
-
-    nationResults.forEach(item => {
-      const key = (item.formattedAddress || item.street || '').toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        merged.push(item);
-      }
-    });
+    addItems(spokaneResults);
+    addItems(yakimaResults);
+    addItems(waCadastreResults);
+    addItems(nationResults);
 
     return merged;
+  }
+
+  /**
+   * Unified Resolver: Resolves rich parcel & assessor details for any selected address item
+   * (Direct APN, Yakima 3-layer GIS, Spokane GIS, or spatial point-in-polygon coordinates)
+   */
+  async function resolveParcelDetails(addressItem) {
+    if (!addressItem) return null;
+
+    // 1. If item has APN and is from Yakima
+    if (addressItem.apn && (addressItem.isYakimaCounty || /yakima/i.test(addressItem.county || ''))) {
+      const data = await fetchYakimaAssessorData(addressItem.apn);
+      if (data) return data;
+    }
+
+    // 2. If item has APN and is Spokane
+    if (addressItem.apn && (/spokane/i.test(addressItem.county || '') || addressItem.source === 'spokane_county_gis')) {
+      const data = await fetchSpokaneAssessorData(addressItem.apn);
+      if (data) return data;
+    }
+
+    // 3. If item has an APN from another WA county
+    if (addressItem.apn) {
+      const data = await fetchWaCadastreData(addressItem.apn);
+      if (data) return data;
+    }
+
+    // 4. If coordinates are available [lon, lat]
+    let lat = null, lon = null;
+    if (Array.isArray(addressItem.coordinates) && addressItem.coordinates.length >= 2) {
+      lon = addressItem.coordinates[0];
+      lat = addressItem.coordinates[1];
+    } else if (addressItem.lat && addressItem.lon) {
+      lat = parseFloat(addressItem.lat);
+      lon = parseFloat(addressItem.lon);
+    }
+
+    if (lat && lon) {
+      const spatial = await fetchParcelByCoordinates(lat, lon);
+      if (spatial) {
+        if (addressItem.formattedAddress && (!spatial.street || spatial.street === 'Adjacent Parcel')) {
+          spatial.formattedAddress = addressItem.formattedAddress;
+        }
+        return spatial;
+      }
+    }
+
+    // 5. Baseline fallback representation
+    const county = addressItem.county || 'Washington';
+    const isYakima = /yakima/i.test(county);
+    const isSpokane = /spokane/i.test(county);
+    const apn = addressItem.apn || null;
+
+    let portalUrl = YAKIMA_ASCEND_PORTAL;
+    if (isSpokane) {
+      portalUrl = 'https://cp.spokanecounty.org/scout/' + (apn ? ('SCOUTDashboard/?ParcelNumber=' + apn.replace(/[^0-9]/g, '')) : '');
+    } else if (isYakima && apn) {
+      portalUrl = YAKIMA_ASCEND_PORTAL + '?mParcelID=' + apn;
+    } else if (/king/i.test(county)) {
+      portalUrl = 'https://blue.kingcounty.com/Assessor/eRealProperty/' + (apn ? ('Detail.aspx?ParcelNbr=' + apn.replace(/[^0-9]/g, '')) : '');
+    } else if (/pierce/i.test(county)) {
+      portalUrl = 'https://atip.piercecountywa.gov/app/parcelInfo' + (apn ? ('?parcelNumber=' + apn.replace(/[^0-9]/g, '')) : '');
+    }
+
+    return {
+      apn,
+      formattedApn: apn || 'Geocoded Address',
+      address: addressItem.formattedAddress || addressItem.street || 'Property Address',
+      street: addressItem.street || '',
+      city: addressItem.city || '',
+      state: addressItem.state || 'WA',
+      zip: addressItem.zip || '',
+      county: county,
+      acres: 0,
+      sqft: 0,
+      lotSqft: 0,
+      marketLandValue: 0,
+      marketImprovementValue: 0,
+      totalAssessedValue: 0,
+      taxYear: new Date().getFullYear(),
+      zoning: 'Standard Municipal / Commercial',
+      useCode: 'Real Property',
+      owner: 'Owner of Record',
+      source: addressItem.source || 'openstreetmap',
+      isYakimaCounty: isYakima,
+      isSpokaneCounty: isSpokane,
+      assessorPortalUrl: portalUrl
+    };
+  }
+
+  /**
+   * Helper: Generate official Assessor Web Search URL for any county
+   */
+  function getAssessorPortalUrl(countyOrAddress, apn) {
+    const cleanApn = apn ? String(apn).trim() : '';
+    const digits = cleanApn.replace(/[^0-9]/g, '');
+    const countyStr = String(countyOrAddress || '').toLowerCase();
+
+    if (countyStr.includes('spokane')) {
+      return 'https://cp.spokanecounty.org/scout/' + (digits ? ('SCOUTDashboard/?ParcelNumber=' + digits) : '');
+    }
+    if (countyStr.includes('yakima')) {
+      return YAKIMA_ASCEND_PORTAL + (cleanApn ? ('?mParcelID=' + encodeURIComponent(cleanApn)) : '');
+    }
+    if (countyStr.includes('king')) {
+      return 'https://blue.kingcounty.com/Assessor/eRealProperty/' + (digits ? ('Detail.aspx?ParcelNbr=' + digits) : '');
+    }
+    if (countyStr.includes('pierce')) {
+      return 'https://atip.piercecountywa.gov/app/parcelInfo' + (digits ? ('?parcelNumber=' + digits) : '');
+    }
+    if (countyStr.includes('snohomish')) {
+      return 'https://www.snoco.org/proptax/default.aspx' + (digits ? ('?parcel=' + digits) : '');
+    }
+    return YAKIMA_ASCEND_PORTAL;
   }
 
   /**
@@ -713,6 +1069,8 @@
         city: situsCity,
         state: 'WA',
         zip: situsZip,
+        county: 'Yakima',
+        isYakimaCounty: true,
         acres: Math.round(acres * 1000) / 1000,
         sqft: lotSqft,
         lotSqft,
@@ -749,6 +1107,39 @@
       console.warn('Failed to fetch Yakima assessor data, falling back to WA State Cadastre:', err);
       return await fetchWaCadastreData(assessorNumber);
     }
+  }
+
+  function formatYakimaApn(apn) {
+    if (!apn) return '';
+    const clean = String(apn).trim();
+    if (clean.length === 11) {
+      return clean.slice(0, 6) + '-' + clean.slice(6);
+    }
+    return clean;
+  }
+
+  function getAssessorPortalUrl(parcelOrApn, county = '') {
+    if (!parcelOrApn) return '';
+    const clean = String(parcelOrApn).trim();
+    const cleanNumeric = clean.replace(/[^0-9]/g, '');
+    const c = String(county || '').toLowerCase();
+
+    if (c.includes('spokane') || /^\d{5}\.\d{4}$/.test(clean)) {
+      return 'https://cp.spokanecounty.org/scout/SCOUTDashboard/?ParcelNumber=' + encodeURIComponent(cleanNumeric || clean);
+    }
+    if (c.includes('king')) {
+      return 'https://blue.kingcounty.com/Assessor/eRealProperty/Detail.aspx?ParcelNbr=' + encodeURIComponent(cleanNumeric || clean);
+    }
+    if (c.includes('pierce')) {
+      return 'https://epip.co.pierce.wa.us/cfapps/atr/epip/search.cfm';
+    }
+    if (c.includes('snohomish')) {
+      return 'https://snohomishcountywa.gov/Assessor';
+    }
+    if (c.includes('yakima') || cleanNumeric.length >= 10) {
+      return YAKIMA_ASCEND_PORTAL + '?mParcelID=' + encodeURIComponent(cleanNumeric || clean);
+    }
+    return YAKIMA_ASCEND_PORTAL;
   }
 
   /**
@@ -801,14 +1192,119 @@
     });
   }
 
+  function mapYakimaCompanionFeatures(features) {
+    if (!Array.isArray(features)) return [];
+    return features.map(f => {
+      const a = f.attributes || {};
+      const apn = a.ASSESSOR_N ? String(a.ASSESSOR_N).trim() : '';
+      const acres = Number(a.ACRES) || 0;
+      const mktLand = Number(a.MKT_LAND) || 0;
+      const mktImp = Number(a.MKT_IMPVT) || 0;
+      const totalVal = mktLand + mktImp;
+      const ownerParts = [a.ORG_NAME, [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ')].filter(Boolean);
+      const owner = ownerParts[0] || 'Owner of Record';
+
+      return {
+        apn: apn,
+        formattedApn: formatYakimaApn(apn),
+        address: [a.SITUS_ADDR, a.SITUS_CITY, 'WA', a.SITUS_ZIP].filter(Boolean).join(', '),
+        street: a.SITUS_ADDR || '',
+        city: a.SITUS_CITY || '',
+        state: 'WA',
+        zip: a.SITUS_ZIP || '',
+        county: 'Yakima',
+        acres: Number(acres.toFixed(3)),
+        sqft: Math.round(acres * 43560),
+        lotSqft: Math.round(acres * 43560),
+        marketLandValue: mktLand,
+        marketImprovementValue: mktImp,
+        totalAssessedValue: totalVal,
+        zoning: a.USE_CODE || 'Standard',
+        useCode: a.USE_CODE || '',
+        owner: owner,
+        legalDescription: a.LEGAL || '',
+        source: 'yakima_county_assessor',
+        isYakimaCounty: true,
+        assessorPortalUrl: getYakimaAssessorPortalUrl(apn)
+      };
+    }).filter(p => p.apn);
+  }
+
+  function mapSpokaneCompanionFeatures(features) {
+    if (!Array.isArray(features)) return [];
+    return features.map(f => {
+      const a = f.attributes || {};
+      const apn = a.parcel ? String(a.parcel).trim() : (a.PID_NUM ? String(a.PID_NUM).trim() : '');
+      const acres = Number(a.acreage) || 0;
+      const totalVal = Number(a.assessed_amt) || 0;
+      const landVal = Number(a.land_value) || 0;
+      const impVal = Math.max(0, totalVal - landVal);
+      const addr = a.site_address ? (a.site_address + (a.site_city ? ', ' + a.site_city : '') + ', WA') : 'Spokane Property';
+
+      return {
+        apn: apn,
+        formattedApn: apn,
+        address: addr,
+        street: a.site_address || '',
+        city: a.site_city || 'SPOKANE',
+        state: 'WA',
+        zip: '',
+        county: 'Spokane',
+        acres: Number(acres.toFixed(3)),
+        sqft: Math.round(acres * 43560),
+        lotSqft: Math.round(acres * 43560),
+        marketLandValue: landVal,
+        marketImprovementValue: impVal,
+        totalAssessedValue: totalVal,
+        taxYear: a.tax_year || 2026,
+        zoning: (a.prop_use_desc || 'Commercial') + (a.prop_use_code ? ' (' + a.prop_use_code + ')' : ''),
+        useCode: a.prop_use_desc || '',
+        owner: 'Spokane County Parcel of Record',
+        source: 'spokane_county_gis',
+        isSpokaneCounty: true,
+        assessorPortalUrl: getAssessorPortalUrl(apn, 'Spokane')
+      };
+    }).filter(p => p.apn);
+  }
+
   /**
    * 6. Detect Nearby Parcels Owned by the Same Entity (Multi-Parcel Package Detection)
-   * Issue #12: Fetches primary parcel bounding geometry/envelope from Yakima GIS (returnGeometry=true),
+   * Issue #12: Fetches primary parcel bounding geometry/envelope from county GIS (returnGeometry=true),
    * and queries adjacent parcels using ESRI spatial envelope intersection (geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects),
    * while falling back to owner matching within the section/block if spatial queries return empty.
    */
-  async function detectNearbySameOwnerParcels(primaryApn, ownerName) {
+  async function detectNearbySameOwnerParcels(primaryApn, ownerName, parcelContext) {
     if (!primaryApn) return [];
+    const isSpokane = parcelContext?.isSpokaneCounty || (parcelContext?.county && /spokane/i.test(parcelContext.county));
+
+    // Handle Spokane County
+    if (isSpokane) {
+      const cleanApn = String(primaryApn).trim();
+      const dotIndex = cleanApn.indexOf('.');
+      const prefix = dotIndex > 0 ? cleanApn.slice(0, dotIndex) : cleanApn.slice(0, 5);
+      if (prefix.length >= 3) {
+        try {
+          const spokaneParams = new URLSearchParams({
+            where: "parcel LIKE '" + prefix + ".%' AND parcel <> '" + cleanApn + "'",
+            outFields: 'parcel,PID_NUM,site_address,site_city,acreage,assessed_amt,land_value,prop_use_desc,prop_use_code,tax_year',
+            f: 'json',
+            resultRecordCount: '10'
+          });
+          const res = await fetch(SPOKANE_PARCELS_URL + '?' + spokaneParams.toString());
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data?.features) && data.features.length > 0) {
+              return mapSpokaneCompanionFeatures(data.features);
+            }
+          }
+        } catch (e) {
+          console.warn('Spokane companion parcel search failed:', e);
+        }
+      }
+      return [];
+    }
+
+    // Default to Yakima County ArcGIS Taxlots
     const cleanApn = String(primaryApn).trim().replace(/[^0-9]/g, '');
     if (cleanApn.length < 6) return [];
 
@@ -881,7 +1377,7 @@
             if (spatialRes.ok) {
               const spatialData = await spatialRes.json();
               if (Array.isArray(spatialData?.features) && spatialData.features.length > 0) {
-                return mapCompanionFeatures(spatialData.features);
+                return mapYakimaCompanionFeatures(spatialData.features);
               }
             }
           }
@@ -909,7 +1405,7 @@
       if (fallbackRes.ok) {
         const fallbackData = await fallbackRes.json();
         if (Array.isArray(fallbackData?.features) && fallbackData.features.length > 0) {
-          return mapCompanionFeatures(fallbackData.features);
+          return mapYakimaCompanionFeatures(fallbackData.features);
         }
       }
     } catch (fallbackErr) {
@@ -986,16 +1482,22 @@
     YAKIMA_CHAR_URL,
     YAKIMA_COMM_URL,
     YAKIMA_ASCEND_PORTAL,
+    SPOKANE_PARCELS_URL,
     WA_CADASTRE_URL,
     buildSqlLikeTerm,
     parseAddressInput,
     searchYakimaAddresses,
+    searchSpokaneAddresses,
     searchNationwideAddresses,
     searchWaCadastreAddresses,
     searchAddresses,
     fetchYakimaAssessorData,
+    fetchSpokaneAssessorData,
     fetchWaCadastreData,
+    fetchParcelByCoordinates,
+    resolveParcelDetails,
     getYakimaAssessorPortalUrl,
+    getAssessorPortalUrl,
     detectNearbySameOwnerParcels,
     aggregateParcelPackage,
     isGisDataStale

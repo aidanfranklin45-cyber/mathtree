@@ -72,11 +72,20 @@ function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount = 10): 
     coreBinCount = targetBinCount;
   }
 
+  // Prevent collapse when all numbers are tightly clustered or identical
+  if ((upperBound - lowerBound) < 1.0) {
+    const center = (upperBound + lowerBound) / 2;
+    lowerBound = center - 2.5;
+    upperBound = center + 2.5;
+    tailBinsCount = 0;
+    coreBinCount = targetBinCount;
+  }
+
   const coreWidth = (upperBound - lowerBound) / coreBinCount;
   const bins: HistogramBin[] = [];
 
   // Left tail bin for downside outliers
-  if (hasLeftTail) {
+  if (hasLeftTail && tailBinsCount > 0) {
     const count = sortedIrrs.filter(v => v < lowerBound).length;
     const roundedLower = Math.round(lowerBound * 10) / 10;
     bins.push({
@@ -96,7 +105,7 @@ function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount = 10): 
 
     const count = sortedIrrs.filter(v => {
       if (v < bStart) return false;
-      if (isLastCore && !hasRightTail) {
+      if (isLastCore && (!hasRightTail || tailBinsCount === 0)) {
         return v <= bEnd;
       }
       return v < bEnd;
@@ -104,9 +113,12 @@ function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount = 10): 
 
     const rStart = Math.round(bStart * 10) / 10;
     const rEnd = Math.round(bEnd * 10) / 10;
+    const label = (rStart === rEnd)
+      ? `${bStart.toFixed(2)}% to ${bEnd.toFixed(2)}%`
+      : `${rStart}% to ${rEnd}%`;
 
     bins.push({
-      label: `${rStart}% to ${rEnd}%`,
+      label,
       binStart: rStart,
       binEnd: rEnd,
       count,
@@ -115,7 +127,7 @@ function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount = 10): 
   }
 
   // Right tail bin for upside outliers
-  if (hasRightTail) {
+  if (hasRightTail && tailBinsCount > 0) {
     const count = sortedIrrs.filter(v => v >= upperBound).length;
     const roundedUpper = Math.round(upperBound * 10) / 10;
     bins.push({
@@ -432,10 +444,25 @@ function runDealProjections(assetType: string, inputs: any): { irr: number; cash
       operatingExpenses += mgmt;
       capexReserve = unitCount * (unitCount <= 4 ? 500 : 300);
     } else if (assetType === 'commercial') {
-      const mgmt = (String(inputs.leaseType || '').toUpperCase() !== 'NNN' && inputs.manageProperty) ? currentGrossIncome * 0.035 : 0;
-      operatingExpenses += mgmt;
-      const gla = parseFloat(inputs.gla) || 15000;
-      capexReserve = gla * 1.50;
+      const isVacantOrRawLand = currentGrossIncome <= 0 ||
+                                !!inputs.isVacantLot ||
+                                !!inputs.isVacantLand ||
+                                /vacant|land|dirt|lot/i.test(inputs.facilityType || '') ||
+                                /vacant|land/i.test(inputs.useCode || '');
+      if (isVacantOrRawLand && currentGrossIncome <= 0) {
+        const assessedVal = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || purchasePrice;
+        const annualTaxes = parseFloat(inputs.annualTaxes) || parseFloat(inputs.propertyTaxes) || (assessedVal * 0.011);
+        const annualInsurance = parseFloat(inputs.annualInsurance) || parseFloat(inputs.insurance) || 600;
+        const annualMaint = parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600;
+        const inflationFactor = Math.pow(1 + (inputs.holdingInflation || 2.5) / 100, year - 1);
+        operatingExpenses = (annualTaxes + annualInsurance + annualMaint) * inflationFactor;
+        capexReserve = 0;
+      } else {
+        const mgmt = (String(inputs.leaseType || '').toUpperCase() !== 'NNN' && inputs.manageProperty) ? currentGrossIncome * 0.035 : 0;
+        operatingExpenses += mgmt;
+        const gla = parseFloat(inputs.gla) || 15000;
+        capexReserve = gla * 1.50;
+      }
     } else if (assetType === 'storage') {
       const mgmt = inputs.manageProperty ? currentGrossIncome * 0.06 : 0;
       const payroll = currentGrossIncome * (inputs.isAutomated ? 0.04 : 0.13);
@@ -452,15 +479,25 @@ function runDealProjections(assetType: string, inputs: any): { irr: number; cash
 
     // Commercial / Storage capitalization mechanism
     if (assetType === 'commercial' || assetType === 'storage') {
-      if (year === 1) {
-        currentPropertyValue = initialPropertyValue;
+      const isIncomeProducing = (currentGrossIncome > 0 && noi > 0);
+      if (isIncomeProducing) {
+        if (year === 1) {
+          currentPropertyValue = initialPropertyValue;
+        } else {
+          const tExit = exitYear > 1 ? exitYear : 10;
+          const currentCap = targetCapRate > 0
+            ? (entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate))
+            : entryCapRate;
+          if (currentCap > 0 && noi > 0) {
+            currentPropertyValue = noi / (currentCap / 100);
+          }
+        }
       } else {
-        const tExit = exitYear > 1 ? exitYear : 10;
-        const currentCap = targetCapRate > 0
-          ? (entryCapRate + ((year - 1) / (tExit - 1)) * (targetCapRate - entryCapRate))
-          : entryCapRate;
-        if (currentCap > 0 && noi > 0) {
-          currentPropertyValue = noi / (currentCap / 100);
+        // Non-income producing (e.g. empty lot / vacant land / zero rent carry)
+        // Land value compounds by appreciation rate across hold period
+        if (year > 1) {
+          const appRate = (appreciationRate !== undefined && !isNaN(appreciationRate)) ? appreciationRate : 3.5;
+          currentPropertyValue = currentPropertyValue * (1 + appRate / 100);
         }
       }
     }
@@ -500,9 +537,14 @@ serve(async (req: Request) => {
 
     const isCommercialOrStorage = assetType === 'commercial' || assetType === 'storage';
 
+    const isZeroIncome = (parseFloat(inputs.grossRentAnnual) || 0) <= 0 &&
+                         (parseFloat(inputs.grossRentPerMonth) || 0) <= 0 &&
+                         (parseFloat(inputs.monthlyRent) || 0) <= 0 &&
+                         (!Array.isArray(inputs.leases) || inputs.leases.length === 0 || !inputs.leases.some((l: any) => (parseFloat(l.monthlyRent) || 0) > 0));
+
     const baseGrowth = inputs.rentGrowth !== undefined && !isNaN(parseFloat(inputs.rentGrowth)) ? parseFloat(inputs.rentGrowth) : 2.5;
     const baseVacancy = inputs.vacancyRate !== undefined && !isNaN(parseFloat(inputs.vacancyRate)) ? parseFloat(inputs.vacancyRate) : 5.0;
-    const baseApprec = inputs.appreciationRate !== undefined && !isNaN(parseFloat(inputs.appreciationRate)) ? parseFloat(inputs.appreciationRate) : 3.0;
+    const baseApprec = inputs.appreciationRate !== undefined && !isNaN(parseFloat(inputs.appreciationRate)) ? parseFloat(inputs.appreciationRate) : 3.5;
     const baseExitCap = (inputs.targetCapRate !== undefined && !isNaN(parseFloat(inputs.targetCapRate)))
       ? parseFloat(inputs.targetCapRate)
       : ((inputs.targetExitCapRate !== undefined && !isNaN(parseFloat(inputs.targetExitCapRate)))
@@ -511,8 +553,11 @@ serve(async (req: Request) => {
 
     const growthStdDev = parseFloat(payload.rentGrowthVolPct || 1.5);
     const vacancyStdDev = parseFloat(payload.vacancyVolPct || 2.5);
-    const apprecStdDev = parseFloat(payload.apprecVolPct || 1.5);
     const exitCapSpreadPct = (parseFloat(payload.exitCapSpreadBps || 100) / 100);
+    // For zero-rent raw land/empty lot, appreciation volatility is driven by the user's volatility settings
+    const apprecStdDev = payload.apprecVolPct !== undefined
+      ? parseFloat(payload.apprecVolPct)
+      : (isZeroIncome ? Math.max(1.0, (parseFloat(payload.exitCapSpreadBps || 100) / 40)) : 1.5);
 
     const unitCount = parseInt(inputs.unitCount || inputs.storageUnitCount || 0, 10);
 
@@ -525,44 +570,39 @@ serve(async (req: Request) => {
       const sampledGrowth = randomGaussian(baseGrowth, growthStdDev);
       const sampledApprec = randomGaussian(baseApprec, apprecStdDev);
       const sampledExitCap = baseExitCap > 0 ? Math.max(3.0, randomGaussian(baseExitCap, exitCapSpreadPct)) : baseExitCap;
+      const sampledHoldingInflation = randomGaussian(2.5, 1.0);
 
       // Asset-specific stochastic vacancy mechanics
       let sampledVacancy = baseVacancy;
       if (assetType === 'single-family') {
-        // Single-Family 1-door discrete turnover model
-        // Annual turnover chance scaled by baseline vacancy expectation (default ~22%)
         const turnoverChance = Math.min(0.60, Math.max(0.10, (baseVacancy / 5.0) * 0.22));
         if (Math.random() < turnoverChance) {
           const downtimeRoll = Math.random();
           if (downtimeRoll < 0.65) {
-            // 1 month turnover (~8.33% annual vacancy)
             sampledVacancy = 8.33;
           } else if (downtimeRoll < 0.88) {
-            // 2 months turnover (~16.67% annual vacancy)
             sampledVacancy = 16.67;
           } else {
-            // Extended vacancy / eviction / major make-ready (3 to 6 months)
             sampledVacancy = 25.0 + Math.random() * 20.0;
           }
         } else {
-          // Tenancy sustained: near-zero operational friction
           sampledVacancy = Math.max(0, randomGaussian(0.5, 0.4));
         }
       } else if (assetType === 'multi-unit') {
-        // Multi-Unit portfolio diversification: variance dampens across door count
         const effectiveStdDev = vacancyStdDev / Math.sqrt(Math.max(1, (unitCount || 8) / 4));
         sampledVacancy = Math.max(1.0, Math.min(45.0, randomGaussian(baseVacancy, effectiveStdDev)));
       } else if (assetType === 'commercial') {
-        // Commercial: multi-year lease stability with binary lease-roll tail risk
-        const rollRiskRoll = Math.random();
-        if (rollRiskRoll < 0.06) {
-          // Key tenant rollover / renewal failure shock (6-12 months downtime)
-          sampledVacancy = Math.min(60.0, 25.0 + Math.random() * 25.0);
+        if (isZeroIncome) {
+          sampledVacancy = 0;
         } else {
-          sampledVacancy = Math.max(0.5, Math.min(30.0, randomGaussian(baseVacancy, vacancyStdDev * 0.75)));
+          const rollRiskRoll = Math.random();
+          if (rollRiskRoll < 0.06) {
+            sampledVacancy = Math.min(60.0, 25.0 + Math.random() * 25.0);
+          } else {
+            sampledVacancy = Math.max(0.5, Math.min(30.0, randomGaussian(baseVacancy, vacancyStdDev * 0.75)));
+          }
         }
       } else if (assetType === 'storage') {
-        // Storage: high turnover velocity, month-to-month elasticity
         sampledVacancy = Math.max(2.0, Math.min(45.0, randomGaussian(baseVacancy, vacancyStdDev * 1.15)));
       } else {
         sampledVacancy = Math.max(1.0, Math.min(45.0, randomGaussian(baseVacancy, vacancyStdDev)));
@@ -574,7 +614,8 @@ serve(async (req: Request) => {
         vacancyRate: sampledVacancy,
         appreciationRate: sampledApprec,
         targetCapRate: sampledExitCap,
-        targetExitCapRate: sampledExitCap
+        targetExitCapRate: sampledExitCap,
+        holdingInflation: sampledHoldingInflation
       };
 
       const result = runDealProjections(assetType, simInputs);
@@ -665,11 +706,11 @@ serve(async (req: Request) => {
       telemetry: {
         baselineRentGrowth: baseGrowth,
         baselineVacancy: baseVacancy,
-        baselineExitMetric: isCommercialOrStorage ? baseExitCap : baseApprec,
-        exitMetricType: isCommercialOrStorage ? 'Exit Cap Rate' : 'Annual Appreciation',
+        baselineExitMetric: (isCommercialOrStorage && !isZeroIncome) ? baseExitCap : baseApprec,
+        exitMetricType: (isCommercialOrStorage && !isZeroIncome) ? 'Exit Cap Rate' : 'Annual Land Appreciation',
         rentGrowthRange: [Math.round((baseGrowth - growthStdDev) * 10) / 10, Math.round((baseGrowth + growthStdDev) * 10) / 10],
         vacancyRange: assetType === 'single-family' ? [0.0, 25.0] : [Math.round(Math.max(0, baseVacancy - vacancyStdDev) * 10) / 10, Math.round((baseVacancy + vacancyStdDev) * 10) / 10],
-        exitMetricRange: isCommercialOrStorage
+        exitMetricRange: (isCommercialOrStorage && !isZeroIncome)
           ? [Math.round(Math.max(1, baseExitCap - exitCapSpreadPct) * 100) / 100, Math.round((baseExitCap + exitCapSpreadPct) * 100) / 100]
           : [Math.round((baseApprec - apprecStdDev) * 10) / 10, Math.round((baseApprec + apprecStdDev) * 10) / 10]
       },

@@ -18,6 +18,8 @@ function getEnv(key: string): string {
   }
 }
 
+const APP_BASE_URL = getEnv("APP_URL") || "https://mathtree-app.web.app";
+
 function generateHexToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -280,8 +282,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         logs.push(`Token preparation notice: ${tokErr?.message || tokErr}`);
       }
 
-      const confirmUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=confirm&token=${confirmToken}`;
-      const snoozeUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=snooze&token=${snoozeToken}`;
+      const confirmUrl = `${APP_BASE_URL}/reconcile?action=confirm&token=${confirmToken}`;
+      const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
 
       const testEmailHtml = `
 <!DOCTYPE html>
@@ -435,8 +437,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         },
       ]);
 
-      const confirmUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=confirm&token=${confirmToken}`;
-      const snoozeUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=snooze&token=${snoozeToken}`;
+      const confirmUrl = `${APP_BASE_URL}/reconcile?action=confirm&token=${confirmToken}`;
+      const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
       const rentFormatted = "$" + Math.round(Number(targetLease.monthly_rent || 0)).toLocaleString("en-US");
       const dealTitle = (targetLease.deals as any)?.title || "Commercial Property";
       const unitName = (targetLease.units as any)?.unit_number ? `Unit ${(targetLease.units as any).unit_number}` : "Main Facility";
@@ -715,8 +717,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           },
         ]);
 
-        const confirmUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=confirm&token=${confirmToken}`;
-        const snoozeUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=snooze&token=${snoozeToken}`;
+        const confirmUrl = `${APP_BASE_URL}/reconcile?action=confirm&token=${confirmToken}`;
+        const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
         const rentFormatted = "$" + Math.round(Number(lease.monthly_rent || 0)).toLocaleString("en-US");
         const dealTitle = (lease.deals as any)?.title || "Commercial Property";
         const unitName = (lease.units as any)?.unit_number ? `Unit ${(lease.units as any).unit_number}` : "Main Facility";
@@ -853,7 +855,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           expires_at: tokenExpires,
         });
 
-        const confirmUrl = `${supabaseUrl}/functions/v1/reconcile-action?action=confirm&token=${confirmToken}`;
+        const confirmUrl = `${APP_BASE_URL}/reconcile?action=confirm&token=${confirmToken}`;
         const rentFormatted = "$" + Math.round(Number(p.amount_due || lease.monthly_rent || 0)).toLocaleString("en-US");
 
         const followupHtml = `

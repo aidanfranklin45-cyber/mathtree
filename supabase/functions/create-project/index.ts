@@ -1,6 +1,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import { calculateProjections, auditDealRisks, DealInputs } from "./math-engine.ts";
+import { calculateProjections, auditDealRisks } from "../_shared/math-engine.ts";
+import type { DealInputs } from "../_shared/types.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

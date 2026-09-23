@@ -342,6 +342,21 @@ export async function handleRequest(req: Request): Promise<Response> {
       mergedInputs.monthlyRent = totalInPlaceRent;
       mergedInputs.grossRentPerMonth = totalInPlaceRent;
       mergedInputs.grossRentAnnual = totalInPlaceRent * 12;
+    } else {
+      const pInputs = payload.inputs && typeof payload.inputs === "object" ? payload.inputs as Record<string, unknown> : null;
+      if (pInputs && (pInputs.grossRentAnnual === 0 || pInputs.monthlyRent === 0 || pInputs.grossRentPerMonth === 0)) {
+        mergedInputs.grossRentAnnual = 0;
+        mergedInputs.grossRentPerMonth = 0;
+        mergedInputs.monthlyRent = 0;
+        mergedInputs.leases = [];
+      }
+      if (isRealUuid && dbClient && Array.isArray(payload.leases) && payload.leases.length === 0) {
+        try {
+          await dbClient.from("leases").update({ is_active: false, updated_at: new Date().toISOString() }).eq("deal_id", dealId);
+        } catch (leaseDeactErr) {
+          console.warn("Deactivating leases error:", leaseDeactErr);
+        }
+      }
     }
 
     // 3. Compute Institutional Math Projections & Risk Audit
