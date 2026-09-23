@@ -166,9 +166,15 @@ export async function handleRequest(req: Request): Promise<Response> {
       ? existingDeal.inputs
       : {}) as Record<string, unknown>;
 
+    const incomingInputs = (payload.inputs && typeof payload.inputs === "object")
+      ? payload.inputs
+      : ((payload as Record<string, unknown>).updates && typeof (payload as Record<string, unknown>).updates === "object")
+        ? (payload as Record<string, unknown>).updates as Record<string, unknown>
+        : {};
+
     const mergedInputs: Record<string, unknown> = {
       ...existingInputs,
-      ...(payload.inputs && typeof payload.inputs === "object" ? payload.inputs : {})
+      ...incomingInputs
     };
 
     if (payload.operatingExpenses && typeof payload.operatingExpenses === "object") {
@@ -379,6 +385,9 @@ export async function handleRequest(req: Request): Promise<Response> {
       equity_multiple: projectionsResult.equityMultiplier,
       cash_on_cash: y1?.cashOnCash ?? 0,
       year1_cashflow: y1?.netCashFlow ?? 0,
+      total_equity: projectionsResult.initialCashInvested,
+      npv: projectionsResult.npv ?? 0,
+      metrics_computed_at: new Date().toISOString(),
       inputs: mergedInputs,
       metrics: {
         ...projectionsResult,
@@ -406,6 +415,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           cash_on_cash: y1?.cashOnCash ?? 0,
           year1_cashflow: y1?.netCashFlow ?? 0,
           total_equity: projectionsResult.initialCashInvested,
+          npv: projectionsResult.npv ?? 0,
+          metrics_computed_at: new Date().toISOString(),
           inputs: mergedInputs,
           metrics: {
             ...projectionsResult,

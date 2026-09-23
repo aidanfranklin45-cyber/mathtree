@@ -2292,7 +2292,7 @@
           <div class="space-y-1">
             <div class="flex items-center justify-between">
               <label for="edit-deal-entity" class="text-[11px] font-bold text-slate-400">Ownership Entity</label>
-              <button type="button" onclick="if (typeof openEntityManagementModal === 'function') openEntityManagementModal(event);" class="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition">+ Manage</button>
+              <button type="button" onclick="if (typeof openEntityManagementModal === 'function') openEntityManagementModal(event, { dealId: document.getElementById('edit-deal-id')?.value || currentLoadedDeal?.id, dealTitle: document.getElementById('edit-deal-name')?.value || currentLoadedDeal?.title });" class="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition">+ Manage</button>
             </div>
             <select id="edit-deal-entity"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-semibold focus:outline-none focus:border-brand-500">
@@ -4155,13 +4155,10 @@
       });
       tbody.appendChild(frag);
 
-      // Save state to deal inputs if deal loaded
+      // Maintain state in deal inputs if deal loaded (in-memory only, no write-on-read)
       if (currentLoadedDeal && currentLoadedDeal.inputs) {
         currentLoadedDeal.inputs.monthlyTotalMonths = currentMonthlyMonths;
         currentLoadedDeal.inputs.monthlyEndDate = currentMonthlyEndDate;
-        if (typeof saveCurrentDealChanges === 'function') {
-          saveCurrentDealChanges(false);
-        }
       }
     }
     window.renderMonthlyScheduleTable = renderMonthlyScheduleTable;
@@ -4180,9 +4177,21 @@
       // Auto-save user inputs
       savePresetValues(activeTab, inputs);
 
-      // Perform projections
+      // Perform projections — prioritize stored answers from Supabase/Edge function
       const mappedTab = (activeTab === 'proforma' || !activeTab) ? 'commercial' : activeTab;
-      const res = (window.PropertyMath && typeof window.PropertyMath.calculateProjections === 'function') ? window.PropertyMath.calculateProjections(mappedTab, inputs) : null;
+      let res = null;
+      if (currentLoadedDeal && currentLoadedDeal.metrics && Array.isArray(currentLoadedDeal.metrics.projections) && currentLoadedDeal.metrics.projections.length > 0) {
+        const storedInputs = currentLoadedDeal.inputs || {};
+        const isInputsAligned = (!inputs.purchasePrice || Number(inputs.purchasePrice) === Number(storedInputs.purchasePrice)) &&
+                                (!inputs.downPaymentPercent || Number(inputs.downPaymentPercent) === Number(storedInputs.downPaymentPercent)) &&
+                                (!inputs.interestRate || Number(inputs.interestRate) === Number(storedInputs.interestRate));
+        if (isInputsAligned) {
+          res = currentLoadedDeal.metrics;
+        }
+      }
+      if (!res && window.PropertyMath && typeof window.PropertyMath.calculateProjections === 'function') {
+        res = window.PropertyMath.calculateProjections(mappedTab, inputs);
+      }
 
       // Read target year from inspector slider
       const sliderEl = document.getElementById('input-year-inspector');
@@ -6889,21 +6898,23 @@
             .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false });
           if (!error && data && data.length > 0) {
-            storedDeals = data.map(d => ({
+            storedDeals = data.map(d => (typeof mapSupabaseDeal === 'function' ? mapSupabaseDeal(d) : {
               id: d.id,
               name: d.title || d.name || 'Cloud Underwriting Project',
-              asset_class: d.asset_type || d.asset_class || 'single-family',
+              asset_class: d.asset_type || d.asset_class || 'commercial',
               location: d.location || 'Cloud Sync',
               purchase_price: d.purchase_price || (d.inputs && d.inputs.purchasePrice) || 0,
-              irr: d.irr || (d.results && d.results.irr) || 0,
-              equity_multiple: d.equity_multiple || (d.results && d.results.equityMultiple) || 0,
-              cash_on_cash: d.cash_on_cash || 0,
-              cap_rate: (d.results && d.results.capRate) || 0,
-              year1_cashflow: (d.results && d.results.projections && d.results.projections[0] ? (d.results.projections[0].cashFlow ?? d.results.projections[0].netCashFlow ?? 0) : 0),
-              total_equity: (d.results && d.results.initialCashInvested) || 0,
+              irr: d.irr ?? d.metrics?.irr ?? 0,
+              equity_multiple: d.equity_multiple ?? d.metrics?.equityMultiplier ?? 2.0,
+              cash_on_cash: d.cash_on_cash ?? d.metrics?.year1CoC ?? d.metrics?.cashOnCash ?? 0,
+              cap_rate: d.metrics?.capRate ?? d.metrics?.cap_rate ?? 0,
+              year1_cashflow: d.year1_cashflow ?? d.metrics?.year1CashFlow ?? 0,
+              total_equity: d.total_equity ?? d.metrics?.initialCashInvested ?? 0,
+              npv: d.npv ?? d.metrics?.npv ?? 0,
+              metrics_computed_at: d.metrics_computed_at ?? null,
               inputs: d.inputs,
-              results: d.results,
-              deck: d.deck
+              metrics: d.metrics,
+              deck: d.deck || { title: d.title || d.name, highlights: [] }
             }));
           }
         } catch (e) {
@@ -7731,13 +7742,6 @@
               autoBackground: true
             };
 
-            if (typeof saveCurrentDealChanges === 'function') {
-              saveCurrentDealChanges(false);
-            }
-            if (typeof autoSaveDealToSupabase === 'function') {
-              autoSaveDealToSupabase(deal);
-            }
-
             if (syncText) syncText.textContent = 'GIS Synced Today';
             if (typeof updateCalculations === 'function') updateCalculations();
             if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(deal);
@@ -7791,7 +7795,6 @@
                 syncSource: 'yakima_arcgis',
                 status: 'active'
               };
-              if (typeof autoSaveDealToSupabase === 'function') autoSaveDealToSupabase(current);
               updateCountyDossierUI(current);
               if (typeof updateHeaderApnBadge === 'function') updateHeaderApnBadge(propApn);
             }
@@ -7935,9 +7938,6 @@
               deal.inputs.sqft = pkg.totalSqFt ?? pkg.sqft;
             }
 
-            if (typeof autoSaveDealToSupabase === 'function') {
-              autoSaveDealToSupabase(deal);
-            }
             renderProjectMultiParcelUI(deal);
           }
         } catch (err) {
@@ -8385,11 +8385,39 @@
     }
     window.saveInvestorProfileForm = saveInvestorProfileForm;
 
+    // Active entity query loader with demo isolation and zero cache reliance
+    async function getActiveProjectEntities() {
+      const isDemo = (typeof isDemoActive === 'function' && isDemoActive()) ||
+                     new URLSearchParams(window.location.search).get('demo') === 'true' ||
+                     (window._currentUser && window._currentUser.demo) ||
+                     window._isDemoUser;
+
+      if (window._projectEntities && window._projectEntities.length > 0) {
+        return window._projectEntities;
+      }
+
+      let client = window._supabase || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+      if (client) {
+        try {
+          const { data, error } = await client.rpc('rpc_get_user_entities', { p_is_demo: Boolean(isDemo) });
+          if (!error && Array.isArray(data)) {
+            window._projectEntities = data;
+            return data;
+          }
+        } catch (e) {
+          console.warn('[Project] Failed to query active entities from Supabase RPC:', e);
+        }
+      }
+      return [];
+    }
+    window.getActiveProjectEntities = getActiveProjectEntities;
+
     // Single-attach event listener guard for entity changes in project.html
     if (!window._hasEntityChangedListener) {
       window._hasEntityChangedListener = true;
       let debounceTimer = null;
       const onEntityChanged = () => {
+        window._projectEntities = null;
         const modal = document.getElementById('modal-manage-entities');
         if (modal && !modal.classList.contains('hidden') && modal.style.display !== 'none') {
           if (debounceTimer) clearTimeout(debounceTimer);
@@ -8402,18 +8430,15 @@
         }
         const editEntitySelect = document.getElementById('edit-deal-entity');
         if (editEntitySelect) {
-          let entities = [];
-          try {
-            const raw = localStorage.getItem('mathtree_entities_cache');
-            if (raw) entities = JSON.parse(raw);
-          } catch(e) {}
-          const curVal = editEntitySelect.value;
-          let entHtml = '<option value="">No Entity (Unassigned)</option>';
-          (entities || []).forEach(ent => {
-            if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          getActiveProjectEntities().then(entities => {
+            const curVal = editEntitySelect.value;
+            let entHtml = '<option value="">No Entity (Unassigned)</option>';
+            (entities || []).forEach(ent => {
+              if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+            });
+            editEntitySelect.innerHTML = entHtml;
+            if (curVal) editEntitySelect.value = curVal;
           });
-          editEntitySelect.innerHTML = entHtml;
-          if (curVal) editEntitySelect.value = curVal;
         }
       };
       window.addEventListener('mathtree:entity-changed', onEntityChanged);
@@ -8505,6 +8530,8 @@
               cash_on_cash: deal.cash_on_cash,
               year1_cashflow: deal.year1_cashflow,
               total_equity: deal.total_equity,
+              npv: deal.npv ?? deal.metrics?.npv ?? 0,
+              metrics_computed_at: new Date().toISOString(),
               inputs: deal.inputs,
               metrics: deal.metrics,
               updated_at: new Date().toISOString()
@@ -8578,24 +8605,26 @@
             }
           }
 
-          // Edge Function sync
+          // Edge Function sync for institutional pro-forma and metric calculations
           const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
-          fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              dealId: deal.id,
-              title: deal.name,
-              assetType: deal.asset_class || deal.asset_type,
-              status: deal.status || 'prospect',
-              location: deal.location,
-              inputs: deal.inputs,
-              leases: deal.inputs?.leases || []
-            })
-          }).then(async (edgeRes) => {
+          try {
+            const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                dealId: deal.id,
+                title: deal.name,
+                assetType: deal.asset_class || deal.asset_type,
+                status: deal.status || 'prospect',
+                location: deal.location,
+                inputs: deal.inputs,
+                leases: deal.inputs?.leases || []
+              })
+            });
+
             if (edgeRes.ok) {
               const edgeData = await edgeRes.json();
               if (edgeData?.deal) {
@@ -8603,10 +8632,17 @@
                 deal.equity_multiple = edgeData.deal.equity_multiple ?? deal.equity_multiple;
                 deal.cash_on_cash = edgeData.deal.cash_on_cash ?? deal.cash_on_cash;
                 deal.year1_cashflow = edgeData.deal.year1_cashflow ?? deal.year1_cashflow;
+                deal.total_equity = edgeData.deal.total_equity ?? deal.total_equity;
+                deal.npv = edgeData.deal.npv ?? deal.npv;
+                deal.metrics_computed_at = edgeData.deal.metrics_computed_at ?? deal.metrics_computed_at ?? new Date().toISOString();
                 if (edgeData.deal.metrics) deal.metrics = edgeData.deal.metrics;
+                if (typeof updateCalculations === 'function') updateCalculations();
+                if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(deal);
               }
             }
-          }).catch(err => console.warn('Edge auto-save warning:', err));
+          } catch(edgeErr) {
+            console.warn('Edge auto-save warning:', edgeErr);
+          }
         } catch(err) {
           console.warn('Auto-save error:', err);
         }
@@ -8617,28 +8653,13 @@
     function saveCurrentDealChanges(showAlert = false) {
       if (!currentLoadedDeal) return;
       const formInputs = typeof getInputsFromForm === 'function' ? getInputsFromForm() : {};
-      const res = window.PropertyMath.calculateProjections(activeTab, formInputs);
-      const p1 = (res.projections && res.projections[0]) || {};
 
       currentLoadedDeal.inputs = {
         ...(currentLoadedDeal.inputs || {}),
         ...formInputs
       };
       currentLoadedDeal.asset_class = activeTab;
-      currentLoadedDeal.purchase_price = res.purchasePrice;
-      currentLoadedDeal.irr = res.irr;
-      currentLoadedDeal.equity_multiple = res.equityMultiplier;
-      currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
-      currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
-      currentLoadedDeal.total_equity = res.initialCashInvested;
-      currentLoadedDeal.metrics = {
-        irr: res.irr,
-        equityMultiplier: res.equityMultiplier,
-        year1CoC: currentLoadedDeal.cash_on_cash,
-        year1CashFlow: currentLoadedDeal.year1_cashflow,
-        initialCashInvested: res.initialCashInvested
-      };
-      currentLoadedDeal.results = res;
+      currentLoadedDeal.purchase_price = Number(formInputs.purchasePrice) || currentLoadedDeal.purchase_price || 0;
 
       autoSaveDealToSupabase(currentLoadedDeal);
       if (typeof updateCountyDossierUI === 'function') {
@@ -8899,13 +8920,23 @@
       const inputs = getInputsFromForm();
       const res = window.PropertyMath.calculateProjections(activeTab, inputs);
 
+      const p1 = (res.projections && res.projections[0]) || {};
       const { error } = await supabaseClient.from('deals').insert({
         user_id: currentUser.id,
         title: title,
         asset_type: activeTab,
         scenario_tag: activeScenario,
+        entity_id: currentLoadedDeal?.entity_id || null,
+        purchase_price: res.purchasePrice || inputs.purchasePrice || 0,
+        irr: res.irr || 0,
+        equity_multiple: res.equityMultiplier || 0,
+        cash_on_cash: p1.cashOnCash || 0,
+        year1_cashflow: p1.cashFlow ?? p1.netCashFlow ?? 0,
+        total_equity: res.initialCashInvested || 0,
+        npv: res.npv || 0,
+        metrics_computed_at: new Date().toISOString(),
         inputs: inputs,
-        metrics: { irr: res.irr, purchasePrice: res.purchasePrice, initialCash: res.initialCashInvested }
+        metrics: res
       });
 
       if (error) {
@@ -9659,29 +9690,53 @@
       if (loanEl) loanEl.textContent = formatCurrency(loan);
       if (equityEl) equityEl.textContent = formatCurrency(equity);
 
-      if (cfEl && window.PropertyMath) {
-        try {
-          const aClass = document.getElementById('edit-deal-asset-class')?.value || (currentLoadedDeal && (currentLoadedDeal.asset_class || currentLoadedDeal.assetType)) || 'commercial';
-          const tempInputs = getEditModalInputs();
-          delete tempInputs.loanAmount;
-          delete tempInputs.initialEquity;
-          delete tempInputs.downPaymentAmount;
-          if (tempInputs.grossRentAnnual === 0 || tempInputs.monthlyRent === 0) {
-            tempInputs.leases = [];
-          }
-          const res = window.PropertyMath.calculateProjections(aClass, tempInputs);
-          if (res && res.projections && res.projections[0]) {
-            const cf = res.projections[0].cashFlow ?? res.projections[0].netCashFlow ?? 0;
-            cfEl.textContent = `${formatCurrency(cf)}/yr`;
-            cfEl.className = cf >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
-            const npvEl = document.getElementById('edit-preview-npv');
-            if (npvEl) {
-              const npv = res.npv ?? 0;
-              npvEl.textContent = formatCurrency(npv);
-              npvEl.className = npv >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+      if (cfEl) {
+        if (window._editModalPreviewDebounce) clearTimeout(window._editModalPreviewDebounce);
+        window._editModalPreviewDebounce = setTimeout(async () => {
+          try {
+            const aClass = document.getElementById('edit-deal-asset-class')?.value || (currentLoadedDeal && (currentLoadedDeal.asset_class || currentLoadedDeal.assetType)) || 'commercial';
+            const tempInputs = getEditModalInputs();
+            delete tempInputs.loanAmount;
+            delete tempInputs.initialEquity;
+            delete tempInputs.downPaymentAmount;
+            if (tempInputs.grossRentAnnual === 0 || tempInputs.monthlyRent === 0) {
+              tempInputs.leases = [];
             }
+
+            const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+            const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/calculate-deal-projections', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'apikey': window.SUPABASE_ANON_KEY
+              },
+              body: JSON.stringify({
+                dealId: currentLoadedDeal?.id,
+                assetClass: aClass,
+                inputs: tempInputs
+              })
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.projections && data.projections[0]) {
+                const p0 = data.projections[0];
+                const cf = p0.cashFlow ?? p0.netCashFlow ?? 0;
+                cfEl.textContent = `${formatCurrency(cf)}/yr`;
+                cfEl.className = cf >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
+                const npvEl = document.getElementById('edit-preview-npv');
+                if (npvEl) {
+                  const npv = data.metrics?.npv ?? data.npv ?? 0;
+                  npvEl.textContent = formatCurrency(npv);
+                  npvEl.className = npv >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+                }
+              }
+            }
+          } catch(err) {
+            console.warn('[EditModal] Server-side projection preview notice:', err);
           }
-        } catch(e) {}
+        }, 150);
       }
     }
 
@@ -9738,17 +9793,14 @@
 
       const entitySelect = document.getElementById('edit-deal-entity');
       if (entitySelect) {
-        let entities = [];
-        try {
-          const raw = localStorage.getItem('mathtree_entities_cache');
-          if (raw) entities = JSON.parse(raw);
-        } catch(e) {}
-        let entHtml = '<option value="">No Entity (Unassigned)</option>';
-        (entities || []).forEach(ent => {
-          if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+        getActiveProjectEntities().then(entities => {
+          let entHtml = '<option value="">No Entity (Unassigned)</option>';
+          (entities || []).forEach(ent => {
+            if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+          });
+          entitySelect.innerHTML = entHtml;
+          entitySelect.value = currentLoadedDeal.entity_id || inputs.entity_id || '';
         });
-        entitySelect.innerHTML = entHtml;
-        entitySelect.value = currentLoadedDeal.entity_id || inputs.entity_id || '';
       }
 
       const price = currentLoadedDeal.purchase_price || inputs.purchasePrice || 0;
@@ -9936,28 +9988,8 @@
       currentLoadedDeal.inputs.leaseStartDate = leaseStart;
       currentLoadedDeal.inputs.leaseEndDate = leaseEnd;
 
-      // Recalculate metrics via PropertyMath
-      const res = window.PropertyMath ? window.PropertyMath.calculateProjections(aClass, currentLoadedDeal.inputs) : { purchasePrice: 0, irr: 0, equityMultiplier: 1, initialCashInvested: 0, projections: [{}] };
-      const p1 = (res.projections && res.projections[0]) || {};
-      currentLoadedDeal.purchase_price = res.purchasePrice;
-      currentLoadedDeal.irr = res.irr;
-      currentLoadedDeal.equity_multiple = res.equityMultiplier;
-      currentLoadedDeal.cash_on_cash = p1.cashOnCash || 0;
-      currentLoadedDeal.year1_cashflow = p1.cashFlow ?? p1.netCashFlow ?? 0;
-      currentLoadedDeal.total_equity = res.initialCashInvested;
-      currentLoadedDeal.inputs.loanAmount = res.loanAmount;
-      currentLoadedDeal.inputs.downPaymentAmount = res.downPaymentAmount;
-      currentLoadedDeal.inputs.initialEquity = res.initialEquity;
-      currentLoadedDeal.inputs.initialCashInvested = res.initialCashInvested;
-      currentLoadedDeal.metrics = {
-        irr: res.irr,
-        equityMultiplier: res.equityMultiplier,
-        year1CoC: p1.cashOnCash || 0,
-        year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
-        initialCashInvested: res.initialCashInvested,
-        loanAmount: res.loanAmount,
-        npv: res.npv
-      };
+      // Ensure baseline purchase price is synced; authoritative financial projections are computed on the backend
+      currentLoadedDeal.purchase_price = parsedInputs.purchasePrice || currentLoadedDeal.purchase_price || 0;
 
       // Update UI title and badges
       const titleEl = document.getElementById('deal-title-display');
@@ -9985,7 +10017,7 @@
       try {
         if (typeof updateDealStatusUI === 'function') updateDealStatusUI(currentLoadedDeal.status);
         if (typeof updateFormFields === 'function') updateFormFields(currentLoadedDeal.inputs);
-        if (typeof autoSaveDealToSupabase === 'function') autoSaveDealToSupabase(currentLoadedDeal);
+        if (typeof autoSaveDealToSupabase === 'function') await autoSaveDealToSupabase(currentLoadedDeal);
         if (typeof updateCalculations === 'function') updateCalculations();
         if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(currentLoadedDeal);
         if (typeof updateHeaderApnBadge === 'function') updateHeaderApnBadge(currentLoadedDeal.inputs.primaryApn || currentLoadedDeal.inputs.apn);
@@ -10128,13 +10160,18 @@
         irr: d.irr ?? m.irr ?? 0,
         equity_multiple: d.equity_multiple ?? m.equityMultiplier ?? 2.0,
         cash_on_cash: d.cash_on_cash ?? m.year1CoC ?? m.cashOnCash ?? 0,
+        cap_rate: d.metrics?.capRate ?? d.metrics?.cap_rate ?? 0,
         year1_cashflow: d.year1_cashflow ?? m.year1CashFlow ?? m.netCashFlow ?? m.cashFlow ?? 0,
         total_equity: d.total_equity ?? m.initialCashInvested ?? (inputs.purchasePrice ? inputs.purchasePrice * 0.25 : 0),
+        npv: d.npv ?? m.npv ?? 0,
+        metrics_computed_at: d.metrics_computed_at ?? m.metrics_computed_at ?? null,
         inputs: inputs,
-        metrics: m
+        metrics: m,
+        deck: d.deck || { title: d.title || d.name, highlights: [] }
       };
       return deal;
     }
+    window.mapSupabaseDeal = mapSupabaseDeal;
     function toggleFourLeafVarianceDetails() {
       const details = document.getElementById('fourleaf-variance-details');
       const btn = document.getElementById('fourleaf-variance-toggle-btn');
@@ -10651,17 +10688,12 @@
       const user = window._currentUser;
       if (window._supabase && user && !user.demo && !currentLoadedDeal.id.startsWith('proj-') && !currentLoadedDeal.id.startsWith('demo-')) {
         try {
-          await window._supabase.from('deals').update({
-            status: next,
-            inputs: currentLoadedDeal.inputs,
-            updated_at: new Date().toISOString()
-          }).eq('id', currentLoadedDeal.id).eq('user_id', user.id);
           if (next === 'owned') {
             await window._supabase.rpc('rpc_capture_deal_baseline', { p_deal_id: currentLoadedDeal.id });
             if (window.MathTreeClient) window.MathTreeClient.getNotifications();
           }
         } catch(e) {
-          console.warn('Error updating status in Supabase:', e);
+          console.warn('Error capturing deal baseline in Supabase:', e);
         }
       }
 

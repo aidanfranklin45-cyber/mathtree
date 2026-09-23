@@ -15,6 +15,7 @@
   <script src="session.js"></script>
   <script src="mathtree-client.js"></script>
   <script src="profile.js"></script>
+  <script src="modal-manage-entities.js"></script>
   <script src="math.js?v=5"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1225,7 +1226,7 @@
           const dealQuery = client.from('deals').select('*').eq('user_id', user.id).order('title', { ascending: true });
           const leaseQuery = client.from('leases').select('*').eq('user_id', user.id).order('is_active', { ascending: false });
           const unitQuery = client.from('units').select('*').eq('user_id', user.id).order('unit_number', { ascending: true });
-          const entityQuery = client.from('entities').select('*').eq('user_id', user.id).order('name', { ascending: true });
+          const entityQuery = client.rpc('rpc_get_user_entities', { p_is_demo: false });
           const paymentQuery = client.from('rent_payments').select('*').eq('user_id', user.id).order('period_month', { ascending: false });
           const increaseQuery = client.from('rent_increases').select('*').eq('user_id', user.id).order('effective_date', { ascending: false });
 
@@ -1246,6 +1247,9 @@
       } else if (isDemo) {
         if (client) {
           try {
+            const { data: demoEntities } = await client.rpc('rpc_get_user_entities', { p_is_demo: true });
+            if (demoEntities && demoEntities.length > 0) rawEntities = demoEntities;
+
             const { data: demoDeals } = await client.from('deals').select('*').eq('is_demo', true).order('title', { ascending: true });
             if (demoDeals && demoDeals.length > 0) {
               rawDeals = demoDeals;
@@ -1264,19 +1268,6 @@
           }
         }
       }
-
-      // Benchmark Fallback: Guarantee 100% consistent, cross-referenced mock suite for demo sandbox
-      if (isDemo && !rawEntities.length) {
-        rawEntities = [
-          {
-            id: 'b1a42178-a979-4234-b018-eabaf8b7c481',
-            name: 'Summit Crest Holdings LLC',
-            formation_state: 'WA',
-            ein: '84-1928374',
-            depository_bank: 'Chase Commercial (*4892)',
-            bank_name: 'Chase Commercial (*4892)'
-          }
-        ];
       }
 
       if (isDemo && !rawDeals.length) {
@@ -1687,6 +1678,8 @@
             cash_on_cash: deal.cash_on_cash,
             year1_cashflow: deal.year1_cashflow,
             total_equity: deal.total_equity,
+            npv: deal.npv ?? deal.metrics?.npv ?? 0,
+            metrics_computed_at: new Date().toISOString(),
             inputs: deal.inputs,
             updated_at: new Date().toISOString()
           };
@@ -3699,70 +3692,38 @@
     }
 
     async function handleCreateEntity(e) {
-      e.preventDefault();
-      const name = document.getElementById('new-entity-name').value.trim();
-      const state = document.getElementById('new-entity-state').value.trim();
-      const ein = document.getElementById('new-entity-ein').value.trim();
-      const bank = document.getElementById('new-entity-bank').value.trim();
+      if (e && e.preventDefault) e.preventDefault();
+      const name = document.getElementById('new-entity-name')?.value?.trim();
+      const state = document.getElementById('new-entity-state')?.value?.trim();
+      const ein = document.getElementById('new-entity-ein')?.value?.trim();
+      const bank = document.getElementById('new-entity-bank')?.value?.trim();
 
-      const user = window._currentUser;
-      if (!window._supabase) {
-        const newEnt = {
-          id: 'ent-demo-' + Date.now(),
-          name: name,
-          formation_state: state || 'WA',
-          ein: ein || '99-0000000',
-          bank_name: bank || 'Chase Commercial (*4892)',
-          depository_bank: bank || 'Chase Commercial (*4892)'
-        };
-        rawEntities.push(newEnt);
-        document.getElementById('form-create-entity').reset();
-        populateFilterDropdowns();
-        renderOperationsUI();
+      if (!name) return;
+
+      if (window._supabase) {
         try {
-          if (typeof BroadcastChannel !== 'undefined') {
-            const bc = new BroadcastChannel('mathtree_store_channel');
-            bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: newEnt.id, llc: newEnt.name });
-            bc.close();
-          }
-        } catch(e) {}
-        window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: newEnt.id, llc: newEnt.name } }));
-        window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: newEnt.id, llc: newEnt.name } }));
-        openEntityManagementModal();
-        return;
-      }
+          const { data, error } = await window._supabase.rpc('rpc_create_or_update_entity', {
+            p_name: name,
+            p_entity_type: 'llc',
+            p_formation_state: state || null,
+            p_bank_name: bank || null,
+            p_ein: ein || null,
+            p_notes: null,
+            p_id: null
+          });
 
-      if (!user) return;
+          if (error) throw error;
 
-      try {
-        const { data, error } = await window._supabase
-          .from('entities')
-          .insert({
-            user_id: user.id,
-            name: name,
-            formation_state: state || null,
-            ein: ein || null,
-            bank_name: bank || null
-          })
-          .select();
+          const form = document.getElementById('form-create-entity');
+          if (form) form.reset();
+          await fetchAllOperationsData();
 
-        if (error) throw error;
-
-        document.getElementById('form-create-entity').reset();
-        await fetchAllOperationsData();
-        const createdId = data && data[0] ? data[0].id : null;
-        try {
-          if (typeof BroadcastChannel !== 'undefined') {
-            const bc = new BroadcastChannel('mathtree_store_channel');
-            bc.postMessage({ type: 'ENTITY_CHANGED', event: 'mathtree:entity-changedd', entityId: createdId, llc: name });
-            bc.close();
-          }
-        } catch(e) {}
-        window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: createdId, llc: name } }));
-        window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: createdId, llc: name } }));
-        openEntityManagementModal();
-      } catch (err) {
-        alert('Error creating entity: ' + err.message);
+          const createdId = data?.id || null;
+          broadcastEntityChange(createdId, name);
+          openEntityManagementModal();
+        } catch (err) {
+          alert('Error creating entity via database RPC: ' + (err.message || err));
+        }
       }
     }
 

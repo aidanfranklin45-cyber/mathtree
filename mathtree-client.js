@@ -493,10 +493,15 @@
         }
       } else if (actionType === 'open_entity_modal') {
         this.closeNotificationHub();
+        const targetDealId = payload.deal_id || '';
+        const targetDealTitle = payload.deal_title || '';
+        const returnTo = window.location.href;
         if (typeof openEntityManagementModal === 'function') {
-          openEntityManagementModal();
+          openEntityManagementModal(null, { dealId: targetDealId, dealTitle: targetDealTitle, returnTo: returnTo });
+        } else if (typeof mountManageEntitiesModal === 'function') {
+          mountManageEntitiesModal(null, { dealId: targetDealId, dealTitle: targetDealTitle, returnTo: returnTo });
         } else {
-          window.location.href = 'operations.html?action=manage-entities';
+          window.location.href = 'operations.html?action=manage-entities&deal_id=' + encodeURIComponent(targetDealId) + '&deal_title=' + encodeURIComponent(targetDealTitle) + '&return_to=' + encodeURIComponent(returnTo);
         }
       }
     },

@@ -1620,7 +1620,7 @@
           <div class="space-y-1">
             <div class="flex items-center justify-between">
               <label for="edit-deal-entity" class="text-[11px] font-bold text-slate-400">Ownership Entity</label>
-              <button type="button" onclick="openEntityManagementModal(event)" class="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition">+ Manage</button>
+              <button type="button" onclick="openEntityManagementModal(event, { dealId: document.getElementById('edit-deal-id')?.value, dealTitle: document.getElementById('edit-deal-name')?.value })" class="text-[9px] font-bold text-emerald-400 hover:text-emerald-300 transition">+ Manage</button>
             </div>
             <select id="edit-deal-entity"
               class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-semibold focus:outline-none focus:border-brand-500">
@@ -2157,23 +2157,9 @@
         cash_on_cash: d.cash_on_cash ?? m.year1CoC ?? m.cashOnCash ?? 0,
         year1_cashflow: d.year1_cashflow ?? m.year1CashFlow ?? m.netCashFlow ?? m.cashFlow ?? 0,
         total_equity: d.total_equity ?? m.initialCashInvested ?? (inputs.purchasePrice ? inputs.purchasePrice * 0.25 : 0),
-        npv: (function () {
-          if (typeof m.npv === 'number' && !window.PropertyMath) return m.npv;
-          if (window.PropertyMath && typeof window.PropertyMath.calculateProjections === 'function') {
-            try {
-              const prof = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : null;
-              const hRate = (window.MathTreeProfile && typeof window.MathTreeProfile.resolveHurdleRate === 'function')
-                ? window.MathTreeProfile.resolveHurdleRate(inputs.discountRate, prof)
-                : (prof?.discountRate || 8.0);
-              const runRes = window.PropertyMath.calculateProjections(assetClass, Object.assign({}, inputs, {
-                purchasePrice: d.purchase_price ?? inputs.purchasePrice ?? 0,
-                discountRate: hRate
-              }));
-              if (runRes && typeof runRes.npv === 'number') return runRes.npv;
-            } catch (e) { }
-          }
-          return m.npv ?? 0;
-        })(),
+        npv: d.npv ?? m.npv ?? 0,
+        metrics_computed_at: d.metrics_computed_at ?? m.metrics_computed_at ?? null,
+        metrics: m,
         inputs: inputs,
         deck: d.deck || { title: d.title || d.name, highlights: [] }
       };
@@ -2197,6 +2183,8 @@
     function exitDemoMode() {
       localStorage.removeItem('mathtree_demo_mode');
       localStorage.removeItem('mathtree_demo_deals');
+      localStorage.removeItem('mathtree_entities_cache');
+      localStorage.removeItem('mathtree_selected_entity_id');
       window.location.href = 'index.html';
     }
     window.exitDemoMode = exitDemoMode;
@@ -2474,30 +2462,16 @@
       const wizEntitySelect = document.getElementById('wiz-entity-select');
       if (!dashEntitySelect && !wizEntitySelect) return;
 
-      let entities = window._dashboardEntities || [];
-      if ((!entities || entities.length === 0) && window._supabase && window._currentUser && !window._currentUser.demo) {
+      let entities = [];
+      const isDemo = isDemoActive();
+      if (window._dashboardEntities && window._dashboardEntities.length > 0) {
+        entities = window._dashboardEntities;
+      } else if (window._supabase) {
         try {
-          const { data } = await window._supabase
-            .from('entities')
-            .select('*')
-            .eq('user_id', window._currentUser.id)
-            .order('name', { ascending: true });
-          if (data && data.length > 0) {
+          const { data, error } = await window._supabase.rpc('rpc_get_user_entities', { p_is_demo: Boolean(isDemo) });
+          if (!error && data && data.length > 0) {
             entities = data;
             window._dashboardEntities = data;
-          }
-        } catch(e) {}
-      }
-
-      if (!entities || entities.length === 0) {
-        try {
-          const raw = localStorage.getItem('mathtree_entities_cache');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              entities = parsed;
-              window._dashboardEntities = parsed;
-            }
           }
         } catch(e) {}
       }
@@ -3235,45 +3209,74 @@
       if (loanEl) loanEl.textContent = formatCurrency(loan);
       if (equityEl) equityEl.textContent = formatCurrency(equity);
 
-      if (window.PropertyMath) {
-        try {
-          const aClass = document.getElementById('edit-deal-asset-class')?.value || 'commercial';
-          const dealId = document.getElementById('edit-deal-id')?.value;
-          const currentDeal = (typeof activeDashboardProjects !== 'undefined' ? activeDashboardProjects.find(p => String(p.id) === String(dealId)) : null) || (typeof getDashboardDealById === 'function' ? getDashboardDealById(dealId) : null);
-          const baseInputs = currentDeal?.inputs || {};
-          const tempInputs = { ...baseInputs, ...getEditModalInputs() };
-          delete tempInputs.loanAmount;
-          delete tempInputs.initialEquity;
-          delete tempInputs.downPaymentAmount;
+      if (cfEl) {
+        if (window._editModalPreviewDebounce) clearTimeout(window._editModalPreviewDebounce);
+        window._editModalPreviewDebounce = setTimeout(async () => {
+          try {
+            const aClass = document.getElementById('edit-deal-asset-class')?.value || 'commercial';
+            const dealId = document.getElementById('edit-deal-id')?.value;
+            const currentDeal = (typeof activeDashboardProjects !== 'undefined' ? activeDashboardProjects.find(p => String(p.id) === String(dealId)) : null) || (typeof getDashboardDealById === 'function' ? getDashboardDealById(dealId) : null);
+            const baseInputs = currentDeal?.inputs || {};
+            const tempInputs = { ...baseInputs, ...getEditModalInputs() };
+            delete tempInputs.loanAmount;
+            delete tempInputs.initialEquity;
+            delete tempInputs.downPaymentAmount;
 
-          const res = window.PropertyMath.calculateProjections(aClass, tempInputs);
-          if (res) {
-            const p1 = (res.projections && res.projections[0]) || {};
-            const cf = p1.cashFlow ?? p1.netCashFlow ?? 0;
-            const coc = p1.cashOnCash ?? 0;
-            const irr = res.irr ?? 0;
-            const npv = res.npv ?? 0;
+            let res = null;
+            try {
+              const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+              const edgeFetch = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/calculate-deal-projections', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                  'apikey': window.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                  dealId: dealId,
+                  assetClass: aClass,
+                  inputs: tempInputs
+                })
+              });
+              if (edgeFetch.ok) {
+                res = await edgeFetch.json();
+              }
+            } catch (edgeErr) {
+              console.warn('Edge projection calculation warning, using fallback:', edgeErr);
+            }
 
-            if (irrEl) {
-              irrEl.textContent = res.irrDisplay || `${irr.toFixed(2)}%`;
-              irrEl.className = irr >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+            if (!res && window.PropertyMath) {
+              res = window.PropertyMath.calculateProjections(aClass, tempInputs);
             }
-            if (cocEl) {
-              cocEl.textContent = res.cashOnCashDisplay || `${coc.toFixed(2)}%`;
-              cocEl.className = coc >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
+
+            if (res) {
+              const p1 = (res.projections && res.projections[0]) || {};
+              const cf = p1.cashFlow ?? p1.netCashFlow ?? 0;
+              const coc = p1.cashOnCash ?? 0;
+              const irr = res.irr ?? 0;
+              const npv = res.metrics?.npv ?? res.npv ?? 0;
+
+              if (irrEl) {
+                irrEl.textContent = res.irrDisplay || `${irr.toFixed(2)}%`;
+                irrEl.className = irr >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+              }
+              if (cocEl) {
+                cocEl.textContent = res.cashOnCashDisplay || `${coc.toFixed(2)}%`;
+                cocEl.className = coc >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
+              }
+              if (cfEl) {
+                cfEl.textContent = `${formatCurrency(cf)}/yr`;
+                cfEl.className = cf >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
+              }
+              if (npvEl) {
+                npvEl.textContent = formatCurrency(npv);
+                npvEl.className = npv >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+              }
             }
-            if (cfEl) {
-              cfEl.textContent = `${formatCurrency(cf)}/yr`;
-              cfEl.className = cf >= 0 ? 'text-accent-cyan font-bold' : 'text-rose-400 font-bold';
-            }
-            if (npvEl) {
-              npvEl.textContent = formatCurrency(npv);
-              npvEl.className = npv >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-            }
+          } catch (e) {
+            console.warn('Live preview calculation warning:', e);
           }
-        } catch (e) {
-          console.warn('Live preview calculation warning:', e);
-        }
+        }, 150);
       }
     }
 
@@ -3315,7 +3318,6 @@
     window.setDashboardAssetFilter = setDashboardAssetFilter;
     window.openInvestorProfileModal = openInvestorProfileModal;
     window.closeInvestorProfileModal = closeInvestorProfileModal;
-    window.openEntityManagementModal = openEntityManagementModal;
     window.openTypedDeleteModal = openTypedDeleteModal;
     window.executeTypedDelete = executeTypedDelete;
     window.closeTypedDeleteModal = closeTypedDeleteModal;
@@ -3378,11 +3380,18 @@
         const entitySelect = document.getElementById('edit-deal-entity');
         if (entitySelect) {
           let entities = window._dashboardEntities || [];
-          if (!entities.length) {
-            try {
-              const raw = localStorage.getItem('mathtree_entities_cache');
-              if (raw) entities = JSON.parse(raw);
-            } catch (e) { }
+          if (!entities.length && window._supabase) {
+            window._supabase.rpc('rpc_get_user_entities', { p_is_demo: isDemoActive() }).then(({ data }) => {
+              if (data && data.length) {
+                window._dashboardEntities = data;
+                let entHtml = '<option value="">No Entity (Unassigned)</option>';
+                data.forEach(ent => {
+                  if (ent && ent.id) entHtml += `<option value="${ent.id}">${ent.name || 'Unnamed Entity'}</option>`;
+                });
+                entitySelect.innerHTML = entHtml;
+                entitySelect.value = deal.entity_id || inputs.entity_id || '';
+              }
+            });
           }
           let entHtml = '<option value="">No Entity (Unassigned)</option>';
           (entities || []).forEach(ent => {
@@ -3676,6 +3685,8 @@
             cash_on_cash: isFinite(deal.cash_on_cash) ? Number(deal.cash_on_cash) : 0,
             year1_cashflow: isFinite(deal.year1_cashflow) ? Number(deal.year1_cashflow) : 0,
             total_equity: isFinite(deal.total_equity) ? Number(deal.total_equity) : 0,
+            npv: isFinite(deal.npv) ? Number(deal.npv) : (deal.metrics?.npv ? Number(deal.metrics.npv) : 0),
+            metrics_computed_at: new Date().toISOString(),
             inputs: deal.inputs,
             metrics: deal.metrics,
             updated_at: new Date().toISOString()
@@ -3758,6 +3769,8 @@
             deal.year1_cashflow = edgeData.metrics.year1Cashflow ?? deal.year1_cashflow;
             deal.total_equity = edgeData.metrics.initialCashInvested ?? deal.total_equity;
             deal.purchase_price = edgeData.metrics.purchasePrice ?? deal.purchase_price;
+            deal.npv = edgeData.metrics.npv ?? deal.npv;
+            deal.metrics_computed_at = new Date().toISOString();
             deal.metrics = edgeData.metrics;
             if (edgeData.metrics.loanAmount !== undefined) deal.inputs.loanAmount = edgeData.metrics.loanAmount;
             saveActiveDealsToStorage();
@@ -4519,14 +4532,10 @@
             cash_on_cash: p1.cashOnCash || 0,
             year1_cashflow: p1.cashFlow ?? p1.netCashFlow ?? 0,
             total_equity: res.initialCashInvested,
+            npv: res.npv || 0,
+            metrics_computed_at: new Date().toISOString(),
             inputs: inputs,
-            metrics: {
-              irr: res.irr,
-              equityMultiplier: res.equityMultiplier,
-              year1CoC: p1.cashOnCash || 0,
-              year1CashFlow: p1.cashFlow ?? p1.netCashFlow ?? 0,
-              initialCashInvested: res.initialCashInvested
-            }
+            metrics: res
           }).select().single();
 
           if (!error && data) {
@@ -4553,6 +4562,9 @@
         cash_on_cash: p1.cashOnCash || 0,
         year1_cashflow: p1.cashFlow ?? p1.netCashFlow ?? 0,
         total_equity: res.initialCashInvested,
+        npv: res.npv || 0,
+        metrics_computed_at: new Date().toISOString(),
+        metrics: res,
         inputs: inputs
       };
 
@@ -5022,11 +5034,6 @@
       }
     }
     window.closeInvestorProfileModal = closeInvestorProfileModal;
-
-    function openEntityManagementModal() {
-      window.location.href = getOperationsUrl('action=manage-entities');
-    }
-    window.openEntityManagementModal = openEntityManagementModal;
 
     function setProfileDiscountRate(rate) {
       const el = document.getElementById('prof-discount-rate');
