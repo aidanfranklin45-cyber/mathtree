@@ -437,3 +437,48 @@ export function calculateSensitivityMatrix(
 
   return { vacancySteps, capRateSteps, irrGrid };
 }
+
+// ---------------------------------------------------------------------------
+// Deal Risk Audit: programmatic underwriting checks
+// ---------------------------------------------------------------------------
+export interface DealRiskItem {
+  level: 'low' | 'medium' | 'high';
+  category: string;
+  message: string;
+}
+
+export function auditDealRisks(
+  assetType: string,
+  inputs: DealInputs,
+  metrics: DealMetrics,
+): DealRiskItem[] {
+  const risks: DealRiskItem[] = [];
+  const y1 = metrics.projections[0];
+
+  if (typeof y1?.dscr === 'number' && y1.dscr < 1.2) {
+    risks.push({
+      level: 'high',
+      category: 'Debt Coverage',
+      message: `Initial DSCR of ${y1.dscr.toFixed(2)}x is below the institutional threshold (1.20x).`,
+    });
+  }
+
+  if (metrics.ltv > 75) {
+    risks.push({
+      level: 'medium',
+      category: 'Leverage',
+      message: `LTV of ${metrics.ltv.toFixed(1)}% exceeds standard 75% commercial leverage benchmark.`,
+    });
+  }
+
+  if (y1?.breakEvenOccupancyPct && y1.breakEvenOccupancyPct > 85) {
+    risks.push({
+      level: 'high',
+      category: 'Occupancy',
+      message: `Break-even occupancy (${y1.breakEvenOccupancyPct.toFixed(1)}%) requires high in-place tenancy.`,
+    });
+  }
+
+  return risks;
+}
+
