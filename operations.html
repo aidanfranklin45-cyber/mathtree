@@ -758,7 +758,63 @@
           <p id="msg-notification-email" class="text-[10px] text-emerald-400 hidden">✓ Notification email updated successfully.</p>
         </div>
 
-        <!-- 3. Test Rent Reminder Delivery -->
+        <!-- 3. Rent Alert Timing & Schedule Preferences -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-300">Timing & Schedule Preferences</span>
+            <span class="text-[10px] text-cyan-400 font-mono bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40">Cron Schedule</span>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Configure how far in advance you receive rent alerts and when follow-up reminders dispatch. Synchronized to your universal user profile.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <!-- Advance Notice Dropdown -->
+            <div class="space-y-1">
+              <label class="block text-[11px] font-semibold text-slate-300">Rent Due Advance Notice</label>
+              <select id="setting-advance-notice" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-white font-mono text-xs focus:border-blue-500 focus:outline-none">
+                <option value="0">On Due Date (Default)</option>
+                <option value="1">1 Day in Advance</option>
+                <option value="2">2 Days in Advance</option>
+                <option value="3">3 Days in Advance</option>
+                <option value="5">5 Days in Advance</option>
+                <option value="7">7 Days in Advance (1 Week)</option>
+              </select>
+            </div>
+
+            <!-- Escalation Notice Dropdown -->
+            <div class="space-y-1">
+              <label class="block text-[11px] font-semibold text-slate-300">Rent Increase Warning</label>
+              <select id="setting-escalation-notice" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-white font-mono text-xs focus:border-blue-500 focus:outline-none">
+                <option value="30">30 Days in Advance (Recommended)</option>
+                <option value="14">14 Days in Advance</option>
+                <option value="7">7 Days in Advance</option>
+                <option value="0">Disabled</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Checkboxes for Due Date and Grace Period -->
+          <div class="space-y-2 pt-1 border-t border-slate-800/60">
+            <label class="flex items-center space-x-2 text-slate-300 cursor-pointer">
+              <input type="checkbox" id="setting-remind-on-due" checked class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span class="text-[11px]">Also send reminder on the due date (if advance notice is configured)</span>
+            </label>
+            <label class="flex items-center space-x-2 text-slate-300 cursor-pointer">
+              <input type="checkbox" id="setting-followup-grace" checked class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span class="text-[11px]">Send urgent alert when grace period expires on unpaid rent</span>
+            </label>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <button type="button" onclick="saveAlertTimingPreferences()" class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition flex items-center space-x-1.5 text-xs shadow-md shadow-cyan-900/30">
+              <span>Save Timing Preferences</span>
+            </button>
+            <span id="msg-timing-preferences" class="text-[10px] text-emerald-400 hidden">✓ Preferences saved!</span>
+          </div>
+        </div>
+
+        <!-- 4. Test Rent Reminder Delivery -->
         <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
           <div class="flex items-center justify-between">
             <span class="font-bold text-slate-300">Test Rent Reminder Delivery</span>
@@ -3111,13 +3167,19 @@
       const accountEmailEl = document.getElementById('setting-account-email');
       const notifEmailEl = document.getElementById('setting-notification-email');
       const testEmailEl = document.getElementById('test-email-destination');
+      const advanceEl = document.getElementById('setting-advance-notice');
+      const escalationEl = document.getElementById('setting-escalation-notice');
+      const remindOnDueEl = document.getElementById('setting-remind-on-due');
+      const followupGraceEl = document.getElementById('setting-followup-grace');
       const msgNotif = document.getElementById('msg-notification-email');
       const msgAccount = document.getElementById('msg-change-account-email');
       const msgTest = document.getElementById('msg-test-email');
+      const msgTiming = document.getElementById('msg-timing-preferences');
       const boxChange = document.getElementById('box-change-account-email');
 
       if (msgNotif) msgNotif.classList.add('hidden');
       if (msgAccount) msgAccount.textContent = '';
+      if (msgTiming) msgTiming.classList.add('hidden');
       if (msgTest) {
         msgTest.className = 'hidden';
         msgTest.innerHTML = '';
@@ -3134,14 +3196,32 @@
           try {
             const { data: prof } = await window._supabase
               .from('profiles')
-              .select('notification_email')
+              .select('notification_email, alert_preferences')
               .eq('id', user.id)
               .maybeSingle();
-            if (prof && prof.notification_email) {
-              notifEmailEl.value = prof.notification_email;
+
+            if (prof) {
+              if (prof.notification_email) {
+                notifEmailEl.value = prof.notification_email;
+              }
+              if (prof.alert_preferences && typeof prof.alert_preferences === 'object') {
+                const p = prof.alert_preferences;
+                if (advanceEl && typeof p.advance_notice_days !== 'undefined') {
+                  advanceEl.value = String(p.advance_notice_days);
+                }
+                if (escalationEl && typeof p.escalation_notice_days !== 'undefined') {
+                  escalationEl.value = String(p.escalation_notice_days);
+                }
+                if (remindOnDueEl && typeof p.remind_on_due !== 'undefined') {
+                  remindOnDueEl.checked = Boolean(p.remind_on_due);
+                }
+                if (followupGraceEl && typeof p.followup_grace_period !== 'undefined') {
+                  followupGraceEl.checked = Boolean(p.followup_grace_period);
+                }
+              }
             }
           } catch (err) {
-            console.warn('Could not load notification email:', err);
+            console.warn('Could not load profile notification settings:', err);
           }
         }
       }
@@ -3153,6 +3233,67 @@
       openModal('modal-alert-settings');
     }
     window.openAlertSettingsModal = openAlertSettingsModal;
+
+    async function saveAlertTimingPreferences() {
+      const user = window._currentUser;
+      const advanceEl = document.getElementById('setting-advance-notice');
+      const escalationEl = document.getElementById('setting-escalation-notice');
+      const remindOnDueEl = document.getElementById('setting-remind-on-due');
+      const followupGraceEl = document.getElementById('setting-followup-grace');
+      const msgEl = document.getElementById('msg-timing-preferences');
+
+      const alertPrefs = {
+        advance_notice_days: parseInt(advanceEl?.value || '0', 10),
+        escalation_notice_days: parseInt(escalationEl?.value || '30', 10),
+        remind_on_due: remindOnDueEl ? remindOnDueEl.checked : true,
+        followup_grace_period: followupGraceEl ? followupGraceEl.checked : true
+      };
+
+      if (!window._supabase || !user || user.demo) {
+        if (msgEl) {
+          msgEl.textContent = '✓ Saved in demo sandbox session.';
+          msgEl.className = 'text-[10px] text-emerald-400 inline';
+          msgEl.classList.remove('hidden');
+        }
+        return;
+      }
+
+      try {
+        // 1. Save to public.profiles (for fast Postgres cron queries)
+        const { error: profErr } = await window._supabase
+          .from('profiles')
+          .update({
+            alert_preferences: alertPrefs,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id);
+
+        if (profErr) throw profErr;
+
+        // 2. Also sync to universal auth.users metadata
+        try {
+          await window._supabase.auth.updateUser({
+            data: { alert_preferences: alertPrefs }
+          });
+        } catch (authSyncErr) {
+          console.warn('Auth user metadata sync notice:', authSyncErr);
+        }
+
+        if (msgEl) {
+          msgEl.textContent = '✓ Timing preferences saved to profile & account!';
+          msgEl.className = 'text-[10px] text-emerald-400 inline';
+          msgEl.classList.remove('hidden');
+          setTimeout(() => { if (msgEl) msgEl.classList.add('hidden'); }, 4000);
+        }
+      } catch (err) {
+        if (msgEl) {
+          msgEl.textContent = 'Error: ' + (err.message || err);
+          msgEl.className = 'text-[10px] text-rose-400 inline';
+          msgEl.classList.remove('hidden');
+        }
+      }
+    }
+    window.saveAlertTimingPreferences = saveAlertTimingPreferences;
 
     async function saveNotificationEmailSetting() {
       const user = window._currentUser;

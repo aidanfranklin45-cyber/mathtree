@@ -100,6 +100,45 @@ async function resolveRecipientEmail(
   return { email: "delivered@resend.dev", source: "default_fallback" };
 }
 
+interface AlertPreferences {
+  advance_notice_days: number;
+  remind_on_due: boolean;
+  followup_grace_period: boolean;
+  escalation_notice_days: number;
+}
+
+const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
+  advance_notice_days: 0,
+  remind_on_due: true,
+  followup_grace_period: true,
+  escalation_notice_days: 30,
+};
+
+async function getUserAlertPreferences(
+  adminClient: any,
+  userId: string | null | undefined
+): Promise<AlertPreferences> {
+  if (!userId) return { ...DEFAULT_ALERT_PREFERENCES };
+  try {
+    const { data: prof } = await adminClient
+      .from("profiles")
+      .select("alert_preferences")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (prof?.alert_preferences && typeof prof.alert_preferences === "object") {
+      const p = prof.alert_preferences;
+      return {
+        advance_notice_days: typeof p.advance_notice_days === "number" ? p.advance_notice_days : 0,
+        remind_on_due: p.remind_on_due !== false,
+        followup_grace_period: p.followup_grace_period !== false,
+        escalation_notice_days: typeof p.escalation_notice_days === "number" ? p.escalation_notice_days : 30,
+      };
+    }
+  } catch (_) {}
+  return { ...DEFAULT_ALERT_PREFERENCES };
+}
+
 export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -491,10 +530,100 @@ export async function handleRequest(req: Request): Promise<Response> {
       logs.push(`Escalations: ${escData?.leases_escalated || 0} leases bumped, ${escData?.deals_recalculated || 0} deals equity recalculated.`);
     }
 
-    // 2. DYNAMIC DUE DATE DISPATCHING
-    logs.push(`Step 2: Checking leases with payment_due_day = ${todayDay}...`);
+    // 1b. ADVANCE NOTICE FOR SCHEDULED RENT ESCALATIONS
+    logs.push("Step 1b: Checking scheduled rent escalations for advance notice...");
+    try {
+      const { data: pendingIncreases } = await adminClient
+        .from("rent_increases")
+        .select(`
+          id,
+          lease_id,
+          effective_date,
+          new_rent,
+          scheduled_amount,
+          increase_type,
+          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, deals ( id, title ) )
+        `)
+        .eq("status", "pending");
 
-    let query = adminClient
+      if (pendingIncreases && Array.isArray(pendingIncreases)) {
+        for (const inc of pendingIncreases) {
+          const leaseObj = inc.leases as any;
+          if (!leaseObj) continue;
+          const userPrefs = await getUserAlertPreferences(adminClient, leaseObj.user_id);
+          const noticeDays = userPrefs.escalation_notice_days ?? 30;
+          if (noticeDays <= 0) continue;
+
+          // Target date = today + noticeDays (YYYY-MM-DD)
+          const targetDate = new Date();
+          targetDate.setDate(targetDate.getDate() + noticeDays);
+          const targetDateIso = targetDate.toISOString().split("T")[0];
+
+          if (inc.effective_date === targetDateIso) {
+            const { email: targetEmail } = await resolveRecipientEmail(adminClient, leaseObj.user_id, leaseObj.notification_email, alertRecipientOverride);
+            const oldRentFormatted = "$" + Math.round(Number(leaseObj.monthly_rent || 0)).toLocaleString("en-US");
+            const newRentFormatted = "$" + Math.round(Number(inc.new_rent || 0)).toLocaleString("en-US");
+            const propTitle = leaseObj.deals?.title || "Property";
+
+            if (resendApiKey) {
+              await sendEmailWithResend(resendApiKey, {
+                from: defaultFromEmail,
+                to: targetEmail,
+                subject: `Rent Escalation in ${noticeDays} Days: ${leaseObj.tenant_name} (${oldRentFormatted} ➔ ${newRentFormatted}) - ${propTitle}`,
+                html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #020617; color: #f8fafc; margin: 0; padding: 24px; }
+    .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; max-width: 520px; margin: 0 auto; }
+    .header { font-size: 12px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .title { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; }
+    .sub { font-size: 13px; color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
+    .details { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
+    .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px solid #1e293b; }
+    .row:last-child { border-bottom: none; }
+    .lbl { color: #64748b; }
+    .val { color: #f8fafc; font-weight: 700; }
+    .footer { font-size: 11px; color: #475569; text-align: center; margin-top: 24px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">MathTree &bull; Scheduled Escalation Heads-Up</div>
+    <div class="title">Rent Escalation in ${noticeDays} Days</div>
+    <div class="sub">Contractual rent for <strong>${leaseObj.tenant_name}</strong> is scheduled to increase on <strong>${inc.effective_date}</strong>.</div>
+
+    <div class="details">
+      <div class="row"><span class="lbl">Property</span><span class="val">${propTitle}</span></div>
+      <div class="row"><span class="lbl">Tenant</span><span class="val">${leaseObj.tenant_name}</span></div>
+      <div class="row"><span class="lbl">Current Monthly Rent</span><span class="val">${oldRentFormatted}</span></div>
+      <div class="row"><span class="lbl">Scheduled New Rent</span><span class="val" style="color: #34d399; font-weight: 800;">${newRentFormatted}</span></div>
+      <div class="row"><span class="lbl">Effective Date</span><span class="val">${inc.effective_date}</span></div>
+    </div>
+
+    <div class="footer">
+      MathTree will automatically bump the rent and recalculate dynamic equity on ${inc.effective_date}. No manual action required.
+    </div>
+  </div>
+</body>
+</html>
+                `
+              });
+              logs.push(`Escalation advance notice sent to ${targetEmail} for lease ${leaseObj.id}`);
+            }
+          }
+        }
+      }
+    } catch (eInc: any) {
+      logs.push(`Notice: Escalation advance scan: ${eInc?.message || eInc}`);
+    }
+
+    // 2. DYNAMIC DUE DATE & ADVANCE NOTICE DISPATCHING
+    logs.push(`Step 2: Checking leases due today (day ${todayDay}) or with custom advance notice...`);
+
+    const { data: activeLeases, error: activeLeasesErr } = await adminClient
       .from("leases")
       .select(`
         id,
@@ -510,15 +639,38 @@ export async function handleRequest(req: Request): Promise<Response> {
       `)
       .eq("is_active", true);
 
-    if (!body.force_all) {
-      query = query.eq("payment_due_day", todayDay);
-    }
-
-    const { data: dueLeases, error: dueLeasesErr } = await query;
     let dueEmailsSent = 0;
 
-    if (!dueLeasesErr && Array.isArray(dueLeases)) {
-      for (const lease of dueLeases) {
+    if (!activeLeasesErr && Array.isArray(activeLeases)) {
+      for (const lease of activeLeases) {
+        const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
+        const dueDay = Number(lease.payment_due_day) || 1;
+        const advanceDays = Number(userPrefs.advance_notice_days) || 0;
+
+        let shouldSend = false;
+        let isAdvanceNotice = false;
+
+        // Check A: Advance Notice trigger
+        if (advanceDays > 0 && todayDay === (dueDay - advanceDays)) {
+          shouldSend = true;
+          isAdvanceNotice = true;
+        }
+        // Check B: Exact Due Date trigger
+        else if (todayDay === dueDay) {
+          if (advanceDays === 0 || userPrefs.remind_on_due !== false) {
+            shouldSend = true;
+            isAdvanceNotice = false;
+          }
+        }
+        else if (body.force_all) {
+          shouldSend = true;
+          isAdvanceNotice = false;
+        }
+
+        if (!shouldSend) {
+          continue;
+        }
+
         const { data: existingPayment } = await adminClient
           .from("rent_payments")
           .select("id, status, amount_paid, amount_due")
@@ -536,7 +688,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           (lease as any).notification_email,
           alertRecipientOverride
         );
-        logs.push(`Routing reminder for ${lease.tenant_name} to ${targetEmail} (resolved via ${targetSource})`);
+        logs.push(`Routing ${isAdvanceNotice ? 'advance reminder' : 'due reminder'} for ${lease.tenant_name} to ${targetEmail} (resolved via ${targetSource})`);
 
         const confirmToken = generateHexToken();
         const snoozeToken = generateHexToken();
@@ -570,6 +722,16 @@ export async function handleRequest(req: Request): Promise<Response> {
         const unitName = (lease.units as any)?.unit_number ? `Unit ${(lease.units as any).unit_number}` : "Main Facility";
         const graceDays = lease.grace_period_days || 5;
 
+        const emailTitle = isAdvanceNotice
+          ? `Upcoming Rent Due: ${rentFormatted}`
+          : `Rent Due Today: ${rentFormatted}`;
+        const emailSub = isAdvanceNotice
+          ? `Advance Notice: Contractual rent for <strong>${lease.tenant_name}</strong> is due in <strong>${advanceDays} day${advanceDays > 1 ? "s" : ""}</strong> (on day ${dueDay} of the month).`
+          : `Contractual rent is due today for <strong>${lease.tenant_name}</strong>. Reconcile with a single click below.`;
+        const emailSubject = isAdvanceNotice
+          ? `Upcoming Rent Due in ${advanceDays} Day${advanceDays > 1 ? "s" : ""}: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`
+          : `Rent Due Today: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`;
+
         const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -580,7 +742,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; padding: 32px; max-width: 520px; margin: 0 auto; }
     .header { font-size: 12px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
     .title { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 6px; }
-    .sub { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }
+    .sub { font-size: 13px; color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
     .details { background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 24px; }
     .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px solid #1e293b; }
     .row:last-child { border-bottom: none; }
@@ -595,8 +757,8 @@ export async function handleRequest(req: Request): Promise<Response> {
 <body>
   <div class="card">
     <div class="header">MathTree &bull; Zero-Login Reconciliation</div>
-    <div class="title">Rent Due Today: ${rentFormatted}</div>
-    <div class="sub">Contractual rent is due today for <strong>${lease.tenant_name}</strong>. Reconcile with a single click below.</div>
+    <div class="title">${emailTitle}</div>
+    <div class="sub">${emailSub}</div>
 
     <div class="details">
       <div class="row"><span class="lbl">Property</span><span class="val">${dealTitle}</span></div>
@@ -622,7 +784,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           const sendRes = await sendEmailWithResend(resendApiKey, {
             from: defaultFromEmail,
             to: targetEmail,
-            subject: `Rent Due Today: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`,
+            subject: emailSubject,
             html: emailHtml,
           });
 
@@ -663,6 +825,12 @@ export async function handleRequest(req: Request): Promise<Response> {
         const lease = p.leases as any;
         const deal = p.deals as any;
         if (!lease) continue;
+
+        const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
+        if (userPrefs.followup_grace_period === false) {
+          logs.push(`Skipping grace period follow-up for lease ${lease.id} (disabled by user timing preferences)`);
+          continue;
+        }
 
         const { email: targetEmail, source: targetSource } = await resolveRecipientEmail(
           adminClient,
