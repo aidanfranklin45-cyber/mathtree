@@ -337,7 +337,7 @@
       const SUPABASE_REST_URL = 'https://bgexwcepwbxvhxbpblhd.supabase.co/rest/v1/rpc';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMTI0NTUsImV4cCI6MjEwMzg4ODQ1NX0._izBzyCJgxsH4ncZ9gaX2KonJsGj5_3v_7R5I9Jxa-U';
 
-      async function executeRpc(rpcName, rpcParams) {
+      async function executeRpc(rpcName, rpcParams, fallbackAction, fallbackToken) {
         try {
           const res = await fetch(`${SUPABASE_REST_URL}/${rpcName}`, {
             method: 'POST',
@@ -347,9 +347,18 @@
             },
             body: JSON.stringify(rpcParams)
           });
-          return await res.json();
+          const resJson = await res.json().catch(() => null);
+          if (res.ok && resJson && !resJson.code && !resJson.error) {
+            return resJson;
+          }
+          if (resJson && resJson.success !== undefined) {
+            return resJson;
+          }
+          throw new Error(resJson?.message || resJson?.error || 'Direct RPC call returned non-200');
         } catch (e) {
-          const fnUrl = `https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/reconcile-action?action=${encodeURIComponent(rpcParams.action || 'confirm')}&token=${encodeURIComponent(rpcParams.p_token || '')}`;
+          const action = fallbackAction || (rpcName.includes('snooze') ? 'snooze' : (rpcName.includes('undo') ? 'undo' : 'confirm'));
+          const token = fallbackToken || rpcParams.p_token || '';
+          const fnUrl = `https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/reconcile-action?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}`;
           const res2 = await fetch(fnUrl, { headers: { 'Accept': 'application/json' } });
           return await res2.json();
         }
@@ -361,7 +370,7 @@
         undoBtn.textContent = 'Reverting action...';
 
         try {
-          const json = await executeRpc('undo_rent_reconciliation', { p_token: undoToken, action: 'undo' });
+          const json = await executeRpc('undo_rent_reconciliation', { p_token: undoToken }, 'undo', undoToken);
 
           if (json && json.success) {
             badgeEl.className = 'badge notice';
@@ -421,9 +430,9 @@
           const reqAction = action || 'confirm';
           let data;
           if (reqAction === 'snooze') {
-            data = await executeRpc('snooze_rent_payment_by_token', { p_token: token, action: 'snooze' });
+            data = await executeRpc('snooze_rent_payment_by_token', { p_token: token }, 'snooze', token);
           } else {
-            data = await executeRpc('confirm_rent_payment_by_token', { p_token: token, p_payment_method: '1-Click Direct Email', action: 'confirm' });
+            data = await executeRpc('confirm_rent_payment_by_token', { p_token: token, p_payment_method: '1-Click Direct Email' }, 'confirm', token);
           }
 
           if (data && data.success) {
