@@ -1,6 +1,7 @@
 # MathTree - Premium PropTech Modeling Studio
 
 A high-performance, client-side real estate investment analysis and 10-year financial modeling platform.
+See Demo Mode to see what happens behind the curtains
 
 ## Features
 - **Institutional Landing Page**: Comprehensive institutional introduction detailing MathTree's mission, mathematical precision, 4 asset class models, serverless edge engine, and pitch deck generation with live demo and sign-in triggers.
