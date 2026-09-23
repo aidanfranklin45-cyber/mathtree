@@ -1,5 +1,7 @@
+// supabase/functions/_shared/types.ts
+// Canonical shared types for Supabase Edge Functions.
+
 export type AssetClass = 'commercial' | 'multi_family' | 'residential' | 'storage';
-export type DealStatus = 'owned' | 'pipeline' | 'prospect' | 'archived';
 
 export interface LeaseTerm {
   tenantName?: string;
@@ -14,86 +16,63 @@ export interface LeaseTerm {
   nextEscalationDate?: string;
 }
 
-export interface ParcelRecord {
-  apn: string;
-  formattedApn?: string;
-  acres?: number;
-  sqft?: number;
-  buildingSqFt?: number;
-  assessedValue?: number;
-  totalAssessedValue?: number;
-  landValue?: number;
-  marketLandValue?: number;
-  improvementValue?: number;
-  marketImprovementValue?: number;
-  zoning?: string;
-  county?: string;
-  address?: string;
-  street?: string;
-  legalDescription?: string;
-  useCode?: string;
-  owner?: string;
-  included?: boolean;
-  isPrimary?: boolean;
-}
-
 export interface DealInputs {
-  purchasePrice: number;
+  purchasePrice?: number | string;
   closingDate?: string;
-  holdingPeriod?: number;
-  exitYear?: number;
-  
+  holdingPeriod?: number | string;
+  exitYear?: number | string;
+
   // Revenue
-  grossRentAnnual?: number;
-  grossRentPerMonth?: number;
-  monthlyRent?: number;
-  vacancyRatePercent?: number;
-  rentGrowthPercent?: number;
-  otherIncomeAnnual?: number;
+  grossRentAnnual?: number | string;
+  grossRentPerMonth?: number | string;
+  monthlyRent?: number | string;
+  vacancyRatePercent?: number | string;
+  rentGrowthPercent?: number | string;
+  otherIncomeAnnual?: number | string;
   leases?: LeaseTerm[];
 
   // Operating Expenses
-  operatingExpensesAnnual?: number;
-  expenseGrowthPercent?: number;
-  propertyTaxAnnual?: number;
-  insuranceAnnual?: number;
-  managementFeePercent?: number;
-  maintenanceReserveAnnual?: number;
-  utilitiesAnnual?: number;
+  operatingExpensesAnnual?: number | string;
+  expenseGrowthPercent?: number | string;
+  propertyTaxAnnual?: number | string;
+  insuranceAnnual?: number | string;
+  managementFeePercent?: number | string;
+  maintenanceReserveAnnual?: number | string;
+  utilitiesAnnual?: number | string;
 
   // Financing / Debt
-  downPaymentPercent?: number;
-  initialEquity?: number;
-  loanAmount?: number;
-  interestRate?: number;
-  loanTermYears?: number;
-  amortizationYears?: number;
+  downPaymentPercent?: number | string;
+  initialEquity?: number | string;
+  loanAmount?: number | string;
+  interestRate?: number | string;
+  loanTermYears?: number | string;
+  amortizationYears?: number | string;
   financingType?: 'fixed' | 'arm' | 'interest_only' | 'seller_financing';
-  interestOnlyYears?: number;
-  sellerFinanceBalloon?: number;
-  armInitialYears?: number;
-  armAdjustmentRate?: number;
-  armRateCap?: number;
-  closingCosts?: number;
-  rehabCosts?: number;
+  interestOnlyYears?: number | string;
+  armInitialYears?: number | string;
+  armAdjustmentRate?: number | string;
+  armRateCap?: number | string;
+  closingCosts?: number | string;
+  rehabCosts?: number | string;
 
   // Valuation & Exit
-  exitCapRatePercent?: number;
-  sellingCostPercent?: number;
-  discountRatePercent?: number;
+  exitCapRatePercent?: number | string;
+  sellingCostPercent?: number | string;
+  discountRatePercent?: number | string;
 
-  // Property Details & County GIS
-  propertyType?: AssetClass;
-  squareFeet?: number;
-  units?: number;
+  // Property Details
+  squareFeet?: number | string;
+  units?: number | string;
   address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
   county?: string;
   primaryApn?: string;
-  parcels?: ParcelRecord[];
-  assessorData?: any;
+
+  // Tax overrides (optional)
+  landAllocationPercent?: number | string;
+  effectiveTaxRatePercent?: number | string;
+
+  // Pass-through for legacy keys
+  [key: string]: unknown;
 }
 
 export interface ProFormaYear {
@@ -115,6 +94,8 @@ export interface ProFormaYear {
   propertyValue: number;
   exitProceedsNet: number;
   dscr: number | string;
+  breakEvenOccupancyPct?: number;
+  isInterestOnly?: boolean;
 }
 
 export interface AmortizationScheduleEntry {
@@ -134,6 +115,7 @@ export interface AmortizationScheduleEntry {
 export interface DealMetrics {
   purchasePrice: number;
   initialEquity: number;
+  initialCashInvested: number;
   loanAmount: number;
   ltv: number;
   noi: number;
@@ -146,32 +128,6 @@ export interface DealMetrics {
   dscr: number | string;
   projections: ProFormaYear[];
   amortizationSchedule: AmortizationScheduleEntry[];
-}
-
-export interface DealRecord {
-  id: string;
-  user_id?: string;
-  title: string;
-  location?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  asset_class: AssetClass;
-  status: DealStatus;
-  purchase_price: number;
-  total_equity?: number;
-  loan_amount?: number;
-  irr?: number;
-  cash_on_cash?: number;
-  equity_multiple?: number;
-  year1_cashflow?: number;
-  cap_rate?: number;
-  is_demo?: boolean;
-  inputs: DealInputs;
-  metrics?: DealMetrics;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export interface TaxMetrics {
@@ -188,4 +144,18 @@ export interface SensitivityMatrix {
   capRateSteps: number[];
   /** irrGrid[capIdx][vacIdx] */
   irrGrid: number[][];
+}
+
+export interface CalculateProjectionsRequest {
+  dealId?: string;
+  assetClass: AssetClass;
+  inputs: DealInputs;
+  computeSensitivity?: boolean;
+}
+
+export interface CalculateProjectionsResponse {
+  success: true;
+  metrics: DealMetrics;
+  tax: TaxMetrics;
+  sensitivity?: SensitivityMatrix;
 }

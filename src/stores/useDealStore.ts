@@ -4,7 +4,6 @@ import { DealRecord, DealInputs, DealMetrics } from '../lib/math/types';
 
 export interface DealStoreState {
   deal: DealRecord | null;
-  metrics: DealMetrics | null;
   loading: boolean;
   error: string | null;
   activeTab: string;
@@ -90,7 +89,6 @@ export function mapSupabaseDeal(d: any): DealRecord {
 
 export function useDealStore(initialDealId?: string): DealStoreState {
   const [deal, setDeal] = useState<DealRecord | null>(null);
-  const [metrics, setMetrics] = useState<DealMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -450,9 +448,6 @@ export function useDealStore(initialDealId?: string): DealStoreState {
 
       if (loadedDeal) {
         setDeal(loadedDeal);
-        if (loadedDeal.metrics) {
-          setMetrics(loadedDeal.metrics as any);
-        }
         sessionStorage.setItem('mathtree_active_deal_id', loadedDeal.id);
         localStorage.setItem('mathtree_active_deal_id', loadedDeal.id);
       }
@@ -513,7 +508,6 @@ export function useDealStore(initialDealId?: string): DealStoreState {
 
   return {
     deal,
-    metrics,
     loading,
     error,
     activeTab,
