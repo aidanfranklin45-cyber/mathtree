@@ -10643,13 +10643,19 @@
       const current = currentLoadedDeal.status || 'prospect';
       const next = current === 'owned' ? 'prospect' : 'owned';
       currentLoadedDeal.status = next;
+      currentLoadedDeal.inputs = currentLoadedDeal.inputs || {};
+      currentLoadedDeal.inputs.dealStage = next === 'owned' ? 'owned' : 'screening';
       updateDealStatusUI(next);
       saveCurrentDealChanges(false);
 
       const user = window._currentUser;
       if (window._supabase && user && !user.demo && !currentLoadedDeal.id.startsWith('proj-') && !currentLoadedDeal.id.startsWith('demo-')) {
         try {
-          await window._supabase.from('deals').update({ status: next }).eq('id', currentLoadedDeal.id).eq('user_id', user.id);
+          await window._supabase.from('deals').update({
+            status: next,
+            inputs: currentLoadedDeal.inputs,
+            updated_at: new Date().toISOString()
+          }).eq('id', currentLoadedDeal.id).eq('user_id', user.id);
           if (next === 'owned') {
             await window._supabase.rpc('rpc_capture_deal_baseline', { p_deal_id: currentLoadedDeal.id });
             if (window.MathTreeClient) window.MathTreeClient.getNotifications();

@@ -2183,7 +2183,7 @@
       const currentPeriodMonthStr = formatPeriodMonth(activeDate);
 
       // Filter deals by entity and scope
-      let scopedDeals = rawDeals;
+      let scopedDeals = rawDeals || [];
       if (currentOperationsScope === 'owned') {
         scopedDeals = scopedDeals.filter(d => (d.status || 'prospect') === 'owned');
       }
@@ -2194,58 +2194,120 @@
         scopedDeals = scopedDeals.filter(d => d.id === selectedDealId);
       }
 
-      const scopedDealIds = new Set(scopedDeals.map(d => d.id));
-      const scopedUnits = rawUnits.filter(u => scopedDealIds.has(u.deal_id));
-
-      // Build unified list of active operational leases from database
+      // Build unified list of active operational leases and all rent roll rows (including vacant properties)
       const scopedLeases = [];
+      const allRentRollRows = [];
+      let totalUnitsInScope = 0;
+      let totalOccupiedUnitsInScope = 0;
+
       scopedDeals.forEach(deal => {
-        // 1. Check if an explicit lease exists in Supabase public.leases
-        const existingLeases = rawLeases.filter(l => l.deal_id === deal.id && l.is_active);
-        if (existingLeases.length > 0) {
-          existingLeases.forEach(l => {
+        // 1. Check if explicit leases exist in Supabase public.leases
+        const dealRawLeases = (rawLeases || []).filter(l => l && l.deal_id === deal.id && l.is_active !== false);
+        const activeDbLeases = dealRawLeases.filter(l => (parseFloat(l.monthly_rent) > 0) || (l.tenant_name && l.tenant_name.trim() !== '' && l.tenant_name.toLowerCase() !== (deal.title || '').toLowerCase()));
+
+        let dealLeases = [];
+        if (activeDbLeases.length > 0) {
+          dealLeases = activeDbLeases;
+        } else {
+          // 2. Check in-memory deal inputs
+          const inputs = deal.inputs || {};
+          const inputLeases = (Array.isArray(inputs.leases) ? inputs.leases : []).filter(l => (parseFloat(l.monthlyRent) > 0) || (l.tenantName && l.tenantName.trim() !== '' && l.tenantName.toLowerCase() !== (deal.title || '').toLowerCase()));
+          
+          if (inputLeases.length > 0) {
+            inputLeases.forEach((l, idx) => {
+              const rentVal = parseFloat(l.monthlyRent || 0);
+              dealLeases.push({
+                id: 'deal-lease-' + deal.id + '-' + idx,
+                user_id: deal.user_id,
+                deal_id: deal.id,
+                unit_id: 'derived-unit-' + deal.id + '-' + idx,
+                tenant_name: l.tenantName || 'Commercial Tenant',
+                tenant_email: l.tenantEmail || null,
+                tenant_phone: l.tenantPhone || null,
+                monthly_rent: rentVal,
+                security_deposit: parseFloat(l.securityDeposit) || (rentVal * 2),
+                lease_start_date: l.leaseStartDate || inputs.closingDate || null,
+                lease_end_date: l.leaseEndDate || null,
+                payment_due_day: 1,
+                grace_period_days: 5,
+                last_rent_increase_date: l.leaseStartDate || inputs.closingDate || null,
+                previous_rent_amount: rentVal,
+                escalation_type: l.escalationType || 'Percentage Bump (%)',
+                escalation_rate: parseFloat(l.escalationRate) || 3.0,
+                escalation_frequency: l.escalationFrequency || 'Annual on Anniversary',
+                next_escalation_date: l.nextEscalationDate || null,
+                is_active: true,
+                is_derived: true,
+                derived_unit_number: l.unitNumber || `Suite ${idx + 1}`,
+                derived_unit_type: l.leaseType || inputs.facilityType || 'Commercial',
+                derived_sqft: parseFloat(l.sqft) || 0
+              });
+            });
+          } else {
+            const rentVal = parseFloat(inputs.monthlyRent || inputs.grossRentPerMonth || inputs.commercialRent || inputs.rent || 0);
+            if (rentVal > 0) {
+              const unitType = inputs.useCode || inputs.facilityType || deal.asset_type || 'Commercial';
+              const unitNumber = inputs.unitNumber || 'Main Suite';
+              const sqft = inputs.sqft || inputs.buildingSqFt || inputs.gla || 0;
+              const rentGrowth = inputs.rentGrowthPercent || inputs.rentGrowth || inputs.annualRentGrowth || 3.0;
+              const escType = inputs.escalationType || 'Percentage Bump (%)';
+              const escFreq = inputs.escalationFrequency || 'Annual on Anniversary';
+              const escDate = inputs.nextEscalationDate || inputs.next_escalation_date;
+
+              dealLeases.push({
+                id: 'deal-lease-' + deal.id,
+                user_id: deal.user_id,
+                deal_id: deal.id,
+                unit_id: 'derived-unit-' + deal.id,
+                tenant_name: inputs.tenantName || 'In-Place Commercial Tenant',
+                tenant_email: inputs.tenantEmail || null,
+                tenant_phone: inputs.tenantPhone || null,
+                monthly_rent: rentVal,
+                security_deposit: inputs.securityDeposit || (rentVal * 2),
+                lease_start_date: inputs.closingDate || inputs.loiDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
+                lease_end_date: inputs.leaseExpiration || null,
+                payment_due_day: 1,
+                grace_period_days: 5,
+                last_rent_increase_date: inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
+                previous_rent_amount: rentVal,
+                escalation_type: escType,
+                escalation_rate: rentGrowth,
+                escalation_frequency: escFreq,
+                next_escalation_date: escDate || null,
+                is_active: true,
+                is_derived: true,
+                derived_unit_number: unitNumber,
+                derived_unit_type: unitType,
+                derived_sqft: sqft
+              });
+            }
+          }
+        }
+
+        const dealUnitsCount = Math.max(1, parseInt(deal.inputs?.unitCount || deal.inputs?.numUnits || deal.inputs?.storageUnitCount || 0, 10), (rawUnits.filter(u => u.deal_id === deal.id).length), dealLeases.length);
+        totalUnitsInScope += dealUnitsCount;
+        totalOccupiedUnitsInScope += dealLeases.length;
+
+        if (dealLeases.length > 0) {
+          dealLeases.forEach(l => {
             scopedLeases.push(l);
+            allRentRollRows.push({
+              ...l,
+              is_vacant: false
+            });
           });
         } else {
-          // 2. Dynamically synthesize in-place lease row directly from deal's live database inputs
-          const inputs = deal.inputs || {};
-          const rentVal = parseFloat(inputs.monthlyRent || inputs.grossRentPerMonth || inputs.commercialRent || inputs.rent || 0);
-          if (rentVal > 0 || deal.status === 'owned') {
-            const unitType = inputs.useCode || inputs.facilityType || deal.asset_type || 'Commercial';
-            const unitNumber = inputs.unitNumber || 'Main Suite';
-            const sqft = inputs.sqft || inputs.buildingSqFt || inputs.gla || 0;
-            const rentGrowth = inputs.rentGrowthPercent || inputs.rentGrowth || inputs.annualRentGrowth || 3.0;
-            const escType = inputs.escalationType || 'Percentage Bump (%)';
-            const escFreq = inputs.escalationFrequency || 'Annual on Anniversary';
-            const escDate = inputs.nextEscalationDate || inputs.next_escalation_date;
-
-            scopedLeases.push({
-              id: 'deal-lease-' + deal.id,
-              user_id: deal.user_id,
-              deal_id: deal.id,
-              unit_id: 'derived-unit-' + deal.id,
-              tenant_name: inputs.tenantName || inputs.owner || deal.title,
-              tenant_email: inputs.tenantEmail || null,
-              tenant_phone: inputs.tenantPhone || null,
-              monthly_rent: rentVal,
-              security_deposit: inputs.securityDeposit || 0,
-              lease_start_date: inputs.closingDate || inputs.loiDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
-              lease_end_date: inputs.leaseExpiration || null,
-              payment_due_day: 1,
-              grace_period_days: 5,
-              last_rent_increase_date: inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
-              previous_rent_amount: rentVal,
-              escalation_type: escType,
-              escalation_rate: rentGrowth,
-              escalation_frequency: escFreq,
-              next_escalation_date: escDate || null,
-              is_active: true,
-              is_derived: true,
-              derived_unit_number: unitNumber,
-              derived_unit_type: unitType,
-              derived_sqft: sqft
-            });
-          }
+          // Property is vacant / has zero active income: render as a clean unleased property row
+          allRentRollRows.push({
+            id: 'vacant-' + deal.id,
+            deal_id: deal.id,
+            is_vacant: true,
+            tenant_name: '',
+            monthly_rent: 0,
+            unit_number: deal.inputs?.unitNumber || 'Main Parcel',
+            unit_type: deal.inputs?.useCode || deal.inputs?.facilityType || deal.asset_class || 'Vacant / Unleased',
+            sqft: deal.inputs?.sqft || deal.inputs?.buildingSqFt || 0
+          });
         }
       });
 
@@ -2256,13 +2318,11 @@
       document.getElementById('kpi-monthly-rent').textContent = `$${totalMonthlyRent.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
       document.getElementById('kpi-annual-rent').textContent = `$${totalAnnualRent.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} / yr`;
 
-      // 2. Calculate Physical Occupancy
-      const totalUnitsCount = scopedUnits.length || scopedLeases.length;
-      const occupiedUnitsCount = scopedLeases.length;
-      const occPct = totalUnitsCount > 0 ? Math.round((occupiedUnitsCount / totalUnitsCount) * 100) : (occupiedUnitsCount > 0 ? 100 : 0);
+      // 2. Calculate Physical Occupancy (strictly accurate, never > 100%)
+      const occPct = totalUnitsInScope > 0 ? Math.min(100, Math.round((totalOccupiedUnitsInScope / totalUnitsInScope) * 100)) : 0;
 
       document.getElementById('kpi-occupancy-rate').textContent = `${occPct}%`;
-      document.getElementById('kpi-occupied-units').textContent = `${occupiedUnitsCount} / ${totalUnitsCount || occupiedUnitsCount}`;
+      document.getElementById('kpi-occupied-units').textContent = `${totalOccupiedUnitsInScope} / ${totalUnitsInScope}`;
 
       // 3. Current Month Collections
       let paidCount = 0;
@@ -2447,28 +2507,33 @@
 
       // 5. Populate Rent Roll Rows (Decoupled from top entity filter)
       const rentRollEntityId = document.getElementById('rent-roll-entity-filter')?.value || 'all';
-      let tableLeases = scopedLeases;
+      let tableRows = allRentRollRows;
       if (rentRollEntityId !== 'all') {
-        tableLeases = tableLeases.filter(l => {
-          const d = rawDeals.find(deal => deal.id === l.deal_id);
-          return (d && d.entity_id === rentRollEntityId) || l.entity_id === rentRollEntityId;
+        tableRows = tableRows.filter(row => {
+          const d = rawDeals.find(deal => deal.id === row.deal_id);
+          return (d && d.entity_id === rentRollEntityId) || row.entity_id === rentRollEntityId;
         });
       }
 
+      const activeLeaseCount = tableRows.filter(r => !r.is_vacant).length;
+      const vacantUnitCount = tableRows.filter(r => r.is_vacant).length;
+
       // Update badge
       const countBadge = document.getElementById('rent-roll-count-badge');
-      if (countBadge) countBadge.textContent = `${tableLeases.length} Active ${tableLeases.length === 1 ? 'Lease' : 'Leases'}`;
+      if (countBadge) {
+        countBadge.textContent = `${activeLeaseCount} Active ${activeLeaseCount === 1 ? 'Lease' : 'Leases'}${vacantUnitCount > 0 ? ` • ${vacantUnitCount} Vacant` : ''}`;
+      }
 
       const tbody = document.getElementById('rent-roll-tbody');
       if (!tbody) return;
 
-      if (tableLeases.length === 0) {
+      if (tableRows.length === 0) {
         tbody.innerHTML = `
           <tr>
             <td colspan="7" class="py-10 text-center text-slate-400">
               <div class="max-w-sm mx-auto space-y-3">
                 <span class="text-3xl block">📋</span>
-                <p class="font-bold text-white text-sm">No Active Leases in Selected Scope</p>
+                <p class="font-bold text-white text-sm">No Properties or Leases in Selected Scope</p>
                 <p class="text-xs text-slate-500">Register an entity and link an active lease to begin tracking real-time rent rolls and escalation logs.</p>
                 <button onclick="openAddLeaseModal()" class="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
                   + Add First Lease
@@ -2481,8 +2546,61 @@
       }
 
       let rowsHtml = '';
-      tableLeases.forEach(lease => {
-        const deal = rawDeals.find(d => d.id === lease.deal_id) || { title: 'Unknown Asset' };
+      tableRows.forEach(row => {
+        const deal = rawDeals.find(d => d.id === row.deal_id) || { title: 'Unknown Asset' };
+
+        if (row.is_vacant) {
+          // Vacant Property / Unit Row: Prominent "+ Add Tenant" button and grayed out actions
+          rowsHtml += `
+            <tr class="hover:bg-slate-800/30 transition bg-slate-950/20">
+              <td class="py-3 px-4">
+                <span class="block font-bold text-white text-xs">${deal.title || deal.name}</span>
+                <span class="block text-[11px] text-slate-400 font-medium">${row.unit_number} <span class="text-slate-500">(${row.unit_type})</span></span>
+              </td>
+              <td class="py-3 px-4">
+                <span class="block font-semibold text-slate-400 italic">— Vacant / No Active Tenant —</span>
+                <span class="block text-[10px] text-slate-500">Ready for tenancy</span>
+              </td>
+              <td class="py-3 px-4 text-right font-mono font-medium text-slate-500 text-xs">
+                $0.00
+              </td>
+              <td class="py-3 px-4 text-slate-600 font-mono text-[11px]">
+                —
+              </td>
+              <td class="py-3 px-4">
+                <span class="text-[11px] text-slate-500 italic">No Active Lease</span>
+              </td>
+              <td class="py-3 px-4 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">Vacant</span>
+              </td>
+              <td class="py-3 px-4 text-right">
+                <div class="flex items-center justify-end space-x-1.5">
+                  <button onclick="openAddLeaseModal('${deal.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 border border-emerald-500/30 shadow-md shadow-emerald-950/40 transition flex items-center space-x-1" title="Attach an active tenant / lease to this property">
+                    <span>+ Add Tenant</span>
+                  </button>
+                  <button disabled class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-900/60 border border-slate-800/40 cursor-not-allowed opacity-30" title="No tenant to pay">
+                    ✓ Pay
+                  </button>
+                  <button disabled class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-900/60 border border-slate-800/40 cursor-not-allowed opacity-30" title="No tenant to snooze">
+                    ⏳ Snooze
+                  </button>
+                  <button disabled class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-900/60 border border-slate-800/40 cursor-not-allowed opacity-30" title="No tenant to remind">
+                    📧 Remind
+                  </button>
+                  <button disabled class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-900/60 border border-slate-800/40 cursor-not-allowed opacity-30" title="No active lease to escalate">
+                    Escalate
+                  </button>
+                  <button onclick="openAuditTrailModal('vacant-${deal.id}')" class="p-1 rounded-lg text-slate-500 hover:text-slate-300 bg-slate-850 hover:bg-slate-750 transition" title="View Property History">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const lease = row;
         const unit = rawUnits.find(u => u.id === lease.unit_id) || {
           unit_number: lease.derived_unit_number || 'Main Suite',
           unit_type: lease.derived_unit_type || 'Commercial Suite',
@@ -3115,6 +3233,23 @@
 
     // Modal Trigger: Audit Trail
     function openAuditTrailModal(leaseId) {
+      if (String(leaseId).startsWith('vacant-')) {
+        const dealId = String(leaseId).replace('vacant-', '');
+        const deal = rawDeals.find(d => String(d.id) === String(dealId));
+        document.getElementById('audit-trail-tenant-info').textContent = `${deal ? deal.title : 'Asset'} • Main Parcel — Vacant (No Active Lease)`;
+        const tbody = document.getElementById('audit-trail-tbody');
+        if (tbody) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" class="py-6 text-center text-slate-400 italic">
+                This property is currently unleased with no active tenancy or scheduled rent escalations. Click "+ Add Tenant" to configure an active commercial lease.
+              </td>
+            </tr>
+          `;
+        }
+        openModal('modal-audit-trail');
+        return;
+      }
       const lease = rawLeases.find(l => l.id === leaseId);
       if (!lease) return;
       const deal = rawDeals.find(d => d.id === lease.deal_id);
