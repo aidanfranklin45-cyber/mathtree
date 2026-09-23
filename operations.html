@@ -758,7 +758,26 @@
           <p id="msg-notification-email" class="text-[10px] text-emerald-400 hidden">✓ Notification email updated successfully.</p>
         </div>
 
-        <!-- 3. How Delivery Works Explainer -->
+        <!-- 3. Test Rent Reminder Delivery -->
+        <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-300">Test Rent Reminder Delivery</span>
+            <span class="text-[10px] text-amber-400 font-mono bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">Resend Live Test</span>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            Dispatch a live test email through the Supabase <code>cron-daily-lease-monitor</code> Edge Function to verify your Resend integration and deliverability.
+          </p>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input type="email" id="test-email-destination" placeholder="Recipient email (e.g. aidan.franklin45@gmail.com)" class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs focus:border-blue-500 focus:outline-none">
+            <button type="button" id="btn-send-test-email" onclick="sendTestRentReminderEmail()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition flex items-center justify-center space-x-1.5 shrink-0 shadow-md shadow-blue-900/30">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+              <span>Send Test Email</span>
+            </button>
+          </div>
+          <div id="msg-test-email" class="hidden text-[11px] p-2.5 rounded-lg border"></div>
+        </div>
+
+        <!-- 4. How Delivery Works Explainer -->
         <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800/80 space-y-1.5 text-[11px] text-slate-400">
           <div class="font-bold text-slate-300 flex items-center space-x-1.5">
             <span>ℹ️</span>
@@ -2500,6 +2519,9 @@
                   <button onclick="quickSnoozePayment('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-amber-300 bg-amber-950/80 border border-amber-600 hover:bg-amber-600 hover:text-white transition shadow-sm" title="Missing Rent (Snooze + Apply Dynamic Grace Policy of ${graceDays} Days)">
                     ⏳ Snooze
                   </button>
+                  <button onclick="sendManualLeaseReminder('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-300 bg-indigo-950/80 border border-indigo-600 hover:bg-indigo-600 hover:text-white transition shadow-sm" title="Send Instant Rent Reminder Email via Resend">
+                    📧 Remind
+                  </button>
                 ` : ''}
                 <button onclick="openEditLeaseModal('${lease.id}')" class="px-2 py-1 rounded-lg text-[11px] font-bold text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-800 transition" title="Edit Lease & Escalation Schedule">
                   ✎ Edit
@@ -3088,12 +3110,18 @@
       const user = window._currentUser;
       const accountEmailEl = document.getElementById('setting-account-email');
       const notifEmailEl = document.getElementById('setting-notification-email');
+      const testEmailEl = document.getElementById('test-email-destination');
       const msgNotif = document.getElementById('msg-notification-email');
       const msgAccount = document.getElementById('msg-change-account-email');
+      const msgTest = document.getElementById('msg-test-email');
       const boxChange = document.getElementById('box-change-account-email');
 
       if (msgNotif) msgNotif.classList.add('hidden');
       if (msgAccount) msgAccount.textContent = '';
+      if (msgTest) {
+        msgTest.className = 'hidden';
+        msgTest.innerHTML = '';
+      }
       if (boxChange) boxChange.classList.add('hidden');
 
       if (accountEmailEl) {
@@ -3116,6 +3144,10 @@
             console.warn('Could not load notification email:', err);
           }
         }
+      }
+
+      if (testEmailEl) {
+        testEmailEl.value = notifEmailEl?.value || user?.email || 'aidan.franklin45@gmail.com';
       }
 
       openModal('modal-alert-settings');
@@ -3209,6 +3241,120 @@
       }
     }
     window.submitChangeAccountEmail = submitChangeAccountEmail;
+
+    // Send On-Demand Test Rent Reminder Email via Edge Function
+    async function sendTestRentReminderEmail() {
+      const btn = document.getElementById('btn-send-test-email');
+      const input = document.getElementById('test-email-destination');
+      const msg = document.getElementById('msg-test-email');
+      const recipient = input?.value?.trim() || window._currentUser?.email || 'aidan.franklin45@gmail.com';
+
+      if (!recipient || !recipient.includes('@')) {
+        if (msg) {
+          msg.textContent = 'Please enter a valid recipient email address.';
+          msg.className = 'text-[11px] p-2.5 rounded-lg border bg-rose-950/60 border-rose-800 text-rose-300 block';
+          msg.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin inline-block">⏳</span> <span>Sending...</span>';
+      }
+      if (msg) {
+        msg.textContent = `Dispatching test rent reminder to ${recipient} via cron-daily-lease-monitor...`;
+        msg.className = 'text-[11px] p-2.5 rounded-lg border bg-blue-950/60 border-blue-800 text-blue-300 block';
+        msg.classList.remove('hidden');
+      }
+
+      try {
+        const edgeFunctionUrl = 'https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/cron-daily-lease-monitor';
+        const anonKey = window.SUPABASE_ANON_KEY || '';
+
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`
+          },
+          body: JSON.stringify({
+            test: true,
+            recipient_email: recipient
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        if (msg) {
+          msg.className = 'text-[11px] p-2.5 rounded-lg border bg-emerald-950/60 border-emerald-800 text-emerald-300 block';
+          msg.innerHTML = `✓ <strong>Success!</strong> Test email dispatched to <code>${recipient}</code>.<br><span class="text-[10px] text-slate-400">Resend Message ID: <code>${data.email_id || data.resend_id || 'Delivered'}</code> • Status: HTTP 200 OK</span>`;
+        }
+      } catch (err) {
+        if (msg) {
+          msg.className = 'text-[11px] p-2.5 rounded-lg border bg-rose-950/60 border-rose-800 text-rose-300 block';
+          const errMsg = err.message || err.toString();
+          if (errMsg.includes('own email address') || errMsg.includes('verify a domain')) {
+            msg.innerHTML = `⚠️ <strong>Resend Free Tier Restriction:</strong><br>Resend requires sandbox/testing emails to be sent to your account email (<code>aidan.franklin45@gmail.com</code>). To send to custom external recipients, please verify a custom domain at <a href="https://resend.com/domains" target="_blank" class="underline text-blue-400 hover:text-blue-300">resend.com/domains</a>.<br><br><span class="text-[10px] opacity-80">Provider response: ${errMsg}</span>`;
+          } else {
+            msg.innerHTML = `❌ <strong>Delivery Failed:</strong> ${errMsg}`;
+          }
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+            <span>Send Test Email</span>
+          `;
+        }
+      }
+    }
+    window.sendTestRentReminderEmail = sendTestRentReminderEmail;
+
+    // Send Instant Single-Lease Reminder Email via Edge Function
+    async function sendManualLeaseReminder(leaseId) {
+      const lease = rawLeases.find(l => l.id === leaseId);
+      if (!lease) return;
+
+      const confirmSend = confirm(`Send an instant rent reminder email for ${lease.tenant_name || 'this tenant'} via Resend?`);
+      if (!confirmSend) return;
+
+      try {
+        const edgeFunctionUrl = 'https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/cron-daily-lease-monitor';
+        const anonKey = window.SUPABASE_ANON_KEY || '';
+
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`
+          },
+          body: JSON.stringify({
+            lease_id: leaseId
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        alert(`✓ Reminder sent successfully to ${data.recipient || 'recipient'}!\n(Resend ID: ${data.resend_id || data.email_id || 'dispatched'})`);
+      } catch (err) {
+        const errMsg = err.message || err.toString();
+        if (errMsg.includes('own email address') || errMsg.includes('verify a domain')) {
+          alert(`⚠️ Resend Free Tier Restriction:\nResend requires testing emails to be sent to your account email (aidan.franklin45@gmail.com). To send to custom external emails, verify a domain in resend.com.\n\nDetails: ${errMsg}`);
+        } else {
+          alert(`Failed to send reminder email: ${errMsg}`);
+        }
+      }
+    }
+    window.sendManualLeaseReminder = sendManualLeaseReminder;
 
     // Modal: Manage Entities
     function openEntityManagementModal() {
