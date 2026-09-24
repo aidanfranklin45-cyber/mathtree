@@ -1901,6 +1901,7 @@
               title="Investor Opportunity Cost / Hurdle Rate for NPV">Discount Rate (%)</label>
             <input type="number" id="edit-deal-discount-rate" min="0" max="50" step="any" placeholder="8"
               class="w-full bg-slate-950 border border-emerald-900/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400">
+          </div>
         </div>
 
         <!-- Remodel & Closing Costs Financing Multiple-Choice Option -->
@@ -2672,12 +2673,30 @@
         entities = window._dashboardEntities;
       } else if (window._supabase) {
         try {
-          const { data, error } = await window._supabase.rpc('rpc_get_user_entities', { p_is_demo: Boolean(isDemo) });
-          if (!error && data && data.length > 0) {
-            entities = data;
-            window._dashboardEntities = data;
+          const session = (await window._supabase.auth.getSession())?.data?.session;
+          const token = session?.access_token || '';
+          const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+          const res = await fetch(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities${isDemo ? '?demo=true' : ''}`, {
+            headers: { 'Authorization': 'Bearer ' + (token || anonKey), 'apikey': anonKey }
+          });
+          if (res.ok) {
+            const body = await res.json();
+            if (Array.isArray(body?.entities)) {
+              entities = body.entities;
+              window._dashboardEntities = entities;
+            }
           }
         } catch(e) {}
+
+        if (entities.length === 0) {
+          try {
+            const { data, error } = await window._supabase.rpc('rpc_get_user_entities', { p_is_demo: Boolean(isDemo) });
+            if (!error && data && data.length > 0) {
+              entities = data;
+              window._dashboardEntities = data;
+            }
+          } catch(e) {}
+        }
       }
 
       const storedEntityId = localStorage.getItem('mathtree_selected_entity_id');
@@ -5796,7 +5815,369 @@
         });
       }
     });
+
+    // ==========================================
+    // Legal Entity (LLC) Management Controller
+    // Powered by Supabase manage-entities Function
+    // ==========================================
+    let currentTargetDealId = null;
+    let currentTargetDealTitle = null;
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+    window.closeModal = closeModal;
+
+    async function fetchEntitiesFromBackend() {
+      const isDemo = typeof isDemoActive === 'function' ? isDemoActive() : false;
+      try {
+        const session = (await window._supabase?.auth?.getSession())?.data?.session;
+        const token = session?.access_token || '';
+        const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+        const res = await fetch(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities${isDemo ? '?demo=true' : ''}`, {
+          headers: {
+            'Authorization': 'Bearer ' + (token || anonKey),
+            'apikey': anonKey
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data?.entities)) {
+            window._dashboardEntities = data.entities;
+            return data.entities;
+          }
+        }
+      } catch (e) {
+        console.warn('[ManageEntities] Edge function load warning:', e);
+      }
+
+      if (window._supabase) {
+        try {
+          const { data, error } = await window._supabase.from('entities').select('*').order('created_at', { ascending: false });
+          if (!error && Array.isArray(data)) {
+            window._dashboardEntities = data;
+            return data;
+          }
+        } catch (e) {}
+      }
+      return window._dashboardEntities || [];
+    }
+    window.fetchEntities = fetchEntitiesFromBackend;
+
+    function renderEntitiesInModal(entities) {
+      const container = document.getElementById('dash-entities-list-container');
+      if (!container) return;
+      if (!entities || entities.length === 0) {
+        container.innerHTML = '<div class="text-xs text-slate-500 italic p-3 text-center bg-slate-950 rounded-xl border border-slate-800/60">No legal entities registered yet. Register your first structure below.</div>';
+        return;
+      }
+
+      container.innerHTML = entities.map(e => {
+        const typeBadge = (e.entity_type || 'LLC').toUpperCase();
+        const dealsCount = e.deals_count || (Array.isArray(e.deals) ? e.deals.length : 0);
+        const dealsInfo = dealsCount > 0 ? `<span class="text-[10px] text-emerald-400">• ${dealsCount} linked deal${dealsCount > 1 ? 's' : ''}</span>` : '';
+        const attachBtn = currentTargetDealId ? `
+          <button type="button" onclick="handleAttachEntity('${e.id}', '${(e.name || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition">
+            ✓ Attach
+          </button>
+        ` : '';
+
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center space-x-2">
+                <span class="font-bold text-white text-xs truncate">${e.name}</span>
+                <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/50 text-emerald-400">${typeBadge}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate mt-0.5">
+                ${e.formation_state ? e.formation_state : 'State unassigned'} ${e.ein ? '• EIN: ' + e.ein : ''} ${e.bank_name ? '• ' + e.bank_name : ''} ${dealsInfo}
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 shrink-0">
+              ${attachBtn}
+              <button type="button" onclick="handleDeleteEntityFromModal('${e.id}')" class="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-slate-900 transition" title="Delete Entity">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function openEntityManagementModal(e, opts) {
+      if (e && e.preventDefault) e.preventDefault();
+      const options = opts || (e && typeof e === 'object' && !e.target ? e : {});
+      currentTargetDealId = options.dealId || options.deal_id || null;
+      currentTargetDealTitle = options.dealTitle || options.deal_title || null;
+
+      const banner = document.getElementById('dash-entity-target-context-banner');
+      const submitBtnText = document.getElementById('dash-entity-submit-btn-text');
+      if (banner) {
+        if (currentTargetDealId) {
+          banner.classList.remove('hidden');
+          banner.innerHTML = `
+            <div class="flex items-center justify-between text-xs">
+              <div>
+                <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px] block">Target Property:</span>
+                <strong class="text-white">${currentTargetDealTitle || 'Selected Deal'}</strong>
+              </div>
+              <button type="button" onclick="clearEntityTargetContext()" class="text-[11px] text-slate-400 hover:text-white underline">Clear</button>
+            </div>
+          `;
+          if (submitBtnText) submitBtnText.textContent = 'Save & Attach to Property';
+        } else {
+          banner.classList.add('hidden');
+          banner.innerHTML = '';
+          if (submitBtnText) submitBtnText.textContent = 'Save Entity';
+        }
+      }
+
+      const modal = document.getElementById('modal-manage-entities');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+
+      const entities = await fetchEntitiesFromBackend();
+      renderEntitiesInModal(entities);
+    }
+    window.openEntityManagementModal = openEntityManagementModal;
+    window.mountManageEntitiesModal = openEntityManagementModal;
+
+    function clearEntityTargetContext() {
+      currentTargetDealId = null;
+      currentTargetDealTitle = null;
+      const banner = document.getElementById('dash-entity-target-context-banner');
+      if (banner) {
+        banner.classList.add('hidden');
+        banner.innerHTML = '';
+      }
+      const submitBtnText = document.getElementById('dash-entity-submit-btn-text');
+      if (submitBtnText) submitBtnText.textContent = 'Save Entity';
+      fetchEntitiesFromBackend().then(renderEntitiesInModal);
+    }
+    window.clearEntityTargetContext = clearEntityTargetContext;
+
+    async function handleCreateEntityFromModal(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const name = document.getElementById('dash-new-entity-name')?.value?.trim();
+      const entityType = document.getElementById('dash-new-entity-type')?.value || 'llc';
+      const state = document.getElementById('dash-new-entity-state')?.value?.trim() || null;
+      const bank = document.getElementById('dash-new-entity-bank')?.value?.trim() || null;
+      const ein = document.getElementById('dash-new-entity-ein')?.value?.trim() || null;
+
+      if (!name) return;
+
+      try {
+        const session = (await window._supabase?.auth?.getSession())?.data?.session;
+        const token = session?.access_token || '';
+        const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+
+        const payload = {
+          name,
+          entity_type: entityType,
+          formation_state: state,
+          bank_name: bank,
+          ein,
+          deal_id: currentTargetDealId
+        };
+
+        const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + (token || anonKey),
+            'apikey': anonKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const { data, error } = await window._supabase.from('entities').insert({
+            name,
+            entity_type: entityType,
+            formation_state: state,
+            bank_name: bank,
+            ein
+          }).select().single();
+          if (error) throw error;
+          if (currentTargetDealId && data?.id) {
+            await window._supabase.from('deals').update({ entity_id: data.id }).eq('id', currentTargetDealId);
+          }
+        }
+
+        const form = document.getElementById('form-dash-create-entity');
+        if (form) form.reset();
+
+        const entities = await fetchEntitiesFromBackend();
+        renderEntitiesInModal(entities);
+        populateDashboardEntityDropdowns();
+
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changed'));
+        if (currentTargetDealId) {
+          closeModal('modal-manage-entities');
+          if (typeof loadDashboardProjects === 'function') loadDashboardProjects();
+        }
+      } catch (err) {
+        alert('Error creating entity: ' + (err.message || err));
+      }
+    }
+    window.handleCreateEntityFromModal = handleCreateEntityFromModal;
+
+    async function handleDeleteEntityFromModal(entityId) {
+      if (!confirm('Are you sure you want to remove this entity? Any properties assigned to it will be unassigned.')) return;
+      try {
+        const session = (await window._supabase?.auth?.getSession())?.data?.session;
+        const token = session?.access_token || '';
+        const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+
+        const res = await fetch(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities?id=${encodeURIComponent(entityId)}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + (token || anonKey),
+            'apikey': anonKey
+          }
+        });
+
+        if (!res.ok) {
+          await window._supabase.from('deals').update({ entity_id: null }).eq('entity_id', entityId);
+          const { error } = await window._supabase.from('entities').delete().eq('id', entityId);
+          if (error) throw error;
+        }
+
+        const entities = await fetchEntitiesFromBackend();
+        renderEntitiesInModal(entities);
+        populateDashboardEntityDropdowns();
+        window.dispatchEvent(new CustomEvent('mathtree:entity-changed'));
+      } catch (err) {
+        alert('Error deleting entity: ' + (err.message || err));
+      }
+    }
+    window.handleDeleteEntityFromModal = handleDeleteEntityFromModal;
+
+    async function handleAttachEntity(entityId, entityName) {
+      if (!currentTargetDealId) return;
+      try {
+        const session = (await window._supabase?.auth?.getSession())?.data?.session;
+        const token = session?.access_token || '';
+        const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+
+        const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities', {
+          method: 'PATCH',
+          headers: {
+            'Authorization': 'Bearer ' + (token || anonKey),
+            'apikey': anonKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            action: 'attach_to_deal',
+            deal_id: currentTargetDealId,
+            entity_id: entityId
+          })
+        });
+
+        if (!res.ok) {
+          await window._supabase.from('deals').update({ entity_id: entityId }).eq('id', currentTargetDealId);
+        }
+
+        closeModal('modal-manage-entities');
+        if (typeof loadDashboardProjects === 'function') loadDashboardProjects();
+      } catch (err) {
+        alert('Error assigning entity: ' + (err.message || err));
+      }
+    }
+    window.handleAttachEntity = handleAttachEntity;
   </script>
+
+  <!-- Legal Entity (LLC) Management Modal -->
+  <div id="modal-manage-entities" onclick="if(event.target === this) closeModal('modal-manage-entities')" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl flex flex-col max-h-[88vh] my-auto relative overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0 bg-slate-900/95 backdrop-blur z-10">
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="closeModal('modal-manage-entities')" class="p-1.5 -ml-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" title="Back">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <span class="text-emerald-400">🏛️</span>
+            <span>Manage Legal Entities (LLCs)</span>
+          </h3>
+        </div>
+        <button type="button" onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-lg transition text-base leading-none font-bold" title="Close">✕</button>
+      </div>
+
+      <!-- Target Property Context Banner -->
+      <div id="dash-entity-target-context-banner" class="hidden mx-6 mt-4 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40"></div>
+
+      <div class="overflow-y-auto px-6 py-4 flex-1">
+        <!-- Current Entities List -->
+        <div class="space-y-2 mb-5">
+          <div class="flex items-center justify-between">
+            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+            <button type="button" onclick="closeModal('modal-manage-entities')" class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition py-0.5 px-2 rounded-lg hover:bg-emerald-950/40" title="Return to previous view">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back</span>
+            </button>
+          </div>
+          <div id="dash-entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+            <!-- Populated dynamically via manage-entities Edge Function -->
+          </div>
+        </div>
+
+        <!-- Create New Legal Entity Form -->
+        <form id="form-dash-create-entity" onsubmit="handleCreateEntityFromModal(event)" class="border-t border-slate-800 pt-4 space-y-3 text-xs">
+          <span class="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider">+ Register New Legal Entity</span>
+          
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">Entity Legal Name *</label>
+            <input type="text" id="dash-new-entity-name" required placeholder="e.g. Cascade Property Group LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Structure Type</label>
+              <select id="dash-new-entity-type" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="llc">LLC (Limited Liability Co.)</option>
+                <option value="series_llc">Series LLC</option>
+                <option value="lp">LP (Limited Partnership)</option>
+                <option value="corporation">Corporation (C/S-Corp)</option>
+                <option value="trust">Land Trust / Trust</option>
+                <option value="individual">Individual</option>
+                <option value="tic">Tenants in Common (TIC)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Formation State</label>
+              <input type="text" id="dash-new-entity-state" placeholder="e.g. WA, DE, WY" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">Operating Bank / Depository</label>
+              <input type="text" id="dash-new-entity-bank" placeholder="e.g. Chase Commercial (*4892)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-400 font-bold mb-1">EIN / Tax ID</label>
+              <input type="text" id="dash-new-entity-ein" placeholder="XX-XXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30 flex items-center justify-center space-x-2">
+            <span id="dash-entity-submit-btn-text">Save Entity</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Container for printable executive brief (controlled via @media print) -->
   <div id="printable-brief"></div>
 </body>

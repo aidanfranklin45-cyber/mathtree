@@ -655,17 +655,32 @@
   <div id="modal-manage-entities" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl flex flex-col max-h-[88vh] my-auto relative overflow-hidden">
       <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0 bg-slate-900/95 backdrop-blur z-10">
-        <h3 class="text-base font-bold text-white flex items-center space-x-2">
-          <span class="text-emerald-400">🏛️</span>
-          <span>Manage Legal Entities (LLCs)</span>
-        </h3>
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="closeModal('modal-manage-entities')" class="p-1 -ml-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" title="Back">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <h3 class="text-base font-bold text-white flex items-center space-x-2">
+            <span class="text-emerald-400">🏛️</span>
+            <span>Manage Legal Entities (LLCs)</span>
+          </h3>
+        </div>
         <button onclick="closeModal('modal-manage-entities')" class="text-slate-400 hover:text-white hover:bg-slate-800 p-1.5 rounded-lg transition text-base leading-none font-bold" title="Close">✕</button>
       </div>
 
       <div class="overflow-y-auto px-6 py-4 flex-1">
         <!-- Current Entities List -->
       <div class="space-y-2 mb-5">
-        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+        <div class="flex items-center justify-between">
+          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
+          <button type="button" onclick="closeModal('modal-manage-entities')" class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition py-0.5 px-2 rounded-lg hover:bg-emerald-950/40" title="Return to previous view">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Back</span>
+          </button>
+        </div>
         <div id="entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
           <!-- Populated dynamically -->
         </div>
@@ -3709,11 +3724,28 @@
         return;
       }
       try {
-        const { error } = await window._supabase
-          .from('entities')
-          .delete()
-          .eq('id', entityId);
-        if (error) throw error;
+        const session = (await window._supabase.auth.getSession())?.data?.session;
+        const token = session?.access_token || '';
+        const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+        
+        const res = await fetch(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities?id=${encodeURIComponent(entityId)}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + (token || anonKey),
+            'apikey': anonKey,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          // Fallback to direct supabase client delete
+          const { error } = await window._supabase
+            .from('entities')
+            .delete()
+            .eq('id', entityId);
+          if (error) throw error;
+        }
+
         await fetchAllOperationsData();
         try {
           if (typeof BroadcastChannel !== 'undefined') {
@@ -3741,27 +3773,54 @@
 
       if (window._supabase) {
         try {
-          const { data, error } = await window._supabase.rpc('rpc_create_or_update_entity', {
-            p_name: name,
-            p_entity_type: 'llc',
-            p_formation_state: state || null,
-            p_bank_name: bank || null,
-            p_ein: ein || null,
-            p_notes: null,
-            p_id: null
+          const session = (await window._supabase.auth.getSession())?.data?.session;
+          const token = session?.access_token || '';
+          const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+
+          let createdId = null;
+          const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + (token || anonKey),
+              'apikey': anonKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name,
+              entity_type: 'llc',
+              formation_state: state || null,
+              bank_name: bank || null,
+              ein: ein || null,
+              notes: null
+            })
           });
 
-          if (error) throw error;
+          if (res.ok) {
+            const data = await res.json();
+            createdId = data?.entity?.id || null;
+          } else {
+            // Fallback to RPC or direct table insert
+            const { data, error } = await window._supabase.rpc('rpc_create_or_update_entity', {
+              p_name: name,
+              p_entity_type: 'llc',
+              p_formation_state: state || null,
+              p_bank_name: bank || null,
+              p_ein: ein || null,
+              p_notes: null,
+              p_id: null
+            });
+            if (error) throw error;
+            createdId = data?.id || null;
+          }
 
           const form = document.getElementById('form-create-entity');
           if (form) form.reset();
           await fetchAllOperationsData();
 
-          const createdId = data?.id || null;
           broadcastEntityChange(createdId, name);
           openEntityManagementModal();
         } catch (err) {
-          alert('Error creating entity via database RPC: ' + (err.message || err));
+          alert('Error creating entity: ' + (err.message || err));
         }
       }
     }
