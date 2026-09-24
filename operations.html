@@ -672,15 +672,7 @@
       <div class="overflow-y-auto px-6 py-4 flex-1">
         <!-- Current Entities List -->
       <div class="space-y-2 mb-5">
-        <div class="flex items-center justify-between">
-          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
-          <button type="button" onclick="closeModal('modal-manage-entities')" class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition py-0.5 px-2 rounded-lg hover:bg-emerald-950/40" title="Return to previous view">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            <span>Back</span>
-          </button>
-        </div>
+        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
         <div id="entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
           <!-- Populated dynamically -->
         </div>
@@ -695,20 +687,9 @@
           <input type="text" id="new-entity-name" required placeholder="e.g. Cascade Property Group LLC" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-400 font-bold mb-1">Formation State</label>
-            <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block text-slate-400 font-bold mb-1">EIN / Tax ID</label>
-            <input type="text" id="new-entity-ein" placeholder="XX-XXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
-          </div>
-        </div>
-
         <div>
-          <label class="block text-slate-400 font-bold mb-1">Operating Bank / Depository</label>
-          <input type="text" id="new-entity-bank" placeholder="e.g. Chase Commercial Banking (*4892)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
+          <label class="block text-slate-400 font-bold mb-1">Formation State</label>
+          <input type="text" id="new-entity-state" placeholder="e.g. WA, DE" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
         </div>
 
         <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition shadow-md shadow-emerald-900/30">
@@ -3699,7 +3680,7 @@
             <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
               <div class="min-w-0">
                 <span class="block font-bold text-white text-xs truncate">${e.name}</span>
-                <span class="block text-[10px] text-slate-400 truncate">${e.formation_state ? e.formation_state + ' LLC' : 'Entity'} ${e.ein ? '• EIN: ' + e.ein : ''} ${e.bank_name ? '• ' + e.bank_name : ''}</span>
+                <span class="block text-[10px] text-slate-400 truncate">${e.formation_state ? e.formation_state + ' LLC' : 'Entity'}</span>
               </div>
               <div class="flex items-center space-x-1.5 shrink-0">
                 <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">Active</span>
@@ -3766,8 +3747,6 @@
       if (e && e.preventDefault) e.preventDefault();
       const name = document.getElementById('new-entity-name')?.value?.trim();
       const state = document.getElementById('new-entity-state')?.value?.trim();
-      const ein = document.getElementById('new-entity-ein')?.value?.trim();
-      const bank = document.getElementById('new-entity-bank')?.value?.trim();
 
       if (!name) return;
 
@@ -3789,8 +3768,6 @@
               name,
               entity_type: 'llc',
               formation_state: state || null,
-              bank_name: bank || null,
-              ein: ein || null,
               notes: null
             })
           });
@@ -3799,16 +3776,11 @@
             const data = await res.json();
             createdId = data?.entity?.id || null;
           } else {
-            // Fallback to RPC or direct table insert
-            const { data, error } = await window._supabase.rpc('rpc_create_or_update_entity', {
-              p_name: name,
-              p_entity_type: 'llc',
-              p_formation_state: state || null,
-              p_bank_name: bank || null,
-              p_ein: ein || null,
-              p_notes: null,
-              p_id: null
-            });
+            const { data, error } = await window._supabase.from('entities').insert({
+              name,
+              entity_type: 'llc',
+              formation_state: state || null
+            }).select().single();
             if (error) throw error;
             createdId = data?.id || null;
           }

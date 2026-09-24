@@ -230,6 +230,13 @@
       display: none !important;
     }
 
+    #modal-manage-entities {
+      z-index: 100000 !important;
+    }
+    #modal-manage-entities.hidden {
+      display: none !important;
+    }
+
     @media screen {
       #printable-brief {
         position: fixed !important;
@@ -1519,7 +1526,6 @@
         </div>
       </div>
     </div>
-  </div>
 
 
   <!-- Investor Profile & Underwriting Settings Modal -->
@@ -1549,7 +1555,7 @@
         <div class="space-y-1">
           <div class="flex items-center justify-between">
             <label class="text-[11px] font-bold text-slate-400">Investor / Sponsor Name</label>
-            <button type="button" onclick="openEntityManagementModal()"
+            <button type="button" onclick="openEntityManagementModal({ returnToProfile: true })"
               class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
               <span>🏛️ Manage LLCs & Entities Portal →</span>
             </button>
@@ -5822,6 +5828,7 @@
     // ==========================================
     let currentTargetDealId = null;
     let currentTargetDealTitle = null;
+    let isFromProfileModal = false;
 
     function closeModal(id) {
       const modal = document.getElementById(id);
@@ -5831,6 +5838,23 @@
       }
     }
     window.closeModal = closeModal;
+
+    function handleEntityModalBack() {
+      closeModal('modal-manage-entities');
+      if (isFromProfileModal) {
+        isFromProfileModal = false;
+        if (typeof openInvestorProfileModal === 'function') {
+          openInvestorProfileModal();
+        } else {
+          const profModal = document.getElementById('investor-profile-modal');
+          if (profModal) {
+            profModal.classList.remove('hidden');
+            profModal.classList.add('flex');
+          }
+        }
+      }
+    }
+    window.handleEntityModalBack = handleEntityModalBack;
 
     async function fetchEntitiesFromBackend() {
       const isDemo = typeof isDemoActive === 'function' ? isDemoActive() : false;
@@ -5857,7 +5881,7 @@
 
       if (window._supabase) {
         try {
-          const { data, error } = await window._supabase.from('entities').select('*').order('created_at', { ascending: false });
+          const { data, error } = await window._supabase.from('entities').select('id, user_id, name, entity_type, formation_state, notes, created_at, updated_at').order('created_at', { ascending: false });
           if (!error && Array.isArray(data)) {
             window._dashboardEntities = data;
             return data;
@@ -5879,7 +5903,7 @@
       container.innerHTML = entities.map(e => {
         const typeBadge = (e.entity_type || 'LLC').toUpperCase();
         const dealsCount = e.deals_count || (Array.isArray(e.deals) ? e.deals.length : 0);
-        const dealsInfo = dealsCount > 0 ? `<span class="text-[10px] text-emerald-400">• ${dealsCount} linked deal${dealsCount > 1 ? 's' : ''}</span>` : '';
+        const dealsInfo = dealsCount > 0 ? `<span class="text-[10px] text-emerald-400 font-semibold">• ${dealsCount} linked deal${dealsCount > 1 ? 's' : ''}</span>` : '';
         const attachBtn = currentTargetDealId ? `
           <button type="button" onclick="handleAttachEntity('${e.id}', '${(e.name || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition">
             ✓ Attach
@@ -5894,7 +5918,7 @@
                 <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/50 text-emerald-400">${typeBadge}</span>
               </div>
               <div class="text-[10px] text-slate-400 truncate mt-0.5">
-                ${e.formation_state ? e.formation_state : 'State unassigned'} ${e.ein ? '• EIN: ' + e.ein : ''} ${e.bank_name ? '• ' + e.bank_name : ''} ${dealsInfo}
+                ${e.formation_state ? e.formation_state : 'State unassigned'} ${dealsInfo}
               </div>
             </div>
             <div class="flex items-center space-x-2 shrink-0">
@@ -5913,6 +5937,7 @@
       const options = opts || (e && typeof e === 'object' && !e.target ? e : {});
       currentTargetDealId = options.dealId || options.deal_id || null;
       currentTargetDealTitle = options.dealTitle || options.deal_title || null;
+      isFromProfileModal = Boolean(options.returnToProfile);
 
       const banner = document.getElementById('dash-entity-target-context-banner');
       const submitBtnText = document.getElementById('dash-entity-submit-btn-text');
@@ -5967,8 +5992,6 @@
       const name = document.getElementById('dash-new-entity-name')?.value?.trim();
       const entityType = document.getElementById('dash-new-entity-type')?.value || 'llc';
       const state = document.getElementById('dash-new-entity-state')?.value?.trim() || null;
-      const bank = document.getElementById('dash-new-entity-bank')?.value?.trim() || null;
-      const ein = document.getElementById('dash-new-entity-ein')?.value?.trim() || null;
 
       if (!name) return;
 
@@ -5981,8 +6004,6 @@
           name,
           entity_type: entityType,
           formation_state: state,
-          bank_name: bank,
-          ein,
           deal_id: currentTargetDealId
         };
 
@@ -6000,9 +6021,7 @@
           const { data, error } = await window._supabase.from('entities').insert({
             name,
             entity_type: entityType,
-            formation_state: state,
-            bank_name: bank,
-            ein
+            formation_state: state
           }).select().single();
           if (error) throw error;
           if (currentTargetDealId && data?.id) {
@@ -6094,11 +6113,11 @@
   </script>
 
   <!-- Legal Entity (LLC) Management Modal -->
-  <div id="modal-manage-entities" onclick="if(event.target === this) closeModal('modal-manage-entities')" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
+  <div id="modal-manage-entities" onclick="if(event.target === this) closeModal('modal-manage-entities')" class="hidden fixed inset-0 z-[100000] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm overflow-y-auto">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl flex flex-col max-h-[88vh] my-auto relative overflow-hidden">
       <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0 bg-slate-900/95 backdrop-blur z-10">
         <div class="flex items-center space-x-2">
-          <button type="button" onclick="closeModal('modal-manage-entities')" class="p-1.5 -ml-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" title="Back">
+          <button type="button" onclick="handleEntityModalBack()" class="p-1.5 -ml-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition" title="Back">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -6117,15 +6136,7 @@
       <div class="overflow-y-auto px-6 py-4 flex-1">
         <!-- Current Entities List -->
         <div class="space-y-2 mb-5">
-          <div class="flex items-center justify-between">
-            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
-            <button type="button" onclick="closeModal('modal-manage-entities')" class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition py-0.5 px-2 rounded-lg hover:bg-emerald-950/40" title="Return to previous view">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>Back</span>
-            </button>
-          </div>
+          <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Entities</label>
           <div id="dash-entities-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
             <!-- Populated dynamically via manage-entities Edge Function -->
           </div>
@@ -6156,17 +6167,6 @@
             <div>
               <label class="block text-slate-400 font-bold mb-1">Formation State</label>
               <input type="text" id="dash-new-entity-state" placeholder="e.g. WA, DE, WY" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">Operating Bank / Depository</label>
-              <input type="text" id="dash-new-entity-bank" placeholder="e.g. Chase Commercial (*4892)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-slate-400 font-bold mb-1">EIN / Tax ID</label>
-              <input type="text" id="dash-new-entity-ein" placeholder="XX-XXXXXXX" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white placeholder-slate-600 focus:border-emerald-500 focus:outline-none">
             </div>
           </div>
 

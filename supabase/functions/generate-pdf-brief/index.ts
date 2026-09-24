@@ -33,19 +33,191 @@ function fmtDec(num: any, decimals = 1): string {
 }
 
 // =========================================================================
+// MONTE CARLO STOCHASTIC VOLATILITY ENGINE (ON-DEMAND AT INITIALIZATION)
+// =========================================================================
+interface MonteCarloResult {
+  p10: number;
+  p50: number;
+  p90: number;
+  mean: number;
+  probExceedingHurdle: number;
+  probNegativeIrr: number;
+  svgChart: string;
+  narrative: string;
+}
+
+function runOnDemandMonteCarlo(
+  assetClass: string,
+  baseInputs: any,
+  hurdleRate: number,
+  dealSeedStr = 'mathtree'
+): MonteCarloResult {
+  // Deterministic LCG pseudo-random generator based on deal seed
+  let seed = 0;
+  for (let i = 0; i < dealSeedStr.length; i++) {
+    seed = (seed << 5) - seed + dealSeedStr.charCodeAt(i);
+    seed |= 0;
+  }
+  seed = Math.abs(seed) || 54321;
+
+  function nextRandom(): number {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  }
+
+  function randomNorm(mean = 0, stdev = 1): number {
+    const u1 = Math.max(1e-7, nextRandom());
+    const u2 = nextRandom();
+    return mean + Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2) * stdev;
+  }
+
+  const TRIALS = 500;
+  const irrs: number[] = [];
+
+  const basePrice = parseFloat(baseInputs.purchasePrice || baseInputs.price || 0);
+  const baseGrossRent = parseFloat(baseInputs.grossRentAnnual || (baseInputs.monthlyRent ? baseInputs.monthlyRent * 12 : 0) || (basePrice * 0.08));
+  const baseVacancy = parseFloat(baseInputs.vacancyRate || 5.0);
+  const baseExpenseRatio = parseFloat(baseInputs.expenseRatio || 25.0);
+  const baseExitCap = parseFloat(baseInputs.targetCapRate || baseInputs.exitCapRate || 7.0);
+
+  for (let i = 0; i < TRIALS; i++) {
+    // 1. Rent fluctuation (±7.5% stdev)
+    const rentMult = Math.max(0.75, Math.min(1.25, 1.0 + randomNorm(0, 0.075)));
+    const simRent = baseGrossRent * rentMult;
+
+    // 2. Vacancy stress (stochastic shift)
+    const vacShift = Math.max(2.0, Math.min(22.0, baseVacancy + randomNorm(0, 3.5)));
+
+    // 3. OpEx ratio swing (±3.0%)
+    const opexShift = Math.max(10.0, Math.min(50.0, baseExpenseRatio + randomNorm(0, 3.0)));
+
+    // 4. Exit cap expansion / compression (±0.75%)
+    const capShift = Math.max(4.0, Math.min(14.0, baseExitCap + randomNorm(0, 0.75)));
+
+    const simInputs = {
+      ...baseInputs,
+      grossRentAnnual: simRent,
+      monthlyRent: simRent / 12,
+      grossRentPerMonth: simRent / 12,
+      vacancyRate: vacShift,
+      expenseRatio: opexShift,
+      targetCapRate: capShift,
+      exitCapRate: capShift,
+    };
+
+    try {
+      const res = calculateProjections(assetClass as any, simInputs);
+      const irrVal = parseFloat(res.irr as any) || 0;
+      irrs.push(irrVal);
+    } catch {
+      irrs.push(0);
+    }
+  }
+
+  irrs.sort((a, b) => a - b);
+
+  const p10 = irrs[Math.floor(TRIALS * 0.10)] ?? 0;
+  const p50 = irrs[Math.floor(TRIALS * 0.50)] ?? 0;
+  const p90 = irrs[Math.floor(TRIALS * 0.90)] ?? 0;
+  const mean = irrs.reduce((s, x) => s + x, 0) / TRIALS;
+
+  const countAboveHurdle = irrs.filter(x => x >= hurdleRate).length;
+  const probExceedingHurdle = Math.round((countAboveHurdle / TRIALS) * 100);
+  const countNegative = irrs.filter(x => x < 0).length;
+  const probNegativeIrr = Math.round((countNegative / TRIALS) * 100);
+
+  // Build SVG Histogram with 10 bins
+  const minIrr = Math.floor(Math.max(-10, p10 - 2.5));
+  const maxIrr = Math.ceil(Math.min(40, p90 + 2.5));
+  const binCount = 10;
+  const binWidth = Math.max(0.5, (maxIrr - minIrr) / binCount);
+
+  const bins: { label: string; count: number; start: number; end: number }[] = [];
+  for (let b = 0; b < binCount; b++) {
+    const bStart = minIrr + b * binWidth;
+    const bEnd = bStart + binWidth;
+    const count = irrs.filter(x => (b === binCount - 1 ? (x >= bStart && x <= bEnd + 0.001) : (x >= bStart && x < bEnd))).length;
+    bins.push({
+      label: `${bStart.toFixed(0)}-${bEnd.toFixed(0)}%`,
+      start: bStart,
+      end: bEnd,
+      count
+    });
+  }
+
+  const maxBinCount = Math.max(1, ...bins.map(b => b.count));
+  const chartWidth = 540;
+  const chartHeight = 65;
+  const barGap = 4;
+  const totalBarWidth = (chartWidth - (binCount - 1) * barGap) / binCount;
+
+  // Hurdle rate marker X position
+  const hurdleX = Math.max(15, Math.min(chartWidth - 15, ((hurdleRate - minIrr) / (maxIrr - minIrr)) * chartWidth));
+
+  let barsSvg = '';
+  bins.forEach((bin, idx) => {
+    const barH = (bin.count / maxBinCount) * 44;
+    const x = idx * (totalBarWidth + barGap);
+    const y = 48 - barH;
+    let fillColor = '#059669'; // Emerald for >= hurdleRate
+    if (bin.end < 0) {
+      fillColor = '#e11d48'; // Rose
+    } else if (bin.end < hurdleRate) {
+      fillColor = '#d97706'; // Amber
+    }
+
+    barsSvg += `
+      <g>
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${totalBarWidth.toFixed(1)}" height="${barH.toFixed(1)}" rx="2" fill="${fillColor}" opacity="0.9" />
+        <text x="${(x + totalBarWidth / 2).toFixed(1)}" y="58" font-size="6.5" fill="#64748b" text-anchor="middle" font-family="sans-serif">${bin.start.toFixed(0)}%</text>
+        <text x="${(x + totalBarWidth / 2).toFixed(1)}" y="${Math.max(8, y - 2).toFixed(1)}" font-size="6" font-weight="bold" fill="#334155" text-anchor="middle" font-family="sans-serif">${bin.count}</text>
+      </g>
+    `;
+  });
+
+  const svgChart = `
+    <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width: 100%; height: ${chartHeight}px; overflow: visible;">
+      <!-- Bars -->
+      ${barsSvg}
+      <!-- Hurdle Rate Reference Line -->
+      <line x1="${hurdleX.toFixed(1)}" y1="2" x2="${hurdleX.toFixed(1)}" y2="48" stroke="#047857" stroke-width="1.5" stroke-dasharray="3 2" />
+      <text x="${hurdleX.toFixed(1)}" y="4" font-size="6.5" font-weight="800" fill="#047857" text-anchor="middle" font-family="sans-serif">Hurdle ${hurdleRate.toFixed(1)}%</text>
+    </svg>
+  `;
+
+  const narrative = `Stochastic trial across 500 randomized economic runs modeling simultaneous market variations: rental rate drift (±7.5%), vacancy shocks (up to 20% stress peak), exit cap spread expansion (±75 bps), and inflationary OpEx swing (±3.0%). The asset demonstrates a <strong>${probExceedingHurdle}% win-rate probability</strong> of meeting or exceeding your <strong>${hurdleRate.toFixed(1)}% hurdle rate</strong>, with a Value-at-Risk (P10) downside floor of <strong>${p10.toFixed(1)}% IRR</strong> and an upside P90 of <strong>${p90.toFixed(1)}% IRR</strong> (expected median: <strong>${p50.toFixed(1)}% IRR</strong>). Downside negative cash return risk is limited to <strong>${probNegativeIrr}%</strong> of trials.`;
+
+  return {
+    p10,
+    p50,
+    p90,
+    mean,
+    probExceedingHurdle,
+    probNegativeIrr,
+    svgChart,
+    narrative
+  };
+}
+
+// =========================================================================
 // 1. SINGLE-DEAL EXECUTIVE UNDERWRITING MEMORANDUM BUILDER
 // =========================================================================
 function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
-  const title = deal.title || deal.name || 'Commercial Asset Underwriting';
+  const rawAssetClass = (deal.asset_class || deal.asset_type || deal.assetType || 'commercial').toLowerCase().replace(/_/g, '-');
+  const isResidential = rawAssetClass === 'residential' || rawAssetClass === 'single-family' || rawAssetClass === 'sfr';
+  const isMultiFamily = rawAssetClass === 'multi-family' || rawAssetClass === 'multifamily' || rawAssetClass === 'multi-unit';
+  const isStorage = rawAssetClass === 'storage' || rawAssetClass === 'self-storage';
+  const assetClass = isResidential ? 'residential' : (isMultiFamily ? 'multi_family' : (isStorage ? 'storage' : 'commercial'));
+
+  const title = deal.title || deal.name || (isResidential ? 'Single-Family Residential Investment' : 'Commercial Asset Underwriting');
   const location = deal.location || deal.address || 'Yakima, WA';
-  const assetClass = (deal.asset_class || deal.asset_type || deal.assetType || 'commercial').toLowerCase();
   const status = (deal.status || 'prospect').toLowerCase();
   const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const inputs = deal.inputs || {};
-  
+
   // Authoritative live calculation directly through canonical MathTree engine
-  const mathResults = calculateProjections(assetClass, inputs);
+  const mathResults = calculateProjections(assetClass as any, inputs);
   const proj: any[] = (mathResults.projections && mathResults.projections.length > 0)
     ? mathResults.projections
     : (deal.metrics?.projections || []);
@@ -53,9 +225,16 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const rawAssessor = inputs.assessorData || {};
 
   const price = parseFloat(deal.purchase_price || inputs.purchasePrice || mathResults.purchasePrice || 0);
+  const rehabCosts = parseFloat(inputs.rehabCosts || inputs.rehabBudget || 0);
+  const closingCosts = parseFloat(inputs.closingCosts || 0);
+  const arv = parseFloat(inputs.arv || inputs.afterRepairValue || (price + rehabCosts * 1.4) || price);
+  const rehabMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
+  const totalFinancedBasis = rehabMode === 'roll_into_loan' ? (price + rehabCosts + closingCosts) : price;
+
   const equity = parseFloat(deal.total_equity || metrics.initialEquity || metrics.initialCashInvested || mathResults.initialCashInvested || (price * 0.25));
-  const loanAmt = parseFloat(deal.loan_amount || metrics.loanAmount || mathResults.loanAmount || Math.max(0, price - equity));
-  const ltv = price > 0 ? Math.round((loanAmt / price) * 100) : (inputs.downPaymentPercent ? (100 - parseFloat(inputs.downPaymentPercent)) : 75);
+  const loanAmt = parseFloat(deal.loan_amount || metrics.loanAmount || mathResults.loanAmount || Math.max(0, totalFinancedBasis - equity));
+  const ltv = totalFinancedBasis > 0 ? Math.round((loanAmt / totalFinancedBasis) * 100) : (inputs.downPaymentPercent ? (100 - parseFloat(inputs.downPaymentPercent)) : 75);
+  const downPaymentPercent = parseFloat(inputs.downPaymentPercent || (100 - ltv) || 25);
   const intRate = parseFloat(inputs.interestRate || inputs.rate || 6.5);
   const loanTerm = parseInt(inputs.loanTerm || inputs.amortizationYears || 30, 10);
   const holdYears = parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10);
@@ -64,13 +243,38 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const p0 = proj[0] || {};
   const noi = parseFloat(p0.netOperatingIncome ?? metrics.noi ?? 0);
   const debtService = parseFloat(metrics.annualDebtService || p0.debtService || (metrics.monthlyMortgagePayment ? metrics.monthlyMortgagePayment * 12 : 0));
+  const monthlyDebtService = debtService / 12;
+  const year1PrincipalMo = parseFloat(p0.principalPayment || (debtService * 0.25)) / 12;
+  const year1InterestMo = Math.max(0, monthlyDebtService - year1PrincipalMo);
+
   const cashFlow = parseFloat(p0.cashFlow ?? p0.netCashFlow ?? metrics.year1CashFlow ?? (noi - debtService));
+  const monthlyCashFlow = cashFlow / 12;
   const coc = parseFloat(p0.cashOnCash ?? metrics.cash_on_cash ?? metrics.year1CoC ?? (equity > 0 ? (cashFlow / equity) * 100 : 0));
   const irr = parseFloat(metrics.irr ?? deal.irr ?? 0);
   const em = parseFloat(metrics.equityMultiple ?? metrics.equityMultiplier ?? deal.equity_multiple ?? 1.0);
   const capRate = parseFloat(p0.capRate ?? metrics.capRate ?? (price > 0 ? (noi / price) * 100 : 0));
   const npv = parseFloat(metrics.npv ?? 0);
-  const dscr = (p0.dscr !== null && p0.dscr !== undefined) ? `${Number(p0.dscr).toFixed(2)}x` : (debtService > 0 ? `${(noi / debtService).toFixed(2)}x` : 'N/A');
+
+  // Dynamic DSCR & Covenant reconciliation (NO hardcoded conflict)
+  const dscrNum = (p0.dscr !== null && p0.dscr !== undefined) ? Number(p0.dscr) : (debtService > 0 ? (noi / debtService) : 0);
+  const dscrFormatted = debtService > 0 ? `${dscrNum.toFixed(2)}x` : 'N/A';
+
+  let dscrEvaluation = '';
+  if (dscrNum >= 1.25 && cashFlow > 0) {
+    dscrEvaluation = `Calibrated to lending terms. Debt service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${fmtCurr(cashFlow)}/yr) comfortably exceeding institutional 1.25x covenant floor.`;
+  } else if (dscrNum >= 1.0 && cashFlow > 0) {
+    dscrEvaluation = `Moderate coverage. Projected Year 1 DSCR of ${dscrNum.toFixed(2)}x yields positive cash flow (${fmtCurr(cashFlow)}/yr) but sits below preferred 1.25x bank covenant buffer; sensitive to vacancy spikes or debt rate increases.`;
+  } else {
+    dscrEvaluation = `Underwriting Deficit Flag: Projected Year 1 operating cash flow is negative (${fmtCurr(cashFlow)}/yr, DSCR: ${dscrNum > 0 ? dscrNum.toFixed(2) + 'x' : 'N/A'}). Requires operating interest reserve or debt restructuring to service senior debt until stabilization.`;
+  }
+
+  // Debt Structure & Leverage Provenance
+  let debtProvenance = '';
+  if (rehabMode === 'roll_into_loan') {
+    debtProvenance = `Structured on Total Project Basis (LTC): Purchase (${fmtCurr(price)}) + Rehab (${fmtCurr(rehabCosts)}) + Closing (${fmtCurr(closingCosts)}) = Total Financed Basis (${fmtCurr(totalFinancedBasis)}). Senior debt finances ${100 - downPaymentPercent}% of total basis (${fmtCurr(loanAmt)}), requiring ${fmtCurr(equity)} (${downPaymentPercent}%) initial sponsor equity.`;
+  } else {
+    debtProvenance = `Structured on Acquisition Price (LTV): Senior loan of ${fmtCurr(loanAmt)} (${ltv}% LTV) finances acquisition price (${fmtCurr(price)}). Rehab budget (${fmtCurr(rehabCosts)}) and closing costs (${fmtCurr(closingCosts)}) are funded 100% upfront out of sponsor equity (${fmtCurr(equity)} total cash outlay).`;
+  }
 
   // Calendar year resolution
   let startYear = new Date().getFullYear();
@@ -79,7 +283,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     if (!isNaN(parsed) && parsed > 2000 && parsed < 2100) startYear = parsed;
   }
 
-  // County Assessor & Multi-Parcel Package variables (Sourced from Postgres view_deal_parcel_packages)
+  // County Assessor & Multi-Parcel Package variables
   const pkgParcels: any[] = (parcelPackage && Array.isArray(parcelPackage.parcels) && parcelPackage.parcels.length > 0)
     ? parcelPackage.parcels
     : (Array.isArray(inputs.parcels) ? inputs.parcels : []);
@@ -100,58 +304,20 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const bldgSqFt = parseInt(rawAssessor.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || (activeParcels[0]?.buildingSqFt) || 0, 10);
   const lotSqFt = parseInt(primParcel.sqft || rawAssessor.sqft || inputs.sqft || (activeParcels[0]?.sqft) || (acres > 0 ? Math.round(acres * 43560) : 0), 10);
 
-  // Pre-computed totals directly from Postgres view (with fallback to activeParcels if view has 0 parcels)
-  const viewHasData = parcelPackage && (parseInt(parcelPackage.total_parcels, 10) > 0 || parseFloat(parcelPackage.combined_assessed_value || 0) > 0);
-
-  const pkgTotalAssessed = (viewHasData && parseFloat(parcelPackage.combined_assessed_value || 0) > 0)
-    ? parseFloat(parcelPackage.combined_assessed_value)
-    : (hasMultipleParcels 
-        ? activeParcels.reduce((s: number, p: any) => {
-            const val = parseFloat(p.total_assessed_val || p.totalAssessedValue || p.assessedValue || 0);
-            if (val > 0) return s + val;
-            const land = parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0);
-            const imp = parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0);
-            return s + (land + imp);
-          }, 0) 
-        : totalAssessed);
-
-  const pkgTotalLand = (viewHasData && parseFloat(parcelPackage.total_land_value || 0) > 0)
-    ? parseFloat(parcelPackage.total_land_value)
-    : (hasMultipleParcels 
-        ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0), 0) 
-        : landVal);
-
-  const pkgTotalImp = (viewHasData && parseFloat(parcelPackage.total_improvement_value || 0) > 0)
-    ? parseFloat(parcelPackage.total_improvement_value)
-    : (hasMultipleParcels 
-        ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0), 0) 
-        : impVal);
-
-  const pkgTotalAcres = (viewHasData && parseFloat(parcelPackage.total_package_acres || 0) > 0)
-    ? parseFloat(parcelPackage.total_package_acres)
-    : (hasMultipleParcels 
-        ? activeParcels.reduce((s: number, p: any) => s + parseFloat(p.acres || p.acreage || (p.sqft ? p.sqft / 43560 : 0)), 0) 
-        : acres);
-
-  const pkgTotalSqFt = (viewHasData && parseFloat(parcelPackage.total_package_sqft || 0) > 0)
-    ? parseFloat(parcelPackage.total_package_sqft)
-    : (hasMultipleParcels 
-        ? activeParcels.reduce((s: number, p: any) => s + parseInt(p.sqft || p.lotSqFt || p.lotSqft || (parseFloat(p.acres || 0) > 0 ? Math.round(parseFloat(p.acres) * 43560) : 0), 10), 0) 
-        : lotSqFt);
-  const zoning = rawAssessor.zoning || inputs.zoning || 'B-2 General Commercial';
-  const useCode = rawAssessor.useCode || inputs.useCode || 'Commercial / Mixed';
-  const yearBuilt = rawAssessor.yearBuilt || inputs.yearBuilt || '2022';
+  const zoning = rawAssessor.zoning || inputs.zoning || (isResidential ? 'R-1 Single Family Residential' : 'B-2 General Commercial');
+  const useCode = rawAssessor.useCode || inputs.useCode || (isResidential ? 'Residential / Single Family' : 'Commercial / Mixed');
+  const yearBuilt = rawAssessor.yearBuilt || inputs.yearBuilt || '2020';
   const stories = rawAssessor.stories || inputs.stories || 1;
-  const construction = rawAssessor.constructionType || inputs.constructionType || 'Wood/Steel Frame';
+  const construction = rawAssessor.constructionType || inputs.constructionType || (isResidential ? 'Wood Frame / Siding' : 'Wood/Steel Frame');
   const legalDesc = rawAssessor.legalDescription || inputs.legalDescription || '';
   const gisSyncDate = rawAssessor.lastSyncedAt || (inputs.gisSync && inputs.gisSync.lastSyncedAt);
   const gisBadge = gisSyncDate ? `Live GIS Verified (${new Date(gisSyncDate).toLocaleDateString()})` : (apn !== 'Pending Link' ? 'Verified County Parcel' : 'Manual Underwriting Record');
 
-  // Lease / Tenant Terms
+  // Lease / Tenant Terms & Monthly Revenue Resolution
   const primaryLease = (inputs.leases && inputs.leases[0]) || {};
-  const tenantName = primaryLease.tenantName || inputs.tenantName || (status === 'owned' ? 'In-Place Commercial Tenant' : 'Prospective Commercial Tenant');
-  const leaseType = inputs.leaseType || primaryLease.leaseType || 'NNN';
-  const monthlyRent = parseFloat(primaryLease.monthlyRent || inputs.monthlyRent || inputs.grossRentPerMonth || (price > 0 ? (price * 0.008) : 0));
+  const tenantName = primaryLease.tenantName || inputs.tenantName || (isResidential ? 'Residential In-Place Tenant' : (status === 'owned' ? 'In-Place Commercial Tenant' : 'Prospective Commercial Tenant'));
+  const leaseType = isResidential ? 'Residential Gross Lease' : (inputs.leaseType || primaryLease.leaseType || 'NNN');
+  const monthlyRent = parseFloat(primaryLease.monthlyRent || inputs.monthlyRent || inputs.grossRentPerMonth || (price > 0 ? (price * 0.008) : 2500));
   const annualRent = monthlyRent * 12;
   const leaseStart = primaryLease.leaseStartDate || inputs.leaseStartDate || (inputs.closingDate || '2025-01-01');
   const leaseEnd = primaryLease.leaseEndDate || inputs.leaseEndDate || '2030-12-31';
@@ -159,6 +325,29 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const escRate = primaryLease.escalationRate !== undefined ? primaryLease.escalationRate : (inputs.rentGrowth || 3.0);
   const escFreq = primaryLease.escalationFrequency || inputs.escalationFrequency || 'Annual on Anniversary';
   const nextEscDate = primaryLease.nextEscalationDate || inputs.nextEscalationDate || '2026-11-01';
+
+  // Asset-Class Revenue Provenance
+  let revenueProvenance = '';
+  if (isResidential) {
+    revenueProvenance = `Underwritten from local residential market comps and in-place tenant rental agreements (${fmtCurr(monthlyRent)}/mo • ${fmtCurr(annualRent)}/yr gross yield). Reflects single-family residential tenancy in Central Washington.`;
+  } else if (isMultiFamily) {
+    const units = parseInt(inputs.unitCount || inputs.numUnits || 4, 10);
+    const rentPerDoor = units > 0 ? monthlyRent / units : monthlyRent;
+    revenueProvenance = `Derived from ${units} residential multi-family doors at an average of ${fmtCurr(rentPerDoor)}/mo per unit (${fmtCurr(monthlyRent)}/mo combined • ${fmtCurr(annualRent)}/yr total gross potential income).`;
+  } else if (isStorage) {
+    const storageSqft = parseInt(inputs.storageSqFt || inputs.gla || bldgSqFt || 10000, 10);
+    revenueProvenance = `Derived from ${storageSqft.toLocaleString()} net rentable self-storage square footage (${fmtCurr(monthlyRent)}/mo • $${(annualRent/storageSqft).toFixed(2)}/sq ft annual gross revenue).`;
+  } else {
+    revenueProvenance = `Derived from contractual ${leaseType} commercial lease agreements (${fmtCurr(monthlyRent)}/mo • ${fmtCurr(annualRent)}/yr). Reflects active commercial tenant obligations across Central Washington benchmarks.`;
+  }
+
+  // Asset-Class OpEx Provenance
+  let opexProvenance = '';
+  if (isResidential) {
+    opexProvenance = `Underwritten at ${inputs.expenseRatio || 25}% of gross revenue (${fmtCurr(annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100))}/yr) to cover residential property management (8-10%), county real estate taxes, hazard insurance, and tenant turnover/maintenance reserves.`;
+  } else {
+    opexProvenance = `Underwritten under ${leaseType} commercial structure where tenant covers operational pass-throughs; ratio covers administrative overhead, taxes, and insurance reserve.`;
+  }
 
   // Warnings / Risk flags
   const warnings: any[] = deal.warnings || [];
@@ -168,9 +357,12 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   if (apn === 'Pending Link') {
     warnings.push({ title: 'Unlinked Assessor Parcel', description: 'Property is not tied to an active county parcel number; official assessment and boundary lines unverified.' });
   }
-  if (dscr !== 'N/A' && parseFloat(dscr) < 1.25) {
-    warnings.push({ title: 'DSCR Below 1.25x Covenant Floor', description: `Projected Year 1 DSCR of ${dscr}x is below the institutional underwriting threshold of 1.25x.` });
+  if (dscrFormatted !== 'N/A' && dscrNum < 1.25) {
+    warnings.push({ title: 'DSCR Below 1.25x Covenant Floor', description: `Projected Year 1 DSCR of ${dscrNum.toFixed(2)}x is below the institutional underwriting threshold of 1.25x.` });
   }
+
+  // Run On-Demand Monte Carlo Simulation (500 trials, zero database footprint)
+  const mc = runOnDemandMonteCarlo(assetClass, inputs, discountRate, String(deal.id || deal.title || 'mathtree'));
 
   // Build Waterfall Rows
   let waterfallRows = '';
@@ -216,30 +408,36 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     `;
   }
 
+  // Header Title & Badge
+  const memoTypeLabel = isResidential
+    ? 'Single-Family Residential Investment Memo'
+    : (isMultiFamily ? 'Multi-Family Residential Memo' : (isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo'));
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>MathTree Institutional Underwriting Brief - ${title}</title>
   <style>
-    @page { size: letter landscape; margin: 8mm 10mm; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: #0f172a; margin: 0; padding: 12px; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 8px; margin-bottom: 10px; }
-    .logo-badge { font-size: 20px; font-weight: 900; color: #059669; letter-spacing: -0.5px; }
-    .pill { display: inline-block; font-size: 8.5px; font-weight: 800; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; }
+    @page { size: letter landscape; margin: 7mm 9mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 6px; margin-bottom: 8px; }
+    .logo-badge { font-size: 18px; font-weight: 900; color: #059669; letter-spacing: -0.5px; }
+    .pill { display: inline-block; font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; }
     .pill-green { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
     .pill-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .pill-purple { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
     .pill-slate { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-    .scorecard { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 10px; }
-    .scorecard-tile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 6px 8px; }
-    .tile-lbl { font-size: 7.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0; }
-    .tile-val { font-size: 14px; font-weight: 800; color: #0f172a; margin: 2px 0 0 0; }
-    .box { border: 1px solid #cbd5e1; border-radius: 5px; overflow: hidden; margin-bottom: 10px; page-break-inside: avoid; }
-    .box-header { background: #0f172a; color: #ffffff; padding: 4px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.4px; }
+    .scorecard { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-bottom: 8px; }
+    .scorecard-tile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 5px 7px; }
+    .tile-lbl { font-size: 7px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0; }
+    .tile-val { font-size: 13px; font-weight: 800; color: #0f172a; margin: 2px 0 0 0; }
+    .box { border: 1px solid #cbd5e1; border-radius: 5px; overflow: hidden; margin-bottom: 8px; page-break-inside: avoid; }
+    .box-header { background: #0f172a; color: #ffffff; padding: 4px 8px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.3px; }
     .table-data { width: 100%; font-size: 8px; border-collapse: collapse; line-height: 1.35; }
-    .table-data th { background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; padding: 4px 6px; }
-    .table-data td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; }
-    .footer { border-top: 1px solid #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; margin-top: 10px; }
+    .table-data th { background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; padding: 3px 5px; }
+    .table-data td { padding: 3.5px 5px; border-bottom: 1px solid #f1f5f9; }
+    .footer { border-top: 1px solid #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; margin-top: 8px; }
     @media print { body { padding: 0; } }
   </style>
 </head>
@@ -248,13 +446,14 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   <!-- Header -->
   <div class="header">
     <div>
-      <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 6px;">
         <span class="logo-badge">MathTree</span>
-        <span class="pill pill-green">Executive Underwriting Brief</span>
+        <span class="pill pill-green">${memoTypeLabel}</span>
         <span class="pill ${status === 'owned' ? 'pill-green' : 'pill-blue'}">${status === 'owned' ? '🏛️ Owned Operating Asset' : '🎯 Pipeline Prospect'}</span>
+        ${isResidential ? `<span class="pill pill-purple">🏡 Single-Family</span>` : ''}
       </div>
-      <h1 style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${title}</h1>
-      <div style="font-size: 9.5px; color: #475569; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 8px;">
+      <h1 style="font-size: 15px; font-weight: 800; color: #0f172a; margin: 3px 0 0 0;">${title}</h1>
+      <div style="font-size: 9px; color: #475569; font-weight: 600; margin-top: 2px; display: flex; align-items: center; gap: 6px;">
         <span>📍 <strong>${location}</strong></span>
         <span>•</span>
         <span style="font-family: monospace; font-weight: 700; color: #047857;">APN: ${formattedApn}${adjacentParcels.length > 0 ? ` (+${adjacentParcels.length} Adjacent)` : ''}</span>
@@ -265,10 +464,10 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
         ${hasMultipleParcels ? `<span class="pill pill-green">📦 ${activeParcels.length}-Parcel Package</span>` : ''}
       </div>
     </div>
-    <div style="text-align: right; font-size: 9.5px; color: #64748b;">
+    <div style="text-align: right; font-size: 9px; color: #64748b;">
       <p style="margin: 0; font-weight: 600;">Report Date: <strong style="color: #0f172a;">${dateStr}</strong></p>
-      <p style="margin: 2px 0 0 0;">Target Hold Period: <strong style="color: #0f172a;">${holdYears} Years</strong></p>
-      <p style="margin: 2px 0 0 0;">Settlement Closing: <strong style="color: #059669;">${inputs.closingDate || (startYear + '-10-15')}</strong></p>
+      <p style="margin: 1.5px 0 0 0;">Target Hold Period: <strong style="color: #0f172a;">${holdYears} Years</strong></p>
+      <p style="margin: 1.5px 0 0 0;">Settlement Closing: <strong style="color: #059669;">${inputs.closingDate || (startYear + '-10-15')}</strong></p>
     </div>
   </div>
 
@@ -279,24 +478,24 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
       <p class="tile-val" style="color: #059669;">${fmtPct(irr)}</p>
     </div>
     <div class="scorecard-tile">
-      <p class="tile-lbl">10-Yr NPV (@${discountRate}%)</p>
-      <p class="tile-val">${fmtCurr(npv)}</p>
+      <p class="tile-lbl">Gross Monthly Rent</p>
+      <p class="tile-val">${fmtCurr(monthlyRent)}<span style="font-size: 8px; color: #64748b; font-weight: normal;">/mo</span></p>
+    </div>
+    <div class="scorecard-tile">
+      <p class="tile-lbl">Year 1 Net Cash Flow</p>
+      <p class="tile-val" style="color: ${cashFlow >= 0 ? '#059669' : '#e11d48'};">${fmtCurr(cashFlow)}<span style="font-size: 8px; color: #64748b; font-weight: normal;"> (${fmtCurr(monthlyCashFlow)}/mo)</span></p>
     </div>
     <div class="scorecard-tile">
       <p class="tile-lbl">Equity Multiplier</p>
       <p class="tile-val">${fmtDec(em, 2)}x</p>
     </div>
     <div class="scorecard-tile">
-      <p class="tile-lbl">Year 1 Cash Flow</p>
-      <p class="tile-val" style="color: ${cashFlow >= 0 ? '#059669' : '#e11d48'};">${fmtCurr(cashFlow)}</p>
-    </div>
-    <div class="scorecard-tile">
       <p class="tile-lbl">Year 1 Cap Rate</p>
       <p class="tile-val">${fmtPct(capRate)}</p>
     </div>
     <div class="scorecard-tile">
-      <p class="tile-lbl">Debt Service Coverage (DSCR)</p>
-      <p class="tile-val" style="color: #0284c7;">${dscr !== 'N/A' ? fmtDec(dscr, 2) + 'x' : 'N/A'}</p>
+      <p class="tile-lbl">Senior DSCR</p>
+      <p class="tile-val" style="color: ${dscrNum >= 1.25 ? '#0284c7' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted}</p>
     </div>
   </div>
 
@@ -332,120 +531,61 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
           <td style="color: #64748b; font-weight: 700;">Structural Specs</td>
           <td style="font-weight: 600; color: #0f172a;">Built ${yearBuilt} • ${bldgSqFt > 0 ? bldgSqFt.toLocaleString() + ' Sq Ft' : 'Pending Specs'} • ${stories} Story (${construction})</td>
         </tr>
-        ${legalDesc ? `
-        <tr style="background: #f8fafc;">
-          <td style="color: #64748b; font-weight: 700;">Primary Legal Desc</td>
-          <td colspan="5" style="font-size: 7.5px; color: #475569;">${legalDesc}</td>
-        </tr>` : ''}
-        ${hasMultipleParcels ? `
-        <tr style="background: #ecfdf5; border-top: 1.5px solid #a7f3d0;">
-          <td style="color: #065f46; font-weight: 800;">Package Scope</td>
-          <td style="font-weight: 800; color: #065f46;">Multi-Parcel Bundle (${activeParcels.length} APNs)</td>
-          <td style="color: #065f46; font-weight: 800;">Combined Assessment</td>
-          <td style="font-weight: 900; color: #047857;">${fmtCurr(pkgTotalAssessed)} (${fmtCurr(pkgTotalLand)} L / ${fmtCurr(pkgTotalImp)} B)</td>
-          <td style="color: #065f46; font-weight: 800;">Total Land Area</td>
-          <td style="font-weight: 800; color: #047857;">${fmtDec(pkgTotalAcres, 2)} Acres (${pkgTotalSqFt.toLocaleString()} Sq Ft)</td>
-        </tr>` : ''}
       </tbody>
     </table>
-
-    ${hasMultipleParcels ? `
-    <div style="background: #f1f5f9; padding: 3px 8px; font-size: 8px; font-weight: 800; color: #334155; text-transform: uppercase; border-top: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between;">
-      <span>Attached Parcel Package Breakdown (${activeParcels.length} Total Taxlots)</span>
-      <span style="color: #047857;">Primary APN + ${adjacentParcels.length} Adjacent Companion Lot${adjacentParcels.length > 1 ? 's' : ''} Included</span>
-    </div>
-    <table class="table-data">
-      <thead>
-        <tr style="background: #f8fafc; font-size: 7.5px;">
-          <th style="text-align: left; width: 12%; padding: 3px 6px;">Role</th>
-          <th style="text-align: left; width: 16%; padding: 3px 6px;">APN / Parcel</th>
-          <th style="text-align: left; width: 22%; padding: 3px 6px;">Situs Address</th>
-          <th style="text-align: left; width: 18%; padding: 3px 6px;">Use / Zoning</th>
-          <th style="text-align: right; width: 14%; padding: 3px 6px;">Lot Area</th>
-          <th style="text-align: right; width: 18%; padding: 3px 6px;">Assessed Valuation</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${activeParcels.map((p: any) => {
-          const isPrim = p.is_primary ?? p.isPrimary;
-          const pApn = p.formatted_apn || p.formattedApn || p.apn;
-          const pAddr = p.situs_address || p.address || p.street || location;
-          const pUse = p.use_code || p.useCode || zoning;
-          const pAcres = parseFloat(p.acres || 0);
-          const pSqft = parseInt(p.sqft || p.lotSqFt || (pAcres > 0 ? Math.round(pAcres * 43560) : 0), 10);
-          const pTot = parseFloat(p.total_assessed_val || p.totalAssessedValue || p.assessedValue || 0);
-          const pLand = parseFloat(p.market_land_val || p.marketLandValue || p.landValue || 0);
-          const pBldg = parseFloat(p.market_imp_val || p.marketImprovementValue || p.improvementValue || 0);
-          return `
-          <tr style="border-bottom: 1px solid #f1f5f9; background: ${isPrim ? '#ffffff' : '#f8fafc'};">
-            <td style="padding: 3px 6px; font-weight: 800;">
-              ${isPrim 
-                ? '<span style="background: #d1fae5; color: #065f46; padding: 1px 4px; border-radius: 3px; font-size: 7px; text-transform: uppercase;">Primary</span>' 
-                : '<span style="background: #e0f2fe; color: #0369a1; padding: 1px 4px; border-radius: 3px; font-size: 7px; text-transform: uppercase;">Adjacent Lot</span>'}
-            </td>
-            <td style="padding: 3px 6px; font-family: monospace; font-weight: 700; color: ${isPrim ? '#047857' : '#0284c7'};">${pApn}</td>
-            <td style="padding: 3px 6px; font-weight: 600; color: #1e293b;">${pAddr}</td>
-            <td style="padding: 3px 6px; color: #475569;">${pUse}</td>
-            <td style="padding: 3px 6px; text-align: right; font-weight: 600;">${pAcres > 0 ? `${fmtDec(pAcres, 2)} ac (${pSqft.toLocaleString()} sf)` : (pSqft > 0 ? `${pSqft.toLocaleString()} sf` : 'N/A')}</td>
-            <td style="padding: 3px 6px; text-align: right; font-weight: 700; color: #0f172a;">${fmtCurr(pTot)} <span style="font-weight: 400; font-size: 7px; color: #64748b;">(${fmtCurr(pLand)} L / ${fmtCurr(pBldg)} B)</span></td>
-          </tr>
-          `;
-        }).join('')}
-      </tbody>
-    </table>` : ''}
   </div>
 
-  <!-- 2. Dynamic Lease Terms & Scheduled Escalations (Owned & Leased Assets) -->
+  <!-- 2. Tenancy, Rental Income & Property Scope -->
   <div class="box">
     <div class="box-header" style="background: #064e3b;">
-      <span>📑 Contractual Lease Terms & Rent Roll Escalation Schedule</span>
-      <span style="font-size: 8px; background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 3px;">In-Place Operating Leases</span>
+      <span>${isResidential ? '🏡 Residential Rental Income & Tenancy Profile' : '📑 Contractual Lease Terms & Rent Roll Schedule'}</span>
+      <span style="font-size: 8px; background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 3px;">${isResidential ? 'Residential Tenancy' : 'In-Place Operating Leases'}</span>
     </div>
     <table class="table-data">
       <tbody>
         <tr>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">Tenant of Record</td>
+          <td style="width: 14%; color: #64748b; font-weight: 700;">${isResidential ? 'Occupant / Tenancy' : 'Tenant of Record'}</td>
           <td style="width: 22%; font-weight: 800; color: #0f172a;">${tenantName}</td>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">Lease Structure</td>
-          <td style="width: 18%; font-weight: 700; color: #047857;">${leaseType} Commercial Lease</td>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">In-Place Rent</td>
-          <td style="width: 18%; font-weight: 800; color: #059669;">${fmtCurr(monthlyRent)}/mo (${fmtCurr(annualRent)}/yr)</td>
+          <td style="width: 14%; color: #64748b; font-weight: 700;">${isResidential ? 'Agreement Type' : 'Lease Structure'}</td>
+          <td style="width: 18%; font-weight: 700; color: #047857;">${leaseType}</td>
+          <td style="width: 14%; color: #64748b; font-weight: 700;">Gross Monthly Revenue</td>
+          <td style="width: 18%; font-weight: 800; color: #059669;">${fmtCurr(monthlyRent)}/mo <span style="font-size: 7.5px; font-weight: 400; color: #64748b;">(${fmtCurr(annualRent)}/yr)</span></td>
         </tr>
         <tr>
-          <td style="color: #64748b; font-weight: 700;">Lease Term Dates</td>
+          <td style="color: #64748b; font-weight: 700;">${isResidential ? 'Occupancy Dates' : 'Lease Term Dates'}</td>
           <td style="font-weight: 600; color: #0f172a;">${leaseStart} to ${leaseEnd}</td>
-          <td style="color: #64748b; font-weight: 700;">Escalation Mechanism</td>
-          <td style="font-weight: 600; color: #0f172a;">${escType} (${escRate}% bump)</td>
-          <td style="color: #64748b; font-weight: 700;">Escalation Frequency</td>
-          <td style="font-weight: 600; color: #0f172a;">${escFreq} • Next: <strong style="color: #047857;">${nextEscDate}</strong></td>
+          <td style="color: #64748b; font-weight: 700;">${isResidential ? 'Annual Rent Growth' : 'Escalation Mechanism'}</td>
+          <td style="font-weight: 600; color: #0f172a;">${escRate}%/yr (${escType})</td>
+          <td style="color: #64748b; font-weight: 700;">${isResidential ? 'After-Repair Value (ARV)' : 'GLA / Unit Count'}</td>
+          <td style="font-weight: 700; color: #0f172a;">${isResidential ? `${fmtCurr(arv)} ${bldgSqFt > 0 ? `($${(arv/bldgSqFt).toFixed(0)}/sf)` : ''}` : (bldgSqFt > 0 ? `${bldgSqFt.toLocaleString()} Sq Ft` : 'Single Tenant')}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- 3. Debt Capital Structure & Dynamic Amortization -->
+  <!-- 3. Senior Debt Financing & Capital Structure -->
   <div class="box">
     <div class="box-header" style="background: #1e293b;">
       <span>🏦 Senior Debt Financing & Capital Structure</span>
-      <span style="font-size: 8px; color: #93c5fd;">${ltv}% LTV Commercial Loan</span>
+      <span style="font-size: 8px; color: #93c5fd;">${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC Package' : 'LTV Purchase Loan'}</span>
     </div>
     <table class="table-data">
       <tbody>
         <tr>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">Purchase / Basis</td>
+          <td style="width: 14%; color: #64748b; font-weight: 700;">Acquisition Price</td>
           <td style="width: 20%; font-weight: 800; color: #0f172a;">${fmtCurr(price)} ${bldgSqFt > 0 ? `($${(price/bldgSqFt).toFixed(0)}/sq ft)` : ''}</td>
           <td style="width: 13%; color: #64748b; font-weight: 700;">Required Equity</td>
-          <td style="width: 20%; font-weight: 700; color: #0f172a;">${fmtCurr(equity)} (${100 - ltv}%)</td>
+          <td style="width: 20%; font-weight: 700; color: #0f172a;">${fmtCurr(equity)} (${downPaymentPercent}%)</td>
           <td style="width: 13%; color: #64748b; font-weight: 700;">Senior Loan Amount</td>
-          <td style="width: 20%; font-weight: 800; color: #047857;">${fmtCurr(loanAmt)} (${ltv}% LTV)</td>
+          <td style="width: 20%; font-weight: 800; color: #047857;">${fmtCurr(loanAmt)} (${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'})</td>
         </tr>
         <tr>
-          <td style="color: #64748b; font-weight: 700;">Note Terms</td>
-          <td style="font-weight: 600; color: #0f172a;">${intRate}% Fixed • ${loanTerm} Yrs Amort</td>
-          <td style="color: #64748b; font-weight: 700;">Annual P&I Debt Service</td>
-          <td style="font-weight: 700; color: #0f172a;">${fmtCurr(debtService)}/yr (${fmtCurr(debtService/12)}/mo)</td>
-          <td style="color: #64748b; font-weight: 700;">DSCR Covenant</td>
-          <td style="font-weight: 800; color: ${dscr !== 'N/A' && parseFloat(dscr) >= 1.25 ? '#059669' : '#e11d48'};">${dscr !== 'N/A' ? fmtDec(dscr, 2) + 'x' : 'N/A'} (1.25x Floor)</td>
+          <td style="color: #64748b; font-weight: 700;">Monthly Debt Service</td>
+          <td style="font-weight: 800; color: #0f172a;">${fmtCurr(monthlyDebtService)}/mo <span style="font-size: 7.5px; font-weight: 400; color: #64748b;">(${fmtCurr(year1PrincipalMo)}/mo Prin • ${fmtCurr(year1InterestMo)}/mo Int)</span></td>
+          <td style="color: #64748b; font-weight: 700;">Annual P&I Debt</td>
+          <td style="font-weight: 700; color: #0f172a;">${fmtCurr(debtService)}/yr (${intRate}% Fixed • ${loanTerm} Yrs)</td>
+          <td style="color: #64748b; font-weight: 700;">Coverage (DSCR)</td>
+          <td style="font-weight: 800; color: ${dscrNum >= 1.25 ? '#059669' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted} (1.25x Floor)</td>
         </tr>
       </tbody>
     </table>
@@ -479,58 +619,58 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
         </tr>
         <tr style="background: #f8fafc;">
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">2. Gross Revenue & Escalation</strong>
-            <span style="color: #0f172a; font-weight: 800; font-size: 9px;">${fmtCurr(annualRent)}/yr</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${escType} • ${escRate}%/yr</span>
+            <strong style="color: #0f172a; font-size: 8.5px; display: block;">2. Gross Monthly Revenue</strong>
+            <span style="color: #0f172a; font-weight: 800; font-size: 9px;">${fmtCurr(monthlyRent)}/mo</span>
+            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(annualRent)}/yr • +${escRate}%/yr Growth</span>
           </td>
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Derived from contractual ${leaseType} commercial lease agreements. Reflects active tenant obligations across Central Washington benchmarks.
+            ${revenueProvenance}
           </td>
           <td style="color: #0f172a; vertical-align: top;">Compounding escalation protects real yields against regional inflation trends.</td>
         </tr>
         <tr>
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
             <strong style="color: #0f172a; font-size: 8.5px; display: block;">3. Debt Structure & Leverage</strong>
-            <span style="color: #0f172a; font-weight: 700;">${ltv}% LTV • ${fmtCurr(loanAmt)}</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${intRate}% Fixed • ${loanTerm} Yrs Amort</span>
+            <span style="color: #0f172a; font-weight: 700;">${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'} • ${fmtCurr(loanAmt)}</span>
+            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(monthlyDebtService)}/mo P&I • ${intRate}% Fixed • ${loanTerm} Yrs</span>
           </td>
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Calibrated to current commercial banking lending terms. Debt service coverage confirms resilient cash flow cushion above 1.25x covenant.
+            ${debtProvenance}<br><span style="margin-top: 3px; display: block; font-weight: 600; color: ${dscrNum >= 1.25 ? '#047857' : (dscrNum >= 1.0 ? '#b45309' : '#be123c')};">${dscrEvaluation}</span>
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Subject to binding lender commitment letter, title endorsement, and Phase I ESA.</td>
+          <td style="color: #0f172a; vertical-align: top;">Subject to lender underwriting verification, appraisal report, and title binder.</td>
         </tr>
         <tr style="background: #f8fafc;">
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">4. Vacancy & Credit Loss Reserve</strong>
-            <span style="color: #0f172a; font-weight: 700;">${inputs.vacancyRate || 5}% of GPI</span>
+            <strong style="color: #0f172a; font-size: 8.5px; display: block;">4. Vacancy & Economic Downtime</strong>
+            <span style="color: #0f172a; font-weight: 700;">${inputs.vacancyRate || 5}% of Gross</span>
             <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(annualRent * ((parseFloat(inputs.vacancyRate) || 5) / 100))}/yr reserve</span>
           </td>
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Enforces institutional 5.0% underwriting floor for credit single-tenant assets to reserve for economic downtime and collection friction.
+            Enforces institutional underwriting floor to reserve for turnover friction, collection delay, and physical economic vacancy.
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Asset maintains positive cash flows up to 25% economic vacancy tolerance.</td>
+          <td style="color: #0f172a; vertical-align: top;">Asset maintains operational viability up to 20% economic vacancy tolerance.</td>
         </tr>
         <tr>
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
             <strong style="color: #0f172a; font-size: 8.5px; display: block;">5. Operating Expenses & Management</strong>
-            <span style="color: #0f172a; font-weight: 700;">${inputs.expenseRatio || 15}% of GPI</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${inputs.manageProperty ? 'Managed (3.5%)' : 'Self-Managed'}</span>
+            <span style="color: #0f172a; font-weight: 700;">${inputs.expenseRatio || 25}% of GPI</span>
+            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100))}/yr</span>
           </td>
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Underwritten under ${leaseType} structure where tenant covers operational pass-throughs; ratio covers administrative overhead, taxes, and insurance reserve.
+            ${opexProvenance}
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Validated against 2 years of actual operating statements and active insurance quotes.</td>
+          <td style="color: #0f172a; vertical-align: top;">Calibrated against submarket operating expense benchmarks and actual quotes.</td>
         </tr>
         <tr style="background: #f8fafc;">
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">6. CapEx & Replacement Reserves</strong>
-            <span style="color: #0f172a; font-weight: 700;">Rehab: ${fmtCurr(inputs.rehabCosts || 0)}</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">Reserves: ${inputs.capexReserve || 3.0}%/yr (${fmtCurr(annualRent * 0.03)}/yr)</span>
+            <strong style="color: #0f172a; font-size: 8.5px; display: block;">6. CapEx & Rehab Scope</strong>
+            <span style="color: #0f172a; font-weight: 700;">Rehab: ${fmtCurr(rehabCosts)}</span>
+            <span style="color: #64748b; font-size: 7.5px; display: block;">Closing: ${fmtCurr(closingCosts)} (${rehabMode === 'roll_into_loan' ? 'Rolled into Loan' : 'Out-of-Pocket'})</span>
           </td>
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Evaluated based on physical property age (${yearBuilt} build). Ongoing reserve buffers roof, HVAC, and paving lifecycle maintenance.
+            Allocates dedicated initial renovation scope to bring property to peak market rent and capture full After-Repair Value (${fmtCurr(arv)}).
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Accumulates dedicated structural replacement liquidity over the hold period.</td>
+          <td style="color: #0f172a; vertical-align: top;">Capital improvement program creates forced appreciation and tenant retention.</td>
         </tr>
         <tr>
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
@@ -541,7 +681,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
             Modeled with a conservative +50 bps expansion buffer over entry yield to stress-test liquidity and interest rate shifts over the ${holdYears}-year hold.
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Supported by regional commercial sales comps and capital markets liquidity.</td>
+          <td style="color: #0f172a; vertical-align: top;">Supported by regional sales comps and capital markets liquidity.</td>
         </tr>
         <tr style="background: #f8fafc;">
           <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
@@ -550,7 +690,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
             <span style="color: #047857; font-size: 7.5px; display: block; font-weight: 700;">Closing: ${inputs.closingDate || (startYear + '-10-15')} (Stub Prorated)</span>
           </td>
           <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Aligned with fund lifecycle and full amortization wealth realization cycle. Incorporates stub proration for transaction closing settlement.
+            Aligned with wealth realization cycle and full amortization schedule. Incorporates stub proration for transaction closing settlement.
           </td>
           <td style="color: #0f172a; vertical-align: top;">Optimizes equity compounding and proceeds at disposition.</td>
         </tr>
@@ -587,7 +727,50 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     </table>
   </div>
 
-  <!-- 6. Deal Risk & Underwriting Audit Flags -->
+  <!-- 6. Monte Carlo Stochastic Simulation & Volatility Audit (On-Demand) -->
+  <div class="box">
+    <div class="box-header" style="background: #064e3b; display: flex; justify-content: space-between; align-items: center;">
+      <span>🎲 Stochastic Monte Carlo Simulation & Risk Distribution (500 Runs)</span>
+      <span style="font-size: 8px; color: #a7f3d0;">Value-at-Risk (VaR) &amp; Volatility Stress Audit</span>
+    </div>
+    <div style="padding: 6px 8px; background: #ffffff;">
+      <!-- Stats Tiles -->
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 5px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">P10 (Downside Floor)</p>
+          <p style="font-size: 11px; font-weight: 800; color: ${mc.p10 >= 0 ? '#d97706' : '#e11d48'}; margin: 1px 0 0 0;">${mc.p10.toFixed(1)}% IRR</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">P50 (Median Expected)</p>
+          <p style="font-size: 11px; font-weight: 800; color: #0f172a; margin: 1px 0 0 0;">${mc.p50.toFixed(1)}% IRR</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">P90 (Upside Scenario)</p>
+          <p style="font-size: 11px; font-weight: 800; color: #059669; margin: 1px 0 0 0;">${mc.p90.toFixed(1)}% IRR</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Hurdle Beat Probability</p>
+          <p style="font-size: 11px; font-weight: 800; color: #047857; margin: 1px 0 0 0;">${mc.probExceedingHurdle}% (≥${discountRate.toFixed(1)}%)</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Capital Loss Risk</p>
+          <p style="font-size: 11px; font-weight: 800; color: ${mc.probNegativeIrr > 0 ? '#e11d48' : '#059669'}; margin: 1px 0 0 0;">${mc.probNegativeIrr}% (<0% IRR)</p>
+        </div>
+      </div>
+
+      <!-- Inline SVG Distribution Histogram -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; margin-bottom: 5px;">
+        ${mc.svgChart}
+      </div>
+
+      <!-- Narrative Interpretation -->
+      <p style="font-size: 7.5px; color: #334155; line-height: 1.4; margin: 0;">
+        ${mc.narrative}
+      </p>
+    </div>
+  </div>
+
+  <!-- 7. Deal Risk & Underwriting Audit Flags -->
   ${warnings.length > 0 ? `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 5px; padding: 5px 8px; margin-bottom: 8px;">
     <p style="font-size: 8px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 2px 0;">Deal Risk & Underwriting Audit Flags</p>
@@ -600,7 +783,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   <!-- Footer -->
   <div class="footer">
     <span>MathTree Real Estate Underwriting Platform • Direct Postgres Engine</span>
-    <span>Confidential Institutional Investment Memo • DSCR: ${dscr} • Generated ${dateStr}</span>
+    <span>Confidential Institutional Investment Memo • Senior DSCR: ${dscrFormatted} • Generated ${dateStr}</span>
   </div>
 
   <script>

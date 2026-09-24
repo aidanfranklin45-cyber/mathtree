@@ -1,6 +1,6 @@
 // manage-entities/index.ts
 // Supabase Edge Function to securely manage Legal Entities (LLCs, Corps, Trusts)
-// Handles retrieval, creation, updating, deletion, and property attachment in PostgreSQL.
+// Data Security: Zero storage of Tax EIN or Banking Details. Strictly tracks Entity Legal Name, Structure Type, and Formation State.
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
@@ -32,8 +32,6 @@ const DEMO_ENTITIES = [
     name: "Cascade Holdings LLC",
     entity_type: "llc",
     formation_state: "WA",
-    bank_name: "Chase Commercial (*4892)",
-    ein: "88-1234567",
     notes: "Primary Washington holding company",
     created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
     deals_count: 2,
@@ -43,8 +41,6 @@ const DEMO_ENTITIES = [
     name: "Pacific Apex Assets LLC",
     entity_type: "llc",
     formation_state: "DE",
-    bank_name: "Wells Fargo (*9102)",
-    ein: "88-7654321",
     notes: "Delaware commercial acquisition vehicle",
     created_at: new Date(Date.now() - 15 * 86400000).toISOString(),
     deals_count: 1,
@@ -86,7 +82,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   const isDemo = url.searchParams.get("demo") === "true";
 
   // ─────────────────────────────────────────────────────────────
-  // 1. GET: Fetch all entities for the current user
+  // 1. GET: Fetch entities for the authenticated user
   // ─────────────────────────────────────────────────────────────
   if (req.method === "GET") {
     if ((!userId || isDemo) && (!userId || !dbClient)) {
@@ -103,7 +99,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     try {
       const { data: entities, error: entErr } = await dbClient
         .from("entities")
-        .select("*")
+        .select("id, user_id, name, entity_type, formation_state, notes, created_at, updated_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
@@ -130,7 +126,14 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
 
       const enrichedEntities = (entities || []).map((e) => ({
-        ...e,
+        id: e.id,
+        user_id: e.user_id,
+        name: e.name,
+        entity_type: e.entity_type,
+        formation_state: e.formation_state,
+        notes: e.notes,
+        created_at: e.created_at,
+        updated_at: e.updated_at,
         deals_count: dealMap[e.id]?.count || 0,
         deals: dealMap[e.id]?.deals || [],
       }));
@@ -146,7 +149,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // 2. POST: Register new entity (and optionally attach to deal)
+  // 2. POST: Register new entity (Name, Type, State ONLY)
   // ─────────────────────────────────────────────────────────────
   if (req.method === "POST") {
     if (!userId || !dbClient) {
@@ -167,9 +170,6 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     const entityType = String(payload.entity_type || payload.type || "llc").toLowerCase();
     const formationState = payload.formation_state ? String(payload.formation_state).trim() : null;
-    const formationDate = payload.formation_date ? String(payload.formation_date).trim() : null;
-    const bankName = payload.bank_name ? String(payload.bank_name).trim() : null;
-    const ein = payload.ein ? String(payload.ein).trim() : null;
     const notes = payload.notes ? String(payload.notes).trim() : null;
     const dealId = payload.deal_id || payload.dealId ? String(payload.deal_id || payload.dealId) : null;
 
@@ -181,12 +181,11 @@ export async function handleRequest(req: Request): Promise<Response> {
           name,
           entity_type: entityType,
           formation_state: formationState,
-          formation_date: formationDate,
-          bank_name: bankName,
-          ein,
+          bank_name: null, // Purged for data privacy & security
+          ein: null,       // Purged for data privacy & security
           notes,
         })
-        .select()
+        .select("id, user_id, name, entity_type, formation_state, notes, created_at, updated_at")
         .single();
 
       if (insertErr) {
@@ -256,7 +255,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
     }
 
-    // Action: Update entity fields
+    // Action: Update entity fields (Name, Type, State ONLY)
     const entityId = String(payload.id || payload.entity_id || "");
     if (!entityId) {
       return jsonResponse({ error: "Entity ID is required" }, 400);
@@ -264,13 +263,13 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
+      bank_name: null, // Purged for security
+      ein: null,       // Purged for security
     };
 
     if (payload.name !== undefined) updates.name = String(payload.name).trim();
     if (payload.entity_type !== undefined) updates.entity_type = String(payload.entity_type).toLowerCase();
     if (payload.formation_state !== undefined) updates.formation_state = String(payload.formation_state).trim() || null;
-    if (payload.bank_name !== undefined) updates.bank_name = String(payload.bank_name).trim() || null;
-    if (payload.ein !== undefined) updates.ein = String(payload.ein).trim() || null;
     if (payload.notes !== undefined) updates.notes = String(payload.notes).trim() || null;
 
     try {
@@ -279,7 +278,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         .update(updates)
         .eq("id", entityId)
         .eq("user_id", userId)
-        .select()
+        .select("id, user_id, name, entity_type, formation_state, notes, created_at, updated_at")
         .single();
 
       if (updateErr) {
