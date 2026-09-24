@@ -85,6 +85,31 @@ export async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
+    // Prepopulate investor hurdle rate (discountRate) and holdYears from profiles table if missing
+    if (rawInputs.discountRate === undefined || rawInputs.discountRate === null) {
+      if (userId && supabaseUrl && supabaseServiceKey) {
+        try {
+          const authClient = createClient(supabaseUrl, supabaseServiceKey);
+          const { data: profRow } = await authClient
+            .from("profiles")
+            .select("preferences")
+            .eq("id", userId)
+            .maybeSingle();
+          if (profRow?.preferences?.discountRate) {
+            rawInputs.discountRate = Number(profRow.preferences.discountRate);
+          }
+          if (!rawInputs.holdYears && profRow?.preferences?.exitYear) {
+            rawInputs.holdYears = Number(profRow.preferences.exitYear);
+          }
+        } catch (profErr) {
+          console.warn("[create-project] Profile prefill warning:", profErr);
+        }
+      }
+      if (rawInputs.discountRate === undefined || rawInputs.discountRate === null) {
+        rawInputs.discountRate = 8.0;
+      }
+    }
+
     // 1. Calculate institutional projections & risk audit
     const results = calculateProjections(assetType, rawInputs);
     const risks = auditDealRisks(assetType, rawInputs, results);

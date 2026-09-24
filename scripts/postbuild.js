@@ -16,7 +16,6 @@ const RUNTIME_FILES = [
   'reconcile.html',
   // Client scripts & engines
   'session.js',
-  'profile.js',
   'address-service.js',
   // Favicons & icons
   'favicon.ico',

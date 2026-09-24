@@ -15,7 +15,161 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- MathTree Session Management (Inactivity Timeout) -->
   <script src="session.js"></script>
-  <script src="profile.js"></script>
+  <!-- Backend-Driven Investor Profile & Hurdle Rate Service (Zero localStorage Caching) -->
+  <script>
+    (function(root) {
+      const DEFAULT_PROFILE = {
+        fullName: 'Investor',
+        companyName: 'MathTree Capital',
+        discountRate: 8.0,
+        exitYear: 10,
+        exitCapTiming: 'amortized',
+        marketTier: 'Tier 2',
+        propertyClass: 'Class B'
+      };
+
+      let memoryProfile = { ...DEFAULT_PROFILE };
+
+      function sanitize(p) {
+        if (!p || typeof p !== 'object') return { ...DEFAULT_PROFILE };
+        const dr = parseFloat(p.discountRate);
+        const ey = parseInt(p.exitYear, 10);
+        return {
+          id: p.id || null,
+          email: p.email || null,
+          fullName: (p.fullName || p.full_name || DEFAULT_PROFILE.fullName).trim(),
+          companyName: (p.companyName || p.company_name || DEFAULT_PROFILE.companyName).trim(),
+          formationState: p.formationState || '',
+          ein: p.ein || '',
+          bankName: p.bankName || '',
+          discountRate: isNaN(dr) ? DEFAULT_PROFILE.discountRate : Math.max(0, Math.min(100, dr)),
+          exitYear: isNaN(ey) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, ey)),
+          exitCapTiming: (p.exitCapTiming === 'day1' || p.exitCapTiming === 'immediate') ? 'day1' : 'amortized',
+          marketTier: p.marketTier || DEFAULT_PROFILE.marketTier,
+          propertyClass: p.propertyClass || DEFAULT_PROFILE.propertyClass
+        };
+      }
+
+      function getProfile(currentUser) {
+        if (currentUser) {
+          const meta = currentUser.user_metadata || {};
+          if (meta.full_name && memoryProfile.fullName === DEFAULT_PROFILE.fullName) memoryProfile.fullName = meta.full_name;
+          if (meta.company_name && memoryProfile.companyName === DEFAULT_PROFILE.companyName) memoryProfile.companyName = meta.company_name;
+          if (meta.investor_profile && typeof meta.investor_profile === 'object') {
+            memoryProfile = sanitize({ ...memoryProfile, ...meta.investor_profile });
+          }
+        }
+        return { ...memoryProfile };
+      }
+
+      async function fetchProfile(supabaseClient, currentUser) {
+        try {
+          const session = await (supabaseClient?.auth?.getSession() || Promise.resolve({ data: {} }));
+          const token = session?.data?.session?.access_token || (window.SUPABASE_ANON_KEY || '');
+          const anonKey = window.SUPABASE_ANON_KEY || '';
+          const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-profile', {
+            method: 'GET',
+            headers: {
+              'Authorization': 'Bearer ' + (token || anonKey),
+              'apikey': anonKey,
+              'Content-Type': 'application/json'
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.profile) {
+              memoryProfile = sanitize(data.profile);
+              return { ...memoryProfile };
+            }
+          }
+        } catch (e) {
+          console.warn('[MathTreeProfile] Edge function fetch warning:', e);
+        }
+
+        if (supabaseClient && currentUser && currentUser.id) {
+          try {
+            const { data: row } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+            if (row) {
+              const prefs = row.preferences || {};
+              memoryProfile = sanitize({ id: row.id, email: row.email, fullName: row.full_name, companyName: row.company_name, ...prefs });
+              return { ...memoryProfile };
+            }
+          } catch (dbErr) {
+            console.warn('[MathTreeProfile] DB fallback fetch warning:', dbErr);
+          }
+        }
+        return getProfile(currentUser);
+      }
+
+      async function saveProfile(updates, supabaseClient, currentUser) {
+        memoryProfile = sanitize({ ...memoryProfile, ...updates });
+        try {
+          const session = await (supabaseClient?.auth?.getSession() || Promise.resolve({ data: {} }));
+          const token = session?.data?.session?.access_token || (window.SUPABASE_ANON_KEY || '');
+          const anonKey = window.SUPABASE_ANON_KEY || '';
+          const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-profile', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + (token || anonKey),
+              'apikey': anonKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(memoryProfile)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.profile) {
+              memoryProfile = sanitize(data.profile);
+              return { ...memoryProfile };
+            }
+          }
+        } catch (e) {
+          console.warn('[MathTreeProfile] Edge function save warning:', e);
+        }
+
+        if (supabaseClient && currentUser && currentUser.id) {
+          try {
+            await supabaseClient.from('profiles').upsert({
+              id: currentUser.id,
+              full_name: memoryProfile.fullName,
+              company_name: memoryProfile.companyName,
+              preferences: {
+                discountRate: memoryProfile.discountRate,
+                exitYear: memoryProfile.exitYear,
+                exitCapTiming: memoryProfile.exitCapTiming,
+                marketTier: memoryProfile.marketTier,
+                propertyClass: memoryProfile.propertyClass
+              },
+              updated_at: new Date().toISOString()
+            });
+          } catch (dbErr) {
+            console.error('[MathTreeProfile] Direct DB upsert failed:', dbErr);
+          }
+        }
+        return { ...memoryProfile };
+      }
+
+      function resolveHurdleRate(dealRate, profile) {
+        if (dealRate !== undefined && dealRate !== null && dealRate !== '') {
+          const n = parseFloat(dealRate);
+          if (!isNaN(n)) return n;
+        }
+        const prof = profile || memoryProfile;
+        if (prof && prof.discountRate !== undefined && !isNaN(parseFloat(prof.discountRate))) {
+          return parseFloat(prof.discountRate);
+        }
+        return DEFAULT_PROFILE.discountRate;
+      }
+
+      root.MathTreeProfile = {
+        DEFAULT_PROFILE,
+        getProfile,
+        fetchProfile,
+        saveProfile,
+        resolveHurdleRate
+      };
+    })(typeof window !== 'undefined' ? window : this);
+  </script>
   <script src="address-service.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -234,6 +388,9 @@
           return;
         }
         window._currentUser = session.user;
+        if (window.MathTreeProfile) {
+          window.MathTreeProfile.fetchProfile(guardClient, session.user);
+        }
         if (window.MathTreeSession) window.MathTreeSession.startWatcher(guardClient);
       });
 

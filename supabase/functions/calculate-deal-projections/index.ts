@@ -152,6 +152,30 @@ export async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
+  // Prepopulate investor hurdle rate (discountRate) and holdYears from profiles table if missing
+  if (mergedInputs.discountRate === undefined || mergedInputs.discountRate === null) {
+    if (userId && dbClient) {
+      try {
+        const { data: profRow } = await dbClient
+          .from("profiles")
+          .select("preferences")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profRow?.preferences?.discountRate) {
+          mergedInputs.discountRate = Number(profRow.preferences.discountRate);
+        }
+        if (!mergedInputs.holdYears && profRow?.preferences?.exitYear) {
+          mergedInputs.holdYears = Number(profRow.preferences.exitYear);
+        }
+      } catch (profErr) {
+        console.warn("[calculate-deal-projections] Profile prefill warning:", profErr);
+      }
+    }
+    if (mergedInputs.discountRate === undefined || mergedInputs.discountRate === null) {
+      mergedInputs.discountRate = 8.0;
+    }
+  }
+
   // ── Run the math engine ──
   try {
     const metrics = calculateProjections(assetClass, mergedInputs);
