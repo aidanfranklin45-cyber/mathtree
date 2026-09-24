@@ -484,13 +484,10 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   // Dynamic Debt & Equity Calculations: derived from purchase price, downPaymentPercent, and remodel financing mode
   const rehabFinancingMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
   const isRehabFinanced = rehabFinancingMode === 'roll_into_loan';
+  const totalFinancedBasis = isRehabFinanced ? purchasePrice + rehabCosts + closingCosts : purchasePrice;
 
-  const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
-  const baseLoan = Math.max(0, purchasePrice - downPaymentAmount);
-
-  const loanAmount = isRehabFinanced
-    ? baseLoan + rehabCosts + closingCosts
-    : baseLoan;
+  const downPaymentAmount = totalFinancedBasis * (downPaymentPercent / 100);
+  const loanAmount = Math.max(0, isRehabFinanced ? totalFinancedBasis - downPaymentAmount : purchasePrice - downPaymentAmount);
 
   const initialCashInvested = isRehabFinanced
     ? downPaymentAmount
@@ -1588,19 +1585,18 @@ export function calculateHoldingPeriodWealth(inputs: Record<string, any>, projec
   const proj = projections[yearIdx];
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
   const downPaymentPercent = isNaN(parseFloat(inputs.downPaymentPercent)) ? 25 : parseFloat(inputs.downPaymentPercent);
-  const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
   const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
   const closingCosts = parseFloat(inputs.closingCosts) || 0;
   const rehabFinancingMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
   const isRehabFinanced = rehabFinancingMode === 'roll_into_loan';
+  const totalFinancedBasis = isRehabFinanced ? purchasePrice + rehabCosts + closingCosts : purchasePrice;
 
+  const downPaymentAmount = totalFinancedBasis * (downPaymentPercent / 100);
   const initialCashInvested = isRehabFinanced
     ? downPaymentAmount
     : (downPaymentAmount + rehabCosts + closingCosts);
 
-  const initialLoan = isRehabFinanced
-    ? Math.max(0, purchasePrice - downPaymentAmount + rehabCosts + closingCosts)
-    : Math.max(0, purchasePrice - downPaymentAmount);
+  const initialLoan = Math.max(0, isRehabFinanced ? totalFinancedBasis - downPaymentAmount : purchasePrice - downPaymentAmount);
 
   const currentPropertyValue = proj ? proj.propertyValue : purchasePrice;
   const remainingLoanBalance = proj ? proj.loanBalanceRemaining : initialLoan;

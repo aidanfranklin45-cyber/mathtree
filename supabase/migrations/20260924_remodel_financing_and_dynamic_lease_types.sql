@@ -15,6 +15,7 @@ DECLARE
   v_down_pct numeric;
   v_down_payment numeric;
   v_base_loan numeric;
+  v_total_basis numeric;
   v_loan numeric;
   v_rehab numeric;
   v_closing numeric;
@@ -43,19 +44,20 @@ BEGIN
 
   -- 2. Down Payment, Remodel / Closing Costs & Financing Mode
   v_down_pct := COALESCE((v_inputs->>'downPaymentPercent')::numeric, 25.0);
-  v_down_payment := ROUND(v_price * (v_down_pct / 100.0), 2);
-  v_base_loan := GREATEST(0, v_price - v_down_payment);
   v_rehab := COALESCE((v_inputs->>'rehabCosts')::numeric, (v_inputs->>'rehabBudget')::numeric, 0);
   v_closing := COALESCE((v_inputs->>'closingCosts')::numeric, 0);
   v_rehab_mode := COALESCE(v_inputs->>'rehabFinancingMode', CASE WHEN (v_inputs->>'financeRehabAndClosingCosts')::boolean THEN 'roll_into_loan' ELSE 'out_of_pocket' END);
 
   IF v_rehab_mode = 'roll_into_loan' THEN
-    -- Remodel and closing costs are rolled into senior debt package
-    v_loan := v_base_loan + v_rehab + v_closing;
+    -- Remodel and closing costs are looped into total project basis and senior debt package
+    v_total_basis := v_price + v_rehab + v_closing;
+    v_down_payment := ROUND(v_total_basis * (v_down_pct / 100.0), 2);
+    v_loan := GREATEST(0, v_total_basis - v_down_payment);
     v_initial_cash := v_down_payment;
   ELSE
     -- Remodel and closing costs paid out-of-pocket on top of down payment
-    v_loan := v_base_loan;
+    v_down_payment := ROUND(v_price * (v_down_pct / 100.0), 2);
+    v_loan := GREATEST(0, v_price - v_down_payment);
     v_initial_cash := v_down_payment + v_rehab + v_closing;
   END IF;
 

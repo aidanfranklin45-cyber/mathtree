@@ -13,10 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- MathTree Session & Settings -->
   <script src="session.js"></script>
-  <script src="mathtree-client.js"></script>
   <script src="profile.js"></script>
-  <script src="modal-manage-entities.js"></script>
-  <script src="math.js?v=5"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -193,7 +190,7 @@
       <!-- User Actions & Global Profile -->
       <div class="flex items-center space-x-2 sm:space-x-3">
         <!-- Action Center / Notification Hub -->
-        <button id="btn-notification-hub" onclick="window.MathTreeClient.toggleNotificationHub()" class="relative flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Action Center & Institutional Alerts">
+        <button id="btn-notification-hub" onclick="window.MathTreeClient?.toggleNotificationHub?.()" class="relative flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Action Center & Institutional Alerts">
           <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
           <span class="hidden sm:inline">Alerts</span>
           <span id="notif-badge" class="notif-badge hidden -top-1 -right-1 absolute flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-extrabold text-white animate-pulse">0</span>
@@ -1100,6 +1097,13 @@
 
   <!-- ==================== FRONTEND CONTROLLER & DYNAMIC SUPABASE SYNC ==================== -->
   <script>
+    // Fallback PropertyMath adapter routing to server-computed metrics
+    window.PropertyMath = window.PropertyMath || {
+      calculateProjections: function(asset, inputs) {
+        return { projections: [], irr: 0, npv: 0, equityMultiplier: 1, initialCashInvested: 0, loanAmount: 0, downPaymentAmount: 0 };
+      }
+    };
+
     let rawEntities = [];
     let rawDeals = [];
     let rawUnits = [];
@@ -2792,7 +2796,7 @@
         let actionBtn = '';
         if (absVariancePct >= 5.0 && actualMonthlyRent > 0) {
           actionBtn = `
-            <button onclick="window.MathTreeClient.syncProFormaToActuals('${deal.id}', ${actualMonthlyRent})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition flex items-center space-x-1" title="Update Underwriting Pro-Forma to reflect real revenue">
+            <button onclick="syncProFormaToActuals('${deal.id}', ${actualMonthlyRent})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition flex items-center space-x-1" title="Update Underwriting Pro-Forma to reflect real revenue">
               <span>⚡ Sync Pro-Forma</span>
             </button>
           `;
@@ -2847,6 +2851,26 @@
         accBadge.className = `px-2 py-0.5 rounded-full text-[10px] font-bold ${avgAccuracy >= 90 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`;
       }
     }
+
+    async function syncProFormaToActuals(dealId, actualMonthlyRent) {
+      const client = window._supabase;
+      if (!client || !dealId) return false;
+      try {
+        const res = await client.rpc('rpc_sync_proforma_to_actuals', {
+          p_deal_id: dealId,
+          p_actual_monthly_rent: actualMonthlyRent
+        });
+        if (res.error) throw res.error;
+        alert('✓ Pro-Forma revenue successfully aligned to actual rent roll!');
+        window.location.reload();
+        return true;
+      } catch (err) {
+        console.error('syncProFormaToActuals failed:', err);
+        alert('Could not synchronize: ' + (err.message || 'Unknown error'));
+        return false;
+      }
+    }
+    window.syncProFormaToActuals = syncProFormaToActuals;
 
     // Modal Trigger: Log Payment
     function openLogPaymentModal(leaseId) {

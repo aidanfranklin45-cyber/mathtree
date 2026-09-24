@@ -16,11 +16,8 @@ const RUNTIME_FILES = [
   'reconcile.html',
   // Client scripts & engines
   'session.js',
-  'math.js',
-  'mathtree-client.js',
   'profile.js',
   'address-service.js',
-  'modal-manage-entities.js',
   // Favicons & icons
   'favicon.ico',
   'favicon.png',
