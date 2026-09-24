@@ -76,6 +76,10 @@ export interface DealInputs {
   armRateCap?: number;
   closingCosts?: number;
   rehabCosts?: number;
+  rehabBudget?: number;
+  rehabFinancingMode?: 'out_of_pocket' | 'roll_into_loan';
+  financeRehabAndClosingCosts?: boolean;
+  leaseType?: string;
 
   // Valuation & Exit
   exitCapRatePercent?: number;

@@ -730,10 +730,12 @@
                   </select>
                 </div>
                 <div class="space-y-1.5">
-                  <label for="input-lease-type" class="text-xs font-semibold text-slate-400">Lease Type</label>
+                  <label for="input-lease-type" class="text-xs font-semibold text-slate-400">Lease Structure</label>
                   <select id="input-lease-type" name="leaseType" onchange="updateCalculations()" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 px-3 text-sm text-slate-100 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
-                    <option value="NNN">Triple Net (NNN)</option>
-                    <option value="Gross">Gross / Modified</option>
+                    <option value="Gross">Full Service Gross</option>
+                    <option value="Modified Gross">Modified Gross</option>
+                    <option value="NNN" selected>Triple Net (NNN)</option>
+                    <option value="Absolute Net">Absolute Net (Bond Lease)</option>
                   </select>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -903,6 +905,25 @@
                       </div>
                       <input type="number" id="input-closing-costs" name="closingCosts" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                     </div>
+                  </div>
+                </div>
+
+                <!-- Remodel & Closing Costs Financing Option -->
+                <div class="space-y-1.5 p-2 rounded-lg bg-slate-950/60 border border-emerald-950">
+                  <div class="flex items-center justify-between">
+                    <label class="text-[11px] font-semibold text-slate-400">Remodel Financing</label>
+                    <span id="sidebar-rehab-mode-badge" class="text-[10px] font-bold text-emerald-400">Out of Pocket</span>
+                  </div>
+                  <input type="hidden" id="input-rehab-financing-mode" name="rehabFinancingMode" value="out_of_pocket">
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <button type="button" id="sidebar-btn-rehab-oop" onclick="setSidebarRehabFinancingMode('out_of_pocket')"
+                      class="py-1 px-2 rounded-md text-[11px] font-bold border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center transition">
+                      Out of Pocket
+                    </button>
+                    <button type="button" id="sidebar-btn-rehab-roll" onclick="setSidebarRehabFinancingMode('roll_into_loan')"
+                      class="py-1 px-2 rounded-md text-[11px] font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center transition">
+                      Roll into Loan
+                    </button>
                   </div>
                 </div>
 
@@ -2385,6 +2406,27 @@
           </div>
         </div>
 
+        <!-- Remodel & Closing Costs Financing Multiple-Choice Option -->
+        <div class="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Remodel &amp; Closing Costs Financing Structure</label>
+            <span id="edit-modal-rehab-mode-badge" class="text-[10px] font-semibold text-emerald-400">Out of Pocket</span>
+          </div>
+          <input type="hidden" id="edit-deal-rehab-financing-mode" value="out_of_pocket">
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="edit-btn-rehab-oop" onclick="setModalRehabFinancingMode('out_of_pocket')"
+              class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center">
+              <span>Out of Pocket (Capital Outlay)</span>
+              <span class="text-[10px] font-normal text-slate-400 mt-0.5">Rehab &amp; closing added to initial equity</span>
+            </button>
+            <button type="button" id="edit-btn-rehab-roll" onclick="setModalRehabFinancingMode('roll_into_loan')"
+              class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center">
+              <span>Roll into Financing Package</span>
+              <span class="text-[10px] font-normal text-slate-500 mt-0.5">Rehab &amp; closing rolled into senior loan</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Exit Cap Rate Spread Method -->
         <div class="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
           <div class="flex items-center justify-between">
@@ -2471,16 +2513,25 @@
             <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">📑 In-Place Lease & Tenant Terms</span>
             <span class="text-[10px] text-slate-400">Live Postgres Sync</span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div class="space-y-1 sm:col-span-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Primary Lease Structure</label>
+              <select id="edit-deal-lease-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                <option value="Gross">Full Service Gross</option>
+                <option value="Modified Gross">Modified Gross</option>
+                <option value="NNN">Triple Net (NNN)</option>
+                <option value="Absolute Net">Absolute Net (Bond Lease)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Tenant of Record</label>
               <input type="text" id="edit-deal-tenant-name" placeholder="e.g. In-Place Commercial Tenant" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
-            <div class="space-y-1 sm:col-span-1">
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Lease Commencement</label>
               <input type="date" id="edit-deal-lease-start" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
-            <div class="space-y-1 sm:col-span-1">
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Lease Expiration</label>
               <input type="date" id="edit-deal-lease-end" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
@@ -2503,14 +2554,7 @@
         <!-- Asset-Specific Optional Parameters (Commercial, Multi, Storage, SFR) -->
         <div id="edit-asset-specific-container" class="space-y-2">
           <!-- Commercial Options -->
-          <div id="edit-asset-group-commercial" class="hidden grid grid-cols-2 gap-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
-            <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Commercial Lease Type</label>
-              <select id="edit-deal-lease-type" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                <option value="NNN">Triple Net (NNN)</option>
-                <option value="Gross">Full Service Gross</option>
-              </select>
-            </div>
+          <div id="edit-asset-group-commercial" class="hidden p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Gross Leasable Area (Sq Ft GLA)</label>
               <input type="number" id="edit-deal-gla" placeholder="15000" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
@@ -3205,6 +3249,13 @@
       renderDealTimelineUI(values.dealStage || (currentLoadedDeal && currentLoadedDeal.status === 'owned' ? 'owned' : 'screening'));
       document.getElementById('input-rehab-costs').value = values.rehabCosts ?? values.rehabBudget ?? 0;
       document.getElementById('input-closing-costs').value = values.closingCosts ?? 0;
+      const rehabFinancingMode = values.rehabFinancingMode || (values.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
+      if (typeof setSidebarRehabFinancingMode === 'function') {
+        setSidebarRehabFinancingMode(rehabFinancingMode, false);
+      }
+      if (document.getElementById('input-lease-type') && values.leaseType) {
+        document.getElementById('input-lease-type').value = values.leaseType;
+      }
       const capRateOrApp = (activeTab === 'commercial' || activeTab === 'storage')
         ? (values.targetCapRate ?? values.targetExitCapRate ?? values.appreciationRate ?? '')
         : (values.appreciationRate ?? '');
@@ -3283,6 +3334,8 @@
         closingDate: document.getElementById('date-closing')?.value || currentLoadedDeal?.inputs?.closingDate || '',
         rehabCosts: parseFloat(document.getElementById('input-rehab-costs').value) || 0,
         closingCosts: parseFloat(document.getElementById('input-closing-costs').value) || 0,
+        rehabFinancingMode: document.getElementById('input-rehab-financing-mode')?.value || 'out_of_pocket',
+        financeRehabAndClosingCosts: (document.getElementById('input-rehab-financing-mode')?.value === 'roll_into_loan'),
         appreciationRate: parseFloat(document.getElementById('input-appreciation-rate').value) || 0,
         vacancyRate: parseFloat(document.getElementById('input-vacancy-rate').value) || 0,
         rentGrowth: parseFloat(document.getElementById('input-rent-growth').value) || 0,
@@ -3295,6 +3348,7 @@
         firstYearMonths: document.getElementById('input-prorate-first-year')?.checked ? 3 : 12
       };
 
+      inputs.leaseType = document.getElementById('input-lease-type')?.value || currentLoadedDeal?.inputs?.leaseType || (activeTab === 'commercial' ? 'NNN' : 'Gross');
       inputs.leases = (currentLoadedDeal && currentLoadedDeal.inputs && Array.isArray(currentLoadedDeal.inputs.leases)) ? currentLoadedDeal.inputs.leases : [];
 
       if (activeTab === 'single-family') {
@@ -4186,7 +4240,9 @@
           numEq(inputs.exitYear, storedInputs.exitYear) &&
           numEq(inputs.discountRate, storedInputs.discountRate) &&
           strEq(inputs.exitCapTiming, storedInputs.exitCapTiming) &&
-          strEq(inputs.financingType, storedInputs.financingType);
+          strEq(inputs.financingType, storedInputs.financingType) &&
+          strEq(inputs.rehabFinancingMode, storedInputs.rehabFinancingMode || (storedInputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket')) &&
+          strEq(inputs.leaseType, storedInputs.leaseType);
 
         if (isInputsAligned) {
           res = currentLoadedDeal.metrics;
@@ -8843,6 +8899,45 @@
     }
     window.toggleSidebarFinancing = toggleSidebarFinancing;
 
+    function setSidebarRehabFinancingMode(mode, triggerCalc = true) {
+      const hiddenInput = document.getElementById('input-rehab-financing-mode');
+      if (hiddenInput) hiddenInput.value = mode;
+
+      const btnOop = document.getElementById('sidebar-btn-rehab-oop');
+      const btnRoll = document.getElementById('sidebar-btn-rehab-roll');
+      const badge = document.getElementById('sidebar-rehab-mode-badge');
+
+      if (mode === 'roll_into_loan') {
+        if (badge) {
+          badge.textContent = 'Financed in Loan';
+          badge.className = 'text-[10px] font-bold text-sky-400';
+        }
+        if (btnRoll) {
+          btnRoll.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center transition';
+        }
+        if (btnOop) {
+          btnOop.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center transition';
+        }
+      } else {
+        if (badge) {
+          badge.textContent = 'Out of Pocket';
+          badge.className = 'text-[10px] font-bold text-emerald-400';
+        }
+        if (btnOop) {
+          btnOop.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center transition';
+        }
+        if (btnRoll) {
+          btnRoll.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center transition';
+        }
+      if (triggerCalc && typeof updateCalculations === 'function') {
+        updateCalculations();
+      }
+      if (triggerCalc && typeof saveCurrentDealChanges === 'function') {
+        saveCurrentDealChanges(false);
+      }
+    }
+    window.setSidebarRehabFinancingMode = setSidebarRehabFinancingMode;
+
     function toggleEditModalFinancing(type) {
       const gArm = document.getElementById('edit-group-arm');
       const gIo = document.getElementById('edit-group-io');
@@ -9647,7 +9742,10 @@
         targetExitCapRate: appRate,
         rehabCosts: numVal('edit-deal-rehab-costs', 0),
         rehabBudget: numVal('edit-deal-rehab-costs', 0),
+        rehabFinancingMode: document.getElementById('edit-deal-rehab-financing-mode')?.value || 'out_of_pocket',
+        financeRehabAndClosingCosts: (document.getElementById('edit-deal-rehab-financing-mode')?.value === 'roll_into_loan'),
         closingCosts: numVal('edit-deal-closing-costs', 0),
+        leaseType: document.getElementById('edit-deal-lease-type')?.value || 'Gross',
         exitYear: intVal('edit-deal-exit-year', 10),
         discountRate: numVal('edit-deal-discount-rate', 8),
         financingType: document.getElementById('edit-deal-financing-type')?.value || 'fixed',
@@ -9736,21 +9834,63 @@
       return inputs;
     }
 
+    function setModalRehabFinancingMode(mode) {
+      const hiddenInput = document.getElementById('edit-deal-rehab-financing-mode');
+      if (hiddenInput) hiddenInput.value = mode;
+
+      const btnOop = document.getElementById('edit-btn-rehab-oop');
+      const btnRoll = document.getElementById('edit-btn-rehab-roll');
+      const badge = document.getElementById('edit-rehab-mode-badge');
+
+      if (mode === 'roll_into_loan') {
+        if (badge) {
+          badge.textContent = 'Financed in Loan';
+          badge.className = 'text-[10px] font-bold text-sky-400';
+        }
+        if (btnRoll) {
+          btnRoll.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center transition';
+        }
+        if (btnOop) {
+          btnOop.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center transition';
+        }
+      } else {
+        if (badge) {
+          badge.textContent = 'Out of Pocket';
+          badge.className = 'text-[10px] font-bold text-emerald-400';
+        }
+        if (btnOop) {
+          btnOop.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center transition';
+        }
+        if (btnRoll) {
+          btnRoll.className = 'py-1 px-2 rounded-md text-[11px] font-bold border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center transition';
+        }
+      }
+      updateEditModalLivePreview();
+    }
+    window.setModalRehabFinancingMode = setModalRehabFinancingMode;
+
     function updateEditModalLivePreview() {
       const priceVal = parseFloat(document.getElementById('edit-deal-price')?.value);
       const downVal = parseFloat(document.getElementById('edit-deal-down-payment')?.value);
+      const rehabVal = parseFloat(document.getElementById('edit-deal-rehab-costs')?.value) || 0;
+      const closingVal = parseFloat(document.getElementById('edit-deal-closing-costs')?.value) || 0;
+      const rehabFinMode = document.getElementById('edit-deal-rehab-financing-mode')?.value || 'out_of_pocket';
+      const isRehabFinanced = rehabFinMode === 'roll_into_loan';
+
       const price = isNaN(priceVal) ? 0 : priceVal;
       const downPercent = isNaN(downVal) ? 25 : Math.max(0, Math.min(100, downVal));
-      const ltv = 100 - downPercent;
-      const loan = Math.round(price * (ltv / 100));
-      const equity = Math.round(price * (downPercent / 100));
+      const baseLoan = Math.round(price * ((100 - downPercent) / 100));
+      const loan = isRehabFinanced ? Math.round(baseLoan + rehabVal + closingVal) : baseLoan;
+      const downPaymentAmount = Math.round(price * (downPercent / 100));
+      const equity = isRehabFinanced ? downPaymentAmount : Math.round(downPaymentAmount + rehabVal + closingVal);
+      const effectiveLtv = price > 0 ? (loan / price) * 100 : (100 - downPercent);
 
       const ltvEl = document.getElementById('edit-preview-ltv');
       const loanEl = document.getElementById('edit-preview-loan');
       const equityEl = document.getElementById('edit-preview-equity');
       const cfEl = document.getElementById('edit-preview-cashflow');
 
-      if (ltvEl) ltvEl.textContent = `${ltv.toFixed(1)}%`;
+      if (ltvEl) ltvEl.textContent = `${effectiveLtv.toFixed(1)}%`;
       if (loanEl) loanEl.textContent = formatCurrency(loan);
       if (equityEl) equityEl.textContent = formatCurrency(equity);
 
@@ -9942,14 +10082,18 @@
 
       setVal('edit-deal-rehab-costs', inputs.rehabCosts ?? inputs.rehabBudget ?? 0);
       setVal('edit-deal-closing-costs', inputs.closingCosts ?? 0);
+      const rehabFinMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
+      if (typeof setModalRehabFinancingMode === 'function') {
+        setModalRehabFinancingMode(rehabFinMode);
+      }
       setVal('edit-deal-exit-year', inputs.exitYear ?? 10);
       const currentProfile = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : { discountRate: 8 };
       setVal('edit-deal-discount-rate', inputs.discountRate ?? currentProfile.discountRate ?? 8);
       
       setChecked('edit-deal-manage-property', inputs.manageProperty !== false);
 
-      // Asset specific fields
-      setVal('edit-deal-lease-type', inputs.leaseType || 'NNN');
+      // In-place lease & asset fields
+      setVal('edit-deal-lease-type', inputs.leaseType || (aClass === 'commercial' ? 'NNN' : 'Gross'));
       setVal('edit-deal-gla', inputs.gla || 15000);
       setVal('edit-deal-unit-count', inputs.unitCount || inputs.numUnits || 4);
       setVal('edit-deal-storage-units', inputs.storageUnitCount || inputs.unitCount || (aClass === 'storage' ? 20 : 100));

@@ -54,6 +54,10 @@ export interface DealInputs {
   armRateCap?: number | string;
   closingCosts?: number | string;
   rehabCosts?: number | string;
+  rehabBudget?: number | string;
+  rehabFinancingMode?: 'out_of_pocket' | 'roll_into_loan';
+  financeRehabAndClosingCosts?: boolean;
+  leaseType?: 'NNN' | 'Gross' | 'Modified Gross' | 'Full Service' | string;
 
   // Valuation & Exit
   exitCapRatePercent?: number | string;

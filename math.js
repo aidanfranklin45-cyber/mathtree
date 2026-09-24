@@ -376,9 +376,12 @@
         }
         break;
     }
+    const rehabFinancingMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? "roll_into_loan" : "out_of_pocket");
+    const isRehabFinanced = rehabFinancingMode === "roll_into_loan";
     const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
-    const loanAmount = Math.max(0, purchasePrice - downPaymentAmount);
-    const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
+    const baseLoan = Math.max(0, purchasePrice - downPaymentAmount);
+    const loanAmount = isRehabFinanced ? baseLoan + rehabCosts + closingCosts : baseLoan;
+    const initialCashInvested = isRehabFinanced ? downPaymentAmount : downPaymentAmount + rehabCosts + closingCosts;
     const initialEquity = initialPropertyValue - loanAmount;
     const monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, loanTerm);
     const annualDebtService = monthlyPayment * 12;
@@ -1303,8 +1306,12 @@
     const downPaymentAmount = purchasePrice * (downPaymentPercent / 100);
     const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
     const closingCosts = parseFloat(inputs.closingCosts) || 0;
-    const initialCashInvested = downPaymentAmount + rehabCosts + closingCosts;
-    const initialLoan = Math.max(0, purchasePrice - downPaymentAmount);
+    const rehabFinancingMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? "roll_into_loan" : "out_of_pocket");
+    const isRehabFinanced = rehabFinancingMode === "roll_into_loan";
+    const initialCashInvested = isRehabFinanced ? downPaymentAmount : downPaymentAmount + rehabCosts + closingCosts;
+    const initialLoan = isRehabFinanced
+      ? Math.max(0, purchasePrice - downPaymentAmount + rehabCosts + closingCosts)
+      : Math.max(0, purchasePrice - downPaymentAmount);
     const currentPropertyValue = proj ? proj.propertyValue : purchasePrice;
     const remainingLoanBalance = proj ? proj.loanBalanceRemaining : initialLoan;
     const principalPaydownEquity = Math.max(0, initialLoan - remainingLoanBalance);

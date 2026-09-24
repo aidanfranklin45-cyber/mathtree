@@ -831,26 +831,30 @@
               </div>
             </div>
 
+            <!-- Universal Lease Structure Selector (Dynamic across all asset classes) -->
+            <div class="space-y-1.5 pb-1 border-b border-slate-800/60">
+              <div class="flex items-center justify-between">
+                <label for="wiz-lease-type" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  Primary Lease Structure
+                </label>
+                <span id="wiz-lease-type-hint" class="text-[10px] text-slate-400">NNN • Tenant pays taxes, insurance & CAM</span>
+              </div>
+              <select id="wiz-lease-type" onchange="onWizardLeaseTypeChanged(this.value)"
+                class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                <option value="Gross">Full Service Gross • Landlord absorbs operating expenses</option>
+                <option value="Modified Gross">Modified Gross • Landlord & tenant share expenses</option>
+                <option value="NNN" selected>Triple Net (NNN) • Tenant reimburses taxes, insurance & CAM</option>
+                <option value="Absolute Net">Absolute Net (Bond Lease) • Zero landlord capital obligation</option>
+              </select>
+            </div>
+
             <!-- Commercial Asset Group -->
             <div id="wiz-step1-group-commercial" class="space-y-3">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                  <label for="wiz-comm-sqft" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Gross
-                    Leasable Area (GLA Sq Ft)</label>
-                  <input type="number" id="wiz-comm-sqft" min="100" value="15000" placeholder="e.g. 15000"
-                    class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
-                </div>
-                <div class="space-y-1.5">
-                  <label for="wiz-comm-lease-type"
-                    class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Primary Lease
-                    Structure</label>
-                  <select id="wiz-comm-lease-type"
-                    class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
-                    <option value="NNN" selected>Triple Net (NNN) • Tenant Pays Taxes, Ins &amp; CAM</option>
-                    <option value="Modified Gross">Modified Gross</option>
-                    <option value="Gross">Full Service Gross</option>
-                  </select>
-                </div>
+              <div class="space-y-1.5">
+                <label for="wiz-comm-sqft" class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Gross
+                  Leasable Area (GLA Sq Ft)</label>
+                <input type="number" id="wiz-comm-sqft" min="100" value="15000" placeholder="e.g. 15000"
+                  class="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
               </div>
             </div>
 
@@ -1038,6 +1042,27 @@
             </div>
           </div>
 
+          <!-- Remodel & Closing Costs Financing Multiple-Choice Option -->
+          <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-300">Remodel &amp; Closing Costs Financing</label>
+              <span id="wiz-rehab-mode-badge" class="text-[10px] font-semibold text-emerald-400">Paid Out of Pocket</span>
+            </div>
+            <input type="hidden" id="wiz-rehab-financing-mode" value="out_of_pocket">
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" id="wiz-btn-rehab-oop" onclick="setWizardRehabFinancingMode('out_of_pocket')"
+                class="py-2.5 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center">
+                <span>Out of Pocket</span>
+                <span class="text-[10px] font-normal text-slate-400 mt-0.5">Pay on top of down payment</span>
+              </button>
+              <button type="button" id="wiz-btn-rehab-roll" onclick="setWizardRehabFinancingMode('roll_into_loan')"
+                class="py-2.5 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center">
+                <span>Roll into Loan</span>
+                <span class="text-[10px] font-normal text-slate-500 mt-0.5">Finance in loan package</span>
+              </button>
+            </div>
+          </div>
+
           <div
             class="p-3.5 bg-slate-950/70 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs">
             <span class="text-slate-400">Total Upfront Capital Required:</span>
@@ -1208,8 +1233,9 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Step 4: Debt & Exit Strategy -->
+        <!-- Step 4: Debt & Exit Strategy -->
           <div id="wizard-step-4" class="space-y-5 hidden">
             <div class="space-y-1.5">
               <label for="wiz-financing-type"
@@ -1719,6 +1745,26 @@
               title="Investor Opportunity Cost / Hurdle Rate for NPV">Discount Rate (%)</label>
             <input type="number" id="edit-deal-discount-rate" min="0" max="50" step="any" placeholder="8"
               class="w-full bg-slate-950 border border-emerald-900/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400">
+        </div>
+
+        <!-- Remodel & Closing Costs Financing Multiple-Choice Option -->
+        <div class="p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-300">Remodel &amp; Closing Costs Financing Structure</label>
+            <span id="edit-modal-rehab-mode-badge" class="text-[10px] font-semibold text-emerald-400">Out of Pocket</span>
+          </div>
+          <input type="hidden" id="edit-deal-rehab-financing-mode" value="out_of_pocket">
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="edit-btn-rehab-oop" onclick="setModalRehabFinancingMode('out_of_pocket')"
+              class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center">
+              <span>Out of Pocket (Capital Outlay)</span>
+              <span class="text-[10px] font-normal text-slate-400 mt-0.5">Rehab &amp; closing added to initial equity</span>
+            </button>
+            <button type="button" id="edit-btn-rehab-roll" onclick="setModalRehabFinancingMode('roll_into_loan')"
+              class="py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center">
+              <span>Roll into Financing Package</span>
+              <span class="text-[10px] font-normal text-slate-500 mt-0.5">Rehab &amp; closing rolled into senior loan</span>
+            </button>
           </div>
         </div>
 
@@ -1820,22 +1866,32 @@
         <!-- In-Place Lease & Tenant Parameters -->
         <div class="p-3 bg-slate-950/60 rounded-xl border border-emerald-900/40 space-y-2.5">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">📑 In-Place Lease &
+            <span class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">📑 In-Place Lease &amp;
               Tenant Terms</span>
-            <span class="text-[10px] text-slate-400">Live Postgres Sync</span>
+            <span class="text-[10px] text-slate-400">Dynamic Lease Underwriting</span>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div class="space-y-1 sm:col-span-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-400">Primary Lease Structure</label>
+              <select id="edit-deal-lease-type"
+                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+                <option value="Gross">Full Service Gross</option>
+                <option value="Modified Gross">Modified Gross</option>
+                <option value="NNN">Triple Net (NNN)</option>
+                <option value="Absolute Net">Absolute Net (Bond Lease)</option>
+              </select>
+            </div>
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Tenant of Record</label>
               <input type="text" id="edit-deal-tenant-name" placeholder="e.g. In-Place Commercial Tenant"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
-            <div class="space-y-1 sm:col-span-1">
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Lease Commencement</label>
               <input type="date" id="edit-deal-lease-start"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
-            <div class="space-y-1 sm:col-span-1">
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Lease Expiration</label>
               <input type="date" id="edit-deal-lease-end"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
@@ -1862,15 +1918,7 @@
         <div id="edit-asset-specific-container" class="space-y-2">
           <!-- Commercial Options -->
           <div id="edit-asset-group-commercial"
-            class="hidden grid grid-cols-2 gap-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
-            <div class="space-y-1">
-              <label class="text-[11px] font-bold text-slate-400">Commercial Lease Type</label>
-              <select id="edit-deal-lease-type"
-                class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
-                <option value="NNN">Triple Net (NNN)</option>
-                <option value="Gross">Full Service Gross</option>
-              </select>
-            </div>
+            class="hidden p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Gross Leasable Area (Sq Ft GLA)</label>
               <input type="number" id="edit-deal-gla" placeholder="15000"
@@ -3109,6 +3157,9 @@
         rehabCosts: numVal('edit-deal-rehab-costs', 0),
         rehabBudget: numVal('edit-deal-rehab-costs', 0),
         closingCosts: numVal('edit-deal-closing-costs', 0),
+        rehabFinancingMode: document.getElementById('edit-deal-rehab-financing-mode')?.value || 'out_of_pocket',
+        financeRehabAndClosingCosts: (document.getElementById('edit-deal-rehab-financing-mode')?.value === 'roll_into_loan'),
+        leaseType: document.getElementById('edit-deal-lease-type')?.value || currentDeal?.inputs?.leaseType || (aClass === 'commercial' ? 'NNN' : 'Gross'),
         exitYear: intVal('edit-deal-exit-year', 10),
         discountRate: numVal('edit-deal-discount-rate', 8),
         financingType: document.getElementById('edit-deal-financing-type')?.value || 'fixed',
@@ -3167,7 +3218,6 @@
           inputs.grossRentPerMonth = currentDeal?.inputs?.grossRentPerMonth ?? 0;
           inputs.monthlyRent = inputs.grossRentPerMonth;
         }
-        inputs.leaseType = document.getElementById('edit-deal-lease-type')?.value || 'NNN';
         inputs.gla = numVal('edit-deal-gla', 15000);
       } else if (aClass === 'storage') {
         inputs.storageUnitCount = intVal('edit-deal-storage-units', 20);
@@ -3198,6 +3248,33 @@
       return inputs;
     }
 
+    function setModalRehabFinancingMode(mode) {
+      const input = document.getElementById('edit-deal-rehab-financing-mode');
+      if (input) input.value = mode;
+      const btnOop = document.getElementById('edit-btn-rehab-oop');
+      const btnRoll = document.getElementById('edit-btn-rehab-roll');
+      const badge = document.getElementById('edit-modal-rehab-mode-badge');
+      if (mode === 'roll_into_loan') {
+        if (btnRoll) {
+          btnRoll.className = 'py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center';
+        }
+        if (btnOop) {
+          btnOop.className = 'py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center';
+        }
+        if (badge) badge.textContent = 'Rolled into Loan';
+      } else {
+        if (btnOop) {
+          btnOop.className = 'py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center';
+        }
+        if (btnRoll) {
+          btnRoll.className = 'py-2 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center';
+        }
+        if (badge) badge.textContent = 'Out of Pocket';
+      }
+      updateEditModalLivePreview();
+    }
+    window.setModalRehabFinancingMode = setModalRehabFinancingMode;
+
     function updateEditModalLivePreview() {
       const numVal = (elId, fallback) => {
         const raw = document.getElementById(elId)?.value;
@@ -3209,9 +3286,16 @@
 
       const price = numVal('edit-deal-price', 0);
       const downPercent = Math.max(0, Math.min(100, numVal('edit-deal-down-payment', 25)));
-      const ltv = 100 - downPercent;
-      const loan = Math.round(price * (ltv / 100));
-      const equity = Math.round(price * (downPercent / 100));
+      const rehabVal = numVal('edit-deal-rehab-costs', 0);
+      const closingVal = numVal('edit-deal-closing-costs', 0);
+      const rehabMode = document.getElementById('edit-deal-rehab-financing-mode')?.value || 'out_of_pocket';
+      const isRehabFinanced = rehabMode === 'roll_into_loan';
+
+      const downAmt = Math.round(price * (downPercent / 100));
+      const baseLoan = Math.max(0, price - downAmt);
+      const loan = isRehabFinanced ? (baseLoan + rehabVal + closingVal) : baseLoan;
+      const equity = isRehabFinanced ? downAmt : (downAmt + rehabVal + closingVal);
+      const ltv = price > 0 ? (loan / price) * 100 : (100 - downPercent);
 
       const ltvEl = document.getElementById('edit-preview-ltv');
       const loanEl = document.getElementById('edit-preview-loan');
@@ -3496,6 +3580,8 @@
 
         if (document.getElementById('edit-deal-rehab-costs')) document.getElementById('edit-deal-rehab-costs').value = inputs.rehabCosts ?? inputs.rehabBudget ?? 0;
         if (document.getElementById('edit-deal-closing-costs')) document.getElementById('edit-deal-closing-costs').value = inputs.closingCosts ?? 0;
+        const rehabMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
+        setModalRehabFinancingMode(rehabMode);
         if (document.getElementById('edit-deal-exit-year')) document.getElementById('edit-deal-exit-year').value = inputs.exitYear ?? 10;
         const currentProfile = window.MathTreeProfile ? window.MathTreeProfile.getProfile(window._currentUser) : { discountRate: 8 };
         if (document.getElementById('edit-deal-discount-rate')) {
@@ -3505,9 +3591,9 @@
         const mgmtEl = document.getElementById('edit-deal-manage-property');
         if (mgmtEl) mgmtEl.checked = inputs.manageProperty !== false;
 
-        // Asset specific fields
+        // Asset specific fields & universal lease structure
         if (document.getElementById('edit-deal-lease-type')) {
-          document.getElementById('edit-deal-lease-type').value = inputs.leaseType || 'NNN';
+          document.getElementById('edit-deal-lease-type').value = inputs.leaseType || (aClass === 'commercial' ? 'NNN' : 'Gross');
         }
         if (document.getElementById('edit-deal-gla')) {
           document.getElementById('edit-deal-gla').value = inputs.gla || 15000;
@@ -4012,6 +4098,8 @@
         gla: 2400,
         sfrSqFt: 2400,
         sfrArv: 450000,
+        leaseType: 'Gross',
+        rehabFinancingMode: 'out_of_pocket',
         price: 450000,
         down: 20,
         closing: 9000,
@@ -4043,6 +4131,8 @@
         multiUnits: 12,
         multiSqFt: 11000,
         gla: 11000,
+        leaseType: 'Gross',
+        rehabFinancingMode: 'out_of_pocket',
         rentPerUnit: 1500,
         price: 1850000,
         down: 25,
@@ -4074,6 +4164,7 @@
         gla: 15000,
         commSqFt: 15000,
         leaseType: 'NNN',
+        rehabFinancingMode: 'out_of_pocket',
         annualRent: 150000,
         price: 1200000,
         down: 25,
@@ -4106,6 +4197,8 @@
         storageSqFt: 2000,
         unitCount: 20,
         isAutomated: true,
+        leaseType: 'Gross',
+        rehabFinancingMode: 'out_of_pocket',
         rentPerUnit: 85,
         gla: 2000,
         price: 230000,
@@ -4188,15 +4281,61 @@
       calculateWizardUpfrontCash();
     }
 
+    function setWizardRehabFinancingMode(mode) {
+      const input = document.getElementById('wiz-rehab-financing-mode');
+      if (input) input.value = mode;
+      const btnOop = document.getElementById('wiz-btn-rehab-oop');
+      const btnRoll = document.getElementById('wiz-btn-rehab-roll');
+      const badge = document.getElementById('wiz-rehab-mode-badge');
+      if (mode === 'roll_into_loan') {
+        if (btnRoll) {
+          btnRoll.className = 'py-2.5 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center';
+        }
+        if (btnOop) {
+          btnOop.className = 'py-2.5 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center';
+        }
+        if (badge) badge.textContent = 'Rolled into Loan';
+      } else {
+        if (btnOop) {
+          btnOop.className = 'py-2.5 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm text-center';
+        }
+        if (btnRoll) {
+          btnRoll.className = 'py-2.5 px-3 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border bg-slate-900 text-slate-400 border-slate-800 hover:text-white text-center';
+        }
+        if (badge) badge.textContent = 'Paid Out of Pocket';
+      }
+      calculateWizardUpfrontCash();
+    }
+    window.setWizardRehabFinancingMode = setWizardRehabFinancingMode;
+
     function calculateWizardUpfrontCash() {
       const price = parseFloat(document.getElementById('wiz-purchase-price')?.value) || 0;
       const downPct = parseFloat(document.getElementById('wiz-down-payment')?.value) || 0;
       const closing = parseFloat(document.getElementById('wiz-closing-costs')?.value) || 0;
       const rehab = parseFloat(document.getElementById('wiz-rehab-costs')?.value) || 0;
-      const total = (price * (downPct / 100)) + closing + rehab;
+      const mode = document.getElementById('wiz-rehab-financing-mode')?.value || 'out_of_pocket';
+      const downAmt = price * (downPct / 100);
+      const total = mode === 'roll_into_loan' ? downAmt : (downAmt + closing + rehab);
       const cashEl = document.getElementById('wiz-total-cash-req');
-      if (cashEl) cashEl.textContent = formatCurrency(total);
+      if (cashEl) {
+        if (mode === 'roll_into_loan') {
+          cashEl.innerHTML = `${formatCurrency(total)} <span class="text-[10px] font-normal text-slate-400">(${formatCurrency(rehab + closing)} rolled into loan)</span>`;
+        } else {
+          cashEl.textContent = formatCurrency(total);
+        }
+      }
     }
+
+    function onWizardLeaseTypeChanged(val) {
+      const hint = document.getElementById('wiz-lease-type-hint');
+      if (hint) {
+        if (val === 'NNN') hint.textContent = 'NNN • Tenant reimburses taxes, insurance & CAM';
+        else if (val === 'Gross') hint.textContent = 'Gross • Landlord absorbs operating expenses';
+        else if (val === 'Modified Gross') hint.textContent = 'Modified Gross • Landlord & tenant share expenses';
+        else if (val === 'Absolute Net') hint.textContent = 'Absolute Net (Bond) • Zero landlord capital obligation';
+      }
+    }
+    window.onWizardLeaseTypeChanged = onWizardLeaseTypeChanged;
 
     function onWizardClassificationChanged() {
       updateWizardBenchmarkHint();
@@ -4236,6 +4375,9 @@
       setVal('wiz-deal-name', def.name);
       setVal('wiz-location', def.location);
       setVal('wiz-gla', def.gla);
+      setVal('wiz-lease-type', def.leaseType || (assetClass === 'commercial' ? 'NNN' : 'Gross'));
+      onWizardLeaseTypeChanged(def.leaseType || (assetClass === 'commercial' ? 'NNN' : 'Gross'));
+      setWizardRehabFinancingMode(def.rehabFinancingMode || 'out_of_pocket');
 
       const subTypeSelect = document.getElementById('wiz-facility-type');
       if (subTypeSelect && def.subTypes) {
@@ -4437,7 +4579,10 @@
       let isAutomated = false;
       let rentPerUnit = 0;
       let arv = 0;
-      let leaseType = 'NNN';
+      let leaseType = document.getElementById('wiz-lease-type')?.value
+        || document.getElementById('wiz-comm-lease-type')?.value
+        || (assetClass === 'commercial' ? 'NNN' : 'Gross');
+      const rehabFinancingMode = document.getElementById('wiz-rehab-financing-mode')?.value || 'out_of_pocket';
       let gla = parseFloat(document.getElementById('wiz-gla')?.value) || 0;
 
       if (assetClass === 'storage') {
@@ -4463,7 +4608,6 @@
         }
       } else if (assetClass === 'commercial') {
         gla = parseFloat(document.getElementById('wiz-comm-sqft')?.value) || gla || 15000;
-        leaseType = document.getElementById('wiz-comm-lease-type')?.value || 'NNN';
         const totalRent = parseFloat(document.getElementById('wiz-comm-gross-rent')?.value) || 0;
         const annualRent = parseFloat(document.getElementById('wiz-comm-annual-rent')?.value) || 0;
         grossRent = totalRent > 0 ? totalRent : (annualRent > 0 ? Math.round(annualRent / 12) : 12500);
@@ -4486,6 +4630,8 @@
         loanTerm: parseInt(document.getElementById('wiz-amortization')?.value, 10) || 25,
         rehabCosts: parseFloat(document.getElementById('wiz-rehab-costs')?.value) || 0,
         closingCosts: parseFloat(document.getElementById('wiz-closing-costs')?.value) || (purchasePrice * 0.02),
+        rehabFinancingMode: rehabFinancingMode,
+        financeRehabAndClosingCosts: (rehabFinancingMode === 'roll_into_loan'),
         grossRentPerMonth: grossRent,
         grossRentAnnual: grossRent * 12,
         monthlyRent: grossRent,
@@ -4498,7 +4644,7 @@
         isAutomated: (assetClass === 'storage') ? isAutomated : undefined,
         storageRentPerUnit: (assetClass === 'storage') ? (rentPerUnit || Math.round(grossRent / storageUnitCount)) : undefined,
         monthlyRentPerUnit: (assetClass === 'storage') ? (rentPerUnit || Math.round(grossRent / storageUnitCount)) : ((assetClass === 'multi-unit') ? (rentPerUnit || Math.round(grossRent / unitCount)) : undefined),
-        leaseType: (assetClass === 'commercial') ? leaseType : undefined,
+        leaseType: leaseType,
         arv: (assetClass === 'single-family') ? arv : undefined,
         vacancyRate: parseFloat(document.getElementById('wiz-vacancy-rate')?.value) || 5,
         expenseRatio: parseFloat(document.getElementById('wiz-opex-ratio')?.value) || 35,
