@@ -231,10 +231,11 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const rehabMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
   const totalFinancedBasis = rehabMode === 'roll_into_loan' ? (price + rehabCosts + closingCosts) : price;
 
-  const equity = parseFloat(deal.total_equity || metrics.initialEquity || metrics.initialCashInvested || mathResults.initialCashInvested || (price * 0.25));
-  const loanAmt = parseFloat(deal.loan_amount || metrics.loanAmount || mathResults.loanAmount || Math.max(0, totalFinancedBasis - equity));
-  const ltv = totalFinancedBasis > 0 ? Math.round((loanAmt / totalFinancedBasis) * 100) : (inputs.downPaymentPercent ? (100 - parseFloat(inputs.downPaymentPercent)) : 75);
-  const downPaymentPercent = parseFloat(inputs.downPaymentPercent || (100 - ltv) || 25);
+  const downPaymentPercent = parseFloat(inputs.downPaymentPercent || 25);
+  const downPaymentAmt = parseFloat(mathResults.downPaymentAmount || (totalFinancedBasis * (downPaymentPercent / 100)));
+  const loanAmt = parseFloat(mathResults.loanAmount || deal.loan_amount || metrics.loanAmount || Math.max(0, totalFinancedBasis - downPaymentAmt));
+  const equity = parseFloat(mathResults.initialCashInvested || deal.total_equity || (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehabCosts + closingCosts)));
+  const ltv = totalFinancedBasis > 0 ? Math.round((loanAmt / totalFinancedBasis) * 100) : (100 - downPaymentPercent);
   const intRate = parseFloat(inputs.interestRate || inputs.rate || 6.5);
   const loanTerm = parseInt(inputs.loanTerm || inputs.amortizationYears || 30, 10);
   const holdYears = parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10);
@@ -271,9 +272,9 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   // Debt Structure & Leverage Provenance
   let debtProvenance = '';
   if (rehabMode === 'roll_into_loan') {
-    debtProvenance = `Structured on Total Project Basis (LTC): Purchase (${fmtCurr(price)}) + Rehab (${fmtCurr(rehabCosts)}) + Closing (${fmtCurr(closingCosts)}) = Total Financed Basis (${fmtCurr(totalFinancedBasis)}). Senior debt finances ${100 - downPaymentPercent}% of total basis (${fmtCurr(loanAmt)}), requiring ${fmtCurr(equity)} (${downPaymentPercent}%) initial sponsor equity.`;
+    debtProvenance = `Structured on Total Project Basis (LTC): Purchase (${fmtCurr(price)}) + Rehab (${fmtCurr(rehabCosts)}) + Closing (${fmtCurr(closingCosts)}) = Total Financed Basis (${fmtCurr(totalFinancedBasis)}). Senior debt finances ${100 - downPaymentPercent}% of total basis (${fmtCurr(loanAmt)}), requiring ${fmtCurr(equity)} (${downPaymentPercent}%) initial sponsor equity down payment.`;
   } else {
-    debtProvenance = `Structured on Acquisition Price (LTV): Senior loan of ${fmtCurr(loanAmt)} (${ltv}% LTV) finances acquisition price (${fmtCurr(price)}). Rehab budget (${fmtCurr(rehabCosts)}) and closing costs (${fmtCurr(closingCosts)}) are funded 100% upfront out of sponsor equity (${fmtCurr(equity)} total cash outlay).`;
+    debtProvenance = `Structured on Acquisition Price (LTV): Senior loan of ${fmtCurr(loanAmt)} (${ltv}% LTV) finances purchase price (${fmtCurr(price)}). Rehab scope (${fmtCurr(rehabCosts)}) and closing settlement (${fmtCurr(closingCosts)}) are paid 100% upfront out of pocket by sponsor, requiring ${fmtCurr(equity)} total upfront cash outlay (${fmtCurr(downPaymentAmt)} acquisition down payment + ${fmtCurr(rehabCosts + closingCosts)} rehab & closing).`;
   }
 
   // Calendar year resolution
@@ -603,7 +604,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
               <span style="font-size: 11.5px; font-weight: 800; color: #047857;">${fmtCurr(loanAmt)} Senior Debt</span>
             </div>
             <div style="font-size: 8px; color: #475569; font-weight: 600; margin-top: 2px;">
-              Required Sponsor Equity: ${fmtCurr(equity)} (${downPaymentPercent}% of Total Basis)
+              Required Sponsor Equity: ${fmtCurr(equity)} (${rehabMode === 'roll_into_loan' ? `${downPaymentPercent}% LTC Down Payment` : `${fmtCurr(downPaymentAmt)} Down + ${fmtCurr(rehabCosts + closingCosts)} Outlay`})
             </div>
           </td>
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
