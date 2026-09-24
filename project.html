@@ -349,45 +349,41 @@
             </div>
             <span class="text-emerald-300 text-xs font-black ml-2">✓</span>
           </a>
+          <a href="project-diligence.html" onclick="handleModuleDropdownSelect('diligence', event)" data-page-key="diligence" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
+            <div class="flex items-center space-x-2.5">
+              <span class="text-base shrink-0">📋</span>
+              <div>
+                <span class="block text-xs font-bold leading-snug">Assumptions &amp; Diligence</span>
+                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Purchase basis, capex &amp; closing outlay, LTV &amp; debt terms</span>
+              </div>
+            </div>
+          </a>
           <a href="project-proforma.html" onclick="handleModuleDropdownSelect('proforma', event)" data-page-key="proforma" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">📊</span>
               <div>
-                <span class="block text-xs font-bold leading-snug">Pro-Forma & Cash Flows</span>
-                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">10-year operating cash flows, stub period & monthly schedule</span>
+                <span class="block text-xs font-bold leading-snug">Pro-Forma &amp; Cash Flows</span>
+                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">10-year operating cash flows, stub period &amp; monthly schedule</span>
               </div>
             </div>
-            
           </a>
           <a href="project-property.html" onclick="handleModuleDropdownSelect('property', event)" data-page-key="property" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">🏛️</span>
               <div>
-                <span class="block text-xs font-bold leading-snug">Property & County Records</span>
-                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Assessor roll valuations, companion parcels & GIS data</span>
+                <span class="block text-xs font-bold leading-snug">Property &amp; County Records</span>
+                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Assessor roll valuations, companion parcels &amp; GIS data</span>
               </div>
             </div>
-            
           </a>
           <a href="project-debt.html" onclick="handleModuleDropdownSelect('debt', event)" data-page-key="debt" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
               <span class="text-base shrink-0">🏦</span>
               <div>
-                <span class="block text-xs font-bold leading-snug">Debt & Financing</span>
-                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Mortgage amortization, DSCR coverage & refinance stress</span>
+                <span class="block text-xs font-bold leading-snug">Debt &amp; Financing</span>
+                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Mortgage amortization, DSCR coverage &amp; refinance stress</span>
               </div>
             </div>
-            
-          </a>
-          <a href="project-diligence.html" onclick="handleModuleDropdownSelect('diligence', event)" data-page-key="diligence" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
-            <div class="flex items-center space-x-2.5">
-              <span class="text-base shrink-0">📋</span>
-              <div>
-                <span class="block text-xs font-bold leading-snug">Assumptions & Diligence</span>
-                <span class="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">OpEx breakdowns, rehab capex & reserve schedules</span>
-              </div>
-            </div>
-            
           </a>
           <a href="project-sensitivity.html" onclick="handleModuleDropdownSelect('sensitivity', event)" data-page-key="sensitivity" class="flex items-center justify-between p-2 rounded-xl transition group text-slate-300 hover:bg-slate-800/90 hover:text-white">
             <div class="flex items-center space-x-2.5">
@@ -649,25 +645,27 @@
 
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Debt & Financing</span>
-                <span id="brief-val-debt" class="text-xs font-bold text-slate-200 mt-1 block">--</span>
-                <span id="brief-val-term" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Initial Outlay (Rehab &amp; Closing)</span>
+                <span id="brief-val-outlay" class="text-sm font-black text-cyan-400 mt-1 block">$0 Total</span>
+                <span id="brief-val-outlay-sub" class="text-[10px] text-slate-400 mt-0.5 block truncate">$0 Rehab • $0 Closing</span>
               </div>
               <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Operations & Vacancy</span>
-                <span id="brief-val-opex" class="text-xs font-bold text-slate-200 mt-1 block">--</span>
-                <span id="brief-val-structure" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Debt &amp; Financing</span>
+                <span id="brief-val-debt" class="text-xs font-bold text-slate-200 mt-1 block">--</span>
+                <span id="brief-val-term" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Exit Cap Rate</span>
-                <span id="brief-val-exit" class="text-sm font-black text-accent-cyan mt-1 block">--</span>
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Operations &amp; Vacancy</span>
+                <span id="brief-val-opex" class="text-xs font-bold text-slate-200 mt-1 block">--</span>
+                <span id="brief-val-structure" class="text-[10px] text-slate-500 mt-0.5 block">--</span>
               </div>
               <div class="bg-slate-950/60 p-3 rounded-2xl border border-slate-900">
-                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Hold Horizon</span>
-                <span id="brief-val-horizon" class="text-sm font-black text-slate-200 mt-1 block">10 Years</span>
+                <span class="text-[9px] uppercase font-bold tracking-wider text-slate-500 block">Exit Cap &amp; Hold</span>
+                <span id="brief-val-exit" class="text-sm font-black text-accent-cyan mt-1 block">--</span>
+                <span id="brief-val-horizon" class="text-[10px] text-slate-400 mt-0.5 block">10-Year Hold</span>
               </div>
             </div>
           </div>
@@ -3997,11 +3995,17 @@
       }
       setVal('brief-val-rent', rentStr);
 
+      const rCost = parseFloat(inputs.rehabCosts || 0);
+      const cCost = parseFloat(inputs.closingCosts || 0);
+      const totOutlay = rCost + cCost;
+      setVal('brief-val-outlay', `${formatCurrency(totOutlay)} Total`);
+      setVal('brief-val-outlay-sub', `${formatCurrency(rCost)} Rehab • ${formatCurrency(cCost)} Closing`);
+
       const down = inputs.downPaymentPercent ?? 25;
       const rate = inputs.interestRate ?? 6.5;
       const term = inputs.loanTerm ?? 30;
       setVal('brief-val-debt', `${down}% Down • ${rate}% Rate`);
-      setVal('brief-val-term', `${term}-Year Amortization (${100 - down}% LTV)`);
+      setVal('brief-val-term', `${term}-Yr Amort (${100 - down}% LTV)`);
 
       const opex = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 35;
       const vac = inputs.vacancyRate ?? 5;
@@ -4611,12 +4615,7 @@
         navigateToOperations();
         return;
       }
-      const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
-      if (tabName === 'diligence' && isOwned) {
-        tabName = 'overview';
-      }
-
-      const validTabs = ['overview', 'proforma', 'property', 'debt', 'tax', 'diligence', 'sensitivity'];
+      const validTabs = ['overview', 'diligence', 'proforma', 'property', 'debt', 'sensitivity', 'tax'];
       if (!validTabs.includes(tabName)) tabName = 'overview';
 
       // 1. Toggle tab panels
@@ -4629,10 +4628,10 @@
       // 2. Update navigation styling and header active module indicator
       const MODULE_METADATA = {
         overview: { title: 'Deal Overview', mobileTitle: 'Overview', icon: '📌' },
+        diligence: { title: 'Assumptions & Diligence', mobileTitle: 'Assumptions', icon: '📋' },
         proforma: { title: 'Pro-Forma & Cash Flows', mobileTitle: 'Pro-Forma', icon: '📊' },
         property: { title: 'Property & County Records', mobileTitle: 'Property', icon: '🏛️' },
         debt: { title: 'Debt & Financing', mobileTitle: 'Debt', icon: '🏦' },
-        diligence: { title: 'Assumptions & Diligence', mobileTitle: 'Diligence', icon: '📋' },
         sensitivity: { title: 'Risk & Sensitivity', mobileTitle: 'Sensitivity', icon: '🎲' },
         tax: { title: 'Tax & Wealth Strategy', mobileTitle: 'Tax', icon: '📑' }
       };
@@ -5868,78 +5867,75 @@
 
       const pricePerSqFt = sqft > 0 ? (res.purchasePrice / sqft).toFixed(2) : 'N/A';
 
+      const rehab = parseFloat(inputs.rehabCosts || 0);
+      const closing = parseFloat(inputs.closingCosts || 0);
+      const totalOutlay = rehab + closing;
+      const rehabMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
+
       const allAssumptions = [
         {
           id: 'price',
           icon: '🏷️',
-          name: 'Acquisition Price & Cost Basis',
+          name: '1. Acquisition Price & Cost Basis',
           category: 'acquisition',
-          value: formatCurrency(res.purchasePrice) + (pricePerSqFt !== 'N/A' ? ` (${pricePerSqFt}/sq ft)` : ''),
-          provenance: `Underwritten against official Yakima County Assessor tax roll valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' assessed basis' : 'assessed basis'}). Establishes baseline entry pricing reflecting prevailing commercial/industrial property valuations.`,
-          sensitivity: `Valuation basis of ${pricePerSqFt !== 'N/A' ? pricePerSqFt : '0'}/sq ft provides an entry cost benchmark against regional commercial asset replacements (~$180–$250/sq ft).`
-        },
-        {
-          id: 'revenue',
-          icon: '📈',
-          name: 'Gross Revenue & Rental Income',
-          category: 'revenue',
-          value: revenueStr + ` • ${inputs.rentGrowth || 2.5}%/yr Growth`,
-          provenance: `Derived from ${activeTab === 'commercial' ? (inputs.leaseType || 'NNN') + ' commercial single-tenant logistics rate ($7.00/sq ft/yr NNN)' : activeTab === 'multi-unit' ? 'unit-level market rental rates' : 'market comparable rents'}. Reflects contractual tenant obligations and submarket asking rents across comparable regional assets.`,
-          sensitivity: `Compounding at ${inputs.rentGrowth || 2.5}%/yr lifts Year 10 Gross Revenue to ${formatCurrency(res.projections[9].grossPotentialIncome)} (+${((res.projections[9].grossPotentialIncome / res.projections[0].grossPotentialIncome - 1) * 100).toFixed(1)}%).`
-        },
-        {
-          id: 'financing',
-          icon: '🏦',
-          name: 'Debt Structure, LTV & Financing',
-          category: 'financing',
-          value: `${inputs.downPaymentPercent}% Down (${formatCurrency(res.downPaymentAmount)}) • ${res.ltv.toFixed(1)}% LTV (${formatCurrency(res.loanAmount)}) @ ${inputs.interestRate}% (${inputs.loanTerm} Yrs) • DSCR: ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}`,
-          provenance: `Calibrated to commercial lending terms (${inputs.downPaymentPercent}% equity down, ${res.ltv.toFixed(1)}% senior debt at ${inputs.interestRate}% over ${inputs.loanTerm} years). Underwriting verifies debt coverage capacity (DSCR ${p1.dscr !== null ? p1.dscr.toFixed(2) + 'x' : 'N/A'}).`,
-          sensitivity: `Year 1 Net Operating Income of ${formatCurrency(p1.netOperatingIncome)} provides ${formatCurrency(p1.netOperatingIncome - (res.monthlyMortgagePayment * 12))}/yr annual buffer above debt service obligations.`
-        },
-        {
-          id: 'vacancy',
-          icon: '🛡️',
-          name: 'Economic Vacancy & Credit Loss',
-          category: 'operations',
-          value: `${inputs.vacancyRate}% of GPI (${formatCurrency(p1.vacancyLoss || (res.purchasePrice * 0.005))}/yr)`,
-          provenance: `Enforces institutional ${inputs.vacancyRate}% underwriting allowance for tenant rollover downtime, collection friction, and lease transition periods.`,
-          sensitivity: `Breakeven occupancy is ${breakevenOccupancyPct.toFixed(1)}%; asset tolerates up to ${maxVacancyTolerancePct.toFixed(1)}% economic vacancy before operational cash flow becomes negative.`
-        },
-        {
-          id: 'opex',
-          icon: '⚙️',
-          name: 'Operating Expense Ratio (OER) & Management',
-          category: 'operations',
-          value: `${inputs.expenseRatio}% of GPI (${formatCurrency(p1.operatingExpenses || 0)}/yr) • ${inputs.manageProperty ? 'Managed' : 'Self-Managed'}`,
-          provenance: `Underwritten under ${inputs.leaseType || 'NNN'} structure where tenant directly reimburses operational expenses. OpEx ratio buffers non-reimbursable owner reserves, compliance fees, and management overhead (${inputs.manageProperty ? '3.5%' : 'self-managed'}).`,
-          sensitivity: `A 20% increase in operating expenses would reduce net annual cash flow by ${formatCurrency(p1.operatingExpenses * 0.20)}/yr while maintaining debt service coverage.`
+          value: formatCurrency(res.purchasePrice) + (pricePerSqFt !== 'N/A' ? ` ($${pricePerSqFt}/sq ft)` : ''),
+          provenance: `Underwritten against official ${rawAssessor.county || 'County'} Assessor tax roll valuation (${totalAssessed > 0 ? formatCurrency(totalAssessed) + ' assessed basis' : 'assessed tax roll'}). Establishes baseline entry pricing calibrated to purchase contract terms.`
         },
         {
           id: 'capex',
           icon: '🏗️',
-          name: 'Capital Expenditures & Structural Reserves',
+          name: '2. Initial Rehab Capital Outlay (incl. Closing Costs)',
+          category: 'acquisition',
+          value: `${formatCurrency(totalOutlay)} Total Outlay • (${formatCurrency(rehab)} Rehab + ${formatCurrency(closing)} Closing • ${rehabMode === 'roll_into_loan' ? 'Rolled into Loan' : 'Funded Out-of-Pocket'})`,
+          provenance: `Allocates dedicated initial renovation scope of ${formatCurrency(rehab)} plus estimated transaction closing costs of ${formatCurrency(closing)} (${rehabMode === 'roll_into_loan' ? 'both rolled into senior loan facility' : 'funded upfront out of sponsor equity'}) to capture full After-Repair Value. Ongoing replacement reserve: ${inputs.capexReserve || 3.0}%/yr (${formatCurrency(p1.capexReserve || 0)}/yr).`
+        },
+        {
+          id: 'vacancy',
+          icon: '🛡️',
+          name: '3. Economic Vacancy & Credit Loss',
           category: 'operations',
-          value: `Initial Rehab: ${formatCurrency(inputs.rehabCosts || 0)} • Reserves: ${inputs.capexReserve || 3.0}% / yr (${formatCurrency(p1.capexReserve || 0)}/yr)`,
-          provenance: `Evaluated against asset physical vintage (${yearBuilt} construction). Ongoing capital reserve is modeled to build dedicated liquidity for long-term structural, mechanical, and roof life-cycle maintenance.`,
-          sensitivity: `Accumulates ${formatCurrency((p1.capexReserve || 0) * holdYrs)} in dedicated replacement reserves over the ${holdYrs}-year investment horizon.`
+          value: `${inputs.vacancyRate || 5}% of GPI (${formatCurrency(p1.vacancyLoss || (res.purchasePrice * 0.005))}/yr reserve)`,
+          provenance: `Enforces institutional ${inputs.vacancyRate || 5}% underwriting allowance for tenant rollover downtime, collection friction, and lease turnover. Asset maintains operational cash flow solvency up to ${maxVacancyTolerancePct.toFixed(1)}% vacancy tolerance.`
+        },
+        {
+          id: 'financing',
+          icon: '🏦',
+          name: '4. Loan-to-Value & Leverage Structure',
+          category: 'financing',
+          value: `${inputs.downPaymentPercent || 25}% Down (${formatCurrency(res.downPaymentAmount)}) • ${res.ltv.toFixed(1)}% ${rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'} (${formatCurrency(res.loanAmount)})`,
+          provenance: `Calibrated to lending terms (${inputs.downPaymentPercent || 25}% equity down, ${res.ltv.toFixed(1)}% senior debt). Total project basis structured under ${rehabMode === 'roll_into_loan' ? 'LTC package including rehab and closing costs' : 'standard acquisition LTV with cash-funded capex'}.`
+        },
+        {
+          id: 'terms',
+          icon: '📑',
+          name: '5. Financing Terms & Debt Service',
+          category: 'financing',
+          value: `${inputs.interestRate || 6.5}% Fixed • ${inputs.loanTerm || 30} Yrs • ${formatCurrency(res.monthlyMortgagePayment || 0)}/mo P&I • DSCR: ${p1.dscr !== null && p1.dscr !== undefined ? Number(p1.dscr).toFixed(2) + 'x' : 'N/A'}`,
+          provenance: `Fixed mortgage amortization over ${inputs.loanTerm || 30} years (${formatCurrency((res.monthlyMortgagePayment || 0) * 12)}/yr total annual debt). Net Operating Income of ${formatCurrency(p1.netOperatingIncome || 0)} provides a cash flow cushion of ${formatCurrency(Math.max(0, (p1.netOperatingIncome || 0) - ((res.monthlyMortgagePayment || 0) * 12)))}/yr above debt service.`
+        },
+        {
+          id: 'revenue',
+          icon: '📈',
+          name: '6. Gross Revenue & Rental Income',
+          category: 'revenue',
+          value: `${revenueStr} • +${inputs.rentGrowth || 2.5}%/yr Growth`,
+          provenance: `Derived from ${activeTab === 'commercial' ? (inputs.leaseType || 'NNN') + ' commercial single-tenant lease terms' : activeTab === 'multi-unit' ? 'unit-level rental rate schedule' : 'in-place residential market rents'}. Escalation mechanism compounds to protect real yields.`
+        },
+        {
+          id: 'opex',
+          icon: '⚙️',
+          name: '7. Operating Expense Ratio (OER) & Management',
+          category: 'operations',
+          value: `${inputs.expenseRatio || 25}% of GPI (${formatCurrency(p1.operatingExpenses || 0)}/yr) • ${inputs.manageProperty ? 'Professional Management' : 'Self-Managed'}`,
+          provenance: `Underwritten under ${inputs.leaseType || (activeTab === 'single-family' ? 'Gross' : 'NNN')} structure covering county real estate taxes, hazard/property insurance, property management fees (${inputs.manageProperty ? '3.5-10%' : 'self-managed'}), and operational reserves.`
         },
         {
           id: 'exit',
           icon: '🎯',
-          name: 'Terminal Cap Rate & Asset Appreciation',
+          name: '8. Terminal Cap Rate & Hold Horizon',
           category: 'acquisition',
-          value: `${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || 7.0) + '% Exit Cap (+50 bps spread)' : (inputs.appreciationRate || 3.0) + '%/yr Appreciation'}`,
-          provenance: `Modeled with an institutional cap rate spread (+50 bps above entry yield) to stress-test liquidity, asset vintage aging, and interest rate cycle shifts over the ${holdYrs}-year investment horizon.`,
-          sensitivity: `Each ±50 bps shift in terminal exit cap rate alters net equity proceeds at disposition by ~${formatCurrency(p1.propertyValue * 0.065)}.`
-        },
-        {
-          id: 'horizon',
-          icon: '📅',
-          name: 'Hold Horizon & Timing Strategy',
-          category: 'acquisition',
-          value: `${holdYrs}-Year Hold Horizon • Wealth Compounding Cycle`,
-          provenance: `Aligned with the long-term debt amortization curve. Compounding cash flows and steady mortgage paydown optimize equity accumulation and capital return multiples.`,
-          sensitivity: `Achieves a 10-Year Levered IRR of ${res.irr.toFixed(2)}%, NPV of ${formatCurrency(res.npv)}, and an Equity Multiplier of ${res.equityMultiplier.toFixed(2)}x.`
+          value: `${holdYrs}-Year Hold • ${activeTab === 'commercial' || activeTab === 'storage' ? (inputs.targetCapRate || 7.0) + '% Exit Cap (+50 bps spread)' : (inputs.appreciationRate || 3.0) + '%/yr Appreciation'}`,
+          provenance: `Modeled with an institutional terminal cap rate spread (+50 bps expansion buffer over entry yield) to stress-test liquidity, asset vintage aging, and capital market shifts over the ${holdYrs}-year hold.`
         }
       ];
 
@@ -5948,37 +5944,28 @@
         : allAssumptions.filter(a => a.category === currentAssumptionsCategory);
 
       container.innerHTML = filtered.map(a => `
-        <div class="bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-xl p-4 space-y-3 shadow-md transition flex flex-col justify-between">
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between gap-2 border-b border-slate-900 pb-2">
+        <div class="bg-slate-950/70 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 space-y-3.5 shadow-lg transition flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between gap-2 border-b border-slate-900 pb-2.5">
               <div class="flex items-center space-x-2">
                 <span class="text-base">${a.icon}</span>
                 <span class="text-xs font-bold text-slate-200">${a.name}</span>
               </div>
               <span class="text-[9.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-brand-500/10 text-brand-300 border border-brand-500/20">${a.category}</span>
             </div>
-            <div class="pt-0.5">
-              <span class="text-[10px] uppercase font-bold text-slate-500 block">Underwritten Value</span>
-              <p class="text-xs font-black text-emerald-400 mt-0.5">${a.value}</p>
+            <div>
+              <span class="text-[9.5px] uppercase font-bold text-slate-500 block mb-1">Underwritten Metric &amp; Value</span>
+              <div class="text-xs sm:text-sm font-black text-emerald-400 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800/90 shadow-inner leading-snug">
+                ${a.value}
+              </div>
             </div>
           </div>
 
-          <div class="space-y-2 text-[11px] pt-1">
-            <!-- 1. Provenance & Economic Conclusion -->
-            <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-              <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
-                💡 How We Reached This Conclusion
-              </span>
-              <p class="text-slate-300 leading-relaxed">${a.provenance}</p>
-            </div>
-
-            <!-- 2. Sensitivity & Valuation Context -->
-            <div class="bg-cyan-950/20 p-2.5 rounded-lg border border-cyan-900/40">
-              <span class="text-[9.5px] font-bold uppercase tracking-wider text-cyan-400 block mb-0.5">
-                📊 Valuation & Sensitivity Context
-              </span>
-              <p class="text-cyan-200/90 leading-relaxed">${a.sensitivity}</p>
-            </div>
+          <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 text-xs">
+            <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+              💡 Methodology &amp; Diligence Provenance
+            </span>
+            <p class="text-slate-300 leading-relaxed text-[11.5px]">${a.provenance}</p>
           </div>
         </div>
       `).join('');

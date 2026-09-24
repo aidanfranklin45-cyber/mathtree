@@ -535,170 +535,154 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     </table>
   </div>
 
-  <!-- 2. Tenancy, Rental Income & Property Scope -->
-  <div class="box">
-    <div class="box-header" style="background: #064e3b;">
-      <span>${isResidential ? '🏡 Residential Rental Income & Tenancy Profile' : '📑 Contractual Lease Terms & Rent Roll Schedule'}</span>
-      <span style="font-size: 8px; background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 3px;">${isResidential ? 'Residential Tenancy' : 'In-Place Operating Leases'}</span>
-    </div>
-    <table class="table-data">
-      <tbody>
-        <tr>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">${isResidential ? 'Occupant / Tenancy' : 'Tenant of Record'}</td>
-          <td style="width: 22%; font-weight: 800; color: #0f172a;">${tenantName}</td>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">${isResidential ? 'Agreement Type' : 'Lease Structure'}</td>
-          <td style="width: 18%; font-weight: 700; color: #047857;">${leaseType}</td>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">Gross Monthly Revenue</td>
-          <td style="width: 18%; font-weight: 800; color: #059669;">${fmtCurr(monthlyRent)}/mo <span style="font-size: 7.5px; font-weight: 400; color: #64748b;">(${fmtCurr(annualRent)}/yr)</span></td>
-        </tr>
-        <tr>
-          <td style="color: #64748b; font-weight: 700;">${isResidential ? 'Occupancy Dates' : 'Lease Term Dates'}</td>
-          <td style="font-weight: 600; color: #0f172a;">${leaseStart} to ${leaseEnd}</td>
-          <td style="color: #64748b; font-weight: 700;">${isResidential ? 'Annual Rent Growth' : 'Escalation Mechanism'}</td>
-          <td style="font-weight: 600; color: #0f172a;">${escRate}%/yr (${escType})</td>
-          <td style="color: #64748b; font-weight: 700;">${isResidential ? 'After-Repair Value (ARV)' : 'GLA / Unit Count'}</td>
-          <td style="font-weight: 700; color: #0f172a;">${isResidential ? `${fmtCurr(arv)} ${bldgSqFt > 0 ? `($${(arv/bldgSqFt).toFixed(0)}/sf)` : ''}` : (bldgSqFt > 0 ? `${bldgSqFt.toLocaleString()} Sq Ft` : 'Single Tenant')}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- 3. Senior Debt Financing & Capital Structure -->
-  <div class="box">
-    <div class="box-header" style="background: #1e293b;">
-      <span>🏦 Senior Debt Financing & Capital Structure</span>
-      <span style="font-size: 8px; color: #93c5fd;">${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC Package' : 'LTV Purchase Loan'}</span>
-    </div>
-    <table class="table-data">
-      <tbody>
-        <tr>
-          <td style="width: 14%; color: #64748b; font-weight: 700;">Acquisition Price</td>
-          <td style="width: 20%; font-weight: 800; color: #0f172a;">${fmtCurr(price)} ${bldgSqFt > 0 ? `($${(price/bldgSqFt).toFixed(0)}/sq ft)` : ''}</td>
-          <td style="width: 13%; color: #64748b; font-weight: 700;">Required Equity</td>
-          <td style="width: 20%; font-weight: 700; color: #0f172a;">${fmtCurr(equity)} (${downPaymentPercent}%)</td>
-          <td style="width: 13%; color: #64748b; font-weight: 700;">Senior Loan Amount</td>
-          <td style="width: 20%; font-weight: 800; color: #047857;">${fmtCurr(loanAmt)} (${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'})</td>
-        </tr>
-        <tr>
-          <td style="color: #64748b; font-weight: 700;">Monthly Debt Service</td>
-          <td style="font-weight: 800; color: #0f172a;">${fmtCurr(monthlyDebtService)}/mo <span style="font-size: 7.5px; font-weight: 400; color: #64748b;">(${fmtCurr(year1PrincipalMo)}/mo Prin • ${fmtCurr(year1InterestMo)}/mo Int)</span></td>
-          <td style="color: #64748b; font-weight: 700;">Annual P&I Debt</td>
-          <td style="font-weight: 700; color: #0f172a;">${fmtCurr(debtService)}/yr (${intRate}% Fixed • ${loanTerm} Yrs)</td>
-          <td style="color: #64748b; font-weight: 700;">Coverage (DSCR)</td>
-          <td style="font-weight: 800; color: ${dscrNum >= 1.25 ? '#059669' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted} (1.25x Floor)</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- 4. Institutional 8-Row Underwriting Assumptions, Methodology & Diligence Bridge -->
+  <!-- 2. Core Underwriting Assumptions & Capital Structure (The High-Level Overview) -->
   <div class="box">
     <div class="box-header" style="background: #0f172a;">
-      <span>⚖️ Institutional Underwriting Assumptions, Methodology & Diligence Bridge</span>
-      <span style="font-size: 8px; background: #047857; color: #ffffff; padding: 1px 6px; border-radius: 3px;">8-Point Provenance Audit</span>
+      <span>⚖️ Core Underwriting Assumptions &amp; Capital Structure (High-Level Overview)</span>
+      <span style="font-size: 8px; background: #047857; color: #ffffff; padding: 1.5px 7px; border-radius: 3px; font-weight: 800;">Strategic Inputs &amp; Provenance</span>
     </div>
     <table class="table-data">
       <thead>
-        <tr style="background: #f1f5f9; text-align: left;">
-          <th style="width: 24%; border-right: 1px solid #e2e8f0;">Input Parameter & Value</th>
-          <th style="width: 38%; border-right: 1px solid #e2e8f0;">Methodology & Provenance (How Reached)</th>
-          <th style="width: 38%;">Valuation & Sensitivity Context</th>
+        <tr style="background: #f1f5f9; text-align: left; font-size: 8.5px;">
+          <th style="width: 42%; border-right: 1px solid #e2e8f0; padding: 4px 6px;">Underwriting Metric &amp; Strategic Value</th>
+          <th style="width: 58%; padding: 4px 6px;">Methodology &amp; Diligence Provenance (How Reached)</th>
         </tr>
       </thead>
       <tbody>
+        <!-- 1. Acquisition Price & Basis -->
         <tr>
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">1. Acquisition Price & Basis</strong>
-            <span style="color: #059669; font-weight: 800; font-size: 9.5px;">${fmtCurr(price)}</span>
-            ${bldgSqFt > 0 ? `<span style="color: #64748b; font-size: 7.5px; display: block;">($${(price / bldgSqFt).toFixed(2)}/sq ft)</span>` : ''}
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">1. Acquisition Price &amp; Basis</div>
+            <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #059669; letter-spacing: -0.3px;">${fmtCurr(price)}</span>
+              ${bldgSqFt > 0 ? `<span style="font-size: 8.5px; color: #475569; font-weight: 700;">($${(price / bldgSqFt).toFixed(0)}/sq ft)</span>` : ''}
+            </div>
           </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Calibrated against official ${county} assessed valuation (${totalAssessed > 0 ? fmtCurr(totalAssessed) + ' total assessed basis' : 'county assessed roll'}) and LOI guidance.
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
+            Reconciled against official ${county} assessed valuation (${totalAssessed > 0 ? fmtCurr(totalAssessed) + ' total assessed basis' : 'county tax roll'}) and purchase contract terms.
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Valuation basis reflects regional replacement costs and submarket sales comps.</td>
         </tr>
+
+        <!-- 2. Initial Rehab Capital Outlay (incl. Closing Costs) -->
         <tr style="background: #f8fafc;">
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">2. Gross Monthly Revenue</strong>
-            <span style="color: #0f172a; font-weight: 800; font-size: 9px;">${fmtCurr(monthlyRent)}/mo</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(annualRent)}/yr • +${escRate}%/yr Growth</span>
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">2. Initial Rehab Capital Outlay (incl. Closing Costs)</div>
+            <div style="display: flex; align-items: baseline; gap: 5px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #0284c7; letter-spacing: -0.3px;">${fmtCurr(rehabCosts + closingCosts)}</span>
+              <span style="font-size: 8px; font-weight: 800; color: #0369a1; background: #e0f2fe; padding: 1px 5px; border-radius: 3px;">Total Initial Outlay</span>
+            </div>
+            <div style="font-size: 8px; color: #334155; font-weight: 600; margin-top: 2px;">
+              ${fmtCurr(rehabCosts)} Rehab Scope + ${fmtCurr(closingCosts)} Closing Costs (${rehabMode === 'roll_into_loan' ? 'Rolled into Loan' : 'Funded Out-of-Pocket'})
+            </div>
           </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
+            Allocates dedicated initial renovation scope to bring property to peak market rent and capture full After-Repair Value (${fmtCurr(arv)}). ${rehabMode === 'roll_into_loan' ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and transaction closing costs are funded 100% upfront out of sponsor equity.'} Ongoing replacement reserves: ${inputs.capexReserve || 3.0}%/yr.
+          </td>
+        </tr>
+
+        <!-- 3. Vacancy & Economic Downtime -->
+        <tr>
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">3. Vacancy &amp; Economic Downtime</div>
+            <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${inputs.vacancyRate || 5}% of Gross</span>
+              <span style="font-size: 8.5px; color: #64748b; font-weight: 700;">(${fmtCurr(annualRent * ((parseFloat(inputs.vacancyRate) || 5) / 100))}/yr reserve)</span>
+            </div>
+          </td>
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
+            Enforces institutional underwriting allowance to buffer tenant rollover friction, collection delay, and physical downtime. Asset maintains operational cash flow solvency up to 20% economic vacancy tolerance.
+          </td>
+        </tr>
+
+        <!-- 4. Loan-to-Value & Senior Debt -->
+        <tr style="background: #f8fafc;">
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">4. Loan-to-Value &amp; Leverage Structure</div>
+            <div style="display: flex; align-items: baseline; gap: 5px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'}</span>
+              <span style="font-size: 11.5px; font-weight: 800; color: #047857;">${fmtCurr(loanAmt)} Senior Debt</span>
+            </div>
+            <div style="font-size: 8px; color: #475569; font-weight: 600; margin-top: 2px;">
+              Required Sponsor Equity: ${fmtCurr(equity)} (${downPaymentPercent}% of Total Basis)
+            </div>
+          </td>
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
+            ${debtProvenance}
+          </td>
+        </tr>
+
+        <!-- 5. Financing Terms & Debt Service -->
+        <tr>
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">5. Financing Terms &amp; Debt Service</div>
+            <div style="display: flex; align-items: baseline; gap: 5px; margin-top: 2px;">
+              <span style="font-size: 13px; font-weight: 900; color: #0f172a;">${intRate}% Fixed • ${loanTerm} Yrs</span>
+              <span style="font-size: 11px; font-weight: 800; color: #0284c7;">${fmtCurr(monthlyDebtService)}/mo P&amp;I</span>
+            </div>
+            <div style="font-size: 8px; color: #334155; margin-top: 2px;">
+              ${fmtCurr(debtService)}/yr Annual Debt (${fmtCurr(year1PrincipalMo)}/mo Prin • ${fmtCurr(year1InterestMo)}/mo Int) • DSCR: <strong style="color: ${dscrNum >= 1.25 ? '#059669' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted}</strong>
+            </div>
+          </td>
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
+            ${dscrEvaluation}
+          </td>
+        </tr>
+
+        <!-- 6. Gross Revenue & In-Place Tenancy -->
+        <tr style="background: #f8fafc;">
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">6. Gross In-Place Revenue &amp; Tenancy</div>
+            <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #059669; letter-spacing: -0.3px;">${fmtCurr(monthlyRent)}/mo</span>
+              <span style="font-size: 8.5px; font-weight: 700; color: #64748b;">(${fmtCurr(annualRent)}/yr)</span>
+            </div>
+            <div style="font-size: 8px; color: #334155; margin-top: 2px;">
+              ${tenantName} • ${leaseType} • +${escRate}%/yr Escalation • Lease: ${leaseStart} to ${leaseEnd}
+            </div>
+          </td>
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
             ${revenueProvenance}
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Compounding escalation protects real yields against regional inflation trends.</td>
         </tr>
+
+        <!-- 7. Operating Expenses & Management -->
         <tr>
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">3. Debt Structure & Leverage</strong>
-            <span style="color: #0f172a; font-weight: 700;">${ltv}% ${rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'} • ${fmtCurr(loanAmt)}</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(monthlyDebtService)}/mo P&I • ${intRate}% Fixed • ${loanTerm} Yrs</span>
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">7. Operating Expenses &amp; Management</div>
+            <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${inputs.expenseRatio || 25}% of GPI</span>
+              <span style="font-size: 8.5px; font-weight: 700; color: #64748b;">(${fmtCurr(annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100))}/yr)</span>
+            </div>
+            <div style="font-size: 8px; color: #475569; margin-top: 2px;">
+              ${fmtCurr((annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100)) / 12)}/mo OpEx • ${isResidential ? 'Taxes, Insurance, Management & Maintenance' : 'Pass-Through CAM / Admin & Insurance'}
+            </div>
           </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            ${debtProvenance}<br><span style="margin-top: 3px; display: block; font-weight: 600; color: ${dscrNum >= 1.25 ? '#047857' : (dscrNum >= 1.0 ? '#b45309' : '#be123c')};">${dscrEvaluation}</span>
-          </td>
-          <td style="color: #0f172a; vertical-align: top;">Subject to lender underwriting verification, appraisal report, and title binder.</td>
-        </tr>
-        <tr style="background: #f8fafc;">
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">4. Vacancy & Economic Downtime</strong>
-            <span style="color: #0f172a; font-weight: 700;">${inputs.vacancyRate || 5}% of Gross</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(annualRent * ((parseFloat(inputs.vacancyRate) || 5) / 100))}/yr reserve</span>
-          </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Enforces institutional underwriting floor to reserve for turnover friction, collection delay, and physical economic vacancy.
-          </td>
-          <td style="color: #0f172a; vertical-align: top;">Asset maintains operational viability up to 20% economic vacancy tolerance.</td>
-        </tr>
-        <tr>
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">5. Operating Expenses & Management</strong>
-            <span style="color: #0f172a; font-weight: 700;">${inputs.expenseRatio || 25}% of GPI</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">${fmtCurr(annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100))}/yr</span>
-          </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
             ${opexProvenance}
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Calibrated against submarket operating expense benchmarks and actual quotes.</td>
         </tr>
+
+        <!-- 8. Hold Horizon & Exit Cap Rate -->
         <tr style="background: #f8fafc;">
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">6. CapEx & Rehab Scope</strong>
-            <span style="color: #0f172a; font-weight: 700;">Rehab: ${fmtCurr(rehabCosts)}</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">Closing: ${fmtCurr(closingCosts)} (${rehabMode === 'roll_into_loan' ? 'Rolled into Loan' : 'Out-of-Pocket'})</span>
+          <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">8. Hold Horizon &amp; Terminal Exit Cap Rate</div>
+            <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
+              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${holdYears}-Year Hold</span>
+              <span style="font-size: 11px; font-weight: 800; color: #059669;">${inputs.targetCapRate || 7.0}% Exit Cap</span>
+            </div>
+            <div style="font-size: 8px; color: #047857; font-weight: 700; margin-top: 2px;">
+              Closing Settlement: ${inputs.closingDate || (startYear + '-10-15')} (Stub Prorated)
+            </div>
           </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Allocates dedicated initial renovation scope to bring property to peak market rent and capture full After-Repair Value (${fmtCurr(arv)}).
+          <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
+            Modeled with a conservative +50 bps expansion buffer over entry yield to stress-test liquidity and interest rate shifts over the ${holdYears}-year investment horizon.
           </td>
-          <td style="color: #0f172a; vertical-align: top;">Capital improvement program creates forced appreciation and tenant retention.</td>
-        </tr>
-        <tr>
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">7. Terminal Exit Cap Rate</strong>
-            <span style="color: #0f172a; font-weight: 700;">${inputs.targetCapRate || 7.0}% Exit Cap</span>
-            <span style="color: #64748b; font-size: 7.5px; display: block;">Spread: +50 bps over entry yield</span>
-          </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Modeled with a conservative +50 bps expansion buffer over entry yield to stress-test liquidity and interest rate shifts over the ${holdYears}-year hold.
-          </td>
-          <td style="color: #0f172a; vertical-align: top;">Supported by regional sales comps and capital markets liquidity.</td>
-        </tr>
-        <tr style="background: #f8fafc;">
-          <td style="border-right: 1px solid #e2e8f0; vertical-align: top;">
-            <strong style="color: #0f172a; font-size: 8.5px; display: block;">8. Hold Horizon & Settlement Timing</strong>
-            <span style="color: #0f172a; font-weight: 700;">${holdYears}-Year Hold</span>
-            <span style="color: #047857; font-size: 7.5px; display: block; font-weight: 700;">Closing: ${inputs.closingDate || (startYear + '-10-15')} (Stub Prorated)</span>
-          </td>
-          <td style="border-right: 1px solid #e2e8f0; color: #334155; vertical-align: top;">
-            Aligned with wealth realization cycle and full amortization schedule. Incorporates stub proration for transaction closing settlement.
-          </td>
-          <td style="color: #0f172a; vertical-align: top;">Optimizes equity compounding and proceeds at disposition.</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- 5. 10-Year Pro-Forma Cash Flow Waterfall Table -->
+  <!-- 3. 10-Year Pro-Forma Cash Flow Waterfall Table -->
   <div class="box">
     <div class="box-header" style="background: #0f172a;">
       <span>📊 10-Year Institutional Pro-Forma Forecast</span>
@@ -727,10 +711,10 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     </table>
   </div>
 
-  <!-- 6. Monte Carlo Stochastic Simulation & Volatility Audit (On-Demand) -->
+  <!-- 4. Monte Carlo Stochastic Simulation & Volatility Audit (On-Demand) -->
   <div class="box">
     <div class="box-header" style="background: #064e3b; display: flex; justify-content: space-between; align-items: center;">
-      <span>🎲 Stochastic Monte Carlo Simulation & Risk Distribution (500 Runs)</span>
+      <span>🎲 Stochastic Monte Carlo Simulation &amp; Risk Distribution (500 Runs)</span>
       <span style="font-size: 8px; color: #a7f3d0;">Value-at-Risk (VaR) &amp; Volatility Stress Audit</span>
     </div>
     <div style="padding: 6px 8px; background: #ffffff;">
@@ -770,7 +754,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     </div>
   </div>
 
-  <!-- 7. Deal Risk & Underwriting Audit Flags -->
+  <!-- 5. Deal Risk & Underwriting Audit Flags -->
   ${warnings.length > 0 ? `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 5px; padding: 5px 8px; margin-bottom: 8px;">
     <p style="font-size: 8px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 2px 0;">Deal Risk & Underwriting Audit Flags</p>
