@@ -1236,7 +1236,7 @@
                   <span id="overview-snapshot-tenancy-subtitle" class="text-[10px] text-slate-400 block truncate">100% Occupied</span>
                 </div>
               </div>
-              <button type="button" onclick="switchDealTab('operations')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-emerald-400 border border-slate-800 hover:border-emerald-500/40 transition flex items-center space-x-1">
+              <button type="button" onclick="navigateToOperations(event)" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-emerald-400 border border-slate-800 hover:border-emerald-500/40 transition flex items-center space-x-1 cursor-pointer">
                 <span>Rent Roll</span>
                 <span>➔</span>
               </button>
@@ -4464,8 +4464,25 @@
 
     // Switch workspace views (Dashboard, Modeler, 2D & Monte Carlo, Tax & BRRRR, 4-Deal Matrix, Portfolio)
     // Switch between the 7 Deal Hub Sub-Pages
-        function switchDealTab(tabName) {
+    function navigateToOperations(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const dealId = currentLoadedDeal?.id || '';
+      const isDemo = (window._currentUser && window._currentUser.demo) || window._isDemoUser || new URLSearchParams(window.location.search).get('demo') === 'true';
+      let url = 'operations.html';
+      const params = [];
+      if (dealId) params.push('deal_id=' + encodeURIComponent(dealId));
+      if (isDemo) params.push('demo=true');
+      if (params.length) url += '?' + params.join('&');
+      window.location.href = url;
+    }
+    window.navigateToOperations = navigateToOperations;
+
+    function switchDealTab(tabName) {
       if (!tabName) tabName = 'overview';
+      if (tabName === 'operations' || tabName === 'property-management' || tabName === 'rent-roll') {
+        navigateToOperations();
+        return;
+      }
       const isOwned = currentLoadedDeal && currentLoadedDeal.status === 'owned';
       if (tabName === 'diligence' && isOwned) {
         tabName = 'overview';

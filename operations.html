@@ -2078,7 +2078,10 @@
           }
         });
         propSelect.innerHTML = phtml;
-        if (currentPropVal && Array.from(propSelect.options).some(o => o.value === currentPropVal)) {
+        const requestedDealId = new URLSearchParams(window.location.search).get('deal_id');
+        if (requestedDealId && Array.from(propSelect.options).some(o => o.value === requestedDealId)) {
+          propSelect.value = requestedDealId;
+        } else if (currentPropVal && Array.from(propSelect.options).some(o => o.value === currentPropVal)) {
           propSelect.value = currentPropVal;
         } else {
           propSelect.value = 'all';
