@@ -1684,10 +1684,24 @@
           };
           if (deal.metrics) updatePayload.metrics = deal.metrics;
 
-          await window._supabase
+          const updateResult = await window._supabase
             .from('deals')
             .update(updatePayload)
-            .eq('id', dealId);
+            .eq('id', dealId)
+            .select();
+
+          if (updateResult.data && updateResult.data[0]) {
+            const serverRow = updateResult.data[0];
+            deal.irr = serverRow.irr ?? deal.irr;
+            deal.equity_multiple = serverRow.equity_multiple ?? deal.equity_multiple;
+            deal.cash_on_cash = serverRow.cash_on_cash ?? deal.cash_on_cash;
+            deal.year1_cashflow = serverRow.year1_cashflow ?? deal.year1_cashflow;
+            deal.total_equity = serverRow.total_equity ?? deal.total_equity;
+            deal.npv = serverRow.npv ?? deal.npv;
+            if (serverRow.metrics) {
+              deal.metrics = { ...(deal.metrics || {}), ...serverRow.metrics };
+            }
+          }
           console.log('✓ Successfully synchronized updated lease and pro-forma metrics to Supabase deals table');
         } catch (err) {
           console.error('Error syncing deal pro-forma to Supabase deals table:', err);

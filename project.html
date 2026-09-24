@@ -4158,14 +4158,36 @@
       // Auto-save user inputs
       savePresetValues(activeTab, inputs);
 
-      // Perform projections — prioritize stored answers from Supabase/Edge function
+      // Perform projections — prioritize stored answers from Supabase/Edge function when inputs match
       const mappedTab = (activeTab === 'proforma' || !activeTab) ? 'commercial' : activeTab;
       let res = null;
       if (currentLoadedDeal && currentLoadedDeal.metrics && Array.isArray(currentLoadedDeal.metrics.projections) && currentLoadedDeal.metrics.projections.length > 0) {
         const storedInputs = currentLoadedDeal.inputs || {};
-        const isInputsAligned = (!inputs.purchasePrice || Number(inputs.purchasePrice) === Number(storedInputs.purchasePrice)) &&
-                                (!inputs.downPaymentPercent || Number(inputs.downPaymentPercent) === Number(storedInputs.downPaymentPercent)) &&
-                                (!inputs.interestRate || Number(inputs.interestRate) === Number(storedInputs.interestRate));
+        const numEq = (a, b) => {
+          const na = (a === undefined || a === null || a === '') ? 0 : Number(a);
+          const nb = (b === undefined || b === null || b === '') ? 0 : Number(b);
+          return Math.abs(na - nb) < 0.001;
+        };
+        const strEq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+        const isInputsAligned =
+          numEq(inputs.purchasePrice, storedInputs.purchasePrice) &&
+          numEq(inputs.downPaymentPercent, storedInputs.downPaymentPercent) &&
+          numEq(inputs.interestRate, storedInputs.interestRate) &&
+          numEq(inputs.loanTerm, storedInputs.loanTerm) &&
+          numEq(inputs.monthlyRent, storedInputs.monthlyRent) &&
+          numEq(inputs.grossRentAnnual, storedInputs.grossRentAnnual) &&
+          numEq(inputs.expenseRatio, storedInputs.expenseRatio ?? storedInputs.operatingExpenseRatio) &&
+          numEq(inputs.vacancyRate, storedInputs.vacancyRate) &&
+          numEq(inputs.rentGrowth, storedInputs.rentGrowth ?? storedInputs.annualRentGrowth) &&
+          numEq(inputs.appreciationRate, storedInputs.appreciationRate ?? storedInputs.targetCapRate) &&
+          numEq(inputs.rehabCosts, storedInputs.rehabCosts ?? storedInputs.rehabBudget) &&
+          numEq(inputs.closingCosts, storedInputs.closingCosts) &&
+          numEq(inputs.exitYear, storedInputs.exitYear) &&
+          numEq(inputs.discountRate, storedInputs.discountRate) &&
+          strEq(inputs.exitCapTiming, storedInputs.exitCapTiming) &&
+          strEq(inputs.financingType, storedInputs.financingType);
+
         if (isInputsAligned) {
           res = currentLoadedDeal.metrics;
         }
@@ -8517,23 +8539,33 @@
       if (isRealDeal) {
         try {
           if (window._supabase) {
-            await window._supabase.from('deals').update({
-              title: deal.name,
-              asset_type: deal.asset_class || deal.asset_type,
-              status: deal.status || 'prospect',
-              entity_id: deal.entity_id || null,
-              purchase_price: deal.purchase_price,
-              irr: deal.irr,
-              equity_multiple: deal.equity_multiple,
-              cash_on_cash: deal.cash_on_cash,
-              year1_cashflow: deal.year1_cashflow,
-              total_equity: deal.total_equity,
-              npv: deal.npv ?? deal.metrics?.npv ?? 0,
-              metrics_computed_at: new Date().toISOString(),
-              inputs: deal.inputs,
-              metrics: deal.metrics,
-              updated_at: new Date().toISOString()
-            }).eq('id', deal.id);
+            const { data: updatedRows, error: updateErr } = await window._supabase
+              .from('deals')
+              .update({
+                title: deal.name,
+                asset_type: deal.asset_class || deal.asset_type,
+                status: deal.status || 'prospect',
+                entity_id: deal.entity_id || null,
+                purchase_price: deal.purchase_price,
+                inputs: deal.inputs,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', deal.id)
+              .select();
+
+            if (!updateErr && updatedRows && updatedRows[0]) {
+              const row = updatedRows[0];
+              deal.irr = row.irr ?? deal.irr;
+              deal.equity_multiple = row.equity_multiple ?? deal.equity_multiple;
+              deal.cash_on_cash = row.cash_on_cash ?? deal.cash_on_cash;
+              deal.year1_cashflow = row.year1_cashflow ?? deal.year1_cashflow;
+              deal.total_equity = row.total_equity ?? deal.total_equity;
+              deal.npv = row.npv ?? deal.npv;
+              deal.metrics_computed_at = row.metrics_computed_at ?? deal.metrics_computed_at;
+              if (row.metrics) {
+                deal.metrics = { ...(deal.metrics || {}), ...row.metrics };
+              }
+            }
 
             // Synchronize in-place lease into public.leases
             const firstLease = deal.inputs?.leases?.[0];
@@ -8604,14 +8636,21 @@
           }
 
           // Edge Function sync for institutional pro-forma and metric calculations
-          const token = (await window._supabase?.auth.getSession())?.data?.session?.access_token || window.SUPABASE_ANON_KEY;
+          const sessionToken = (await window._supabase?.auth.getSession())?.data?.session?.access_token;
+          const headers = {
+            'Content-Type': 'application/json',
+            'apikey': window.SUPABASE_ANON_KEY
+          };
+          if (sessionToken) {
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+          } else if (window.SUPABASE_ANON_KEY) {
+            headers['Authorization'] = `Bearer ${window.SUPABASE_ANON_KEY}`;
+          }
+
           try {
             const edgeRes = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/edit-property-inputs', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
+              headers: headers,
               body: JSON.stringify({
                 dealId: deal.id,
                 title: deal.name,
@@ -8625,15 +8664,25 @@
 
             if (edgeRes.ok) {
               const edgeData = await edgeRes.json();
-              if (edgeData?.deal) {
-                deal.irr = edgeData.deal.irr ?? deal.irr;
-                deal.equity_multiple = edgeData.deal.equity_multiple ?? deal.equity_multiple;
-                deal.cash_on_cash = edgeData.deal.cash_on_cash ?? deal.cash_on_cash;
-                deal.year1_cashflow = edgeData.deal.year1_cashflow ?? deal.year1_cashflow;
-                deal.total_equity = edgeData.deal.total_equity ?? deal.total_equity;
-                deal.npv = edgeData.deal.npv ?? deal.npv;
-                deal.metrics_computed_at = edgeData.deal.metrics_computed_at ?? deal.metrics_computed_at ?? new Date().toISOString();
-                if (edgeData.deal.metrics) deal.metrics = edgeData.deal.metrics;
+              const edgeDeal = edgeData?.deal;
+              if (edgeDeal) {
+                deal.irr = edgeDeal.irr ?? deal.irr;
+                deal.equity_multiple = edgeDeal.equity_multiple ?? deal.equity_multiple;
+                deal.cash_on_cash = edgeDeal.cash_on_cash ?? deal.cash_on_cash;
+                deal.year1_cashflow = edgeDeal.year1_cashflow ?? deal.year1_cashflow;
+                deal.total_equity = edgeDeal.total_equity ?? deal.total_equity;
+                deal.npv = edgeDeal.npv ?? deal.npv;
+                deal.metrics_computed_at = edgeDeal.metrics_computed_at ?? deal.metrics_computed_at ?? new Date().toISOString();
+                if (edgeDeal.metrics) {
+                  deal.metrics = edgeDeal.metrics;
+                } else if (edgeData.projections) {
+                  deal.metrics = {
+                    ...(deal.metrics || {}),
+                    projections: edgeData.projections,
+                    irr: edgeDeal.irr,
+                    equityMultiplier: edgeDeal.equity_multiple
+                  };
+                }
                 if (typeof updateCalculations === 'function') updateCalculations();
                 if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(deal);
               }
@@ -9340,10 +9389,27 @@
         sliderYear.addEventListener('input', () => updateCalculations());
       }
 
-      // All Form Inputs & Selects Real-Time Change / Input Listeners
+      // All Form Inputs & Selects Real-Time Change / Input Listeners with Automatic Backend Sync
+      let sidebarSaveDebounce = null;
       document.querySelectorAll('input, select').forEach(el => {
-        el.addEventListener('input', () => updateCalculations());
-        el.addEventListener('change', () => updateCalculations());
+        el.addEventListener('input', () => {
+          updateCalculations();
+          if (currentLoadedDeal && !el.closest('#edit-deal-modal') && !el.closest('#investor-profile-modal') && !el.closest('#cmd-palette-modal') && !el.closest('#scenario-save-modal')) {
+            if (sidebarSaveDebounce) clearTimeout(sidebarSaveDebounce);
+            sidebarSaveDebounce = setTimeout(() => {
+              if (typeof saveCurrentDealChanges === 'function') saveCurrentDealChanges(false);
+            }, 800);
+          }
+        });
+        el.addEventListener('change', () => {
+          updateCalculations();
+          if (currentLoadedDeal && !el.closest('#edit-deal-modal') && !el.closest('#investor-profile-modal') && !el.closest('#cmd-palette-modal') && !el.closest('#scenario-save-modal')) {
+            if (sidebarSaveDebounce) clearTimeout(sidebarSaveDebounce);
+            sidebarSaveDebounce = setTimeout(() => {
+              if (typeof saveCurrentDealChanges === 'function') saveCurrentDealChanges(false);
+            }, 400);
+          }
+        });
       });
 
       // Target Solver Button
@@ -10010,11 +10076,32 @@
         }
       }
 
+      // Clear stale metrics cache and perform immediate optimistic projection recalculation
+      currentLoadedDeal.metrics = null;
+      if (window.PropertyMath && typeof window.PropertyMath.calculateProjections === 'function') {
+        try {
+          const opt = window.PropertyMath.calculateProjections(aClass, currentLoadedDeal.inputs);
+          if (opt) {
+            const y1 = (opt.projections && opt.projections[0]) || {};
+            currentLoadedDeal.irr = opt.irr ?? currentLoadedDeal.irr;
+            currentLoadedDeal.equity_multiple = opt.equityMultiplier ?? currentLoadedDeal.equity_multiple;
+            currentLoadedDeal.cash_on_cash = y1.cashOnCash ?? currentLoadedDeal.cash_on_cash;
+            currentLoadedDeal.year1_cashflow = y1.cashFlow ?? y1.netCashFlow ?? currentLoadedDeal.year1_cashflow;
+            currentLoadedDeal.total_equity = opt.initialCashInvested ?? currentLoadedDeal.total_equity;
+            currentLoadedDeal.npv = opt.npv ?? currentLoadedDeal.npv;
+            currentLoadedDeal.metrics = opt;
+          }
+        } catch(optErr) {
+          console.warn('Optimistic math calculation notice:', optErr);
+        }
+      }
+
       try { localStorage.setItem('mathtree_active_deal', JSON.stringify(currentLoadedDeal)); } catch(e) {}
       closeEditDealModal();
       try {
         if (typeof updateDealStatusUI === 'function') updateDealStatusUI(currentLoadedDeal.status);
         if (typeof updateFormFields === 'function') updateFormFields(currentLoadedDeal.inputs);
+        if (typeof updateCalculations === 'function') updateCalculations();
         if (typeof autoSaveDealToSupabase === 'function') await autoSaveDealToSupabase(currentLoadedDeal);
         if (typeof updateCalculations === 'function') updateCalculations();
         if (typeof updateCountyDossierUI === 'function') updateCountyDossierUI(currentLoadedDeal);

@@ -3084,8 +3084,13 @@
       };
 
       const aClass = document.getElementById('edit-deal-asset-class')?.value || 'commercial';
-      const annualRentVal = numVal('edit-deal-gross-rent-annual', 0);
-      const monthlyRentVal = numVal('edit-deal-gross-rent-monthly', 0);
+      const dealId = document.getElementById('edit-deal-id')?.value;
+      const currentDeal = (typeof activeDashboardProjects !== 'undefined' ? activeDashboardProjects.find(p => String(p.id) === String(dealId)) : null) || (typeof getDashboardDealById === 'function' ? getDashboardDealById(dealId) : null);
+
+      const annualRentRaw = document.getElementById('edit-deal-gross-rent-annual')?.value?.trim();
+      const monthlyRentRaw = document.getElementById('edit-deal-gross-rent-monthly')?.value?.trim();
+      const annualRentVal = (annualRentRaw !== undefined && annualRentRaw !== '' && !isNaN(parseFloat(annualRentRaw))) ? Math.max(0, parseFloat(annualRentRaw)) : null;
+      const monthlyRentVal = (monthlyRentRaw !== undefined && monthlyRentRaw !== '' && !isNaN(parseFloat(monthlyRentRaw))) ? Math.max(0, parseFloat(monthlyRentRaw)) : null;
       const appRate = numVal('edit-deal-appreciation-rate', 3.5);
 
       const inputs = {
@@ -3119,34 +3124,48 @@
       };
 
       if (aClass === 'single-family') {
-        if (monthlyRentVal > 0) inputs.monthlyRent = monthlyRentVal;
-        else if (annualRentVal > 0) inputs.monthlyRent = Math.round(annualRentVal / 12);
-        inputs.grossRentPerMonth = inputs.monthlyRent || 0;
-        inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
+        if (monthlyRentVal !== null) {
+          inputs.monthlyRent = monthlyRentVal;
+        } else if (annualRentVal !== null) {
+          inputs.monthlyRent = Math.round(annualRentVal / 12);
+        } else {
+          inputs.monthlyRent = currentDeal?.inputs?.monthlyRent ?? 0;
+        }
+        inputs.grossRentPerMonth = inputs.monthlyRent;
+        inputs.grossRentAnnual = inputs.monthlyRent * 12;
         inputs.arv = numVal('edit-deal-arv', 0);
       } else if (aClass === 'multi-unit') {
         inputs.unitCount = intVal('edit-deal-unit-count', 4);
         inputs.numUnits = inputs.unitCount;
-        if (monthlyRentVal > 0) {
+        if (monthlyRentVal !== null) {
           inputs.monthlyRentPerUnit = monthlyRentVal;
           inputs.grossRentPerMonth = monthlyRentVal * inputs.unitCount;
           inputs.monthlyRent = inputs.grossRentPerMonth;
           inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
-        } else if (annualRentVal > 0) {
-          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.unitCount);
+        } else if (annualRentVal !== null) {
+          inputs.monthlyRentPerUnit = inputs.unitCount > 0 ? Math.round(annualRentVal / 12 / inputs.unitCount) : 0;
           inputs.grossRentAnnual = annualRentVal;
           inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
           inputs.monthlyRent = inputs.grossRentPerMonth;
+        } else {
+          inputs.grossRentAnnual = currentDeal?.inputs?.grossRentAnnual ?? 0;
+          inputs.grossRentPerMonth = currentDeal?.inputs?.grossRentPerMonth ?? 0;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.monthlyRentPerUnit = currentDeal?.inputs?.monthlyRentPerUnit ?? 0;
         }
       } else if (aClass === 'commercial') {
-        if (annualRentVal > 0) {
+        if (annualRentVal !== null) {
           inputs.grossRentAnnual = annualRentVal;
           inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
           inputs.monthlyRent = inputs.grossRentPerMonth;
-        } else if (monthlyRentVal > 0) {
+        } else if (monthlyRentVal !== null) {
           inputs.grossRentAnnual = monthlyRentVal * 12;
           inputs.grossRentPerMonth = monthlyRentVal;
           inputs.monthlyRent = monthlyRentVal;
+        } else {
+          inputs.grossRentAnnual = currentDeal?.inputs?.grossRentAnnual ?? 0;
+          inputs.grossRentPerMonth = currentDeal?.inputs?.grossRentPerMonth ?? 0;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
         }
         inputs.leaseType = document.getElementById('edit-deal-lease-type')?.value || 'NNN';
         inputs.gla = numVal('edit-deal-gla', 15000);
@@ -3156,18 +3175,23 @@
         inputs.storageSqFt = numVal('edit-deal-storage-sqft', 2000);
         inputs.totalSqFt = inputs.storageSqFt;
         inputs.isAutomated = document.getElementById('edit-deal-storage-automated')?.checked ?? true;
-        if (monthlyRentVal > 0) {
+        if (monthlyRentVal !== null) {
           inputs.monthlyRentPerUnit = monthlyRentVal;
           inputs.storageRentPerUnit = monthlyRentVal;
           inputs.grossRentPerMonth = monthlyRentVal * inputs.storageUnitCount;
           inputs.monthlyRent = inputs.grossRentPerMonth;
           inputs.grossRentAnnual = inputs.grossRentPerMonth * 12;
-        } else if (annualRentVal > 0) {
-          inputs.monthlyRentPerUnit = Math.round(annualRentVal / 12 / inputs.storageUnitCount);
+        } else if (annualRentVal !== null) {
+          inputs.monthlyRentPerUnit = inputs.storageUnitCount > 0 ? Math.round(annualRentVal / 12 / inputs.storageUnitCount) : 0;
           inputs.storageRentPerUnit = inputs.monthlyRentPerUnit;
           inputs.grossRentAnnual = annualRentVal;
           inputs.grossRentPerMonth = Math.round(annualRentVal / 12);
           inputs.monthlyRent = inputs.grossRentPerMonth;
+        } else {
+          inputs.grossRentAnnual = currentDeal?.inputs?.grossRentAnnual ?? 0;
+          inputs.grossRentPerMonth = currentDeal?.inputs?.grossRentPerMonth ?? 0;
+          inputs.monthlyRent = inputs.grossRentPerMonth;
+          inputs.monthlyRentPerUnit = currentDeal?.inputs?.monthlyRentPerUnit ?? 0;
         }
       }
 
@@ -3648,6 +3672,12 @@
       };
 
       // Immediate local save and UI grid refresh
+      const pIdx = activeDashboardProjects.findIndex(p => String(p.id) === String(deal.id));
+      if (pIdx !== -1) {
+        activeDashboardProjects[pIdx] = deal;
+      } else {
+        activeDashboardProjects.unshift(deal);
+      }
       saveActiveDealsToStorage();
       if (typeof renderFilteredGrid === 'function') renderFilteredGrid();
       closeEditDealModal();
@@ -3656,6 +3686,8 @@
       await syncDealViaEdgeFunction(deal);
 
       // Re-save verified server-reconciled metrics
+      const finalIdx = activeDashboardProjects.findIndex(p => String(p.id) === String(deal.id));
+      if (finalIdx !== -1) activeDashboardProjects[finalIdx] = deal;
       saveActiveDealsToStorage();
       if (typeof renderFilteredGrid === 'function') renderFilteredGrid();
     }
@@ -3690,7 +3722,18 @@
             .eq('id', deal.id)
             .select();
 
-          if (updateResult.error) {
+          if (updateResult.data && updateResult.data[0]) {
+            const serverRow = updateResult.data[0];
+            deal.irr = serverRow.irr ?? deal.irr;
+            deal.equity_multiple = serverRow.equity_multiple ?? deal.equity_multiple;
+            deal.cash_on_cash = serverRow.cash_on_cash ?? deal.cash_on_cash;
+            deal.year1_cashflow = serverRow.year1_cashflow ?? deal.year1_cashflow;
+            deal.total_equity = serverRow.total_equity ?? deal.total_equity;
+            deal.npv = serverRow.npv ?? deal.npv;
+            if (serverRow.metrics) {
+              deal.metrics = { ...(deal.metrics || {}), ...serverRow.metrics };
+            }
+          } else if (updateResult.error) {
             console.warn('Direct deal update notice:', updateResult.error);
           }
 
@@ -3765,6 +3808,9 @@
             deal.metrics_computed_at = new Date().toISOString();
             deal.metrics = edgeData.metrics;
             if (edgeData.metrics.loanAmount !== undefined) deal.inputs.loanAmount = edgeData.metrics.loanAmount;
+
+            const activeIdx = activeDashboardProjects.findIndex(p => String(p.id) === String(deal.id));
+            if (activeIdx !== -1) activeDashboardProjects[activeIdx] = deal;
             saveActiveDealsToStorage();
           }
         } else {
