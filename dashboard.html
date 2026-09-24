@@ -1558,8 +1558,8 @@
         </p>
         <div class="space-y-1.5 pt-1">
           <label class="text-[11px] font-bold text-slate-400 block">
-            To confirm, type <span id="delete-modal-project-name"
-              class="text-emerald-400 font-mono font-bold select-all"></span> below:
+            To confirm, type "<span id="delete-modal-project-name"
+              class="text-emerald-400 font-mono font-bold select-all"></span>" below:
           </label>
           <input type="text" id="delete-confirm-input"
             class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
@@ -2821,32 +2821,7 @@
                         <span>Download Spreadsheet (CSV)</span>
                       </button>
                       <div class="my-1 border-t border-slate-800"></div>
-                      <div class="px-3.5 py-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Deep Dive by Category</div>
-                      <button onclick="event.stopPropagation(); window.location.href='project-proforma.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>📊</span><span>Pro-Forma & Cash Flows</span>
-                      </button>
-                      <button onclick="event.stopPropagation(); window.location.href=getOperationsUrl('deal_id=' + '${d.id}')" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-emerald-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>📋</span><span>Property Management</span>
-                      </button>
-                      <button onclick="event.stopPropagation(); window.location.href='project-property.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>🏛️</span><span>Property & County Dossier</span>
-                      </button>
-                      <button onclick="event.stopPropagation(); window.location.href='project-debt.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>🏦</span><span>Debt & Amortization</span>
-                      </button>
-                      ${d.status !== 'owned' ? `
-                      <button onclick="event.stopPropagation(); window.location.href='project-diligence.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>📋</span><span>Assumptions & Diligence</span>
-                      </button>
-                      ` : ''}
-                      <button onclick="event.stopPropagation(); window.location.href='project-sensitivity.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>🎲</span><span>Risk & Sensitivity</span>
-                      </button>
-                      <button onclick="event.stopPropagation(); window.location.href='project-tax.html?id=' + '${d.id}'" class="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition">
-                        <span>📑</span><span>Tax & Wealth Studio</span>
-                      </button>
-                      <div class="my-1 border-t border-slate-800"></div>
-                      <button onclick="openTypedDeleteModal('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 transition">
+                      <button onclick="event.stopPropagation(); openTypedDeleteModal('${d.id}')" class="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 transition">
                         <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         <span>Delete Project</span>
                       </button>
@@ -2973,49 +2948,91 @@
     let targetDeleteDealId = null;
 
     function openTypedDeleteModal(id) {
+      if (window.event) window.event.stopPropagation();
       document.querySelectorAll('.card-dropdown-menu').forEach(m => m.classList.add('hidden'));
-      const deal = activeDashboardProjects.find(p => p.id === id);
+      const deal = activeDashboardProjects.find(p => String(p.id) === String(id));
       if (!deal) return;
 
       targetDeleteDealId = id;
+      const expectedName = (typeof resolveDealDisplayName === 'function' ? resolveDealDisplayName(deal, activeDashboardProjects) : null) || deal.name || deal.title || 'Underwriting Project';
+
       const nameEl = document.getElementById('delete-modal-project-name');
-      if (nameEl) nameEl.textContent = `"${deal.name}"`;
+      if (nameEl) nameEl.textContent = expectedName;
 
       const inputEl = document.getElementById('delete-confirm-input');
       if (inputEl) {
         inputEl.value = '';
-        inputEl.placeholder = `Type "${deal.name}" to confirm`;
+        inputEl.placeholder = `Type "${expectedName}" to confirm`;
       }
 
       const btn = document.getElementById('btn-confirm-delete');
       if (btn) {
         btn.disabled = true;
+        btn.textContent = 'Delete Forever';
         btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
       }
 
       const modal = document.getElementById('typed-delete-modal');
       if (modal) modal.classList.remove('hidden');
+      setTimeout(() => inputEl?.focus(), 60);
     }
 
     function closeTypedDeleteModal() {
       const modal = document.getElementById('typed-delete-modal');
       if (modal) modal.classList.add('hidden');
       targetDeleteDealId = null;
+      const inputEl = document.getElementById('delete-confirm-input');
+      if (inputEl) inputEl.value = '';
+      const btn = document.getElementById('btn-confirm-delete');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Delete Forever';
+        btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+      }
     }
 
     async function executeTypedDelete() {
       if (!targetDeleteDealId) return;
       const id = targetDeleteDealId;
 
-      activeDashboardProjects = activeDashboardProjects.filter(p => p.id !== id);
+      const btn = document.getElementById('btn-confirm-delete');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="inline-flex items-center justify-center"><svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Deleting...</span>`;
+      }
+
+      // 1. Immediately remove from local memory & storage
+      activeDashboardProjects = activeDashboardProjects.filter(p => String(p.id) !== String(id));
       saveActiveDealsToStorage();
 
-      const user = await getSupabaseUser();
-      if (window._supabase && user && !user.demo && !id.startsWith('proj-') && !id.startsWith('demo-')) {
+      // Clean up session and active deal caches
+      try {
+        if (localStorage.getItem('mathtree_active_deal_id') === id) localStorage.removeItem('mathtree_active_deal_id');
+        if (sessionStorage.getItem('mathtree_active_deal_id') === id) sessionStorage.removeItem('mathtree_active_deal_id');
+        const activeDealRaw = localStorage.getItem('mathtree_active_deal');
+        if (activeDealRaw) {
+          const ad = JSON.parse(activeDealRaw);
+          if (ad && String(ad.id) === String(id)) localStorage.removeItem('mathtree_active_deal');
+        }
+      } catch (e) {}
+
+      // Render updated UI immediately
+      if (typeof renderFilteredGrid === 'function') renderFilteredGrid();
+
+      // 2. Perform Supabase deletion
+      const isRealDbDeal = id && !id.startsWith('proj-') && !id.startsWith('demo-');
+      if (window._supabase && isRealDbDeal) {
         try {
-          await window._supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
+          const { error: delError } = await window._supabase
+            .from('deals')
+            .delete()
+            .eq('id', id);
+
+          if (delError) {
+            console.error('Supabase deal delete error:', delError);
+          }
         } catch (err) {
-          console.warn('Supabase delete error:', err);
+          console.warn('Supabase delete exception:', err);
         }
       }
 
@@ -5484,16 +5501,48 @@
       // Typed delete confirmation input listener
       const delInput = document.getElementById('delete-confirm-input');
       if (delInput) {
-        delInput.addEventListener('input', () => {
-          const deal = activeDashboardProjects.find(p => p.id === targetDeleteDealId);
+        const checkDeleteMatch = () => {
+          const deal = activeDashboardProjects.find(p => String(p.id) === String(targetDeleteDealId));
           const btn = document.getElementById('btn-confirm-delete');
-          if (!deal || !btn) return;
-          const isMatch = delInput.value.trim().toLowerCase() === deal.name.trim().toLowerCase();
+          if (!deal || !btn) return false;
+
+          const normalize = (str) => {
+            if (!str) return '';
+            let s = String(str).trim();
+            // Strip outer matching quotes (straight or curly)
+            if ((s.startsWith('"') && s.endsWith('"')) ||
+                (s.startsWith("'") && s.endsWith("'")) ||
+                (s.startsWith('“') && s.endsWith('”')) ||
+                (s.startsWith('‘') && s.endsWith('’'))) {
+              s = s.slice(1, -1).trim();
+            }
+            return s.toLowerCase().replace(/\s+/g, ' ');
+          };
+
+          const typed = normalize(delInput.value);
+          const candidates = [
+            deal.name,
+            deal.title,
+            (typeof resolveDealDisplayName === 'function') ? resolveDealDisplayName(deal, activeDashboardProjects) : null
+          ].filter(Boolean).map(normalize);
+
+          const isMatch = typed.length > 0 && candidates.some(c => c === typed);
           btn.disabled = !isMatch;
           if (isMatch) {
             btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-500 cursor-pointer shadow-lg shadow-rose-600/30 transition';
           } else {
             btn.className = 'flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 opacity-40 cursor-not-allowed transition';
+          }
+          return isMatch;
+        };
+
+        delInput.addEventListener('input', checkDeleteMatch);
+        delInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (checkDeleteMatch()) {
+              executeTypedDelete();
+            }
           }
         });
       }
