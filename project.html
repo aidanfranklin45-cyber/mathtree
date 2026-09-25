@@ -8180,8 +8180,8 @@
         currentLoadedDeal.inputs.acres = pkg.totalAcres ?? pkg.acres;
         currentLoadedDeal.inputs.sqft = pkg.totalSqFt ?? pkg.sqft;
 
-        // Dynamically update model purchase price to reflect active multi-parcel package total assessed basis
-        if (pkg.totalAssessedValue > 0) {
+        // Update assessment metrics; preserve user acquisition price unless deal has no price set at all
+        if (pkg.totalAssessedValue > 0 && !currentLoadedDeal.purchase_price && !currentLoadedDeal.inputs?.purchasePrice) {
           const priceInput = document.getElementById('input-purchase-price');
           if (priceInput) priceInput.value = pkg.totalAssessedValue;
           const sliderInput = document.getElementById('slider-purchase-price');
@@ -10423,6 +10423,10 @@
       const inputs = d.inputs || {};
       const m = d.metrics || {};
       const assetClass = d.asset_type || d.asset_class || 'commercial';
+      const storedPrice = Number(d.purchase_price ?? inputs.purchasePrice ?? 0);
+      if (!inputs.purchasePrice && storedPrice > 0) {
+        inputs.purchasePrice = storedPrice;
+      }
       const deal = {
         id: d.id,
         name: d.title || d.name || 'Underwriting Project',
@@ -10434,7 +10438,7 @@
         property_class: d.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B',
         facility_type: d.facility_type || inputs.facilityType || '',
         is_synthetic: !!d.is_synthetic,
-        purchase_price: d.purchase_price ?? inputs.purchasePrice ?? 0,
+        purchase_price: storedPrice,
         irr: d.irr ?? m.irr ?? 0,
         equity_multiple: d.equity_multiple ?? m.equityMultiplier ?? 2.0,
         cash_on_cash: d.cash_on_cash ?? m.year1CoC ?? m.cashOnCash ?? 0,
@@ -10898,14 +10902,11 @@
         packageAssessedVal = parseFloat(rawInputs.combinedAssessedValue) || parseFloat(rawInputs.totalAssessedValue) || parseFloat(rawInputs.assessorData?.totalAssessedValue) || 0;
       }
 
-      // Check if price was stuck on legacy preset default (300k, 800k, 2M) or single parcel value
-      const presetTemplatePrices = [300000, 800000, 2000000];
-      const hasPresetDefault = !rawInputs.purchasePrice || (presetTemplatePrices.includes(Number(rawInputs.purchasePrice)) && packageAssessedVal > 0 && Number(rawInputs.purchasePrice) !== packageAssessedVal);
-
-      // If deal has active multi-parcel package, ensure purchase price reflects the full combined package value
-      const resolvedPurchasePrice = (packageAssessedVal > 0 && (hasPresetDefault || packageAssessedVal > Number(rawInputs.purchasePrice || 0)))
-        ? packageAssessedVal
-        : (rawInputs.purchasePrice || currentLoadedDeal.purchase_price || (packageAssessedVal > 0 ? packageAssessedVal : baseDefaults.purchasePrice));
+      // Respect stored user acquisition price from database/inputs as source of truth; never override with assessed value
+      const storedPurchasePrice = Number(currentLoadedDeal.purchase_price || rawInputs.purchasePrice || 0);
+      const resolvedPurchasePrice = storedPurchasePrice > 0
+        ? storedPurchasePrice
+        : (packageAssessedVal > 0 ? packageAssessedVal : (baseDefaults.purchasePrice || 1000000));
 
       // Clean up stale ARV so it never suppresses property value below the purchase price
       const cleanArv = (rawInputs.arv && rawInputs.arv > resolvedPurchasePrice && (rawInputs.rehabCosts > 0 || rawInputs.rehabBudget > 0))

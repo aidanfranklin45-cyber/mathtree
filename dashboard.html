@@ -2351,6 +2351,10 @@
       const inputs = d.inputs || {};
       const m = d.metrics || {};
       const assetClass = d.asset_type || d.asset_class || 'commercial';
+      const storedPrice = Number(d.purchase_price ?? inputs.purchasePrice ?? 0);
+      if (!inputs.purchasePrice && storedPrice > 0) {
+        inputs.purchasePrice = storedPrice;
+      }
       const deal = {
         id: d.id,
         name: d.title || d.name || 'Underwriting Project',
@@ -2362,7 +2366,7 @@
         property_class: d.property_class || inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B',
         facility_type: d.facility_type || inputs.facilityType || '',
         is_synthetic: !!d.is_synthetic,
-        purchase_price: d.purchase_price ?? inputs.purchasePrice ?? 0,
+        purchase_price: storedPrice,
         irr: d.irr ?? m.irr ?? 0,
         equity_multiple: d.equity_multiple ?? m.equityMultiplier ?? 2.0,
         cash_on_cash: d.cash_on_cash ?? m.year1CoC ?? m.cashOnCash ?? 0,
@@ -5340,7 +5344,8 @@
 
       if (pkg.totalAssessedValue > 0) {
         const priceEl = document.getElementById('wiz-purchase-price');
-        if (priceEl) {
+        // Only set initial default if user hasn't explicitly entered a purchase price
+        if (priceEl && (!priceEl.value || parseFloat(priceEl.value) <= 0)) {
           priceEl.value = pkg.totalAssessedValue;
           if (typeof calculateWizardUpfrontCash === 'function') calculateWizardUpfrontCash();
         }
