@@ -235,7 +235,8 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const downPaymentAmt = parseFloat(deal.metrics?.downPaymentAmount || mathResults.downPaymentAmount || (totalFinancedBasis * (downPaymentPercent / 100)));
   const loanAmt = parseFloat(deal.metrics?.loanAmount || mathResults.loanAmount || deal.loan_amount || metrics.loanAmount || Math.max(0, totalFinancedBasis - downPaymentAmt));
   const equity = parseFloat(deal.metrics?.initialCashInvested || mathResults.initialCashInvested || deal.total_equity || (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehabCosts + closingCosts)));
-  const ltv = totalFinancedBasis > 0 ? Math.round((loanAmt / totalFinancedBasis) * 100) : (100 - downPaymentPercent);
+  const rawLtv = totalFinancedBasis > 0 ? (loanAmt / totalFinancedBasis) * 100 : (100 - downPaymentPercent);
+  const ltv = (Math.abs(rawLtv - Math.round(rawLtv)) < 0.01) ? rawLtv.toFixed(0) : rawLtv.toFixed(1);
   const intRate = parseFloat(inputs.interestRate || inputs.rate || 6.5);
   const loanTerm = parseInt(inputs.loanTerm || inputs.amortizationYears || 30, 10);
   const holdYears = parseInt(inputs.exitYear || inputs.holdingPeriod || 10, 10);
@@ -336,7 +337,9 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const vacRate = (inputs.vacancyRate !== undefined && inputs.vacancyRate !== null && inputs.vacancyRate !== '')
     ? Number(inputs.vacancyRate)
     : (p0.vacancyLoss !== undefined && annualRent > 0 ? Math.round((p0.vacancyLoss / annualRent) * 100) : 5);
-  const vacLossAnnual = p0.vacancyLoss !== undefined ? parseFloat(p0.vacancyLoss) : (annualRent * (vacRate / 100));
+  const vacLossAnnual = vacRate <= 0.001
+    ? 0
+    : (p0.vacancyLoss && parseFloat(p0.vacancyLoss) > 0 ? parseFloat(p0.vacancyLoss) : (annualRent * (vacRate / 100)));
 
   // Operating Expenses resolution (Check expenseRatio and operatingExpenseRatio)
   const expRatio = (inputs.expenseRatio !== undefined && inputs.expenseRatio !== null && inputs.expenseRatio !== '')
