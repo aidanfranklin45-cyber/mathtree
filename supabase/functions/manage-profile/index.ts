@@ -86,7 +86,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     try {
       const { data: row, error } = await dbClient
         .from("profiles")
-        .select("id, email, full_name, company_name, preferences, notification_email, alert_preferences")
+        .select("id, email, full_name, company_name, preferences, notification_email, alert_preferences, discount_rate, exit_year, exit_cap_timing, market_tier, property_class")
         .eq("id", userId)
         .maybeSingle();
 
@@ -101,11 +101,15 @@ export async function handleRequest(req: Request): Promise<Response> {
         email: row?.email || userEmail,
         fullName: row?.full_name || DEFAULT_PROFILE.fullName,
         companyName: row?.company_name || DEFAULT_PROFILE.companyName,
-        discountRate: isNaN(parseFloat(prefs.discountRate)) ? DEFAULT_PROFILE.discountRate : parseFloat(prefs.discountRate),
-        exitYear: isNaN(parseInt(prefs.exitYear, 10)) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, parseInt(prefs.exitYear, 10))),
-        exitCapTiming: (prefs.exitCapTiming === "day1" || prefs.exitCapTiming === "immediate") ? "day1" : "amortized",
-        marketTier: prefs.marketTier || DEFAULT_PROFILE.marketTier,
-        propertyClass: prefs.propertyClass || DEFAULT_PROFILE.propertyClass,
+        discountRate: row?.discount_rate !== null && row?.discount_rate !== undefined && !isNaN(parseFloat(String(row.discount_rate)))
+          ? parseFloat(String(row.discount_rate))
+          : (isNaN(parseFloat(prefs.discountRate)) ? DEFAULT_PROFILE.discountRate : parseFloat(prefs.discountRate)),
+        exitYear: row?.exit_year !== null && row?.exit_year !== undefined && !isNaN(parseInt(String(row.exit_year), 10))
+          ? parseInt(String(row.exit_year), 10)
+          : (isNaN(parseInt(prefs.exitYear, 10)) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, parseInt(prefs.exitYear, 10)))),
+        exitCapTiming: row?.exit_cap_timing || ((prefs.exitCapTiming === "day1" || prefs.exitCapTiming === "immediate") ? "day1" : "amortized"),
+        marketTier: row?.market_tier || prefs.marketTier || DEFAULT_PROFILE.marketTier,
+        propertyClass: row?.property_class || prefs.propertyClass || DEFAULT_PROFILE.propertyClass,
         notification_email: row?.notification_email || null,
         alert_preferences: row?.alert_preferences || null,
       };
@@ -157,6 +161,11 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     const updateRecord: Record<string, unknown> = {
       id: userId,
+      discount_rate: discountRate,
+      exit_year: exitYear,
+      exit_cap_timing: exitCapTiming,
+      market_tier: marketTier,
+      property_class: propertyClass,
       preferences: preferencesUpdate,
       updated_at: new Date().toISOString(),
     };

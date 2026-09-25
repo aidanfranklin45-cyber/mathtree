@@ -92,14 +92,20 @@ export async function handleRequest(req: Request): Promise<Response> {
           const authClient = createClient(supabaseUrl, supabaseServiceKey);
           const { data: profRow } = await authClient
             .from("profiles")
-            .select("preferences")
+            .select("discount_rate, exit_year, preferences")
             .eq("id", userId)
             .maybeSingle();
-          if (profRow?.preferences?.discountRate) {
+          if (profRow?.discount_rate !== null && profRow?.discount_rate !== undefined && !isNaN(Number(profRow.discount_rate))) {
+            rawInputs.discountRate = Number(profRow.discount_rate);
+          } else if (profRow?.preferences?.discountRate) {
             rawInputs.discountRate = Number(profRow.preferences.discountRate);
           }
-          if (!rawInputs.holdYears && profRow?.preferences?.exitYear) {
-            rawInputs.holdYears = Number(profRow.preferences.exitYear);
+          if (!rawInputs.holdYears) {
+            if (profRow?.exit_year && !isNaN(Number(profRow.exit_year))) {
+              rawInputs.holdYears = Number(profRow.exit_year);
+            } else if (profRow?.preferences?.exitYear) {
+              rawInputs.holdYears = Number(profRow.preferences.exitYear);
+            }
           }
         } catch (profErr) {
           console.warn("[create-project] Profile prefill warning:", profErr);

@@ -163,14 +163,20 @@ export async function handleRequest(req: Request): Promise<Response> {
       try {
         const { data: profRow } = await dbClient
           .from("profiles")
-          .select("preferences")
+          .select("discount_rate, exit_year, preferences")
           .eq("id", userId)
           .maybeSingle();
-        if (profRow?.preferences?.discountRate) {
+        if (profRow?.discount_rate !== null && profRow?.discount_rate !== undefined && !isNaN(Number(profRow.discount_rate))) {
+          mergedInputs.discountRate = Number(profRow.discount_rate);
+        } else if (profRow?.preferences?.discountRate) {
           mergedInputs.discountRate = Number(profRow.preferences.discountRate);
         }
-        if (!mergedInputs.holdYears && profRow?.preferences?.exitYear) {
-          mergedInputs.holdYears = Number(profRow.preferences.exitYear);
+        if (!mergedInputs.holdYears) {
+          if (profRow?.exit_year && !isNaN(Number(profRow.exit_year))) {
+            mergedInputs.holdYears = Number(profRow.exit_year);
+          } else if (profRow?.preferences?.exitYear) {
+            mergedInputs.holdYears = Number(profRow.preferences.exitYear);
+          }
         }
       } catch (profErr) {
         console.warn("[calculate-deal-projections] Profile prefill warning:", profErr);

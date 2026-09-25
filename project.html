@@ -119,7 +119,18 @@
             const { data: row } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
             if (row) {
               const prefs = row.preferences || {};
-              memoryProfile = sanitize({ id: row.id, email: row.email, fullName: row.full_name, companyName: row.company_name, ...prefs });
+              memoryProfile = sanitize({
+                id: row.id,
+                email: row.email,
+                fullName: row.full_name,
+                companyName: row.company_name,
+                discountRate: row.discount_rate !== null && row.discount_rate !== undefined ? Number(row.discount_rate) : prefs.discountRate,
+                exitYear: row.exit_year !== null && row.exit_year !== undefined ? Number(row.exit_year) : prefs.exitYear,
+                exitCapTiming: row.exit_cap_timing || prefs.exitCapTiming,
+                marketTier: row.market_tier || prefs.marketTier,
+                propertyClass: row.property_class || prefs.propertyClass,
+                ...prefs
+              });
               return { ...memoryProfile };
             }
           } catch (dbErr) {
@@ -161,6 +172,11 @@
               id: currentUser.id,
               full_name: memoryProfile.fullName,
               company_name: memoryProfile.companyName,
+              discount_rate: memoryProfile.discountRate,
+              exit_year: memoryProfile.exitYear,
+              exit_cap_timing: memoryProfile.exitCapTiming,
+              market_tier: memoryProfile.marketTier,
+              property_class: memoryProfile.propertyClass,
               preferences: {
                 discountRate: memoryProfile.discountRate,
                 exitYear: memoryProfile.exitYear,

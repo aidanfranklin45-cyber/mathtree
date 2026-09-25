@@ -138,6 +138,11 @@ export async function fetchProfile(supabaseClient?: any, currentUser?: any): Pro
           email: row.email,
           fullName: row.full_name,
           companyName: row.company_name,
+          discountRate: row.discount_rate !== null && row.discount_rate !== undefined ? Number(row.discount_rate) : prefs.discountRate,
+          exitYear: row.exit_year !== null && row.exit_year !== undefined ? Number(row.exit_year) : prefs.exitYear,
+          exitCapTiming: row.exit_cap_timing || prefs.exitCapTiming,
+          marketTier: row.market_tier || prefs.marketTier,
+          propertyClass: row.property_class || prefs.propertyClass,
           ...prefs,
         });
         hasFetchedFromBackend = true;
@@ -207,6 +212,11 @@ export async function saveProfile(
         id: currentUser.id,
         full_name: merged.fullName,
         company_name: merged.companyName,
+        discount_rate: merged.discountRate,
+        exit_year: merged.exitYear,
+        exit_cap_timing: merged.exitCapTiming,
+        market_tier: merged.marketTier,
+        property_class: merged.propertyClass,
         preferences: {
           discountRate: merged.discountRate,
           exitYear: merged.exitYear,

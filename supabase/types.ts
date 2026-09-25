@@ -360,30 +360,51 @@ export type Database = {
       }
       profiles: {
         Row: {
+          alert_preferences: Json | null
           company_name: string | null
           created_at: string
+          discount_rate: number | null
           email: string | null
+          exit_cap_timing: string | null
+          exit_year: number | null
           full_name: string | null
           id: string
+          market_tier: string | null
+          notification_email: string | null
           preferences: Json | null
+          property_class: string | null
           updated_at: string
         }
         Insert: {
+          alert_preferences?: Json | null
           company_name?: string | null
           created_at?: string
+          discount_rate?: number | null
           email?: string | null
+          exit_cap_timing?: string | null
+          exit_year?: number | null
           full_name?: string | null
           id: string
+          market_tier?: string | null
+          notification_email?: string | null
           preferences?: Json | null
+          property_class?: string | null
           updated_at?: string
         }
         Update: {
+          alert_preferences?: Json | null
           company_name?: string | null
           created_at?: string
+          discount_rate?: number | null
           email?: string | null
+          exit_cap_timing?: string | null
+          exit_year?: number | null
           full_name?: string | null
           id?: string
+          market_tier?: string | null
+          notification_email?: string | null
           preferences?: Json | null
+          property_class?: string | null
           updated_at?: string
         }
         Relationships: []
