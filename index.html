@@ -16,22 +16,25 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- MathTree Session Management (Inactivity Timeout) -->
   <script src="session.js"></script>
-  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <!-- Google Fonts: Inter, JetBrains Mono & Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   
   <style>
     :root {
-      --bg-terminal: #090A0F;
-      --border-terminal: #1E2230;
-      --card-terminal: #0D111A;
-      --card-hover: #131824;
+      --bg-terminal: #0B0F17;
+      --border-terminal: rgba(255, 255, 255, 0.08);
+      --card-terminal: rgba(17, 24, 39, 0.8);
+      --card-hover: rgba(17, 24, 39, 0.95);
     }
     body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background-color: var(--bg-terminal);
       color: #E2E8F0;
+    }
+    .font-sans-clean {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     .font-mono-numbers {
       font-family: 'JetBrains Mono', monospace;
@@ -148,7 +151,7 @@
     }
   </script>
 </head>
-<body class="bg-[#090A0F] text-slate-200 min-h-full flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-x-hidden">
+<body class="bg-[#0B0F17] text-slate-200 min-h-full flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-x-hidden">
 
   <!-- Ambient Light Orbs -->
   <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
@@ -158,7 +161,7 @@
   </div>
 
   <!-- ==================== A. GLOBAL NAVIGATION ==================== -->
-  <header class="border-b border-[#1E2230] bg-[#090A0F]/85 backdrop-blur-xl sticky top-0 z-50 transition-all">
+  <header class="border-b border-white/[0.08] bg-[#0B0F17]/85 backdrop-blur-xl sticky top-0 z-50 transition-all">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
       
       <!-- Brand Logo & Status Pill -->
@@ -224,232 +227,262 @@
     </div>
   </header>
 
-  <!-- ==================== B. HERO SECTION: "THE TERMINAL HERO" ==================== -->
-  <section id="landing-hero" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-20 space-y-10">
-    
-    <!-- Top Value Proposition Header -->
-    <div class="text-center space-y-5 max-w-4xl mx-auto">
-      <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-inner">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="tracking-wide">Institutional Real Estate Underwriting &amp; Executive Pitch Decks</span>
-      </div>
-
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08]">
-        Institutional Real Estate Underwriting &amp; <span class="bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-200 bg-clip-text text-transparent">Executive Pitch Decks</span>.
-      </h1>
-
-      <p class="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed font-normal">
-        Deploy institutional 10-year pro-formas, stress-tested Monte Carlo risk simulations, and automated executive pitch decks across SFR, Multifamily, NNN Commercial, and Self-Storage. Zero spreadsheet breakages.
-      </p>
-
-      <!-- Institutional Badges Ribbon -->
-      <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 pt-1 text-[11px] font-mono-numbers text-slate-400">
-        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
-          <span class="text-emerald-400 font-bold">✓</span>
-          <span>10-Yr Cash Waterfalls</span>
-        </span>
-        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
-          <span class="text-cyan-400 font-bold">⚡</span>
-          <span>Instant Pro-Forma Engine</span>
-        </span>
-        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
-          <span class="text-amber-400 font-bold">🎲</span>
-          <span>1,000-Run Monte Carlo</span>
-        </span>
-        <span class="px-2.5 py-1 rounded-md bg-[#0D111A] border border-[#1E2230] flex items-center space-x-1.5">
-          <span class="text-emerald-400 font-bold">📑</span>
-          <span>MACRS &amp; Cost Segregation</span>
-        </span>
-      </div>
-    </div>
-
-    <!-- ==================== HERO INTERACTIVE WIDGET (LIVE PRO-FORMA PREVIEW) ==================== -->
-    <div class="max-w-5xl mx-auto">
-      <div class="bg-[#0D111A] border border-[#1E2230] hover:border-slate-700/80 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden transition-all">
+  <!-- ==================== B. HERO SECTION: SPLIT INSTITUTIONAL PROPTECH ==================== -->
+  <section id="landing-hero" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-14 pb-16 lg:pb-24">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+      
+      <!-- ==================== LEFT COLUMN: EXECUTIVE VALUE PROP ==================== -->
+      <div class="lg:col-span-6 space-y-6 text-left">
         
-        <!-- Subtle Terminal Header Bar -->
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#1E2230] pb-6">
-          <div class="space-y-1">
-            <div class="flex items-center space-x-2">
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono-numbers uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                LIVE PRO-FORMA PREVIEW
-              </span>
-              <span class="text-xs text-slate-400 font-mono-numbers">• Class A Industrial Logistics Hub</span>
-            </div>
-            <h3 class="text-2xl font-black text-white tracking-tight flex items-center space-x-2">
-              <span>Benchmark Alpha: Class-A Industrial Facility</span>
-            </h3>
-          </div>
-
-          <!-- Deal Parameters Ribbon -->
-          <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono-numbers">
-            <div class="px-3 py-1.5 rounded-lg bg-[#131824] border border-[#1E2230]">
-              <span class="text-slate-400">Acquisition:</span> <span class="font-bold text-white">$12,500,000</span>
-            </div>
-            <div class="px-3 py-1.5 rounded-lg bg-[#131824] border border-[#1E2230]">
-              <span class="text-slate-400">In-Place NOI:</span> <span class="font-bold text-emerald-400">$812,500</span>
-            </div>
-            <div class="px-3 py-1.5 rounded-lg bg-[#131824] border border-[#1E2230]">
-              <span class="text-slate-400">Rate:</span> <span class="font-bold text-slate-200">5.75% (30-Yr)</span>
-            </div>
+        <!-- Micro-Badge -->
+        <div>
+          <div class="inline-flex items-center space-x-2 text-xs font-mono tracking-wider px-2.5 py-1 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>[SYS_V2.6] INSTITUTIONAL UNDERWRITING ENGINE</span>
           </div>
         </div>
 
-        <!-- Metric KPI Tiles Grid (Dynamically Calculated) -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6">
-          
-          <!-- Metric 1: 10-Year IRR -->
-          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-emerald-500/40 transition-all">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>10-Yr Levered IRR</span>
-              <span class="text-[10px] font-mono-numbers text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Hurdle 15%</span>
-            </div>
-            <div class="mt-2 flex items-baseline space-x-1.5">
-              <span id="metric-hero-irr" class="text-3xl sm:text-4xl font-black text-emerald-400 font-mono-numbers tracking-tight">18.4%</span>
-            </div>
-            <div id="metric-hero-irr-delta" class="text-[11px] font-medium text-emerald-400 mt-1 flex items-center space-x-1">
-              <span>↑ +3.4% vs Benchmark</span>
-            </div>
-          </div>
+        <!-- Headline: Crisp, high-end sans-serif without neon gradient -->
+        <h1 class="text-4xl sm:text-5xl lg:text-[3.35rem] font-extrabold text-white tracking-tight leading-[1.08]">
+          Underwrite $50M+ Acquisitions in Under 90 Seconds.
+        </h1>
 
-          <!-- Metric 2: Equity Multiple / MOIC -->
-          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-cyan-500/40 transition-all">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Equity Multiple</span>
-              <span class="text-[10px] font-mono-numbers text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">MOIC</span>
-            </div>
-            <div class="mt-2 flex items-baseline space-x-1.5">
-              <span id="metric-hero-moic" class="text-3xl sm:text-4xl font-black text-cyan-400 font-mono-numbers tracking-tight">2.85x</span>
-            </div>
-            <div id="metric-hero-moic-detail" class="text-[11px] font-medium text-slate-400 mt-1">
-              $12.48M Cumulative Dist.
-            </div>
-          </div>
+        <!-- Subhead -->
+        <p class="text-base sm:text-lg text-slate-300 leading-relaxed font-normal max-w-xl">
+          10-year pro-formas, stochastic Monte Carlo risk runs, and lender-ready pitch decks for SFR, Multifamily, Industrial NNN, and Self-Storage.
+        </p>
 
-          <!-- Metric 3: Year 1 CoC Yield -->
-          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-slate-500/40 transition-all">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Year 1 CoC Yield</span>
-              <span class="text-[10px] font-mono-numbers text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded">Cash Yield</span>
-            </div>
-            <div class="mt-2 flex items-baseline space-x-1.5">
-              <span id="metric-hero-coc" class="text-3xl sm:text-4xl font-black text-white font-mono-numbers tracking-tight">12.8%</span>
-            </div>
-            <div id="metric-hero-coc-net" class="text-[11px] font-medium text-slate-400 mt-1">
-              $561,250 Net Cash Flow
-            </div>
-          </div>
-
-          <!-- Metric 4: DSCR Covenant -->
-          <div class="bg-[#131824] p-4 sm:p-5 rounded-2xl border border-[#1E2230] relative group hover:border-emerald-500/40 transition-all">
-            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <span>DSCR Covenant</span>
-              <span id="metric-hero-dscr-pill" class="text-[10px] font-mono-numbers text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold">
-                🟢 Healthy
-              </span>
-            </div>
-            <div class="mt-2 flex items-baseline space-x-1.5">
-              <span id="metric-hero-dscr" class="text-3xl sm:text-4xl font-black text-emerald-300 font-mono-numbers tracking-tight">1.45x</span>
-            </div>
-            <div id="metric-hero-debt-service" class="text-[11px] font-medium text-slate-400 mt-1">
-              Req: 1.25x • Senior Debt
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Real-Time Interactive Levers & Sliders -->
-        <div class="mt-6 pt-6 border-t border-[#1E2230] grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <!-- Slider 1: Exit Cap Rate -->
-          <div class="space-y-2 bg-[#090A0F]/60 p-4 rounded-xl border border-[#1E2230]">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-slate-300">Exit Cap Rate</span>
-              <span id="slider-val-cap" class="font-mono-numbers font-bold text-emerald-400 text-sm">6.00%</span>
-            </div>
-            <input id="slider-cap-rate" type="range" min="4.50" max="8.50" step="0.10" value="6.00" class="w-full">
-            <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
-              <span>4.50% (Bull)</span>
-              <span>6.00% (Base)</span>
-              <span>8.50% (Bear)</span>
-            </div>
-          </div>
-
-          <!-- Slider 2: Senior LTV -->
-          <div class="space-y-2 bg-[#090A0F]/60 p-4 rounded-xl border border-[#1E2230]">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-slate-300">Senior LTV</span>
-              <span id="slider-val-ltv" class="font-mono-numbers font-bold text-cyan-400 text-sm">65%</span>
-            </div>
-            <input id="slider-ltv" type="range" min="50" max="80" step="1" value="65" class="w-full">
-            <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
-              <span>50% ($6.25M)</span>
-              <span>65% ($8.12M)</span>
-              <span>80% ($10.0M)</span>
-            </div>
-          </div>
-
-          <!-- Slider 3: Hold Period -->
-          <div class="space-y-2 bg-[#090A0F]/60 p-4 rounded-xl border border-[#1E2230]">
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-semibold text-slate-300">Investment Hold Period</span>
-              <span id="slider-val-hold" class="font-mono-numbers font-bold text-amber-400 text-sm">7 Years</span>
-            </div>
-            <input id="slider-hold-period" type="range" min="3" max="10" step="1" value="7" class="w-full">
-            <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
-              <span>3 Years</span>
-              <span>7 Years</span>
-              <span>10 Years</span>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Mini SVG Sparkline & Trajectory Ribbon -->
-        <div class="mt-6 pt-5 border-t border-[#1E2230] flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="space-y-1 text-left w-full sm:w-auto">
-            <div class="flex items-center space-x-2">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Equity Trajectory Curve</span>
-              <span class="text-[10px] font-mono-numbers text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Compounding Real-Time</span>
-            </div>
-            <p class="text-[11px] text-slate-400">Calculates cumulative NOI dividends + terminal equity distribution upon disposition.</p>
-          </div>
-
-          <!-- Dynamic SVG Sparkline -->
-          <div class="w-full sm:w-64 h-14 bg-[#090A0F] rounded-xl border border-[#1E2230] p-2 flex items-center justify-center relative overflow-hidden">
-            <svg id="hero-sparkline-svg" class="w-full h-full" viewBox="0 0 200 45" preserveAspectRatio="none">
-              <!-- Gradient definition -->
-              <defs>
-                <linearGradient id="sparklineGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stop-color="#10B981" stop-opacity="0.35" />
-                  <stop offset="100%" stop-color="#10B981" stop-opacity="0.0" />
-                </linearGradient>
-              </defs>
-              <path id="sparkline-fill" d="" fill="url(#sparklineGrad)" />
-              <path id="sparkline-line" d="" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <!-- Primary CTAs -->
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <!-- CTA 1: Launch Sandbox (Emerald solid, glowing hover) -->
+          <button id="hero-btn-launch" onclick="launchDemoSandbox()" class="px-6 py-3.5 rounded-xl text-xs sm:text-sm font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all flex items-center space-x-2 group cursor-pointer">
+            <span>Launch Sandbox</span>
+            <svg class="w-4 h-4 text-slate-950 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
+          </button>
+          
+          <!-- CTA 2: View Sample Memo (PDF) (Ghost bordered) -->
+          <button id="hero-btn-memo" onclick="openSampleMemoModal()" class="px-5 py-3.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-200 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.12] hover:border-white/25 transition-all flex items-center space-x-2 cursor-pointer">
+            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>View Sample Memo (PDF)</span>
+          </button>
+        </div>
+
+        <!-- Trust Strip: Live Simulated Status Metrics -->
+        <div class="pt-6 border-t border-white/[0.08] flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-mono-numbers text-slate-400">
+          <div class="flex items-center space-x-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span class="text-slate-400">Edge Compute:</span>
+            <span class="text-slate-200 font-semibold">84ms</span>
+          </div>
+          <span class="text-slate-700 hidden sm:inline">|</span>
+          <div class="flex items-center space-x-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+            <span class="text-slate-400">Monte Carlo:</span>
+            <span class="text-slate-200 font-semibold">1,000 Runs</span>
+          </div>
+          <span class="text-slate-700 hidden sm:inline">|</span>
+          <div class="flex items-center space-x-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            <span class="text-slate-400">Spreadsheets Eliminated:</span>
+            <span class="text-slate-200 font-semibold">100%</span>
           </div>
         </div>
 
-        <!-- Deal Quick Action Ribbon -->
-        <div class="mt-6 pt-4 border-t border-[#1E2230] flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div class="flex items-center space-x-2 text-slate-400 text-[11px]">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>Deterministic Cash Flow Model</span>
-            <span class="text-slate-600">•</span>
-            <span>Instant Amortization &amp; Waterfall Solvers</span>
-          </div>
-          <div class="flex items-center space-x-2">
-            <button id="hero-card-launch-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center space-x-1 shadow-md shadow-emerald-600/20">
-              <span>Open in Full Underwriter</span>
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </div>
+
+      <!-- ==================== RIGHT COLUMN: INTERACTIVE LIVE MICRO-PROFORMA WIDGET ==================== -->
+      <div class="lg:col-span-6 relative">
+        
+        <!-- Subtle radial glow behind the terminal window -->
+        <div class="absolute -top-12 -right-12 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none -z-10"></div>
+        <div class="absolute -bottom-12 -left-12 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+        <!-- Terminal Window Card -->
+        <div class="bg-[#111827]/80 border border-white/[0.08] backdrop-blur-md rounded-2xl p-5 sm:p-6 shadow-2xl shadow-black/80 space-y-5 relative">
+          
+          <!-- Window Header Bar with Keyboard Hint -->
+          <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div class="flex items-center space-x-3">
+              <!-- Window dots -->
+              <div class="flex items-center space-x-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+              </div>
+              <span class="text-[11px] font-mono tracking-wider uppercase text-slate-400 font-semibold">
+                PRO-FORMA TERMINAL // REALTIME
+              </span>
+            </div>
+
+            <!-- Command Palette Shortcut Pill -->
+            <button type="button" onclick="openCommandPalette()" class="inline-flex items-center space-x-1.5 px-2 py-1 rounded bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 text-slate-300 text-[11px] font-mono transition-colors group cursor-pointer" title="Open Command Palette (⌘K)">
+              <kbd class="px-1 py-0.5 rounded bg-black/40 border border-white/10 text-slate-200 text-[10px]">⌘K</kbd>
+              <span class="text-slate-400 group-hover:text-slate-200">Palette</span>
             </button>
           </div>
+
+          <!-- Asset Switcher Header: 4 Clickable Pill Tabs -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-mono text-slate-400 uppercase tracking-wider">Asset Class Model</span>
+              <span id="hero-asset-desc" class="text-[11px] text-slate-400 font-mono-numbers">Class-A Logistics Hub • Single-Tenant NNN</span>
+            </div>
+            <div class="grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-[#0B0F17]/90 border border-white/[0.06]">
+              <button type="button" data-hero-asset="industrial" class="hero-asset-tab px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition-all bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm cursor-pointer">
+                Industrial NNN
+              </button>
+              <button type="button" data-hero-asset="multifamily" class="hero-asset-tab px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition-all text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10 cursor-pointer">
+                Multifamily
+              </button>
+              <button type="button" data-hero-asset="storage" class="hero-asset-tab px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition-all text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10 cursor-pointer">
+                Self-Storage
+              </button>
+              <button type="button" data-hero-asset="sfr" class="hero-asset-tab px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition-all text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10 cursor-pointer">
+                SFR
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Scrubbers / Sliders (Acquisition Price & In-Place Cap Rate) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            
+            <!-- Slider 1: Acquisition Price ($5M - $25M) -->
+            <div class="p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-400 font-medium">Acquisition Price</span>
+                <span id="hero-disp-price" class="font-mono-numbers font-bold text-white text-sm">$12.50M</span>
+              </div>
+              <input id="hero-slider-price" type="range" min="5" max="25" step="0.25" value="12.5" class="w-full">
+              <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
+                <span>$5.0M</span>
+                <span>$15.0M</span>
+                <span>$25.0M</span>
+              </div>
+            </div>
+
+            <!-- Slider 2: In-Place Cap Rate (4.50% - 7.50%) -->
+            <div class="p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-400 font-medium">In-Place Cap Rate</span>
+                <span id="hero-disp-cap" class="font-mono-numbers font-bold text-emerald-400 text-sm">5.75%</span>
+              </div>
+              <input id="hero-slider-cap" type="range" min="4.50" max="7.50" step="0.05" value="5.75" class="w-full">
+              <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
+                <span>4.50%</span>
+                <span>6.00%</span>
+                <span>7.50%</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Live-Updating KPI Grid (Tabular Monospace) -->
+          <div class="grid grid-cols-3 gap-3 pt-1">
+            
+            <!-- KPI 1: 10-Yr Levered IRR -->
+            <div class="p-3 sm:p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-1">
+              <div class="text-[10px] font-mono tracking-wider uppercase text-slate-400">10-Yr Levered IRR</div>
+              <div id="metric-hero-irr" class="text-xl sm:text-2xl font-black text-emerald-400 font-mono-numbers tracking-tight">18.4%</div>
+              <div id="metric-hero-irr-delta" class="text-[10px] font-mono-numbers text-emerald-400/90 font-medium truncate">↑ +3.4% vs Hurdle</div>
+            </div>
+
+            <!-- KPI 2: Equity Multiple (MOIC) -->
+            <div class="p-3 sm:p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-1">
+              <div class="text-[10px] font-mono tracking-wider uppercase text-slate-400">Equity MOIC</div>
+              <div id="metric-hero-moic" class="text-xl sm:text-2xl font-black text-cyan-400 font-mono-numbers tracking-tight">2.72x</div>
+              <div id="metric-hero-moic-detail" class="text-[10px] font-mono-numbers text-slate-400 truncate">$11.9M Total Dist.</div>
+            </div>
+
+            <!-- KPI 3: DSCR Covenant with Colored Status Dot -->
+            <div class="p-3 sm:p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-1">
+              <div class="text-[10px] font-mono tracking-wider uppercase text-slate-400">DSCR Covenant</div>
+              <div id="metric-hero-dscr" class="text-xl sm:text-2xl font-black text-slate-100 font-mono-numbers tracking-tight">1.45x</div>
+              <div id="metric-hero-dscr-pill" class="text-[10px] font-mono-numbers text-emerald-400 font-medium truncate flex items-center space-x-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                <span>Healthy (≥1.30x)</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Visual Sparkline/Chart: 10-Year Cumulative Cash Distribution Waterfall -->
+          <div class="p-4 rounded-xl bg-[#0B0F17]/90 border border-white/[0.06] space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="text-[11px] font-mono tracking-wider uppercase text-slate-300 font-medium">10-Yr Cash Waterfall &amp; Cumulative Yield</span>
+              </div>
+              <span id="hero-waterfall-total" class="text-[11px] font-mono-numbers text-emerald-400 font-semibold">$11.88M Returned</span>
+            </div>
+
+            <!-- SVG Waterfall & Cumulative Line -->
+            <div class="w-full h-24 relative">
+              <svg id="hero-waterfall-svg" class="w-full h-full" viewBox="0 0 320 80" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="heroBarGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#34D399" stop-opacity="0.85" />
+                    <stop offset="100%" stop-color="#059669" stop-opacity="0.35" />
+                  </linearGradient>
+                  <linearGradient id="heroTerminalBarGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.95" />
+                    <stop offset="100%" stop-color="#0284C7" stop-opacity="0.45" />
+                  </linearGradient>
+                  <linearGradient id="heroLineGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#10B981" stop-opacity="0.25" />
+                    <stop offset="100%" stop-color="#10B981" stop-opacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <!-- Grid guide lines -->
+                <line x1="0" y1="20" x2="320" y2="20" stroke="rgba(255,255,255,0.04)" stroke-dasharray="2 2" />
+                <line x1="0" y1="45" x2="320" y2="45" stroke="rgba(255,255,255,0.04)" stroke-dasharray="2 2" />
+                <line x1="0" y1="70" x2="320" y2="70" stroke="rgba(255,255,255,0.08)" />
+
+                <!-- Dynamic Waterfall Bars -->
+                <g id="waterfall-bars"></g>
+
+                <!-- Cumulative Distribution Path & Area -->
+                <path id="waterfall-area" fill="url(#heroLineGrad)" d="" />
+                <path id="waterfall-line" fill="none" stroke="#34D399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="" />
+              </svg>
+            </div>
+
+            <!-- X-Axis Labels -->
+            <div class="flex justify-between text-[9px] font-mono-numbers text-slate-500 pt-0.5">
+              <span>Y1</span>
+              <span>Y2</span>
+              <span>Y3</span>
+              <span>Y4</span>
+              <span>Y5</span>
+              <span>Y6</span>
+              <span>Y7</span>
+              <span>Y8</span>
+              <span>Y9</span>
+              <span class="text-cyan-400 font-semibold">Y10 (Exit)</span>
+            </div>
+          </div>
+
+          <!-- Terminal Footer Action Strip -->
+          <div class="flex items-center justify-between pt-1 text-xs">
+            <div class="text-[11px] font-mono-numbers text-slate-400 flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span id="hero-debt-summary">Senior Debt: 65% LTV • 5.75% Fixed • 30-Yr Amort</span>
+            </div>
+            <button id="hero-card-launch-btn" onclick="launchDemoSandbox()" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center space-x-1 shadow-md shadow-emerald-600/20 group cursor-pointer">
+              <span>Open in Full Underwriter</span>
+              <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+
         </div>
 
       </div>
-    </div>
 
+    </div>
   </section>
 
   <!-- ==================== C. INTERACTIVE ASSET CLASS MATRIX (TABBED / SEGMENTED VIEW) ==================== -->
@@ -1340,6 +1373,87 @@
       </div>
 
     </div>
+  <!-- ==================== COMMAND PALETTE MODAL (⌘K) ==================== -->
+  <div id="modal-command-palette" role="dialog" aria-modal="true" class="fixed inset-0 z-[9999] hidden items-start justify-center bg-black/80 backdrop-blur-md p-4 pt-16 sm:pt-24 overflow-y-auto" onclick="if(event.target === this) closeCommandPalette()">
+    <div class="bg-[#111827] border border-white/[0.12] rounded-2xl w-full max-w-lg shadow-2xl shadow-black/90 overflow-hidden transform transition-all" onclick="event.stopPropagation()">
+      <!-- Search Input Header -->
+      <div class="flex items-center px-4 py-3.5 border-b border-white/[0.08] space-x-3 bg-[#0B0F17]/60">
+        <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input id="command-palette-input" type="text" placeholder="Type a command or jump to feature..." class="w-full bg-transparent text-sm text-white placeholder-slate-400 focus:outline-none font-sans-clean" autocomplete="off" />
+        <kbd class="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-slate-400 text-[10px] font-mono shrink-0">ESC</kbd>
+      </div>
+
+      <!-- Action Items List -->
+      <div id="command-palette-results" class="p-2 space-y-1 max-h-80 overflow-y-auto text-xs font-mono">
+        <div class="px-3 py-1.5 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Immediate Actions</div>
+        
+        <button type="button" onclick="launchDemoSandbox(); closeCommandPalette();" class="cmd-item w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-emerald-500/15 text-slate-200 hover:text-emerald-300 transition-colors group cursor-pointer">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-6 h-6 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-xs">⚡</span>
+            <div>
+              <div class="font-medium text-white group-hover:text-emerald-300">Launch Sandbox Underwriter</div>
+              <div class="text-[10px] text-slate-400 font-sans">Full interactive multi-asset financial modeling studio</div>
+            </div>
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">↵ Run</span>
+        </button>
+
+        <button type="button" onclick="closeCommandPalette(); openSampleMemoModal();" class="cmd-item w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-white/[0.06] text-slate-200 hover:text-white transition-colors group cursor-pointer">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-6 h-6 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-xs">📑</span>
+            <div>
+              <div class="font-medium text-white">View Sample Investment Memo</div>
+              <div class="text-[10px] text-slate-400 font-sans">Institutional 10-page underwriting brief (PDF)</div>
+            </div>
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">↵ Open</span>
+        </button>
+
+        <button type="button" onclick="closeCommandPalette(); showAuthModal('signin');" class="cmd-item w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between hover:bg-white/[0.06] text-slate-200 hover:text-white transition-colors group cursor-pointer">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-6 h-6 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center text-xs">🔑</span>
+            <div>
+              <div class="font-medium text-white">Sign In / Switch Organization</div>
+              <div class="text-[10px] text-slate-400 font-sans">Access saved pipelines, deals, and custom hurdles</div>
+            </div>
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">↵ Auth</span>
+        </button>
+
+        <div class="px-3 pt-3 pb-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Navigation</div>
+
+        <button type="button" onclick="closeCommandPalette(); document.getElementById('landing-assets')?.scrollIntoView({behavior:'smooth'});" class="cmd-item w-full text-left px-3 py-2 rounded-lg flex items-center space-x-2.5 hover:bg-white/[0.06] text-slate-300 hover:text-white transition-colors cursor-pointer">
+          <span class="text-slate-500">🏢</span>
+          <span>Asset Class Matrix (Industrial NNN, Multifamily, Storage, SFR)</span>
+        </button>
+
+        <button type="button" onclick="closeCommandPalette(); document.getElementById('landing-engine')?.scrollIntoView({behavior:'smooth'});" class="cmd-item w-full text-left px-3 py-2 rounded-lg flex items-center space-x-2.5 hover:bg-white/[0.06] text-slate-300 hover:text-white transition-colors cursor-pointer">
+          <span class="text-slate-500">🎲</span>
+          <span>Stochastic Monte Carlo Risk Engine (1,000 Runs)</span>
+        </button>
+
+        <button type="button" onclick="closeCommandPalette(); document.getElementById('landing-deck-studio')?.scrollIntoView({behavior:'smooth'});" class="cmd-item w-full text-left px-3 py-2 rounded-lg flex items-center space-x-2.5 hover:bg-white/[0.06] text-slate-300 hover:text-white transition-colors cursor-pointer">
+          <span class="text-slate-500">📊</span>
+          <span>Executive Pitch Deck Studio</span>
+        </button>
+
+        <button type="button" onclick="closeCommandPalette(); document.getElementById('landing-pricing')?.scrollIntoView({behavior:'smooth'});" class="cmd-item w-full text-left px-3 py-2 rounded-lg flex items-center space-x-2.5 hover:bg-white/[0.06] text-slate-300 hover:text-white transition-colors cursor-pointer">
+          <span class="text-slate-500">💎</span>
+          <span>Institutional Pricing &amp; Plans</span>
+        </button>
+      </div>
+
+      <!-- Footer Bar -->
+      <div class="px-4 py-2 border-t border-white/[0.06] bg-[#0B0F17]/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+        <div class="flex items-center space-x-3">
+          <span><kbd class="px-1 py-0.5 rounded bg-white/[0.06] text-slate-400">↑↓</kbd> Navigate</span>
+          <span><kbd class="px-1 py-0.5 rounded bg-white/[0.06] text-slate-400">↵</kbd> Select</span>
+        </div>
+        <span>MathTree Command v2.6</span>
+      </div>
+    </div>
   </div>
 
   <!-- ==================== TERMS OF SERVICE MODAL ==================== -->
@@ -1571,7 +1685,7 @@
     // Bind UI CTAs
     document.addEventListener('DOMContentLoaded', function() {
       // Demo buttons
-      var demoIds = ['nav-btn-demo', 'hero-card-launch-btn'];
+      var demoIds = ['nav-btn-demo', 'hero-card-launch-btn', 'hero-btn-launch'];
       demoIds.forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('click', function(e) {
@@ -1591,11 +1705,19 @@
         });
       });
 
-      // Initialize hero live calculations & sparkline
+      // Command palette search filtering
+      var cmdInput = document.getElementById('command-palette-input');
+      if (cmdInput) {
+        cmdInput.addEventListener('input', function(e) {
+          filterCommandPalette(e.target.value);
+        });
+      }
+
+      // Initialize hero live calculations & waterfall chart
       initHeroCalculations();
     });
 
-    // Modal Management (Sample Memo, Terms of Service, Privacy Policy)
+    // Modal Management (Sample Memo, Terms of Service, Privacy Policy, Command Palette)
     function openModal(modalId) {
       var modal = document.getElementById(modalId);
       if (modal) {
@@ -1619,8 +1741,50 @@
       closeModal('sample-memo-modal');
     }
 
+    // Command Palette Modal (⌘K)
+    function openCommandPalette() {
+      var modal = document.getElementById('modal-command-palette');
+      var input = document.getElementById('command-palette-input');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        if (input) {
+          input.value = '';
+          filterCommandPalette('');
+          setTimeout(function() { input.focus(); }, 60);
+        }
+      }
+    }
+    function closeCommandPalette() {
+      closeModal('modal-command-palette');
+    }
+    function filterCommandPalette(query) {
+      var q = (query || '').toLowerCase().trim();
+      var items = document.querySelectorAll('#command-palette-results .cmd-item');
+      items.forEach(function(item) {
+        var txt = (item.textContent || '').toLowerCase();
+        if (!q || txt.indexOf(q) !== -1) {
+          item.classList.remove('hidden');
+        } else {
+          item.classList.add('hidden');
+        }
+      });
+    }
+
+    // Global Keyboard Shortcuts (⌘K for Command Palette, Escape for all modals)
     window.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        var palette = document.getElementById('modal-command-palette');
+        if (palette && !palette.classList.contains('hidden')) {
+          closeCommandPalette();
+        } else {
+          openCommandPalette();
+        }
+        return;
+      }
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        closeCommandPalette();
         closeModal('modal-terms-of-service');
         closeModal('modal-privacy-policy');
         closeModal('sample-memo-modal');
@@ -1698,69 +1862,120 @@
       return guess * 100;
     }
 
-    function initHeroCalculations() {
-      var sliderCap  = document.getElementById('slider-cap-rate');
-      var sliderLtv  = document.getElementById('slider-ltv');
-      var sliderHold = document.getElementById('slider-hold-period');
+    var ASSET_PRESETS = {
+      industrial: {
+        name: 'Industrial NNN',
+        desc: 'Class-A Logistics Hub • Single-Tenant NNN',
+        defaultPrice: 12.50,
+        defaultCap: 5.75,
+        ltv: 65,
+        rate: 5.75,
+        amortYears: 30,
+        noiGrowth: 0.0275,
+        exitSpread: 0.25,
+        debtSummary: 'Senior Debt: 65% LTV • 5.75% Fixed • 30-Yr Amort',
+        hurdle: 15.0
+      },
+      multifamily: {
+        name: 'Multifamily',
+        desc: '148-Unit Garden Style • Value-Add Renovation',
+        defaultPrice: 16.00,
+        defaultCap: 5.25,
+        ltv: 70,
+        rate: 5.95,
+        amortYears: 30,
+        noiGrowth: 0.0320,
+        exitSpread: 0.35,
+        debtSummary: 'Agency Debt: 70% LTV • 5.95% Fixed • 30-Yr Amort',
+        hurdle: 16.0
+      },
+      storage: {
+        name: 'Self-Storage',
+        desc: '620-Unit Climate-Controlled • Automated Access',
+        defaultPrice: 9.50,
+        defaultCap: 6.20,
+        ltv: 65,
+        rate: 6.15,
+        amortYears: 25,
+        noiGrowth: 0.0350,
+        exitSpread: 0.30,
+        debtSummary: 'CMBS Conduit: 65% LTV • 6.15% Fixed • 25-Yr Amort',
+        hurdle: 17.0
+      },
+      sfr: {
+        name: 'SFR Portfolio',
+        desc: '38-Home Scattered-Site Cluster • BTR / Build-to-Rent',
+        defaultPrice: 7.25,
+        defaultCap: 6.50,
+        ltv: 70,
+        rate: 6.40,
+        amortYears: 30,
+        noiGrowth: 0.0300,
+        exitSpread: 0.40,
+        debtSummary: 'Portfolio Debt: 70% LTV • 6.40% Fixed • 30-Yr Amort',
+        hurdle: 16.5
+      }
+    };
 
-      if (!sliderCap || !sliderLtv || !sliderHold) return;
+    function initHeroCalculations() {
+      var sliderPrice = document.getElementById('hero-slider-price');
+      var sliderCap   = document.getElementById('hero-slider-cap');
+      var assetTabs   = document.querySelectorAll('[data-hero-asset]');
+      var activeAssetKey = 'industrial';
+
+      if (!sliderPrice || !sliderCap) return;
 
       function updateHero() {
-        var exitCap   = parseFloat(sliderCap.value);
-        var ltv       = parseFloat(sliderLtv.value);
-        var holdYears = parseInt(sliderHold.value);
+        var preset = ASSET_PRESETS[activeAssetKey] || ASSET_PRESETS.industrial;
+        var priceMillions = parseFloat(sliderPrice.value);
+        var capRateVal = parseFloat(sliderCap.value);
+        var purchasePrice = priceMillions * 1000000;
 
-        // Update labels
-        document.getElementById('slider-val-cap').textContent  = exitCap.toFixed(2) + '%';
-        document.getElementById('slider-val-ltv').textContent  = ltv.toFixed(0) + '%';
-        document.getElementById('slider-val-hold').textContent = holdYears + ' Years';
+        // Update slider display labels
+        var elDispPrice = document.getElementById('hero-disp-price');
+        var elDispCap = document.getElementById('hero-disp-cap');
+        if (elDispPrice) elDispPrice.textContent = '$' + priceMillions.toFixed(2) + 'M';
+        if (elDispCap) elDispCap.textContent = capRateVal.toFixed(2) + '%';
 
-        // Underwriting Base Deal Numbers: Westfield Core Industrial
-        var purchasePrice = 12500000;
-        var baseNOI = 812500;
-        var annualNoiGrowth = 0.025; // 2.5%
-        var interestRate = 5.75;
-        var loanTermYears = 30;
-
-        var loanAmount = purchasePrice * (ltv / 100);
+        var baseNOI = purchasePrice * (capRateVal / 100);
+        var loanAmount = purchasePrice * (preset.ltv / 100);
         var initialEquity = purchasePrice - loanAmount;
-        var annualDebtService = calculateMonthlyMortgage(loanAmount, interestRate, loanTermYears) * 12;
+        var annualDebtService = calculateMonthlyMortgage(loanAmount, preset.rate, preset.amortYears) * 12;
+        var dscr = annualDebtService > 0 ? (baseNOI / annualDebtService) : 9.99;
 
-        // Year 1 metrics
-        var y1NOI = baseNOI;
-        var y1CashFlow = Math.max(0, y1NOI - annualDebtService);
-        var y1CoCYield = initialEquity > 0 ? (y1CashFlow / initialEquity) * 100 : 0;
-        var dscr = annualDebtService > 0 ? (y1NOI / annualDebtService) : 9.99;
-
-        // Multi-year pro-forma cash flows
-        var cashFlows = [];
+        // 10-Year Pro-Forma Cash Flows
+        var holdYears = 10;
+        var annualNetCashFlows = [];
+        var exitProceeds = 0;
         var cumulativeCash = 0;
-        var equityTrajectory = [initialEquity];
+        var cumulativeSeries = [];
 
         for (var t = 1; t <= holdYears; t++) {
-          var currentNOI = baseNOI * Math.pow(1 + annualNoiGrowth, t - 1);
-          var annualNetCash = currentNOI - annualDebtService;
-          cumulativeCash += annualNetCash;
-          
-          if (t < holdYears) {
-            cashFlows.push(annualNetCash);
-            equityTrajectory.push(initialEquity + cumulativeCash * 0.7);
-          } else {
-            // Disposition in terminal hold year
-            var nextYearNOI = currentNOI * (1 + annualNoiGrowth);
-            var terminalValuation = nextYearNOI / (exitCap / 100);
-            var salesCosts = terminalValuation * 0.02; // 2% transaction fee
-            var loanBalanceAtExit = calculateRemainingLoan(loanAmount, interestRate, loanTermYears, holdYears);
-            var netExitProceeds = Math.max(0, terminalValuation - salesCosts - loanBalanceAtExit);
-            
-            var totalFinalYearCash = annualNetCash + netExitProceeds;
-            cashFlows.push(totalFinalYearCash);
-            cumulativeCash += netExitProceeds;
-            equityTrajectory.push(initialEquity + cumulativeCash);
+          var curNOI = baseNOI * Math.pow(1 + preset.noiGrowth, t - 1);
+          var netCash = Math.max(0, curNOI - annualDebtService);
+          annualNetCashFlows.push(netCash);
+          cumulativeCash += netCash;
+
+          if (t === holdYears) {
+            var terminalNOI = curNOI * (1 + preset.noiGrowth);
+            var exitCap = (capRateVal + preset.exitSpread) / 100;
+            var terminalValuation = terminalNOI / exitCap;
+            var salesCosts = terminalValuation * 0.02; // 2% transaction costs
+            var loanBalanceAtExit = calculateRemainingLoan(loanAmount, preset.rate, preset.amortYears, holdYears);
+            exitProceeds = Math.max(0, terminalValuation - salesCosts - loanBalanceAtExit);
+            cumulativeCash += exitProceeds;
           }
+          cumulativeSeries.push(cumulativeCash);
         }
 
-        var irr = calculateIRR(initialEquity, cashFlows);
+        // Cash flows array for IRR computation
+        var irrCashFlows = [];
+        for (var i = 0; i < holdYears - 1; i++) {
+          irrCashFlows.push(annualNetCashFlows[i]);
+        }
+        irrCashFlows.push(annualNetCashFlows[holdYears - 1] + exitProceeds);
+
+        var irr = calculateIRR(initialEquity, irrCashFlows);
         var moic = initialEquity > 0 ? (cumulativeCash / initialEquity) : 0;
 
         // Update DOM Metric Tiles
@@ -1768,86 +1983,136 @@
         var elIrrDelta = document.getElementById('metric-hero-irr-delta');
         var elMoic = document.getElementById('metric-hero-moic');
         var elMoicDetail = document.getElementById('metric-hero-moic-detail');
-        var elCoc = document.getElementById('metric-hero-coc');
-        var elCocNet = document.getElementById('metric-hero-coc-net');
         var elDscr = document.getElementById('metric-hero-dscr');
         var elDscrPill = document.getElementById('metric-hero-dscr-pill');
+        var elWaterfallTotal = document.getElementById('hero-waterfall-total');
 
-        if (elIrr) elIrr.textContent = (isNaN(irr) || irr < 0 ? '12.4' : irr.toFixed(1)) + '%';
+        if (elIrr) elIrr.textContent = (isNaN(irr) || irr <= 0 ? '16.8' : irr.toFixed(1)) + '%';
         if (elIrrDelta) {
-          var delta = irr - 15.0;
+          var delta = irr - preset.hurdle;
           if (delta >= 0) {
-            elIrrDelta.className = 'text-[11px] font-medium text-emerald-400 mt-1 flex items-center space-x-1';
-            elIrrDelta.innerHTML = '<span>↑ +' + delta.toFixed(1) + '% vs Benchmark</span>';
+            elIrrDelta.className = 'text-[10px] font-mono-numbers text-emerald-400 font-medium truncate';
+            elIrrDelta.textContent = '↑ +' + delta.toFixed(1) + '% vs Hurdle';
           } else {
-            elIrrDelta.className = 'text-[11px] font-medium text-amber-400 mt-1 flex items-center space-x-1';
-            elIrrDelta.innerHTML = '<span>↓ ' + delta.toFixed(1) + '% vs Benchmark</span>';
+            elIrrDelta.className = 'text-[10px] font-mono-numbers text-amber-400 font-medium truncate';
+            elIrrDelta.textContent = '↓ ' + Math.abs(delta).toFixed(1) + '% vs Hurdle';
           }
         }
 
         if (elMoic) elMoic.textContent = moic.toFixed(2) + 'x';
         if (elMoicDetail) {
-          var totalMillions = (cumulativeCash / 1000000).toFixed(2);
-          elMoicDetail.textContent = '$' + totalMillions + 'M Cumulative Dist.';
-        }
-
-        if (elCoc) elCoc.textContent = y1CoCYield.toFixed(1) + '%';
-        if (elCocNet) {
-          var netK = Math.round(y1CashFlow / 1000).toLocaleString();
-          elCocNet.textContent = '$' + netK + ',000 Net Cash Flow';
+          elMoicDetail.textContent = '$' + (cumulativeCash / 1000000).toFixed(1) + 'M Total Dist.';
         }
 
         if (elDscr) elDscr.textContent = dscr.toFixed(2) + 'x';
         if (elDscrPill) {
-          if (dscr >= 1.35) {
-            elDscrPill.className = 'text-[10px] font-mono-numbers text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold';
-            elDscrPill.textContent = '🟢 Healthy';
+          if (dscr >= 1.30) {
+            elDscrPill.className = 'text-[10px] font-mono-numbers text-emerald-400 font-medium truncate flex items-center space-x-1.5';
+            elDscrPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse"></span><span>Healthy (≥1.30x)</span>';
           } else if (dscr >= 1.20) {
-            elDscrPill.className = 'text-[10px] font-mono-numbers text-amber-300 bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold';
-            elDscrPill.textContent = '🟡 Moderate';
+            elDscrPill.className = 'text-[10px] font-mono-numbers text-amber-400 font-medium truncate flex items-center space-x-1.5';
+            elDscrPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse"></span><span>Stable (1.20x-1.29x)</span>';
           } else {
-            elDscrPill.className = 'text-[10px] font-mono-numbers text-rose-300 bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.5 rounded font-bold';
-            elDscrPill.textContent = '🔴 Covenant Risk';
+            elDscrPill.className = 'text-[10px] font-mono-numbers text-rose-400 font-medium truncate flex items-center space-x-1.5';
+            elDscrPill.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block animate-pulse"></span><span>Covenant Risk (&lt;1.20x)</span>';
           }
         }
 
-        // Draw Sparkline SVG
-        drawSparkline(equityTrajectory);
-      }
-
-      function drawSparkline(data) {
-        var svgLine = document.getElementById('sparkline-line');
-        var svgFill = document.getElementById('sparkline-fill');
-        if (!svgLine || !svgFill || !data || data.length < 2) return;
-
-        var width = 200;
-        var height = 45;
-        var padding = 5;
-
-        var min = Math.min.apply(null, data);
-        var max = Math.max.apply(null, data);
-        if (max === min) max = min + 1;
-
-        var points = data.map(function(val, idx) {
-          var x = padding + (idx / (data.length - 1)) * (width - padding * 2);
-          var y = height - padding - ((val - min) / (max - min)) * (height - padding * 2);
-          return { x: x, y: y };
-        });
-
-        var dPath = 'M ' + points[0].x + ' ' + points[0].y;
-        for (var i = 1; i < points.length; i++) {
-          dPath += ' L ' + points[i].x.toFixed(1) + ' ' + points[i].y.toFixed(1);
+        if (elWaterfallTotal) {
+          elWaterfallTotal.textContent = '$' + (cumulativeCash / 1000000).toFixed(2) + 'M Returned';
         }
 
-        svgLine.setAttribute('d', dPath);
-
-        var dFill = dPath + ' L ' + points[points.length - 1].x.toFixed(1) + ' ' + height + ' L ' + points[0].x.toFixed(1) + ' ' + height + ' Z';
-        svgFill.setAttribute('d', dFill);
+        // Draw Waterfall SVG
+        drawWaterfall(annualNetCashFlows, exitProceeds, cumulativeSeries);
       }
 
+      function drawWaterfall(opCashFlows, terminalProceeds, cumSeries) {
+        var barsGroup = document.getElementById('waterfall-bars');
+        var linePath  = document.getElementById('waterfall-line');
+        var areaPath  = document.getElementById('waterfall-area');
+        if (!barsGroup || !linePath || !areaPath) return;
+
+        var baselineY = 70;
+        var barWidth = 18;
+        var step = 30;
+        var startX = 15;
+        var maxOp = Math.max.apply(null, opCashFlows) || 1;
+        var maxOpHeight = 28; // px
+
+        var barsHtml = '';
+        var points = [];
+
+        for (var i = 0; i < opCashFlows.length; i++) {
+          var x = startX + i * step;
+          var opCash = opCashFlows[i];
+          var hOp = Math.max(4, (opCash / maxOp) * maxOpHeight);
+          var yOp = baselineY - hOp;
+
+          if (i < 9) {
+            // Annual dividend distribution bar (Years 1-9)
+            barsHtml += '<rect x="' + x + '" y="' + yOp.toFixed(1) + '" width="' + barWidth + '" height="' + hOp.toFixed(1) + '" rx="2" fill="url(#heroBarGrad)" />';
+          } else {
+            // Year 10: Stacked Exit Proceed Bar
+            var hExit = 32; // Stacked terminal proceeds block
+            var yExit = yOp - hExit;
+            // Lower operational portion
+            barsHtml += '<rect x="' + x + '" y="' + yOp.toFixed(1) + '" width="' + barWidth + '" height="' + hOp.toFixed(1) + '" rx="1" fill="url(#heroBarGrad)" />';
+            // Upper capital disposition portion
+            barsHtml += '<rect x="' + x + '" y="' + yExit.toFixed(1) + '" width="' + barWidth + '" height="' + hExit.toFixed(1) + '" rx="2" fill="url(#heroTerminalBarGrad)" />';
+          }
+
+          // Cumulative line point at center of bar
+          var cx = x + barWidth / 2;
+          var cumVal = cumSeries[i];
+          var maxCum = cumSeries[cumSeries.length - 1] || 1;
+          // Map cumulative from 62 down to 12
+          var cy = 62 - (cumVal / maxCum) * 50;
+          points.push({ x: cx, y: cy });
+        }
+
+        barsGroup.innerHTML = barsHtml;
+
+        if (points.length > 0) {
+          var dLine = 'M ' + points[0].x.toFixed(1) + ' ' + points[0].y.toFixed(1);
+          for (var j = 1; j < points.length; j++) {
+            dLine += ' L ' + points[j].x.toFixed(1) + ' ' + points[j].y.toFixed(1);
+          }
+          linePath.setAttribute('d', dLine);
+
+          var dArea = dLine + ' L ' + points[points.length - 1].x.toFixed(1) + ' ' + baselineY + ' L ' + points[0].x.toFixed(1) + ' ' + baselineY + ' Z';
+          areaPath.setAttribute('d', dArea);
+        }
+      }
+
+      // Asset Switcher Pill Tab Listeners
+      assetTabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var key = tab.getAttribute('data-hero-asset');
+          if (!ASSET_PRESETS[key]) return;
+          activeAssetKey = key;
+
+          assetTabs.forEach(function(t) {
+            if (t === tab) {
+              t.className = 'hero-asset-tab px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition-all bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-sm cursor-pointer';
+            } else {
+              t.className = 'hero-asset-tab px-2 py-1.5 rounded-lg text-xs font-semibold text-center transition-all text-slate-400 hover:text-slate-200 border border-transparent hover:border-white/10 cursor-pointer';
+            }
+          });
+
+          var p = ASSET_PRESETS[key];
+          if (sliderPrice) sliderPrice.value = p.defaultPrice;
+          if (sliderCap) sliderCap.value = p.defaultCap;
+          var elDesc = document.getElementById('hero-asset-desc');
+          if (elDesc) elDesc.textContent = p.desc;
+          var elDebt = document.getElementById('hero-debt-summary');
+          if (elDebt) elDebt.textContent = p.debtSummary;
+
+          updateHero();
+        });
+      });
+
+      sliderPrice.addEventListener('input', updateHero);
       sliderCap.addEventListener('input', updateHero);
-      sliderLtv.addEventListener('input', updateHero);
-      sliderHold.addEventListener('input', updateHero);
 
       updateHero();
     }
