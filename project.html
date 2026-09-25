@@ -5876,8 +5876,9 @@
 
       const rehab = parseFloat(inputs.rehabCosts || 0);
       const closing = parseFloat(inputs.closingCosts || 0);
-      const totalOutlay = rehab + closing;
       const rehabMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
+      const downPaymentAmt = parseFloat(res.downPaymentAmount || 0);
+      const totalInitialOutlay = parseFloat(res.initialCashInvested || (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehab + closing)));
 
       const allAssumptions = [
         {
@@ -5891,10 +5892,12 @@
         {
           id: 'capex',
           icon: '🏗️',
-          name: '2. Initial Rehab Capital Outlay (incl. Closing Costs)',
+          name: '2. Total Initial Capital Outlay (Equity, Rehab & Closing)',
           category: 'acquisition',
-          value: `${formatCurrency(totalOutlay)} Total Outlay • (${formatCurrency(rehab)} Rehab + ${formatCurrency(closing)} Closing • ${rehabMode === 'roll_into_loan' ? 'Rolled into Loan' : 'Funded Out-of-Pocket'})`,
-          provenance: `Allocates dedicated initial renovation scope of ${formatCurrency(rehab)} plus estimated transaction closing costs of ${formatCurrency(closing)} (${rehabMode === 'roll_into_loan' ? 'both rolled into senior loan facility' : 'funded upfront out of sponsor equity'}) to capture full After-Repair Value. Ongoing replacement reserve: ${inputs.capexReserve || 3.0}%/yr (${formatCurrency(p1.capexReserve || 0)}/yr).`
+          value: rehabMode === 'roll_into_loan'
+            ? `${formatCurrency(totalInitialOutlay)} Total Outlay • (${formatCurrency(downPaymentAmt)} Down • ${formatCurrency(rehab)} Rehab + ${formatCurrency(closing)} Closing Rolled into Loan)`
+            : `${formatCurrency(totalInitialOutlay)} Total Outlay • (${formatCurrency(downPaymentAmt)} Down + ${formatCurrency(rehab)} Rehab + ${formatCurrency(closing)} Closing • Funded Out-of-Pocket)`,
+          provenance: `Represents total Day 1 sponsor equity required to capitalize the acquisition (${formatCurrency(downPaymentAmt)} down payment), fund estimated closing costs (${formatCurrency(closing)}), and execute renovation scope (${formatCurrency(rehab)}) to capture After-Repair Value. ${rehabMode === 'roll_into_loan' ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and closing settlements are funded 100% upfront out of sponsor equity.'} Ongoing replacement reserve: ${inputs.capexReserve || 3.0}%/yr (${formatCurrency(p1.capexReserve || 0)}/yr).`
         },
         {
           id: 'vacancy',

@@ -584,20 +584,22 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
           </td>
         </tr>
 
-        <!-- 2. Initial Rehab Capital Outlay (incl. Closing Costs) -->
+        <!-- 2. Total Initial Capital Outlay (Equity, Rehab & Closing) -->
         <tr style="background: #f8fafc;">
           <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
-            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">2. Initial Rehab Capital Outlay (incl. Closing Costs)</div>
+            <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">2. Total Initial Capital Outlay (Equity, Rehab &amp; Closing)</div>
             <div style="display: flex; align-items: baseline; gap: 5px; margin-top: 2px;">
-              <span style="font-size: 13.5px; font-weight: 900; color: #0284c7; letter-spacing: -0.3px;">${fmtCurr(rehabCosts + closingCosts)}</span>
-              <span style="font-size: 8px; font-weight: 800; color: #0369a1; background: #e0f2fe; padding: 1px 5px; border-radius: 3px;">Total Initial Outlay</span>
+              <span style="font-size: 13.5px; font-weight: 900; color: #0284c7; letter-spacing: -0.3px;">${fmtCurr(equity)}</span>
+              <span style="font-size: 8px; font-weight: 800; color: #0369a1; background: #e0f2fe; padding: 1px 5px; border-radius: 3px;">Total Upfront Cash Required</span>
             </div>
             <div style="font-size: 8px; color: #334155; font-weight: 600; margin-top: 2px;">
-              ${fmtCurr(rehabCosts)} Rehab Scope + ${fmtCurr(closingCosts)} Closing Costs (${rehabMode === 'roll_into_loan' ? 'Rolled into Loan' : 'Funded Out-of-Pocket'})
+              ${rehabMode === 'roll_into_loan'
+                ? `${fmtCurr(equity)} Down Payment (${downPaymentPercent}% LTC) • ${fmtCurr(rehabCosts)} Rehab + ${fmtCurr(closingCosts)} Closing Financed`
+                : `${fmtCurr(downPaymentAmt)} Down (${downPaymentPercent}%) + ${fmtCurr(rehabCosts)} Rehab + ${fmtCurr(closingCosts)} Closing (Funded Out-of-Pocket)`}
             </div>
           </td>
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
-            Allocates dedicated initial renovation scope to bring property to peak market rent and capture full After-Repair Value (${fmtCurr(arv)}). ${rehabMode === 'roll_into_loan' ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and transaction closing costs are funded 100% upfront out of sponsor equity.'} Ongoing replacement reserves: ${inputs.capexReserve || 3.0}%/yr.
+            Represents total Day 1 sponsor equity required to capitalize the acquisition, fund estimated closing costs (${fmtCurr(closingCosts)}), and execute renovation scope (${fmtCurr(rehabCosts)}) to capture After-Repair Value (${fmtCurr(arv)}). ${rehabMode === 'roll_into_loan' ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and closing settlements are funded 100% upfront out of sponsor equity.'} Ongoing replacement reserves: ${inputs.capexReserve || 3.0}%/yr.
           </td>
         </tr>
 
