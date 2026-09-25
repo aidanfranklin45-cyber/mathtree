@@ -401,8 +401,7 @@ export function calculateIRR(initialCashOrFlows: any, optionalFlows?: number[]):
 export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}): any {
   const assetType = normalizeAssetClass(rawAssetType);
 
-  const assessedFallback = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || 0;
-  const purchasePrice = (parseFloat(inputs.purchasePrice) > 0) ? parseFloat(inputs.purchasePrice) : (assessedFallback > 0 ? assessedFallback : (parseFloat(inputs.purchasePrice) || 0));
+  const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
   const downPaymentPercent = parseFloat(inputs.downPaymentPercent) || 0;
   const interestRate = parseFloat(inputs.interestRate) || 0;
   const loanTerm = parseInt(inputs.loanTerm) || parseInt(inputs.loanTermYears) || parseInt(inputs.amortizationYears) || 30;
@@ -419,8 +418,12 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
 
   const arv = parseFloat(inputs.arv) || 0;
   const assessedBasis = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || 0;
-  const hasValidPostRehabArv = (assetType === 'single-family') && arv > purchasePrice && arv !== assessedBasis && (parseFloat(inputs.rehabCosts) > 0 || parseFloat(inputs.rehabBudget) > 0);
-  const initialPropertyValue = hasValidPostRehabArv ? arv : purchasePrice;
+
+  // Day 1 Valuation Industry Standard:
+  // Day 1 property value is strictly the contract acquisition cost (purchase price / as-is basis).
+  // Prospective ARV (After-Repair Value) is realized upon completion of the value-add program.
+  const initialPropertyValue = purchasePrice;
+  const hasValidPostRehabArv = (assetType === 'single-family' || assetType === 'multi-unit') && arv > purchasePrice && (rehabCosts > 0);
   const targetCapRate = parseFloat(inputs.targetCapRate) || parseFloat(inputs.targetExitCapRate) || parseFloat(inputs.exitCapRate) || 6.5;
 
   // Revenue Resolution
@@ -641,7 +644,14 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
         }
       }
     } else {
-      if (year > 1) {
+      if (year === 1) {
+        // Year 1 Stabilization: if a value-add program was executed, value steps up to ARV upon completion
+        if (hasValidPostRehabArv) {
+          currentPropertyValue = arv;
+        } else {
+          currentPropertyValue = initialPropertyValue;
+        }
+      } else {
         const appRate = (appreciationRate !== undefined && !isNaN(appreciationRate)) ? appreciationRate : 3.0;
         currentPropertyValue = currentPropertyValue * (1 + appRate / 100);
       }
@@ -776,6 +786,11 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     equityMultiplierDisplay,
     cashOnCashDisplay: y1CoCDisplay,
     purchasePrice: Math.round(purchasePrice * 100) / 100,
+    day1Value: Math.round(initialPropertyValue * 100) / 100,
+    initialPropertyValue: Math.round(initialPropertyValue * 100) / 100,
+    stabilizedValue: Math.round((hasValidPostRehabArv ? arv : (projections[0] ? projections[0].propertyValue : purchasePrice)) * 100) / 100,
+    arv: arv > 0 ? Math.round(arv * 100) / 100 : null,
+    rehabCosts: Math.round(rehabCosts * 100) / 100,
     downPaymentAmount: Math.round(downPaymentAmount * 100) / 100,
     loanAmount: Math.max(0, Math.round(loanAmount * 100) / 100),
     initialCashInvested: Math.round(initialCashInvested * 100) / 100,
@@ -1717,6 +1732,17 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
       level: 'warning',
       title: 'Aggressive Exit Cap Rate Assumption',
       description: `Exit cap rate (${exitCap.toFixed(2)}%) is priced more aggressively than typical institutional ranges (${benchmarkRange.min.toFixed(2)}% - ${benchmarkRange.max.toFixed(2)}%) for ${marketTier} ${propClass} assets.`
+    });
+  }
+
+  const pPrice = parseFloat(inputs.purchasePrice) || 0;
+  const targetArv = parseFloat(inputs.arv) || 0;
+  const rehabCost = parseFloat(inputs.rehabCosts) || parseFloat(inputs.rehabBudget) || 0;
+  if (targetArv > pPrice && rehabCost <= 0 && (assetType === 'single-family' || assetType === 'residential' || assetType === 'multi-unit')) {
+    warnings.push({
+      level: 'warning',
+      title: 'Unsubstantiated ARV Markup',
+      description: `Target ARV ($${Math.round(targetArv).toLocaleString()}) exceeds Day 1 purchase price ($${Math.round(pPrice).toLocaleString()}) without an underwritten rehab budget.`
     });
   }
 
