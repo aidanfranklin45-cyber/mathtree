@@ -1886,7 +1886,9 @@
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Operating Expenses &amp; Underwriting Assumptions</span>
             <span class="text-[10px] text-slate-500 italic">OER, management &amp; hold parameters</span>
           </div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 items-end">
+
+          <!-- Row 1: Operations (Expense Ratio & Property Management) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Expense Ratio (%)</label>
               <input type="number" id="edit-deal-opex-ratio" min="0" max="100" step="any"
@@ -1894,12 +1896,16 @@
             </div>
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Property Management</label>
-              <label class="flex items-center space-x-2 cursor-pointer bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 hover:border-slate-700 transition h-[34px]" title="Include professional property management fee in operating expenses">
+              <label class="flex items-center space-x-2.5 cursor-pointer bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 hover:border-slate-700 transition h-[34px]" title="Include professional property management fee in operating expenses">
                 <input type="checkbox" id="edit-deal-manage-property" checked
                   class="w-4 h-4 rounded text-brand-500 bg-slate-950 border-slate-800 focus:ring-brand-500 cursor-pointer">
-                <span class="text-xs font-semibold text-slate-300 whitespace-nowrap">Hire PM Co</span>
+                <span class="text-xs font-semibold text-slate-200">Hire Property Management Company</span>
               </label>
             </div>
+          </div>
+
+          <!-- Row 2: CapEx, Hold Horizon & Discount Rate -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2.5 border-t border-slate-900">
             <div class="space-y-1">
               <label class="text-[11px] font-bold text-slate-400">Rehab Budget ($)</label>
               <input type="number" id="edit-deal-rehab-costs" min="0" step="any" placeholder="0"
@@ -1915,7 +1921,7 @@
               <input type="number" id="edit-deal-exit-year" min="1" max="30" step="1" placeholder="10"
                 class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500">
             </div>
-            <div class="space-y-1 col-span-2 sm:col-span-1">
+            <div class="space-y-1">
               <label class="text-[11px] font-bold text-emerald-400"
                 title="Investor Opportunity Cost / Hurdle Rate for NPV">Discount Rate (%)</label>
               <input type="number" id="edit-deal-discount-rate" min="0" max="50" step="any" placeholder="8"
