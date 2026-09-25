@@ -76,8 +76,8 @@ function runOnDemandMonteCarlo(
 
   const basePrice = parseFloat(baseInputs.purchasePrice || baseInputs.price || 0);
   const baseGrossRent = parseFloat(baseInputs.grossRentAnnual || (baseInputs.monthlyRent ? baseInputs.monthlyRent * 12 : 0) || (basePrice * 0.08));
-  const baseVacancy = parseFloat(baseInputs.vacancyRate || 5.0);
-  const baseExpenseRatio = parseFloat(baseInputs.expenseRatio || 25.0);
+  const baseVacancy = (baseInputs.vacancyRate !== undefined && baseInputs.vacancyRate !== null && baseInputs.vacancyRate !== '') ? parseFloat(baseInputs.vacancyRate) : 5.0;
+  const baseExpenseRatio = (baseInputs.expenseRatio !== undefined && baseInputs.expenseRatio !== null && baseInputs.expenseRatio !== '') ? parseFloat(baseInputs.expenseRatio) : (baseInputs.operatingExpenseRatio !== undefined ? parseFloat(baseInputs.operatingExpenseRatio) : 25.0);
   const baseExitCap = parseFloat(baseInputs.targetCapRate || baseInputs.exitCapRate || 7.0);
 
   for (let i = 0; i < TRIALS; i++) {
@@ -86,7 +86,7 @@ function runOnDemandMonteCarlo(
     const simRent = baseGrossRent * rentMult;
 
     // 2. Vacancy stress (stochastic shift)
-    const vacShift = Math.max(2.0, Math.min(22.0, baseVacancy + randomNorm(0, 3.5)));
+    const vacShift = Math.max(0.0, Math.min(22.0, baseVacancy + (baseVacancy === 0 ? Math.max(0, randomNorm(0, 1.5)) : randomNorm(0, 3.5))));
 
     // 3. OpEx ratio swing (±3.0%)
     const opexShift = Math.max(10.0, Math.min(50.0, baseExpenseRatio + randomNorm(0, 3.0)));
@@ -218,13 +218,13 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
 
   // Authoritative live calculation directly through canonical MathTree engine
   const mathResults = calculateProjections(assetClass as any, inputs);
-  const proj: any[] = (mathResults.projections && mathResults.projections.length > 0)
-    ? mathResults.projections
-    : (deal.metrics?.projections || []);
-  const metrics = { ...(deal.metrics || {}), ...mathResults };
+  const proj: any[] = (deal.metrics?.projections && Array.isArray(deal.metrics.projections) && deal.metrics.projections.length > 0)
+    ? deal.metrics.projections
+    : (mathResults.projections || []);
+  const metrics = { ...mathResults, ...(deal.metrics || {}) };
   const rawAssessor = inputs.assessorData || {};
 
-  const price = parseFloat(deal.purchase_price || inputs.purchasePrice || mathResults.purchasePrice || 0);
+  const price = parseFloat(inputs.purchasePrice || deal.purchase_price || mathResults.purchasePrice || 0);
   const rehabCosts = parseFloat(inputs.rehabCosts || inputs.rehabBudget || 0);
   const closingCosts = parseFloat(inputs.closingCosts || 0);
   const arv = parseFloat(inputs.arv || inputs.afterRepairValue || (price + rehabCosts * 1.4) || price);
@@ -232,9 +232,9 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const totalFinancedBasis = rehabMode === 'roll_into_loan' ? (price + rehabCosts + closingCosts) : price;
 
   const downPaymentPercent = parseFloat(inputs.downPaymentPercent || 25);
-  const downPaymentAmt = parseFloat(mathResults.downPaymentAmount || (totalFinancedBasis * (downPaymentPercent / 100)));
-  const loanAmt = parseFloat(mathResults.loanAmount || deal.loan_amount || metrics.loanAmount || Math.max(0, totalFinancedBasis - downPaymentAmt));
-  const equity = parseFloat(mathResults.initialCashInvested || deal.total_equity || (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehabCosts + closingCosts)));
+  const downPaymentAmt = parseFloat(deal.metrics?.downPaymentAmount || mathResults.downPaymentAmount || (totalFinancedBasis * (downPaymentPercent / 100)));
+  const loanAmt = parseFloat(deal.metrics?.loanAmount || mathResults.loanAmount || deal.loan_amount || metrics.loanAmount || Math.max(0, totalFinancedBasis - downPaymentAmt));
+  const equity = parseFloat(deal.metrics?.initialCashInvested || mathResults.initialCashInvested || deal.total_equity || (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehabCosts + closingCosts)));
   const ltv = totalFinancedBasis > 0 ? Math.round((loanAmt / totalFinancedBasis) * 100) : (100 - downPaymentPercent);
   const intRate = parseFloat(inputs.interestRate || inputs.rate || 6.5);
   const loanTerm = parseInt(inputs.loanTerm || inputs.amortizationYears || 30, 10);
@@ -243,7 +243,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
 
   const p0 = proj[0] || {};
   const noi = parseFloat(p0.netOperatingIncome ?? metrics.noi ?? 0);
-  const debtService = parseFloat(metrics.annualDebtService || p0.debtService || (metrics.monthlyMortgagePayment ? metrics.monthlyMortgagePayment * 12 : 0));
+  const debtService = parseFloat(p0.debtService || metrics.annualDebtService || (metrics.monthlyMortgagePayment ? metrics.monthlyMortgagePayment * 12 : 0));
   const monthlyDebtService = debtService / 12;
   const year1PrincipalMo = parseFloat(p0.principalPayment || (debtService * 0.25)) / 12;
   const year1InterestMo = Math.max(0, monthlyDebtService - year1PrincipalMo);
@@ -277,12 +277,17 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     debtProvenance = `Structured on Acquisition Price (LTV): Senior loan of ${fmtCurr(loanAmt)} (${ltv}% LTV) finances purchase price (${fmtCurr(price)}). Rehab scope (${fmtCurr(rehabCosts)}) and closing settlement (${fmtCurr(closingCosts)}) are paid 100% upfront out of pocket by sponsor, requiring ${fmtCurr(equity)} total upfront cash outlay (${fmtCurr(downPaymentAmt)} acquisition down payment + ${fmtCurr(rehabCosts + closingCosts)} rehab & closing).`;
   }
 
-  // Calendar year resolution
+  // Calendar year resolution & Stub Proration Detection
   let startYear = new Date().getFullYear();
   if (inputs.closingDate) {
     const parsed = new Date(inputs.closingDate).getFullYear();
     if (!isNaN(parsed) && parsed > 2000 && parsed < 2100) startYear = parsed;
   }
+  const isProrated = Boolean(
+    inputs.prorateFirstYear === true ||
+    inputs.isStubYear === true ||
+    (p0.operatingMonths !== undefined && p0.operatingMonths < 12)
+  );
 
   // County Assessor & Multi-Parcel Package variables
   const pkgParcels: any[] = (parcelPackage && Array.isArray(parcelPackage.parcels) && parcelPackage.parcels.length > 0)
@@ -318,14 +323,29 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const primaryLease = (inputs.leases && inputs.leases[0]) || {};
   const tenantName = primaryLease.tenantName || inputs.tenantName || (isResidential ? 'Residential In-Place Tenant' : (status === 'owned' ? 'In-Place Commercial Tenant' : 'Prospective Commercial Tenant'));
   const leaseType = isResidential ? 'Residential Gross Lease' : (inputs.leaseType || primaryLease.leaseType || 'NNN');
-  const monthlyRent = parseFloat(primaryLease.monthlyRent || inputs.monthlyRent || inputs.grossRentPerMonth || (price > 0 ? (price * 0.008) : 2500));
-  const annualRent = monthlyRent * 12;
+  const annualRent = p0.grossPotentialIncome !== undefined ? parseFloat(p0.grossPotentialIncome) : (parseFloat(primaryLease.monthlyRent || inputs.monthlyRent || inputs.grossRentPerMonth || (price > 0 ? (price * 0.008) : 2500)) * 12);
+  const monthlyRent = annualRent / 12;
   const leaseStart = primaryLease.leaseStartDate || inputs.leaseStartDate || (inputs.closingDate || '2025-01-01');
   const leaseEnd = primaryLease.leaseEndDate || inputs.leaseEndDate || '2030-12-31';
   const escType = primaryLease.escalationType || inputs.escalationType || 'Percentage Bump (%)';
   const escRate = primaryLease.escalationRate !== undefined ? primaryLease.escalationRate : (inputs.rentGrowth || 3.0);
   const escFreq = primaryLease.escalationFrequency || inputs.escalationFrequency || 'Annual on Anniversary';
   const nextEscDate = primaryLease.nextEscalationDate || inputs.nextEscalationDate || '2026-11-01';
+
+  // Vacancy resolution (Explicit check - never treat 0% as falsy)
+  const vacRate = (inputs.vacancyRate !== undefined && inputs.vacancyRate !== null && inputs.vacancyRate !== '')
+    ? Number(inputs.vacancyRate)
+    : (p0.vacancyLoss !== undefined && annualRent > 0 ? Math.round((p0.vacancyLoss / annualRent) * 100) : 5);
+  const vacLossAnnual = p0.vacancyLoss !== undefined ? parseFloat(p0.vacancyLoss) : (annualRent * (vacRate / 100));
+
+  // Operating Expenses resolution (Check expenseRatio and operatingExpenseRatio)
+  const expRatio = (inputs.expenseRatio !== undefined && inputs.expenseRatio !== null && inputs.expenseRatio !== '')
+    ? Number(inputs.expenseRatio)
+    : ((inputs.operatingExpenseRatio !== undefined && inputs.operatingExpenseRatio !== null && inputs.operatingExpenseRatio !== '')
+      ? Number(inputs.operatingExpenseRatio)
+      : (p0.operatingExpenses !== undefined && annualRent > 0 ? Math.round((p0.operatingExpenses / annualRent) * 100) : 25));
+  const annualOpEx = p0.operatingExpenses !== undefined ? parseFloat(p0.operatingExpenses) : (annualRent * (expRatio / 100));
+  const monthlyOpEx = annualOpEx / 12;
 
   // Asset-Class Revenue Provenance
   let revenueProvenance = '';
@@ -345,9 +365,9 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   // Asset-Class OpEx Provenance
   let opexProvenance = '';
   if (isResidential) {
-    opexProvenance = `Underwritten at ${inputs.expenseRatio || 25}% of gross revenue (${fmtCurr(annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100))}/yr) to cover residential property management (8-10%), county real estate taxes, hazard insurance, and tenant turnover/maintenance reserves.`;
+    opexProvenance = `Underwritten at ${expRatio}% of gross revenue (${fmtCurr(annualOpEx)}/yr) to cover residential property management, county real estate taxes, hazard insurance, and maintenance reserves.`;
   } else {
-    opexProvenance = `Underwritten under ${leaseType} commercial structure where tenant covers operational pass-throughs; ratio covers administrative overhead, taxes, and insurance reserve.`;
+    opexProvenance = `Underwritten under ${leaseType} commercial structure at ${expRatio}% of GPI (${fmtCurr(annualOpEx)}/yr) where tenant covers operational pass-throughs; ratio covers administrative overhead, taxes, and insurance reserve.`;
   }
 
   // Warnings / Risk flags
@@ -468,7 +488,7 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     <div style="text-align: right; font-size: 9px; color: #64748b;">
       <p style="margin: 0; font-weight: 600;">Report Date: <strong style="color: #0f172a;">${dateStr}</strong></p>
       <p style="margin: 1.5px 0 0 0;">Target Hold Period: <strong style="color: #0f172a;">${holdYears} Years</strong></p>
-      <p style="margin: 1.5px 0 0 0;">Settlement Closing: <strong style="color: #059669;">${inputs.closingDate || (startYear + '-10-15')}</strong></p>
+      <p style="margin: 1.5px 0 0 0;">Settlement Closing: <strong style="color: #059669;">${inputs.closingDate ? inputs.closingDate : `${startYear} Full Calendar Year`}</strong></p>
     </div>
   </div>
 
@@ -586,12 +606,14 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
           <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
             <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">3. Vacancy &amp; Economic Downtime</div>
             <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
-              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${inputs.vacancyRate || 5}% of Gross</span>
-              <span style="font-size: 8.5px; color: #64748b; font-weight: 700;">(${fmtCurr(annualRent * ((parseFloat(inputs.vacancyRate) || 5) / 100))}/yr reserve)</span>
+              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${vacRate}% of Gross</span>
+              <span style="font-size: 8.5px; color: #64748b; font-weight: 700;">(${fmtCurr(vacLossAnnual)}/yr reserve)</span>
             </div>
           </td>
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
-            Enforces institutional underwriting allowance to buffer tenant rollover friction, collection delay, and physical downtime. Asset maintains operational cash flow solvency up to 20% economic vacancy tolerance.
+            ${vacRate <= 0.001
+              ? 'Models 100% economic occupancy with zero vacancy friction based on fully stabilized in-place tenancy and continuous historical occupancy.'
+              : `Enforces institutional underwriting allowance of ${vacRate}% to buffer tenant rollover friction, collection delay, and physical downtime. Asset maintains operational cash flow solvency up to 20% economic vacancy tolerance.`}
           </td>
         </tr>
 
@@ -651,11 +673,11 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
           <td style="border-right: 1px solid #e2e8f0; vertical-align: middle; padding: 5px 6px;">
             <div style="font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">7. Operating Expenses &amp; Management</div>
             <div style="display: flex; align-items: baseline; gap: 4px; margin-top: 2px;">
-              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${inputs.expenseRatio || 25}% of GPI</span>
-              <span style="font-size: 8.5px; font-weight: 700; color: #64748b;">(${fmtCurr(annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100))}/yr)</span>
+              <span style="font-size: 13.5px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px;">${expRatio}% of GPI</span>
+              <span style="font-size: 8.5px; font-weight: 700; color: #64748b;">(${fmtCurr(annualOpEx)}/yr)</span>
             </div>
             <div style="font-size: 8px; color: #475569; margin-top: 2px;">
-              ${fmtCurr((annualRent * ((parseFloat(inputs.expenseRatio) || 25) / 100)) / 12)}/mo OpEx • ${isResidential ? 'Taxes, Insurance, Management & Maintenance' : 'Pass-Through CAM / Admin & Insurance'}
+              ${fmtCurr(monthlyOpEx)}/mo OpEx • ${isResidential ? 'Taxes, Insurance, Management & Maintenance' : 'Pass-Through CAM / Admin & Insurance'}
             </div>
           </td>
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
@@ -672,7 +694,9 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
               <span style="font-size: 11px; font-weight: 800; color: #059669;">${inputs.targetCapRate || 7.0}% Exit Cap</span>
             </div>
             <div style="font-size: 8px; color: #047857; font-weight: 700; margin-top: 2px;">
-              Closing Settlement: ${inputs.closingDate || (startYear + '-10-15')} (Stub Prorated)
+              ${inputs.closingDate
+                ? `Closing Settlement: ${inputs.closingDate}${isProrated ? ` (${p0.operatingMonths || 12} Mos Stub Prorated)` : ''}`
+                : (isProrated ? `Closing Settlement: ${startYear}-10-15 (Stub Prorated)` : `Underwriting Period: Full Calendar Year (${startYear})`)}
             </div>
           </td>
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
@@ -1066,11 +1090,11 @@ function buildPortfolioBriefHtml(portfolio: any): string {
     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 7.5px;">
       <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
         <strong style="color: #047857; display: block;">Closing Proration Policy</strong>
-        <p style="color: #475569; margin: 1px 0 0 0;">Underwritten with Q4 stub proration (partial-year recognition) to avoid Year 1 inflation.</p>
+        <p style="color: #475569; margin: 1px 0 0 0;">Underwritten based on verified closing timelines; applies calendar proration only when elected.</p>
       </div>
       <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
-        <strong style="color: #047857; display: block;">Vacancy Floor Mandate</strong>
-        <p style="color: #475569; margin: 1px 0 0 0;">5.0% institutional credit tenant vacancy reserve enforced regardless of physical occupancy.</p>
+        <strong style="color: #047857; display: block;">Occupancy &amp; Vacancy Policy</strong>
+        <p style="color: #475569; margin: 1px 0 0 0;">Underwriting vacancy calibrated to in-place tenant leases, lease stability, and market comps.</p>
       </div>
       <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
         <strong style="color: #047857; display: block;">Debt Stress Coverage</strong>

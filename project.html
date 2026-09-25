@@ -5751,7 +5751,14 @@
 
       const dealId = currentLoadedDeal?.id || (new URLSearchParams(window.location.search)).get('id');
       if (dealId) {
-        openPdfBrief(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(dealId)}`);
+        if (typeof autoSaveDealToSupabase === 'function' && currentLoadedDeal) {
+          try {
+            await autoSaveDealToSupabase(currentLoadedDeal);
+          } catch (e) {
+            console.warn('Pre-PDF auto-save warning:', e);
+          }
+        }
+        openPdfBrief(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(dealId)}&t=${Date.now()}`);
       } else {
         alert('Please save or select a deal first before exporting the PDF prospectus.');
       }
