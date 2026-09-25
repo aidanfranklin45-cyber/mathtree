@@ -1838,42 +1838,97 @@
 
     // Modal Trigger: Edit Lease & Schedule
     function openEditLeaseModal(leaseId) {
-      const lease = rawLeases.find(l => l.id === leaseId);
-      if (!lease) return;
-      const deal = rawDeals.find(d => d.id === lease.deal_id);
-      const unit = rawUnits.find(u => u.id === lease.unit_id);
+      let lease = (rawLeases || []).find(l => l && l.id === leaseId);
+      if (!lease && window._allRentRollRows) {
+        lease = window._allRentRollRows.find(l => l && l.id === leaseId);
+      }
+      if (!lease) {
+        for (const d of (rawDeals || [])) {
+          if (leaseId === 'deal-lease-' + d.id || leaseId.startsWith('deal-lease-' + d.id)) {
+            const inputs = d.inputs || {};
+            const rentVal = parseFloat(inputs.monthlyRent || inputs.grossRentPerMonth || 0);
+            lease = {
+              id: leaseId,
+              deal_id: d.id,
+              unit_id: null,
+              tenant_name: inputs.tenantName || 'In-Place Commercial Tenant',
+              tenant_email: inputs.tenantEmail || '',
+              tenant_phone: inputs.tenantPhone || '',
+              monthly_rent: rentVal,
+              security_deposit: inputs.securityDeposit || (rentVal * 2),
+              lease_start_date: inputs.closingDate || (d.created_at ? d.created_at.split('T')[0] : ''),
+              lease_end_date: inputs.leaseExpiration || '',
+              is_active: true,
+              escalation_type: inputs.escalationType || 'Percentage Bump (%)',
+              escalation_rate: parseFloat(inputs.rentGrowthPercent || 3.0),
+              escalation_frequency: inputs.escalationFrequency || 'Annual on Anniversary',
+              next_escalation_date: inputs.nextEscalationDate || null
+            };
+            break;
+          }
+        }
+      }
 
-      document.getElementById('edit-lease-id').value = lease.id;
-      document.getElementById('edit-lease-deal-id').value = lease.deal_id;
-      document.getElementById('edit-lease-unit-id').value = lease.unit_id || '';
-      document.getElementById('edit-lease-property-display').textContent = `${deal ? deal.title : 'Asset'} • ${unit ? unit.unit_number : (lease.derived_unit_number || 'Main Suite')}`;
+      if (!lease) {
+        console.warn('Could not locate lease for id:', leaseId);
+        return;
+      }
 
-      document.getElementById('edit-lease-tenant-name').value = lease.tenant_name || '';
-      document.getElementById('edit-lease-rent').value = lease.monthly_rent || 0;
-      document.getElementById('edit-lease-start').value = lease.lease_start_date || '';
-      document.getElementById('edit-lease-end').value = lease.lease_end_date || '';
-      document.getElementById('edit-lease-email').value = lease.tenant_email || '';
-      document.getElementById('edit-lease-phone').value = lease.tenant_phone || '';
-      document.getElementById('edit-lease-deposit').value = lease.security_deposit || lease.deposit_amount || '';
-      document.getElementById('edit-lease-status').value = lease.is_active === false ? 'terminated' : 'active';
+      const deal = (rawDeals || []).find(d => d.id === lease.deal_id);
+      const unit = (rawUnits || []).find(u => u.id === lease.unit_id);
 
-      document.getElementById('edit-lease-escalation-type').value = lease.escalation_type || 'none';
-      document.getElementById('edit-lease-escalation-rate').value = lease.escalation_rate || '';
-      document.getElementById('edit-lease-escalation-freq').value = lease.escalation_frequency || 'Annual on Anniversary';
-      document.getElementById('edit-lease-next-escalation').value = lease.next_escalation_date || '';
+      const idEl = document.getElementById('edit-lease-id');
+      const dealIdEl = document.getElementById('edit-lease-deal-id');
+      const unitIdEl = document.getElementById('edit-lease-unit-id');
+      const propDispEl = document.getElementById('edit-lease-property-display');
+
+      if (idEl) idEl.value = lease.id || '';
+      if (dealIdEl) dealIdEl.value = lease.deal_id || '';
+      if (unitIdEl) unitIdEl.value = lease.unit_id || '';
+      if (propDispEl) {
+        propDispEl.textContent = `${deal ? (deal.title || deal.name) : 'Asset'} • ${unit ? unit.unit_number : (lease.derived_unit_number || 'Main Suite')}`;
+      }
+
+      const tenantNameEl = document.getElementById('edit-lease-tenant-name');
+      const rentEl = document.getElementById('edit-lease-rent');
+      const startEl = document.getElementById('edit-lease-start');
+      const endEl = document.getElementById('edit-lease-end');
+      const emailEl = document.getElementById('edit-lease-email');
+      const phoneEl = document.getElementById('edit-lease-phone');
+      const depositEl = document.getElementById('edit-lease-deposit');
+      const statusEl = document.getElementById('edit-lease-status');
+
+      if (tenantNameEl) tenantNameEl.value = lease.tenant_name || '';
+      if (rentEl) rentEl.value = lease.monthly_rent || 0;
+      if (startEl) startEl.value = lease.lease_start_date || '';
+      if (endEl) endEl.value = lease.lease_end_date || '';
+      if (emailEl) emailEl.value = lease.tenant_email || '';
+      if (phoneEl) phoneEl.value = lease.tenant_phone || '';
+      if (depositEl) depositEl.value = lease.security_deposit || lease.deposit_amount || '';
+      if (statusEl) statusEl.value = lease.is_active === false ? 'terminated' : 'active';
+
+      // Safely check optional controls to prevent null property setting
+      const escTypeEl = document.getElementById('edit-lease-escalation-type');
+      if (escTypeEl) escTypeEl.value = lease.escalation_type || 'none';
+      const escRateEl = document.getElementById('edit-lease-escalation-rate');
+      if (escRateEl) escRateEl.value = lease.escalation_rate || '';
+      const escFreqEl = document.getElementById('edit-lease-escalation-freq');
+      if (escFreqEl) escFreqEl.value = lease.escalation_frequency || 'Annual on Anniversary';
+      const nextEscEl = document.getElementById('edit-lease-next-escalation');
+      if (nextEscEl) nextEscEl.value = lease.next_escalation_date || '';
 
       // Populate Predetermined Rent Increase Schedule Table
       const editTbody = document.getElementById('edit-lease-scheduled-increases-tbody');
       if (editTbody) {
         editTbody.innerHTML = '';
-        const scheduled = rawIncreases.filter(inc => inc.lease_id === leaseId && inc.is_applied !== true);
+        const scheduled = (rawIncreases || []).filter(inc => inc && inc.lease_id === lease.id && inc.is_applied !== true);
         if (scheduled.length > 0) {
           scheduled.sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
           scheduled.forEach(step => addScheduledEscalationRow('edit', step));
         } else if (lease.next_escalation_date) {
           addScheduledEscalationRow('edit', {
             effective_date: lease.next_escalation_date,
-            increase_type: (lease.escalation_type && lease.escalation_type.toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
+            increase_type: (lease.escalation_type && String(lease.escalation_type).toLowerCase().includes('fixed')) ? 'fixed_step' : 'percentage',
             scheduled_amount: lease.escalation_rate || 3.0,
             reason: `Scheduled ${lease.escalation_frequency || 'Annual'} Escalation`
           });
@@ -1884,23 +1939,25 @@
     }
     window.openEditLeaseModal = openEditLeaseModal;
 
-    // Modal Save: Edit Lease & Schedule
+    // Modal Save: Edit Lease & Schedule via Supabase Edge Function configure-lease-terms
     async function handleSaveEditLease(e) {
       e.preventDefault();
-      const leaseId = document.getElementById('edit-lease-id').value;
-      const dealId = document.getElementById('edit-lease-deal-id').value;
-      const tenantName = document.getElementById('edit-lease-tenant-name').value.trim();
-      const monthlyRent = parseFloat(document.getElementById('edit-lease-rent').value) || 0;
-      const startDate = document.getElementById('edit-lease-start').value;
-      const endDate = document.getElementById('edit-lease-end').value || null;
-      const email = document.getElementById('edit-lease-email').value.trim() || null;
-      const phone = document.getElementById('edit-lease-phone').value.trim() || null;
-      const deposit = parseFloat(document.getElementById('edit-lease-deposit').value) || 0;
-      const isActive = document.getElementById('edit-lease-status').value === 'active';
-      let escType = document.getElementById('edit-lease-escalation-type').value;
-      let escRate = parseFloat(document.getElementById('edit-lease-escalation-rate').value) || 0;
-      const escFreq = document.getElementById('edit-lease-escalation-freq').value;
-      let nextEscDate = document.getElementById('edit-lease-next-escalation').value || null;
+      const leaseId = document.getElementById('edit-lease-id')?.value || '';
+      const dealId = document.getElementById('edit-lease-deal-id')?.value || '';
+      const unitId = document.getElementById('edit-lease-unit-id')?.value || null;
+      const tenantName = document.getElementById('edit-lease-tenant-name')?.value.trim() || 'In-Place Tenant';
+      const monthlyRent = parseFloat(document.getElementById('edit-lease-rent')?.value) || 0;
+      const startDate = document.getElementById('edit-lease-start')?.value || '';
+      const endDate = document.getElementById('edit-lease-end')?.value || null;
+      const email = document.getElementById('edit-lease-email')?.value.trim() || null;
+      const phone = document.getElementById('edit-lease-phone')?.value.trim() || null;
+      const deposit = parseFloat(document.getElementById('edit-lease-deposit')?.value) || 0;
+      const isActive = document.getElementById('edit-lease-status')?.value === 'active';
+
+      let escType = document.getElementById('edit-lease-escalation-type')?.value || 'Percentage Bump (%)';
+      let escRate = parseFloat(document.getElementById('edit-lease-escalation-rate')?.value) || 0;
+      const escFreq = document.getElementById('edit-lease-escalation-freq')?.value || 'Annual on Anniversary';
+      let nextEscDate = document.getElementById('edit-lease-next-escalation')?.value || null;
 
       // Extract Predetermined Escalation Schedule Steps
       const scheduledSteps = getScheduledEscalationsFromForm('edit');
@@ -1911,97 +1968,114 @@
         escType = firstStep.increase_type === 'fixed_step' ? 'Fixed Step ($)' : (firstStep.increase_type === 'cpi' ? 'CPI Index' : 'Percentage Bump (%)');
       }
 
-      // Update in memory
-      let lease = rawLeases.find(l => l.id === leaseId);
-      if (!lease) {
-        lease = { id: leaseId, deal_id: dealId };
-        rawLeases.push(lease);
-      }
-      lease.tenant_name = tenantName;
-      lease.monthly_rent = monthlyRent;
-      lease.lease_start_date = startDate;
-      lease.lease_end_date = endDate;
-      lease.tenant_email = email;
-      lease.tenant_phone = phone;
-      lease.security_deposit = deposit;
-      lease.is_active = isActive;
-      lease.escalation_type = escType;
-      lease.escalation_rate = escRate;
-      lease.escalation_frequency = escFreq;
-      lease.next_escalation_date = nextEscDate;
-
-      // Persist to Supabase public.leases and public.rent_increases
-      if (window._supabase && !window._demoMode) {
-        try {
-          const { error } = await window._supabase.from('leases').upsert({
-            id: leaseId.startsWith('deal-lease-') ? undefined : leaseId,
-            deal_id: dealId,
-            tenant_name: tenantName,
-            monthly_rent: monthlyRent,
-            lease_start_date: startDate,
-            lease_end_date: endDate,
-            tenant_email: email,
-            tenant_phone: phone,
-            security_deposit: deposit,
-            is_active: isActive,
-            escalation_type: escType,
-            escalation_rate: escRate,
-            escalation_frequency: escFreq,
-            next_escalation_date: nextEscDate,
-            updated_at: new Date().toISOString()
-          });
-          if (error) console.error('Error updating lease in Supabase:', error);
-
-          // Update rent_increases: delete unapplied scheduled ones for this lease, insert new steps
-          await window._supabase.from('rent_increases').delete().eq('lease_id', leaseId).eq('is_applied', false);
-          if (scheduledSteps.length > 0) {
-            const newIncreases = scheduledSteps.map(step => ({
-              user_id: window._currentUser?.id || null,
-              lease_id: leaseId,
-              deal_id: dealId,
-              effective_date: step.effective_date,
-              increase_type: step.increase_type,
-              scheduled_amount: step.scheduled_amount,
-              old_rent: monthlyRent,
-              new_rent: step.increase_type === 'percentage' 
-                ? Math.round(monthlyRent * (1 + step.scheduled_amount / 100) * 100) / 100
-                : (monthlyRent + step.scheduled_amount),
-              reason: step.reason || `Scheduled ${step.increase_type} increase`,
-              is_applied: false
-            }));
-            await window._supabase.from('rent_increases').insert(newIncreases);
-          }
-        } catch (err) {
-          console.error('Error updating lease / scheduled increases in Supabase:', err);
-        }
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalBtnText = submitBtn ? submitBtn.textContent : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Configuring Lease Terms...';
       }
 
-      // Update in-memory rawIncreases
-      rawIncreases = rawIncreases.filter(inc => !(inc.lease_id === leaseId && inc.is_applied !== true));
-      scheduledSteps.forEach((step, idx) => {
-        rawIncreases.push({
-          id: step.id || ('inc-' + Date.now() + '-' + idx),
+      try {
+        const payload = {
           lease_id: leaseId,
           deal_id: dealId,
-          effective_date: step.effective_date,
-          increase_type: step.increase_type,
-          scheduled_amount: step.scheduled_amount,
-          old_rent: monthlyRent,
-          new_rent: step.increase_type === 'percentage'
-            ? Math.round(monthlyRent * (1 + step.scheduled_amount / 100) * 100) / 100
-            : (monthlyRent + step.scheduled_amount),
-          percentage_change: step.increase_type === 'percentage' ? step.scheduled_amount : (monthlyRent > 0 ? ((step.scheduled_amount / monthlyRent) * 100).toFixed(1) : 0),
-          increase_amount: step.increase_type === 'percentage' ? ((monthlyRent * step.scheduled_amount) / 100) : step.scheduled_amount,
-          reason: step.reason || `Scheduled ${step.increase_type} increase`,
-          is_applied: false
-        });
-      });
+          unit_id: unitId,
+          tenant_name: tenantName,
+          monthly_rent: monthlyRent,
+          lease_start_date: startDate,
+          lease_end_date: endDate,
+          tenant_email: email,
+          tenant_phone: phone,
+          security_deposit: deposit,
+          is_active: isActive,
+          escalation_type: escType,
+          escalation_rate: escRate,
+          escalation_frequency: escFreq,
+          next_escalation_date: nextEscDate,
+          scheduled_escalations: scheduledSteps,
+          demo: Boolean(window._demoMode)
+        };
 
-      // Recalculate deal pro-forma and sync
-      await syncLeaseRollToDeal(dealId);
+        // Invoke Supabase Edge Function: configure-lease-terms
+        let edgeSuccess = false;
+        try {
+          const sessionRes = await window._supabase?.auth?.getSession();
+          const token = sessionRes?.data?.session?.access_token;
+          const resp = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/configure-lease-terms', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          if (resp.ok && result.success) {
+            edgeSuccess = true;
+          }
+        } catch (edgeErr) {
+          console.warn('[configure-lease-terms] Edge function request warning, performing direct sync:', edgeErr);
+        }
 
-      closeModal('modal-edit-lease');
-      renderOperationsUI();
+        // Direct DB fallback if edge function was unreachable
+        if (!edgeSuccess && window._supabase && !window._demoMode) {
+          try {
+            await window._supabase.from('leases').upsert({
+              id: (leaseId && !leaseId.startsWith('deal-lease-')) ? leaseId : undefined,
+              deal_id: dealId,
+              tenant_name: tenantName,
+              monthly_rent: monthlyRent,
+              lease_start_date: startDate,
+              lease_end_date: endDate,
+              tenant_email: email,
+              tenant_phone: phone,
+              security_deposit: deposit,
+              is_active: isActive,
+              escalation_type: escType,
+              escalation_rate: escRate,
+              escalation_frequency: escFreq,
+              next_escalation_date: nextEscDate,
+              updated_at: new Date().toISOString()
+            });
+
+            await window._supabase.from('rent_increases').delete().eq('lease_id', leaseId).eq('is_applied', false);
+            if (scheduledSteps.length > 0) {
+              const newIncreases = scheduledSteps.map(step => ({
+                user_id: window._currentUser?.id || null,
+                lease_id: leaseId,
+                deal_id: dealId,
+                effective_date: step.effective_date,
+                increase_type: step.increase_type,
+                scheduled_amount: step.scheduled_amount,
+                old_rent: monthlyRent,
+                new_rent: step.increase_type === 'percentage' 
+                  ? Math.round(monthlyRent * (1 + step.scheduled_amount / 100) * 100) / 100
+                  : (monthlyRent + step.scheduled_amount),
+                reason: step.reason || `Scheduled ${step.increase_type} increase`,
+                is_applied: false
+              }));
+              await window._supabase.from('rent_increases').insert(newIncreases);
+            }
+          } catch (dbErr) {
+            console.error('Direct fallback sync error:', dbErr);
+          }
+        }
+
+        // Synchronize in-memory structures and deal pro-forma
+        await syncLeaseRollToDeal(dealId);
+        await fetchAllOperationsData();
+
+        closeModal('modal-edit-lease');
+        renderOperationsUI();
+      } catch (err) {
+        console.error('Failed to configure lease terms:', err);
+        alert('Notice: ' + (err.message || 'Error configuring lease terms'));
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+      }
     }
     window.handleSaveEditLease = handleSaveEditLease;
 
@@ -2289,6 +2363,8 @@
           });
         }
       });
+
+      window._allRentRollRows = allRentRollRows;
 
       // 1. Calculate Monthly Rent Roll & Run Rate
       const totalMonthlyRent = scopedLeases.reduce((acc, l) => acc + (parseFloat(l.monthly_rent) || 0), 0);
