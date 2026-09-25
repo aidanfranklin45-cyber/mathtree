@@ -4,11 +4,24 @@
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase/client';
 
+export interface AssociatedCompany {
+  id: string;
+  name: string;
+  entity_type?: string;
+  formation_state?: string | null;
+  notes?: string | null;
+  is_primary?: boolean;
+  deals_count?: number;
+  created_at?: string;
+}
+
 export interface InvestorProfile {
   id?: string | null;
   email?: string | null;
   fullName: string;
   companyName: string;
+  primaryEntityId?: string | null;
+  associatedCompanies?: AssociatedCompany[];
   formationState?: string;
   ein?: string;
   bankName?: string;
@@ -24,6 +37,8 @@ export interface InvestorProfile {
 export const DEFAULT_PROFILE: InvestorProfile = {
   fullName: 'Investor',
   companyName: 'MathTree Capital',
+  primaryEntityId: null,
+  associatedCompanies: [],
   discountRate: 8.0,          // Target Hurdle Rate (%/yr opportunity cost)
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: 'amortized', // 'amortized' | 'day1'
@@ -49,6 +64,10 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     email: raw.email ?? null,
     fullName: (raw.fullName || (raw as any).full_name || DEFAULT_PROFILE.fullName).trim(),
     companyName: (raw.companyName || (raw as any).company_name || DEFAULT_PROFILE.companyName).trim(),
+    primaryEntityId: raw.primaryEntityId || (raw as any).primary_entity_id || null,
+    associatedCompanies: Array.isArray(raw.associatedCompanies)
+      ? raw.associatedCompanies
+      : (Array.isArray((raw as any).associated_companies) ? (raw as any).associated_companies : []),
     formationState: raw.formationState ? String(raw.formationState).trim() : undefined,
     ein: raw.ein ? String(raw.ein).trim() : undefined,
     bankName: raw.bankName ? String(raw.bankName).trim() : undefined,
@@ -138,6 +157,7 @@ export async function fetchProfile(supabaseClient?: any, currentUser?: any): Pro
           email: row.email,
           fullName: row.full_name,
           companyName: row.company_name,
+          primaryEntityId: row.primary_entity_id || null,
           discountRate: row.discount_rate !== null && row.discount_rate !== undefined ? Number(row.discount_rate) : prefs.discountRate,
           exitYear: row.exit_year !== null && row.exit_year !== undefined ? Number(row.exit_year) : prefs.exitYear,
           exitCapTiming: row.exit_cap_timing || prefs.exitCapTiming,
@@ -212,6 +232,7 @@ export async function saveProfile(
         id: currentUser.id,
         full_name: merged.fullName,
         company_name: merged.companyName,
+        primary_entity_id: merged.primaryEntityId || null,
         discount_rate: merged.discountRate,
         exit_year: merged.exitYear,
         exit_cap_timing: merged.exitCapTiming,

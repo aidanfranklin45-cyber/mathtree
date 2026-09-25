@@ -49,6 +49,8 @@
       const DEFAULT_PROFILE = {
         fullName: 'Investor',
         companyName: 'MathTree Capital',
+        primaryEntityId: null,
+        associatedCompanies: [],
         discountRate: 8.0,
         exitYear: 10,
         exitCapTiming: 'amortized',
@@ -67,6 +69,8 @@
           email: p.email || null,
           fullName: (p.fullName || p.full_name || DEFAULT_PROFILE.fullName).trim(),
           companyName: (p.companyName || p.company_name || DEFAULT_PROFILE.companyName).trim(),
+          primaryEntityId: p.primaryEntityId || p.primary_entity_id || null,
+          associatedCompanies: Array.isArray(p.associatedCompanies) ? p.associatedCompanies : (Array.isArray(p.associated_companies) ? p.associated_companies : []),
           formationState: p.formationState || '',
           ein: p.ein || '',
           bankName: p.bankName || '',
@@ -83,6 +87,7 @@
           const meta = currentUser.user_metadata || {};
           if (meta.full_name && memoryProfile.fullName === DEFAULT_PROFILE.fullName) memoryProfile.fullName = meta.full_name;
           if (meta.company_name && memoryProfile.companyName === DEFAULT_PROFILE.companyName) memoryProfile.companyName = meta.company_name;
+          if (meta.primary_entity_id && !memoryProfile.primaryEntityId) memoryProfile.primaryEntityId = meta.primary_entity_id;
           if (meta.investor_profile && typeof meta.investor_profile === 'object') {
             memoryProfile = sanitize({ ...memoryProfile, ...meta.investor_profile });
           }
@@ -124,6 +129,7 @@
                 email: row.email,
                 fullName: row.full_name,
                 companyName: row.company_name,
+                primaryEntityId: row.primary_entity_id || null,
                 discountRate: row.discount_rate !== null && row.discount_rate !== undefined ? Number(row.discount_rate) : prefs.discountRate,
                 exitYear: row.exit_year !== null && row.exit_year !== undefined ? Number(row.exit_year) : prefs.exitYear,
                 exitCapTiming: row.exit_cap_timing || prefs.exitCapTiming,
@@ -172,6 +178,7 @@
               id: currentUser.id,
               full_name: memoryProfile.fullName,
               company_name: memoryProfile.companyName,
+              primary_entity_id: memoryProfile.primaryEntityId || null,
               discount_rate: memoryProfile.discountRate,
               exit_year: memoryProfile.exitYear,
               exit_cap_timing: memoryProfile.exitCapTiming,

@@ -21,6 +21,8 @@
       const DEFAULT_PROFILE = {
         fullName: 'Investor',
         companyName: 'MathTree Capital',
+        primaryEntityId: null,
+        associatedCompanies: [],
         discountRate: 8.0,
         exitYear: 10,
         exitCapTiming: 'amortized',
@@ -39,6 +41,8 @@
           email: p.email || null,
           fullName: (p.fullName || p.full_name || DEFAULT_PROFILE.fullName).trim(),
           companyName: (p.companyName || p.company_name || DEFAULT_PROFILE.companyName).trim(),
+          primaryEntityId: p.primaryEntityId || p.primary_entity_id || null,
+          associatedCompanies: Array.isArray(p.associatedCompanies) ? p.associatedCompanies : (Array.isArray(p.associated_companies) ? p.associated_companies : []),
           formationState: p.formationState || '',
           ein: p.ein || '',
           bankName: p.bankName || '',
@@ -55,6 +59,7 @@
           const meta = currentUser.user_metadata || {};
           if (meta.full_name && memoryProfile.fullName === DEFAULT_PROFILE.fullName) memoryProfile.fullName = meta.full_name;
           if (meta.company_name && memoryProfile.companyName === DEFAULT_PROFILE.companyName) memoryProfile.companyName = meta.company_name;
+          if (meta.primary_entity_id && !memoryProfile.primaryEntityId) memoryProfile.primaryEntityId = meta.primary_entity_id;
           if (meta.investor_profile && typeof meta.investor_profile === 'object') {
             memoryProfile = sanitize({ ...memoryProfile, ...meta.investor_profile });
           }
@@ -96,6 +101,7 @@
                 email: row.email,
                 fullName: row.full_name,
                 companyName: row.company_name,
+                primaryEntityId: row.primary_entity_id || null,
                 discountRate: row.discount_rate !== null && row.discount_rate !== undefined ? Number(row.discount_rate) : prefs.discountRate,
                 exitYear: row.exit_year !== null && row.exit_year !== undefined ? Number(row.exit_year) : prefs.exitYear,
                 exitCapTiming: row.exit_cap_timing || prefs.exitCapTiming,
@@ -144,6 +150,7 @@
               id: currentUser.id,
               full_name: memoryProfile.fullName,
               company_name: memoryProfile.companyName,
+              primary_entity_id: memoryProfile.primaryEntityId || null,
               discount_rate: memoryProfile.discountRate,
               exit_year: memoryProfile.exitYear,
               exit_cap_timing: memoryProfile.exitCapTiming,
@@ -1579,6 +1586,72 @@
           <input type="text" id="prof-full-name"
             class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
             placeholder="e.g. Alex Morgan">
+        </div>
+
+        <!-- Associated Companies & Primary Operating Entity -->
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Associated Companies &amp; Entities</span>
+              <span class="text-xs font-bold text-slate-200">Primary Operating Entity</span>
+            </div>
+            <button type="button" onclick="toggleInlineAddCompany()"
+              id="prof-btn-toggle-add-comp"
+              class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center space-x-1">
+              <span>+ Add Another Company</span>
+            </button>
+          </div>
+
+          <!-- Primary Entity Dropdown Selector -->
+          <div class="space-y-1">
+            <select id="prof-primary-entity" onchange="handlePrimaryEntityChange(this.value)"
+              class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <!-- Populated dynamically via JS -->
+            </select>
+            <!-- Backward compatibility input holding current company name string -->
+            <input type="hidden" id="prof-company-name" value="">
+          </div>
+
+          <!-- Associated Companies Badge / Pill Strip -->
+          <div class="space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">Active Portfolio Entities:</span>
+            <div id="prof-associated-companies-strip" class="flex flex-wrap gap-1.5">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Inline Add Company Collapsible Container -->
+          <div id="prof-inline-add-company-card" class="hidden pt-2.5 border-t border-slate-800/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Register Associated Entity</span>
+              <span class="text-[10px] text-slate-400">Dynamically tracks deal ownership</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <input type="text" id="prof-new-comp-name" placeholder="Company Name (e.g. Transparent Glass LLC)"
+                class="sm:col-span-6 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <select id="prof-new-comp-type"
+                class="sm:col-span-3 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                <option value="llc">LLC</option>
+                <option value="series_llc">Series LLC</option>
+                <option value="lp">LP</option>
+                <option value="corporation">Corporation</option>
+                <option value="trust">Trust</option>
+                <option value="individual">Sole Prop</option>
+              </select>
+              <input type="text" id="prof-new-comp-state" placeholder="State (e.g. WA, DE)" maxlength="2"
+                class="sm:col-span-3 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white uppercase focus:outline-none focus:border-emerald-500">
+            </div>
+            <div class="flex items-center justify-end space-x-2 pt-1">
+              <button type="button" onclick="toggleInlineAddCompany(false)"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white bg-slate-800 transition">
+                Cancel
+              </button>
+              <button type="button" onclick="handleInlineCreateCompany(event)"
+                class="px-3 py-1 rounded-lg text-[11px] font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-sm transition">
+                Add &amp; Set as Primary
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Global Opportunity Cost / Hurdle Rate -->
@@ -5474,6 +5547,14 @@
         const compEl = document.getElementById('prof-company-name');
         if (compEl) compEl.value = prof.companyName || '';
 
+        // Populate associated companies & primary entity selector
+        fetchEntitiesFromBackend().then(function(entities) {
+          populateProfileCompanies(entities, prof.primaryEntityId, prof.companyName);
+        }).catch(function(err) {
+          console.warn('[MathTree Modulator] Failed to load associated entities:', err);
+          populateProfileCompanies([], null, prof.companyName);
+        });
+
         const drEl = document.getElementById('prof-discount-rate');
         if (drEl) {
           drEl.value = prof.discountRate ?? 8.0;
@@ -5533,6 +5614,194 @@
     window._openInvestorProfileModalImpl = openInvestorProfileModal;
     window.openInvestorProfileModal = openInvestorProfileModal;
 
+    function populateProfileCompanies(entities, selectedEntityId, fallbackCompanyName) {
+      const selectEl = document.getElementById('prof-primary-entity');
+      const stripEl = document.getElementById('prof-associated-companies-strip');
+      const hiddenCompEl = document.getElementById('prof-company-name');
+      if (!selectEl || !stripEl) return;
+
+      const list = Array.isArray(entities) ? entities : [];
+      let activeId = selectedEntityId;
+
+      if (!activeId && list.length > 0) {
+        activeId = list[0].id;
+      }
+
+      if (list.length === 0) {
+        const defaultName = fallbackCompanyName || 'MathTree Capital';
+        selectEl.innerHTML = `<option value="" selected>${defaultName} (Default Company)</option>`;
+        stripEl.innerHTML = `
+          <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>${defaultName}</span>
+            <span class="text-[9px] font-mono text-emerald-400/80 uppercase">PRIMARY</span>
+          </span>
+        `;
+        if (hiddenCompEl) hiddenCompEl.value = defaultName;
+        return;
+      }
+
+      let optionsHtml = '';
+      let stripHtml = '';
+      let matchedPrimaryName = '';
+
+      list.forEach(function(e) {
+        const isPrimary = (e.id === activeId);
+        const typeStr = (e.entity_type || 'llc').toUpperCase();
+        const stateStr = e.formation_state ? ` • ${e.formation_state}` : '';
+        optionsHtml += `<option value="${e.id}" ${isPrimary ? 'selected' : ''}>${e.name} (${typeStr}${stateStr})</option>`;
+
+        if (isPrimary) {
+          matchedPrimaryName = e.name;
+          stripHtml += `
+            <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>${e.name}</span>
+              <span class="text-[9px] font-mono text-emerald-400/80 uppercase">PRIMARY</span>
+            </span>
+          `;
+        } else {
+          stripHtml += `
+            <button type="button" onclick="setPrimaryEntityQuickly('${e.id}')"
+              class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-800 hover:border-slate-700 hover:text-white transition cursor-pointer"
+              title="Click to set ${e.name} as primary entity">
+              <span>${e.name}</span>
+              <span class="text-[9px] font-mono text-slate-500">(${typeStr})</span>
+            </button>
+          `;
+        }
+      });
+
+      selectEl.innerHTML = optionsHtml;
+      stripEl.innerHTML = stripHtml;
+      if (hiddenCompEl && matchedPrimaryName) {
+        hiddenCompEl.value = matchedPrimaryName;
+      }
+    }
+    window.populateProfileCompanies = populateProfileCompanies;
+
+    function handlePrimaryEntityChange(entityId) {
+      const list = window._dashboardEntities || [];
+      const matched = list.find(function(e) { return e.id === entityId; });
+      const hiddenCompEl = document.getElementById('prof-company-name');
+      if (matched && hiddenCompEl) {
+        hiddenCompEl.value = matched.name;
+      }
+      populateProfileCompanies(list, entityId, matched ? matched.name : null);
+    }
+    window.handlePrimaryEntityChange = handlePrimaryEntityChange;
+
+    function setPrimaryEntityQuickly(entityId) {
+      const selectEl = document.getElementById('prof-primary-entity');
+      if (selectEl) {
+        selectEl.value = entityId;
+      }
+      handlePrimaryEntityChange(entityId);
+    }
+    window.setPrimaryEntityQuickly = setPrimaryEntityQuickly;
+
+    function toggleInlineAddCompany(forceState) {
+      const card = document.getElementById('prof-inline-add-company-card');
+      const btn = document.getElementById('prof-btn-toggle-add-comp');
+      if (!card) return;
+      const isHidden = card.classList.contains('hidden');
+      const show = (forceState !== undefined) ? forceState : isHidden;
+      if (show) {
+        card.classList.remove('hidden');
+        if (btn) btn.innerHTML = '<span>✕ Close</span>';
+        setTimeout(function() {
+          const input = document.getElementById('prof-new-comp-name');
+          if (input) input.focus();
+        }, 50);
+      } else {
+        card.classList.add('hidden');
+        if (btn) btn.innerHTML = '<span>+ Add Another Company</span>';
+      }
+    }
+    window.toggleInlineAddCompany = toggleInlineAddCompany;
+
+    async function handleInlineCreateCompany(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const nameInput = document.getElementById('prof-new-comp-name');
+      const typeInput = document.getElementById('prof-new-comp-type');
+      const stateInput = document.getElementById('prof-new-comp-state');
+
+      const name = nameInput?.value?.trim();
+      const entityType = typeInput?.value || 'llc';
+      const state = stateInput?.value?.trim() || null;
+
+      if (!name) {
+        if (nameInput) nameInput.focus();
+        return;
+      }
+
+      try {
+        const session = (await window._supabase?.auth?.getSession())?.data?.session;
+        const token = session?.access_token || '';
+        const anonKey = window._supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJnZXh3Y2Vwd2J4dmh4YnBibGhkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA2OTIxMzAsImV4cCI6MjA1NjI2ODEzMH0.yWj7_iS0mEcmf_d8Z7394wFh-G9E8kFhP-w4J-N80Q';
+
+        const payload = {
+          name: name,
+          entity_type: entityType,
+          formation_state: state
+        };
+
+        const res = await fetch('https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/manage-entities', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + (token || anonKey),
+            'apikey': anonKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        let newEntityId = null;
+        if (res.ok) {
+          const body = await res.json();
+          if (body?.entity?.id) {
+            newEntityId = body.entity.id;
+          }
+        }
+
+        // Direct DB fallback if edge function was unreachable
+        if (!newEntityId && window._supabase && window._currentUser?.id) {
+          const { data: created } = await window._supabase
+            .from('entities')
+            .insert({
+              user_id: window._currentUser.id,
+              name: name,
+              entity_type: entityType,
+              formation_state: state,
+              notes: 'Created via Investor Profile modal'
+            })
+            .select('id, name')
+            .single();
+          if (created) newEntityId = created.id;
+        }
+
+        // Clear input fields and hide form
+        if (nameInput) nameInput.value = '';
+        if (stateInput) stateInput.value = '';
+        toggleInlineAddCompany(false);
+
+        // Refresh entities list and set new entity as primary
+        const refreshed = await fetchEntitiesFromBackend();
+        populateProfileCompanies(refreshed, newEntityId, name);
+
+        // Immediate profile sync
+        if (window.MathTreeProfile) {
+          await window.MathTreeProfile.saveProfile({
+            primaryEntityId: newEntityId,
+            companyName: name
+          }, window._supabase, window._currentUser);
+        }
+      } catch (err) {
+        console.error('[MathTree Modulator] Failed to create inline company:', err);
+      }
+    }
+    window.handleInlineCreateCompany = handleInlineCreateCompany;
+
     function closeInvestorProfileModal() {
       const modal = document.getElementById('investor-profile-modal');
       if (modal) {
@@ -5556,7 +5825,15 @@
     async function saveInvestorProfileForm(e) {
       if (e && e.preventDefault) e.preventDefault();
       const fullName = document.getElementById('prof-full-name')?.value.trim() || 'Investor';
-      const companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+      const primaryEntityId = document.getElementById('prof-primary-entity')?.value || null;
+      let companyName = document.getElementById('prof-company-name')?.value.trim() || 'MathTree Capital';
+
+      // Ensure companyName matches selected entity if available
+      if (primaryEntityId && Array.isArray(window._dashboardEntities)) {
+        const found = window._dashboardEntities.find(function(ent) { return ent.id === primaryEntityId; });
+        if (found) companyName = found.name;
+      }
+
       const discountRate = parseFloat(document.getElementById('prof-discount-rate')?.value) || 8.0;
       const exitYear = parseInt(document.getElementById('prof-exit-year')?.value, 10) || 10;
       const marketTier = document.getElementById('prof-market-tier')?.value || 'Tier 2';
@@ -5570,6 +5847,7 @@
       const updates = {
         fullName,
         companyName,
+        primaryEntityId,
         discountRate,
         exitYear,
         marketTier,

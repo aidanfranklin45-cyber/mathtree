@@ -29,6 +29,8 @@ function jsonResponse(data: unknown, status = 200): Response {
 export const DEFAULT_PROFILE = {
   fullName: "Investor",
   companyName: "MathTree Capital",
+  primaryEntityId: null as string | null,
+  associatedCompanies: [] as Array<Record<string, unknown>>,
   discountRate: 8.0,          // Target Hurdle Rate (%/yr)
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: "amortized", // 'amortized' | 'day1'
@@ -86,7 +88,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     try {
       const { data: row, error } = await dbClient
         .from("profiles")
-        .select("id, email, full_name, company_name, preferences, notification_email, alert_preferences, discount_rate, exit_year, exit_cap_timing, market_tier, property_class")
+        .select("id, email, full_name, company_name, primary_entity_id, preferences, notification_email, alert_preferences, discount_rate, exit_year, exit_cap_timing, market_tier, property_class")
         .eq("id", userId)
         .maybeSingle();
 
@@ -94,13 +96,55 @@ export async function handleRequest(req: Request): Promise<Response> {
         console.warn("[manage-profile] DB error fetching profile:", error);
       }
 
+      // Query user's associated entities
+      const { data: entities } = await dbClient
+        .from("entities")
+        .select("id, name, entity_type, formation_state, notes, created_at, updated_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      // Query deal counts per entity
+      const { data: deals } = await dbClient
+        .from("deals")
+        .select("id, entity_id")
+        .eq("user_id", userId);
+
+      const dealCounts: Record<string, number> = {};
+      if (Array.isArray(deals)) {
+        deals.forEach((d) => {
+          if (d.entity_id) {
+            dealCounts[d.entity_id] = (dealCounts[d.entity_id] || 0) + 1;
+          }
+        });
+      }
+
+      let primaryEntityId = row?.primary_entity_id || null;
+      if (!primaryEntityId && Array.isArray(entities) && entities.length > 0) {
+        primaryEntityId = entities[0].id;
+      }
+
+      const associatedCompanies = (entities || []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        entity_type: e.entity_type || "llc",
+        formation_state: e.formation_state || null,
+        notes: e.notes || null,
+        is_primary: e.id === primaryEntityId,
+        deals_count: dealCounts[e.id] || 0,
+        created_at: e.created_at,
+      }));
+
       const prefs = (row?.preferences && typeof row.preferences === "object") ? row.preferences : {};
+      const primaryEntity = associatedCompanies.find((c) => c.is_primary);
+      const effectiveCompanyName = primaryEntity?.name || row?.company_name || DEFAULT_PROFILE.companyName;
 
       const profile = {
         id: userId,
         email: row?.email || userEmail,
         fullName: row?.full_name || DEFAULT_PROFILE.fullName,
-        companyName: row?.company_name || DEFAULT_PROFILE.companyName,
+        companyName: effectiveCompanyName,
+        primaryEntityId: primaryEntityId,
+        associatedCompanies: associatedCompanies,
         discountRate: row?.discount_rate !== null && row?.discount_rate !== undefined && !isNaN(parseFloat(String(row.discount_rate)))
           ? parseFloat(String(row.discount_rate))
           : (isNaN(parseFloat(prefs.discountRate)) ? DEFAULT_PROFILE.discountRate : parseFloat(prefs.discountRate)),
@@ -149,7 +193,76 @@ export async function handleRequest(req: Request): Promise<Response> {
     const propertyClass = String(payload.propertyClass || DEFAULT_PROFILE.propertyClass).trim();
 
     const fullName = payload.fullName !== undefined ? String(payload.fullName).trim() : (payload.full_name !== undefined ? String(payload.full_name).trim() : undefined);
-    const companyName = payload.companyName !== undefined ? String(payload.companyName).trim() : (payload.company_name !== undefined ? String(payload.company_name).trim() : undefined);
+    let companyName = payload.companyName !== undefined ? String(payload.companyName).trim() : (payload.company_name !== undefined ? String(payload.company_name).trim() : undefined);
+    let primaryEntityId = (payload.primaryEntityId || payload.primary_entity_id) ? String(payload.primaryEntityId || payload.primary_entity_id) : null;
+
+    // Handle inline creation of a new company / entity
+    const newCompanyName = payload.newCompanyName ? String(payload.newCompanyName).trim() : null;
+    const newEntityType = payload.newEntityType ? String(payload.newEntityType).trim().toLowerCase() : "llc";
+    const newFormationState = payload.newFormationState ? String(payload.newFormationState).trim().toUpperCase() : null;
+
+    if (newCompanyName) {
+      try {
+        const { data: createdEntity, error: createEntErr } = await dbClient
+          .from("entities")
+          .insert({
+            user_id: userId,
+            name: newCompanyName,
+            entity_type: newEntityType,
+            formation_state: newFormationState,
+            notes: "Created via Profile settings",
+          })
+          .select("id, name")
+          .single();
+
+        if (!createEntErr && createdEntity) {
+          primaryEntityId = createdEntity.id;
+          companyName = createdEntity.name;
+        }
+      } catch (newEntErr) {
+        console.warn("[manage-profile] Error creating inline entity:", newEntErr);
+      }
+    } else if (primaryEntityId) {
+      // If primaryEntityId was specified, fetch its name
+      const { data: ent } = await dbClient
+        .from("entities")
+        .select("name")
+        .eq("id", primaryEntityId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (ent?.name) {
+        companyName = ent.name;
+      }
+    } else if (companyName && companyName !== DEFAULT_PROFILE.companyName) {
+      // If companyName was provided without primaryEntityId, find or create entity
+      const { data: existingEnt } = await dbClient
+        .from("entities")
+        .select("id, name")
+        .eq("user_id", userId)
+        .ilike("name", companyName)
+        .maybeSingle();
+
+      if (existingEnt) {
+        primaryEntityId = existingEnt.id;
+        companyName = existingEnt.name;
+      } else {
+        const { data: newEnt } = await dbClient
+          .from("entities")
+          .insert({
+            user_id: userId,
+            name: companyName,
+            entity_type: "llc",
+            notes: "Auto-created from profile company name",
+          })
+          .select("id, name")
+          .single();
+
+        if (newEnt) {
+          primaryEntityId = newEnt.id;
+        }
+      }
+    }
 
     const preferencesUpdate = {
       discountRate,
@@ -172,6 +285,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     if (fullName !== undefined) updateRecord.full_name = fullName;
     if (companyName !== undefined) updateRecord.company_name = companyName;
+    if (primaryEntityId !== null) updateRecord.primary_entity_id = primaryEntityId;
     if (userEmail) updateRecord.email = userEmail;
     if (payload.notification_email !== undefined) updateRecord.notification_email = payload.notification_email;
     if (payload.alert_preferences !== undefined) updateRecord.alert_preferences = payload.alert_preferences;
@@ -186,12 +300,29 @@ export async function handleRequest(req: Request): Promise<Response> {
         return jsonResponse({ error: "Could not update profile in database", details: upsertErr.message }, 500);
       }
 
+      // Fetch refreshed associated companies list
+      const { data: refreshedEntities } = await dbClient
+        .from("entities")
+        .select("id, name, entity_type, formation_state, notes, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      const associatedCompanies = (refreshedEntities || []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        entity_type: e.entity_type || "llc",
+        formation_state: e.formation_state || null,
+        is_primary: e.id === primaryEntityId,
+        created_at: e.created_at,
+      }));
+
       // Sync user metadata via admin client
       try {
         await dbClient.auth.admin.updateUserById(userId, {
           user_metadata: {
             full_name: fullName,
             company_name: companyName,
+            primary_entity_id: primaryEntityId,
             investor_profile: preferencesUpdate,
           },
         });
@@ -206,6 +337,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           email: userEmail,
           fullName: fullName ?? DEFAULT_PROFILE.fullName,
           companyName: companyName ?? DEFAULT_PROFILE.companyName,
+          primaryEntityId: primaryEntityId,
+          associatedCompanies: associatedCompanies,
           ...preferencesUpdate,
         },
       });
