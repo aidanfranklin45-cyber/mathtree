@@ -418,7 +418,9 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   const exitYear = Math.max(1, Math.min(holdingPeriod, parseInt(inputs.exitYear || holdingPeriod, 10)));
 
   const arv = parseFloat(inputs.arv) || 0;
-  const initialPropertyValue = (assetType === 'single-family' && arv > 0) ? arv : purchasePrice;
+  const assessedBasis = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || 0;
+  const hasValidPostRehabArv = (assetType === 'single-family') && arv > purchasePrice && arv !== assessedBasis && (parseFloat(inputs.rehabCosts) > 0 || parseFloat(inputs.rehabBudget) > 0);
+  const initialPropertyValue = hasValidPostRehabArv ? arv : purchasePrice;
   const targetCapRate = parseFloat(inputs.targetCapRate) || parseFloat(inputs.targetExitCapRate) || parseFloat(inputs.exitCapRate) || 6.5;
 
   // Revenue Resolution
@@ -553,9 +555,8 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
 
     if (assetType === 'single-family') {
       const managementFee = inputs.manageProperty ? currentGrossIncome * 0.10 : 0;
-      const maintenanceReserve = purchasePrice * 0.01;
-      const turnoverReserve = (currentGrossIncome / 12) * (vacancyRate / 100) * 0.5;
-      operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee + maintenanceReserve + turnoverReserve;
+      operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee;
+      capexReserve = 0;
     } else if (assetType === 'multi-unit') {
       let pmRate = 0.03;
       if (inputs.manageProperty) {

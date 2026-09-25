@@ -10908,8 +10908,8 @@
         ? storedPurchasePrice
         : (packageAssessedVal > 0 ? packageAssessedVal : (baseDefaults.purchasePrice || 1000000));
 
-      // Clean up stale ARV so it never suppresses property value below the purchase price
-      const cleanArv = (rawInputs.arv && rawInputs.arv > resolvedPurchasePrice && (rawInputs.rehabCosts > 0 || rawInputs.rehabBudget > 0))
+      // Clean up stale ARV so it never suppresses property value below the purchase price or retains county assessed valuation
+      const cleanArv = (rawInputs.arv && rawInputs.arv > resolvedPurchasePrice && Number(rawInputs.arv) !== packageAssessedVal && (rawInputs.rehabCosts > 0 || rawInputs.rehabBudget > 0))
         ? rawInputs.arv
         : resolvedPurchasePrice;
 

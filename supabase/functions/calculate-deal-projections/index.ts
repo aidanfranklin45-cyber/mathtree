@@ -152,6 +152,11 @@ export async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
+  const assessedBasis = Number(mergedInputs.totalAssessedValue || mergedInputs.combinedAssessedValue || 0);
+  if (mergedInputs.arv && Number(mergedInputs.arv) === assessedBasis) {
+    delete (mergedInputs as Record<string, unknown>).arv;
+  }
+
   // Prepopulate investor hurdle rate (discountRate) and holdYears from profiles table if missing
   if (mergedInputs.discountRate === undefined || mergedInputs.discountRate === null) {
     if (userId && dbClient) {

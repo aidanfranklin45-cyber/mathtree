@@ -184,6 +184,14 @@ export async function handleRequest(req: Request): Promise<Response> {
       };
     }
 
+    if (!mergedInputs.purchasePrice && existingDeal?.purchase_price) {
+      mergedInputs.purchasePrice = Number(existingDeal.purchase_price);
+    }
+    const assessedBasis = Number(mergedInputs.totalAssessedValue || mergedInputs.combinedAssessedValue || 0);
+    if (mergedInputs.arv && Number(mergedInputs.arv) === assessedBasis) {
+      delete mergedInputs.arv;
+    }
+
     const rawAsset = String(
       payload.assetType ??
       payload.asset_class ??
