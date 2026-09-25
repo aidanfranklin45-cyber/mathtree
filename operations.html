@@ -339,19 +339,13 @@
 
     <!-- Underwriting vs. Actuals Performance Tracking & Model Accuracy -->
     <div id="section-performance-tracking" class="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
-      <div class="px-5 py-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90">
-        <div>
-          <h3 class="text-sm sm:text-base font-extrabold text-white flex items-center space-x-2">
-            <span>⚖️ Underwriting vs. Actuals (Performance & Model Accuracy)</span>
-            <span id="model-accuracy-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">--% Alignment</span>
-          </h3>
-          <p class="text-xs text-slate-400 mt-0.5">
-            Compare realized operational rent rolls against initial underwritten pro-forma baselines.
-          </p>
-        </div>
-        <div class="flex items-center space-x-2">
-          <span class="text-[11px] text-slate-400">Platform Benchmark: <strong class="text-emerald-400 font-mono" id="platform-health-label">Institutional Grade</strong></span>
-        </div>
+      <div class="px-5 py-4 border-b border-slate-800 bg-slate-900/90">
+        <h3 class="text-sm sm:text-base font-extrabold text-white">
+          <span>⚖️ Underwriting vs. Actuals (Performance & Model Accuracy)</span>
+        </h3>
+        <p class="text-xs text-slate-400 mt-0.5">
+          Compare realized operational rent rolls against initial underwritten pro-forma baselines.
+        </p>
       </div>
 
       <div class="overflow-x-auto">
@@ -389,17 +383,6 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-
-          <!-- Background Autonomous Daily Monitor Status Indicator -->
-          <div class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs font-semibold text-slate-300" title="Autonomously scheduled via Supabase pg_cron & edge functions to execute daily at 06:00 UTC. Automatically applies escalations, reconciles due dates, and sends zero-login 1-click email notifications.">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span class="text-slate-300 text-xs font-medium">Daily Automation: <strong class="text-emerald-400 font-bold">Active</strong></span>
-            <span class="text-[10px] text-slate-500 font-mono hidden md:inline">(06:00 UTC)</span>
-          </div>
-
           <!-- Secondary on-demand test/diagnostic trigger -->
           <button onclick="triggerDailyMonitorNow()" id="btn-run-daily-monitor" class="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium transition" title="Force immediate diagnostic run (simulates background daily cycle on-demand)">
             <span>⚡</span>
@@ -2819,13 +2802,6 @@
 
       tbody.innerHTML = rows;
 
-      // Platform benchmark badge
-      const avgAccuracy = countMeasured > 0 ? Math.round(sumAccuracy / countMeasured) : 100;
-      const accBadge = document.getElementById('model-accuracy-badge');
-      if (accBadge) {
-        accBadge.textContent = `${avgAccuracy}% Forecast Alignment`;
-        accBadge.className = `px-2 py-0.5 rounded-full text-[10px] font-bold ${avgAccuracy >= 90 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`;
-      }
     }
 
     async function syncProFormaToActuals(dealId, actualMonthlyRent) {
