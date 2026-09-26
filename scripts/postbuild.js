@@ -14,6 +14,8 @@ const RUNTIME_FILES = [
   'project-sensitivity.html',
   'project-tax.html',
   'reconcile.html',
+  'terms.html',
+  'privacy.html',
   // Client scripts & engines
   'session.js',
   'address-service.js',

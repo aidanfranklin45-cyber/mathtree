@@ -2569,20 +2569,13 @@
             window._isViewingNewUserDemos = false;
             loadedFromSupabase = true;
           } else if (!resDeals.error && resDeals.data && resDeals.data.length === 0) {
-            // New user account with 0 custom deals: fall back gracefully to real Yakima County benchmarks
-            let demoDeals = [];
-            try {
-              const { data: bDeals } = await window._supabase
-                .from('deals')
-                .select('*')
-                .eq('is_demo', true)
-                .order('created_at', { ascending: false });
-              if (bDeals && bDeals.length > 0) demoDeals = bDeals;
-            } catch (e) { }
-            if (!demoDeals.length) demoDeals = REAL_COUNTY_BENCHMARKS;
-            activeDashboardProjects = demoDeals.map(mapSupabaseDeal);
-            window._isViewingNewUserDemos = true;
+            // New user account with 0 custom deals: genuinely start with a blank portfolio
+            activeDashboardProjects = [];
+            window._isViewingNewUserDemos = false;
             loadedFromSupabase = true;
+            try {
+              localStorage.setItem(getActiveStorageKey(), JSON.stringify([]));
+            } catch (e) { }
           } else if (resDeals.error && (resDeals.error.code === 'PGRST303' || resDeals.error.message?.includes('JWT'))) {
             try {
               const refreshRes = await window._supabase.auth.refreshSession();
@@ -2596,15 +2589,13 @@
                   activeDashboardProjects = retryDeals.data.map(mapSupabaseDeal);
                   window._isViewingNewUserDemos = false;
                   loadedFromSupabase = true;
-                } else if (!retryDeals.error) {
-                  const { data: bDeals } = await window._supabase
-                    .from('deals')
-                    .select('*')
-                    .eq('is_demo', true)
-                    .order('created_at', { ascending: false });
-                  activeDashboardProjects = (bDeals && bDeals.length > 0 ? bDeals : REAL_COUNTY_BENCHMARKS).map(mapSupabaseDeal);
-                  window._isViewingNewUserDemos = true;
+                } else if (!retryDeals.error && retryDeals.data && retryDeals.data.length === 0) {
+                  activeDashboardProjects = [];
+                  window._isViewingNewUserDemos = false;
                   loadedFromSupabase = true;
+                  try {
+                    localStorage.setItem(getActiveStorageKey(), JSON.stringify([]));
+                  } catch (e) { }
                 }
               }
             } catch (refErr) {
@@ -2624,10 +2615,10 @@
           if (storedDeals && storedDeals.length > 0) {
             activeDashboardProjects = storedDeals.map(mapSupabaseDeal);
           } else {
-            activeDashboardProjects = REAL_COUNTY_BENCHMARKS.map(mapSupabaseDeal);
-            window._isViewingNewUserDemos = true;
+            activeDashboardProjects = [];
+            window._isViewingNewUserDemos = false;
           }
-        } else if (!window._isViewingNewUserDemos) {
+        } else {
           // Cache this user's deals locally strictly under their isolated user key
           try {
             localStorage.setItem(getActiveStorageKey(), JSON.stringify(activeDashboardProjects));

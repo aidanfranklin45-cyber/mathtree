@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy | MathTree Institutional PropTech</title>
+  <meta name="description" content="MathTree Institutional Privacy Policy and Data Governance Framework for commercial real estate acquisition pipelines and financial modeling." />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="alternate icon" type="image/png" href="favicon.png" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #0B0F17;
+      color: #E2E8F0;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#0B0F17] text-slate-200">
+
+  <!-- ==================== GLOBAL NAVIGATION ==================== -->
+  <header class="border-b border-white/[0.08] bg-[#0B0F17]/90 backdrop-blur-xl sticky top-0 z-50 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="index.html" class="flex items-center space-x-3 group">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 via-emerald-600 to-[#0D111A] p-[1px] shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/35 transition-all">
+          <div class="h-full w-full bg-[#0D111A] rounded-[11px] flex items-center justify-center">
+            <svg class="h-5 w-5 text-emerald-400 transform group-hover:scale-110 transition-transform filter drop-shadow-[0_0_4px_rgba(52,211,153,0.6)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 21V12" stroke-linecap="round" />
+              <path d="M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" stroke-linecap="round" />
+              <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8" stroke-linecap="round" />
+              <path d="M17 10C17 10 15 8 15 6M17 10C17 10 19 8 19 6" stroke-linecap="round" />
+              <circle cx="5" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="9" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="19" cy="6" r="1.5" fill="currentColor" />
+              <path d="M11.5 5h1M12 4.5v1" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </div>
+        </div>
+        <div>
+          <span class="text-xl font-black tracking-tight text-white group-hover:text-emerald-300 transition-colors">MathTree</span>
+        </div>
+      </a>
+
+      <!-- Quick Back & CTA -->
+      <div class="flex items-center space-x-3">
+        <a href="index.html" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span>Back to Home</span>
+        </a>
+        <a href="terms.html" class="hidden sm:inline-flex px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition">
+          Terms of Service
+        </a>
+        <a href="index.html" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition shadow-md shadow-emerald-500/20">
+          Launch App
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="flex-grow max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+    
+    <!-- Page Header -->
+    <div class="space-y-4 border-b border-white/[0.08] pb-8 mb-10">
+      <div class="inline-flex items-center space-x-2 text-xs font-mono tracking-wider px-2.5 py-1 rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 font-medium">
+        <span>DATA GOVERNANCE &amp; TENANT ISOLATION</span>
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+        Institutional Privacy Policy
+      </h1>
+      <div class="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">
+        <span>Effective Date: March 2026</span>
+        <span>•</span>
+        <span>Version: 2.6 Enterprise</span>
+        <span>•</span>
+        <span>Data Controller: MathTree Inc.</span>
+      </div>
+    </div>
+
+    <!-- Security & Isolation Highlight Banner -->
+    <div class="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs leading-relaxed space-y-2 mb-10">
+      <div class="flex items-center space-x-2 font-bold text-emerald-300">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span>OUR CORE INSTITUTIONAL PRIVACY COMMITMENT</span>
+      </div>
+      <p>
+        MathTree recognizes the extreme proprietary sensitivity of commercial real estate pipelines, acquisition bids, in-place rent rolls, tenant identities, lease structures, and investor capital splits. <strong>MathTree does not sell, broker, or syndicate deal parameters, nor do we train public AI foundational models on your private underwriting files.</strong>
+      </p>
+    </div>
+
+    <!-- Policy Sections -->
+    <div class="space-y-10 text-sm text-slate-300 leading-relaxed font-sans">
+
+      <!-- 1 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">1.</span>
+          <span>Information We Collect</span>
+        </h2>
+        <p class="text-slate-400">
+          We collect and process the following categories of information to provide institutional underwriting and modeling services:
+        </p>
+        <ul class="list-disc pl-5 space-y-2 text-slate-400">
+          <li>
+            <strong class="text-slate-200">Account &amp; Identity Credentials:</strong> User email addresses, authentication identifiers, full names, corporate organizational affiliations, and primary entity linkages.
+          </li>
+          <li>
+            <strong class="text-slate-200">Project &amp; Underwriting Datasets:</strong> Property addresses, county parcel numbers, purchase prices, capitalization rates, square footage, unit counts, unit-mix rental schedules, debt financing parameters, expense ratios, and waterfall structures.
+          </li>
+          <li>
+            <strong class="text-slate-200">Transactional Billing Records:</strong> Subscription tier, billing cycle records, invoice receipts, and tokenized payment identifiers handled securely through payment processing partners (including Stripe). We never store raw credit card numbers or bank credentials on MathTree servers.
+          </li>
+          <li>
+            <strong class="text-slate-200">System Telemetry &amp; Diagnostics:</strong> IP addresses, browser user-agents, calculation latency metrics, and error logs required for platform security and performance optimization.
+          </li>
+        </ul>
+      </section>
+
+      <!-- 2 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">2.</span>
+          <span>How We Utilize Collected Information</span>
+        </h2>
+        <p class="text-slate-400">
+          Your information is utilized strictly to:
+        </p>
+        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
+          <li>Execute 10-year pro-formas, debt amortizations, and stochastic Monte Carlo risk calculations.</li>
+          <li>Generate downloadable executive pitch decks and investment committee briefs.</li>
+          <li>Authenticate your user session and maintain enterprise Row-Level Security (RLS) policies.</li>
+          <li>Maintain audit trails and enforce automated session timeouts (e.g. 30-minute inactivity thresholds).</li>
+          <li>Provide customer support, billing administration, and platform maintenance notices.</li>
+        </ul>
+      </section>
+
+      <!-- 3 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">3.</span>
+          <span>Data Isolation &amp; Architectural Security Controls</span>
+        </h2>
+        <p class="text-slate-400">
+          We implement rigorous administrative, physical, and technical safeguards engineered to protect institutional assets:
+        </p>
+        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
+          <li><strong class="text-slate-200">Encryption in Transit:</strong> All communications between client terminals, API gateways, and database nodes are encrypted via TLS 1.3.</li>
+          <li><strong class="text-slate-200">Encryption at Rest:</strong> Database records, storage snapshots, and authentication secrets are encrypted using AES-256 standard encryption.</li>
+          <li><strong class="text-slate-200">Multi-Tenant Row-Level Security (RLS):</strong> Projects, financial models, and profile data are protected by cryptographic database row-level security policies, ensuring no user can query or modify data belonging to another enterprise or account.</li>
+          <li><strong class="text-slate-200">Inactivity Session Timeouts:</strong> Unattended terminals are automatically cleared after 30 minutes of idle time to prevent physical terminal compromise.</li>
+        </ul>
+      </section>
+
+      <!-- 4 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">4.</span>
+          <span>Third-Party Sub-Processors</span>
+        </h2>
+        <p class="text-slate-400">
+          We engage select enterprise infrastructure partners strictly to fulfill cloud computing and authentication obligations:
+        </p>
+        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
+          <li><strong class="text-slate-200">Supabase (PostgreSQL &amp; Auth):</strong> Secure database hosting, session token verification, and RLS enforcement.</li>
+          <li><strong class="text-slate-200">Google Cloud / Firebase Hosting:</strong> Content distribution, static edge hosting, and TLS certificate termination.</li>
+          <li><strong class="text-slate-200">Stripe:</strong> PCI-DSS Level 1 certified subscription payment orchestration.</li>
+        </ul>
+        <p class="text-slate-400">
+          Each infrastructure partner is bound by strict Data Processing Agreements (DPAs) requiring enterprise-grade security controls.
+        </p>
+      </section>
+
+      <!-- 5 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">5.</span>
+          <span>California Privacy Disclosures (CalOPPA, CCPA &amp; CPRA)</span>
+        </h2>
+        <p class="text-slate-400">
+          Pursuant to the California Consumer Privacy Act (CCPA) as amended by the California Privacy Rights Act (CPRA), California residents enjoy specific privacy entitlements:
+        </p>
+        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
+          <li><strong class="text-slate-200">Right to Know &amp; Access:</strong> You may request disclosure of the specific pieces and categories of personal information collected.</li>
+          <li><strong class="text-slate-200">Right to Delete:</strong> You have the right to request deletion of your personal data and underwritten project records, subject to statutory exceptions.</li>
+          <li><strong class="text-slate-200">No Sale or Sharing of Personal Information:</strong> MathTree does <strong class="text-slate-200">not</strong> sell or share personal information or commercial deal records for cross-context behavioral advertising.</li>
+          <li><strong class="text-slate-200">Do Not Track:</strong> We do not track users across third-party websites or online services.</li>
+        </ul>
+      </section>
+
+      <!-- 6 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">6.</span>
+          <span>European Union &amp; UK Disclosures (GDPR &amp; UK-GDPR)</span>
+        </h2>
+        <p class="text-slate-400">
+          For users located within the European Economic Area (EEA) or the United Kingdom, MathTree processes data based on: (a) performance of our contract with you; (b) compliance with statutory obligations; and (c) legitimate commercial interests in securing and maintaining platform reliability.
+        </p>
+        <p class="text-slate-400">
+          You possess rights of access, rectification, erasure, restriction of processing, data portability, and the right to lodge a complaint with a supervisory authority.
+        </p>
+      </section>
+
+      <!-- 7 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">7.</span>
+          <span>Data Retention &amp; Permanent Erasure</span>
+        </h2>
+        <p class="text-slate-400">
+          Underwritten deals, pro-forma models, and associated financial records remain stored within your account tenancy until deleted by your authorized administrators. Upon explicit account closure or written erasure request, all associated proprietary records will be permanently purged in accordance with standard enterprise data deletion cycles.
+        </p>
+      </section>
+
+      <!-- 8 -->
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span class="text-emerald-400 font-mono">8.</span>
+          <span>Data Protection Officer &amp; Inquiries</span>
+        </h2>
+        <p class="text-slate-400">
+          For questions regarding data processing practices, privacy rights requests, or institutional security architecture verification, contact our Data Governance team at <span class="text-emerald-400 font-mono">privacy@mathtree.io</span>.
+        </p>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- ==================== FOOTER ==================== -->
+  <footer class="border-t border-[#1E2230] bg-[#090A0F] py-10 text-slate-400 text-xs mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <span class="font-extrabold text-white">MathTree Inc.</span>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-400">Commercial Real Estate Underwriting Technology</span>
+      </div>
+      <div class="flex items-center space-x-6 text-slate-500">
+        <a href="index.html" class="hover:text-slate-300 transition-colors">Home</a>
+        <a href="terms.html" class="hover:text-slate-300 transition-colors">Terms of Service</a>
+        <a href="privacy.html" class="text-emerald-400 font-semibold">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

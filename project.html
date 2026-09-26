@@ -10719,8 +10719,8 @@
             }
           }
 
-          // Fallback to Supabase demo benchmark deals if still no deal loaded
-          if (!currentLoadedDeal) {
+          // Fallback to Supabase demo benchmark deals ONLY if in explicit demo mode
+          if (!currentLoadedDeal && isDemo) {
             const { data: demoDeals, error: demoDealsErr } = await window._supabase
               .from('deals')
               .select('*')
