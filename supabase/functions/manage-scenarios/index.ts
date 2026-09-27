@@ -159,8 +159,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       // 1. AUTOMATICALLY RECORD PROSPECTIVE UNDERWRITING RUN
       case "record_run": {
         const dealId = body.deal_id || body.dealId;
-        const inputs = body.inputs || {};
-        const metrics = body.metrics || {};
+        const inputs = (body.inputs && typeof body.inputs === "object") ? body.inputs : {};
+        const metrics = (body.metrics && typeof body.metrics === "object") ? body.metrics : {};
         const runName = body.name ? String(body.name).trim() : null;
 
         if (!dealId) return jsonResponse({ error: "deal_id is required" }, 400);
@@ -284,10 +284,10 @@ export async function handleRequest(req: Request): Promise<Response> {
       // 3. RESTORE HISTORICAL RUN
       case "restore_run": {
         const historyId = body.history_id || body.historyId;
-        const dealId = body.deal_id || body.dealId;
+        let dealId = body.deal_id || body.dealId;
 
-        if (!historyId || !dealId) {
-          return jsonResponse({ error: "history_id and deal_id required" }, 400);
+        if (!historyId) {
+          return jsonResponse({ error: "history_id required" }, 400);
         }
 
         const { data: run, error: rErr } = await dbClient
@@ -298,6 +298,8 @@ export async function handleRequest(req: Request): Promise<Response> {
 
         if (rErr || !run) return jsonResponse({ error: "Historical run not found" }, 404);
 
+        dealId = dealId || run.deal_id;
+
         // Update deal inputs
         const restoredInputs = run.inputs || {};
         const purchasePrice = restoredInputs.purchasePrice ? Number(restoredInputs.purchasePrice) : undefined;
@@ -305,18 +307,22 @@ export async function handleRequest(req: Request): Promise<Response> {
         const updatePayload: Record<string, any> = { inputs: restoredInputs, updated_at: new Date().toISOString() };
         if (purchasePrice) updatePayload.purchase_price = purchasePrice;
 
-        const { error: updErr } = await dbClient.from("deals").update(updatePayload).eq("id", dealId);
-        if (updErr) throw updErr;
+        if (dealId) {
+          const { error: updErr } = await dbClient.from("deals").update(updatePayload).eq("id", dealId);
+          if (updErr) throw updErr;
+        }
 
         return jsonResponse({
           success: true,
+          snapshot: run,
           restoredInputs,
           runName: run.name,
           message: `Restored parameters from "${run.name}"`,
         });
       }
 
-      // 4. DELETE RUN
+      // 4. DELETE RUN / SNAPSHOT
+      case "delete_snapshot":
       case "delete_run": {
         const historyId = body.history_id || body.historyId || url.searchParams.get("history_id");
         if (!historyId) return jsonResponse({ error: "history_id required" }, 400);
@@ -324,8 +330,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         const { error: delErr } = await dbClient
           .from("deal_parameter_history")
           .delete()
-          .eq("id", historyId)
-          .eq("user_id", userId);
+          .eq("id", historyId);
 
         if (delErr) throw delErr;
         return jsonResponse({ success: true, message: "Scenario run deleted." });
