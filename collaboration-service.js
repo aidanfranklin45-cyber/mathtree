@@ -1,16 +1,13 @@
 // collaboration-service.js
-// Browser client engine for MathTree Parameter History (scenario versioning)
-// and Mutual Collaborator Deal Sharing. Supports direct Supabase RPC calls with Demo Mode fallback.
+// Supabase Edge Function Client for Collaborator Groups, Deal Sharing, and Auto Scenario Engine
+// Replaces deprecated direct-RPC connection model with server-side Edge Functions.
 
 (function (window) {
   'use strict';
 
-  var DEMO_SCENARIOS_KEY = 'mathtree_demo_scenarios';
-  var DEMO_COLLABORATORS_KEY = 'mathtree_demo_collaborators';
-  var DEMO_SHARES_KEY = 'mathtree_demo_shares';
-
   function isDemoMode() {
     try {
+      if (window._isDemoUser || window._demoMode) return true;
       return !!localStorage.getItem('mathtree_demo_mode');
     } catch (e) {
       return false;
@@ -21,356 +18,347 @@
     return window._supabase || null;
   }
 
-  // =========================================================================
-  // 1. PARAMETER HISTORY (SCENARIOS)
-  // =========================================================================
-
-  function getDemoScenarios() {
-    try {
-      var raw = localStorage.getItem(DEMO_SCENARIOS_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) {
-      return {};
+  async function invokeEdgeFunction(functionName, body) {
+    const sb = getSupabase();
+    if (sb && sb.functions && !isDemoMode()) {
+      try {
+        const { data, error } = await sb.functions.invoke(functionName, { body });
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.warn(`[EdgeFunction] ${functionName} invocation error:`, err);
+        // Fallback to fetch if invoke failed
+        try {
+          const session = await (sb.auth?.getSession() || Promise.resolve({ data: {} }));
+          const token = session?.data?.session?.access_token || window.SUPABASE_ANON_KEY || '';
+          const anonKey = window.SUPABASE_ANON_KEY || '';
+          const res = await fetch(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/${functionName}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + token,
+              'apikey': anonKey,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          });
+          if (res.ok) return await res.json();
+        } catch (fetchErr) {
+          console.warn(`[EdgeFunction] Direct fetch fallback failed:`, fetchErr);
+        }
+      }
     }
+    return null;
   }
 
-  function saveDemoScenarios(scenarios) {
+  // Local demo store fallback for sandbox testing
+  var DEMO_STORAGE_KEY = 'mathtree_demo_groups_hub';
+  function getDemoHub() {
     try {
-      localStorage.setItem(DEMO_SCENARIOS_KEY, JSON.stringify(scenarios));
-    } catch (e) {}
+      var raw = localStorage.getItem(DEMO_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return {
+      groups: [
+        {
+          id: 'demo-grp-acq',
+          name: 'Acquisitions Committee',
+          description: 'Principal underwriting team',
+          created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
+          collaborator_group_members: [
+            { id: 'dm-1', member_email: 'sarah.lin@apexcapital.internal' },
+            { id: 'dm-2', member_email: 'marcus.vance@cascadeinvest.internal' }
+          ]
+        },
+        {
+          id: 'demo-grp-equity',
+          name: 'LP Equity Partners',
+          description: 'Co-investment capital group',
+          created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
+          collaborator_group_members: [
+            { id: 'dm-3', member_email: 'elena.rostova@meridianfund.internal' }
+          ]
+        }
+      ],
+      shares: [
+        {
+          id: 'demo-sh-1',
+          deal_id: 'demo-deal-1',
+          group_id: 'demo-grp-acq',
+          permission: 'editor',
+          can_view_scenarios: true,
+          created_at: new Date(Date.now() - 86400000 * 3).toISOString()
+        }
+      ],
+      runs: {}
+    };
+  }
+
+  function saveDemoHub(hub) {
+    try {
+      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(hub));
+    } catch(e) {}
   }
 
   var CollaborationService = {
-    // Save a parameter snapshot
-    saveSnapshot: async function (dealId, name, category, inputs, notes, isBaseline) {
-      category = category || 'financing';
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (dealId && (dealId.indexOf('demo-') === 0 || dealId.indexOf('proj-') === 0))) {
-        var all = getDemoScenarios();
-        var list = all[dealId] || [];
-        if (isBaseline) {
-          list.forEach(function (s) { s.is_baseline = false; });
-        }
-        var newSnap = {
-          id: 'demo-snap-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-          deal_id: dealId,
-          user_id: 'demo-user',
-          user_name: 'Lead Underwriter',
-          name: (name || 'Scenario Snapshot').trim(),
-          category: category,
-          inputs: inputs || {},
-          metrics: (inputs && inputs.metrics) || {},
-          notes: notes || null,
-          is_baseline: !!isBaseline,
-          created_at: new Date().toISOString()
-        };
-        list.unshift(newSnap);
-        all[dealId] = list;
-        saveDemoScenarios(all);
-        return { success: true, id: newSnap.id, name: newSnap.name, message: 'Scenario snapshot saved.' };
+    // =========================================================================
+    // 1. COLLABORATOR GROUPS & HUB
+    // =========================================================================
+    getHubData: async function () {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', { action: 'list_hub' });
+        if (res && res.success) return res;
       }
+      var hub = getDemoHub();
+      return {
+        success: true,
+        groups: hub.groups || [],
+        direct_collaborators: [
+          { email: 'sarah.lin@apexcapital.internal', deals_count: 2 },
+          { email: 'marcus.vance@cascadeinvest.internal', deals_count: 1 }
+        ],
+        shares_count: (hub.shares || []).length
+      };
+    },
 
-      try {
-        var res = await sb.rpc('rpc_save_parameter_snapshot', {
-          p_deal_id: dealId,
-          p_name: name,
-          p_category: category,
-          p_inputs: inputs || null,
-          p_notes: notes || null,
-          p_is_baseline: !!isBaseline
+    createGroup: async function (name, description, members) {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', {
+          action: 'create_group',
+          name: name,
+          description: description,
+          members: members || []
         });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase saveSnapshot error, falling back to local:', err);
-        return this.saveSnapshot(dealId, name, category, inputs, notes, isBaseline);
+        if (res && res.success) return res;
       }
+      var hub = getDemoHub();
+      var newGrp = {
+        id: 'demo-grp-' + Date.now(),
+        name: name,
+        description: description || null,
+        created_at: new Date().toISOString(),
+        collaborator_group_members: (members || []).map(function(m) {
+          return { id: 'dm-' + Math.random().toString(36).substr(2, 6), member_email: m };
+        })
+      };
+      hub.groups.unshift(newGrp);
+      saveDemoHub(hub);
+      return { success: true, group: newGrp, message: 'Group created' };
     },
 
-    // Retrieve all parameter snapshots for a deal
-    getSnapshots: async function (dealId) {
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (dealId && (dealId.indexOf('demo-') === 0 || dealId.indexOf('proj-') === 0))) {
-        var all = getDemoScenarios();
-        var list = all[dealId] || [];
-        if (list.length === 0) {
-          list = [
-            {
-              id: 'demo-default-1-' + dealId,
-              deal_id: dealId,
-              user_id: 'demo-user',
-              user_name: 'Lead Underwriter',
-              name: 'Baseline 65% LTV Agency Fixed',
-              category: 'financing',
-              inputs: { downPaymentPercent: 35, interestRate: 6.25, loanTerm: 30, exitCapRate: 6.25 },
-              metrics: { noi: 642000, dscr: 1.34, cashFlow: 162400, cashOnCash: 8.4, irr: 18.2 },
-              notes: 'Standard Fannie Mae DUS quote @ 6.25% with 30-year amort.',
-              is_baseline: true,
-              created_at: new Date(Date.now() - 86400000 * 3).toISOString()
-            },
-            {
-              id: 'demo-default-2-' + dealId,
-              deal_id: dealId,
-              user_id: 'demo-user',
-              user_name: 'Lead Underwriter',
-              name: 'Value-Add Bridge Loan (80% LTC @ 9.0% IO)',
-              category: 'financing',
-              inputs: { downPaymentPercent: 20, interestRate: 9.0, loanTerm: 24, rehabBudget: 350000, exitCapRate: 5.75 },
-              metrics: { noi: 785000, dscr: 1.18, cashFlow: 198000, cashOnCash: 11.2, irr: 22.8 },
-              notes: 'Bridge loan execution with $350k renovation facility and 2-year interest-only period.',
-              is_baseline: false,
-              created_at: new Date(Date.now() - 86400000).toISOString()
-            }
-          ];
-          all[dealId] = list;
-          saveDemoScenarios(all);
-        }
-        return list;
-      }
-
-      try {
-        var res = await sb.rpc('rpc_get_deal_parameter_history', { p_deal_id: dealId });
-        if (res.error) throw res.error;
-        return res.data || [];
-      } catch (err) {
-        console.warn('[Collaboration] Supabase getSnapshots error:', err);
-        return [];
-      }
-    },
-
-    // Restore snapshot to active deal
-    restoreSnapshot: async function (historyId) {
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (historyId && historyId.indexOf('demo-') === 0)) {
-        var all = getDemoScenarios();
-        for (var k in all) {
-          var found = all[k].find(function (s) { return s.id === historyId; });
-          if (found) {
-            return { success: true, snapshot: found, message: 'Scenario restored in demo mode.' };
-          }
-        }
-        return { success: false, error: 'Snapshot not found.' };
-      }
-
-      try {
-        var res = await sb.rpc('rpc_restore_parameter_snapshot', { p_history_id: historyId });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase restoreSnapshot error:', err);
-        return { success: false, error: err.message || 'Failed to restore snapshot.' };
-      }
-    },
-
-    // Delete parameter snapshot
-    deleteSnapshot: async function (historyId) {
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (historyId && historyId.indexOf('demo-') === 0)) {
-        var all = getDemoScenarios();
-        for (var k in all) {
-          var idx = all[k].findIndex(function (s) { return s.id === historyId; });
-          if (idx !== -1) {
-            all[k].splice(idx, 1);
-            saveDemoScenarios(all);
-            return { success: true };
-          }
-        }
-        return { success: false, error: 'Snapshot not found.' };
-      }
-
-      try {
-        var res = await sb.rpc('rpc_delete_parameter_snapshot', { p_history_id: historyId });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase deleteSnapshot error:', err);
-        return { success: false, error: err.message || 'Failed to delete snapshot.' };
-      }
-    },
-
-    // =========================================================================
-    // 2. COLLABORATOR NETWORK (MUTUAL INVITATIONS)
-    // =========================================================================
-
-    getCollaboratorsHub: async function () {
-      var sb = getSupabase();
-      if (!sb || isDemoMode()) {
-        return {
-          active: [
-            {
-              connection_id: 'demo-conn-1',
-              collaborator_id: 'demo-partner-1',
-              email: 'sarah.lin@apexcapital.internal',
-              full_name: 'Sarah Lin',
-              company_name: 'Apex Real Estate Partners',
-              shared_deals_count: 2,
-              connected_at: new Date(Date.now() - 86400000 * 14).toISOString()
-            },
-            {
-              connection_id: 'demo-conn-2',
-              collaborator_id: 'demo-partner-2',
-              email: 'marcus.vance@cascadeinvest.internal',
-              full_name: 'Marcus Vance',
-              company_name: 'Cascade Property Holdings',
-              shared_deals_count: 1,
-              connected_at: new Date(Date.now() - 86400000 * 7).toISOString()
-            }
-          ],
-          incoming: [
-            {
-              invitation_id: 'demo-invite-in-1',
-              requester_id: 'demo-partner-3',
-              requester_email: 'elena.rostova@meridianfund.internal',
-              requester_name: 'Elena Rostova',
-              requester_company: 'Meridian Capital Group',
-              sent_at: new Date(Date.now() - 86400000 * 2).toISOString()
-            }
-          ],
-          outgoing: []
-        };
-      }
-
-      try {
-        var res = await sb.rpc('rpc_get_user_collaborators');
-        if (res.error) throw res.error;
-        return {
-          active: (res.data && res.data.active) || [],
-          incoming: (res.data && res.data.incoming) || [],
-          outgoing: (res.data && res.data.outgoing) || []
-        };
-      } catch (err) {
-        console.warn('[Collaboration] Supabase getCollaboratorsHub error:', err);
-        return { active: [], incoming: [], outgoing: [] };
-      }
-    },
-
-    inviteCollaborator: async function (recipientEmail) {
-      var clean = (recipientEmail || '').toLowerCase().trim();
-      if (!clean || clean.indexOf('@') === -1) {
-        return { success: false, error: 'Please provide a valid email address.' };
-      }
-
-      var sb = getSupabase();
-      if (!sb || isDemoMode()) {
-        return {
-          success: true,
-          status: 'pending',
-          message: 'Invitation sent to ' + clean + '. (Demo simulated: accepted once reciprocal).'
-        };
-      }
-
-      try {
-        var res = await sb.rpc('rpc_invite_collaborator', { p_recipient_email: clean });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase inviteCollaborator error:', err);
-        return { success: false, error: err.message || 'Failed to send invitation.' };
-      }
-    },
-
-    respondToInvitation: async function (invitationId, action) {
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (invitationId && invitationId.indexOf('demo-') === 0)) {
-        return {
-          success: true,
-          status: action === 'accept' ? 'accepted' : 'declined',
-          message: 'Invitation ' + action + 'ed successfully.'
-        };
-      }
-
-      try {
-        var res = await sb.rpc('rpc_respond_collaborator_invite', {
-          p_invitation_id: invitationId,
-          p_action: action
+    updateGroup: async function (groupId, name, description, members) {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', {
+          action: 'update_group',
+          group_id: groupId,
+          name: name,
+          description: description,
+          members: members
         });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase respondToInvitation error:', err);
-        return { success: false, error: err.message || 'Failed to respond.' };
+        if (res && res.success) return res;
       }
+      var hub = getDemoHub();
+      var found = (hub.groups || []).find(function(g) { return g.id === groupId; });
+      if (found) {
+        found.name = name;
+        if (description !== undefined) found.description = description;
+        if (members) {
+          found.collaborator_group_members = members.map(function(m) {
+            return { id: 'dm-' + Math.random().toString(36).substr(2, 6), member_email: m };
+          });
+        }
+        saveDemoHub(hub);
+        return { success: true, group: found, message: 'Group updated' };
+      }
+      return { success: false, error: 'Group not found' };
+    },
+
+    deleteGroup: async function (groupId) {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', {
+          action: 'delete_group',
+          group_id: groupId
+        });
+        if (res && res.success) return res;
+      }
+      var hub = getDemoHub();
+      var idx = (hub.groups || []).findIndex(function(g) { return g.id === groupId; });
+      if (idx !== -1) {
+        hub.groups.splice(idx, 1);
+        saveDemoHub(hub);
+        return { success: true };
+      }
+      return { success: false, error: 'Group not found' };
     },
 
     // =========================================================================
-    // 3. DEAL SHARING
+    // 2. DEAL SHARING (GROUP OR DIRECT EMAIL)
     // =========================================================================
-
-    shareDeal: async function (dealId, collaboratorId, permission, canViewScenarios) {
+    shareDeal: async function (dealId, shareType, targetId, permission, canViewScenarios) {
       permission = permission || 'viewer';
       canViewScenarios = canViewScenarios !== false;
 
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (dealId && (dealId.indexOf('demo-') === 0 || dealId.indexOf('proj-') === 0))) {
-        return {
-          success: true,
-          share_id: 'demo-share-' + Date.now(),
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', {
+          action: 'share_deal',
           deal_id: dealId,
-          collaborator_id: collaboratorId,
+          share_type: shareType, // 'group' or 'email'
+          target_id: targetId,
           permission: permission,
-          message: 'Deal shared with collaborator.'
-        };
+          can_view_scenarios: canViewScenarios
+        });
+        if (res && res.success) return res;
       }
 
-      try {
-        var res = await sb.rpc('rpc_share_deal_with_collaborator', {
-          p_deal_id: dealId,
-          p_collaborator_id: collaboratorId,
-          p_permission: permission,
-          p_can_view_scenarios: canViewScenarios
-        });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase shareDeal error:', err);
-        return { success: false, error: err.message || 'Failed to share deal.' };
-      }
+      var hub = getDemoHub();
+      var newShare = {
+        id: 'demo-share-' + Date.now(),
+        deal_id: dealId,
+        group_id: shareType === 'group' ? targetId : null,
+        shared_with_email: shareType === 'email' ? targetId : null,
+        permission: permission,
+        can_view_scenarios: canViewScenarios,
+        created_at: new Date().toISOString()
+      };
+      hub.shares = hub.shares || [];
+      hub.shares.unshift(newShare);
+      saveDemoHub(hub);
+      return { success: true, share: newShare, message: 'Deal access granted.' };
     },
 
-    revokeShare: async function (dealId, collaboratorId) {
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (dealId && (dealId.indexOf('demo-') === 0 || dealId.indexOf('proj-') === 0))) {
-        return { success: true };
-      }
-
-      try {
-        var res = await sb.rpc('rpc_revoke_deal_share', {
-          p_deal_id: dealId,
-          p_collaborator_id: collaboratorId
+    revokeShare: async function (dealId, targetId, shareId) {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', {
+          action: 'revoke_share',
+          deal_id: dealId,
+          target_id: targetId,
+          share_id: shareId
         });
-        if (res.error) throw res.error;
-        return res.data;
-      } catch (err) {
-        console.warn('[Collaboration] Supabase revokeShare error:', err);
-        return { success: false, error: err.message || 'Failed to revoke share.' };
+        if (res && res.success) return res;
       }
+      var hub = getDemoHub();
+      hub.shares = (hub.shares || []).filter(function(s) {
+        if (shareId) return s.id !== shareId;
+        return !(s.deal_id === dealId && (s.group_id === targetId || s.shared_with_email === targetId));
+      });
+      saveDemoHub(hub);
+      return { success: true };
     },
 
     getDealShares: async function (dealId) {
-      var sb = getSupabase();
-      if (!sb || isDemoMode() || (dealId && (dealId.indexOf('demo-') === 0 || dealId.indexOf('proj-') === 0))) {
-        return [
-          {
-            share_id: 'demo-share-rec-1',
-            collaborator_id: 'demo-partner-1',
-            collaborator_name: 'Sarah Lin',
-            collaborator_email: 'sarah.lin@apexcapital.internal',
-            collaborator_company: 'Apex Real Estate Partners',
-            permission: 'editor',
-            can_view_scenarios: true,
-            shared_at: new Date(Date.now() - 86400000 * 3).toISOString()
-          }
-        ];
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-collaboration', {
+          action: 'get_deal_shares',
+          deal_id: dealId
+        });
+        if (res && res.success) return res.shares || [];
+      }
+      var hub = getDemoHub();
+      var list = (hub.shares || []).filter(function(s) { return s.deal_id === dealId; });
+      return list.map(function(s) {
+        var grp = (hub.groups || []).find(function(g) { return g.id === s.group_id; });
+        return {
+          id: s.id,
+          deal_id: s.deal_id,
+          group_id: s.group_id,
+          shared_with_email: s.shared_with_email,
+          collaborator_groups: grp ? { name: grp.name } : null,
+          permission: s.permission,
+          can_view_scenarios: s.can_view_scenarios,
+          created_at: s.created_at
+        };
+      });
+    },
+
+    // =========================================================================
+    // 3. AUTOMATIC PROSPECTIVE SCENARIO ENGINE & IMPACT DIFFING
+    // =========================================================================
+    recordRun: async function (dealId, inputs, metrics, name) {
+      if (!dealId) return { success: false, error: 'Deal ID required' };
+
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-scenarios', {
+          action: 'record_run',
+          deal_id: dealId,
+          inputs: inputs,
+          metrics: metrics,
+          name: name || null
+        });
+        if (res && res.success) return res;
       }
 
-      try {
-        var res = await sb.rpc('rpc_get_deal_shares', { p_deal_id: dealId });
-        if (res.error) throw res.error;
-        return res.data || [];
-      } catch (err) {
-        console.warn('[Collaboration] Supabase getDealShares error:', err);
-        return [];
+      var hub = getDemoHub();
+      hub.runs = hub.runs || {};
+      var list = hub.runs[dealId] || [];
+
+      // Compute simple demo diff
+      var last = list[0];
+      var inputDiff = [];
+      var metricDiff = [];
+      if (last) {
+        var oldP = Number(last.inputs?.purchasePrice || 0);
+        var newP = Number(inputs?.purchasePrice || 0);
+        if (oldP && newP && oldP !== newP) {
+          inputDiff.push({ key: 'purchasePrice', label: 'Purchase Basis', oldValue: oldP, newValue: newP, delta: newP - oldP, isCurrency: true });
+        }
+        var oldR = Number(last.inputs?.interestRate || 0);
+        var newR = Number(inputs?.interestRate || 0);
+        if (oldR && newR && oldR !== newR) {
+          inputDiff.push({ key: 'interestRate', label: 'Interest Rate', oldValue: oldR, newValue: newR, delta: newR - oldR, isPct: true });
+        }
+        var oldIrr = Number(last.metrics?.irr || 0);
+        var newIrr = Number(metrics?.irr || 0);
+        if (oldIrr && newIrr && oldIrr !== newIrr) {
+          metricDiff.push({ key: 'irr', label: 'Target IRR', oldValue: oldIrr, newValue: newIrr, delta: newIrr - oldIrr, isPct: true });
+        }
       }
+
+      var newRun = {
+        id: 'demo-run-' + Date.now(),
+        deal_id: dealId,
+        name: name || (inputDiff[0] ? `Run: ${inputDiff[0].label}` : `Underwriting Run #${list.length + 1}`),
+        inputs: inputs,
+        metrics: metrics,
+        input_diff: inputDiff,
+        metric_diff: metricDiff,
+        created_at: new Date().toISOString()
+      };
+
+      list.unshift(newRun);
+      if (list.length > 5) list = list.slice(0, 5); // 5-run cap
+      hub.runs[dealId] = list;
+      saveDemoHub(hub);
+
+      return { success: true, run: newRun, input_diff: inputDiff, metric_diff: metricDiff };
+    },
+
+    getHistory: async function (dealId) {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-scenarios', {
+          action: 'get_history',
+          deal_id: dealId
+        });
+        if (res && res.success) return res.runs || [];
+      }
+      var hub = getDemoHub();
+      return (hub.runs && hub.runs[dealId]) || [];
+    },
+
+    restoreRun: async function (dealId, historyId) {
+      if (!isDemoMode()) {
+        var res = await invokeEdgeFunction('manage-scenarios', {
+          action: 'restore_run',
+          deal_id: dealId,
+          history_id: historyId
+        });
+        if (res && res.success) return res;
+      }
+      var hub = getDemoHub();
+      var list = (hub.runs && hub.runs[dealId]) || [];
+      var found = list.find(function(r) { return r.id === historyId; });
+      if (found) {
+        return { success: true, restoredInputs: found.inputs, runName: found.name };
+      }
+      return { success: false, error: 'Historical run not found' };
     }
   };
 

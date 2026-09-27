@@ -1588,68 +1588,89 @@
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center space-x-3">
           <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20 font-black text-lg shrink-0">
-            🤝
+            👥
           </div>
           <div>
             <div class="flex items-center space-x-2">
-              <h3 class="text-base font-extrabold text-white">Collaborator Network Hub</h3>
-              <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">Mutual Sharing</span>
+              <h3 class="text-base font-extrabold text-white">Collaborator Hub &amp; Groups</h3>
+              <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">Team Sharing</span>
             </div>
-            <p class="text-xs text-slate-400">Send and accept partner connections to selectively share deal underwriting models &amp; scenarios</p>
+            <p class="text-xs text-slate-400">Organize teams into groups (e.g. Acquisitions, LPs) and manage deal sharing access</p>
           </div>
         </div>
         <button type="button" onclick="closeCollaboratorsHubModal()" class="text-slate-500 hover:text-white p-1 rounded-lg text-lg">✕</button>
       </div>
 
-      <!-- Invite Partner Card -->
-      <div class="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-3">
-        <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
-          <span>+ Invite New Collaborator</span>
-        </h4>
-        <form id="form-invite-collaborator" onsubmit="handleSendCollaboratorInvite(event)" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <input type="email" id="input-collab-email" required placeholder="colleague@institution.com" class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
-          <button type="submit" id="btn-submit-collab-invite" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition shadow-md shadow-cyan-500/20 shrink-0">
-            Send Invitation
-          </button>
-        </form>
-        <p class="text-[10px] text-slate-500 leading-relaxed">
-          🔒 Strict Privacy Architecture: Collaborator access is strictly peer-to-peer. Deals cannot be shared until both parties have accepted each other's connection.
-        </p>
-      </div>
-
       <!-- Navigation Tabs -->
-      <div class="flex items-center space-x-2 border-b border-slate-800 pb-2">
-        <button type="button" id="tab-btn-collab-active" onclick="switchCollaboratorTab('active')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-sm flex items-center space-x-1.5">
-          <span>Active Collaborators</span>
-          <span id="badge-collab-active" class="px-1.5 py-0.2 rounded-full bg-cyan-950 text-[10px] font-mono">0</span>
-        </button>
-        <button type="button" id="tab-btn-collab-incoming" onclick="switchCollaboratorTab('incoming')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition flex items-center space-x-1.5">
-          <span>Incoming Requests</span>
-          <span id="badge-collab-incoming" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] font-mono">0</span>
-        </button>
-        <button type="button" id="tab-btn-collab-outgoing" onclick="switchCollaboratorTab('outgoing')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition flex items-center space-x-1.5">
-          <span>Outgoing Sent</span>
-          <span id="badge-collab-outgoing" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] font-mono">0</span>
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <div class="flex items-center space-x-2">
+          <button type="button" id="tab-btn-collab-groups" onclick="switchCollaboratorHubTab('groups')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-sm flex items-center space-x-1.5">
+            <span>Collaborator Groups</span>
+            <span id="badge-collab-groups" class="px-1.5 py-0.2 rounded-full bg-cyan-950 text-[10px] font-mono">0</span>
+          </button>
+          <button type="button" id="tab-btn-collab-direct" onclick="switchCollaboratorHubTab('direct')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-950 border border-slate-800 transition flex items-center space-x-1.5">
+            <span>Direct Collaborators</span>
+            <span id="badge-collab-direct" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] font-mono">0</span>
+          </button>
+        </div>
+        <button type="button" id="btn-toggle-create-group" onclick="toggleCreateGroupForm()" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition shadow-sm flex items-center space-x-1">
+          <span>+ Create Group</span>
         </button>
       </div>
 
-      <!-- TAB 1: Active Collaborators -->
-      <div id="collab-view-active" class="space-y-3">
-        <div id="collab-active-list" class="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
+      <!-- TAB 1: Collaborator Groups -->
+      <div id="collab-view-groups" class="space-y-4">
+        <!-- Create Group Collapsible Form -->
+        <div id="create-group-form-container" class="hidden bg-slate-950/90 p-4 rounded-2xl border border-cyan-500/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white uppercase tracking-wider">New Collaborator Group</h4>
+            <button type="button" onclick="toggleCreateGroupForm(false)" class="text-slate-400 hover:text-white text-xs">Cancel</button>
+          </div>
+          <form id="form-create-group" onsubmit="handleCreateGroupSubmit(event)" class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 text-[11px] mb-1 font-semibold">Group Name *</label>
+                <input type="text" id="input-new-group-name" required placeholder="e.g. Acquisitions Committee" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+              </div>
+              <div>
+                <label class="block text-slate-400 text-[11px] mb-1 font-semibold">Description</label>
+                <input type="text" id="input-new-group-desc" placeholder="e.g. Primary investment review team" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+              </div>
+            </div>
+            <div>
+              <label class="block text-slate-400 text-[11px] mb-1 font-semibold">Initial Member Emails (comma-separated)</label>
+              <input type="text" id="input-new-group-members" placeholder="partner@firm.com, analyst@firm.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+            </div>
+            <div class="flex justify-end pt-1">
+              <button type="submit" id="btn-submit-create-group" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition shadow-md shadow-cyan-500/20">
+                Save Collaborator Group
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Groups List -->
+        <div id="collab-groups-list" class="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
           <!-- Populated dynamically -->
         </div>
       </div>
 
-      <!-- TAB 2: Incoming Requests -->
-      <div id="collab-view-incoming" class="hidden space-y-3">
-        <div id="collab-incoming-list" class="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
-          <!-- Populated dynamically -->
+      <!-- TAB 2: Direct Collaborators -->
+      <div id="collab-view-direct" class="hidden space-y-4">
+        <!-- Direct Share Quick Form -->
+        <div class="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-3">
+          <h4 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1.5">
+            <span>+ Add Colleague by Email</span>
+          </h4>
+          <form id="form-invite-collaborator" onsubmit="handleSendCollaboratorInvite(event)" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input type="email" id="input-collab-email" required placeholder="colleague@institution.com" class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+            <button type="submit" id="btn-submit-collab-invite" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition shadow-md shadow-cyan-500/20 shrink-0">
+              Add Direct Collaborator
+            </button>
+          </form>
         </div>
-      </div>
 
-      <!-- TAB 3: Outgoing Requests -->
-      <div id="collab-view-outgoing" class="hidden space-y-3">
-        <div id="collab-outgoing-list" class="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
+        <div id="collab-direct-list" class="space-y-2.5 max-h-[46vh] overflow-y-auto pr-1">
           <!-- Populated dynamically -->
         </div>
       </div>
@@ -1667,8 +1688,8 @@
             🤝
           </div>
           <div>
-            <h3 class="text-base font-extrabold text-white">Share Deal with Collaborator</h3>
-            <p class="text-xs text-slate-400">Select an accepted peer to grant access to pro-formas &amp; scenarios</p>
+            <h3 class="text-base font-extrabold text-white">Share Deal with Collaborators</h3>
+            <p class="text-xs text-slate-400">Share underwriting model &amp; scenarios with a group or colleague</p>
           </div>
         </div>
         <button type="button" onclick="closeDashboardShareDealModal()" class="text-slate-500 hover:text-white p-1 rounded-lg text-lg">✕</button>
@@ -1686,11 +1707,30 @@
       <!-- Add New Share Section -->
       <div class="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80">
         <div id="dash-share-collaborator-picker-container" class="space-y-3">
-          <div>
-            <label class="block text-slate-400 text-[11px] mb-1 font-semibold">Select Mutual Collaborator</label>
-            <select id="dash-share-collaborator-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-cyan-500">
-              <option value="">Choose an accepted partner...</option>
+          <!-- Target Type Selector -->
+          <div class="flex items-center space-x-4 text-xs font-semibold text-slate-300 pb-1">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="radio" name="dash-share-target-type" id="dash-target-group" value="group" checked onchange="toggleDashShareTarget('group')" class="text-cyan-500 bg-slate-900 border-slate-700 focus:ring-0">
+              <span>Collaborator Group</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="radio" name="dash-share-target-type" id="dash-target-direct" value="direct" onchange="toggleDashShareTarget('direct')" class="text-cyan-500 bg-slate-900 border-slate-700 focus:ring-0">
+              <span>Direct Email / Colleague</span>
+            </label>
+          </div>
+
+          <!-- Group selection container -->
+          <div id="dash-share-group-container">
+            <label class="block text-slate-400 text-[11px] mb-1 font-semibold">Select Collaborator Group</label>
+            <select id="dash-share-group-select" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-cyan-500">
+              <option value="">Choose a collaborator group...</option>
             </select>
+          </div>
+
+          <!-- Direct email input container -->
+          <div id="dash-share-direct-container" class="hidden">
+            <label class="block text-slate-400 text-[11px] mb-1 font-semibold">Colleague Email</label>
+            <input type="email" id="dash-share-direct-email-input" placeholder="colleague@institution.com" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
           </div>
 
           <div class="grid grid-cols-2 gap-3 text-xs">
@@ -1712,16 +1752,6 @@
               <span>Grant Access</span>
             </button>
           </div>
-        </div>
-
-        <div id="dash-share-no-collabs-notice" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 space-y-2">
-          <p class="font-bold">No mutual accepted collaborators found.</p>
-          <p class="text-[11px] text-slate-400 leading-relaxed">
-            In compliance with MathTree strict privacy protocols, deals can only be shared with collaborators after mutual invitations have been accepted.
-          </p>
-          <button type="button" onclick="closeDashboardShareDealModal(); openCollaboratorsHubModal();" class="text-xs font-bold text-cyan-400 hover:text-cyan-300 underline">
-            Open Collaborator Network Hub to Invite Partners →
-          </button>
         </div>
       </div>
 
@@ -6678,62 +6708,220 @@
     }
     window.switchCollaboratorTab = switchCollaboratorTab;
 
+    let cachedHubGroups = [];
+    let cachedDirectCollabs = [];
+
+    function switchCollaboratorHubTab(tab) {
+      const viewGroups = document.getElementById('collab-view-groups');
+      const viewDirect = document.getElementById('collab-view-direct');
+      const btnGroups = document.getElementById('tab-btn-collab-groups');
+      const btnDirect = document.getElementById('tab-btn-collab-direct');
+
+      if (tab === 'groups') {
+        viewGroups?.classList.remove('hidden');
+        viewDirect?.classList.add('hidden');
+        btnGroups?.classList.add('bg-cyan-600', 'text-white', 'shadow-sm');
+        btnGroups?.classList.remove('bg-slate-950', 'text-slate-400', 'border', 'border-slate-800');
+        btnDirect?.classList.remove('bg-cyan-600', 'text-white', 'shadow-sm');
+        btnDirect?.classList.add('bg-slate-950', 'text-slate-400', 'border', 'border-slate-800');
+      } else {
+        viewDirect?.classList.remove('hidden');
+        viewGroups?.classList.add('hidden');
+        btnDirect?.classList.add('bg-cyan-600', 'text-white', 'shadow-sm');
+        btnDirect?.classList.remove('bg-slate-950', 'text-slate-400', 'border', 'border-slate-800');
+        btnGroups?.classList.remove('bg-cyan-600', 'text-white', 'shadow-sm');
+        btnGroups?.classList.add('bg-slate-950', 'text-slate-400', 'border', 'border-slate-800');
+      }
+    }
+    window.switchCollaboratorHubTab = switchCollaboratorHubTab;
+
+    function toggleCreateGroupForm(show) {
+      const container = document.getElementById('create-group-form-container');
+      if (!container) return;
+      if (show === undefined) {
+        container.classList.toggle('hidden');
+      } else if (show) {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    }
+    window.toggleCreateGroupForm = toggleCreateGroupForm;
+
+    async function handleCreateGroupSubmit(event) {
+      event.preventDefault();
+      const nameInput = document.getElementById('input-new-group-name');
+      const descInput = document.getElementById('input-new-group-desc');
+      const membersInput = document.getElementById('input-new-group-members');
+      const name = nameInput?.value.trim();
+      if (!name) return;
+
+      const desc = descInput?.value.trim() || null;
+      const membersRaw = membersInput?.value || '';
+      const members = membersRaw.split(/[,;\n]+/).map(m => m.trim().toLowerCase()).filter(m => m && m.includes('@'));
+
+      const btn = document.getElementById('btn-submit-create-group');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+      try {
+        const res = await window.MathTreeCollaboration.createGroup(name, desc, members);
+        if (!res.success && res.error) {
+          alert('Failed to create group: ' + res.error);
+          return;
+        }
+
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+        if (membersInput) membersInput.value = '';
+        toggleCreateGroupForm(false);
+        await loadCollaboratorsHubData();
+      } catch (err) {
+        console.error('Error creating group:', err);
+        alert('Failed to create group: ' + (err.message || 'Unknown error'));
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save Collaborator Group'; }
+      }
+    }
+    window.handleCreateGroupSubmit = handleCreateGroupSubmit;
+
+    async function handleEditGroupName(groupId, currentName, currentDesc) {
+      const newName = prompt('Edit Collaborator Group Name:', currentName);
+      if (newName === null || !newName.trim()) return;
+      const newDesc = prompt('Edit Group Description (optional):', currentDesc || '');
+
+      const grp = cachedHubGroups.find(g => g.id === groupId);
+      const members = (grp?.collaborator_group_members || []).map(m => m.member_email);
+
+      try {
+        const res = await window.MathTreeCollaboration.updateGroup(groupId, newName.trim(), newDesc, members);
+        if (!res.success && res.error) {
+          alert('Failed to update group: ' + res.error);
+          return;
+        }
+        await loadCollaboratorsHubData();
+      } catch (err) {
+        alert('Error updating group: ' + err.message);
+      }
+    }
+    window.handleEditGroupName = handleEditGroupName;
+
+    async function handleAddGroupMemberPrompt(groupId) {
+      const email = prompt('Enter colleague email to add to this group:');
+      if (!email || !email.trim() || !email.includes('@')) return;
+
+      const grp = cachedHubGroups.find(g => g.id === groupId);
+      if (!grp) return;
+      const existing = (grp.collaborator_group_members || []).map(m => m.member_email);
+      if (existing.includes(email.trim().toLowerCase())) {
+        alert('This colleague is already a member of this group.');
+        return;
+      }
+
+      existing.push(email.trim().toLowerCase());
+      try {
+        await window.MathTreeCollaboration.updateGroup(groupId, grp.name, grp.description, existing);
+        await loadCollaboratorsHubData();
+      } catch (err) {
+        alert('Error adding member: ' + err.message);
+      }
+    }
+    window.handleAddGroupMemberPrompt = handleAddGroupMemberPrompt;
+
+    async function handleRemoveGroupMember(groupId, memberEmail) {
+      if (!confirm(`Remove ${memberEmail} from this group?`)) return;
+      const grp = cachedHubGroups.find(g => g.id === groupId);
+      if (!grp) return;
+      const updated = (grp.collaborator_group_members || [])
+        .map(m => m.member_email)
+        .filter(e => e !== memberEmail);
+
+      try {
+        await window.MathTreeCollaboration.updateGroup(groupId, grp.name, grp.description, updated);
+        await loadCollaboratorsHubData();
+      } catch (err) {
+        alert('Error removing member: ' + err.message);
+      }
+    }
+    window.handleRemoveGroupMember = handleRemoveGroupMember;
+
+    async function handleDeleteGroup(groupId) {
+      if (!confirm('Are you sure you want to delete this collaborator group? Shares with this group will be detached.')) return;
+      try {
+        await window.MathTreeCollaboration.deleteGroup(groupId);
+        await loadCollaboratorsHubData();
+      } catch (err) {
+        alert('Error deleting group: ' + err.message);
+      }
+    }
+    window.handleDeleteGroup = handleDeleteGroup;
+
     async function loadCollaboratorsHubData() {
       if (!window.MathTreeCollaboration) return;
       try {
-        const hub = await window.MathTreeCollaboration.getCollaboratorsHub();
-        cachedHubCollaborators = hub.active || [];
-        const incoming = hub.incoming || [];
-        const outgoing = hub.outgoing || [];
+        const hub = await window.MathTreeCollaboration.getHubData();
+        cachedHubGroups = hub.groups || [];
+        cachedDirectCollabs = hub.direct_collaborators || [];
 
         // Badges
-        const bAct = document.getElementById('badge-collab-active');
-        const bInc = document.getElementById('badge-collab-incoming');
-        const bOut = document.getElementById('badge-collab-outgoing');
-        const bHeader = document.getElementById('collab-incoming-badge');
+        const bGrp = document.getElementById('badge-collab-groups');
+        const bDir = document.getElementById('badge-collab-direct');
+        if (bGrp) bGrp.textContent = cachedHubGroups.length;
+        if (bDir) bDir.textContent = cachedDirectCollabs.length;
 
-        if (bAct) bAct.textContent = cachedHubCollaborators.length;
-        if (bInc) bInc.textContent = incoming.length;
-        if (bOut) bOut.textContent = outgoing.length;
-        if (bHeader) {
-          if (incoming.length > 0) {
-            bHeader.textContent = incoming.length;
-            bHeader.classList.remove('hidden');
-          } else {
-            bHeader.classList.add('hidden');
-          }
-        }
-
-        // Active List
-        const activeList = document.getElementById('collab-active-list');
-        if (activeList) {
-          if (cachedHubCollaborators.length === 0) {
-            activeList.innerHTML = `
+        // Render Groups List
+        const groupsList = document.getElementById('collab-groups-list');
+        if (groupsList) {
+          if (cachedHubGroups.length === 0) {
+            groupsList.innerHTML = `
               <div class="text-center py-8 bg-slate-950/40 rounded-2xl border border-slate-800 space-y-2">
                 <span class="text-2xl">👥</span>
-                <p class="text-xs text-slate-400">No active collaborators yet.</p>
-                <p class="text-[11px] text-slate-500">Send an invitation above to start co-underwriting with investment colleagues.</p>
+                <p class="text-xs text-slate-300 font-bold">No collaborator groups yet.</p>
+                <p class="text-[11px] text-slate-500">Create named groups (e.g. Acquisitions, LP Partners) to co-underwrite deals with entire teams in one click.</p>
+                <button type="button" onclick="toggleCreateGroupForm(true)" class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-900/50 transition">
+                  + Create First Group
+                </button>
               </div>
             `;
           } else {
-            activeList.innerHTML = cachedHubCollaborators.map(c => {
-              const d = new Date(c.connected_at);
-              const dateStr = isNaN(d.getTime()) ? 'Recently' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            groupsList.innerHTML = cachedHubGroups.map(g => {
+              const members = g.collaborator_group_members || [];
+              const descStr = g.description ? `<p class="text-[11px] text-slate-400 italic">${escapeHtml(g.description)}</p>` : '';
               return `
-                <div class="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-800 hover:border-slate-700 transition">
-                  <div class="space-y-0.5">
-                    <div class="flex items-center space-x-2">
-                      <span class="font-bold text-white text-xs">${escapeHtml(c.full_name || c.email)}</span>
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Accepted Partner</span>
+                <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 hover:border-slate-700 transition space-y-3 shadow-sm">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="space-y-0.5">
+                      <div class="flex items-center space-x-2">
+                        <h4 class="font-bold text-white text-xs">${escapeHtml(g.name)}</h4>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">${members.length} member${members.length === 1 ? '' : 's'}</span>
+                      </div>
+                      ${descStr}
                     </div>
-                    <div class="text-[11px] text-slate-400 font-mono">
-                      <span>${escapeHtml(c.email)}</span>
-                      ${c.company_name ? `<span> • ${escapeHtml(c.company_name)}</span>` : ''}
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                      <button type="button" onclick="handleEditGroupName('${g.id}', '${escapeHtml(g.name).replace(/'/g, "\\'")}', '${escapeHtml(g.description || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition" title="Edit group name & description">
+                        Edit
+                      </button>
+                      <button type="button" onclick="handleDeleteGroup('${g.id}')" class="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete group">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
                     </div>
-                    <span class="text-[10px] text-slate-500 block">Connected: ${dateStr}</span>
                   </div>
-                  <div class="flex items-center space-x-2">
-                    <span class="text-[11px] text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-xl font-mono">${c.shared_deals_count || 0} Deals</span>
+
+                  <!-- Members Chips -->
+                  <div class="space-y-1.5 pt-1 border-t border-slate-900">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Group Members</span>
+                      <button type="button" onclick="handleAddGroupMemberPrompt('${g.id}')" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300">
+                        + Add Member
+                      </button>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                      ${members.length === 0 ? '<span class="text-[11px] text-slate-500 font-mono italic">No member emails added yet.</span>' : members.map(m => `
+                        <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
+                          <span>${escapeHtml(m.member_email)}</span>
+                          <button type="button" onclick="handleRemoveGroupMember('${g.id}', '${m.member_email}')" class="text-slate-500 hover:text-rose-400 text-xs font-bold leading-none" title="Remove member">✕</button>
+                        </span>
+                      `).join('')}
+                    </div>
                   </div>
                 </div>
               `;
@@ -6741,62 +6929,25 @@
           }
         }
 
-        // Incoming List
-        const incomingList = document.getElementById('collab-incoming-list');
-        if (incomingList) {
-          if (incoming.length === 0) {
-            incomingList.innerHTML = `
+        // Render Direct List
+        const directList = document.getElementById('collab-direct-list');
+        if (directList) {
+          if (cachedDirectCollabs.length === 0) {
+            directList.innerHTML = `
               <div class="text-center py-8 bg-slate-950/40 rounded-2xl border border-slate-800">
-                <p class="text-xs text-slate-500 italic">No pending incoming invitations.</p>
+                <p class="text-xs text-slate-500 italic">No direct collaborators logged yet.</p>
               </div>
             `;
           } else {
-            incomingList.innerHTML = incoming.map(inv => {
-              return `
-                <div class="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-cyan-500/30">
-                  <div class="space-y-0.5">
-                    <div class="flex items-center space-x-2">
-                      <span class="font-bold text-white text-xs">${escapeHtml(inv.requester_name || inv.requester_email)}</span>
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Wants to Connect</span>
-                    </div>
-                    <div class="text-[11px] text-slate-400 font-mono">
-                      <span>${escapeHtml(inv.requester_email)}</span>
-                      ${inv.requester_company ? `<span> • ${escapeHtml(inv.requester_company)}</span>` : ''}
-                    </div>
-                  </div>
-                  <div class="flex items-center space-x-2 shrink-0">
-                    <button type="button" onclick="handleAcceptInvite('${inv.invitation_id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition shadow-sm">
-                      Accept
-                    </button>
-                    <button type="button" onclick="handleDeclineInvite('${inv.invitation_id}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition">
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-        }
-
-        // Outgoing List
-        const outgoingList = document.getElementById('collab-outgoing-list');
-        if (outgoingList) {
-          if (outgoing.length === 0) {
-            outgoingList.innerHTML = `
-              <div class="text-center py-8 bg-slate-950/40 rounded-2xl border border-slate-800">
-                <p class="text-xs text-slate-500 italic">No sent invitations pending acceptance.</p>
-              </div>
-            `;
-          } else {
-            outgoingList.innerHTML = outgoing.map(inv => {
+            directList.innerHTML = cachedDirectCollabs.map(c => {
               return `
                 <div class="flex items-center justify-between p-3 bg-slate-950 rounded-2xl border border-slate-800 text-xs">
                   <div class="space-y-0.5">
-                    <span class="font-bold text-slate-200">${escapeHtml(inv.recipient_email || 'Partner')}</span>
-                    <span class="text-[10px] text-slate-500 block">Sent: ${new Date(inv.sent_at).toLocaleDateString()}</span>
+                    <span class="font-bold text-slate-200">${escapeHtml(c.email)}</span>
+                    <span class="text-[10px] text-slate-500 block">${c.deals_count || 0} Deals Shared</span>
                   </div>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-900 text-slate-400 border border-slate-800">
-                    Awaiting Acceptance
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950/40 text-cyan-400 border border-cyan-800/40">
+                    Direct Colleague
                   </span>
                 </div>
               `;
@@ -6816,64 +6967,44 @@
       if (!email) return;
 
       const btn = document.getElementById('btn-submit-collab-invite');
-      if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+      if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
 
       try {
         const res = await window.MathTreeCollaboration.inviteCollaborator(email);
-        if (!res.success && res.error) {
-          alert('Could not send invitation: ' + res.error);
-          return;
-        }
-
-        alert(res.message || `Invitation sent to ${email}. Once they accept, you can selectively share deals and scenario histories.`);
+        alert(res.message || `Colleague added: ${email}`);
         if (input) input.value = '';
         await loadCollaboratorsHubData();
       } catch (err) {
-        console.error('Error inviting collaborator:', err);
-        alert('Failed to send invitation: ' + (err.message || 'Unknown error'));
+        console.error('Error adding direct collaborator:', err);
+        alert('Failed: ' + (err.message || 'Unknown error'));
       } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Send Invitation'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Add Direct Collaborator'; }
       }
     }
     window.handleSendCollaboratorInvite = handleSendCollaboratorInvite;
 
-    async function handleAcceptInvite(invitationId) {
-      try {
-        const res = await window.MathTreeCollaboration.respondToInvitation(invitationId, 'accept');
-        if (!res.success && res.error) {
-          alert('Error: ' + res.error);
-          return;
-        }
-        alert('Invitation accepted! You are now mutual collaborators.');
-        await loadCollaboratorsHubData();
-        if (typeof loadDashboardProjects === 'function') loadDashboardProjects();
-      } catch (e) {
-        console.error('Error accepting invitation:', e);
-        alert('Failed to accept: ' + e.message);
-      }
-    }
-    window.handleAcceptInvite = handleAcceptInvite;
-
-    async function handleDeclineInvite(invitationId) {
-      if (!confirm('Decline this collaborator invitation?')) return;
-      try {
-        await window.MathTreeCollaboration.respondToInvitation(invitationId, 'decline');
-        await loadCollaboratorsHubData();
-      } catch (e) {
-        console.error('Error declining invitation:', e);
-      }
-    }
-    window.handleDeclineInvite = handleDeclineInvite;
-
     // =========================================================================
     // DASHBOARD DEAL SHARING MODAL WORKFLOW
     // =========================================================================
+    function toggleDashShareTarget(type) {
+      const grpCont = document.getElementById('dash-share-group-container');
+      const directCont = document.getElementById('dash-share-direct-container');
+      if (type === 'group') {
+        grpCont?.classList.remove('hidden');
+        directCont?.classList.add('hidden');
+      } else {
+        grpCont?.classList.add('hidden');
+        directCont?.classList.remove('hidden');
+      }
+    }
+    window.toggleDashShareTarget = toggleDashShareTarget;
+
     async function openDashboardShareDealModal(dealId) {
       currentShareTargetDealId = dealId;
       const modal = document.getElementById('modal-dashboard-share-deal');
       if (!modal) return;
 
-      const deal = activeDashboardProjects.find(d => d.id === dealId);
+      const deal = (typeof activeDashboardProjects !== 'undefined' ? activeDashboardProjects : []).find(d => d.id === dealId);
       const nameEl = document.getElementById('dash-share-deal-name');
       const classEl = document.getElementById('dash-share-deal-class');
       if (nameEl) nameEl.textContent = deal ? (deal.name || deal.title || 'Underwriting Property') : 'Property Deal';
@@ -6882,28 +7013,25 @@
       modal.classList.remove('hidden');
 
       try {
-        const hub = await window.MathTreeCollaboration.getCollaboratorsHub();
-        cachedHubCollaborators = hub.active || [];
+        const hub = await window.MathTreeCollaboration.getHubData();
+        cachedHubGroups = hub.groups || [];
+        cachedDirectCollabs = hub.direct_collaborators || [];
       } catch (e) {
-        console.warn('Error fetching collaborators:', e);
-        cachedHubCollaborators = [];
+        console.warn('Error fetching hub data:', e);
+        cachedHubGroups = [];
+        cachedDirectCollabs = [];
       }
 
-      const picker = document.getElementById('dash-share-collaborator-picker-container');
-      const notice = document.getElementById('dash-share-no-collabs-notice');
-      const select = document.getElementById('dash-share-collaborator-select');
-
-      if (cachedHubCollaborators.length === 0) {
-        picker?.classList.add('hidden');
-        notice?.classList.remove('hidden');
-      } else {
-        notice?.classList.add('hidden');
-        picker?.classList.remove('hidden');
-        if (select) {
-          select.innerHTML = '<option value="">Choose an accepted partner...</option>' +
-            cachedHubCollaborators.map(c => `
-              <option value="${c.collaborator_id}">${escapeHtml(c.full_name || c.email)} (${escapeHtml(c.company_name || 'Independent')})</option>
-            `).join('');
+      const select = document.getElementById('dash-share-group-select');
+      if (select) {
+        if (cachedHubGroups.length === 0) {
+          select.innerHTML = '<option value="">No collaborator groups available. Create one in Collaborators Hub!</option>';
+        } else {
+          select.innerHTML = '<option value="">Choose a collaborator group...</option>' +
+            cachedHubGroups.map(g => {
+              const memCount = (g.collaborator_group_members || []).length;
+              return `<option value="${g.id}">${escapeHtml(g.name)} (${memCount} member${memCount === 1 ? '' : 's'})</option>`;
+            }).join('');
         }
       }
 
@@ -6934,18 +7062,22 @@
             ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Editor</span>'
             : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">Viewer</span>';
 
+          const targetLabel = sh.group_name
+            ? `👥 Group: ${escapeHtml(sh.group_name)}`
+            : `👤 ${escapeHtml(sh.shared_with_email || 'Direct Collaborator')}`;
+
           return `
             <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-xs">
               <div class="space-y-0.5">
                 <div class="flex items-center space-x-2">
-                  <span class="font-bold text-white">${escapeHtml(sh.collaborator_name || sh.collaborator_email || 'Partner')}</span>
+                  <span class="font-bold text-white">${targetLabel}</span>
                   ${permBadge}
                 </div>
                 <div class="text-[10px] text-slate-400 font-mono">
-                  ${escapeHtml(sh.collaborator_email || '')} ${sh.collaborator_company ? '• ' + escapeHtml(sh.collaborator_company) : ''}
+                  Shared: ${new Date(sh.created_at).toLocaleDateString()}
                 </div>
               </div>
-              <button type="button" onclick="handleDashboardRevokeShare('${sh.collaborator_id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-400 hover:text-white hover:bg-rose-600/30 border border-rose-800/40 transition">
+              <button type="button" onclick="handleDashboardRevokeShare('${sh.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-400 hover:text-white hover:bg-rose-600/30 border border-rose-800/40 transition">
                 Revoke Access
               </button>
             </div>
@@ -6958,18 +7090,28 @@
 
     async function handleDashboardShareSubmit() {
       if (!currentShareTargetDealId || !window.MathTreeCollaboration) return;
-      const select = document.getElementById('dash-share-collaborator-select');
+      const isGroup = document.getElementById('dash-target-group')?.checked;
       const permSelect = document.getElementById('dash-share-permission-select');
       const scenariosCheck = document.getElementById('dash-share-scenarios-check');
-      const collabId = select?.value;
-
-      if (!collabId) {
-        alert('Please choose an accepted collaborator from the dropdown.');
-        return;
-      }
-
       const permission = permSelect?.value || 'viewer';
       const canViewScenarios = scenariosCheck ? scenariosCheck.checked : true;
+
+      let target = null;
+      if (isGroup) {
+        const groupId = document.getElementById('dash-share-group-select')?.value;
+        if (!groupId) {
+          alert('Please select a collaborator group from the dropdown.');
+          return;
+        }
+        target = { groupId: groupId };
+      } else {
+        const email = document.getElementById('dash-share-direct-email-input')?.value.trim();
+        if (!email) {
+          alert('Please enter a colleague email address.');
+          return;
+        }
+        target = { email: email };
+      }
 
       const btn = document.getElementById('btn-dash-submit-share');
       if (btn) { btn.disabled = true; btn.textContent = 'Granting...'; }
@@ -6977,7 +7119,7 @@
       try {
         const res = await window.MathTreeCollaboration.shareDeal(
           currentShareTargetDealId,
-          collabId,
+          target,
           permission,
           canViewScenarios
         );
@@ -6987,7 +7129,7 @@
           return;
         }
 
-        alert('Deal successfully shared with collaborator!');
+        alert('Deal successfully shared!');
         renderDashboardActiveShares();
       } catch (e) {
         console.error('Error sharing deal:', e);
@@ -6998,12 +7140,12 @@
     }
     window.handleDashboardShareSubmit = handleDashboardShareSubmit;
 
-    async function handleDashboardRevokeShare(collabId) {
+    async function handleDashboardRevokeShare(shareId) {
       if (!currentShareTargetDealId || !window.MathTreeCollaboration) return;
-      if (!confirm('Revoke this collaborator\'s access to the deal and scenarios?')) return;
+      if (!confirm('Revoke this share access?')) return;
 
       try {
-        await window.MathTreeCollaboration.revokeShare(currentShareTargetDealId, collabId);
+        await window.MathTreeCollaboration.revokeShare(shareId);
         renderDashboardActiveShares();
       } catch (e) {
         console.error('Error revoking share:', e);
