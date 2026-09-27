@@ -19,6 +19,7 @@ const RUNTIME_FILES = [
   // Client scripts & engines
   'session.js',
   'address-service.js',
+  'collaboration-service.js',
   // Favicons & icons
   'favicon.ico',
   'favicon.png',
