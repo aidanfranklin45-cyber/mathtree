@@ -761,85 +761,186 @@
 
     </div>
 
-    <!-- Filter Bar: Status Distinction (Owned vs Prospects) & Asset Classes -->
-    <div class="space-y-4">
-      <div
-        class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-900 pb-3 sm:pb-4">
+    <!-- Main Portfolio & Pipeline Explorer: Amazon-Style Refine Sidebar + Deal Cards Grid -->
+    <div class="flex flex-col lg:flex-row items-start gap-6 pt-1">
 
-        <div class="flex flex-wrap items-center gap-2.5">
-          <!-- Primary Status Filter Pills: Owned Assets (Default Active), Prospects, All Deals -->
-          <div
-            class="flex items-center space-x-1 bg-slate-900/80 p-1 sm:p-1.5 rounded-2xl border border-slate-800 overflow-x-auto max-w-full">
-            <button id="btn-status-owned" onclick="setDashboardStatusFilter('owned')"
-              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm flex items-center space-x-1.5 whitespace-nowrap">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
-              <span>Owned (<span id="count-owned">0</span>)</span>
-            </button>
-            <button id="btn-status-prospect" onclick="setDashboardStatusFilter('prospect')"
-              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5 whitespace-nowrap">
-              <span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span>
-              <span><span class="hidden sm:inline">Prospects / </span>Pipeline (<span id="count-prospect">0</span>)</span>
-            </button>
-            <button id="btn-status-all" onclick="setDashboardStatusFilter('all')"
-              class="px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition whitespace-nowrap">
-              All (<span id="count-all">0</span>)
+      <!-- Mobile Filter Toggle Bar (Visible on mobile/tablet screens only) -->
+      <div class="lg:hidden w-full flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-3 shadow-md">
+        <button type="button" onclick="toggleMobileFilterSidebar()" class="flex items-center space-x-2 text-xs font-bold text-slate-200 hover:text-white">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          <span>Refine & Filter Deals</span>
+          <span id="mobile-filter-badge" class="hidden px-2 py-0.5 rounded-full bg-brand-500/20 border border-brand-500/30 text-emerald-400 text-[10px] font-extrabold">Active</span>
+        </button>
+        <span id="mobile-results-count" class="text-xs font-semibold text-slate-400">0 deals</span>
+      </div>
+
+      <!-- Left Sidebar: Amazon Shopping-Style Refine Panel -->
+      <aside id="dash-filter-sidebar" class="hidden lg:block w-full lg:w-72 shrink-0 space-y-4">
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm space-y-5 shadow-xl">
+
+          <!-- Sidebar Header & Clear All Button -->
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <div class="flex items-center space-x-2">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-200">Refine Deals</h3>
+            </div>
+            <button id="btn-reset-filters" type="button" onclick="resetDashboardFilters()"
+              class="hidden text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition underline underline-offset-2">
+              Clear All
             </button>
           </div>
 
-          <!-- Ownership Entity (LLC) Filter Dropdown -->
-          <div class="relative flex items-center">
-            <select id="dash-entity-filter-select" onchange="handleDashboardEntityFilterChange()"
-              class="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 focus:outline-none focus:border-brand-500 pr-8 appearance-none cursor-pointer shadow-sm">
-              <option value="all">All Entities (Consolidated)</option>
-            </select>
-            <div class="pointer-events-none absolute right-2.5 text-slate-400">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          <!-- 1. Search Box -->
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Search Portfolio</label>
+            <div class="relative">
+              <input type="text" id="dash-search-input" oninput="handleDashboardSearch(this.value)" placeholder="Search address, name, city..."
+                class="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-brand-500 rounded-xl px-3 py-2 pl-8 pr-7 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition">
+              <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <button id="btn-clear-search" type="button" onclick="clearDashboardSearch()" class="hidden absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs">✕</button>
             </div>
           </div>
-          
-          <button type="button" onclick="openEntityManagementModal(event)"
-            class="px-2.5 py-2 rounded-xl text-[11px] font-bold text-slate-400 hover:text-emerald-400 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 transition flex items-center space-x-1"
-            title="Manage Legal Entities (LLCs)">
-            <span>🏛️</span>
-            <span class="hidden sm:inline">LLCs</span>
-          </button>
 
-          <!-- Ownership Scope / Collaboration Filter -->
-          <div class="relative flex items-center">
-            <select id="dash-sharing-filter-select" onchange="handleDashboardSharingFilterChange()"
-              class="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-cyan-400 focus:outline-none focus:border-cyan-500 pr-8 appearance-none cursor-pointer shadow-sm">
-              <option value="all">All Accessible Deals</option>
-              <option value="mine">My Portfolio Only</option>
-              <option value="shared">Shared with Me</option>
-            </select>
-            <div class="pointer-events-none absolute right-2.5 text-slate-400">
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          <!-- 2. Portfolio Status (All deals default, Owned, Prospects) -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Deal Status</label>
+            <div class="space-y-1 text-xs" id="status-filter-group">
+              <button type="button" onclick="setDashboardStatusFilter('all')" id="btn-status-all"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm text-left">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-white"></span>
+                  <span>All Deals</span>
+                </div>
+                <span id="count-all" class="text-[11px] opacity-90">0</span>
+              </button>
+              <button type="button" onclick="setDashboardStatusFilter('owned')" id="btn-status-owned"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span>Owned Portfolio</span>
+                </div>
+                <span id="count-owned" class="text-[11px] text-slate-400">0</span>
+              </button>
+              <button type="button" onclick="setDashboardStatusFilter('prospect')" id="btn-status-prospect"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  <span>Pipeline / Prospects</span>
+                </div>
+                <span id="count-prospect" class="text-[11px] text-slate-400">0</span>
+              </button>
             </div>
+          </div>
+
+          <!-- 3. Property Type (Amazon-style categories) -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Property Type</label>
+            <div class="space-y-1 text-xs" id="dash-filter-container">
+              <button type="button" data-dash-filter="all" onclick="setDashboardAssetFilter('all')"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm text-left">
+                <span>All Property Types</span>
+                <span id="count-asset-all" class="text-[11px] opacity-90">0</span>
+              </button>
+              <button type="button" data-dash-filter="single-family" onclick="setDashboardAssetFilter('single-family')"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2 truncate">
+                  <span>🏡</span>
+                  <span class="truncate">Single Family (SFR)</span>
+                </div>
+                <span id="count-asset-sfr" class="text-[11px] text-slate-400 shrink-0">0</span>
+              </button>
+              <button type="button" data-dash-filter="multi-unit" onclick="setDashboardAssetFilter('multi-unit')"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2 truncate">
+                  <span>🏢</span>
+                  <span class="truncate">Multi-Unit / Apartments</span>
+                </div>
+                <span id="count-asset-multi" class="text-[11px] text-slate-400 shrink-0">0</span>
+              </button>
+              <button type="button" data-dash-filter="commercial" onclick="setDashboardAssetFilter('commercial')"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2 truncate">
+                  <span>🏬</span>
+                  <span class="truncate">Commercial / Retail</span>
+                </div>
+                <span id="count-asset-commercial" class="text-[11px] text-slate-400 shrink-0">0</span>
+              </button>
+              <button type="button" data-dash-filter="storage" onclick="setDashboardAssetFilter('storage')"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2 truncate">
+                  <span>📦</span>
+                  <span class="truncate">Self-Storage</span>
+                </div>
+                <span id="count-asset-storage" class="text-[11px] text-slate-400 shrink-0">0</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4. Ownership Entity (LLC) Dropdown (No redundant manage button) -->
+          <div class="space-y-1.5">
+            <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Holding Entity (LLC)</label>
+            <div class="relative">
+              <select id="dash-entity-filter-select" onchange="handleDashboardEntityFilterChange()"
+                class="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 focus:outline-none focus:border-brand-500 pr-8 appearance-none cursor-pointer shadow-sm">
+                <option value="all">All Entities (Consolidated)</option>
+              </select>
+              <div class="pointer-events-none absolute right-2.5 top-2.5 text-slate-400">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Collaboration Checkbox (Simple checkmark: on or off) -->
+          <div class="pt-3 border-t border-slate-800/80">
+            <label class="flex items-center space-x-2.5 cursor-pointer py-1 text-xs text-slate-300 hover:text-white select-none">
+              <input type="checkbox" id="dash-shared-checkbox" onchange="handleDashboardSharingToggle(this.checked)"
+                class="w-4 h-4 rounded bg-slate-950 border border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer">
+              <span class="font-semibold text-slate-200">Shared with me only</span>
+            </label>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- Right Column: Results Header, Active Filter Chips Bar & Deal Cards Grid -->
+      <div class="flex-grow w-full min-w-0 space-y-4">
+        
+        <!-- Results Bar: Deal Counts, Active Filter Pills & Sort Selector -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/40 border border-slate-900 rounded-2xl px-4 py-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold text-slate-300">
+              Showing <span id="dash-results-count" class="text-emerald-400 font-black">0</span> of <span id="dash-total-count" class="text-slate-400">0</span> deals
+            </span>
+            <div id="dash-active-filter-tags" class="flex flex-wrap items-center gap-1.5 sm:ml-2"></div>
+          </div>
+
+          <!-- Quick Sort Selector -->
+          <div class="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sort:</span>
+            <select id="dash-sort-select" onchange="handleDashboardSortChange(this.value)"
+              class="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-brand-500 cursor-pointer shadow-sm">
+              <option value="newest">Newest First</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="irr-desc">Target IRR: High to Low</option>
+              <option value="coc-desc">CoC Yield: High to Low</option>
+            </select>
           </div>
         </div>
 
-        <!-- Asset Class Filter Pills -->
-        <div
-          class="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-900 overflow-x-auto max-w-full"
-          id="dash-filter-container">
-          <button data-dash-filter="all" onclick="setDashboardAssetFilter('all')"
-            class="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap">All</button>
-          <button data-dash-filter="single-family" onclick="setDashboardAssetFilter('single-family')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">SFR</button>
-          <button data-dash-filter="multi-unit" onclick="setDashboardAssetFilter('multi-unit')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Multi-Unit</button>
-          <button data-dash-filter="commercial" onclick="setDashboardAssetFilter('commercial')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Commercial</button>
-          <button data-dash-filter="storage" onclick="setDashboardAssetFilter('storage')"
-            class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap">Storage</button>
+        <!-- Projects Cards Grid -->
+        <div id="dash-projects-grid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5 sm:gap-6">
+          <!-- Dynamically rendered property cards -->
         </div>
 
       </div>
 
-      <!-- Projects Cards Grid -->
-      <div id="dash-projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Dynamically rendered property cards -->
-      </div>
     </div>
 
   </main>
@@ -2455,8 +2556,11 @@
     };
 
     // System variables
-    let currentStatusFilter = 'owned'; // 'all' | 'prospect' | 'owned'
+    let currentStatusFilter = 'all'; // 'all' | 'prospect' | 'owned' (default resting state is all)
     let currentAssetFilter = 'all';  // 'all' | 'single-family' | 'multi-unit' | 'commercial' | 'storage'
+    let currentSearchQuery = '';
+    let currentSortBy = 'newest';
+    let currentSharedOnly = false;
     let activeDashboardProjects = [];
 
     // Verified real Yakima County Assessor benchmark records (is_demo = true)
@@ -2939,6 +3043,9 @@
       // Populate Entity Dropdowns
       await populateDashboardEntityDropdowns();
 
+      // Sync filter UI with initial resting state
+      updateFilterUIState();
+
       // Render Filtered Project Grid
       renderFilteredGrid();
     }
@@ -3041,71 +3148,239 @@
     }
     window.handleDashboardEntityFilterChange = handleDashboardEntityFilterChange;
 
-    function setDashboardStatusFilter(status) {
-      currentStatusFilter = status;
+    function handleDashboardSearch(val) {
+      currentSearchQuery = (val || '').trim();
+      const clearBtn = document.getElementById('btn-clear-search');
+      if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !currentSearchQuery);
+      }
+      renderFilteredGrid();
+    }
+    window.handleDashboardSearch = handleDashboardSearch;
+
+    function clearDashboardSearch() {
+      currentSearchQuery = '';
+      const input = document.getElementById('dash-search-input');
+      if (input) input.value = '';
+      const clearBtn = document.getElementById('btn-clear-search');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      renderFilteredGrid();
+    }
+    window.clearDashboardSearch = clearDashboardSearch;
+
+    function handleDashboardSharingToggle(checked) {
+      currentSharedOnly = Boolean(checked);
+      renderFilteredGrid();
+    }
+    window.handleDashboardSharingToggle = handleDashboardSharingToggle;
+
+    function handleDashboardSortChange(val) {
+      currentSortBy = val || 'newest';
+      renderFilteredGrid();
+    }
+    window.handleDashboardSortChange = handleDashboardSortChange;
+
+    function toggleMobileFilterSidebar() {
+      const sidebar = document.getElementById('dash-filter-sidebar');
+      if (sidebar) {
+        sidebar.classList.toggle('hidden');
+      }
+    }
+    window.toggleMobileFilterSidebar = toggleMobileFilterSidebar;
+
+    function resetDashboardFilters() {
+      currentStatusFilter = 'all';
+      currentAssetFilter = 'all';
+      currentSearchQuery = '';
+      currentSortBy = 'newest';
+      currentSharedOnly = false;
+
+      const searchInput = document.getElementById('dash-search-input');
+      if (searchInput) searchInput.value = '';
+      const clearSearchBtn = document.getElementById('btn-clear-search');
+      if (clearSearchBtn) clearSearchBtn.classList.add('hidden');
+
+      const sharedCheckbox = document.getElementById('dash-shared-checkbox');
+      if (sharedCheckbox) sharedCheckbox.checked = false;
+
+      const entitySelect = document.getElementById('dash-entity-filter-select');
+      if (entitySelect) entitySelect.value = 'all';
+      try { localStorage.removeItem('mathtree_selected_entity_id'); } catch (e) {}
+
+      const sortSelect = document.getElementById('dash-sort-select');
+      if (sortSelect) sortSelect.value = 'newest';
+
+      updateFilterUIState();
+      renderFilteredGrid();
+    }
+    window.resetDashboardFilters = resetDashboardFilters;
+
+    function updateFilterUIState() {
+      const activeClass = 'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm text-left';
+      const inactiveClass = 'w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left';
+
+      // Status buttons
       const btnAll = document.getElementById('btn-status-all');
       const btnPros = document.getElementById('btn-status-prospect');
       const btnOwn = document.getElementById('btn-status-owned');
 
-      const inactive = 'px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition whitespace-nowrap';
-      const active = 'px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm whitespace-nowrap';
+      if (btnAll) btnAll.className = currentStatusFilter === 'all' ? activeClass : inactiveClass;
+      if (btnPros) btnPros.className = currentStatusFilter === 'prospect' ? activeClass : inactiveClass;
+      if (btnOwn) btnOwn.className = currentStatusFilter === 'owned' ? activeClass : inactiveClass;
 
-      if (btnAll) btnAll.className = status === 'all' ? active : inactive;
-      if (btnPros) btnPros.className = (status === 'prospect' ? active : inactive) + ' flex items-center space-x-1.5';
-      if (btnOwn) btnOwn.className = (status === 'owned' ? active : inactive) + ' flex items-center space-x-1.5';
+      // Asset buttons
+      document.querySelectorAll('#dash-filter-container button').forEach(btn => {
+        const a = btn.getAttribute('data-dash-filter');
+        btn.className = (a === currentAssetFilter) ? activeClass : inactiveClass;
+      });
+    }
 
+    function setDashboardStatusFilter(status) {
+      currentStatusFilter = status;
+      updateFilterUIState();
       renderFilteredGrid();
     }
+    window.setDashboardStatusFilter = setDashboardStatusFilter;
 
     function setDashboardAssetFilter(asset) {
       currentAssetFilter = asset;
-      document.querySelectorAll('#dash-filter-container button').forEach(btn => {
-        const a = btn.getAttribute('data-dash-filter');
-        if (a === asset) {
-          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-brand-600 whitespace-nowrap';
-        } else {
-          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white whitespace-nowrap';
-        }
-      });
+      updateFilterUIState();
       renderFilteredGrid();
     }
+    window.setDashboardAssetFilter = setDashboardAssetFilter;
 
     function renderFilteredGrid() {
       const grid = document.getElementById('dash-projects-grid');
       if (!grid) return;
 
-      let filtered = activeDashboardProjects;
+      let filtered = [...activeDashboardProjects];
 
+      // 1. Text Search Filter
+      if (currentSearchQuery) {
+        const q = currentSearchQuery.toLowerCase();
+        filtered = filtered.filter(d => {
+          const name = (d.deal_name || d.name || '').toLowerCase();
+          const addr = (d.property_address || d.address || d.location || '').toLowerCase();
+          const city = (d.city || '').toLowerCase();
+          return name.includes(q) || addr.includes(q) || city.includes(q);
+        });
+      }
+
+      // 2. Legal Entity Filter
       const entityFilter = document.getElementById('dash-entity-filter-select')?.value || 'all';
       if (entityFilter !== 'all') {
         filtered = filtered.filter(d => d.entity_id === entityFilter || d.inputs?.entity_id === entityFilter);
       }
 
-      const sharingFilter = document.getElementById('dash-sharing-filter-select')?.value || 'all';
-      if (sharingFilter === 'mine') {
-        filtered = filtered.filter(d => !d.is_shared);
-      } else if (sharingFilter === 'shared') {
+      // 3. Shared With Me Checkbox
+      const sharedCheckbox = document.getElementById('dash-shared-checkbox');
+      const sharedOnly = sharedCheckbox ? sharedCheckbox.checked : currentSharedOnly;
+      if (sharedOnly) {
         filtered = filtered.filter(d => !!d.is_shared);
       }
 
+      // 4. Status Filter
       if (currentStatusFilter !== 'all') {
         filtered = filtered.filter(d => (d.status || 'prospect') === currentStatusFilter);
       }
+
+      // 5. Property / Asset Type Filter
       if (currentAssetFilter !== 'all') {
         filtered = filtered.filter(d => (d.asset_class || d.assetType) === currentAssetFilter);
       }
 
-      // Update count badges
-      const allMatchingEntity = (entityFilter === 'all')
-        ? activeDashboardProjects
-        : activeDashboardProjects.filter(d => d.entity_id === entityFilter || d.inputs?.entity_id === entityFilter);
-      const ownedMatches = allMatchingEntity.filter(d => (d.status || 'prospect') === 'owned').length;
-      const pipelineMatches = allMatchingEntity.filter(d => (d.status || 'prospect') !== 'owned').length;
+      // 6. Sorting
+      if (currentSortBy === 'price-desc') {
+        filtered.sort((a, b) => (parseFloat(b.purchase_price) || 0) - (parseFloat(a.purchase_price) || 0));
+      } else if (currentSortBy === 'price-asc') {
+        filtered.sort((a, b) => (parseFloat(a.purchase_price) || 0) - (parseFloat(b.purchase_price) || 0));
+      } else if (currentSortBy === 'irr-desc') {
+        filtered.sort((a, b) => (parseFloat(b.irr) || 0) - (parseFloat(a.irr) || 0));
+      } else if (currentSortBy === 'coc-desc') {
+        filtered.sort((a, b) => {
+          const cocA = a.cash_on_cash !== undefined ? parseFloat(a.cash_on_cash) : (parseFloat(a.metrics?.year1CoC) || 0);
+          const cocB = b.cash_on_cash !== undefined ? parseFloat(b.cash_on_cash) : (parseFloat(b.metrics?.year1CoC) || 0);
+          return (cocB || 0) - (cocA || 0);
+        });
+      } else {
+        // 'newest' default
+        filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      }
+
+      // Dynamic Amazon-Style Counts based on current Entity, Shared & Search filters
+      let baseForCounts = activeDashboardProjects;
+      if (entityFilter !== 'all') {
+        baseForCounts = baseForCounts.filter(d => d.entity_id === entityFilter || d.inputs?.entity_id === entityFilter);
+      }
+      if (sharedOnly) {
+        baseForCounts = baseForCounts.filter(d => !!d.is_shared);
+      }
+      if (currentSearchQuery) {
+        const q = currentSearchQuery.toLowerCase();
+        baseForCounts = baseForCounts.filter(d => {
+          const name = (d.deal_name || d.name || '').toLowerCase();
+          const addr = (d.property_address || d.address || d.location || '').toLowerCase();
+          const city = (d.city || '').toLowerCase();
+          return name.includes(q) || addr.includes(q) || city.includes(q);
+        });
+      }
+
+      const ownedMatches = baseForCounts.filter(d => (d.status || 'prospect') === 'owned').length;
+      const pipelineMatches = baseForCounts.filter(d => (d.status || 'prospect') !== 'owned').length;
+
+      const sfrMatches = baseForCounts.filter(d => (d.asset_class || d.assetType) === 'single-family').length;
+      const multiMatches = baseForCounts.filter(d => (d.asset_class || d.assetType) === 'multi-unit').length;
+      const commMatches = baseForCounts.filter(d => (d.asset_class || d.assetType) === 'commercial').length;
+      const storMatches = baseForCounts.filter(d => (d.asset_class || d.assetType) === 'storage').length;
 
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-      setEl('count-all', allMatchingEntity.length);
+      setEl('count-all', baseForCounts.length);
       setEl('count-prospect', pipelineMatches);
       setEl('count-owned', ownedMatches);
+
+      setEl('count-asset-all', baseForCounts.length);
+      setEl('count-asset-sfr', sfrMatches);
+      setEl('count-asset-multi', multiMatches);
+      setEl('count-asset-commercial', commMatches);
+      setEl('count-asset-storage', storMatches);
+
+      // Results header count
+      setEl('dash-results-count', filtered.length);
+      setEl('dash-total-count', activeDashboardProjects.length);
+      setEl('mobile-results-count', `${filtered.length} ${filtered.length === 1 ? 'deal' : 'deals'}`);
+
+      // Active filters badge & Reset button
+      const isAnyFilterActive = currentStatusFilter !== 'all' || currentAssetFilter !== 'all' || currentSearchQuery || entityFilter !== 'all' || sharedOnly || currentSortBy !== 'newest';
+      const resetBtn = document.getElementById('btn-reset-filters');
+      if (resetBtn) resetBtn.classList.toggle('hidden', !isAnyFilterActive);
+
+      const mobileBadge = document.getElementById('mobile-filter-badge');
+      if (mobileBadge) mobileBadge.classList.toggle('hidden', !isAnyFilterActive);
+
+      // Render Active Filter Tags Pills
+      const tagsContainer = document.getElementById('dash-active-filter-tags');
+      if (tagsContainer) {
+        let tagHtml = '';
+        if (currentStatusFilter !== 'all') {
+          const sLabel = currentStatusFilter === 'owned' ? 'Owned' : 'Pipeline';
+          tagHtml += `<button type="button" onclick="setDashboardStatusFilter('all')" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>Status: ${sLabel}</span><span class="text-slate-400">×</span></button>`;
+        }
+        if (currentAssetFilter !== 'all') {
+          const assetLabels = { 'single-family': 'SFR', 'multi-unit': 'Multi-Unit', 'commercial': 'Commercial', 'storage': 'Storage' };
+          tagHtml += `<button type="button" onclick="setDashboardAssetFilter('all')" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>Type: ${assetLabels[currentAssetFilter] || currentAssetFilter}</span><span class="text-slate-400">×</span></button>`;
+        }
+        if (entityFilter !== 'all') {
+          const entName = (window._dashboardEntities || []).find(e => e.id === entityFilter)?.name || 'Entity';
+          tagHtml += `<button type="button" onclick="document.getElementById('dash-entity-filter-select').value='all'; handleDashboardEntityFilterChange();" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>LLC: ${entName}</span><span class="text-slate-400">×</span></button>`;
+        }
+        if (sharedOnly) {
+          tagHtml += `<button type="button" onclick="const cb=document.getElementById('dash-shared-checkbox'); if(cb) cb.checked=false; handleDashboardSharingToggle(false);" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>Shared with me</span><span class="text-slate-400">×</span></button>`;
+        }
+        if (currentSearchQuery) {
+          tagHtml += `<button type="button" onclick="clearDashboardSearch()" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>"${currentSearchQuery}"</span><span class="text-slate-400">×</span></button>`;
+        }
+        tagsContainer.innerHTML = tagHtml;
+      }
 
       if (filtered.length === 0) {
         if (activeDashboardProjects.length === 0) {
