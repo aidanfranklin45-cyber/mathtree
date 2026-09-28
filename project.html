@@ -320,13 +320,8 @@
               </div>
             </div>
             <a id="header-apn-badge" href="https://yes.co.yakima.wa.us/ascend/" target="_blank" rel="noopener noreferrer" class="hidden items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-[10px] font-semibold hover:border-emerald-700 transition" title="Open official Yakima County Assessor Tax Card">
-              <span>🏛️ <span id="header-apn-text">Yakima APN</span> ↗</span>
+              <span><span id="header-apn-text">Yakima APN</span> ↗</span>
             </a>
-            <div id="header-gis-sync-badge" class="hidden items-center space-x-1 text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span id="header-gis-sync-text">GIS Synced</span>
-              <button onclick="forceRefreshCountyGis()" class="text-emerald-400 hover:text-white font-bold ml-0.5" title="Force Refresh from Yakima County GIS">🔄</button>
-            </div>
           </div>
         </div>
       </div>
@@ -510,9 +505,7 @@
     <div id="project-sensitivity-summary-card" class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-lg backdrop-blur-sm transition">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-800/80">
         <div class="flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span class="text-xs font-extrabold uppercase tracking-wider text-white">Underwriting Sensitivity &amp; Parameter Variance</span>
-          <span id="auto-run-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Auto-Tracking Active</span>
         </div>
         <div class="flex items-center space-x-2 shrink-0">
           <span class="text-[11px] text-slate-400 font-mono" id="auto-runs-counter">0 runs logged</span>
@@ -1294,14 +1287,9 @@
           <!-- Property & Municipal Snapshot Card -->
           <div class="bg-slate-900/40 border border-slate-900 hover:border-slate-800 p-5 rounded-2xl shadow-xl transition space-y-4">
             <div class="flex items-center justify-between border-b border-slate-900 pb-3">
-              <div class="flex items-center space-x-2.5">
-                <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-sm">🏛️</div>
-                <div>
-                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Property & Site Snapshot</h3>
-                  <span id="overview-snapshot-county-subtitle" class="text-[10px] text-emerald-400">County Assessor Data</span>
-                </div>
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Property &amp; Site Details</h3>
               </div>
-              <span id="overview-property-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">GIS Synced</span>
             </div>
 
             <div class="grid grid-cols-2 gap-3 text-xs">
@@ -1329,12 +1317,9 @@
 
             <!-- Tenancy & Rent Roll Summary Banner -->
             <div id="overview-snapshot-tenancy-banner" class="p-3 rounded-xl bg-slate-950/80 border border-slate-900 text-xs flex items-center justify-between shadow-inner">
-              <div class="flex items-center space-x-2.5 min-w-0">
-                <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-sm shrink-0">👥</div>
-                <div class="min-w-0">
-                  <span id="overview-snapshot-tenancy-title" class="font-bold text-white text-[11px] block truncate">Single-Tenant Asset</span>
-                  <span id="overview-snapshot-tenancy-subtitle" class="text-[10px] text-slate-400 block truncate">100% Occupied</span>
-                </div>
+              <div class="min-w-0">
+                <span id="overview-snapshot-tenancy-title" class="font-bold text-white text-[11px] block truncate">Single-Tenant Asset</span>
+                <span id="overview-snapshot-tenancy-subtitle" class="text-[10px] text-slate-400 block truncate">100% Occupied</span>
               </div>
               <button type="button" onclick="navigateToOperations(event)" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-emerald-400 border border-slate-800 hover:border-emerald-500/40 transition flex items-center space-x-1 cursor-pointer">
                 <span>Rent Roll</span>
@@ -1343,7 +1328,7 @@
             </div>
 
             <button type="button" onclick="switchDealTab('property')" class="w-full py-2.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center justify-center space-x-2 transition shadow-sm group">
-              <span>View Full County Assessor Records & GIS Dossier</span>
+              <span>View Property Records &amp; Details</span>
               <span class="text-emerald-400 group-hover:translate-x-1 transition-transform">➔</span>
             </button>
           </div>
@@ -1351,14 +1336,9 @@
           <!-- Financing & Capital Structure Snapshot Card -->
           <div class="bg-slate-900/40 border border-slate-900 hover:border-slate-800 p-5 rounded-2xl shadow-xl transition space-y-4">
             <div class="flex items-center justify-between border-b border-slate-900 pb-3">
-              <div class="flex items-center space-x-2.5">
-                <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-sm">🏦</div>
-                <div>
-                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Financing & Debt Structure</h3>
-                  <span class="text-[10px] text-cyan-400">Institutional Capitalization</span>
-                </div>
+              <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Financing &amp; Debt Structure</h3>
               </div>
-              <span id="overview-debt-badge" class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">DSCR Verified</span>
             </div>
 
             <div class="grid grid-cols-2 gap-3 text-xs">
@@ -1820,7 +1800,7 @@
           <div class="p-3 bg-slate-950/50 rounded-2xl border border-slate-900 space-y-1.5 text-xs">
             <div class="flex items-center justify-between">
               <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500">Owner of Record</span>
-              <span id="dossier-sync-status" class="text-[10px] font-bold text-emerald-400">Live GIS Active</span>
+              <span id="dossier-sync-status" class="text-[10px] font-bold text-slate-400">County Records</span>
             </div>
             <p id="dossier-owner-name" class="text-xs font-semibold text-slate-200 truncate">--</p>
             <p id="dossier-legal-desc" class="text-[10px] text-slate-500 truncate pt-1 border-t border-slate-900/80">--</p>
@@ -1830,7 +1810,6 @@
           <div id="proj-multi-parcel-panel" class="hidden p-3 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2.5 text-xs">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-1.5">
-                <span class="text-sm">📦</span>
                 <span class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">Multi-Parcel Package</span>
               </div>
               <span id="proj-multi-parcel-count-badge" class="text-[9px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded">Companion Parcel Found</span>
@@ -8140,12 +8119,9 @@
 
       const syncStatusEl = document.getElementById('dossier-sync-status');
       if (syncStatusEl) {
-        if (lastSync) {
-          syncStatusEl.textContent = 'Live GIS Synced';
-          syncStatusEl.className = 'text-[10px] font-bold text-emerald-400';
-        } else if (propApn) {
-          syncStatusEl.textContent = 'Verified County Parcel';
-          syncStatusEl.className = 'text-[10px] font-bold text-emerald-400';
+        if (lastSync || propApn) {
+          syncStatusEl.textContent = 'County Records';
+          syncStatusEl.className = 'text-[10px] font-bold text-slate-400';
         } else {
           syncStatusEl.textContent = 'Manual Underwriting';
           syncStatusEl.className = 'text-[10px] font-bold text-slate-400';
