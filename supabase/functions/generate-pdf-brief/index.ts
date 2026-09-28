@@ -968,7 +968,7 @@ function buildPortfolioBriefHtml(portfolio: any): string {
           <th style="padding: 4px 6px; text-align: left;">Property Name & Location</th>
           <th style="padding: 4px 6px; text-align: center;">Assessor APN</th>
           <th style="padding: 4px 6px; text-align: left;">Strategy / Class</th>
-          <th style="padding: 4px 6px;">Cost Basis</th>
+          <th style="padding: 4px 6px;">Current Value</th>
           <th style="padding: 4px 6px;">Annual NOI</th>
           <th style="padding: 4px 6px;">Debt Service</th>
           <th style="padding: 4px 6px; color: #059669;">Net Cash Flow</th>
@@ -1145,25 +1145,132 @@ function aggregateDealsToPortfolio(deals: any[], meta: any = {}) {
 
   let ownedGAV = 0, ownedEquity = 0, ownedDebt = 0, ownedCashFlow = 0, ownedNoi = 0, ownedDebtService = 0;
   let ownedUnits = 0, ownedCommercialSqFt = 0, ownedAcres = 0;
+  const today = new Date();
+  const targetYear = today.getFullYear();
+  const targetMonth = today.getMonth() + 1;
 
   const ownedHoldings = owned.map(d => {
-    const price = parseFloat(d.purchase_price || d.inputs?.purchasePrice || 0);
-    const eq = parseFloat(d.total_equity || d.metrics?.initialCashInvested || (price * 0.25));
-    const debt = Math.max(0, price - eq);
-    const cf = parseFloat(d.year1_cashflow || d.metrics?.projections?.[0]?.cashFlow || 0);
-    const noi = parseFloat(d.metrics?.noi || d.metrics?.projections?.[0]?.netOperatingIncome || 0);
-    const debtService = parseFloat(d.metrics?.annualDebtService || d.metrics?.projections?.[0]?.debtService || 0);
-    const dscr = d.metrics?.dscr || (debtService > 0 ? (noi / debtService).toFixed(2) : 'N/A');
-    const capRate = parseFloat(d.metrics?.capRate || d.cap_rate || 0);
     const inp = d.inputs || {};
     const rawAssessor = inp.assessorData || {};
+    const price = parseFloat(d.purchase_price || inp.purchasePrice || 0);
 
-    ownedGAV += price;
-    ownedEquity += eq;
-    ownedDebt += debt;
-    ownedCashFlow += cf;
-    ownedNoi += noi;
-    ownedDebtService += debtService;
+    // Resolve closing date
+    const closeVal = inp.closingDate || inp.loiDate || d.closing_date;
+    let closeYear = targetYear;
+    let closeMonth = targetMonth;
+
+    if (closeVal) {
+      const m = String(closeVal).match(/(\d{4})[-/](\d{1,2})/);
+      if (m) {
+        closeYear = parseInt(m[1], 10);
+        closeMonth = parseInt(m[2], 10);
+      } else {
+        const dt = new Date(closeVal);
+        if (!isNaN(dt.getFullYear()) && dt.getFullYear() >= 1900) {
+          closeYear = dt.getFullYear();
+          closeMonth = dt.getMonth() + 1;
+        }
+      }
+    }
+
+    const monthsElapsed = Math.max(0, (targetYear - closeYear) * 12 + (targetMonth - closeMonth));
+
+    // Financing parameters
+    const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+    const termYears = parseFloat(inp.loanTerm || 30);
+    const rate = parseFloat(inp.interestRate || 6.5);
+    const finType = String(inp.financingType || 'fixed').toLowerCase();
+    const ioYears = parseInt(inp.interestOnlyYears || 0, 10);
+    const ioMonths = ioYears * 12;
+
+    let baseLoanAmount = 0;
+    if (d.metrics && (d.metrics.loanAmount !== undefined && d.metrics.loanAmount !== null)) {
+      baseLoanAmount = parseFloat(d.metrics.loanAmount);
+    } else if (downPct === 0) {
+      baseLoanAmount = price;
+    } else {
+      baseLoanAmount = Math.max(0, price * (1 - downPct / 100));
+    }
+    if (inp.financeRehabAndClosingCosts || inp.rehabFinancingMode === 'roll_into_loan') {
+      baseLoanAmount += parseFloat(inp.rehabCosts || 0) + parseFloat(inp.closingCosts || 0);
+    }
+
+    // Exact Month-by-Month Amortization
+    let currentDebt = baseLoanAmount;
+    if (baseLoanAmount > 0 && termYears > 0) {
+      const totalLoanMonths = termYears * 12;
+      if (monthsElapsed >= totalLoanMonths) {
+        currentDebt = 0;
+      } else {
+        const isIO = (finType === 'interest_only' && monthsElapsed < ioMonths) ||
+                     (finType === 'bridge') ||
+                     (finType === 'seller_financing' && ioMonths > 0 && monthsElapsed < ioMonths);
+
+        if (isIO) {
+          currentDebt = baseLoanAmount;
+        } else {
+          const amortMonthsElapsed = (finType === 'interest_only' || finType === 'seller_financing')
+            ? Math.max(0, monthsElapsed - ioMonths)
+            : monthsElapsed;
+          const amortTotalMonths = (finType === 'interest_only' || finType === 'seller_financing')
+            ? Math.max(1, totalLoanMonths - ioMonths)
+            : totalLoanMonths;
+
+          const r = (rate / 100) / 12;
+          if (r === 0) {
+            currentDebt = Math.max(0, baseLoanAmount * (1 - amortMonthsElapsed / amortTotalMonths));
+          } else {
+            const mp = (baseLoanAmount * (r * Math.pow(1 + r, amortTotalMonths))) / (Math.pow(1 + r, amortTotalMonths) - 1);
+            currentDebt = Math.max(0, baseLoanAmount * Math.pow(1 + r, amortMonthsElapsed) - (mp * (Math.pow(1 + r, amortMonthsElapsed) - 1)) / r);
+          }
+        }
+      }
+    }
+
+    // Exact Month-by-Month Appreciation
+    const appRate = parseFloat(inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0));
+    const currentVal = price > 0 ? (price * Math.pow(1 + appRate / 100, monthsElapsed / 12)) : price;
+    const currentEq = Math.max(0, currentVal - currentDebt);
+
+    // Active Cash Flow & NOI
+    const yearOffset = Math.floor(monthsElapsed / 12);
+    const projList = (d.metrics && Array.isArray(d.metrics.projections)) ? d.metrics.projections : [];
+    const activeProj = projList.length > 0 ? (projList[Math.min(projList.length - 1, yearOffset)] || projList[0]) : null;
+
+    let currentNoi = 0;
+    let currentDebtService = 0;
+    let currentCf = 0;
+
+    if (activeProj) {
+      currentNoi = parseFloat(activeProj.netOperatingIncome || 0);
+      currentDebtService = parseFloat(activeProj.debtService || activeProj.annualDebtService || 0);
+      currentCf = parseFloat(activeProj.cashFlow ?? activeProj.netCashFlow ?? (currentNoi - currentDebtService));
+    } else {
+      const leases = Array.isArray(inp.leases) ? inp.leases : [];
+      let grossAnnualRent = leases.reduce((sum: number, l: any) => sum + (parseFloat(l.annualRent) || (parseFloat(l.monthlyRent) * 12) || 0), 0);
+      if (!grossAnnualRent && inp.monthlyRent) grossAnnualRent = parseFloat(inp.monthlyRent) * 12;
+      if (!grossAnnualRent && inp.grossRentAnnual) grossAnnualRent = parseFloat(inp.grossRentAnnual);
+
+      const vacRate = parseFloat(inp.vacancyRate || 5) / 100;
+      const opexRate = parseFloat(inp.expenseRatio || inp.operatingExpenseRatio || 35) / 100;
+      const egi = grossAnnualRent * (1 - vacRate);
+      currentNoi = egi * (1 - opexRate);
+
+      const r = (rate / 100) / 12;
+      const mp = baseLoanAmount > 0 ? ((baseLoanAmount * (r * Math.pow(1 + r, termYears * 12))) / (Math.pow(1 + r, termYears * 12) - 1)) : 0;
+      currentDebtService = mp * 12;
+      currentCf = currentNoi - currentDebtService;
+    }
+
+    const dynamicDscr = currentDebtService > 0 ? (currentNoi / currentDebtService).toFixed(2) : 'N/A';
+    const dynamicCapRate = (currentVal > 0 && currentNoi > 0) ? ((currentNoi / currentVal) * 100) : 0;
+
+    ownedGAV += currentVal;
+    ownedEquity += currentEq;
+    ownedDebt += currentDebt;
+    ownedCashFlow += currentCf;
+    ownedNoi += currentNoi;
+    ownedDebtService += currentDebtService;
 
     const acres = parseFloat(rawAssessor.acres || inp.acres || 0);
     ownedAcres += acres;
@@ -1177,15 +1284,16 @@ function aggregateDealsToPortfolio(deals: any[], meta: any = {}) {
       status: 'owned',
       assetClass: d.asset_type || d.asset_class || 'commercial',
       facilityType: inp.facilityType || (d.asset_type === 'commercial' ? 'Commercial Real Estate' : d.asset_type),
-      price,
-      equity: eq,
-      debt,
-      cashFlow: cf,
-      coc: eq > 0 ? ((cf / eq) * 100) : 0,
-      noi,
-      debtService,
-      dscr,
-      capRate,
+      price: currentVal,
+      acquisitionPrice: price,
+      equity: currentEq,
+      debt: currentDebt,
+      cashFlow: currentCf,
+      coc: currentEq > 0 ? ((currentCf / currentEq) * 100) : 0,
+      noi: currentNoi,
+      debtService: currentDebtService,
+      dscr: dynamicDscr,
+      capRate: dynamicCapRate,
       apn: rawAssessor.apn || inp.primaryApn || inp.apn || 'Pending Link',
       county: rawAssessor.county || inp.county || 'Yakima County, WA',
       acres,

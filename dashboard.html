@@ -2779,6 +2779,159 @@
     }
     window.exitDemoMode = exitDemoMode;
 
+    // === Continuous Month-by-Month Financial Calculation Resolver ===
+    function resolvePointInTimeDealMetrics(d, targetDate = new Date()) {
+      const isOwned = d.status === 'owned';
+      const inp = d.inputs || {};
+      const price = parseFloat(d.purchase_price || inp.purchasePrice || 0);
+
+      if (!isOwned) {
+        const eq = parseFloat(d.total_equity || inp.initialCashInvested || (price * 0.25));
+        const debt = Math.max(0, price - eq);
+        const cf = parseFloat(d.year1_cashflow !== undefined && d.year1_cashflow !== null ? d.year1_cashflow : (d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow ?? 0)) || 0;
+        const irr = parseFloat(d.irr || d.metrics?.irr || 0);
+        return {
+          currentVal: price,
+          currentDebt: debt,
+          currentEquity: eq,
+          currentCashFlow: cf,
+          currentNoi: parseFloat(d.metrics?.noi || 0),
+          currentDebtService: parseFloat(d.metrics?.annualDebtService || 0),
+          irr: irr,
+          ltv: price > 0 ? Math.round((debt / price) * 100) : 0,
+          monthsElapsed: 0,
+          label: 'Acquisition'
+        };
+      }
+
+      // Resolve closing date
+      const closeVal = inp.closingDate || inp.loiDate || d.closing_date;
+      let closeYear = targetDate.getFullYear();
+      let closeMonth = targetDate.getMonth() + 1;
+
+      if (closeVal) {
+        const m = String(closeVal).match(/(\d{4})[-/](\d{1,2})/);
+        if (m) {
+          closeYear = parseInt(m[1], 10);
+          closeMonth = parseInt(m[2], 10);
+        } else {
+          const dt = new Date(closeVal);
+          if (!isNaN(dt.getFullYear()) && dt.getFullYear() >= 1900) {
+            closeYear = dt.getFullYear();
+            closeMonth = dt.getMonth() + 1;
+          }
+        }
+      }
+
+      const targetYear = targetDate.getFullYear();
+      const targetMonth = targetDate.getMonth() + 1;
+      const monthsElapsed = Math.max(0, (targetYear - closeYear) * 12 + (targetMonth - closeMonth));
+
+      // Financing parameters
+      const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+      const termYears = parseFloat(inp.loanTerm || 30);
+      const rate = parseFloat(inp.interestRate || 6.5);
+      const finType = String(inp.financingType || 'fixed').toLowerCase();
+      const ioYears = parseInt(inp.interestOnlyYears || 0, 10);
+      const ioMonths = ioYears * 12;
+
+      let baseLoanAmount = 0;
+      if (d.metrics && (d.metrics.loanAmount !== undefined && d.metrics.loanAmount !== null)) {
+        baseLoanAmount = parseFloat(d.metrics.loanAmount);
+      } else if (downPct === 0) {
+        baseLoanAmount = price;
+      } else {
+        baseLoanAmount = Math.max(0, price * (1 - downPct / 100));
+      }
+      if (inp.financeRehabAndClosingCosts || inp.rehabFinancingMode === 'roll_into_loan') {
+        baseLoanAmount += parseFloat(inp.rehabCosts || 0) + parseFloat(inp.closingCosts || 0);
+      }
+
+      // Exact Month-by-Month Amortization
+      let currentDebt = baseLoanAmount;
+      if (baseLoanAmount > 0 && termYears > 0) {
+        const totalLoanMonths = termYears * 12;
+        if (monthsElapsed >= totalLoanMonths) {
+          currentDebt = 0;
+        } else {
+          const isIO = (finType === 'interest_only' && monthsElapsed < ioMonths) ||
+                       (finType === 'bridge') ||
+                       (finType === 'seller_financing' && ioMonths > 0 && monthsElapsed < ioMonths);
+
+          if (isIO) {
+            currentDebt = baseLoanAmount;
+          } else {
+            const amortMonthsElapsed = (finType === 'interest_only' || finType === 'seller_financing')
+              ? Math.max(0, monthsElapsed - ioMonths)
+              : monthsElapsed;
+            const amortTotalMonths = (finType === 'interest_only' || finType === 'seller_financing')
+              ? Math.max(1, totalLoanMonths - ioMonths)
+              : totalLoanMonths;
+
+            const r = (rate / 100) / 12;
+            if (r === 0) {
+              currentDebt = Math.max(0, baseLoanAmount * (1 - amortMonthsElapsed / amortTotalMonths));
+            } else {
+              const mp = (baseLoanAmount * (r * Math.pow(1 + r, amortTotalMonths))) / (Math.pow(1 + r, amortTotalMonths) - 1);
+              currentDebt = Math.max(0, baseLoanAmount * Math.pow(1 + r, amortMonthsElapsed) - (mp * (Math.pow(1 + r, amortMonthsElapsed) - 1)) / r);
+            }
+          }
+        }
+      }
+
+      // Exact Month-by-Month Appreciation
+      const appRate = parseFloat(inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0));
+      const currentVal = price > 0 ? (price * Math.pow(1 + appRate / 100, monthsElapsed / 12)) : price;
+      const currentEquity = Math.max(0, currentVal - currentDebt);
+      const ltv = currentVal > 0 ? Math.round((currentDebt / currentVal) * 100) : 0;
+
+      // Active Cash Flow & NOI from projection or in-place rents
+      const yearOffset = Math.floor(monthsElapsed / 12);
+      const projList = (d.metrics && Array.isArray(d.metrics.projections)) ? d.metrics.projections : [];
+      const activeProj = projList.length > 0 ? (projList[Math.min(projList.length - 1, yearOffset)] || projList[0]) : null;
+
+      let currentNoi = 0;
+      let currentDebtService = 0;
+      let currentCashFlow = 0;
+
+      if (activeProj) {
+        currentNoi = parseFloat(activeProj.netOperatingIncome || 0);
+        currentDebtService = parseFloat(activeProj.debtService || activeProj.annualDebtService || 0);
+        currentCashFlow = parseFloat(activeProj.cashFlow ?? activeProj.netCashFlow ?? (currentNoi - currentDebtService));
+      } else {
+        const leases = Array.isArray(inp.leases) ? inp.leases : [];
+        let grossAnnualRent = leases.reduce((sum, l) => sum + (parseFloat(l.annualRent) || (parseFloat(l.monthlyRent) * 12) || 0), 0);
+        if (!grossAnnualRent && inp.monthlyRent) grossAnnualRent = parseFloat(inp.monthlyRent) * 12;
+        if (!grossAnnualRent && inp.grossRentAnnual) grossAnnualRent = parseFloat(inp.grossRentAnnual);
+
+        const vacRate = parseFloat(inp.vacancyRate || 5) / 100;
+        const opexRate = parseFloat(inp.expenseRatio || inp.operatingExpenseRatio || 35) / 100;
+        const egi = grossAnnualRent * (1 - vacRate);
+        currentNoi = egi * (1 - opexRate);
+
+        const r = (rate / 100) / 12;
+        const mp = baseLoanAmount > 0 ? ((baseLoanAmount * (r * Math.pow(1 + r, termYears * 12))) / (Math.pow(1 + r, termYears * 12) - 1)) : 0;
+        currentDebtService = mp * 12;
+        currentCashFlow = currentNoi - currentDebtService;
+      }
+
+      const irr = parseFloat(d.irr || d.metrics?.irr || 0);
+
+      return {
+        currentVal,
+        currentDebt,
+        currentEquity,
+        currentCashFlow,
+        currentNoi,
+        currentDebtService,
+        irr,
+        ltv,
+        monthsElapsed,
+        label: 'Current Value'
+      };
+    }
+    window.resolvePointInTimeDealMetrics = resolvePointInTimeDealMetrics;
+
     // === Dynamic Dashboard Data Loader & Supabase Sync ===
     async function loadDashboardProjects() {
       const user = await getSupabaseUser();
@@ -2964,31 +3117,30 @@
         } catch (e) { }
       }
 
-      // Calculate separate metrics for Owned vs Pipeline
-      let ownedVal = 0, ownedCashFlow = 0, ownedEquity = 0, ownedCount = 0;
+      // Calculate separate metrics for Owned vs Pipeline on a dynamic point-in-time Month-by-Month basis
+      let ownedVal = 0, ownedCashFlow = 0, ownedEquity = 0, ownedDebt = 0, ownedCount = 0;
       let pipelineVal = 0, sumPipelineIrr = 0, pipelineCount = 0;
+      const today = new Date();
 
       activeDashboardProjects.forEach(d => {
         const isOwned = d.status === 'owned';
-        const price = d.purchase_price || 0;
-        const cf = parseFloat(d.year1_cashflow !== undefined && d.year1_cashflow !== null ? d.year1_cashflow : (d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow ?? 0)) || 0;
-        const eq = d.total_equity || (price * 0.25);
-        const irr = d.irr || 0;
+        const mMetrics = resolvePointInTimeDealMetrics(d, today);
 
         if (isOwned) {
           ownedCount++;
-          ownedVal += price;
-          ownedCashFlow += cf;
-          ownedEquity += eq;
+          ownedVal += mMetrics.currentVal;
+          ownedDebt += mMetrics.currentDebt;
+          ownedEquity += mMetrics.currentEquity;
+          ownedCashFlow += mMetrics.currentCashFlow;
         } else {
           pipelineCount++;
-          pipelineVal += price;
-          sumPipelineIrr += irr;
+          pipelineVal += mMetrics.currentVal;
+          sumPipelineIrr += mMetrics.irr;
         }
       });
 
-      // Database View Enrichment: query view_portfolio_aggregates if in live mode
-      if (window._supabase && window._currentUser && !window._currentUser.demo) {
+      // Database View Enrichment: fallback to view_portfolio_aggregates only if no active deals loaded
+      if (activeDashboardProjects.length === 0 && window._supabase && window._currentUser && !window._currentUser.demo) {
         try {
           const viewRes = await window._supabase
             .from('view_portfolio_aggregates')
@@ -3000,8 +3152,6 @@
             const v = viewRes.data;
             if (v.total_owned_value !== null) ownedVal = parseFloat(v.total_owned_value) || ownedVal;
             if (v.total_owned_equity !== null) ownedEquity = parseFloat(v.total_owned_equity) || ownedEquity;
-            if (v.total_owned_debt !== null) ownedDebt = parseFloat(v.total_owned_debt) || ownedDebt;
-            if (v.blended_owned_ltv !== null) ownedLtv = parseFloat(v.blended_owned_ltv) || ownedLtv;
             if (v.total_owned_cashflow !== null) ownedCashFlow = parseFloat(v.total_owned_cashflow) || ownedCashFlow;
             if (v.total_pipeline_value !== null) pipelineVal = parseFloat(v.total_pipeline_value) || pipelineVal;
             if (v.pipeline_count !== null) pipelineCount = parseInt(v.pipeline_count, 10) || pipelineCount;
@@ -3012,8 +3162,8 @@
 
       const avgPipelineIrr = pipelineCount > 0 ? (sumPipelineIrr / pipelineCount) : 0;
       const avgOwnedYield = ownedEquity > 0 ? ((ownedCashFlow / ownedEquity) * 100) : 0;
-      const ownedDebt = Math.max(0, ownedVal - ownedEquity);
-      const ownedLtv = ownedVal > 0 ? Math.round((ownedDebt / ownedVal) * 100) : 0;
+      const finalOwnedDebt = ownedCount > 0 ? ownedDebt : Math.max(0, ownedVal - ownedEquity);
+      const ownedLtv = ownedVal > 0 ? Math.round((finalOwnedDebt / ownedVal) * 100) : 0;
 
       // Update KPI Tiles
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -3418,21 +3568,25 @@
         'storage': '<svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>'
       };
 
+      const today = new Date();
       grid.innerHTML = filtered.map(rawDeal => {
         const d = rawDeal;
         const aClass = d.asset_class || d.assetType || 'single-family';
         const isOwned = d.status === 'owned';
         const icon = assetIcons[aClass] || assetIcons['single-family'];
-        const priceStr = formatCurrency(d.purchase_price || 0);
+
+        const mMetrics = resolvePointInTimeDealMetrics(d, today);
+        const displayVal = mMetrics.currentVal;
+        const displayValLabel = mMetrics.label;
+        const cfVal = mMetrics.currentCashFlow;
+
+        const priceStr = formatCurrency(displayVal);
         const isZeroEq = (parseFloat(d.total_equity) <= 0 || (d.total_equity === undefined && parseFloat(d.inputs?.downPaymentPercent) === 0 && !parseFloat(d.inputs?.closingCosts) && !parseFloat(d.inputs?.rehabCosts))) && (d.purchase_price > 0 || d.inputs?.purchasePrice > 0);
-        const irrStr = isZeroEq ? 'N/M' : `${(d.irr || 0).toFixed(1)}%`;
-        const cfVal = d.year1_cashflow !== undefined && d.year1_cashflow !== null && !isNaN(parseFloat(d.year1_cashflow))
-          ? parseFloat(d.year1_cashflow)
-          : (parseFloat(d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow) || 0);
+        const irrStr = isZeroEq ? 'N/M' : `${(mMetrics.irr || 0).toFixed(1)}%`;
         const cfStr = formatCurrency(cfVal);
         const cocVal = d.cash_on_cash !== undefined && d.cash_on_cash !== null && !isNaN(parseFloat(d.cash_on_cash))
           ? parseFloat(d.cash_on_cash)
-          : (parseFloat(d.metrics?.year1CoC ?? d.metrics?.cashOnCash) || (cfVal && parseFloat(d.total_equity) > 0 ? (cfVal / parseFloat(d.total_equity) * 100) : 0));
+          : (parseFloat(d.metrics?.year1CoC ?? d.metrics?.cashOnCash) || (cfVal && parseFloat(mMetrics.currentEquity) > 0 ? (cfVal / parseFloat(mMetrics.currentEquity) * 100) : 0));
         const cocStr = isZeroEq ? 'N/M' : `${cocVal.toFixed(1)}%`;
         const dealTitle = resolveDealDisplayName(d, activeDashboardProjects);
         const tierStr = d.market_tier || d.inputs?.marketTier || d.inputs?.commTier || d.inputs?.storageTier || 'Tier 2';
@@ -3600,7 +3754,7 @@
               <!-- Deal Metrics Grid -->
               <div class="grid grid-cols-3 gap-2 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-900 text-center">
                 <div>
-                  <span class="text-[9px] uppercase font-bold text-slate-500 block">Acquisition</span>
+                  <span class="text-[9px] uppercase font-bold text-slate-500 block">${displayValLabel}</span>
                   <span class="text-xs font-black text-white mt-0.5 block">${priceStr}</span>
                 </div>
                 <div>

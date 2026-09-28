@@ -3223,6 +3223,160 @@
       runMonteCarloSimulation: function() { return { meanIrr: 0 }; }
     };
 
+    // === Continuous Month-by-Month Financial Calculation Resolver ===
+    function resolvePointInTimeDealMetrics(d, targetDate = new Date()) {
+      if (!d) return { currentVal: 0, currentDebt: 0, currentEquity: 0, currentCashFlow: 0, ltv: 0, monthsElapsed: 0, irr: 0, label: 'Acquisition' };
+      const isOwned = d.status === 'owned';
+      const inp = d.inputs || {};
+      const price = parseFloat(d.purchase_price || inp.purchasePrice || 0);
+
+      if (!isOwned) {
+        const eq = parseFloat(d.total_equity || inp.initialCashInvested || (price * 0.25));
+        const debt = Math.max(0, price - eq);
+        const cf = parseFloat(d.year1_cashflow !== undefined && d.year1_cashflow !== null ? d.year1_cashflow : (d.metrics?.year1CashFlow ?? d.metrics?.year1Cashflow ?? 0)) || 0;
+        const irr = parseFloat(d.irr || d.metrics?.irr || 0);
+        return {
+          currentVal: price,
+          currentDebt: debt,
+          currentEquity: eq,
+          currentCashFlow: cf,
+          currentNoi: parseFloat(d.metrics?.noi || 0),
+          currentDebtService: parseFloat(d.metrics?.annualDebtService || 0),
+          irr: irr,
+          ltv: price > 0 ? Math.round((debt / price) * 100) : 0,
+          monthsElapsed: 0,
+          label: 'Acquisition'
+        };
+      }
+
+      // Resolve closing date
+      const closeVal = inp.closingDate || inp.loiDate || d.closing_date;
+      let closeYear = targetDate.getFullYear();
+      let closeMonth = targetDate.getMonth() + 1;
+
+      if (closeVal) {
+        const m = String(closeVal).match(/(\d{4})[-/](\d{1,2})/);
+        if (m) {
+          closeYear = parseInt(m[1], 10);
+          closeMonth = parseInt(m[2], 10);
+        } else {
+          const dt = new Date(closeVal);
+          if (!isNaN(dt.getFullYear()) && dt.getFullYear() >= 1900) {
+            closeYear = dt.getFullYear();
+            closeMonth = dt.getMonth() + 1;
+          }
+        }
+      }
+
+      const targetYear = targetDate.getFullYear();
+      const targetMonth = targetDate.getMonth() + 1;
+      const monthsElapsed = Math.max(0, (targetYear - closeYear) * 12 + (targetMonth - closeMonth));
+
+      // Financing parameters
+      const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+      const termYears = parseFloat(inp.loanTerm || 30);
+      const rate = parseFloat(inp.interestRate || 6.5);
+      const finType = String(inp.financingType || 'fixed').toLowerCase();
+      const ioYears = parseInt(inp.interestOnlyYears || 0, 10);
+      const ioMonths = ioYears * 12;
+
+      let baseLoanAmount = 0;
+      if (d.metrics && (d.metrics.loanAmount !== undefined && d.metrics.loanAmount !== null)) {
+        baseLoanAmount = parseFloat(d.metrics.loanAmount);
+      } else if (downPct === 0) {
+        baseLoanAmount = price;
+      } else {
+        baseLoanAmount = Math.max(0, price * (1 - downPct / 100));
+      }
+      if (inp.financeRehabAndClosingCosts || inp.rehabFinancingMode === 'roll_into_loan') {
+        baseLoanAmount += parseFloat(inp.rehabCosts || 0) + parseFloat(inp.closingCosts || 0);
+      }
+
+      // Exact Month-by-Month Amortization
+      let currentDebt = baseLoanAmount;
+      if (baseLoanAmount > 0 && termYears > 0) {
+        const totalLoanMonths = termYears * 12;
+        if (monthsElapsed >= totalLoanMonths) {
+          currentDebt = 0;
+        } else {
+          const isIO = (finType === 'interest_only' && monthsElapsed < ioMonths) ||
+                       (finType === 'bridge') ||
+                       (finType === 'seller_financing' && ioMonths > 0 && monthsElapsed < ioMonths);
+
+          if (isIO) {
+            currentDebt = baseLoanAmount;
+          } else {
+            const amortMonthsElapsed = (finType === 'interest_only' || finType === 'seller_financing')
+              ? Math.max(0, monthsElapsed - ioMonths)
+              : monthsElapsed;
+            const amortTotalMonths = (finType === 'interest_only' || finType === 'seller_financing')
+              ? Math.max(1, totalLoanMonths - ioMonths)
+              : totalLoanMonths;
+
+            const r = (rate / 100) / 12;
+            if (r === 0) {
+              currentDebt = Math.max(0, baseLoanAmount * (1 - amortMonthsElapsed / amortTotalMonths));
+            } else {
+              const mp = (baseLoanAmount * (r * Math.pow(1 + r, amortTotalMonths))) / (Math.pow(1 + r, amortTotalMonths) - 1);
+              currentDebt = Math.max(0, baseLoanAmount * Math.pow(1 + r, amortMonthsElapsed) - (mp * (Math.pow(1 + r, amortMonthsElapsed) - 1)) / r);
+            }
+          }
+        }
+      }
+
+      // Exact Month-by-Month Appreciation
+      const appRate = parseFloat(inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0));
+      const currentVal = price > 0 ? (price * Math.pow(1 + appRate / 100, monthsElapsed / 12)) : price;
+      const currentEquity = Math.max(0, currentVal - currentDebt);
+      const ltv = currentVal > 0 ? Math.round((currentDebt / currentVal) * 100) : 0;
+
+      // Active Cash Flow & NOI
+      const yearOffset = Math.floor(monthsElapsed / 12);
+      const projList = (d.metrics && Array.isArray(d.metrics.projections)) ? d.metrics.projections : [];
+      const activeProj = projList.length > 0 ? (projList[Math.min(projList.length - 1, yearOffset)] || projList[0]) : null;
+
+      let currentNoi = 0;
+      let currentDebtService = 0;
+      let currentCashFlow = 0;
+
+      if (activeProj) {
+        currentNoi = parseFloat(activeProj.netOperatingIncome || 0);
+        currentDebtService = parseFloat(activeProj.debtService || activeProj.annualDebtService || 0);
+        currentCashFlow = parseFloat(activeProj.cashFlow ?? activeProj.netCashFlow ?? (currentNoi - currentDebtService));
+      } else {
+        const leases = Array.isArray(inp.leases) ? inp.leases : [];
+        let grossAnnualRent = leases.reduce((sum, l) => sum + (parseFloat(l.annualRent) || (parseFloat(l.monthlyRent) * 12) || 0), 0);
+        if (!grossAnnualRent && inp.monthlyRent) grossAnnualRent = parseFloat(inp.monthlyRent) * 12;
+        if (!grossAnnualRent && inp.grossRentAnnual) grossAnnualRent = parseFloat(inp.grossRentAnnual);
+
+        const vacRate = parseFloat(inp.vacancyRate || 5) / 100;
+        const opexRate = parseFloat(inp.expenseRatio || inp.operatingExpenseRatio || 35) / 100;
+        const egi = grossAnnualRent * (1 - vacRate);
+        currentNoi = egi * (1 - opexRate);
+
+        const r = (rate / 100) / 12;
+        const mp = baseLoanAmount > 0 ? ((baseLoanAmount * (r * Math.pow(1 + r, termYears * 12))) / (Math.pow(1 + r, termYears * 12) - 1)) : 0;
+        currentDebtService = mp * 12;
+        currentCashFlow = currentNoi - currentDebtService;
+      }
+
+      const irr = parseFloat(d.irr || d.metrics?.irr || 0);
+
+      return {
+        currentVal,
+        currentDebt,
+        currentEquity,
+        currentCashFlow,
+        currentNoi,
+        currentDebtService,
+        irr,
+        ltv,
+        monthsElapsed,
+        label: 'Current Value'
+      };
+    }
+    window.resolvePointInTimeDealMetrics = resolvePointInTimeDealMetrics;
+
     // System variables and DOM elements
     let activeTab = 'single-family';
     let currentChartType = 'cashflow'; // 'cashflow' or 'valuation'
@@ -4120,7 +4274,13 @@
     function updateBriefSummaryContainer(inputs) {
       if (!inputs) return;
       const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-      setVal('brief-val-price', formatCurrency(inputs.purchasePrice || 0));
+      const isOwned = (currentLoadedDeal && currentLoadedDeal.status === 'owned');
+      if (isOwned && typeof resolvePointInTimeDealMetrics === 'function') {
+        const pit = resolvePointInTimeDealMetrics(currentLoadedDeal, new Date());
+        setVal('brief-val-price', formatCurrency(pit.currentVal));
+      } else {
+        setVal('brief-val-price', formatCurrency(inputs.purchasePrice || 0));
+      }
 
       let rentStr = '$0/yr';
       if (activeTab === 'single-family') {
@@ -4969,13 +5129,20 @@
       }
 
       // 2. Debt Snapshot
+      const isOwned = (currentLoadedDeal && currentLoadedDeal.status === 'owned');
       const loanEl = document.getElementById('overview-snapshot-loan');
-      if (loanEl) loanEl.textContent = formatCurrency(res.loanAmount);
-
       const ltvEl = document.getElementById('overview-snapshot-ltv');
-      if (ltvEl) ltvEl.textContent = `${res.ltv.toFixed(1)}% LTV • ${inputs.interestRate || 6.5}%`;
-
       const piEl = document.getElementById('overview-snapshot-pi');
+
+      if (isOwned && typeof resolvePointInTimeDealMetrics === 'function') {
+        const pit = resolvePointInTimeDealMetrics(currentLoadedDeal, new Date());
+        if (loanEl) loanEl.innerHTML = `<span>${formatCurrency(pit.currentDebt)}</span> <span class="text-[10px] text-slate-400 font-normal">(Mo ${pit.monthsElapsed})</span>`;
+        if (ltvEl) ltvEl.textContent = `${pit.ltv}% In-Place LTV • ${inputs.interestRate || 6.5}%`;
+      } else {
+        if (loanEl) loanEl.textContent = formatCurrency(res.loanAmount);
+        if (ltvEl) ltvEl.textContent = `${res.ltv.toFixed(1)}% LTV • ${inputs.interestRate || 6.5}%`;
+      }
+
       if (piEl) piEl.textContent = `${formatCurrency(res.monthlyMortgagePayment)}/mo (${formatCurrency(res.monthlyMortgagePayment * 12)}/yr)`;
 
       const dscrEl = document.getElementById('overview-snapshot-dscr');
@@ -7187,10 +7354,12 @@
       let totalEq = 0;
       let sumIrr = 0;
 
+      const today = new Date();
       activeDashboardProjects.forEach(d => {
-        totalVal += (d.purchase_price || 0);
-        totalEq += (d.total_equity || (d.purchase_price ? d.purchase_price * 0.25 : 0));
-        sumIrr += (d.irr || 0);
+        const m = resolvePointInTimeDealMetrics(d, today);
+        totalVal += m.currentVal;
+        totalEq += m.currentEquity;
+        sumIrr += m.irr;
       });
 
       const avgIrr = totalProjects > 0 ? (sumIrr / totalProjects) : 0;
@@ -7231,8 +7400,9 @@
       grid.innerHTML = filtered.map(d => {
         const aClass = d.asset_class || d.assetType || 'single-family';
         const icon = assetIcons[aClass] || assetIcons['single-family'];
-        const priceStr = formatCurrency(d.purchase_price || (d.inputs && d.inputs.purchasePrice) || 0);
-        const irrStr = `${(d.irr || 0).toFixed(1)}%`;
+        const m = resolvePointInTimeDealMetrics(d, today);
+        const priceStr = formatCurrency(m.currentVal);
+        const irrStr = `${(m.irr || 0).toFixed(1)}%`;
         const emStr = `${(d.equity_multiple || 2.0).toFixed(2)}x`;
         const cocStr = `${(d.cash_on_cash || (d.year1_cashflow && d.total_equity ? (d.year1_cashflow / d.total_equity * 100) : 8.0)).toFixed(1)}%`;
         const locStr = d.location || 'United States';
