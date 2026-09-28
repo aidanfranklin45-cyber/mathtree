@@ -656,8 +656,6 @@
                   </div>
                   <input type="number" id="input-purchase-price" name="purchasePrice" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" placeholder="0" readonly style="cursor: default;">
                 </div>
-                <!-- Dynamic Scrubber: Purchase Price -->
-                <input type="range" id="slider-purchase-price" aria-label="Purchase Price range scrubber" min="50000" max="2500000" step="10000" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
               </div>
 
               <!-- Down Payment & Interest Rate (Grouped for grid layout efficiency) -->
@@ -672,8 +670,6 @@
                       <span class="text-slate-500 text-sm">%</span>
                     </div>
                   </div>
-                  <!-- Dynamic Scrubber: Down Payment -->
-                  <input type="range" id="slider-down-payment" aria-label="Down Payment percentage range scrubber" min="0" max="100" step="1" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
 
                 <div class="space-y-1.5">
@@ -684,8 +680,6 @@
                       <span class="text-slate-500 text-sm">%</span>
                     </div>
                   </div>
-                  <!-- Dynamic Scrubber: Interest Rate -->
-                  <input type="range" id="slider-interest-rate" aria-label="Interest Rate percentage range scrubber" min="1" max="15" step="0.125" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
               </div>
             </div>
@@ -740,8 +734,6 @@
                     </div>
                     <input type="number" id="input-monthly-rent" name="monthlyRent" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                   </div>
-                  <!-- Dynamic Scrubber: Monthly Rent -->
-                  <input type="range" id="slider-monthly-rent" aria-label="Monthly Rent range scrubber" min="500" max="15000" step="50" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
               </div>
 
@@ -786,8 +778,6 @@
                     </div>
                     <input type="number" id="input-monthly-rent-per-unit" name="monthlyRentPerUnit" class="w-full bg-slate-950/80 border border-emerald-950 rounded-lg py-2 pl-7 pr-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition" readonly style="cursor: default;">
                   </div>
-                  <!-- Dynamic Scrubber: Monthly Rent Per Unit -->
-                  <input type="range" id="slider-monthly-rent-per-unit" aria-label="Monthly Rent per Unit range scrubber" min="300" max="8000" step="25" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                 </div>
               </div>
 
@@ -1037,8 +1027,6 @@
                         <span class="text-slate-500 text-sm">%</span>
                       </div>
                     </div>
-                    <!-- Dynamic Scrubber: Vacancy Rate -->
-                    <input type="range" id="slider-vacancy-rate" aria-label="Vacancy Rate percentage range scrubber" min="0" max="25" step="0.5" class="w-full accent-emerald-500 h-1 bg-slate-800 rounded-lg cursor-pointer mt-1 hidden">
                   </div>
                 </div>
 
@@ -2402,11 +2390,11 @@
         <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950 p-3 rounded-2xl border border-slate-800 text-xs">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-slate-400 font-bold">Compare Live With:</span>
-            <select id="diff-scenario-select-a" onchange="renderComparisonMatrix()" class="bg-slate-900 border border-slate-700 text-emerald-300 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-emerald-500">
+            <select id="diff-scenario-select-a" onchange="renderScenarioDiffMatrix()" class="bg-slate-900 border border-slate-700 text-emerald-300 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-emerald-500">
               <!-- Populated dynamically -->
             </select>
             <span class="text-slate-500 font-bold">and:</span>
-            <select id="diff-scenario-select-b" onchange="renderComparisonMatrix()" class="bg-slate-900 border border-slate-700 text-cyan-300 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-cyan-500">
+            <select id="diff-scenario-select-b" onchange="renderScenarioDiffMatrix()" class="bg-slate-900 border border-slate-700 text-cyan-300 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-cyan-500">
               <!-- Populated dynamically -->
             </select>
             <span id="diff-live-match-hint" class="hidden text-[10px] text-amber-400 font-mono bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 rounded">
@@ -2416,7 +2404,6 @@
 
           <div class="flex items-center space-x-2">
             <button type="button" id="btn-toggle-diff-only" onclick="toggleDiffOnlyMode()" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500 flex items-center space-x-1.5 cursor-pointer">
-              <span id="diff-toggle-icon">🔍</span>
               <span id="diff-toggle-text">Show Changes Only</span>
             </button>
             <span class="text-[10px] text-slate-500 font-mono hidden sm:inline">• Live Underwriting vs Saved Runs</span>
@@ -6432,50 +6419,13 @@
       }
     }
 
-    // --- 1. Dynamic Scrubbers (Two-Way Sliders) ---
+    // --- 1. Batch Input System (Scrubbers/Sliders Removed) ---
     function syncSlidersFromInputs() {
-      const pField = document.getElementById('input-purchase-price');
-      const pSlider = document.getElementById('slider-purchase-price');
-      if (pField && pSlider && pField.value) pSlider.value = pField.value;
-
-      const dpField = document.getElementById('input-down-payment');
-      const dpSlider = document.getElementById('slider-down-payment');
-      if (dpField && dpSlider && dpField.value) dpSlider.value = dpField.value;
-
-      const irField = document.getElementById('input-interest-rate');
-      const irSlider = document.getElementById('slider-interest-rate');
-      if (irField && irSlider && irField.value) irSlider.value = irField.value;
-
-      const mrField = document.getElementById('input-monthly-rent');
-      const mrSlider = document.getElementById('slider-monthly-rent');
-      if (mrField && mrSlider && mrField.value) mrSlider.value = mrField.value;
-
-      const mruField = document.getElementById('input-monthly-rent-per-unit');
-      const mruSlider = document.getElementById('slider-monthly-rent-per-unit');
-      if (mruField && mruSlider && mruField.value) mruSlider.value = mruField.value;
-
-      const vacField = document.getElementById('input-vacancy-rate');
-      const vacSlider = document.getElementById('slider-vacancy-rate');
-      if (vacField && vacSlider && vacField.value) vacSlider.value = vacField.value;
+      // Sliders removed: Underwriting is batch-driven via form inputs & Save and Recalculate
     }
 
     function initSliderListeners() {
-      const bind = (sliderId, inputId) => {
-        const slider = document.getElementById(sliderId);
-        const input = document.getElementById(inputId);
-        if (slider && input) {
-          slider.addEventListener('input', () => {
-            input.value = slider.value;
-            updateCalculations();
-          });
-        }
-      };
-      bind('slider-purchase-price', 'input-purchase-price');
-      bind('slider-down-payment', 'input-down-payment');
-      bind('slider-interest-rate', 'input-interest-rate');
-      bind('slider-monthly-rent', 'input-monthly-rent');
-      bind('slider-monthly-rent-per-unit', 'input-monthly-rent-per-unit');
-      bind('slider-vacancy-rate', 'input-vacancy-rate');
+      // Sliders removed: Underwriting is batch-driven via form inputs & Save and Recalculate
     }
 
     // --- 2. Scenario Manager (Base, Bull, Bear, Custom) ---
@@ -8376,8 +8326,6 @@
         if (pkg.totalAssessedValue > 0 && !currentLoadedDeal.purchase_price && !currentLoadedDeal.inputs?.purchasePrice) {
           const priceInput = document.getElementById('input-purchase-price');
           if (priceInput) priceInput.value = pkg.totalAssessedValue;
-          const sliderInput = document.getElementById('slider-purchase-price');
-          if (sliderInput) sliderInput.value = pkg.totalAssessedValue;
           currentLoadedDeal.inputs.purchasePrice = pkg.totalAssessedValue;
           currentLoadedDeal.purchase_price = pkg.totalAssessedValue;
         }
@@ -8417,10 +8365,6 @@
         priceInput.value = totalAssessed;
         priceInput.dispatchEvent(new Event('input', { bubbles: true }));
       }
-      const sliderInput = document.getElementById('slider-purchase-price');
-      if (sliderInput) {
-        sliderInput.value = totalAssessed;
-      }
 
       if (current.inputs) {
         current.inputs.purchasePrice = totalAssessed;
@@ -8455,8 +8399,6 @@
 
       const priceInput = document.getElementById('input-purchase-price');
       if (priceInput) priceInput.value = newPrice;
-      const sliderInput = document.getElementById('slider-purchase-price');
-      if (sliderInput) sliderInput.value = newPrice;
 
       if (current.inputs) current.inputs.purchasePrice = newPrice;
       current.purchase_price = newPrice;
@@ -11277,7 +11219,9 @@
       return null;
     }
 
+    let _isRestoringScenario = false;
     function triggerAutoScenarioRecord(deal) {
+      if (_isRestoringScenario) return;
       if (!deal || deal.status === 'owned') return;
       if (_autoRecordTimeout) clearTimeout(_autoRecordTimeout);
       _autoRecordTimeout = setTimeout(async () => {
@@ -11356,14 +11300,16 @@
                   <span class="text-white font-bold">${escapeHtml(latest.name || 'Latest Run')}</span>
                   <span class="text-[10px] text-slate-500 font-mono">${new Date(latest.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
+                ${count > 1 ? `
                 <div class="flex items-center space-x-1.5 overflow-x-auto">
                   <span class="text-[10px] text-slate-500 uppercase font-mono mr-1">Restore:</span>
                   ${cachedSnapshots.slice(0, 5).map((r, i) => `
-                    <button type="button" onclick="applyParameterSnapshot('${r.id}')" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${i === 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700'}" title="Restore run from ${new Date(r.created_at).toLocaleTimeString()}">
+                    <button type="button" onclick="applyParameterSnapshot('${r.id}')" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${i === 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700'}" title="Restore ${escapeHtml(r.name)} (${new Date(r.created_at).toLocaleTimeString()})">
                       Run #${count - i}
                     </button>
                   `).join('')}
                 </div>
+                ` : ''}
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -11454,7 +11400,7 @@
         let deltaFormatted = sign + delta.toFixed(2);
 
         if (item.isPct || item.key === 'irr' || item.key === 'cashOnCash' || item.key === 'capRate') {
-          deltaFormatted += '%';
+          deltaFormatted += '% pts';
         } else if (item.isCurrency || item.key === 'year1CashFlow') {
           deltaFormatted = (isPositive ? '+$' : '-$') + Math.abs(Math.round(delta)).toLocaleString() + '/yr';
         } else if (item.suffix || item.key === 'equityMultiple' || item.key === 'dscr') {
@@ -11463,7 +11409,7 @@
 
         return `
           <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-900 border border-slate-700/80 text-[11px] font-mono">
-            <span class="text-slate-400">${escapeHtml(label)}:</span>
+            <span class="text-slate-400">Δ ${escapeHtml(label)}:</span>
             <span class="font-bold ${colorClass}">${escapeHtml(deltaFormatted)}</span>
           </span>
         `;
@@ -11476,7 +11422,6 @@
       if (cachedSnapshots.length === 0) {
         container.innerHTML = `
           <div class="text-center py-10 bg-slate-950/50 rounded-2xl border border-slate-800 space-y-3">
-            <span class="text-3xl">⚡</span>
             <h4 class="text-sm font-bold text-slate-300">No Parameter Snapshots Recorded</h4>
             <p class="text-xs text-slate-500 max-w-sm mx-auto">Capture debt structures, interest rate variations, and pro-forma models to compare side-by-side or restore at any time.</p>
             <button type="button" onclick="openSnapshotModal()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-900/50 transition">
@@ -11579,8 +11524,8 @@
               </div>
               <div>
                 ${isActive 
-                  ? '<button type="button" disabled class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 opacity-90 cursor-default flex items-center justify-center space-x-1.5"><span>✓ Currently on Front Burner</span></button>'
-                  : `<button type="button" onclick="applyParameterSnapshot('${s.id}')" class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-md shadow-emerald-500/20 transition flex items-center justify-center space-x-1.5" title="Put this scenario on the front burner and load parameters into live underwriting"><span>⚡ Set as Active Underwriting Scenario</span></button>`
+                  ? '<button type="button" disabled class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 opacity-90 cursor-default flex items-center justify-center space-x-1.5"><span>Active Live Model</span></button>'
+                  : `<button type="button" onclick="applyParameterSnapshot('${s.id}')" class="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 shadow-md shadow-emerald-500/20 transition flex items-center justify-center space-x-1.5" title="Put this scenario on the front burner and load parameters into live underwriting"><span>Set as Active Underwriting Scenario</span></button>`
                 }
               </div>
             </div>
@@ -11598,15 +11543,15 @@
       if (btn) {
         if (diffMatrixOnlyChanges) {
           btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm flex items-center space-x-1.5 cursor-pointer';
-          if (icon) icon.textContent = '⚡';
+          if (icon) icon.textContent = '';
           if (text) text.textContent = 'Showing Changes Only';
         } else {
           btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold border transition bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500 flex items-center space-x-1.5 cursor-pointer';
-          if (icon) icon.textContent = '🔍';
+          if (icon) icon.textContent = '';
           if (text) text.textContent = 'Show Changes Only';
         }
       }
-      renderComparisonMatrix();
+      renderScenarioDiffMatrix();
     }
     window.toggleDiffOnlyMode = toggleDiffOnlyMode;
 
@@ -11647,40 +11592,16 @@
       if (validRuns.length === 0) {
         selectA.innerHTML = '<option value="">No saved scenarios</option>';
         selectB.innerHTML = '<option value="">(None)</option>';
-        renderComparisonMatrix();
+        renderScenarioDiffMatrix();
         return;
       }
 
       const live = currentLoadedDeal?.inputs || {};
-      const run0MatchesLive = isSnapshotMatchingLive(validRuns[0], live);
 
       // Default selection logic:
-      // If validRuns[0] matches active live model:
-      // Dropdown A defaults to validRuns[1] (if available) to avoid duplicating Live Model in Column 2 & Column 3!
-      // Dropdown B defaults to validRuns[2] (if available) or "" (None).
+      // When 2 or more runs exist, default compare Run 0 in A and Run 1 in B side-by-side with Active Live Model!
       let defaultAId = validRuns[0].id;
-      let defaultBId = '';
-
-      if (run0MatchesLive) {
-        if (validRuns.length > 1) {
-          defaultAId = validRuns[1].id;
-          if (validRuns.length > 2) {
-            defaultBId = validRuns[2].id;
-          } else {
-            defaultBId = '';
-          }
-        } else {
-          defaultAId = validRuns[0].id;
-          defaultBId = '';
-        }
-      } else {
-        defaultAId = validRuns[0].id;
-        if (validRuns.length > 1) {
-          defaultBId = validRuns[1].id;
-        } else {
-          defaultBId = '';
-        }
-      }
+      let defaultBId = validRuns.length > 1 ? validRuns[1].id : '';
 
       // Populate Select A options
       selectA.innerHTML = validRuns.map(s => {
@@ -11703,10 +11624,115 @@
       })).join('');
 
       selectB.innerHTML = optsB;
-      renderComparisonMatrix();
+      renderScenarioDiffMatrix();
     }
 
-    function renderComparisonMatrix() {
+    function extractDealSummaryMetrics(inp, met) {
+      inp = inp || {};
+      met = met || {};
+      const purchasePrice = Number(inp.purchasePrice || 0);
+      const downPaymentPct = Number(inp.downPaymentPercent != null ? inp.downPaymentPercent : 20);
+      const loanAmount = met.loanAmount != null && !isNaN(Number(met.loanAmount))
+        ? Number(met.loanAmount)
+        : (purchasePrice * (1 - downPaymentPct / 100));
+      const interestRate = Number(inp.interestRate || 0);
+      const loanTerm = Number(inp.loanTerm || 30);
+
+      // Monthly Debt Service
+      let monthlyDebt = 0;
+      if (met.projections && met.projections[0] && met.projections[0].debtService) {
+        monthlyDebt = Number(met.projections[0].debtService) / 12;
+      } else if (loanAmount > 0 && interestRate > 0 && loanTerm > 0) {
+        const r = interestRate / 100 / 12;
+        const n = loanTerm * 12;
+        monthlyDebt = (loanAmount * (r * Math.pow(1 + r, n))) / (Math.pow(1 + r, n) - 1);
+      }
+      const annualDebt = monthlyDebt * 12;
+
+      // Rent & Operations
+      const grossRentAnnual = Number(inp.grossRentAnnual || (inp.monthlyRent ? inp.monthlyRent * 12 : 0));
+      const grossRentMonthly = grossRentAnnual > 0 ? (grossRentAnnual / 12) : Number(inp.monthlyRent || 0);
+      const vacancyRate = Number(inp.vacancyRate != null ? inp.vacancyRate : 5);
+      const expenseRatio = Number(inp.expenseRatio != null ? inp.expenseRatio : 35);
+
+      let noi = 0;
+      if (met.noi != null && !isNaN(Number(met.noi))) {
+        noi = Number(met.noi);
+      } else if (met.projections && met.projections[0] && met.projections[0].netOperatingIncome != null) {
+        noi = Number(met.projections[0].netOperatingIncome);
+      } else if (grossRentAnnual > 0) {
+        const egi = grossRentAnnual * (1 - vacancyRate / 100);
+        noi = egi * (1 - expenseRatio / 100);
+      }
+
+      // Net Cash Flow
+      let cashFlow = 0;
+      if (met.year1Cashflow != null && !isNaN(Number(met.year1Cashflow))) {
+        cashFlow = Number(met.year1Cashflow);
+      } else if (met.projections && met.projections[0] && (met.projections[0].cashFlow != null || met.projections[0].netCashFlow != null)) {
+        cashFlow = Number(met.projections[0].cashFlow ?? met.projections[0].netCashFlow);
+      } else {
+        cashFlow = noi - annualDebt;
+      }
+
+      // Senior DSCR
+      let dscr = null;
+      if (met.dscr != null && !isNaN(Number(met.dscr))) {
+        dscr = Number(met.dscr);
+      } else if (met.projections && met.projections[0] && met.projections[0].dscr != null) {
+        dscr = Number(met.projections[0].dscr);
+      } else if (annualDebt > 0 && noi > 0) {
+        dscr = noi / annualDebt;
+      }
+
+      // Cap Rate
+      let capRate = null;
+      if (met.capRate != null && !isNaN(Number(met.capRate))) {
+        capRate = Number(met.capRate);
+      } else if (purchasePrice > 0 && noi > 0) {
+        capRate = (noi / purchasePrice) * 100;
+      }
+
+      // IRR, CoC & Equity Multiple
+      const irr = met.irr != null && !isNaN(Number(met.irr))
+        ? Number(met.irr)
+        : Number(inp.irr || 0);
+
+      const cashOnCash = met.cashOnCash != null && !isNaN(Number(met.cashOnCash))
+        ? Number(met.cashOnCash)
+        : (met.year1CoC != null && !isNaN(Number(met.year1CoC))
+          ? Number(met.year1CoC)
+          : Number(inp.cashOnCash || 0));
+
+      const equityMultiple = met.equityMultiplier != null && !isNaN(Number(met.equityMultiplier))
+        ? Number(met.equityMultiplier)
+        : (met.equityMultiple != null && !isNaN(Number(met.equityMultiple))
+          ? Number(met.equityMultiple)
+          : Number(inp.equityMultiple || 0));
+
+      return {
+        purchasePrice,
+        downPaymentPct,
+        loanAmount,
+        interestRate,
+        loanTerm,
+        monthlyDebt,
+        rehabCosts: Number(inp.rehabBudget || inp.rehabCosts || 0),
+        grossRentAnnual,
+        grossRentMonthly,
+        vacancyRate,
+        noi,
+        dscr,
+        cashFlow,
+        capRate,
+        exitCapRate: Number(inp.exitCapRate || inp.capRate || 0),
+        cashOnCash,
+        irr,
+        equityMultiple
+      };
+    }
+
+    function renderScenarioDiffMatrix() {
       const tbody = document.getElementById('diff-matrix-tbody');
       const selectA = document.getElementById('diff-scenario-select-a');
       const selectB = document.getElementById('diff-scenario-select-b');
@@ -11720,7 +11746,11 @@
       const snapB = selectB.value ? (validRuns.find(s => s.id === selectB.value) || null) : null;
 
       const live = currentLoadedDeal?.inputs || {};
-      const liveMetrics = currentLoadedDeal?.metrics || {};
+      const liveMetrics = currentLoadedDeal?.metrics || currentLoadedDeal || {};
+
+      const liveObj = extractDealSummaryMetrics(live, liveMetrics);
+      const snapAObj = extractDealSummaryMetrics(snapA?.inputs, snapA?.metrics);
+      const snapBObj = snapB ? extractDealSummaryMetrics(snapB.inputs, snapB.metrics) : null;
 
       const hasSnapB = Boolean(snapB);
       if (colTitleA) colTitleA.textContent = snapA ? snapA.name : 'Scenario A';
@@ -11746,32 +11776,39 @@
         }
       }
 
-      // Define row groups for institutional clarity
+      // Institutional parameter & KPI row definitions
       const groups = [
         {
-          category: '🏦 Financing & Debt Structure',
+          category: 'FINANCING & CAPITAL STACK',
           rows: [
-            { label: 'Purchase Basis', live: live.purchasePrice, a: snapA?.inputs?.purchasePrice, b: snapB?.inputs?.purchasePrice, isCurrency: true },
-            { label: 'Down Payment %', live: live.downPaymentPercent, a: snapA?.inputs?.downPaymentPercent, b: snapB?.inputs?.downPaymentPercent, isPct: true },
-            { label: 'Interest Rate %', live: live.interestRate, a: snapA?.inputs?.interestRate, b: snapB?.inputs?.interestRate, isPct: true },
-            { label: 'Loan Term (Yrs)', live: live.loanTerm, a: snapA?.inputs?.loanTerm, b: snapB?.inputs?.loanTerm },
-            { label: 'Rehab / CapEx', live: live.rehabBudget || live.rehabCosts, a: snapA?.inputs?.rehabBudget || snapA?.inputs?.rehabCosts, b: snapB?.inputs?.rehabBudget || snapB?.inputs?.rehabCosts, isCurrency: true }
+            { label: 'Purchase Basis', live: liveObj.purchasePrice, a: snapAObj.purchasePrice, b: snapBObj?.purchasePrice, isCurrency: true, isLowerBetter: true },
+            { label: 'Down Payment %', live: liveObj.downPaymentPct, a: snapAObj.downPaymentPct, b: snapBObj?.downPaymentPct, isPct: true },
+            { label: 'Senior Loan Amount', live: liveObj.loanAmount, a: snapAObj.loanAmount, b: snapBObj?.loanAmount, isCurrency: true },
+            { label: 'Interest Rate %', live: liveObj.interestRate, a: snapAObj.interestRate, b: snapBObj?.interestRate, isPct: true, isLowerBetter: true },
+            { label: 'Loan Term (Yrs)', live: liveObj.loanTerm, a: snapAObj.loanTerm, b: snapBObj?.loanTerm },
+            { label: 'Monthly Debt Service', live: liveObj.monthlyDebt, a: snapAObj.monthlyDebt, b: snapBObj?.monthlyDebt, isCurrency: true, suffix: '/mo', isLowerBetter: true },
+            { label: 'Rehab / CapEx Budget', live: liveObj.rehabCosts, a: snapAObj.rehabCosts, b: snapBObj?.rehabCosts, isCurrency: true, isLowerBetter: true }
           ]
         },
         {
-          category: '🏢 Property Operations',
+          category: 'PROPERTY OPERATIONS & CASH FLOW',
           rows: [
-            { label: 'Gross Annual Rent', live: live.grossRentAnnual || (live.monthlyRent ? live.monthlyRent * 12 : null), a: snapA?.inputs?.grossRentAnnual || (snapA?.inputs?.monthlyRent ? snapA?.inputs?.monthlyRent * 12 : null), b: snapB?.inputs?.grossRentAnnual || (snapB?.inputs?.monthlyRent ? snapB?.inputs?.monthlyRent * 12 : null), isCurrency: true },
-            { label: 'Vacancy Rate %', live: live.vacancyRate, a: snapA?.inputs?.vacancyRate, b: snapB?.inputs?.vacancyRate, isPct: true },
-            { label: 'Exit Cap Rate %', live: live.exitCapRate || live.capRate, a: snapA?.inputs?.exitCapRate || snapA?.inputs?.capRate, b: snapB?.inputs?.exitCapRate || snapB?.inputs?.capRate, isPct: true }
+            { label: 'Gross Annual Rent', live: liveObj.grossRentAnnual, a: snapAObj.grossRentAnnual, b: snapBObj?.grossRentAnnual, isCurrency: true, suffix: '/yr', isHighlight: true },
+            { label: 'Gross Monthly Rent', live: liveObj.grossRentMonthly, a: snapAObj.grossRentMonthly, b: snapBObj?.grossRentMonthly, isCurrency: true, suffix: '/mo' },
+            { label: 'Vacancy Rate %', live: liveObj.vacancyRate, a: snapAObj.vacancyRate, b: snapBObj?.vacancyRate, isPct: true, isLowerBetter: true },
+            { label: 'Net Operating Income (NOI)', live: liveObj.noi, a: snapAObj.noi, b: snapBObj?.noi, isCurrency: true, suffix: '/yr', isHighlight: true },
+            { label: 'Senior DSCR', live: liveObj.dscr, a: snapAObj.dscr, b: snapBObj?.dscr, suffix: 'x', isHighlight: true },
+            { label: 'Year 1 Net Cash Flow', live: liveObj.cashFlow, a: snapAObj.cashFlow, b: snapBObj?.cashFlow, isCurrency: true, suffix: '/yr', isHighlight: true }
           ]
         },
         {
-          category: '📈 Return & Performance Metrics',
+          category: 'RETURN & PERFORMANCE METRICS',
           rows: [
-            { label: 'Target IRR %', live: currentLoadedDeal?.irr || liveMetrics.irr, a: snapA?.metrics?.irr || snapA?.inputs?.irr, b: snapB?.metrics?.irr || snapB?.inputs?.irr, isPct: true, isHighlight: true },
-            { label: 'Cash-on-Cash Return %', live: currentLoadedDeal?.cash_on_cash || liveMetrics.year1CoC || liveMetrics.cashOnCash, a: snapA?.metrics?.cashOnCash || snapA?.inputs?.cashOnCash, b: snapB?.metrics?.cashOnCash || snapB?.inputs?.cashOnCash, isPct: true, isHighlight: true },
-            { label: 'Equity Multiple', live: currentLoadedDeal?.equity_multiple || liveMetrics.equityMultiplier, a: snapA?.metrics?.equityMultiple || snapA?.inputs?.equityMultiple, b: snapB?.metrics?.equityMultiple || snapB?.inputs?.equityMultiple, suffix: 'x' }
+            { label: 'In-Place Cap Rate %', live: liveObj.capRate, a: snapAObj.capRate, b: snapBObj?.capRate, isPct: true, isHighlight: true },
+            { label: 'Exit Cap Rate %', live: liveObj.exitCapRate, a: snapAObj.exitCapRate, b: snapBObj?.exitCapRate, isPct: true },
+            { label: 'Cash-on-Cash Return %', live: liveObj.cashOnCash, a: snapAObj.cashOnCash, b: snapBObj?.cashOnCash, isPct: true, isHighlight: true },
+            { label: 'Target IRR %', live: liveObj.irr, a: snapAObj.irr, b: snapBObj?.irr, isPct: true, isHighlight: true },
+            { label: 'Equity Multiple', live: liveObj.equityMultiple, a: snapAObj.equityMultiple, b: snapBObj?.equityMultiple, suffix: 'x', isHighlight: true }
           ]
         }
       ];
@@ -11779,7 +11816,9 @@
       function formatVal(v, r) {
         if (v == null || isNaN(v) || v === '') return '<span class="text-slate-600">—</span>';
         const num = Number(v);
-        if (r.isCurrency) return '$' + Math.round(num).toLocaleString();
+        if (r.isCurrency) {
+          return '$' + Math.round(num).toLocaleString() + (r.suffix || '');
+        }
         if (r.isPct) return num.toFixed(2) + '%';
         if (r.suffix) return num.toFixed(2) + r.suffix;
         return num.toString();
@@ -11789,10 +11828,24 @@
         if (val == null || liveVal == null || isNaN(val) || isNaN(liveVal)) return '';
         const diff = Number(val) - Number(liveVal);
         if (Math.abs(diff) < 0.001) return '';
-        const isBetter = r.isHighlight ? diff > 0 : null;
+        let isBetter = null;
+        if (r.isHighlight) {
+          isBetter = diff > 0;
+        } else if (r.isLowerBetter) {
+          isBetter = diff < 0;
+        }
         const color = isBetter === true ? 'text-emerald-400 font-bold' : (isBetter === false ? 'text-rose-400 font-bold' : 'text-slate-400');
         const sign = diff > 0 ? '+' : '';
-        const diffFmt = r.isCurrency ? sign + '$' + Math.round(diff).toLocaleString() : (r.isPct ? sign + diff.toFixed(2) + '%' : sign + diff.toFixed(1));
+        let diffFmt = '';
+        if (r.isCurrency) {
+          diffFmt = (diff > 0 ? '+$' : '-$') + Math.abs(Math.round(diff)).toLocaleString();
+        } else if (r.isPct) {
+          diffFmt = sign + diff.toFixed(2) + '%';
+        } else if (r.suffix) {
+          diffFmt = sign + diff.toFixed(2) + r.suffix;
+        } else {
+          diffFmt = sign + diff.toFixed(1);
+        }
         return `<span class="ml-1.5 text-[10px] ${color} bg-slate-950/80 px-1.5 py-0.5 rounded border border-slate-800">(${diffFmt})</span>`;
       }
 
@@ -11861,7 +11914,7 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="${hasSnapB ? 4 : 3}" class="py-8 text-center text-slate-500 font-sans text-xs">
-              ${diffMatrixOnlyChanges ? '✓ No parameter differences between selected run and active model.' : 'No scenario data available to compare.'}
+              ${diffMatrixOnlyChanges ? 'No parameter differences between selected run and active model.' : 'No scenario data available to compare.'}
             </td>
           </tr>
         `;
@@ -11869,7 +11922,7 @@
         tbody.innerHTML = html;
       }
     }
-    window.renderComparisonMatrix = renderComparisonMatrix;
+    window.renderScenarioDiffMatrix = renderScenarioDiffMatrix;
 
     function openParameterHistoryModal() {
       const modal = document.getElementById('modal-parameter-history');
@@ -11909,7 +11962,7 @@
         tabBtnDiff?.classList.remove('bg-slate-950', 'text-slate-400');
         tabBtnTimeline?.classList.add('bg-slate-950', 'text-slate-400');
         tabBtnTimeline?.classList.remove('bg-emerald-600', 'text-white', 'shadow-sm');
-        renderComparisonMatrix();
+        renderScenarioDiffMatrix();
       }
     }
     window.switchParameterHistoryTab = switchParameterHistoryTab;
@@ -11982,6 +12035,7 @@
       if (!currentLoadedDeal) return;
       const snap = cachedSnapshots.find(s => s.id === historyId);
       const scenarioName = snap ? snap.name : 'Selected Scenario';
+      _isRestoringScenario = true;
 
       try {
         const res = await invokeScenariosEdge('restore_run', {
@@ -12025,13 +12079,17 @@
         if (hintEl) {
           const toast = document.createElement('div');
           toast.className = 'p-3 bg-emerald-950/80 border border-emerald-500/40 rounded-2xl text-xs text-emerald-200 font-bold flex items-center justify-between shadow-xl';
-          toast.innerHTML = `<span>⚡ Active scenario switched to <strong>"${escapeHtml(snapshotData.name)}"</strong>. Baseline inputs and returns updated.</span><button onclick="this.parentElement.remove()" class="text-emerald-400 font-black ml-2 hover:text-white">✕</button>`;
+          toast.innerHTML = `<span>Active scenario switched to <strong>"${escapeHtml(snapshotData.name)}"</strong>. Baseline inputs and returns updated.</span><button onclick="this.parentElement.remove()" class="text-emerald-400 font-black ml-2 hover:text-white">✕</button>`;
           hintEl.prepend(toast);
           setTimeout(() => { if (toast.parentElement) toast.remove(); }, 6000);
         }
       } catch (err) {
         console.error('Error restoring scenario snapshot:', err);
         alert('Error restoring scenario: ' + err.message);
+      } finally {
+        setTimeout(() => {
+          _isRestoringScenario = false;
+        }, 2000);
       }
     }
     window.applyParameterSnapshot = applyParameterSnapshot;

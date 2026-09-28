@@ -326,35 +326,25 @@
             </div>
           </div>
 
-          <!-- Interactive Scrubbers / Sliders (Acquisition Price & In-Place Cap Rate) -->
+          <!-- Deal Parameters (Acquisition Basis & In-Place Cap Rate) -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             
-            <!-- Slider 1: Acquisition Price ($5M - $25M) -->
-            <div class="p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-2">
+            <!-- Parameter 1: Acquisition Basis -->
+            <div class="p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-1">
               <div class="flex items-center justify-between text-xs">
-                <span class="text-slate-400 font-medium">Acquisition Price</span>
+                <span class="text-slate-400 font-medium">Acquisition Basis</span>
                 <span id="hero-disp-price" class="font-mono-numbers font-bold text-white text-sm">$12.50M</span>
               </div>
-              <input id="hero-slider-price" type="range" min="5" max="25" step="0.25" value="12.5" class="w-full">
-              <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
-                <span>$5.0M</span>
-                <span>$15.0M</span>
-                <span>$25.0M</span>
-              </div>
+              <p class="text-[11px] text-slate-500 font-mono">Underwritten Entry Capitalization</p>
             </div>
 
-            <!-- Slider 2: In-Place Cap Rate (4.50% - 7.50%) -->
-            <div class="p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-2">
+            <!-- Parameter 2: In-Place Cap Rate -->
+            <div class="p-3.5 rounded-xl bg-[#0B0F17]/80 border border-white/[0.06] space-y-1">
               <div class="flex items-center justify-between text-xs">
                 <span class="text-slate-400 font-medium">In-Place Cap Rate</span>
                 <span id="hero-disp-cap" class="font-mono-numbers font-bold text-emerald-400 text-sm">5.75%</span>
               </div>
-              <input id="hero-slider-cap" type="range" min="4.50" max="7.50" step="0.05" value="5.75" class="w-full">
-              <div class="flex justify-between text-[10px] font-mono-numbers text-slate-500">
-                <span>4.50%</span>
-                <span>6.00%</span>
-                <span>7.50%</span>
-              </div>
+              <p class="text-[11px] text-slate-500 font-mono">Unlevered Entry Yield on Cost</p>
             </div>
 
           </div>
@@ -2229,20 +2219,16 @@
     };
 
     function initHeroCalculations() {
-      var sliderPrice = document.getElementById('hero-slider-price');
-      var sliderCap   = document.getElementById('hero-slider-cap');
       var assetTabs   = document.querySelectorAll('[data-hero-asset]');
       var activeAssetKey = 'industrial';
 
-      if (!sliderPrice || !sliderCap) return;
-
       function updateHero() {
         var preset = ASSET_PRESETS[activeAssetKey] || ASSET_PRESETS.industrial;
-        var priceMillions = parseFloat(sliderPrice.value);
-        var capRateVal = parseFloat(sliderCap.value);
+        var priceMillions = preset.defaultPrice;
+        var capRateVal = preset.defaultCap;
         var purchasePrice = priceMillions * 1000000;
 
-        // Update slider display labels
+        // Update display labels
         var elDispPrice = document.getElementById('hero-disp-price');
         var elDispCap = document.getElementById('hero-disp-cap');
         if (elDispPrice) elDispPrice.textContent = '$' + priceMillions.toFixed(2) + 'M';
@@ -2411,8 +2397,6 @@
           });
 
           var p = ASSET_PRESETS[key];
-          if (sliderPrice) sliderPrice.value = p.defaultPrice;
-          if (sliderCap) sliderCap.value = p.defaultCap;
           var elDesc = document.getElementById('hero-asset-desc');
           if (elDesc) elDesc.textContent = p.desc;
           var elDebt = document.getElementById('hero-debt-summary');
@@ -2421,9 +2405,6 @@
           updateHero();
         });
       });
-
-      sliderPrice.addEventListener('input', updateHero);
-      sliderCap.addEventListener('input', updateHero);
 
       updateHero();
     }
