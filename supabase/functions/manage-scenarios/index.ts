@@ -208,10 +208,10 @@ export async function handleRequest(req: Request): Promise<Response> {
           });
         }
 
-        // Format name based on key changed parameter if no custom name provided
+        // Format name based on key changed parameter(s) if no custom name provided
         let generatedName = runName;
         if (!generatedName) {
-          if (inputDiff.length > 0) {
+          if (inputDiff.length === 1) {
             const topDiff = inputDiff[0];
             const sign = topDiff.delta > 0 ? "+" : "";
             const fmtDelta = topDiff.isCurrency
@@ -220,6 +220,18 @@ export async function handleRequest(req: Request): Promise<Response> {
               ? sign + topDiff.delta.toFixed(2) + "%"
               : sign + topDiff.delta;
             generatedName = `Run: ${topDiff.label} (${fmtDelta})`;
+          } else if (inputDiff.length === 2) {
+            const d1 = inputDiff[0];
+            const d2 = inputDiff[1];
+            const s1 = d1.delta > 0 ? "+" : "";
+            const s2 = d2.delta > 0 ? "+" : "";
+            const f1 = d1.isCurrency ? s1 + "$" + Math.round(d1.delta).toLocaleString() : (d1.isPct ? s1 + d1.delta.toFixed(1) + "%" : s1 + d1.delta);
+            const f2 = d2.isCurrency ? s2 + "$" + Math.round(d2.delta).toLocaleString() : (d2.isPct ? s2 + d2.delta.toFixed(1) + "%" : s2 + d2.delta);
+            generatedName = `Run: ${d1.label} (${f1}) & ${d2.label} (${f2})`;
+          } else if (inputDiff.length > 2) {
+            const labels = inputDiff.slice(0, 3).map((d: any) => d.label).join(", ");
+            const extra = inputDiff.length > 3 ? ` +${inputDiff.length - 3}` : "";
+            generatedName = `Run: Multi-Param (${labels}${extra})`;
           } else {
             generatedName = `Run #${Date.now().toString().slice(-4)}`;
           }
@@ -274,6 +286,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           .from("deal_parameter_history")
           .select("id, name, category, inputs, metrics, input_diff, metric_diff, is_baseline, is_auto_run, created_at")
           .eq("deal_id", dealId)
+          .neq("name", "[object Object]")
+          .not("inputs", "is", null)
           .order("created_at", { ascending: false })
           .limit(5);
 
