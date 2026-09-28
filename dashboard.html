@@ -934,8 +934,8 @@
           </div>
         </div>
 
-        <!-- Projects Cards Grid -->
-        <div id="dash-projects-grid" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-5 sm:gap-6">
+        <!-- Projects Cards Grid (2 spacious columns on desktop next to sidebar) -->
+        <div id="dash-projects-grid" class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
           <!-- Dynamically rendered property cards -->
         </div>
 
@@ -3535,17 +3535,17 @@
             <div class="space-y-4">
               
               <!-- Top Meta Row: Icon, Asset Type, Benchmark Tag, Status & Menu -->
-              <div class="flex items-center justify-between gap-2 border-b border-slate-900/80 pb-3">
-                <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
+              <div class="flex items-center justify-between gap-3 border-b border-slate-900/80 pb-3">
+                <div class="flex items-center space-x-2 min-w-0">
                   <div class="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner shrink-0 group-hover:border-brand-500/30 transition">
                     ${icon}
                   </div>
-                  <span class="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 truncate" title="${assetLabel}">${assetLabel}</span>
+                  <span class="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 whitespace-nowrap">${assetLabel}</span>
                   ${d.is_synthetic ? '<span class="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap shrink-0">Benchmark</span>' : ''}
                   ${d.is_shared ? `<span class="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap shrink-0" title="Shared by collaborator">🤝 Shared</span>` : ''}
                 </div>
 
-                <div class="flex items-center space-x-1.5 shrink-0 ml-auto pl-1">
+                <div class="flex items-center space-x-2 shrink-0 ml-auto">
                   ${statusBadge}
 
                   <!-- Dropdown Menu Trigger -->
