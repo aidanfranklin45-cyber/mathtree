@@ -807,25 +807,17 @@
             </div>
           </div>
 
-          <!-- 2. Portfolio Status (All deals default, Owned, Prospects) -->
+          <!-- 2. Portfolio Status (Owned is default resting state) -->
           <div class="space-y-2">
             <label class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Deal Status</label>
             <div class="space-y-1 text-xs" id="status-filter-group">
-              <button type="button" onclick="setDashboardStatusFilter('all')" id="btn-status-all"
-                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm text-left">
-                <div class="flex items-center space-x-2">
-                  <span class="w-2 h-2 rounded-full bg-white"></span>
-                  <span>All Deals</span>
-                </div>
-                <span id="count-all" class="text-[11px] opacity-90">0</span>
-              </button>
               <button type="button" onclick="setDashboardStatusFilter('owned')" id="btn-status-owned"
-                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 transition shadow-sm text-left">
                 <div class="flex items-center space-x-2">
                   <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                   <span>Owned Portfolio</span>
                 </div>
-                <span id="count-owned" class="text-[11px] text-slate-400">0</span>
+                <span id="count-owned" class="text-[11px] opacity-90">0</span>
               </button>
               <button type="button" onclick="setDashboardStatusFilter('prospect')" id="btn-status-prospect"
                 class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
@@ -834,6 +826,14 @@
                   <span>Pipeline / Prospects</span>
                 </div>
                 <span id="count-prospect" class="text-[11px] text-slate-400">0</span>
+              </button>
+              <button type="button" onclick="setDashboardStatusFilter('all')" id="btn-status-all"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition text-left">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-white"></span>
+                  <span>All Deals</span>
+                </div>
+                <span id="count-all" class="text-[11px] text-slate-400">0</span>
               </button>
             </div>
           </div>
@@ -2556,7 +2556,7 @@
     };
 
     // System variables
-    let currentStatusFilter = 'all'; // 'all' | 'prospect' | 'owned' (default resting state is all)
+    let currentStatusFilter = 'owned'; // 'owned' | 'prospect' | 'all' (default resting state is owned)
     let currentAssetFilter = 'all';  // 'all' | 'single-family' | 'multi-unit' | 'commercial' | 'storage'
     let currentSearchQuery = '';
     let currentSortBy = 'newest';
@@ -3189,7 +3189,7 @@
     window.toggleMobileFilterSidebar = toggleMobileFilterSidebar;
 
     function resetDashboardFilters() {
-      currentStatusFilter = 'all';
+      currentStatusFilter = 'owned';
       currentAssetFilter = 'all';
       currentSearchQuery = '';
       currentSortBy = 'newest';
@@ -3279,7 +3279,7 @@
         filtered = filtered.filter(d => !!d.is_shared);
       }
 
-      // 4. Status Filter
+      // 4. Status Filter (default resting state is 'owned')
       if (currentStatusFilter !== 'all') {
         filtered = filtered.filter(d => (d.status || 'prospect') === currentStatusFilter);
       }
@@ -3349,8 +3349,8 @@
       setEl('dash-total-count', activeDashboardProjects.length);
       setEl('mobile-results-count', `${filtered.length} ${filtered.length === 1 ? 'deal' : 'deals'}`);
 
-      // Active filters badge & Reset button
-      const isAnyFilterActive = currentStatusFilter !== 'all' || currentAssetFilter !== 'all' || currentSearchQuery || entityFilter !== 'all' || sharedOnly || currentSortBy !== 'newest';
+      // Active filters badge & Reset button (resting state is status === 'owned')
+      const isAnyFilterActive = currentStatusFilter !== 'owned' || currentAssetFilter !== 'all' || currentSearchQuery || entityFilter !== 'all' || sharedOnly || currentSortBy !== 'newest';
       const resetBtn = document.getElementById('btn-reset-filters');
       if (resetBtn) resetBtn.classList.toggle('hidden', !isAnyFilterActive);
 
@@ -3361,9 +3361,9 @@
       const tagsContainer = document.getElementById('dash-active-filter-tags');
       if (tagsContainer) {
         let tagHtml = '';
-        if (currentStatusFilter !== 'all') {
-          const sLabel = currentStatusFilter === 'owned' ? 'Owned' : 'Pipeline';
-          tagHtml += `<button type="button" onclick="setDashboardStatusFilter('all')" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>Status: ${sLabel}</span><span class="text-slate-400">×</span></button>`;
+        if (currentStatusFilter !== 'owned') {
+          const sLabel = currentStatusFilter === 'all' ? 'All Deals' : 'Pipeline Only';
+          tagHtml += `<button type="button" onclick="setDashboardStatusFilter('owned')" class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"><span>Status: ${sLabel}</span><span class="text-slate-400">×</span></button>`;
         }
         if (currentAssetFilter !== 'all') {
           const assetLabels = { 'single-family': 'SFR', 'multi-unit': 'Multi-Unit', 'commercial': 'Commercial', 'storage': 'Storage' };
@@ -3522,22 +3522,30 @@
           `;
         }
 
+        const assetDisplayMap = {
+          'single-family': 'SFR',
+          'multi-unit': 'Multi-Unit',
+          'commercial': 'Commercial',
+          'storage': 'Storage'
+        };
+        const assetLabel = assetDisplayMap[aClass] || aClass.replace('-', ' ');
+
         return `
-          <div onclick="navigateToProject(event, '${d.id}')" class="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full">
+          <div onclick="navigateToProject(event, '${d.id}')" class="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full">
             <div class="space-y-4">
               
               <!-- Top Meta Row: Icon, Asset Type, Benchmark Tag, Status & Menu -->
               <div class="flex items-center justify-between gap-2 border-b border-slate-900/80 pb-3">
-                <div class="flex items-center space-x-2 min-w-0">
+                <div class="flex items-center space-x-2 min-w-0 overflow-hidden">
                   <div class="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner shrink-0 group-hover:border-brand-500/30 transition">
                     ${icon}
                   </div>
-                  <span class="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 whitespace-nowrap">${aClass.replace('-', ' ')}</span>
+                  <span class="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-950/80 px-2 py-0.5 rounded-lg border border-slate-800 truncate" title="${assetLabel}">${assetLabel}</span>
                   ${d.is_synthetic ? '<span class="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap shrink-0">Benchmark</span>' : ''}
-                  ${d.is_shared ? `<span class="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap shrink-0" title="Shared by collaborator">🤝 Shared (${d.shared_permission || 'Viewer'})</span>` : ''}
+                  ${d.is_shared ? `<span class="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap shrink-0" title="Shared by collaborator">🤝 Shared</span>` : ''}
                 </div>
 
-                <div class="flex items-center space-x-1.5 shrink-0">
+                <div class="flex items-center space-x-1.5 shrink-0 ml-auto pl-1">
                   ${statusBadge}
 
                   <!-- Dropdown Menu Trigger -->
