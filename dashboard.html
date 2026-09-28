@@ -629,15 +629,6 @@
           <span id="notif-badge"
             class="notif-badge hidden -top-1 -right-1 absolute flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-extrabold text-white animate-pulse">0</span>
         </button>
-        <button id="btn-export-portfolio-pdf" onclick="exportDashboardPortfolioPDF()"
-          class="flex items-center space-x-1.5 py-1.5 px-2 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition"
-          title="Export Portfolio & Pipeline Executive Brief (PDF)">
-          <svg class="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-          </svg>
-          <span class="hidden md:inline">Export PDF</span>
-        </button>
         <button id="btn-open-collaborators" onclick="openCollaboratorsHubModal()"
           aria-label="Collaborator Network & Deal Sharing"
           class="relative flex items-center space-x-1.5 py-1.5 px-2 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-cyan-500/50 transition"
@@ -689,7 +680,7 @@
         </p>
       </div>
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-        <button onclick="exportDashboardPortfolioPDF()"
+        <button id="btn-export-portfolio-pdf" onclick="exportDashboardPortfolioPDF()"
           class="px-3.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-center space-x-2 shadow-lg"
           title="Print Executive Portfolio & Pipeline Brief">
           <svg class="w-4 h-4 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -703,7 +694,7 @@
           <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
           </svg>
-          <span>+ Create New Project</span>
+          <span>Create New Project</span>
         </button>
       </div>
     </div>
