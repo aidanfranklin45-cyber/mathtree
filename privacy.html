@@ -187,16 +187,16 @@
       <section class="space-y-3">
         <h2 class="text-lg font-bold text-white flex items-center space-x-2">
           <span class="text-emerald-400 font-mono">3.</span>
-          <span>Database Architecture, Storage &amp; Security Controls</span>
+          <span>Security Architecture &amp; Data Governance</span>
         </h2>
         <p class="text-slate-400">
-          We employ standard enterprise cloud infrastructure safeguards designed to protect platform integrity:
+          MathTree is hosted on secure enterprise cloud infrastructure utilizing industry-standard encryption in transit (TLS) and storage-level encryption at rest. Customer data is isolated between accounts using database row-level security controls to support real-time underwriting calculations and platform operations.
         </p>
-        <ul class="list-disc pl-5 space-y-2 text-slate-400">
-          <li><strong class="text-slate-200">Encryption in Transit:</strong> All data transmitted between client browsers and MathTree cloud endpoints is encrypted using TLS 1.3 encryption.</li>
-          <li><strong class="text-slate-200">Storage Volume Encryption at Rest:</strong> Cloud databases, persistent block volumes, and automated backup snapshots are encrypted at rest using AES-256 standard encryption via our underlying cloud infrastructure providers (Supabase and AWS).</li>
-          <li><strong class="text-slate-200">Database Schema &amp; Administrative Access:</strong> Property attributes, financial inputs, and pipeline parameters are stored in multi-tenant PostgreSQL relational tables. Data is isolated between accounts using PostgreSQL Row-Level Security (RLS) policies. Column-level data is stored in standard relational format (not client-side or zero-knowledge encrypted) to facilitate real-time mathematical computations and platform analytics. Authorized MathTree platform administrators have database-level access to maintain system operations, monitor performance, and generate aggregate market models.</li>
-          <li><strong class="text-slate-200">Automated Inactivity Timeouts:</strong> Terminal sessions automatically lock or expire after 30 minutes of idle time to prevent unauthorized physical access.</li>
+        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
+          <li><strong class="text-slate-200">Encryption in Transit:</strong> All communications between client terminals and MathTree cloud endpoints are encrypted using modern TLS protocols.</li>
+          <li><strong class="text-slate-200">Storage-Level Encryption at Rest:</strong> Cloud databases, persistent storage volumes, and automated backup snapshots utilize managed storage-level encryption via our enterprise cloud infrastructure providers.</li>
+          <li><strong class="text-slate-200">Multi-Tenant Row-Level Security (RLS):</strong> Projects, financial models, and profile data are protected by database row-level security policies, ensuring no user can query or modify data belonging to another account.</li>
+          <li><strong class="text-slate-200">Inactivity Session Protection:</strong> Unattended terminals automatically lock or expire after 30 minutes of idle time to prevent physical terminal compromise.</li>
         </ul>
       </section>
 
