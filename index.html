@@ -1699,7 +1699,7 @@
       <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[#1E2230]">
         <span class="text-[11px] text-slate-400 font-mono-numbers">Generated via MathTree Edge Underwriting Engine • APN 191331-43417</span>
         <div class="flex flex-wrap items-center gap-2">
-          <button onclick="downloadDemoPdfBrief()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 transition flex items-center space-x-1.5 shadow-md shadow-amber-500/20 cursor-pointer">
+          <button id="modal-btn-download-memo" onclick="downloadDemoPdfBrief()" class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 transition flex items-center space-x-1.5 shadow-md shadow-amber-500/20 cursor-pointer">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             <span>Download Deal Memo (PDF)</span>
           </button>
@@ -1997,27 +1997,12 @@
       dealId = dealId || '6b7a86af-ce7c-442e-805e-83b57d0f5b37';
       var pdfUrl = 'https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=' + encodeURIComponent(dealId) + '&t=' + Date.now();
 
-      // Open new window synchronously on user click to prevent popup blockers
-      var win = window.open('about:blank', '_blank');
-      if (win) {
-        try {
-          win.document.write([
-            '<!DOCTYPE html><html><head><title>Preparing MathTree Executive Brief...</title>',
-            '<style>',
-            'body { background: #0b0f17; color: #94a3b8; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }',
-            '.card { text-align: center; padding: 32px; max-width: 440px; background: #111827; border: 1px solid #1f2937; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }',
-            '.brand { font-size: 20px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; margin-bottom: 14px; }',
-            '.spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid rgba(16,185,129,0.2); border-radius: 50%; border-top-color: #10b981; animation: spin 0.8s linear infinite; margin-bottom: 16px; }',
-            '@keyframes spin { to { transform: rotate(360deg); } }',
-            '</style></head><body>',
-            '<div class="card"><div class="spinner"></div>',
-            '<div class="brand">MATHTREE</div>',
-            '<div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">Generating Executive Investment Memo...</div>',
-            '<div style="font-size: 12px; color: #64748b; line-height: 1.5;">Preparing print-optimized pro-forma schedule, debt breakdown, and executive memorandum</div>',
-            '</div></body></html>'
-          ].join(''));
-          win.document.close();
-        } catch(e) {}
+      var btn = document.getElementById('modal-btn-download-memo');
+      var originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.innerHTML = '<span class="inline-block animate-spin mr-1.5">⏳</span> Generating Memo...';
       }
 
       try {
@@ -2026,25 +2011,60 @@
           throw new Error('Server returned status ' + res.status);
         }
         var html = await res.text();
-        
-        // Use Blob URL so Chrome renders as text/html in an isolated thread without freezing the opener
+
+        // 1. Strip all <script> tags completely to prevent any automatic window.print() call that causes Chrome modal locks
+        html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+        // 2. Inject sticky print toolbar (automatically hidden during print)
+        var actionToolbar = [
+          '<style>',
+          '@media print { .mathtree-brief-toolbar { display: none !important; } }',
+          '</style>',
+          '<div class="mathtree-brief-toolbar" style="position: sticky; top: 0; z-index: 99999; background: #0f172a; border-bottom: 2px solid #059669; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 14px rgba(0,0,0,0.35); font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">',
+          '  <div style="display: flex; align-items: center; gap: 10px;">',
+          '    <span style="font-size: 15px; font-weight: 900; color: #10b981; letter-spacing: -0.5px;">🌿 MATHTREE</span>',
+          '    <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Executive Underwriting Brief • 2239 Longfibre Rd Logistics Center</span>',
+          '  </div>',
+          '  <div style="display: flex; align-items: center; gap: 8px;">',
+          '    <button onclick="window.print()" style="background: #059669; color: #ffffff; font-size: 12px; font-weight: 800; padding: 7px 18px; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(5,150,105,0.4); font-family: sans-serif;" onmouseover="this.style.background=\'#047857\'" onmouseout="this.style.background=\'#059669\'">',
+          '      <span>🖨️ Print / Save as PDF</span>',
+          '    </button>',
+          '    <button onclick="window.close()" style="background: #1e293b; color: #94a3b8; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border: 1px solid #334155; cursor: pointer; display: flex; align-items: center; font-family: sans-serif;" onmouseover="this.style.color=\'#ffffff\';this.style.background=\'#334155\'" onmouseout="this.style.color=\'#94a3b8\';this.style.background=\'#1e293b\'">',
+          '      <span>✕ Close</span>',
+          '    </button>',
+          '  </div>',
+          '</div>'
+        ].join('');
+
+        if (html.includes('<body>')) {
+          html = html.replace('<body>', '<body>' + actionToolbar);
+        } else {
+          html = actionToolbar + html;
+        }
+
+        // 3. Create isolated Blob URL and trigger decoupled navigation using rel="noopener noreferrer"
         var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         var blobUrl = URL.createObjectURL(blob);
 
-        if (win && !win.closed) {
-          try { win.opener = null; } catch(e) {}
-          win.location.replace(blobUrl);
-        } else {
-          window.open(blobUrl, '_blank', 'noopener,noreferrer');
-        }
+        var link = document.createElement('a');
+        link.href = blobUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(function() {
+          if (link.parentNode) link.parentNode.removeChild(link);
+          setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 120000);
+        }, 500);
+
       } catch (err) {
         console.error('PDF Brief generation error:', err);
-        if (win && !win.closed) {
-          try {
-            win.document.body.innerHTML = '<div style="background:#0b0f17;color:#f43f5e;font-family:sans-serif;padding:40px;text-align:center;"><h3>Failed to generate PDF brief</h3><p>' + (err.message || 'Unknown error') + '</p></div>';
-          } catch(e) {}
-        } else {
-          alert('Failed to generate PDF brief: ' + err.message);
+        alert('Failed to generate PDF brief: ' + (err.message || 'Unknown error'));
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          btn.innerHTML = originalHtml;
         }
       }
     }
