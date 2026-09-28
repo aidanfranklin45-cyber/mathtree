@@ -2397,9 +2397,6 @@
             <select id="diff-scenario-select-b" onchange="renderScenarioDiffMatrix()" class="bg-slate-900 border border-slate-700 text-cyan-300 rounded-lg px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-cyan-500">
               <!-- Populated dynamically -->
             </select>
-            <span id="diff-live-match-hint" class="hidden text-[10px] text-amber-400 font-mono bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 rounded">
-              Selected run matches Live Model
-            </span>
           </div>
 
           <div class="flex items-center space-x-2">
@@ -11567,7 +11564,11 @@
       const t2 = Number(liveInputs.loanTerm || 0);
       const g1 = Number(snap.inputs.grossRentAnnual || (snap.inputs.monthlyRent ? snap.inputs.monthlyRent * 12 : 0));
       const g2 = Number(liveInputs.grossRentAnnual || (liveInputs.monthlyRent ? liveInputs.monthlyRent * 12 : 0));
-      return Math.abs(p1 - p2) < 1 && Math.abs(d1 - d2) < 0.01 && Math.abs(r1 - r2) < 0.01 && t1 === t2 && Math.abs(g1 - g2) < 1;
+      const rh1 = Number(snap.inputs.rehabBudget || snap.inputs.rehabCosts || 0);
+      const rh2 = Number(liveInputs.rehabBudget || liveInputs.rehabCosts || 0);
+      const v1 = Number(snap.inputs.vacancyRate || 0);
+      const v2 = Number(liveInputs.vacancyRate || 0);
+      return Math.abs(p1 - p2) < 1 && Math.abs(d1 - d2) < 0.01 && Math.abs(r1 - r2) < 0.01 && t1 === t2 && Math.abs(g1 - g2) < 1 && Math.abs(rh1 - rh2) < 1 && Math.abs(v1 - v2) < 0.01;
     }
 
     function formatRelativeTime(dateStr) {
@@ -11586,39 +11587,41 @@
       const selectB = document.getElementById('diff-scenario-select-b');
       if (!selectA || !selectB) return;
 
-      // Filter out invalid or corrupt runs
+      const live = currentLoadedDeal?.inputs || {};
       const validRuns = (cachedSnapshots || []).filter(s => s && s.name && s.name !== '[object Object]' && s.inputs);
 
-      if (validRuns.length === 0) {
-        selectA.innerHTML = '<option value="">No saved scenarios</option>';
+      // Exclude any runs that match the Active Live Model (only compare different variations)
+      const variationRuns = validRuns.filter(s => !isSnapshotMatchingLive(s, live));
+
+      if (variationRuns.length === 0) {
+        selectA.innerHTML = '<option value="">(All saved runs match Active Live Model)</option>';
         selectB.innerHTML = '<option value="">(None)</option>';
+        selectA.disabled = true;
+        selectB.disabled = true;
         renderScenarioDiffMatrix();
         return;
       }
 
-      const live = currentLoadedDeal?.inputs || {};
+      selectA.disabled = false;
+      selectB.disabled = false;
 
-      // Default selection logic:
-      // When 2 or more runs exist, default compare Run 0 in A and Run 1 in B side-by-side with Active Live Model!
-      let defaultAId = validRuns[0].id;
-      let defaultBId = validRuns.length > 1 ? validRuns[1].id : '';
+      let defaultAId = variationRuns[0].id;
+      let defaultBId = variationRuns.length > 1 ? variationRuns[1].id : '';
 
       // Populate Select A options
-      selectA.innerHTML = validRuns.map(s => {
-        const isLive = isSnapshotMatchingLive(s, live);
+      selectA.innerHTML = variationRuns.map(s => {
         const rel = formatRelativeTime(s.created_at);
-        const tag = isLive ? ' [Current Live Model]' : (rel ? ` • ${rel}` : '');
+        const tag = rel ? ` • ${rel}` : '';
         const sel = s.id === defaultAId ? 'selected' : '';
         return `<option value="${s.id}" ${sel}>${escapeHtml(s.name)}${tag}</option>`;
       }).join('');
 
-      // Populate Select B options (includes "(None - Compare Single Run)")
+      // Populate Select B options
       const optsB = [
         '<option value="">(None - Compare Single Run)</option>'
-      ].concat(validRuns.map(s => {
-        const isLive = isSnapshotMatchingLive(s, live);
+      ].concat(variationRuns.map(s => {
         const rel = formatRelativeTime(s.created_at);
-        const tag = isLive ? ' [Current Live Model]' : (rel ? ` • ${rel}` : '');
+        const tag = rel ? ` • ${rel}` : '';
         const sel = s.id === defaultBId ? 'selected' : '';
         return `<option value="${s.id}" ${sel}>${escapeHtml(s.name)}${tag}</option>`;
       })).join('');
@@ -11741,19 +11744,31 @@
       const liveMatchHint = document.getElementById('diff-live-match-hint');
       if (!tbody || !selectA || !selectB) return;
 
-      const validRuns = (cachedSnapshots || []).filter(s => s && s.name && s.name !== '[object Object]' && s.inputs);
-      const snapA = validRuns.find(s => s.id === selectA.value) || validRuns[0] || null;
-      const snapB = selectB.value ? (validRuns.find(s => s.id === selectB.value) || null) : null;
-
       const live = currentLoadedDeal?.inputs || {};
+      const validRuns = (cachedSnapshots || []).filter(s => s && s.name && s.name !== '[object Object]' && s.inputs);
+      const variationRuns = validRuns.filter(s => !isSnapshotMatchingLive(s, live));
+
+      const snapA = variationRuns.find(s => s.id === selectA.value) || variationRuns[0] || null;
+      const snapB = selectB.value ? (variationRuns.find(s => s.id === selectB.value) || null) : null;
+
       const liveMetrics = currentLoadedDeal?.metrics || currentLoadedDeal || {};
 
       const liveObj = extractDealSummaryMetrics(live, liveMetrics);
-      const snapAObj = extractDealSummaryMetrics(snapA?.inputs, snapA?.metrics);
+      const snapAObj = snapA ? extractDealSummaryMetrics(snapA.inputs, snapA.metrics) : null;
       const snapBObj = snapB ? extractDealSummaryMetrics(snapB.inputs, snapB.metrics) : null;
 
-      const hasSnapB = Boolean(snapB);
-      if (colTitleA) colTitleA.textContent = snapA ? snapA.name : 'Scenario A';
+      const hasSnapA = Boolean(snapA);
+      const hasSnapB = Boolean(snapB && snapB.id !== snapA?.id);
+
+      if (colTitleA) {
+        if (hasSnapA) {
+          colTitleA.textContent = snapA.name;
+          colTitleA.classList.remove('hidden');
+        } else {
+          colTitleA.textContent = '';
+          colTitleA.classList.add('hidden');
+        }
+      }
       if (colTitleB) {
         if (hasSnapB) {
           colTitleB.textContent = snapB.name;
@@ -11764,16 +11779,19 @@
         }
       }
 
-      // Check if either selected run is identical to active live model
-      const aMatchesLive = isSnapshotMatchingLive(snapA, live);
-      const bMatchesLive = isSnapshotMatchingLive(snapB, live);
       if (liveMatchHint) {
-        if (aMatchesLive || (hasSnapB && bMatchesLive)) {
-          liveMatchHint.classList.remove('hidden');
-          liveMatchHint.textContent = aMatchesLive ? 'Scenario A matches Active Live Model' : 'Scenario B matches Active Live Model';
-        } else {
-          liveMatchHint.classList.add('hidden');
-        }
+        liveMatchHint.classList.add('hidden');
+      }
+
+      if (!hasSnapA && !hasSnapB) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="2" class="py-8 text-center text-slate-500 font-sans text-xs">
+              All saved scenarios match the Active Live Model. Adjust underwriting inputs to test parameter variations.
+            </td>
+          </tr>
+        `;
+        return;
       }
 
       // Institutional parameter & KPI row definitions
@@ -11781,34 +11799,34 @@
         {
           category: 'FINANCING & CAPITAL STACK',
           rows: [
-            { label: 'Purchase Basis', live: liveObj.purchasePrice, a: snapAObj.purchasePrice, b: snapBObj?.purchasePrice, isCurrency: true, isLowerBetter: true },
-            { label: 'Down Payment %', live: liveObj.downPaymentPct, a: snapAObj.downPaymentPct, b: snapBObj?.downPaymentPct, isPct: true },
-            { label: 'Senior Loan Amount', live: liveObj.loanAmount, a: snapAObj.loanAmount, b: snapBObj?.loanAmount, isCurrency: true },
-            { label: 'Interest Rate %', live: liveObj.interestRate, a: snapAObj.interestRate, b: snapBObj?.interestRate, isPct: true, isLowerBetter: true },
-            { label: 'Loan Term (Yrs)', live: liveObj.loanTerm, a: snapAObj.loanTerm, b: snapBObj?.loanTerm },
-            { label: 'Monthly Debt Service', live: liveObj.monthlyDebt, a: snapAObj.monthlyDebt, b: snapBObj?.monthlyDebt, isCurrency: true, suffix: '/mo', isLowerBetter: true },
-            { label: 'Rehab / CapEx Budget', live: liveObj.rehabCosts, a: snapAObj.rehabCosts, b: snapBObj?.rehabCosts, isCurrency: true, isLowerBetter: true }
+            { label: 'Purchase Basis', live: liveObj.purchasePrice, a: snapAObj?.purchasePrice, b: snapBObj?.purchasePrice, isCurrency: true, isLowerBetter: true },
+            { label: 'Down Payment %', live: liveObj.downPaymentPct, a: snapAObj?.downPaymentPct, b: snapBObj?.downPaymentPct, isPct: true },
+            { label: 'Senior Loan Amount', live: liveObj.loanAmount, a: snapAObj?.loanAmount, b: snapBObj?.loanAmount, isCurrency: true },
+            { label: 'Interest Rate %', live: liveObj.interestRate, a: snapAObj?.interestRate, b: snapBObj?.interestRate, isPct: true, isLowerBetter: true },
+            { label: 'Loan Term (Yrs)', live: liveObj.loanTerm, a: snapAObj?.loanTerm, b: snapBObj?.loanTerm },
+            { label: 'Monthly Debt Service', live: liveObj.monthlyDebt, a: snapAObj?.monthlyDebt, b: snapBObj?.monthlyDebt, isCurrency: true, suffix: '/mo', isLowerBetter: true },
+            { label: 'Rehab / CapEx Budget', live: liveObj.rehabCosts, a: snapAObj?.rehabCosts, b: snapBObj?.rehabCosts, isCurrency: true, isLowerBetter: true }
           ]
         },
         {
           category: 'PROPERTY OPERATIONS & CASH FLOW',
           rows: [
-            { label: 'Gross Annual Rent', live: liveObj.grossRentAnnual, a: snapAObj.grossRentAnnual, b: snapBObj?.grossRentAnnual, isCurrency: true, suffix: '/yr', isHighlight: true },
-            { label: 'Gross Monthly Rent', live: liveObj.grossRentMonthly, a: snapAObj.grossRentMonthly, b: snapBObj?.grossRentMonthly, isCurrency: true, suffix: '/mo' },
-            { label: 'Vacancy Rate %', live: liveObj.vacancyRate, a: snapAObj.vacancyRate, b: snapBObj?.vacancyRate, isPct: true, isLowerBetter: true },
-            { label: 'Net Operating Income (NOI)', live: liveObj.noi, a: snapAObj.noi, b: snapBObj?.noi, isCurrency: true, suffix: '/yr', isHighlight: true },
-            { label: 'Senior DSCR', live: liveObj.dscr, a: snapAObj.dscr, b: snapBObj?.dscr, suffix: 'x', isHighlight: true },
-            { label: 'Year 1 Net Cash Flow', live: liveObj.cashFlow, a: snapAObj.cashFlow, b: snapBObj?.cashFlow, isCurrency: true, suffix: '/yr', isHighlight: true }
+            { label: 'Gross Annual Rent', live: liveObj.grossRentAnnual, a: snapAObj?.grossRentAnnual, b: snapBObj?.grossRentAnnual, isCurrency: true, suffix: '/yr', isHighlight: true },
+            { label: 'Gross Monthly Rent', live: liveObj.grossRentMonthly, a: snapAObj?.grossRentMonthly, b: snapBObj?.grossRentMonthly, isCurrency: true, suffix: '/mo' },
+            { label: 'Vacancy Rate %', live: liveObj.vacancyRate, a: snapAObj?.vacancyRate, b: snapBObj?.vacancyRate, isPct: true, isLowerBetter: true },
+            { label: 'Net Operating Income (NOI)', live: liveObj.noi, a: snapAObj?.noi, b: snapBObj?.noi, isCurrency: true, suffix: '/yr', isHighlight: true },
+            { label: 'Senior DSCR', live: liveObj.dscr, a: snapAObj?.dscr, b: snapBObj?.dscr, suffix: 'x', isHighlight: true },
+            { label: 'Year 1 Net Cash Flow', live: liveObj.cashFlow, a: snapAObj?.cashFlow, b: snapBObj?.cashFlow, isCurrency: true, suffix: '/yr', isHighlight: true }
           ]
         },
         {
           category: 'RETURN & PERFORMANCE METRICS',
           rows: [
-            { label: 'In-Place Cap Rate %', live: liveObj.capRate, a: snapAObj.capRate, b: snapBObj?.capRate, isPct: true, isHighlight: true },
-            { label: 'Exit Cap Rate %', live: liveObj.exitCapRate, a: snapAObj.exitCapRate, b: snapBObj?.exitCapRate, isPct: true },
-            { label: 'Cash-on-Cash Return %', live: liveObj.cashOnCash, a: snapAObj.cashOnCash, b: snapBObj?.cashOnCash, isPct: true, isHighlight: true },
-            { label: 'Target IRR %', live: liveObj.irr, a: snapAObj.irr, b: snapBObj?.irr, isPct: true, isHighlight: true },
-            { label: 'Equity Multiple', live: liveObj.equityMultiple, a: snapAObj.equityMultiple, b: snapBObj?.equityMultiple, suffix: 'x', isHighlight: true }
+            { label: 'In-Place Cap Rate %', live: liveObj.capRate, a: snapAObj?.capRate, b: snapBObj?.capRate, isPct: true, isHighlight: true },
+            { label: 'Exit Cap Rate %', live: liveObj.exitCapRate, a: snapAObj?.exitCapRate, b: snapBObj?.exitCapRate, isPct: true },
+            { label: 'Cash-on-Cash Return %', live: liveObj.cashOnCash, a: snapAObj?.cashOnCash, b: snapBObj?.cashOnCash, isPct: true, isHighlight: true },
+            { label: 'Target IRR %', live: liveObj.irr, a: snapAObj?.irr, b: snapBObj?.irr, isPct: true, isHighlight: true },
+            { label: 'Equity Multiple', live: liveObj.equityMultiple, a: snapAObj?.equityMultiple, b: snapBObj?.equityMultiple, suffix: 'x', isHighlight: true }
           ]
         }
       ];
@@ -11856,17 +11874,16 @@
 
       let totalRendered = 0;
       let html = '';
+      const colSpan = 2 + (hasSnapA ? 1 : 0) + (hasSnapB ? 1 : 0);
 
       groups.forEach(g => {
         // Filter rows based on empty check & diffMatrixOnlyChanges
         const visibleRows = g.rows.filter(r => {
-          // Hide rows where all values are null/empty/dash
-          const allEmpty = (r.live == null || isNaN(r.live)) && (r.a == null || isNaN(r.a)) && (!hasSnapB || r.b == null || isNaN(r.b));
+          const allEmpty = (r.live == null || isNaN(r.live)) && (!hasSnapA || r.a == null || isNaN(r.a)) && (!hasSnapB || r.b == null || isNaN(r.b));
           if (allEmpty) return false;
 
-          // If "Only Changes" mode is active, check if either column differs from live
           if (diffMatrixOnlyChanges) {
-            const diffA = hasDifference(r.a, r.live);
+            const diffA = hasSnapA && hasDifference(r.a, r.live);
             const diffB = hasSnapB && hasDifference(r.b, r.live);
             return diffA || diffB;
           }
@@ -11877,7 +11894,7 @@
 
         html += `
           <tr class="bg-slate-950/90 border-t border-b border-slate-800/80">
-            <td colspan="${hasSnapB ? 4 : 3}" class="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans">
+            <td colspan="${colSpan}" class="py-1.5 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans">
               ${g.category}
             </td>
           </tr>
@@ -11885,7 +11902,7 @@
 
         visibleRows.forEach(r => {
           totalRendered++;
-          const rowDiffA = hasDifference(r.a, r.live);
+          const rowDiffA = hasSnapA && hasDifference(r.a, r.live);
           const rowDiffB = hasSnapB && hasDifference(r.b, r.live);
           const rowHasAnyDiff = rowDiffA || rowDiffB;
 
@@ -11897,9 +11914,11 @@
               <td class="py-2.5 px-3 font-bold text-white bg-slate-900/60">
                 ${formatVal(r.live, r)}
               </td>
-              <td class="py-2.5 px-3 font-medium text-emerald-300">
-                ${formatVal(r.a, r)} ${varianceBadge(r.a, r.live, r)}
-              </td>
+              ${hasSnapA ? `
+                <td class="py-2.5 px-3 font-medium text-emerald-300">
+                  ${formatVal(r.a, r)} ${varianceBadge(r.a, r.live, r)}
+                </td>
+              ` : ''}
               ${hasSnapB ? `
                 <td class="py-2.5 px-3 font-medium text-cyan-300">
                   ${formatVal(r.b, r)} ${varianceBadge(r.b, r.live, r)}
@@ -11913,8 +11932,8 @@
       if (totalRendered === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="${hasSnapB ? 4 : 3}" class="py-8 text-center text-slate-500 font-sans text-xs">
-              ${diffMatrixOnlyChanges ? 'No parameter differences between selected run and active model.' : 'No scenario data available to compare.'}
+            <td colspan="${colSpan}" class="py-8 text-center text-slate-500 font-sans text-xs">
+              ${diffMatrixOnlyChanges ? 'No parameter differences between selected variation and active model.' : 'No scenario data available to compare.'}
             </td>
           </tr>
         `;
