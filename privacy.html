@@ -114,16 +114,16 @@
       </div>
     </div>
 
-    <!-- Security & Isolation Highlight Banner -->
+    <!-- Tiered Data Architecture & Market Intelligence Notice -->
     <div class="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs leading-relaxed space-y-2 mb-10">
       <div class="flex items-center space-x-2 font-bold text-emerald-300">
         <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
         </svg>
-        <span>OUR CORE INSTITUTIONAL PRIVACY COMMITMENT</span>
+        <span>TIERED DATA GOVERNANCE &amp; MARKET INTELLIGENCE MODEL</span>
       </div>
       <p>
-        MathTree recognizes the extreme proprietary sensitivity of commercial real estate pipelines, acquisition bids, in-place rent rolls, tenant identities, lease structures, and investor capital splits. <strong>MathTree does not sell, broker, or syndicate deal parameters, nor do we train public AI foundational models on your private underwriting files.</strong>
+        MathTree offers an institutional-grade modeling platform subsidized by our aggregated real estate market intelligence network. <strong>Free (Community) Tier:</strong> In exchange for full access to our financial modeling tools, property data and underwriting activity are synthesized to generate regional buyer heat maps, acquisition demand trends, and commercial real estate market indices. <strong>Premium (Confidential) Tier:</strong> Subscribers who require complete privacy and deal confidentiality can upgrade to our paid tier, which strictly excludes all pipeline data, properties, and valuation parameters from heat maps, market feeds, and commercial syndication.
       </p>
     </div>
 
@@ -159,17 +159,27 @@
       <section class="space-y-3">
         <h2 class="text-lg font-bold text-white flex items-center space-x-2">
           <span class="text-emerald-400 font-mono">2.</span>
-          <span>How We Utilize Collected Information</span>
+          <span>How We Utilize Information &amp; Market Heat Maps</span>
         </h2>
         <p class="text-slate-400">
-          Your information is utilized strictly to:
+          Information collected by MathTree is utilized for the following operational and commercial purposes:
         </p>
-        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
-          <li>Execute 10-year pro-formas, debt amortizations, and stochastic Monte Carlo risk calculations.</li>
-          <li>Generate downloadable executive pitch decks and investment committee briefs.</li>
-          <li>Authenticate your user session and maintain enterprise Row-Level Security (RLS) policies.</li>
-          <li>Maintain audit trails and enforce automated session timeouts (e.g. 30-minute inactivity thresholds).</li>
-          <li>Provide customer support, billing administration, and platform maintenance notices.</li>
+        <ul class="list-disc pl-5 space-y-2 text-slate-400">
+          <li>
+            <strong class="text-slate-200">Core Financial Modeling:</strong> Generating 10-year pro-formas, debt amortizations, waterfall distribution hurdles, and stochastic Monte Carlo simulations requested by users.
+          </li>
+          <li>
+            <strong class="text-slate-200">MathTree Market Heat Maps &amp; Commercial Intelligence (Free Tier):</strong> For users on the Free (Community) Tier, property addresses, modeling frequency, valuation metrics, asset classes, and buyer interest signals are aggregated into dynamic market heat maps and deal flow indices. MathTree may commercialize, syndicate, or license these aggregated property intelligence feeds to third parties, institutional investors, and lenders.
+          </li>
+          <li>
+            <strong class="text-slate-200">Confidential Exemption for Paid Accounts:</strong> Properties, rent rolls, and underwriting models saved by active Premium / Enterprise subscribers are strictly excluded from all heat maps, public indices, and commercial data feeds.
+          </li>
+          <li>
+            <strong class="text-slate-200">Authentication &amp; Row-Level Security:</strong> Verifying user sessions and enforcing multi-tenant database row-level security (RLS) policies.
+          </li>
+          <li>
+            <strong class="text-slate-200">Administrative Notifications:</strong> Transmitting essential account alerts, subscription invoicing, security notifications, and platform maintenance updates.
+          </li>
         </ul>
       </section>
 
@@ -177,16 +187,16 @@
       <section class="space-y-3">
         <h2 class="text-lg font-bold text-white flex items-center space-x-2">
           <span class="text-emerald-400 font-mono">3.</span>
-          <span>Data Isolation &amp; Architectural Security Controls</span>
+          <span>Database Architecture, Storage &amp; Security Controls</span>
         </h2>
         <p class="text-slate-400">
-          We implement rigorous administrative, physical, and technical safeguards engineered to protect institutional assets:
+          We employ standard enterprise cloud infrastructure safeguards designed to protect platform integrity:
         </p>
-        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
-          <li><strong class="text-slate-200">Encryption in Transit:</strong> All communications between client terminals, API gateways, and database nodes are encrypted via TLS 1.3.</li>
-          <li><strong class="text-slate-200">Encryption at Rest:</strong> Database records, storage snapshots, and authentication secrets are encrypted using AES-256 standard encryption.</li>
-          <li><strong class="text-slate-200">Multi-Tenant Row-Level Security (RLS):</strong> Projects, financial models, and profile data are protected by cryptographic database row-level security policies, ensuring no user can query or modify data belonging to another enterprise or account.</li>
-          <li><strong class="text-slate-200">Inactivity Session Timeouts:</strong> Unattended terminals are automatically cleared after 30 minutes of idle time to prevent physical terminal compromise.</li>
+        <ul class="list-disc pl-5 space-y-2 text-slate-400">
+          <li><strong class="text-slate-200">Encryption in Transit:</strong> All data transmitted between client browsers and MathTree cloud endpoints is encrypted using TLS 1.3 encryption.</li>
+          <li><strong class="text-slate-200">Storage Volume Encryption at Rest:</strong> Cloud databases, persistent block volumes, and automated backup snapshots are encrypted at rest using AES-256 standard encryption via our underlying cloud infrastructure providers (Supabase and AWS).</li>
+          <li><strong class="text-slate-200">Database Schema &amp; Administrative Access:</strong> Property attributes, financial inputs, and pipeline parameters are stored in multi-tenant PostgreSQL relational tables. Data is isolated between accounts using PostgreSQL Row-Level Security (RLS) policies. Column-level data is stored in standard relational format (not client-side or zero-knowledge encrypted) to facilitate real-time mathematical computations and platform analytics. Authorized MathTree platform administrators have database-level access to maintain system operations, monitor performance, and generate aggregate market models.</li>
+          <li><strong class="text-slate-200">Automated Inactivity Timeouts:</strong> Terminal sessions automatically lock or expire after 30 minutes of idle time to prevent unauthorized physical access.</li>
         </ul>
       </section>
 
@@ -216,12 +226,12 @@
           <span>California Privacy Disclosures (CalOPPA, CCPA &amp; CPRA)</span>
         </h2>
         <p class="text-slate-400">
-          Pursuant to the California Consumer Privacy Act (CCPA) as amended by the California Privacy Rights Act (CPRA), California residents enjoy specific privacy entitlements:
+          Pursuant to California privacy statutes, California residents have specific statutory rights:
         </p>
-        <ul class="list-disc pl-5 space-y-1.5 text-slate-400">
-          <li><strong class="text-slate-200">Right to Know &amp; Access:</strong> You may request disclosure of the specific pieces and categories of personal information collected.</li>
-          <li><strong class="text-slate-200">Right to Delete:</strong> You have the right to request deletion of your personal data and underwritten project records, subject to statutory exceptions.</li>
-          <li><strong class="text-slate-200">No Sale or Sharing of Personal Information:</strong> MathTree does <strong class="text-slate-200">not</strong> sell or share personal information or commercial deal records for cross-context behavioral advertising.</li>
+        <ul class="list-disc pl-5 space-y-2 text-slate-400">
+          <li><strong class="text-slate-200">Right to Know &amp; Access:</strong> You may request disclosure of personal identity credentials collected about your account.</li>
+          <li><strong class="text-slate-200">Right to Delete:</strong> You may request the deletion of your account and associated deal records, subject to statutory retention obligations.</li>
+          <li><strong class="text-slate-200">Commercial Data &amp; Opt-Out Rights:</strong> MathTree does not sell personal identity credentials (such as your personal name, personal phone number, password hashes, or billing card details). However, underwriting activity, property addresses, and market parameters submitted on our Free Tier are utilized to generate commercial heat maps and market intelligence products. You have the right to opt out of data aggregation by upgrading to our Premium Confidential Tier or by requesting account closure.</li>
           <li><strong class="text-slate-200">Do Not Track:</strong> We do not track users across third-party websites or online services.</li>
         </ul>
       </section>
@@ -258,7 +268,7 @@
           <span>Data Protection Officer &amp; Inquiries</span>
         </h2>
         <p class="text-slate-400">
-          For questions regarding data processing practices, privacy rights requests, or institutional security architecture verification, contact our Data Governance team at <span class="text-emerald-400 font-mono">privacy@mathtree.io</span>.
+          For questions regarding data processing practices, privacy rights requests, or commercial data exemptions, contact our Data Protection and Governance team at <a href="mailto:aidanfranklin45@gmail.com" class="text-emerald-400 font-mono underline hover:text-emerald-300">aidanfranklin45@gmail.com</a>.
         </p>
       </section>
 
