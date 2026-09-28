@@ -3439,7 +3439,8 @@
       if (document.getElementById('date-loi')) document.getElementById('date-loi').value = values.loiDate || '';
       if (document.getElementById('date-dd')) document.getElementById('date-dd').value = values.dueDiligenceExpiration || '';
       if (document.getElementById('date-closing')) document.getElementById('date-closing').value = values.closingDate || '';
-      renderDealTimelineUI(values.dealStage || (currentLoadedDeal && currentLoadedDeal.status === 'owned' ? 'owned' : 'screening'));
+      const isOwnedDeal = currentLoadedDeal && currentLoadedDeal.status === 'owned';
+      renderDealTimelineUI(isOwnedDeal ? 'owned' : ((values.dealStage && values.dealStage !== 'owned') ? values.dealStage : 'screening'));
       document.getElementById('input-rehab-costs').value = values.rehabCosts ?? values.rehabBudget ?? 0;
       document.getElementById('input-closing-costs').value = values.closingCosts ?? 0;
       const rehabFinancingMode = values.rehabFinancingMode || (values.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
@@ -3521,7 +3522,7 @@
         armAdjustmentRate: parseFloat(document.getElementById('input-arm-rate')?.value) || (currentLoadedDeal?.inputs?.armAdjustmentRate || 7.75),
         armRateCap: parseFloat(document.getElementById('input-arm-cap')?.value) || (currentLoadedDeal?.inputs?.armRateCap || 9.5),
         interestOnlyYears: parseInt(document.getElementById('input-io-years')?.value, 10) || (currentLoadedDeal?.inputs?.interestOnlyYears || 3),
-        dealStage: currentLoadedDeal?.inputs?.dealStage || currentLoadedDeal?.stage || 'screening',
+        dealStage: (currentLoadedDeal?.status === 'owned') ? 'owned' : ((currentLoadedDeal?.inputs?.dealStage && currentLoadedDeal.inputs.dealStage !== 'owned') ? currentLoadedDeal.inputs.dealStage : 'screening'),
         loiDate: document.getElementById('date-loi')?.value || currentLoadedDeal?.inputs?.loiDate || '',
         dueDiligenceExpiration: document.getElementById('date-dd')?.value || currentLoadedDeal?.inputs?.dueDiligenceExpiration || '',
         closingDate: document.getElementById('date-closing')?.value || currentLoadedDeal?.inputs?.closingDate || '',
@@ -8942,14 +8943,14 @@
     function renderDealTimelineUI(currentStage) {
       const container = document.getElementById('deal-timeline-container');
       if (!container) return;
-      const isOwned = (currentLoadedDeal && currentLoadedDeal.status === 'owned') || currentStage === 'owned';
+      const isOwned = (currentLoadedDeal && currentLoadedDeal.status === 'owned');
       if (isOwned) {
         container.classList.add('hidden');
         return;
       } else {
         container.classList.remove('hidden');
       }
-      currentStage = currentStage || (currentLoadedDeal?.inputs?.dealStage) || 'screening';
+      currentStage = (currentStage && currentStage !== 'owned') ? currentStage : ((currentLoadedDeal?.inputs?.dealStage && currentLoadedDeal.inputs.dealStage !== 'owned') ? currentLoadedDeal.inputs.dealStage : 'screening');
       const meta = STAGE_META[currentStage] || STAGE_META['screening'];
 
       const badgeEl = document.getElementById('deal-stage-badge');

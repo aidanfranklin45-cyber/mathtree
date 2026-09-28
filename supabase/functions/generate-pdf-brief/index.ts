@@ -1243,7 +1243,7 @@ function aggregateDealsToPortfolio(deals: any[], meta: any = {}) {
       ltv: price > 0 ? Math.round((debt / price) * 100) : 0,
       rate: inp.interestRate || 6.5,
       term: inp.loanTerm || 30,
-      stage: inp.dealStage || 'screening',
+      stage: (inp.dealStage && inp.dealStage !== 'owned') ? inp.dealStage : 'screening',
       holdYrs: inp.exitYear || 10,
       apn: rawAssessor.apn || inp.primaryApn || inp.apn || 'Pending Link',
       county: rawAssessor.county || inp.county || 'Yakima County, WA',
