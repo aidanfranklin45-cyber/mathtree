@@ -44,24 +44,6 @@
           }
         ]
       }
-    ],
-    "rewrites": [
-      {
-        "source": "/app/**",
-        "destination": "/app.html"
-      },
-      {
-        "source": "/dashboard",
-        "destination": "/dashboard.html"
-      },
-      {
-        "source": "/project",
-        "destination": "/project.html"
-      },
-      {
-        "source": "/operations",
-        "destination": "/operations.html"
-      }
     ]
   }
 }
