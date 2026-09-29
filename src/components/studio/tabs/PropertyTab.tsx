@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { DealRecord, DealMetrics } from '../../../lib/math/types';
-import { MapPin, CheckCircle2, Layers } from 'lucide-react';
+import { MapPin, CheckCircle2, Layers, ExternalLink, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../lib/supabase/client';
 import { DealParcelPackageView } from '../../../lib/supabase/types';
 import { ParcelPackageCard, ParcelItem } from '../../property/ParcelPackageCard';
+import { syncDealCountyGisInBackground } from '../../../lib/services/gisSyncService';
 
 interface PropertyTabProps {
   deal: DealRecord;
@@ -13,38 +14,46 @@ interface PropertyTabProps {
 export const PropertyTab: React.FC<PropertyTabProps> = ({ deal }) => {
   const [packageData, setPackageData] = useState<DealParcelPackageView | null>(null);
   const [loadingPackage, setLoadingPackage] = useState<boolean>(true);
+  const [refreshingGis, setRefreshingGis] = useState<boolean>(false);
+
+  const fetchPackage = async () => {
+    try {
+      setLoadingPackage(true);
+      const { data, error } = await supabase
+        .from('view_deal_parcel_packages')
+        .select('*')
+        .eq('deal_id', deal.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setPackageData(data as DealParcelPackageView);
+      }
+    } catch (err) {
+      console.warn('Could not fetch parcel package view:', err);
+    } finally {
+      setLoadingPackage(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    async function fetchPackage() {
-      try {
-        setLoadingPackage(true);
-        const { data, error } = await supabase
-          .from('view_deal_parcel_packages')
-          .select('*')
-          .eq('deal_id', deal.id)
-          .maybeSingle();
-
-        if (!error && data && isMounted) {
-          setPackageData(data as DealParcelPackageView);
-        }
-      } catch (err) {
-        console.warn('Could not fetch parcel package view:', err);
-      } finally {
-        if (isMounted) setLoadingPackage(false);
-      }
-    }
-
     if (deal.id) {
       fetchPackage();
     } else {
       setLoadingPackage(false);
     }
-
-    return () => {
-      isMounted = false;
-    };
   }, [deal.id]);
+
+  const handleForceRefreshGis = async () => {
+    setRefreshingGis(true);
+    try {
+      await syncDealCountyGisInBackground(deal, true);
+      await fetchPackage();
+    } catch (err) {
+      console.error('GIS sync error:', err);
+    } finally {
+      setRefreshingGis(false);
+    }
+  };
 
   const assessor = deal.inputs.assessorData || {};
   const primaryParcel = packageData?.primary_parcel as Partial<ParcelItem> | null | undefined;
@@ -94,10 +103,35 @@ export const PropertyTab: React.FC<PropertyTabProps> = ({ deal }) => {
           </p>
         </div>
 
-        <div className="text-right">
-          <div className="text-[10px] uppercase font-bold text-slate-400">Primary APN</div>
-          <div className="font-mono text-base font-black text-emerald-400">
-            {primaryApn}
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="text-[10px] uppercase font-bold text-slate-400">Primary APN</div>
+            <div className="font-mono text-base font-black text-emerald-400">
+              {primaryApn}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
+            <a
+              href="https://yes.co.yakima.wa.us/ascend/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1.5 rounded-xl bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
+              title="Open official County Ascend Tax Card"
+            >
+              <span>Ascend Tax Card</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <button
+              type="button"
+              onClick={handleForceRefreshGis}
+              disabled={refreshingGis}
+              className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 hover:text-white transition disabled:opacity-50"
+              title="Force Refresh Live County GIS Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshingGis ? 'animate-spin text-emerald-400' : ''}`} />
+            </button>
           </div>
         </div>
       </div>

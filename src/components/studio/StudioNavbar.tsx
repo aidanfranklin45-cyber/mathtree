@@ -2,7 +2,19 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DealRecord, DealMetrics } from '../../lib/math/types';
 import { exportDealBriefPDF } from '../../lib/export/pdfBrief';
-import { ChevronDown, FileDown, Sliders, Layers, ArrowLeft } from 'lucide-react';
+import { exportDealProformaCSV } from '../../lib/export/csvExport';
+import {
+  ChevronDown,
+  FileDown,
+  FileSpreadsheet,
+  Sliders,
+  Layers,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  ClipboardList,
+} from 'lucide-react';
 
 interface StudioNavbarProps {
   deal: DealRecord;
@@ -32,9 +44,18 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
   onOpenHistoryModal,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const isOwned = deal.status === 'owned';
   const availableTabs = isOwned ? MODULE_TABS.filter((t) => t.key !== 'diligence') : MODULE_TABS;
   const currentModule = MODULE_TABS.find((t) => t.key === activeTab) || MODULE_TABS[0];
+  const currentIndex = availableTabs.findIndex((t) => t.key === activeTab);
+
+  const navigateRelative = (delta: number) => {
+    const nextIndex = currentIndex + delta;
+    if (nextIndex >= 0 && nextIndex < availableTabs.length) {
+      onSelectTab(availableTabs[nextIndex].key);
+    }
+  };
 
   return (
     <header className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-6 py-3">
@@ -73,8 +94,28 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
           </div>
         </div>
 
-        {/* Right: Module Selector, History, Edit Inputs, Export PDF */}
+        {/* Right: Module Selector, History, Edit Inputs, Actions */}
         <div className="flex items-center space-x-2">
+          {/* Quick Prev / Next Module Navigation */}
+          <div className="hidden sm:flex items-center space-x-1 bg-slate-900/80 border border-slate-800 p-0.5 rounded-xl">
+            <button
+              onClick={() => navigateRelative(-1)}
+              disabled={currentIndex <= 0}
+              className="p-1 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+              title="Previous Module"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => navigateRelative(1)}
+              disabled={currentIndex >= availableTabs.length - 1}
+              className="p-1 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition"
+              title="Next Module"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Analysis Module Dropdown */}
           <div className="relative">
             <button
@@ -88,11 +129,12 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
 
             {dropdownOpen && (
               <div
-                className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-40"
+                className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-40"
                 onClick={() => setDropdownOpen(false)}
               >
-                <div className="px-3 py-1 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-800/80 mb-1">
-                  Analysis Modules ({availableTabs.length} Sections)
+                <div className="px-3 py-1 text-[10px] uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-800/80 mb-1 flex justify-between">
+                  <span>Analysis Modules</span>
+                  <span>{availableTabs.length} Sections</span>
                 </div>
                 {availableTabs.map((tab) => (
                   <button
@@ -108,6 +150,21 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                     <span className="text-[10px] text-slate-500 font-normal">{tab.subtitle}</span>
                   </button>
                 ))}
+
+                <div className="my-1.5 border-t border-slate-800/80"></div>
+                <Link
+                  to="/operations"
+                  className="flex items-center justify-between px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800/80 hover:text-emerald-300 transition"
+                >
+                  <div className="flex items-center space-x-2">
+                    <span>🍀</span>
+                    <div>
+                      <span className="block font-bold">Property Management</span>
+                      <span className="block text-[10px] text-slate-400">Live rent roll & collections ledger</span>
+                    </div>
+                  </div>
+                  <span className="font-bold">➔</span>
+                </Link>
               </div>
             )}
           </div>
@@ -119,7 +176,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
               className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center space-x-1.5 transition shadow-sm hover:text-white"
               title="View Underwriting Parameter History & Scenarios"
             >
-              <span className="text-emerald-400">⏱</span>
+              <span className="text-emerald-400">⚡</span>
               <span className="hidden sm:inline">Scenarios</span>
             </button>
           )}
@@ -139,8 +196,65 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
             className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs flex items-center space-x-1.5 transition shadow-sm shadow-emerald-950/50"
           >
             <FileDown className="w-3.5 h-3.5" />
-            <span>Export Brief</span>
+            <span className="hidden sm:inline">Export Brief</span>
+            <span className="sm:hidden">PDF</span>
           </button>
+
+          {/* More Actions Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setActionsMenuOpen(!actionsMenuOpen)}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition shadow-sm"
+              title="More Actions"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {actionsMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-1.5 w-60 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-1.5 z-40 divide-y divide-slate-800"
+                onClick={() => setActionsMenuOpen(false)}
+              >
+                <div className="py-1">
+                  <button
+                    onClick={() => exportDealProformaCSV(deal, metrics)}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2.5 transition"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                    <span>Download Pro-Forma (CSV)</span>
+                  </button>
+
+                  <button
+                    onClick={() => exportDealBriefPDF(deal.id)}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2.5 transition"
+                  >
+                    <FileDown className="w-4 h-4 text-rose-400" />
+                    <span>Print Executive Brief (PDF)</span>
+                  </button>
+                </div>
+
+                <div className="py-1">
+                  {onOpenHistoryModal && (
+                    <button
+                      onClick={onOpenHistoryModal}
+                      className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2.5 transition"
+                    >
+                      <span className="text-sm">⚡</span>
+                      <span>Scenario History & Diff</span>
+                    </button>
+                  )}
+
+                  <Link
+                    to="/operations"
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 flex items-center space-x-2.5 transition"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    <span>Property Management</span>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

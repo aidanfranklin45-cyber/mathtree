@@ -1604,8 +1604,8 @@
         tenantName: l.tenant_name || 'Commercial Tenant',
         monthlyRent: parseFloat(l.monthly_rent) || 0,
         annualRent: (parseFloat(l.monthly_rent) || 0) * 12,
-        leaseStartDate: l.lease_start_date || (deal.inputs.closingDate || ''),
-        leaseEndDate: l.lease_end_date || '',
+        leaseStartDate: l.lease_start_date || deal.inputs.leaseStartDate || (deal.inputs.closingDate || ''),
+        leaseEndDate: l.lease_end_date || deal.inputs.leaseExpiration || '',
         leaseType: l.lease_type || deal.inputs.leaseType || 'NNN',
         escalationType: l.escalation_type || 'Percentage Bump (%)',
         escalationRate: l.escalation_rate !== undefined && l.escalation_rate !== null ? parseFloat(l.escalation_rate) : 3.0,
@@ -1772,8 +1772,10 @@
     window.handleEscTypeChange = handleEscTypeChange;
 
     function autoGenerateAnnualEscalations(mode) {
-      const startEl = document.getElementById(`${mode}-lease-start`);
-      const endEl = document.getElementById(`${mode}-lease-end`);
+      const prefix = mode === 'add' ? 'new' : mode;
+      const startEl = document.getElementById(`${prefix}-lease-start`) || document.getElementById(`${mode}-lease-start`);
+      const endEl = document.getElementById(`${prefix}-lease-end`) || document.getElementById(`${mode}-lease-end`);
+      const rateEl = document.getElementById(`${prefix}-lease-escalation-rate`) || document.getElementById(`${mode}-lease-escalation-rate`);
       const tbody = document.getElementById(`${mode}-lease-scheduled-increases-tbody`);
       if (!tbody) return;
 
@@ -1789,11 +1791,14 @@
         startDay = parts[2];
       }
 
-      let numYears = 3;
+      const escRate = (rateEl && parseFloat(rateEl.value)) || 3.0;
+
+      // Duration: calculate out for the duration of the lease expiration (or default 10 years if not specified otherwise)
+      let numYears = 10;
       if (endEl?.value && endEl.value.includes('-')) {
         const endYear = parseInt(endEl.value.split('-')[0], 10);
         if (endYear > startYear) {
-          numYears = Math.min(Math.max(endYear - startYear, 1), 10);
+          numYears = endYear - startYear;
         }
       }
 
@@ -1801,11 +1806,15 @@
       for (let i = 1; i <= numYears; i++) {
         const effYear = startYear + i;
         const effDate = `${effYear}-${startMonth}-${startDay}`;
+        // If effective date exceeds lease expiration date, halt
+        if (endEl?.value && effDate > endEl.value) break;
+        // If effective date lands exactly on expiration date on the final year, lease is terminating
+        if (endEl?.value && effDate === endEl.value && i === numYears) break;
         addScheduledEscalationRow(mode, {
           effective_date: effDate,
           increase_type: 'percentage',
-          scheduled_amount: 3.0,
-          reason: `Year ${i + 1} Contractual 3% Escalation`
+          scheduled_amount: escRate,
+          reason: `Year ${i + 1} Contractual ${escRate}% Escalation (Commenced ${startDateStr || startYear})`
         });
       }
     }
@@ -1856,7 +1865,7 @@
               tenant_phone: inputs.tenantPhone || '',
               monthly_rent: rentVal,
               security_deposit: inputs.securityDeposit || (rentVal * 2),
-              lease_start_date: inputs.closingDate || (d.created_at ? d.created_at.split('T')[0] : ''),
+              lease_start_date: inputs.leaseStartDate || inputs.closingDate || (d.created_at ? d.created_at.split('T')[0] : ''),
               lease_end_date: inputs.leaseExpiration || '',
               is_active: true,
               escalation_type: inputs.escalationType || 'Percentage Bump (%)',
@@ -2279,11 +2288,11 @@
                 tenant_phone: l.tenantPhone || null,
                 monthly_rent: rentVal,
                 security_deposit: parseFloat(l.securityDeposit) || (rentVal * 2),
-                lease_start_date: l.leaseStartDate || inputs.closingDate || null,
-                lease_end_date: l.leaseEndDate || null,
+                lease_start_date: l.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || null,
+                lease_end_date: l.leaseEndDate || inputs.leaseExpiration || null,
                 payment_due_day: 1,
                 grace_period_days: 5,
-                last_rent_increase_date: l.leaseStartDate || inputs.closingDate || null,
+                last_rent_increase_date: l.leaseStartDate || inputs.leaseStartDate || inputs.closingDate || null,
                 previous_rent_amount: rentVal,
                 escalation_type: l.escalationType || 'Percentage Bump (%)',
                 escalation_rate: parseFloat(l.escalationRate) || 3.0,
@@ -2317,11 +2326,11 @@
                 tenant_phone: inputs.tenantPhone || null,
                 monthly_rent: rentVal,
                 security_deposit: inputs.securityDeposit || (rentVal * 2),
-                lease_start_date: inputs.closingDate || inputs.loiDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
+                lease_start_date: inputs.leaseStartDate || inputs.closingDate || inputs.loiDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
                 lease_end_date: inputs.leaseExpiration || null,
                 payment_due_day: 1,
                 grace_period_days: 5,
-                last_rent_increase_date: inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
+                last_rent_increase_date: inputs.leaseStartDate || inputs.closingDate || (deal.created_at ? deal.created_at.split('T')[0] : null),
                 previous_rent_amount: rentVal,
                 escalation_type: escType,
                 escalation_rate: rentGrowth,

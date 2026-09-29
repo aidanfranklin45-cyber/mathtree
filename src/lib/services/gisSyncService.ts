@@ -50,10 +50,13 @@ export function isGisSyncNeeded(deal: DealRecord | Record<string, any>): boolean
  */
 export async function syncDealCountyGisInBackground(
   deal: DealRecord | Record<string, any>,
-  onUpdate?: (updatedDeal: any) => void
+  onUpdateOrForce?: ((updatedDeal: any) => void) | boolean
 ): Promise<boolean> {
+  const isForce = typeof onUpdateOrForce === 'boolean' ? onUpdateOrForce : false;
+  const onUpdate = typeof onUpdateOrForce === 'function' ? onUpdateOrForce : undefined;
+
   if (!deal || !deal.id || (deal as any)._isAutoGisSyncing) return false;
-  if (!isGisSyncNeeded(deal)) return false;
+  if (!isForce && !isGisSyncNeeded(deal)) return false;
 
   (deal as any)._isAutoGisSyncing = true;
   const today = getTodayKey();

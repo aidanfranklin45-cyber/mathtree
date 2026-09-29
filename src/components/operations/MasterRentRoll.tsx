@@ -10,18 +10,24 @@ import {
   CreditCard,
   Building,
 } from 'lucide-react';
-import { MonthlyRentReconciliationView } from '../../lib/supabase/types';
+import { MonthlyRentReconciliationView, LeaseRow } from '../../lib/supabase/types';
 
 interface MasterRentRollProps {
   items: MonthlyRentReconciliationView[];
+  leases?: LeaseRow[];
   isLoading?: boolean;
   onLogPayment: (item: MonthlyRentReconciliationView) => void;
+  onRentIncrease?: (item: MonthlyRentReconciliationView) => void;
+  onAddLease?: () => void;
 }
 
 export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
   items,
+  leases = [],
   isLoading,
   onLogPayment,
+  onRentIncrease,
+  onAddLease,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -186,6 +192,17 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
                 Unpaid
               </button>
             </div>
+
+            {onAddLease && (
+              <button
+                type="button"
+                onClick={onAddLease}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs transition shadow-sm flex items-center space-x-1 shrink-0"
+              >
+                <span>+</span>
+                <span>Add Lease</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -196,10 +213,9 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
               <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px] bg-slate-950/30">
                 <th className="py-3 px-4">Tenant / Unit</th>
                 <th className="py-3 px-4">Deal / Property</th>
-                <th className="py-3 px-4 text-right">Contractual Due</th>
-                <th className="py-3 px-4 text-right">Amount Paid</th>
-                <th className="py-3 px-4 text-right">Balance</th>
-                <th className="py-3 px-4">Payment Record</th>
+                <th className="py-3 px-4 text-right">Rent / Due</th>
+                <th className="py-3 px-4">Lease Term</th>
+                <th className="py-3 px-4">Escalations</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
@@ -207,7 +223,7 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
             <tbody className="divide-y divide-slate-800/50 text-slate-300">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                  <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
                     No lease reconciliation records matching your filter.
                   </td>
                 </tr>
@@ -217,6 +233,7 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
                   const paid = Number(row.amount_paid || 0);
                   const balance = Math.max(0, contractual - paid);
                   const status = (row.payment_status || 'pending').toLowerCase();
+                  const lease = leases.find((l) => l.id === row.lease_id);
 
                   let statusBadge = (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-800 text-slate-400 border border-slate-700">
@@ -255,6 +272,9 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
                     );
                   }
 
+                  const hasNextEsc = Boolean(lease?.next_escalation_date);
+                  const isEscDue = hasNextEsc && new Date(lease!.next_escalation_date!) <= new Date();
+
                   return (
                     <tr key={row.lease_id} className="hover:bg-slate-800/30 transition">
                       <td className="py-3 px-4">
@@ -273,42 +293,81 @@ export const MasterRentRoll: React.FC<MasterRentRollProps> = ({
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                        ${Math.round(contractual).toLocaleString()}
-                      </td>
-
-                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
-                        ${Math.round(paid).toLocaleString()}
-                      </td>
-
                       <td className="py-3 px-4 text-right font-mono">
-                        <span className={balance > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}>
-                          ${Math.round(balance).toLocaleString()}
-                        </span>
+                        <div className="font-bold text-emerald-400">
+                          ${Math.round(contractual).toLocaleString()}
+                        </div>
+                        {paid > 0 && (
+                          <div className="text-[10px] text-slate-400">
+                            Paid: ${Math.round(paid).toLocaleString()}
+                          </div>
+                        )}
+                        {balance > 0 && (
+                          <div className="text-[10px] text-rose-400 font-bold">
+                            Bal: ${Math.round(balance).toLocaleString()}
+                          </div>
+                        )}
                       </td>
 
-                      <td className="py-3 px-4 text-[11px]">
-                        {row.paid_date ? (
-                          <div>
-                            <span className="text-slate-300 font-medium">{row.payment_method || 'Payment'}</span>
-                            <div className="text-[10px] text-slate-500 font-mono">
-                              Paid {row.paid_date} {row.reference_note ? `• ${row.reference_note}` : ''}
-                            </div>
+                      <td className="py-3 px-4 font-mono text-[11px]">
+                        <div className="text-slate-200">
+                          {lease?.lease_end_date ? lease.lease_end_date : <span className="text-amber-400/90 font-semibold font-sans">Month-to-Month</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-sans">
+                          Commenced: <span className="font-mono text-slate-400">{lease?.lease_start_date || 'N/A'}</span>
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col space-y-0.5">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-mono text-[11px] text-slate-300">
+                              {lease?.last_rent_increase_date || lease?.lease_start_date || 'N/A'}
+                            </span>
+                            {isEscDue ? (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[9px] font-bold">
+                                ⚠️ Escalation Due
+                              </span>
+                            ) : hasNextEsc ? (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[9px] font-bold">
+                                📈 Scheduled: +{lease?.escalation_rate || 3}%
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[9px] font-bold">
+                                ⚠️ Review Due
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-slate-500 italic">No record</span>
-                        )}
+                          {hasNextEsc && (
+                            <span className="text-[10px] text-slate-400">
+                              {lease?.escalation_frequency || 'Annual'}: <strong className="text-slate-300">+{lease?.escalation_rate || 3}%</strong>
+                              {' • Next: '}
+                              <span className="font-mono text-slate-300">{lease?.next_escalation_date}</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 text-center">{statusBadge}</td>
 
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => onLogPayment(row)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-[11px] transition shadow-sm"
-                        >
-                          {row.payment_id ? 'Edit' : 'Log'}
-                        </button>
+                        <div className="flex items-center justify-end space-x-1.5">
+                          {onRentIncrease && (
+                            <button
+                              onClick={() => onRentIncrease(row)}
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-750 font-bold text-[11px] transition shadow-sm"
+                              title="Record contractual rent escalation"
+                            >
+                              Escalate
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onLogPayment(row)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-[11px] transition shadow-sm"
+                          >
+                            {row.payment_id ? 'Edit' : 'Log'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

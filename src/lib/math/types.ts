@@ -1,4 +1,4 @@
-export type AssetClass = 'commercial' | 'multi_family' | 'residential' | 'storage';
+export type AssetClass = 'commercial' | 'multi_family' | 'multi-unit' | 'residential' | 'single-family' | 'storage';
 export type DealStatus = 'owned' | 'pipeline' | 'prospect' | 'archived';
 
 export interface LeaseTerm {
@@ -90,14 +90,22 @@ export interface DealInputs {
   propertyType?: AssetClass;
   squareFeet?: number;
   units?: number;
+  unitCount?: number;
+  numUnits?: number;
+  storageUnitCount?: number;
   address?: string;
   city?: string;
   state?: string;
   zip?: string;
   county?: string;
   primaryApn?: string;
+  apn?: string;
   parcels?: ParcelRecord[];
+  adjacentParcels?: any[];
   assessorData?: any;
+  entity_id?: string;
+  dealStage?: string;
+  [key: string]: any;
 }
 
 export interface ProFormaYear {
@@ -146,6 +154,7 @@ export interface DealMetrics {
   capRate: number;
   year1Cashflow: number;
   cashOnCash: number;
+  cash_on_cash?: number;
   irr: number;
   equityMultiplier: number;
   npv: number;
@@ -164,6 +173,7 @@ export interface DealRecord {
   state?: string;
   zip?: string;
   asset_class: AssetClass;
+  assetType?: string;
   status: DealStatus;
   purchase_price: number;
   total_equity?: number;
@@ -174,11 +184,15 @@ export interface DealRecord {
   year1_cashflow?: number;
   cap_rate?: number;
   is_demo?: boolean;
+  is_shared?: boolean;
+  entity_id?: string;
+  primary_apn?: string;
   closing_date?: string;
   inputs: DealInputs;
   metrics?: DealMetrics;
   created_at?: string;
   updated_at?: string;
+  [key: string]: any;
 }
 
 export interface TaxMetrics {
