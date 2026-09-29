@@ -77,7 +77,7 @@ export const LogPaymentModal: React.FC<LogPaymentModalProps> = ({
 
       const { error } = await supabase
         .from('rent_payments')
-        .upsert(paymentRecord);
+        .upsert(paymentRecord, { onConflict: 'lease_id,period_month' });
 
       if (error) {
         throw error;

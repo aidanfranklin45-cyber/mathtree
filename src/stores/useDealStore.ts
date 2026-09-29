@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { DealRecord, DealInputs, DealMetrics } from '../lib/math/types';
+import { generateMonthlyAmortizationSchedule } from '../lib/math/pointInTime';
 
 export interface DealStoreState {
   deal: DealRecord | null;
@@ -153,7 +154,6 @@ export function useDealStore(initialDealId?: string): DealStoreState {
         localStorage.setItem('mathtree_entities_cache', JSON.stringify(newEntities));
       } catch (e) {}
       window.dispatchEvent(new CustomEvent('mathtree:entity-changed', { detail: { entityId: selectedEntityId, llc: selectedLLC } }));
-      window.dispatchEvent(new CustomEvent('mathtree:entity-changedd', { detail: { entityId: selectedEntityId, llc: selectedLLC } }));
     }
   }, [selectedEntityId, selectedLLC]);
 
@@ -209,8 +209,34 @@ export function useDealStore(initialDealId?: string): DealStoreState {
         dealsData.forEach((d: any) => {
           const price = Number(d.purchase_price) || 0;
           const initialLoan = Number(d.loan_amount) || (price * 0.75);
-          const paid = paymentsByDeal.get(d.id) || 0;
-          const curLoan = Math.max(0, initialLoan - paid);
+
+          // Compute current loan balance via proper amortization schedule
+          // rather than incorrectly subtracting rent receipts from principal
+          let curLoan = initialLoan;
+          try {
+            const closingDate = d.inputs?.closingDate || d.inputs?.loiDate || d.closing_date;
+            if (closingDate && initialLoan > 0) {
+              const closeDate = new Date(closingDate);
+              const now = new Date();
+              const monthsElapsed = Math.max(0,
+                (now.getFullYear() - closeDate.getFullYear()) * 12 +
+                (now.getMonth() - closeDate.getMonth())
+              );
+              if (monthsElapsed > 0) {
+                const sched = generateMonthlyAmortizationSchedule(
+                  { purchase_price: price, loan_amount: initialLoan, inputs: d.inputs || {} },
+                  monthsElapsed
+                );
+                if (sched.length > 0) {
+                  curLoan = sched[sched.length - 1].endingBalance;
+                }
+              }
+            }
+          } catch (_e) {
+            // If amortization fails, use the stored loan amount as-is
+            curLoan = initialLoan;
+          }
+
           const curEquity = Math.max(0, price - curLoan);
 
           sumGAV += price;

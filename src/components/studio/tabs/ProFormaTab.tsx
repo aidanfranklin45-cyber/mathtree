@@ -11,13 +11,17 @@ interface ProFormaTabProps {
 export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics }) => {
   const [showMonthlyReceipts, setShowMonthlyReceipts] = useState(false);
 
+  /** Safely format a possibly-undefined/NaN number to N decimal places */
+  const safeFixed = (val: number | null | undefined, decimals = 2): string =>
+    val != null && isFinite(val) ? Number(val).toFixed(decimals) : '0.' + '0'.repeat(decimals);
+
   // Compute multi-timeline calendar projections with exact contractual lease escalations
   const calProj = useMemo(() => {
     return resolveCalendarProjections(deal, metrics.projections?.length || 10);
   }, [deal, metrics]);
 
   // Use calendar projections if leases or closing date are defined, falling back to metrics.projections
-  const activeProjections = calProj.length > 0 ? calProj : metrics.projections;
+  const activeProjections = calProj.length > 0 ? calProj : (metrics.projections ?? []);
 
   return (
     <div className="space-y-6">
@@ -45,11 +49,11 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics }) => {
           </div>
           <div className="text-right">
             <div className="text-slate-400 text-[10px] uppercase font-sans">10-Yr IRR</div>
-            <div className="font-bold text-emerald-400">{metrics.irr.toFixed(1)}%</div>
+            <div className="font-bold text-emerald-400">{safeFixed(metrics.irr, 1)}%</div>
           </div>
           <div className="text-right">
             <div className="text-slate-400 text-[10px] uppercase font-sans">Equity Multiple</div>
-            <div className="font-bold text-emerald-400">{metrics.equityMultiplier.toFixed(2)}x</div>
+            <div className="font-bold text-emerald-400">{safeFixed(metrics.equityMultiplier)}x</div>
           </div>
         </div>
       </div>
@@ -143,7 +147,7 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics }) => {
               <td className="py-2.5 px-2 font-sans">Cash-on-Cash Yield</td>
               {activeProjections.map((p) => (
                 <td key={p.year} className="py-2.5 px-2 text-right">
-                  {p.cashOnCash.toFixed(2)}%
+                  {(p.cashOnCash != null && isFinite(p.cashOnCash) ? Number(p.cashOnCash).toFixed(2) : '0.00')}%
                 </td>
               ))}
             </tr>

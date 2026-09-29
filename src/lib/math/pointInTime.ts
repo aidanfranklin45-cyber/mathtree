@@ -485,8 +485,13 @@ export function resolveCalendarProjections(
   const rate = parseFloat(inp.interestRate || 6.5);
   const appRate = parseFloat(inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0));
   const vacRate = parseFloat(inp.vacancyRate !== undefined ? inp.vacancyRate : (inp.vacancyRatePercent ?? 5.0));
-  const expRatio = parseFloat(inp.expenseRatio !== undefined ? inp.expenseRatio : (inp.operatingExpenseRatio ?? 1.0));
-  const isNNN = (inp.leaseType === 'NNN' || (inp.leases && inp.leases[0]?.leaseType === 'NNN'));
+  const isNNN = (inp.leaseType === 'NNN' || inp.leaseType === 'nnn' || inp.leaseType === 'triple-net' ||
+    (inp.leases && inp.leases[0]?.leaseType === 'NNN') ||
+    (inp.leases && inp.leases[0]?.leaseType === 'nnn'));
+  // Default expRatio is 25% (industry standard for gross leases). NNN leases: landlord carries ~0% OpEx.
+  const expRatio = isNNN
+    ? 0
+    : parseFloat(inp.expenseRatio !== undefined ? inp.expenseRatio : (inp.operatingExpenseRatio ?? 25));
 
   // Resolve loan starting basis
   let baseLoan = downPct === 0 ? price : price * (1 - downPct / 100);

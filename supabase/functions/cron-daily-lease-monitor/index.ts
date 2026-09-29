@@ -546,7 +546,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           increase_type,
           leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, deals ( id, title ) )
         `)
-        .eq("status", "pending");
+        .eq("is_applied", false);
 
       if (pendingIncreases && Array.isArray(pendingIncreases)) {
         for (const inc of pendingIncreases) {

@@ -24,9 +24,13 @@ interface OverviewTabProps {
 export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelectTab }) => {
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const isOwned = deal.status === 'owned';
-  const p0 = metrics.projections[0] || {};
-  const monthlyCashflow = Math.round(metrics.year1Cashflow / 12);
+  const p0 = (metrics.projections ?? [])[0] || {};
+  const monthlyCashflow = Math.round((metrics.year1Cashflow ?? 0) / 12);
   const monthlyDebtService = Math.round((p0.debtService || 0) / 12);
+
+  /** Safely format a possibly-undefined/NaN number to N decimal places */
+  const safeFixed = (val: number | null | undefined, decimals = 2): string =>
+    val != null && isFinite(val) ? Number(val).toFixed(decimals) : '0.' + '0'.repeat(decimals);
 
   // Calculate Break-Even Year
   const breakEvenYear = useMemo(() => {
@@ -84,7 +88,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           </div>
           <div className="mt-1 sm:mt-2">
             <span className="text-xl sm:text-2xl font-black text-cyan-400 tracking-tight font-mono">
-              {metrics.capRate.toFixed(2)}%
+              {safeFixed(metrics.capRate)}%
             </span>
           </div>
           <div className="mt-2 text-[10px] sm:text-xs text-slate-400">
@@ -133,7 +137,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           </div>
           <div className="mt-1 sm:mt-2">
             <span className="text-xl sm:text-2xl font-black text-white tracking-tight font-mono">
-              {metrics.cashOnCash.toFixed(2)}%
+              {safeFixed(metrics.cashOnCash)}%
             </span>
           </div>
           <div className="mt-2 text-[10px] sm:text-xs text-slate-400">
@@ -177,7 +181,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
             </p>
             <div className="mt-1">
               <span className="text-lg sm:text-xl font-black text-violet-400 tracking-tight font-mono">
-                {metrics.irr.toFixed(2)}%
+                {safeFixed(metrics.irr)}%
               </span>
             </div>
             <p className="text-[10px] text-slate-500 mt-1">Annualized rate of return</p>
@@ -191,7 +195,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
             </p>
             <div className="mt-1">
               <span className="text-lg sm:text-xl font-black text-cyan-400 tracking-tight font-mono">
-                {metrics.equityMultiplier.toFixed(2)}x
+                {safeFixed(metrics.equityMultiplier)}x
               </span>
             </div>
             <p className="text-[10px] text-slate-500 mt-1">Total returns / Initial cash</p>

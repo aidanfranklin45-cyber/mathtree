@@ -57,21 +57,77 @@ export const OperationsPage: React.FC = () => {
   const loadOperations = useCallback(async () => {
     setLoading(true);
     try {
-      const [resEntities, resRecon, resDeals, resLeases] = await Promise.allSettled([
+      // Determine if we're viewing the current billing period or a historical one
+      const now = new Date();
+      const isCurrentMonth =
+        currentDate.getFullYear() === now.getFullYear() &&
+        currentDate.getMonth() === now.getMonth();
+
+      // The target period in YYYY-MM-01 format
+      const targetPeriod = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+
+      const [resEntities, resDeals, resLeases] = await Promise.allSettled([
         supabase.from('entities').select('*').order('name', { ascending: true }),
-        supabase.from('view_monthly_rent_reconciliation').select('*'),
         supabase.from('deals').select('*').order('created_at', { ascending: false }),
         supabase.from('leases').select('*').order('created_at', { ascending: false }),
       ]);
 
       let loadedEntities: EntityRow[] =
         ((resEntities.status === 'fulfilled' && resEntities.value.data) || []) as EntityRow[];
-      let loadedRecon: MonthlyRentReconciliationView[] =
-        ((resRecon.status === 'fulfilled' && resRecon.value.data) || []) as MonthlyRentReconciliationView[];
       let loadedDeals: any[] =
         ((resDeals.status === 'fulfilled' && resDeals.value.data) || []);
       let loadedLeases: any[] =
         ((resLeases.status === 'fulfilled' && resLeases.value.data) || []);
+
+      let loadedRecon: MonthlyRentReconciliationView[] = [];
+
+      if (isCurrentMonth) {
+        // Current month: use the live view which computes payment_status against CURRENT_DATE
+        const resRecon = await supabase.from('view_monthly_rent_reconciliation').select('*');
+        loadedRecon = (resRecon.data || []) as MonthlyRentReconciliationView[];
+      } else {
+        // Historical month: reconstruct payment status from rent_payments + leases directly
+        const { data: payments } = await supabase
+          .from('rent_payments')
+          .select('*')
+          .eq('period_month', targetPeriod);
+
+        const paymentsByLease = new Map<string, any>();
+        (payments || []).forEach((p: any) => paymentsByLease.set(p.lease_id, p));
+
+        loadedRecon = loadedLeases
+          .filter((l: any) => l.is_active !== false)
+          .map((l: any) => {
+            const payment = paymentsByLease.get(l.id);
+            const contractualRent = parseFloat(l.monthly_rent) || 0;
+            const amountPaid = payment ? parseFloat(payment.amount_paid) || 0 : 0;
+            let paymentStatus = 'missed';
+            if (payment?.status === 'paid' || (amountPaid > 0 && amountPaid >= contractualRent)) {
+              paymentStatus = 'paid';
+            } else if (payment?.status === 'partial' || amountPaid > 0) {
+              paymentStatus = 'partial';
+            } else if (payment?.status === 'snoozed') {
+              paymentStatus = 'snoozed';
+            }
+            return {
+              lease_id: l.id,
+              deal_id: l.deal_id,
+              tenant_name: l.tenant_name,
+              unit_number: l.unit_number,
+              contractual_rent: contractualRent,
+              payment_status: paymentStatus,
+              amount_paid: amountPaid,
+              amount_due: contractualRent,
+              paid_date: payment?.paid_date || null,
+              payment_method: payment?.payment_method || null,
+              reference_note: payment?.reference_note || null,
+              payment_id: payment?.id || null,
+              snooze_until: payment?.snooze_until || null,
+              current_period: targetPeriod,
+              is_active: l.is_active,
+            } as unknown as MonthlyRentReconciliationView;
+          });
+      }
 
       if (loadedEntities.length === 0) {
         loadedEntities = [
@@ -99,7 +155,7 @@ export const OperationsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentDate]);
 
   useEffect(() => {
     loadOperations();
@@ -254,6 +310,52 @@ export const OperationsPage: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Historical / Future Period Banner */}
+        {(() => {
+          const now = new Date();
+          const isPast =
+            currentDate.getFullYear() < now.getFullYear() ||
+            (currentDate.getFullYear() === now.getFullYear() && currentDate.getMonth() < now.getMonth());
+          const isFuture =
+            currentDate.getFullYear() > now.getFullYear() ||
+            (currentDate.getFullYear() === now.getFullYear() && currentDate.getMonth() > now.getMonth());
+          if (isPast) {
+            return (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+                <span>🗂</span>
+                <span>
+                  Viewing <span className="font-black">{monthLabel}</span> — Historical Payment Audit.
+                  Paid status reflects actual receipts recorded for this period.
+                </span>
+                <button
+                  onClick={resetCurrentMonth}
+                  className="ml-auto shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-bold transition text-[11px]"
+                >
+                  Back to Live View
+                </button>
+              </div>
+            );
+          }
+          if (isFuture) {
+            return (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-semibold">
+                <span>📅</span>
+                <span>
+                  Viewing <span className="font-black">{monthLabel}</span> — Future period.
+                  No payments exist yet; showing expected rent obligations.
+                </span>
+                <button
+                  onClick={resetCurrentMonth}
+                  className="ml-auto shrink-0 px-2.5 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 font-bold transition text-[11px]"
+                >
+                  Back to Live View
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         {/* Controls Bar: Scope Selector & Billing Month Navigation */}
         <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Portfolio Scope */}
