@@ -172,6 +172,7 @@ export interface DealRecord {
   year1_cashflow?: number;
   cap_rate?: number;
   is_demo?: boolean;
+  closing_date?: string;
   inputs: DealInputs;
   metrics?: DealMetrics;
   created_at?: string;
