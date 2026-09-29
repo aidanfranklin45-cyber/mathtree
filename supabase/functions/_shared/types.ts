@@ -100,6 +100,8 @@ export interface ProFormaYear {
   dscr: number | string;
   breakEvenOccupancyPct?: number;
   isInterestOnly?: boolean;
+  methodologyFootnote?: string;
+  monthlyReceipts?: Array<{ month: string; rent: number; status: string }>;
 }
 
 export interface AmortizationScheduleEntry {

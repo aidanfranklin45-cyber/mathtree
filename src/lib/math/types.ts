@@ -119,6 +119,8 @@ export interface ProFormaYear {
   propertyValue: number;
   exitProceedsNet: number;
   dscr: number | string;
+  methodologyFootnote?: string;
+  monthlyReceipts?: Array<{ month: string; rent: number; status: string }>;
 }
 
 export interface AmortizationScheduleEntry {

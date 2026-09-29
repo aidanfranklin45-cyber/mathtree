@@ -362,7 +362,12 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
     const storageSqft = parseInt(inputs.storageSqFt || inputs.gla || bldgSqFt || 10000, 10);
     revenueProvenance = `Derived from ${storageSqft.toLocaleString()} net rentable self-storage square footage (${fmtCurr(monthlyRent)}/mo • $${(annualRent/storageSqft).toFixed(2)}/sq ft annual gross revenue).`;
   } else {
-    revenueProvenance = `Derived from contractual ${leaseType} commercial lease agreements (${fmtCurr(monthlyRent)}/mo • ${fmtCurr(annualRent)}/yr). Reflects active commercial tenant obligations across Central Washington benchmarks.`;
+    const baseContractRent = parseFloat(primaryLease.monthlyRent || inputs.monthlyRent || 0);
+    if (primaryLease.leaseStartDate && baseContractRent > 0) {
+      revenueProvenance = `Contractual ${leaseType} lease commences ${primaryLease.leaseStartDate} with ${tenantName} at ${fmtCurr(baseContractRent)}/mo (${fmtCurr(baseContractRent * 12)}/yr base rate) with +${escRate}% annual escalation on ${nextEscDate ? `anniversary (${nextEscDate})` : 'anniversary'}. Pre-commencement period prior to ${primaryLease.leaseStartDate} reflects $0 contractual rent during sponsor holding period. Calendar year pro-forma revenues reflect exact active months and compounding adjustments.`;
+    } else {
+      revenueProvenance = `Derived from contractual ${leaseType} commercial lease agreements (${fmtCurr(monthlyRent)}/mo • ${fmtCurr(annualRent)}/yr). Reflects active commercial tenant obligations across Central Washington benchmarks.`;
+    }
   }
 
   // Asset-Class OpEx Provenance
@@ -739,6 +744,14 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
         ${waterfallRows}
       </tbody>
     </table>
+    ${proj.some((p: any) => p.methodologyFootnote) ? `
+    <div style="font-size: 7.5px; color: #334155; padding: 4px 8px; background: #f8fafc; border-top: 1px solid #e2e8f0; line-height: 1.4;">
+      <span style="font-weight: 800; color: #047857; text-transform: uppercase;">📌 Granular Contractual Lease &amp; Calendar Provenance Footnotes:</span>
+      <ul style="margin: 2px 0 0 0; padding-left: 14px; list-style-type: square;">
+        ${proj.filter((p: any) => p.methodologyFootnote).map((p: any) => `<li><strong>Yr ${p.year} (${p.calendarYear || startYear + p.year - 1}):</strong> ${p.methodologyFootnote}</li>`).join('')}
+      </ul>
+    </div>
+    ` : ''}
   </div>
 
   <!-- 4. Monte Carlo Stochastic Simulation & Volatility Audit (On-Demand) -->

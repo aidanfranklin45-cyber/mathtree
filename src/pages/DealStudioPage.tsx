@@ -42,6 +42,15 @@ export const DealStudioPage: React.FC = () => {
     computeSensitivity: activeTab === 'sensitivity',
   });
 
+  // JIT 30-Day GIS Cache check: evaluates cache freshness once per active session per day
+  React.useEffect(() => {
+    if (deal) {
+      import('../lib/services/gisSyncService').then(({ syncDealCountyGisInBackground }) => {
+        syncDealCountyGisInBackground(deal);
+      });
+    }
+  }, [deal?.id]);
+
   const handleRestoreInputs = async (restoredInputs: DealInputs) => {
     updateInputs(restoredInputs);
     await recalculate(restoredInputs);

@@ -69,6 +69,106 @@ export function calculateRemainingBalance(
 }
 
 // ---------------------------------------------------------------------------
+// 2b. Contractual Lease Escalation & Granular Monthly Rent Resolver
+// ---------------------------------------------------------------------------
+export function resolveLeaseMonthlyRent(
+  lease: any,
+  targetYear: number,
+  targetMonth: number,
+): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string } {
+  const baseRent = parseFloat(lease.monthlyRent || 0);
+  if (baseRent <= 0) {
+    return {
+      monthlyRent: 0,
+      isActive: false,
+      status: 'pre_commencement',
+      escalationCycles: 0,
+      provenance: 'No contractual rent specified',
+    };
+  }
+
+  let startYear = targetYear;
+  let startMonth = targetMonth;
+  if (lease.leaseStartDate) {
+    const m = String(lease.leaseStartDate).match(/(\d{4})[-/](\d{1,2})/);
+    if (m) {
+      startYear = parseInt(m[1], 10);
+      startMonth = parseInt(m[2], 10);
+    }
+  }
+
+  let endYear = 2099;
+  let endMonth = 12;
+  if (lease.leaseEndDate) {
+    const m = String(lease.leaseEndDate).match(/(\d{4})[-/](\d{1,2})/);
+    if (m) {
+      endYear = parseInt(m[1], 10);
+      endMonth = parseInt(m[2], 10);
+    }
+  }
+
+  const targetIdx = targetYear * 12 + targetMonth;
+  const startIdx = startYear * 12 + startMonth;
+  const endIdx = endYear * 12 + endMonth;
+
+  if (targetIdx < startIdx) {
+    return {
+      monthlyRent: 0,
+      isActive: false,
+      status: 'pre_commencement',
+      escalationCycles: 0,
+      provenance: `Pre-commencement (Lease starts ${lease.leaseStartDate || `${startYear}-${startMonth}`})`,
+    };
+  }
+
+  if (targetIdx > endIdx) {
+    return {
+      monthlyRent: 0,
+      isActive: false,
+      status: 'expired',
+      escalationCycles: 0,
+      provenance: `Lease expired ${lease.leaseEndDate || `${endYear}-${endMonth}`}`,
+    };
+  }
+
+  const escRate = parseFloat(lease.escalationRate !== undefined ? lease.escalationRate : 3.0);
+  let cycles = 0;
+
+  if (lease.nextEscalationDate) {
+    let nextEscYear = startYear + 1;
+    let nextEscMonth = startMonth;
+    const m = String(lease.nextEscalationDate).match(/(\d{4})[-/](\d{1,2})/);
+    if (m) {
+      nextEscYear = parseInt(m[1], 10);
+      nextEscMonth = parseInt(m[2], 10);
+    }
+    const nextEscIdx = nextEscYear * 12 + nextEscMonth;
+    if (targetIdx >= nextEscIdx) {
+      cycles = 1 + Math.floor((targetIdx - nextEscIdx) / 12);
+    } else {
+      cycles = 0;
+    }
+  } else {
+    cycles = Math.floor((targetIdx - startIdx) / 12);
+  }
+
+  const compoundedRent = Math.round(baseRent * Math.pow(1 + escRate / 100, cycles) * 100) / 100;
+  const tenant = lease.tenantName || 'Tenant';
+  const provenance =
+    cycles === 0
+      ? `${tenant}: $${baseRent.toLocaleString()}/mo (Base Rate)`
+      : `${tenant}: $${compoundedRent.toLocaleString()}/mo (${cycles}x +${escRate}% Escalation)`;
+
+  return {
+    monthlyRent: compoundedRent,
+    isActive: true,
+    status: 'active',
+    escalationCycles: cycles,
+    provenance,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 3. Annual Amortization Schedule
 // ---------------------------------------------------------------------------
 export function getAnnualAmortization(
@@ -534,6 +634,23 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   };
   const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm, finOptions);
 
+  let closeYear = 2025;
+  let closeMonth = 7;
+  if (inputs.closingDate) {
+    const parts = String(inputs.closingDate).split(/[-/]/);
+    if (parts.length >= 2) {
+      if (parts[0].length === 4) {
+        closeYear = parseInt(parts[0], 10);
+        closeMonth = parseInt(parts[1], 10);
+      } else {
+        closeMonth = parseInt(parts[0], 10);
+        closeYear = parseInt(parts[2] || parts[1], 10);
+      }
+    }
+  }
+
+  const hasExplicitLeases = Array.isArray(inputs.leases) && inputs.leases.length > 0;
+
   const projections: any[] = [];
   let currentPropertyValue = initialPropertyValue;
   let currentGrossIncome = year1GrossIncome;
@@ -542,12 +659,65 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   let entryCapRate = 0;
 
   for (let year = 1; year <= holdingPeriod; year++) {
+    const calYear = closeYear + (year - 1);
     const isStubYear = (year === 1 && isProrateFirstYear);
     const operatingMonths = isStubYear ? firstYearOperatingMonths : 12;
     const yearFraction = operatingMonths / 12;
 
-    if (year > 1) {
-      currentGrossIncome = currentGrossIncome * (1 + rentGrowth / 100);
+    let methodologyFootnote = '';
+    const monthlyReceipts: Array<{ month: string; rent: number; status: string }> = [];
+
+    if (hasExplicitLeases) {
+      const startM = isStubYear ? (12 - firstYearOperatingMonths + 1) : 1;
+      let yearGross = 0;
+      const rateBuckets: Record<number, { count: number; total: number; label: string }> = {};
+
+      for (let mo = startM; mo <= 12; mo++) {
+        let moGross = 0;
+        for (const lease of (inputs.leases as any[])) {
+          const leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo);
+          if (leaseRes.isActive) {
+            moGross += leaseRes.monthlyRent;
+            monthlyReceipts.push({
+              month: `${calYear}-${String(mo).padStart(2, '0')}`,
+              rent: leaseRes.monthlyRent,
+              status: leaseRes.provenance
+            });
+            const roundedRate = Math.round(leaseRes.monthlyRent * 100) / 100;
+            if (!rateBuckets[roundedRate]) {
+              rateBuckets[roundedRate] = { count: 0, total: 0, label: leaseRes.provenance };
+            }
+            rateBuckets[roundedRate].count += 1;
+            rateBuckets[roundedRate].total += roundedRate;
+          } else {
+            monthlyReceipts.push({
+              month: `${calYear}-${String(mo).padStart(2, '0')}`,
+              rent: 0,
+              status: leaseRes.provenance
+            });
+          }
+        }
+        yearGross += moGross;
+      }
+      currentGrossIncome = yearGross;
+
+      const bucketKeys = Object.keys(rateBuckets).map(Number).sort((a, b) => a - b);
+      if (bucketKeys.length === 0) {
+        methodologyFootnote = `${calYear}: Pre-lease holding period (${operatingMonths} mos). Contractual rent $0.`;
+      } else if (bucketKeys.length === 1) {
+        const b = rateBuckets[bucketKeys[0]];
+        const vacantCount = operatingMonths - b.count;
+        methodologyFootnote = vacantCount > 0
+          ? `${calYear}: ${b.count} active tenancy months @ $${bucketKeys[0].toLocaleString()}/mo ($${Math.round(b.total).toLocaleString()}) post-commencement • ${vacantCount} vacant holding months ($0).`
+          : `${calYear}: Full 12-month stabilized tenancy @ $${bucketKeys[0].toLocaleString()}/mo ($${Math.round(yearGross).toLocaleString()} gross potential income).`;
+      } else {
+        const parts = bucketKeys.map((k) => `${rateBuckets[k].count} mos @ $${k.toLocaleString()}/mo ($${Math.round(rateBuckets[k].total).toLocaleString()})`);
+        methodologyFootnote = `${calYear}: ${parts.join(' + ')} = $${Math.round(yearGross).toLocaleString()} total gross potential income ($${(yearGross / operatingMonths).toFixed(2)}/mo blended average).`;
+      }
+    } else {
+      if (year > 1) {
+        currentGrossIncome = currentGrossIncome * (1 + rentGrowth / 100);
+      }
     }
 
     const vacancyLoss = currentGrossIncome * (vacancyRate / 100);
@@ -612,7 +782,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     let appliedCapex = capexReserve;
     let appliedNOI = netOperatingIncome;
 
-    if (isStubYear) {
+    if (isStubYear && !hasExplicitLeases) {
       appliedGross = currentGrossIncome * yearFraction;
       appliedVacancy = vacancyLoss * yearFraction;
       appliedEGI = effectiveGrossIncome * yearFraction;
@@ -685,6 +855,9 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
 
     projections.push({
       year,
+      calendarYear: calYear,
+      methodologyFootnote,
+      monthlyReceipts,
       propertyValue: Math.round(currentPropertyValue * 100) / 100,
       grossPotentialIncome: Math.round((isStubYear ? appliedGross : currentGrossIncome) * 100) / 100,
       vacancyLoss: Math.round((isStubYear ? appliedVacancy : vacancyLoss) * 100) / 100,
@@ -899,10 +1072,25 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
     const opYear = Math.floor((m - 1) / 12) + 1;
     const yearProj = annualBase.projections[Math.min(opYear - 1, annualBase.projections.length - 1)] || {};
 
-    const monthlyGross = (yearProj.grossPotentialIncome || 0) / 12;
-    const monthlyVacancy = (yearProj.vacancyLoss || 0) / 12;
+    let monthlyGross = (yearProj.grossPotentialIncome || 0) / 12;
+    if (Array.isArray(inputs.leases) && inputs.leases.length > 0) {
+      let leaseGross = 0;
+      for (const lease of (inputs.leases as any[])) {
+        const leaseRes = resolveLeaseMonthlyRent(lease, calYear, month0 + 1);
+        if (leaseRes.isActive) leaseGross += leaseRes.monthlyRent;
+      }
+      monthlyGross = leaseGross;
+    }
+
+    const monthlyVacancy = monthlyGross * (parseFloat(inputs.vacancyRate || 5) / 100);
     const monthlyEGI = monthlyGross - monthlyVacancy;
-    const monthlyOpex = (yearProj.operatingExpenses || 0) / 12;
+    let monthlyOpex = 0;
+    if (monthlyGross > 0) {
+      monthlyOpex = monthlyGross * (parseFloat(inputs.expenseRatio || 25) / 100);
+    } else {
+      const assessedBasis = parseFloat(inputs.totalAssessedValue || inputs.combinedAssessedValue || purchasePrice);
+      monthlyOpex = ((assessedBasis * 0.011) / 12) + 100;
+    }
     const monthlyNOI = monthlyEGI - monthlyOpex;
 
     const amort = monthlyAmort[m - 1] || {};
