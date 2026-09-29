@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDealStore } from '../stores/useDealStore';
 import { useDealProjections } from '../lib/supabase/useDealProjections';
@@ -11,6 +11,8 @@ import { DiligenceTab } from '../components/studio/tabs/DiligenceTab';
 import { SensitivityTab } from '../components/studio/tabs/SensitivityTab';
 import { TaxTab } from '../components/studio/tabs/TaxTab';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
+import { ParameterHistoryModal } from '../components/studio/modals/ParameterHistoryModal';
+import { DealInputs } from '../lib/math/types';
 import { Loader2 } from 'lucide-react';
 
 export const DealStudioPage: React.FC = () => {
@@ -26,6 +28,8 @@ export const DealStudioPage: React.FC = () => {
     saveDeal,
   } = useDealStore();
 
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
   // All financial math lives here — driven by the Edge Function.
   const {
     metrics,
@@ -37,6 +41,12 @@ export const DealStudioPage: React.FC = () => {
     // Sensitivity matrix is computed lazily (only when the tab is active)
     computeSensitivity: activeTab === 'sensitivity',
   });
+
+  const handleRestoreInputs = async (restoredInputs: DealInputs) => {
+    updateInputs(restoredInputs);
+    await recalculate(restoredInputs);
+    await saveDeal();
+  };
 
   const isLoading = dealLoading || (projLoading && !metrics);
 
@@ -80,6 +90,7 @@ export const DealStudioPage: React.FC = () => {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         onOpenEditModal={() => setIsEditModalOpen(true)}
+        onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
@@ -110,6 +121,13 @@ export const DealStudioPage: React.FC = () => {
         onClose={() => setIsEditModalOpen(false)}
         onUpdateInputs={updateInputs}
         onSaveDeal={saveDeal}
+      />
+
+      <ParameterHistoryModal
+        isOpen={isHistoryModalOpen}
+        deal={deal}
+        onClose={() => setIsHistoryModalOpen(false)}
+        onRestore={handleRestoreInputs}
       />
     </div>
   );

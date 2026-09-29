@@ -10,6 +10,7 @@ interface StudioNavbarProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
   onOpenEditModal: () => void;
+  onOpenHistoryModal?: () => void;
 }
 
 const MODULE_TABS = [
@@ -28,6 +29,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
   activeTab,
   onSelectTab,
   onOpenEditModal,
+  onOpenHistoryModal,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const isOwned = deal.status === 'owned';
@@ -71,7 +73,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
           </div>
         </div>
 
-        {/* Right: Module Selector, Edit Inputs, Export PDF */}
+        {/* Right: Module Selector, History, Edit Inputs, Export PDF */}
         <div className="flex items-center space-x-2">
           {/* Analysis Module Dropdown */}
           <div className="relative">
@@ -109,6 +111,18 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
               </div>
             )}
           </div>
+
+          {/* Parameter History Button */}
+          {onOpenHistoryModal && (
+            <button
+              onClick={onOpenHistoryModal}
+              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-200 flex items-center space-x-1.5 transition shadow-sm hover:text-white"
+              title="View Underwriting Parameter History & Scenarios"
+            >
+              <span className="text-emerald-400">⏱</span>
+              <span className="hidden sm:inline">Scenarios</span>
+            </button>
+          )}
 
           {/* Edit Inputs Button */}
           <button
