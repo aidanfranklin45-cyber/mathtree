@@ -516,8 +516,8 @@ export function resolveCalendarProjections(
           {
             monthlyRent: parseFloat(inp.monthlyRent),
             leaseStartDate: inp.leaseStartDate || closeVal,
-            leaseEndDate: inp.leaseEndDate || '2036-08-03',
-            nextEscalationDate: inp.nextEscalationDate || '2027-08-03',
+            leaseEndDate: inp.leaseEndDate || '2035-08-03',
+            nextEscalationDate: inp.nextEscalationDate || '2026-08-03',
             escalationRate: inp.rentGrowth || inp.rentGrowthPercent || 3.0,
             escalationType: 'Percentage Bump (%)',
             escalationFrequency: 'Annual on Anniversary',

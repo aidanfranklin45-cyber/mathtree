@@ -603,37 +603,6 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   const monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, loanTerm);
   const annualDebtService = monthlyPayment * 12;
 
-  const isProrateFirstYear = !!inputs.prorateFirstYear;
-  let firstYearOperatingMonths = 12;
-  if (isProrateFirstYear) {
-    if (inputs.firstYearMonths !== undefined && !isNaN(parseInt(inputs.firstYearMonths, 10))) {
-      firstYearOperatingMonths = Math.max(1, Math.min(12, parseInt(inputs.firstYearMonths, 10)));
-    } else if (inputs.closingDate) {
-      const parts = String(inputs.closingDate).split(/[-/]/);
-      let closeMonth = 10;
-      if (parts.length >= 2) {
-        closeMonth = parts[0].length === 4 ? parseInt(parts[1], 10) : parseInt(parts[0], 10);
-      }
-      if (!isNaN(closeMonth) && closeMonth >= 1 && closeMonth <= 12) {
-        firstYearOperatingMonths = Math.max(1, 12 - closeMonth + 1);
-      }
-    } else {
-      firstYearOperatingMonths = 3;
-    }
-  }
-
-  const finOptions = {
-    financingType: inputs.financingType || 'fixed',
-    armInitialYears: inputs.armInitialYears ?? 5,
-    armAdjustmentRate: inputs.armAdjustmentRate,
-    armRateCap: inputs.armRateCap,
-    interestOnlyYears: inputs.interestOnlyYears,
-    sellerFinanceBalloon: inputs.sellerFinanceBalloon,
-    holdingPeriod: holdingPeriod,
-    firstYearMonths: isProrateFirstYear ? firstYearOperatingMonths : 12
-  };
-  const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm, finOptions);
-
   let closeYear = 2025;
   let closeMonth = 7;
   if (inputs.closingDate) {
@@ -650,6 +619,29 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   }
 
   const hasExplicitLeases = Array.isArray(inputs.leases) && inputs.leases.length > 0;
+  const isProrateFirstYear = !!inputs.prorateFirstYear || (hasExplicitLeases && closeMonth > 1) || (inputs.closingDate && closeMonth > 1);
+  let firstYearOperatingMonths = 12;
+  if (isProrateFirstYear) {
+    if (closeMonth > 1) {
+      firstYearOperatingMonths = Math.max(1, 12 - closeMonth + 1);
+    } else if (inputs.firstYearMonths !== undefined && !isNaN(parseInt(inputs.firstYearMonths, 10))) {
+      firstYearOperatingMonths = Math.max(1, Math.min(12, parseInt(inputs.firstYearMonths, 10)));
+    } else {
+      firstYearOperatingMonths = 12;
+    }
+  }
+
+  const finOptions = {
+    financingType: inputs.financingType || 'fixed',
+    armInitialYears: inputs.armInitialYears ?? 5,
+    armAdjustmentRate: inputs.armAdjustmentRate,
+    armRateCap: inputs.armRateCap,
+    interestOnlyYears: inputs.interestOnlyYears,
+    sellerFinanceBalloon: inputs.sellerFinanceBalloon,
+    holdingPeriod: holdingPeriod,
+    firstYearMonths: isProrateFirstYear ? firstYearOperatingMonths : 12
+  };
+  const amortizationSchedule = getAnnualAmortization(loanAmount, interestRate, loanTerm, finOptions);
 
   const projections: any[] = [];
   let currentPropertyValue = initialPropertyValue;
@@ -668,7 +660,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     const monthlyReceipts: Array<{ month: string; rent: number; status: string }> = [];
 
     if (hasExplicitLeases) {
-      const startM = isStubYear ? (12 - firstYearOperatingMonths + 1) : 1;
+      const startM = isStubYear ? closeMonth : 1;
       let yearGross = 0;
       const rateBuckets: Record<number, { count: number; total: number; label: string }> = {};
 
@@ -764,7 +756,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
         }
         const isRawLand = /vacant|land|dirt|lot/i.test(inputs.facilityType || '') || /vacant|land/i.test(inputs.useCode || '');
         const gla = isRawLand ? 0 : (parseFloat(inputs.gla) || 15000);
-        capexReserve = gla * 1.50;
+        capexReserve = inputs.leaseType === 'NNN' ? (parseFloat(inputs.capexReserve) || 0) : (gla * 1.50);
       }
     } else if (assetType === 'storage') {
       const managementFee = inputs.manageProperty ? currentGrossIncome * 0.06 : 0;
@@ -782,13 +774,15 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     let appliedCapex = capexReserve;
     let appliedNOI = netOperatingIncome;
 
-    if (isStubYear && !hasExplicitLeases) {
-      appliedGross = currentGrossIncome * yearFraction;
-      appliedVacancy = vacancyLoss * yearFraction;
-      appliedEGI = effectiveGrossIncome * yearFraction;
-      appliedOpex = operatingExpenses * yearFraction;
+    if (isStubYear) {
       appliedCapex = capexReserve * yearFraction;
-      appliedNOI = appliedEGI - appliedOpex;
+      if (!hasExplicitLeases) {
+        appliedGross = currentGrossIncome * yearFraction;
+        appliedVacancy = vacancyLoss * yearFraction;
+        appliedEGI = effectiveGrossIncome * yearFraction;
+        appliedOpex = operatingExpenses * yearFraction;
+        appliedNOI = appliedEGI - appliedOpex;
+      }
     }
 
     if (year === 1) {
@@ -973,9 +967,13 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     irr: Math.round(irr * 100) / 100,
     equityMultiplier: Math.round(equityMultiplier * 100) / 100,
     equity_multiple: Math.round(equityMultiplier * 100) / 100,
-    cash_on_cash: projections[0] ? projections[0].cashOnCash : 0,
-    year1_cashflow: projections[0] ? projections[0].cashFlow : 0,
-    year1Cashflow: projections[0] ? projections[0].cashFlow : 0,
+    noi: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].netOperatingIncome : (projections[0]?.netOperatingIncome ?? 0)) * 100) / 100,
+    capRate: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].capRate : (projections[0]?.capRate ?? entryCapRate)) * 100) / 100,
+    dscr: (projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].dscr : (projections[0]?.dscr ?? null),
+    cashOnCash: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashOnCash : (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
+    cash_on_cash: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashOnCash : (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
+    year1_cashflow: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashFlow : (projections[0]?.cashFlow ?? 0)) * 100) / 100,
+    year1Cashflow: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashFlow : (projections[0]?.cashFlow ?? 0)) * 100) / 100,
     total_equity: Math.round(initialCashInvested * 100) / 100,
     breakEvenYear,
     ltv: Math.round(acquisitionLtv * 100) / 100,
