@@ -132,7 +132,7 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (!res.ok) throw new Error((data as { error?: string }).error || `HTTP ${res.status}: ${res.statusText}`);
       setTestMsg({
         kind: 'ok',
-        text: <>✓ <strong>Success!</strong> Test email dispatched to <code>{recipient}</code>. Resend Message ID: <code>{(data as any).email_id || (data as any).resend_id || 'Delivered'}</code></>,
+        text: <>✓ <strong>Success!</strong> Test email dispatched to <code>{(data as any).target_email || recipient}</code>. Resend Message ID: <code>{(data as any).email_id || (data as any).resend_id || 'Delivered'}</code></>,
       });
     } catch (err) {
       const text = err instanceof Error ? err.message : String(err);

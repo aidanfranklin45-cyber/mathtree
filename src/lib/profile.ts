@@ -3,6 +3,8 @@
 // and the manage-profile Edge Function. Zero dependency on client localStorage caching.
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase/client';
+import { setExpiryDefaults } from './engine/expiryDefaults';
+import { normalizeExpiryDefaults, type ExpiryMode } from '../../supabase/functions/_shared/leaseExpiry';
 
 export interface AssociatedCompany {
   id: string;
@@ -28,6 +30,9 @@ export interface InvestorProfile {
   exitCapTiming: 'amortized' | 'day1';
   marketTier: string;
   propertyClass: string;
+  /** What the analysis assumes after a lease ends, unless a property says otherwise (Edit Inputs). */
+  leaseExpiryMode: ExpiryMode;
+  leaseExpiryVacancyMonths: number;
   notification_email?: string | null;
   alert_preferences?: Record<string, unknown> | null;
 }
@@ -42,6 +47,8 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   exitCapTiming: 'amortized', // 'amortized' | 'day1'
   marketTier: 'Tier 2',       // 'Tier 1' | 'Tier 2' | 'Tier 3'
   propertyClass: 'Class B',   // 'Class A' | 'Class B' | 'Class C'
+  leaseExpiryMode: 'renew',   // 'renew' | 'relet' | 'vacant'
+  leaseExpiryVacancyMonths: 6,
 };
 
 // In-memory runtime cache for the active session (not stored in localStorage)
@@ -56,6 +63,9 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   const exitYear = isNaN(exitYearRaw) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, exitYearRaw));
 
   const exitCapTiming = (raw.exitCapTiming === 'day1' || (raw.exitCapTiming as string) === 'immediate') ? 'day1' : 'amortized';
+
+  const expiry = normalizeExpiryDefaults(raw as Record<string, unknown>);
+  setExpiryDefaults(raw as Record<string, unknown>);
 
   return {
     id: raw.id ?? null,
@@ -72,6 +82,8 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     exitCapTiming,
     marketTier: String(raw.marketTier || DEFAULT_PROFILE.marketTier).trim(),
     propertyClass: String(raw.propertyClass || DEFAULT_PROFILE.propertyClass).trim(),
+    leaseExpiryMode: expiry.mode,
+    leaseExpiryVacancyMonths: expiry.vacancyMonths,
     notification_email: raw.notification_email ?? null,
     alert_preferences: raw.alert_preferences ?? null,
   };
@@ -240,6 +252,8 @@ export async function saveProfile(
           exitCapTiming: merged.exitCapTiming,
           marketTier: merged.marketTier,
           propertyClass: merged.propertyClass,
+          leaseExpiryMode: merged.leaseExpiryMode,
+          leaseExpiryVacancyMonths: merged.leaseExpiryVacancyMonths,
         },
         updated_at: new Date().toISOString(),
       });

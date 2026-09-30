@@ -1,5 +1,7 @@
 import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix, TaxMetrics } from '../math/types';
 import { calculateProjections, calculateSensitivityMatrix, calculateTaxMetrics } from './index';
+import { applyLeaseExpiryDefaults } from '../../../supabase/functions/_shared/leaseExpiry';
+import { getExpiryDefaults } from './expiryDefaults';
 
 /**
  * Compute-on-the-fly entry points. Everything derived from a deal (projections, amortization, IRR,
@@ -20,7 +22,8 @@ export function prepareEngineInputs(deal: AnyDeal, overrides?: Partial<DealInput
   if (inputs.arv && Number(inputs.arv) === assessed) delete inputs.arv;
 
   if (inputs.discountRate === undefined || inputs.discountRate === null) inputs.discountRate = 8.0;
-  return inputs;
+  // Leases with no expiry assumption of their own get the investor default from their profile
+  return applyLeaseExpiryDefaults(inputs, getExpiryDefaults());
 }
 
 const assetOf = (deal: AnyDeal): string => String(deal.asset_class ?? deal.assetType ?? 'commercial');

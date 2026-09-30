@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase/client';
+import { fetchProfile } from '../profile';
 
 declare global {
   interface Window {

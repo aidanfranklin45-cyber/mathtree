@@ -11,6 +11,7 @@ import {
   getAnnualAmortization
 } from '../_shared/math-engine.ts';
 import { getCaller, canAccessDeal } from '../_shared/auth.ts';
+import { applyLeaseExpiryDefaults, normalizeExpiryDefaults, DEFAULT_EXPIRY } from '../_shared/leaseExpiry.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -206,15 +207,27 @@ function runOnDemandMonteCarlo(
  * projections) is recomputed here from the deal's inputs with the shared engine, so the PDF always matches the app.
  * Any stored analysis columns on the row (irr, metrics, ...) are discarded.
  */
+/** The owner's "what happens when a lease ends" default (profile), so the brief matches what they see in the app. */
+async function loadExpiryDefaults(db: any, userId: string | null | undefined) {
+  if (!userId) return DEFAULT_EXPIRY;
+  try {
+    const { data } = await db.from('profiles').select('preferences').eq('id', userId).maybeSingle();
+    return normalizeExpiryDefaults((data?.preferences as Record<string, unknown>) || {});
+  } catch (_) {
+    return DEFAULT_EXPIRY;
+  }
+}
+
 function withComputedAnalysis(d: any): any {
   const raw = String(d?.asset_class || d?.asset_type || d?.assetType || 'commercial').toLowerCase().replace(/_/g, '-');
   const cls = (raw === 'residential' || raw === 'single-family' || raw === 'sfr') ? 'residential'
     : (raw === 'multi-family' || raw === 'multifamily' || raw === 'multi-unit') ? 'multi_family'
     : (raw === 'storage' || raw === 'self-storage') ? 'storage' : 'commercial';
   const base = { ...d };
+  delete base._expiryDefaults;
   for (const k of ['metrics', 'irr', 'npv', 'equity_multiple', 'cash_on_cash', 'year1_cashflow', 'total_equity', 'cap_rate', 'metrics_computed_at']) delete base[k];
   try {
-    const inputs = { ...(d?.inputs || {}) };
+    const inputs = applyLeaseExpiryDefaults({ ...(d?.inputs || {}) }, d?._expiryDefaults || DEFAULT_EXPIRY);
     if (!inputs.purchasePrice && d?.purchase_price) inputs.purchasePrice = Number(d.purchase_price);
     const res: any = calculateProjections(cls as any, inputs);
     const p1 = (res.projections && res.projections[0]) || {};
@@ -1541,6 +1554,7 @@ serve(async (req: Request) => {
         .eq('deal_id', dbDeal.id)
         .maybeSingle();
 
+      dbDeal._expiryDefaults = await loadExpiryDefaults(supabase, dbDeal.user_id);
       html = buildSingleDealBriefHtml(dbDeal, parcelPackage);
     } else if (mode === 'portfolio') {
       if (bodyPayload.portfolio && bodyPayload.portfolio.kpis) {
@@ -1552,6 +1566,7 @@ serve(async (req: Request) => {
         let dealsQuery = supabase.from('deals').select('*');
         let invName = 'Investor';
         let compName = 'MathTree Real Estate Capital';
+        let expiryUserId: string | null = null;
 
         if (authHeader && authHeader.includes('Bearer ')) {
           const token = authHeader.replace('Bearer ', '').trim();
@@ -1559,6 +1574,7 @@ serve(async (req: Request) => {
           if (user) {
             invName = (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Investor');
             dealsQuery = dealsQuery.eq('user_id', user.id);
+            expiryUserId = user.id;
           } else {
             dealsQuery = dealsQuery.eq('is_demo', true);
           }
@@ -1575,7 +1591,8 @@ serve(async (req: Request) => {
           dealsList = demoDeals || [];
         }
 
-        const portfolioData = aggregateDealsToPortfolio((dealsList || []).map(withComputedAnalysis), { investorName: invName, companyName: compName });
+        const expiryDefaults = await loadExpiryDefaults(supabase, expiryUserId);
+        const portfolioData = aggregateDealsToPortfolio((dealsList || []).map((d: any) => withComputedAnalysis({ ...d, _expiryDefaults: expiryDefaults })), { investorName: invName, companyName: compName });
         html = buildPortfolioBriefHtml(portfolioData);
       }
     } else {
