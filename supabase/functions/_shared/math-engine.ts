@@ -714,6 +714,8 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   let cumulativePrincipalPaid = 0;
   let cumulativeCashInvested = initialCashInvested;
   let entryCapRate = 0;
+  // Lease-driven year 1 is often a partial year (lease starts after closing); its NOI over the full price is not a cap rate
+  let entryCapPending = false;
 
   for (let year = 1; year <= holdingPeriod; year++) {
     const calYear = closeYear + (year - 1);
@@ -874,12 +876,18 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       } else {
         entryCapRate = targetCapRate;
       }
+      entryCapPending = hasExplicitLeases && monthlyReceipts.filter((r) => r.rent > 0).length < 12;
+    } else if (entryCapPending && hasExplicitLeases && monthlyReceipts.filter((r) => r.rent > 0).length >= 12) {
+      // Going-in cap rate on the first full year of income (same basis as the headline DSCR)
+      entryCapPending = false;
+      if (initialPropertyValue > 0 && netOperatingIncome > 0) entryCapRate = (netOperatingIncome / initialPropertyValue) * 100;
     }
+    const capStillPending = entryCapPending; // still waiting for a full year of income: value stays at cost
 
     const isIncomeProducing = (currentGrossIncome > 0 && netOperatingIncome > 0);
     if ((assetType === 'commercial' || assetType === 'storage') && isIncomeProducing) {
       const exitCapTiming = inputs.exitCapTiming || 'amortized';
-      if (year === 1) {
+      if (year === 1 || capStillPending) {
         currentPropertyValue = initialPropertyValue;
       } else {
         if (exitCapTiming === 'day1' || exitCapTiming === 'immediate') {

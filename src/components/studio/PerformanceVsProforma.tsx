@@ -58,8 +58,8 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
   }, [deal.id, deal.status]);
 
   const cmp = useMemo(
-    () => (baseline ? compareToBaseline({ baseline, live: metrics, payments, leases }) : null),
-    [baseline, metrics, payments, leases],
+    () => (baseline ? compareToBaseline({ baseline, live: metrics, payments, leases, deal }) : null),
+    [baseline, metrics, payments, leases, deal],
   );
 
   const canRebaseline = !deal.is_shared && !deal.is_demo;
@@ -141,6 +141,12 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
           </tbody>
         </table>
       </div>
+
+      {cmp.replayed && (
+        <p className="text-[10px] text-slate-500">
+          IRR and equity multiple: the purchase-time price, rent, loan and costs, run on {cmp.planChanged ? 'your current exit plan' : 'today'}'s engine so the two columns are comparable. NOI, cash flow, cash-on-cash and DSCR are the figures frozen at purchase.
+        </p>
+      )}
 
       {cmp.hasYearDetail ? (
         <div className="space-y-3">

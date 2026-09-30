@@ -93,3 +93,41 @@ describe('expected vs actual revenue', () => {
     expect(cmp.headline.find((h) => h.key === 'irr')).toBeDefined();
   });
 });
+
+describe('baseline follows the exit plan', () => {
+  const draft = buildBaselineDraft(deal, 'user-1');
+  const baseline = asRow(draft);
+
+  it('uses the stored numbers when neither plan nor engine has changed', () => {
+    const live: any = computeDealMetrics(deal);
+    const cmp = compareToBaseline({ baseline, live, payments: [], leases: [], deal });
+    expect(cmp.replayed).toBe(false);
+    expect(cmp.headline.find((h) => h.key === 'irr')!.expected).toBeCloseTo(draft.projected_irr as number, 4);
+  });
+
+  it('a longer hold moves the expected IRR with it, so the exit-year change alone shows no IRR gap', () => {
+    const longer: any = { ...deal, inputs: { ...deal.inputs, exitYear: 25 } };
+    const live: any = computeDealMetrics(longer);
+    const cmp = compareToBaseline({ baseline, live, payments: [], leases: [], deal: longer });
+    const irr = cmp.headline.find((h) => h.key === 'irr')!;
+    expect(cmp.planChanged).toBe(true);
+    expect(irr.replayed).toBe(true);
+    expect(irr.expected).toBeCloseTo(live.irr as number, 4);
+    expect(irr.delta).toBeCloseTo(0, 4);
+  });
+
+  it('but a change in the purchase facts still shows up (rate change is not a plan change)', () => {
+    const worse: any = { ...deal, inputs: { ...deal.inputs, interestRate: 7.5, exitYear: 25 } };
+    const live: any = computeDealMetrics(worse);
+    const cmp = compareToBaseline({ baseline, live, payments: [], leases: [], deal: worse });
+    expect(cmp.headline.find((h) => h.key === 'irr')!.delta as number).toBeLessThan(0);
+  });
+
+  it('re-runs an old-engine baseline on today\'s engine', () => {
+    const old: BaselineRow = { ...baseline, metrics_snapshot: { ...(baseline.metrics_snapshot as object), engineVersion: '2020-01-01' } };
+    const live: any = computeDealMetrics(deal);
+    const cmp = compareToBaseline({ baseline: old, live, payments: [], leases: [], deal });
+    expect(cmp.replayed).toBe(true);
+    expect(cmp.planChanged).toBe(false);
+  });
+});
