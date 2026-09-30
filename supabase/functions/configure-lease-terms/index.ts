@@ -227,17 +227,13 @@ export async function handleRequest(req: Request): Promise<Response> {
         .maybeSingle();
 
       if (dealErr) throw dealErr;
-      if (!deal) {
-        return jsonResponse({ error: "Deal not found" }, 404);
-      }
-
       // Writing needs a signed-in caller who owns the deal or holds an editor share; the lease is always recorded
-      // against the deal's owner.
+      // against the deal's owner. Check the caller before revealing whether the deal exists.
       if (!userId) {
         return jsonResponse({ error: "Authentication required" }, 401);
       }
-      if (!(await canAccessDeal(dbClient, dealId, userId, true))) {
-        return jsonResponse({ error: "Not authorized to edit this deal" }, 403);
+      if (!deal || !(await canAccessDeal(dbClient, dealId, userId, true))) {
+        return jsonResponse({ error: "Deal not found or not authorized" }, 403);
       }
       const effectiveUserId = deal.user_id;
 
