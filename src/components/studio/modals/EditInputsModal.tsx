@@ -109,6 +109,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     patch.leases = monthlyRent > 0
       ? [{
           ...existingLease,
+          paymentDueDay: Math.min(31, Math.max(1, parseInt(form.dueDay, 10) || 1)),
+          gracePeriodDays: Math.min(60, Math.max(0, parseInt(form.graceDays, 10) || 0)),
           expiryAssumption: form.expiryAssumption || 'none',
           extensionYears: numOr(form.extensionYears, 5),
           extensionRentChangePct: numOr(form.extensionRentChangePct, 0),
@@ -448,6 +450,17 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <div className="space-y-1">
                 <label className={label}>Next Escalation Date</label>
                 <input type="date" value={form.nextEscalation} onChange={(e) => set('nextEscalation', e.target.value)} className={inp2} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className={label}>Rent Due Day of Month</label>
+                <input type="number" min="1" max="31" step="1" value={form.dueDay} onChange={(e) => set('dueDay', e.target.value)} className={inp2} />
+              </div>
+              <div className="space-y-1">
+                <label className={label}>Grace Period (days)</label>
+                <input type="number" min="0" max="60" step="1" value={form.graceDays} onChange={(e) => set('graceDays', e.target.value)} className={inp2} />
               </div>
             </div>
 

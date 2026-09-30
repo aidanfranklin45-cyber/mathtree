@@ -181,8 +181,6 @@ export async function handleRequest(req: Request): Promise<Response> {
           name,
           entity_type: entityType,
           formation_state: formationState,
-          bank_name: null, // Purged for data privacy & security
-          ein: null,       // Purged for data privacy & security
           notes,
         })
         .select("id, user_id, name, entity_type, formation_state, notes, created_at, updated_at")
@@ -263,8 +261,6 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
-      bank_name: null, // Purged for security
-      ein: null,       // Purged for security
     };
 
     if (payload.name !== undefined) updates.name = String(payload.name).trim();

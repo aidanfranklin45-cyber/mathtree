@@ -23,8 +23,6 @@ export interface InvestorProfile {
   primaryEntityId?: string | null;
   associatedCompanies?: AssociatedCompany[];
   formationState?: string;
-  ein?: string;
-  bankName?: string;
   discountRate: number;         // Hurdle Rate (%/yr opportunity cost)
   exitYear: number;             // Default Hold Period (Years)
   exitCapTiming: 'amortized' | 'day1';
@@ -69,8 +67,6 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
       ? raw.associatedCompanies
       : (Array.isArray((raw as any).associated_companies) ? (raw as any).associated_companies : []),
     formationState: raw.formationState ? String(raw.formationState).trim() : undefined,
-    ein: raw.ein ? String(raw.ein).trim() : undefined,
-    bankName: raw.bankName ? String(raw.bankName).trim() : undefined,
     discountRate,
     exitYear,
     exitCapTiming,

@@ -8,9 +8,7 @@ interface Props {
   notifications: AppNotification[];
   onRefresh: () => void;
   onDismiss: (id: string) => void;
-  onSyncProForma: (dealId: string, actualMonthlyRent: number) => Promise<boolean>;
   /** Called after a pro-forma sync so the page can reload its deals. */
-  onSynced?: () => void;
   /** Opens the entity portal targeted at a property (Assign Entity LLC alerts). */
   onAssignEntity?: (dealId: string, dealTitle?: string) => void;
 }
@@ -21,7 +19,7 @@ const severityBadge = (sev: string) => {
   return <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 border border-blue-500/40 text-blue-300">Tip / Reminder</span>;
 };
 
-export const NotificationHub: React.FC<Props> = ({ isOpen, onClose, notifications, onRefresh, onDismiss, onSyncProForma, onSynced, onAssignEntity }) => {
+export const NotificationHub: React.FC<Props> = ({ isOpen, onClose, notifications, onRefresh, onDismiss, onAssignEntity }) => {
   const navigate = useNavigate();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -36,36 +34,13 @@ export const NotificationHub: React.FC<Props> = ({ isOpen, onClose, notification
     navigate(`/operations?${qs.toString()}`);
   };
 
-  const sync = async (n: AppNotification) => {
-    const p = n.action_payload || {};
-    setBusyId(n.notification_id);
-    const ok = await onSyncProForma(String(p.deal_id || n.target_deal_id), Number(p.actual_monthly_rent) || 0);
-    setBusyId(null);
-    setToast(ok
-      ? `Pro-forma synchronized to operational revenue ($${Math.round(Number(p.actual_monthly_rent) || 0).toLocaleString()}/mo)`
-      : 'Failed to synchronize pro-forma. Please try again.');
-    setTimeout(() => setToast(null), 3500);
-    if (ok) onSynced?.();
-  };
-
-  const dismissBtn = (n: AppNotification, label: string, title?: string) => (
+    const dismissBtn = (n: AppNotification, label: string, title?: string) => (
     <button onClick={() => onDismiss(n.notification_id)} title={title}
       className="py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition">{label}</button>
   );
 
   const actions = (n: AppNotification) => {
     switch (n.action_type) {
-      case 'sync_proforma_income':
-        return (
-          <div className="mt-3 flex flex-col sm:flex-row gap-2">
-            <button disabled={busyId === n.notification_id} onClick={() => sync(n)}
-              className="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition text-center flex items-center justify-center space-x-1 disabled:opacity-60">
-              <span>⚡ Sync Pro-Forma (${Math.round(Number(n.action_payload?.actual_monthly_rent) || 0).toLocaleString()}/mo)</span>
-            </button>
-            <button onClick={() => onDismiss(n.notification_id)} title="Keep prospective model as baseline target"
-              className="py-1.5 px-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 transition">Keep Separate</button>
-          </div>
-        );
       case 'open_lease_modal':
         return (
           <div className="mt-3 flex items-center gap-2">

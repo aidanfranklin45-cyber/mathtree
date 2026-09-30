@@ -16,7 +16,8 @@ import { DealAuditorBanner } from '../components/studio/DealAuditorBanner';
 import { ScenarioSummaryCard } from '../components/studio/ScenarioSummaryCard';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRun } from '../lib/scenarios';
-import { DealInputs } from '../lib/math/types';
+import { DealInputs, DealRecord } from '../lib/math/types';
+import { ensureBaseline } from '../lib/baselines/db';
 import { Loader2 } from 'lucide-react';
 
 export const DealStudioPage: React.FC = () => {
@@ -75,7 +76,9 @@ export const DealStudioPage: React.FC = () => {
   const patchAndRecord: typeof patchDeal = async (inputsPatch, top) => {
     const ok = await patchDeal(inputsPatch, top);
     if (ok && deal) {
-      await recordScenarioRun({ ...deal, inputs: { ...deal.inputs, ...inputsPatch } });
+      const next = { ...deal, ...top, inputs: { ...deal.inputs, ...inputsPatch } } as DealRecord;
+      await recordScenarioRun(next);
+      if (next.status === 'owned') void ensureBaseline(next);
       setRunsVersion((v) => v + 1);
     }
     return ok;

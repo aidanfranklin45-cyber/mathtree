@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase/client';
+import { supabase, SUPABASE_URL } from '../../lib/supabase/client';
+import { authJsonHeaders } from '../../lib/supabase/authHeaders';
 
 interface Props {
   isOpen: boolean;
@@ -31,6 +32,9 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [escalation, setEscalation] = useState('30');
   const [remindOnDue, setRemindOnDue] = useState(true);
   const [followupGrace, setFollowupGrace] = useState(true);
+  const [followupFreq, setFollowupFreq] = useState('3');
+  const [followupMax, setFollowupMax] = useState('3');
+  const [snoozeDays, setSnoozeDays] = useState(''); // blank = use each lease's grace period
   const [timingMsg, setTimingMsg] = useState<Msg>(null);
 
   const [testEmail, setTestEmail] = useState('');
@@ -61,6 +65,9 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (p.escalation_notice_days !== undefined) setEscalation(String(p.escalation_notice_days));
         if (p.remind_on_due !== undefined) setRemindOnDue(Boolean(p.remind_on_due));
         if (p.followup_grace_period !== undefined) setFollowupGrace(Boolean(p.followup_grace_period));
+        if (p.followup_frequency_days !== undefined) setFollowupFreq(String(p.followup_frequency_days));
+        if (p.followup_max_count !== undefined) setFollowupMax(String(p.followup_max_count));
+        if (p.snooze_days !== undefined && p.snooze_days !== null) setSnoozeDays(String(p.snooze_days));
       }
     })();
     return () => { live = false; };
@@ -95,6 +102,9 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       escalation_notice_days: parseInt(escalation || '30', 10),
       remind_on_due: remindOnDue,
       followup_grace_period: followupGrace,
+      followup_frequency_days: parseInt(followupFreq || '3', 10),
+      followup_max_count: parseInt(followupMax || '3', 10),
+      snooze_days: snoozeDays === '' ? null : parseInt(snoozeDays, 10),
     };
     const { error } = await supabase
       .from('profiles')
@@ -115,7 +125,7 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/cron-daily-lease-monitor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        headers: await authJsonHeaders(),
         body: JSON.stringify({ test: true, recipient_email: recipient }),
       });
       const data = await res.json().catch(() => ({}));
@@ -225,8 +235,31 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </label>
               <label className="flex items-center space-x-2 text-slate-300 cursor-pointer">
                 <input type="checkbox" checked={followupGrace} onChange={(e) => setFollowupGrace(e.target.checked)} className="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0" />
-                <span className="text-[11px]">Send urgent alert when grace period expires on unpaid rent</span>
+                <span className="text-[11px]">Send follow-up emails on unpaid rent (after the grace period, or when a snooze ends)</span>
               </label>
+              <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 ${followupGrace ? '' : 'opacity-40 pointer-events-none'}`}>
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-300">Follow up every</label>
+                  <select value={followupFreq} onChange={(e) => setFollowupFreq(e.target.value)} className={`w-full ${field}`}>
+                    {['1', '2', '3', '5', '7', '14'].map((v) => <option key={v} value={v}>{v === '1' ? 'Day' : `${v} days`}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-300">Stop after</label>
+                  <select value={followupMax} onChange={(e) => setFollowupMax(e.target.value)} className={`w-full ${field}`}>
+                    {['1', '2', '3', '5', '10'].map((v) => <option key={v} value={v}>{v} follow-up{v === '1' ? '' : 's'}</option>)}
+                    <option value="0">Keep going until paid</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-300">A snooze lasts</label>
+                  <select value={snoozeDays} onChange={(e) => setSnoozeDays(e.target.value)} className={`w-full ${field}`}>
+                    <option value="">Lease grace period (default)</option>
+                    {['1', '2', '3', '5', '7', '14'].map((v) => <option key={v} value={v}>{v === '1' ? '1 day' : `${v} days`}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500">Follow-ups are counted per month's rent and pause while a snooze is running. Every email has Confirm and Snooze buttons.</p>
             </div>
             <div className="flex items-center justify-between pt-1">
               <button type="button" onClick={saveTiming} className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition flex items-center space-x-1.5 text-xs shadow-md shadow-cyan-900/30">
