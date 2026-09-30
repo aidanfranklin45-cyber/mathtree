@@ -9,7 +9,7 @@ import { exportPortfolioBriefPDF } from '../lib/export/pdfBrief';
 import { DealCard } from '../components/dashboard/DealCard';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
-import { fetchProfile } from '../lib/profile';
+import { fetchProfile, getProfile } from '../lib/profile';
 import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
 import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
@@ -67,58 +67,74 @@ export const DashboardPage: React.FC = () => {
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
 
+  const DEAL_FIELDS = 'id, user_id, title, location, address, city, state, zip, asset_class, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
+
   const loadData = async () => {
     setLoading(true);
     try {
       const sessionRes = await supabase.auth.getSession();
       const user = sessionRes.data?.session?.user;
 
-      // 1. Fetch Entities
-      const { data: entData } = await supabase.from('entities').select('id, name');
-      if (entData && entData.length > 0) {
-        setEntities(entData as LegalEntity[]);
-      }
+      // 1. Fetch Entities & Deals concurrently in parallel
+      const entitiesPromise = supabase.from('entities').select('id, name');
 
-      // 2. Fetch Deals
-      let list: DealRecord[] = [];
+      let dealsPromise: PromiseLike<any>;
+      let sharesPromise: PromiseLike<any>;
+
       if (user) {
-        const { data, error } = await supabase
+        dealsPromise = supabase
           .from('deals')
-          .select('*')
+          .select(DEAL_FIELDS)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
-        if (!error && data && data.length > 0) {
-          list = data.map(mapSupabaseDeal);
-        }
 
-        // Deals other people have shared with me (by user id or invited email)
         const emailFilter = user.email ? `,shared_with_email.ilike.${user.email}` : '';
-        const { data: sharedRows, error: sharedErr } = await supabase
+        sharesPromise = supabase
           .from('deal_shares')
-          .select('id, deal_id, permission, owner_id, deals(*)')
+          .select(`id, deal_id, permission, owner_id, deals(${DEAL_FIELDS})`)
           .or(`shared_with_user_id.eq.${user.id}${emailFilter}`);
-        if (!sharedErr && sharedRows) {
-          const have = new Set(list.map((d) => d.id));
-          (sharedRows as any[])
-            .filter((sh) => sh.deals && !have.has(sh.deals.id))
-            .forEach((sh) => {
-              const mapped: any = mapSupabaseDeal(sh.deals);
-              mapped.is_shared = true;
-              mapped.shared_permission = sh.permission || 'viewer';
-              mapped.shared_by = sh.owner_id;
-              list.push(mapped);
-            });
-        }
+      } else {
+        dealsPromise = Promise.resolve({ data: null, error: null });
+        sharesPromise = Promise.resolve({ data: null, error: null });
+      }
+
+      const [entRes, dealsRes, sharesRes] = await Promise.all([
+        entitiesPromise,
+        dealsPromise,
+        sharesPromise,
+      ]);
+
+      if (entRes.data && entRes.data.length > 0) {
+        setEntities(entRes.data as LegalEntity[]);
+      }
+
+      let list: DealRecord[] = [];
+      if (dealsRes.data && dealsRes.data.length > 0) {
+        list = (dealsRes.data as any[]).map(mapSupabaseDeal);
+      }
+
+      if (sharesRes.data && Array.isArray(sharesRes.data)) {
+        const have = new Set(list.map((d) => d.id));
+        (sharesRes.data as any[])
+          .filter((sh) => sh.deals && !have.has(sh.deals.id))
+          .forEach((sh) => {
+            const mapped: any = mapSupabaseDeal(sh.deals);
+            mapped.is_shared = true;
+            mapped.shared_permission = sh.permission || 'viewer';
+            mapped.shared_by = sh.owner_id;
+            list.push(mapped);
+          });
       }
 
       // If user has no personal deals, check for shared deals or demo benchmark
       if (list.length === 0) {
         const { data, error } = await supabase
           .from('deals')
-          .select('*')
-          .order('created_at', { ascending: false });
+          .select(DEAL_FIELDS)
+          .order('created_at', { ascending: false })
+          .limit(25);
         if (!error && data && data.length > 0) {
-          list = data.map(mapSupabaseDeal);
+          list = (data as any[]).map(mapSupabaseDeal);
         } else {
           list = [mapSupabaseDeal(BENCHMARK_DEAL)];
           setIsSampleData(true);
@@ -138,15 +154,44 @@ export const DashboardPage: React.FC = () => {
     loadData();
   }, []);
 
-  // Greeting uses the investor profile's first name (same source as the legacy dashboard)
+  // Greeting uses user session metadata or direct profile table (avoids edge function cold start)
   useEffect(() => {
     let live = true;
     (async () => {
       try {
         const { data } = await supabase.auth.getUser();
-        const profile = await fetchProfile(supabase, data?.user);
-        const first = (profile.fullName || '').trim().split(/\s+/)[0];
-        if (live && first) setGreetingName(first);
+        const user = data?.user;
+        if (!user || !live) return;
+
+        // 1. Instant check from user metadata / JWT
+        const metaName = user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.first_name;
+        if (metaName) {
+          const first = metaName.trim().split(/\s+/)[0];
+          if (first && live) {
+            setGreetingName(first);
+            return;
+          }
+        }
+
+        // 2. Fast direct Postgres query (bypasses cold edge function)
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (live && prof?.full_name) {
+          const first = prof.full_name.trim().split(/\s+/)[0];
+          if (first) {
+            setGreetingName(first);
+            return;
+          }
+        }
+
+        // 3. Fallback to cached profile
+        const p = getProfile(user);
+        const first = (p.fullName || '').trim().split(/\s+/)[0];
+        if (live && first && first !== 'Investor') setGreetingName(first);
       } catch { /* keep default greeting */ }
     })();
     return () => { live = false; };
@@ -288,15 +333,19 @@ export const DashboardPage: React.FC = () => {
       return true;
     });
 
-    // Sorting
+    // Sorting with precomputed keys (avoids O(N log N) redundant financial projections)
     if (sortBy === 'price-desc') {
       result.sort((a, b) => (Number(b.purchase_price) || 0) - (Number(a.purchase_price) || 0));
     } else if (sortBy === 'price-asc') {
       result.sort((a, b) => (Number(a.purchase_price) || 0) - (Number(b.purchase_price) || 0));
     } else if (sortBy === 'irr-desc') {
-      result.sort((a, b) => (tryComputeDealMetrics(b)?.irr || 0) - (tryComputeDealMetrics(a)?.irr || 0));
+      const irrMap = new Map<string, number>();
+      result.forEach((d) => irrMap.set(d.id, tryComputeDealMetrics(d)?.irr || 0));
+      result.sort((a, b) => (irrMap.get(b.id) || 0) - (irrMap.get(a.id) || 0));
     } else if (sortBy === 'coc-desc') {
-      result.sort((a, b) => (tryComputeDealMetrics(b)?.cashOnCash || 0) - (tryComputeDealMetrics(a)?.cashOnCash || 0));
+      const cocMap = new Map<string, number>();
+      result.forEach((d) => cocMap.set(d.id, tryComputeDealMetrics(d)?.cashOnCash || 0));
+      result.sort((a, b) => (cocMap.get(b.id) || 0) - (cocMap.get(a.id) || 0));
     } else {
       result.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     }
@@ -873,14 +922,16 @@ export const DashboardPage: React.FC = () => {
       {/* Creation Wizard Modal */}
       <ShareDealModal deal={sharingDeal} onClose={() => setSharingDeal(null)} onChanged={() => { void loadData(); }} />
 
-      <ProjectWizardModal
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-        onManageEntities={() => setEntitiesOpen(true)}
-        onProjectCreated={(newProject) => {
-          setDeals((prev) => [newProject, ...prev]);
-        }}
-      />
+      {isWizardOpen && (
+        <ProjectWizardModal
+          isOpen={isWizardOpen}
+          onClose={() => setIsWizardOpen(false)}
+          onManageEntities={() => setEntitiesOpen(true)}
+          onProjectCreated={(newProject) => {
+            setDeals((prev) => [newProject, ...prev]);
+          }}
+        />
+      )}
 
       {/* Edit Deal Modal */}
       {editingDeal && (

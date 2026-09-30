@@ -16,43 +16,101 @@ export interface AppNotification {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EVAL_THROTTLE_MS = 60_000; // Evaluate at most once per minute unless explicitly forced
+
+function mapNotificationRow(r: any): AppNotification {
+  return {
+    notification_id: r.id || r.notification_id,
+    target_deal_id: r.deal_id || r.target_deal_id || null,
+    notif_type: r.type || r.notif_type,
+    severity: r.severity || 'info',
+    title: r.title,
+    message: r.message,
+    action_type: r.action_type || null,
+    action_payload: r.action_payload || null,
+    is_read: !!r.is_read,
+    is_dismissed: !!r.is_dismissed,
+    created_at: r.created_at,
+  };
+}
 
 /**
- * Action Center data: evaluates the signed-in user's portfolio server-side (rpc_evaluate_deal_notifications),
- * keeps the list live through a realtime subscription, and exposes dismiss / sync-to-actuals actions.
+ * Action Center data: queries active notifications via fast indexed table scan,
+ * keeps the list live through a realtime subscription (without infinite RPC loops),
+ * and evaluates deal notifications on demand or throttled.
  */
 export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const userIdRef = useRef<string | null>(null);
+  const lastEvalRef = useRef<number>(0);
 
+  const getUid = useCallback(async (): Promise<string | null> => {
+    if (userIdRef.current) return userIdRef.current;
+    const { data } = await supabase.auth.getUser();
+    const uid = data?.user?.id ?? null;
+    userIdRef.current = uid;
+    return uid;
+  }, []);
+
+  // Fast direct read of active notifications without heavy baseline recomputation
+  const fetchActive = useCallback(async () => {
+    try {
+      const uid = await getUid();
+      if (!uid || !UUID.test(uid)) return;
+      const { data, error } = await supabase
+        .from('app_notifications' as never)
+        .select('*')
+        .eq('user_id', uid)
+        .eq('is_dismissed', false)
+        .order('created_at', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        setNotifications((data as any[]).map(mapNotificationRow));
+      }
+    } catch (err) {
+      console.warn('[notifications] fetchActive failed:', err);
+    }
+  }, [getUid]);
+
+  // Full server-side evaluation (runs on explicit user refresh or when drawer is opened)
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      let uid = userIdRef.current;
-      if (!uid) {
-        const { data } = await supabase.auth.getUser();
-        uid = data?.user?.id ?? null;
-        userIdRef.current = uid;
-      }
+      const uid = await getUid();
       if (!uid || !UUID.test(uid)) return;
+      lastEvalRef.current = Date.now();
       const { data, error } = await supabase.rpc('rpc_evaluate_deal_notifications' as never, { p_user_id: uid } as never);
-      if (!error && Array.isArray(data)) setNotifications(data as AppNotification[]);
+      if (!error && Array.isArray(data)) {
+        setNotifications((data as any[]).map(mapNotificationRow));
+      } else {
+        await fetchActive();
+      }
     } catch (err) {
       console.warn('[notifications] refresh failed:', err);
+      await fetchActive();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getUid, fetchActive]);
 
   useEffect(() => {
-    void refresh();
+    // Initial load: fast fetch first to show badges instantly, then evaluate if never evaluated
+    void fetchActive().then(() => {
+      const now = Date.now();
+      if (now - lastEvalRef.current > EVAL_THROTTLE_MS) {
+        void refresh();
+      }
+    });
+
+    // Realtime channel: only re-fetch active rows, do NOT trigger recursive RPC evaluation!
     const channel = supabase
       .channel(`mathtree-app-notifications-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_notifications' }, () => { void refresh(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_notifications' }, () => {
+        void fetchActive();
+      })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [refresh]);
+  }, [fetchActive, refresh]);
 
   const dismiss = useCallback(async (id: string) => {
     const { error } = await supabase

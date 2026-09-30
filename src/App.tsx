@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
-import { DealStudioPage } from './pages/DealStudioPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { OperationsPage } from './pages/OperationsPage';
-import { ReconcilePage } from './pages/ReconcilePage';
 import { AuthGate } from './lib/auth/AuthGate';
+
+const DealStudioPage = lazy(() => import('./pages/DealStudioPage').then((m) => ({ default: m.DealStudioPage })));
+const OperationsPage = lazy(() => import('./pages/OperationsPage').then((m) => ({ default: m.OperationsPage })));
+const ReconcilePage = lazy(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
+
+const PageSpinner: React.FC = () => (
+  <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-2 border-emerald-400/30 border-t-emerald-400 animate-spin" />
+  </div>
+);
 
 /** Old per-tab URLs (project-debt.html?id=...) open the studio on that tab. */
 const StudioTabRedirect: React.FC<{ tab: string }> = ({ tab }) => {
@@ -21,24 +28,26 @@ const guard = (el: React.ReactElement) => <AuthGate>{el}</AuthGate>;
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <Routes>
-        {['/', '/app', '/app.html', '/dashboard', '/dashboard.html'].map((p) => (
-          <Route key={p} path={p} element={guard(<DashboardPage />)} />
-        ))}
-        {['/project', '/project.html'].map((p) => (
-          <Route key={p} path={p} element={guard(<DealStudioPage />)} />
-        ))}
-        {TABS.flatMap((t) => [`/project-${t}`, `/project-${t}.html`].map((p) => (
-          <Route key={p} path={p} element={<StudioTabRedirect tab={t} />} />
-        )))}
-        {['/operations', '/operations.html'].map((p) => (
-          <Route key={p} path={p} element={guard(<OperationsPage />)} />
-        ))}
-        {/* Public zero-login page linked from rent-alert emails */}
-        <Route path="/reconcile" element={<ReconcilePage />} />
-        <Route path="/reconcile.html" element={<ReconcilePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageSpinner />}>
+        <Routes>
+          {['/', '/app', '/app.html', '/dashboard', '/dashboard.html'].map((p) => (
+            <Route key={p} path={p} element={guard(<DashboardPage />)} />
+          ))}
+          {['/project', '/project.html'].map((p) => (
+            <Route key={p} path={p} element={guard(<DealStudioPage />)} />
+          ))}
+          {TABS.flatMap((t) => [`/project-${t}`, `/project-${t}.html`].map((p) => (
+            <Route key={p} path={p} element={<StudioTabRedirect tab={t} />} />
+          )))}
+          {['/operations', '/operations.html'].map((p) => (
+            <Route key={p} path={p} element={guard(<OperationsPage />)} />
+          ))}
+          {/* Public zero-login page linked from rent-alert emails */}
+          <Route path="/reconcile" element={<ReconcilePage />} />
+          <Route path="/reconcile.html" element={<ReconcilePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 };
