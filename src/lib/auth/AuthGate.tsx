@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase/client';
+import { fetchProfile } from '../profile';
 
 declare global {
   interface Window {
@@ -58,6 +59,8 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       }
       session?.startWatcher(supabase);
       setReady(true);
+      // Load the investor profile so its analysis defaults (e.g. what happens after a lease ends) apply everywhere
+      void fetchProfile(supabase, data.session.user).catch(() => undefined);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {

@@ -4,6 +4,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeExpiryDefaults } from "../_shared/leaseExpiry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,6 +139,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       const primaryEntity = associatedCompanies.find((c) => c.is_primary);
       const effectiveCompanyName = primaryEntity?.name || row?.company_name || DEFAULT_PROFILE.companyName;
 
+      const expiry = normalizeExpiryDefaults(prefs as Record<string, unknown>);
       const profile = {
         id: userId,
         email: row?.email || userEmail,
@@ -154,6 +156,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         exitCapTiming: row?.exit_cap_timing || ((prefs.exitCapTiming === "day1" || prefs.exitCapTiming === "immediate") ? "day1" : "amortized"),
         marketTier: row?.market_tier || prefs.marketTier || DEFAULT_PROFILE.marketTier,
         propertyClass: row?.property_class || prefs.propertyClass || DEFAULT_PROFILE.propertyClass,
+        leaseExpiryMode: expiry.mode,
+        leaseExpiryVacancyMonths: expiry.vacancyMonths,
         notification_email: row?.notification_email || null,
         alert_preferences: row?.alert_preferences || null,
       };
@@ -264,7 +268,10 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
     }
 
+    const expiry = normalizeExpiryDefaults(payload as Record<string, unknown>);
     const preferencesUpdate = {
+      leaseExpiryMode: expiry.mode,
+      leaseExpiryVacancyMonths: expiry.vacancyMonths,
       discountRate,
       exitYear,
       exitCapTiming,

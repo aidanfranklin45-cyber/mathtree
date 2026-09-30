@@ -148,7 +148,21 @@ export function resolveLeaseMonthlyRent(
 
   if (targetIdx > endIdx) {
     const endLabel = lease.leaseEndDate || `${endYear}-${endMonth}`;
-    const mode = String(lease.expiryAssumption || 'none');
+    // With no stated assumption the lease is assumed to continue on its current terms (the investor default, see leaseExpiry.ts).
+    const mode = String(lease.expiryAssumption || 'renew');
+
+    // Renewal on current terms for the rest of the hold: rent keeps escalating, optionally with a one-time reset.
+    if (mode === 'renew') {
+      const step = num(lease.extensionRentChangePct, 0);
+      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+      return {
+        monthlyRent: rent,
+        isActive: true,
+        status: 'extended',
+        escalationCycles: cyclesAt(targetIdx),
+        provenance: `${tenant}: ${fmtMo(rent)} (Assumed renewal on current terms after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+      };
+    }
 
     // Optional extension: the tenant exercises a renewal option; rent may step once, then escalations continue.
     if (mode === 'extend') {
@@ -2003,24 +2017,40 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
     });
   }
 
-  // Leases that run out inside the hold with no extension / re-let assumption silently drop to $0 income
+  // Leases that run out inside the hold: say what the numbers assume happens next
   const lastProj = results.projections[results.projections.length - 1];
   const holdEndIdx = (Number(lastProj?.calendarYear) || 0) * 12 + 12;
   (Array.isArray(inputs.leases) ? inputs.leases : []).forEach((l: any) => {
     const m = String(l?.leaseEndDate || "").match(/(\d{4})[-/](\d{1,2})/);
     if (!m || !holdEndIdx) return;
     const endIdx = parseInt(m[1], 10) * 12 + parseInt(m[2], 10);
-    const mode = String(l?.expiryAssumption || "none");
-    if (endIdx < holdEndIdx && mode === "none") {
+    if (endIdx >= holdEndIdx) return;
+    const who = l.tenantName || "The in-place lease";
+    const mode = String(l?.expiryAssumption || "renew");
+    const fromDefault = l?.expirySource === "default" || !l?.expiryAssumption;
+    const where = fromDefault ? "your investor default (Profile) applies; change it for this property in Edit Inputs" : "set in Edit Inputs";
+    if (mode === "vacant" || mode === "none") {
       warnings.push({
         level: "warning",
         title: "Lease Expires Inside Hold Period",
-        description: `${l.tenantName || "The in-place lease"} ends ${l.leaseEndDate}, before the hold period ends, and no extension or re-let assumption is set. Income is modeled as $0 after expiry. Set what happens at expiration in Edit Inputs.`
+        description: `${who} ends ${l.leaseEndDate}, before the hold period ends. Pessimistic case: the space stays vacant and income is $0 after expiry (${where}).`
+      });
+    } else if (mode === "relet") {
+      warnings.push({
+        level: "info",
+        title: "Lease Expires Inside Hold Period",
+        description: `${who} ends ${l.leaseEndDate}, before the hold period ends. Assumes a vacancy of ${Math.round(Number(l.reletVacancyMonths ?? 12))} months, then re-leasing at the expiring rent with annual increases (${where}).`
+      });
+    } else {
+      warnings.push({
+        level: "info",
+        title: "Lease Expires Inside Hold Period",
+        description: `${who} ends ${l.leaseEndDate}, before the hold period ends. Assumes it renews on current terms, with annual increases continuing (${where}).`
       });
     }
   });
 
-  if (warnings.length === 0) {
+  if (!warnings.some((w: any) => w.level !== 'info')) {
     warnings.push({
       level: 'success',
       title: 'Robust Financial Profile',
