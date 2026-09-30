@@ -17,20 +17,21 @@ export interface AppNotification {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EVAL_THROTTLE_MS = 60_000; // Evaluate at most once per minute unless explicitly forced
+let globalLastEvalTimestamp = 0; // Session-wide module throttle that persists across page navigations
 
 function mapNotificationRow(r: any): AppNotification {
   return {
-    notification_id: r.id || r.notification_id,
-    target_deal_id: r.deal_id || r.target_deal_id || null,
-    notif_type: r.type || r.notif_type,
+    notification_id: r.notification_id || r.id,
+    target_deal_id: r.target_deal_id || r.deal_id || null,
+    notif_type: r.notif_type || r.type,
     severity: r.severity || 'info',
-    title: r.title,
-    message: r.message,
+    title: r.title || '',
+    message: r.message || '',
     action_type: r.action_type || null,
     action_payload: r.action_payload || null,
     is_read: !!r.is_read,
     is_dismissed: !!r.is_dismissed,
-    created_at: r.created_at,
+    created_at: r.created_at || new Date().toISOString(),
   };
 }
 
@@ -43,7 +44,6 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const userIdRef = useRef<string | null>(null);
-  const lastEvalRef = useRef<number>(0);
 
   const getUid = useCallback(async (): Promise<string | null> => {
     if (userIdRef.current) return userIdRef.current;
@@ -78,7 +78,7 @@ export function useNotifications() {
     try {
       const uid = await getUid();
       if (!uid || !UUID.test(uid)) return;
-      lastEvalRef.current = Date.now();
+      globalLastEvalTimestamp = Date.now();
       const { data, error } = await supabase.rpc('rpc_evaluate_deal_notifications' as never, { p_user_id: uid } as never);
       if (!error && Array.isArray(data)) {
         setNotifications((data as any[]).map(mapNotificationRow));
@@ -94,10 +94,10 @@ export function useNotifications() {
   }, [getUid, fetchActive]);
 
   useEffect(() => {
-    // Initial load: fast fetch first to show badges instantly, then evaluate if never evaluated
+    // Initial load: fast fetch first to show badges instantly, then evaluate if never evaluated or throttle expired
     void fetchActive().then(() => {
       const now = Date.now();
-      if (now - lastEvalRef.current > EVAL_THROTTLE_MS) {
+      if (now - globalLastEvalTimestamp > EVAL_THROTTLE_MS) {
         void refresh();
       }
     });

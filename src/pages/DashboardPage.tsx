@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { mapSupabaseDeal } from '../stores/useDealStore';
@@ -37,6 +37,28 @@ interface LegalEntity {
   entity_type?: string;
 }
 
+/** Synchronously extracts the investor's first name from cached session auth token if present */
+const resolveInitialGreeting = (): string => {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const user = parsed?.user;
+          const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
+          if (metaName) {
+            const first = metaName.trim().split(/\s+/)[0];
+            if (first) return first;
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return 'Investor';
+};
+
 export const DashboardPage: React.FC = () => {
   const [deals, setDeals] = useState<DealRecord[]>([]);
   const [entities, setEntities] = useState<LegalEntity[]>([]);
@@ -51,7 +73,7 @@ export const DashboardPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'newest' | 'price-desc' | 'price-asc' | 'irr-desc' | 'coc-desc'>('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
-  const [greetingName, setGreetingName] = useState('Investor');
+  const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -67,7 +89,8 @@ export const DashboardPage: React.FC = () => {
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
 
-  const DEAL_FIELDS = 'id, user_id, title, location, address, city, state, zip, asset_class, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
+  // Only select live columns that exist on the deals table (avoids PostgREST 400 errors)
+  const DEAL_FIELDS = 'id, user_id, title, location, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
 
   const loadData = async () => {
     setLoading(true);
@@ -106,6 +129,13 @@ export const DashboardPage: React.FC = () => {
 
       if (entRes.data && entRes.data.length > 0) {
         setEntities(entRes.data as LegalEntity[]);
+      }
+
+      if (dealsRes.error) {
+        console.error('[dashboard] failed to load deals:', dealsRes.error);
+      }
+      if (sharesRes.error) {
+        console.error('[dashboard] failed to load shared deals:', sharesRes.error);
       }
 
       let list: DealRecord[] = [];
@@ -197,7 +227,19 @@ export const DashboardPage: React.FC = () => {
     return () => { live = false; };
   }, []);
 
-  const handleToggleStatus = async (deal: DealRecord) => {
+  const handleEditDeal = useCallback((deal: DealRecord) => {
+    setEditingDeal(deal);
+  }, []);
+
+  const handleDeleteDeal = useCallback((deal: DealRecord) => {
+    setDeletingDeal(deal);
+  }, []);
+
+  const handleShareDeal = useCallback((deal: DealRecord) => {
+    setSharingDeal(deal);
+  }, []);
+
+  const handleToggleStatus = useCallback(async (deal: DealRecord) => {
     const nextStatus = deal.status === 'owned' ? 'prospect' : 'owned';
     try {
       await supabase
@@ -211,7 +253,7 @@ export const DashboardPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to toggle deal status:', err);
     }
-  };
+  }, []);
 
   /** Full Edit Project Inputs (same form as the Deal Studio): saves facts only and logs a scenario run. */
   const handleSaveEdit = async (inputsPatch: Record<string, any>, top: DealTopPatch): Promise<boolean> => {
@@ -907,10 +949,10 @@ export const DashboardPage: React.FC = () => {
                     key={deal.id}
                     deal={deal}
                     entities={entities}
-                    onEdit={(d) => setEditingDeal(d)}
-                    onDelete={(d) => setDeletingDeal(d)}
+                    onEdit={handleEditDeal}
+                    onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
-                    onShare={deal.is_shared ? undefined : (d) => setSharingDeal(d)}
+                    onShare={deal.is_shared ? undefined : handleShareDeal}
                   />
                 ))}
               </div>
