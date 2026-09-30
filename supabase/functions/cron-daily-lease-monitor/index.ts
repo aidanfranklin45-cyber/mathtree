@@ -3,6 +3,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -158,6 +159,19 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Who is calling? The scheduler presents the shared cron secret; the app presents the signed-in user's token.
+    // Anyone else (including the public anon key) is rejected: this function can send email and change rents.
+    const cronOk = isCronAuthorized(req);
+    const caller = cronOk ? null : await getCaller(req);
+    if (!cronOk && !caller) {
+      return new Response(JSON.stringify({ success: false, error: "Authentication required" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+    // A signed-in user only ever acts on their own leases; only the scheduler runs across every account.
+    const scopeUserId: string | null = caller ? caller.id : null;
     const now = new Date();
     const todayDay = now.getDate();
     const todayIso = now.toISOString().split("T")[0];
@@ -179,6 +193,11 @@ export async function handleRequest(req: Request): Promise<Response> {
     // =========================================================================
     if (body.test === true || body.action === "send_test") {
       logs.push("Executing test email dispatch...");
+      // A signed-in user can only send the test to their own address (never an arbitrary recipient)
+      if (caller) {
+        body.recipient_email = caller.email || "";
+        body.email = undefined;
+      }
 
       if (!resendApiKey) {
         return new Response(
@@ -405,11 +424,18 @@ export async function handleRequest(req: Request): Promise<Response> {
         );
       }
 
+      if (caller && targetLease.user_id !== caller.id) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Not authorized for this lease", logs }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
       const { email: targetEmail, source: targetSource } = await resolveRecipientEmail(
         adminClient,
         targetLease.user_id,
         targetLease.notification_email,
-        body.recipient_email || alertRecipientOverride
+        (caller ? undefined : body.recipient_email) || alertRecipientOverride
       );
 
       const confirmToken = generateHexToken();
@@ -552,6 +578,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         for (const inc of pendingIncreases) {
           const leaseObj = inc.leases as any;
           if (!leaseObj) continue;
+          if (scopeUserId && leaseObj.user_id !== scopeUserId) continue;
           const userPrefs = await getUserAlertPreferences(adminClient, leaseObj.user_id);
           const noticeDays = userPrefs.escalation_notice_days ?? 30;
           if (noticeDays <= 0) continue;
@@ -645,6 +672,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     if (!activeLeasesErr && Array.isArray(activeLeases)) {
       for (const lease of activeLeases) {
+        if (scopeUserId && lease.user_id !== scopeUserId) continue;
         const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
         const dueDay = Number(lease.payment_due_day) || 1;
         const advanceDays = Number(userPrefs.advance_notice_days) || 0;
@@ -827,6 +855,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         const lease = p.leases as any;
         const deal = p.deals as any;
         if (!lease) continue;
+        if (scopeUserId && lease.user_id !== scopeUserId) continue;
 
         const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
         if (userPrefs.followup_grace_period === false) {

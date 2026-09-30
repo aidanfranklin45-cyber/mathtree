@@ -10,6 +10,7 @@ import {
   calculateSensitivityMatrix,
   getAnnualAmortization
 } from '../_shared/math-engine.ts';
+import { getCaller, canAccessDeal } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1512,6 +1513,24 @@ serve(async (req: Request) => {
           dbDeal = demoDeals[0];
         } else {
           throw new Error(`Deal not found for ID: ${dealId} (${dealErr?.message || 'record missing'})`);
+        }
+      }
+
+      // Access: demo deals are public; any other deal needs its owner or a collaborator it is shared with.
+      // (This function reads with the service role, so the check has to happen here.)
+      if (!dbDeal.is_demo) {
+        const caller = await getCaller(req);
+        if (!caller) {
+          return new Response(JSON.stringify({ error: 'Authentication required' }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        if (!(await canAccessDeal(supabase, dbDeal.id, caller.id, false))) {
+          return new Response(JSON.stringify({ error: 'Not authorized for this deal' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
       }
 

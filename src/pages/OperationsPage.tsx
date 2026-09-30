@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase/client';
+import { supabase, SUPABASE_URL } from '../lib/supabase/client';
+import { authJsonHeaders } from '../lib/supabase/authHeaders';
 import { MonthlyRentReconciliationView } from '../lib/supabase/types';
 import { buildOperations, escalationInfo, formatPeriodMonth, type Row, type RentRollRow } from '../lib/operations/rentRoll';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
@@ -183,7 +184,7 @@ export const OperationsPage: React.FC = () => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/cron-daily-lease-monitor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        headers: await authJsonHeaders(),
         body: JSON.stringify({ lease_id: row.id }),
       });
       const data = await res.json().catch(() => ({}));
@@ -202,7 +203,7 @@ export const OperationsPage: React.FC = () => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/cron-daily-lease-monitor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authJsonHeaders(),
       });
       const data = await res.json();
       if (data?.success) {

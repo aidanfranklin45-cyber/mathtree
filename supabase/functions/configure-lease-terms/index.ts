@@ -4,6 +4,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { canAccessDeal } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,6 +100,14 @@ export async function handleRequest(req: Request): Promise<Response> {
       return jsonResponse({ error: "Database client unavailable" }, 500);
     }
 
+    // This function uses the service role (no row-level security), so access must be checked here.
+    if (!userId) {
+      return jsonResponse({ error: "Authentication required" }, 401);
+    }
+    if (dealId && !leaseId && !(await canAccessDeal(dbClient, dealId, userId, false))) {
+      return jsonResponse({ error: "Not authorized for this deal" }, 403);
+    }
+
     try {
       let query = dbClient.from("leases").select("*");
       if (leaseId) {
@@ -113,6 +122,9 @@ export async function handleRequest(req: Request): Promise<Response> {
       if (leaseErr) throw leaseErr;
 
       const lease = leases?.[0] || null;
+      if (lease && !(await canAccessDeal(dbClient, String(lease.deal_id), userId, false))) {
+        return jsonResponse({ error: "Not authorized for this lease" }, 403);
+      }
       let scheduledEscalations: unknown[] = [];
 
       if (lease?.id) {
@@ -214,11 +226,24 @@ export async function handleRequest(req: Request): Promise<Response> {
         return jsonResponse({ error: "Deal not found" }, 404);
       }
 
-      const effectiveUserId = userId || deal.user_id;
+      // Writing needs a signed-in caller who owns the deal or holds an editor share; the lease is always recorded
+      // against the deal's owner.
+      if (!userId) {
+        return jsonResponse({ error: "Authentication required" }, 401);
+      }
+      if (!(await canAccessDeal(dbClient, dealId, userId, true))) {
+        return jsonResponse({ error: "Not authorized to edit this deal" }, 403);
+      }
+      const effectiveUserId = deal.user_id;
 
       // 2. Identify target lease record in public.leases
       let targetLeaseId: string | null = null;
       if (isRealUuid(rawLeaseId)) {
+        // The lease must already belong to THIS deal; otherwise a caller could overwrite someone else's lease.
+        const { data: ownLease } = await dbClient.from("leases").select("id").eq("id", rawLeaseId).eq("deal_id", dealId).maybeSingle();
+        if (!ownLease) {
+          return jsonResponse({ error: "Lease not found on this deal" }, 404);
+        }
         targetLeaseId = rawLeaseId;
       } else {
         // If leaseId was synthetic (deal-lease-...), look for existing active lease for this deal

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase/client';
+import { supabase, SUPABASE_URL } from '../../lib/supabase/client';
+import { authJsonHeaders } from '../../lib/supabase/authHeaders';
 
 interface Props {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/cron-daily-lease-monitor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        headers: await authJsonHeaders(),
         body: JSON.stringify({ test: true, recipient_email: recipient }),
       });
       const data = await res.json().catch(() => ({}));
