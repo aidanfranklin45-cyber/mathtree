@@ -63,7 +63,7 @@ Every table has row-level security with policies.
 
 ## Code changes in this PR that need deploying
 
-- **App** (Firebase): the Operations page and Alert Settings now send the signed-in user's token to the monitor function; lease forms record the rent due day and grace period and no longer write to the deal; the Operations rent roll shows the next due date; the sync buttons are removed.
+- **App** (Firebase): the Operations page and Alert Settings now send the signed-in user's token to the monitor function; lease forms record the rent due day and grace period and no longer write to the deal; the Operations rent roll shows the next due date; the sync buttons are removed; unpaid-rent follow-ups are configurable per user (frequency, maximum count, snooze length) in Alert Settings, and the daily function no longer re-emails a snoozed payment every day.
 - **Edge functions** (Supabase): `configure-lease-terms`, `cron-daily-lease-monitor`, `batch-sync-gis`, `generate-pdf-brief`,
   `manage-entities` (no longer writes `ein`; must be live before draft 01 drops the column), plus the new `_shared/auth.ts`. Deploy per function: `npx supabase functions deploy <name> --project-ref bgexwcepwbxvhxbpblhd --no-verify-jwt --use-api`.
 
@@ -79,6 +79,14 @@ Every table has row-level security with policies.
 6. Smoke-test: Operations page (Send reminder, Sync monitor, Alert test email, Edit lease), PDF brief, Sync pro-forma, alerts,
    an email confirm link, marking a deal Owned (baseline created).
 7. Take a backup marker, then apply **02**; regenerate `src/lib/supabase/types.ts`.
+
+## Follow-up emails (configurable)
+
+The daily function now follows each owner's Alert Settings: **follow up every N days**, **stop after M follow-ups** (or keep going until paid),
+**a snooze lasts N days** (default: the lease's grace period). A follow-up starts when a snooze runs out or, if the reminder was ignored,
+when the grace period ends; snoozing again pauses it; every email has Confirm and Snooze buttons. Rules live in
+`supabase/functions/_shared/followups.ts` (12 tests). The snooze-length setting is applied inside `snooze_rent_payment_by_token`, so it
+takes effect when draft 01 is applied; frequency and maximum take effect when the function is deployed.
 
 ## Decisions still open
 

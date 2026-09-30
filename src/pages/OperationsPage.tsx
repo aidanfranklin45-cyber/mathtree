@@ -388,19 +388,19 @@ export const OperationsPage: React.FC = () => {
         {/* Underwriting vs Actuals */}
         <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
           <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/90">
-            <h3 className="text-sm sm:text-base font-extrabold text-white"><span>⚖️ Expected vs. Actual (Baseline at Purchase vs. In-Place Rent)</span></h3>
-            <p className="text-xs text-slate-400 mt-0.5">What each property actually rents for today, against what we expected when we bought it. Nothing here changes the underwriting: the payments and leases are the record of what happened.</p>
+            <h3 className="text-sm sm:text-base font-extrabold text-white"><span>⚖️ Projected vs. Actual (Baseline at Purchase vs. In-Place Rent)</span></h3>
+            <p className="text-xs text-slate-400 mt-0.5">Actual = what each property really rents for today. Projected = what we expected when we bought it. Nothing here changes the underwriting: the payments and leases are the record of what happened.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
                   <th className="py-3 px-4">Property Asset</th>
-                  <th className="py-3 px-4 text-right">Expected at Purchase</th>
-                  <th className="py-3 px-4 text-right">In-Place Rent (Actual)</th>
+                  <th className="py-3 px-4 text-right">Projected at Purchase</th>
+                  <th className="py-3 px-4 text-right">Actual In-Place Rent</th>
                   <th className="py-3 px-4 text-right">Monthly Variance ($)</th>
                   <th className="py-3 px-4 text-right">Variance (%)</th>
-                  <th className="py-3 px-4 text-center">Tracking vs Expected</th>
+                  <th className="py-3 px-4 text-center">Actual vs Projected</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">

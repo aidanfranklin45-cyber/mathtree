@@ -4,6 +4,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
+import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,18 +104,17 @@ async function resolveRecipientEmail(
   return { email: "delivered@resend.dev", source: "default_fallback" };
 }
 
-interface AlertPreferences {
+interface AlertPreferences extends FollowupPrefs {
   advance_notice_days: number;
   remind_on_due: boolean;
-  followup_grace_period: boolean;
   escalation_notice_days: number;
 }
 
 const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
   advance_notice_days: 0,
   remind_on_due: true,
-  followup_grace_period: true,
   escalation_notice_days: 30,
+  ...DEFAULT_FOLLOWUP_PREFS,
 };
 
 async function getUserAlertPreferences(
@@ -134,8 +134,8 @@ async function getUserAlertPreferences(
       return {
         advance_notice_days: typeof p.advance_notice_days === "number" ? p.advance_notice_days : 0,
         remind_on_due: p.remind_on_due !== false,
-        followup_grace_period: p.followup_grace_period !== false,
         escalation_notice_days: typeof p.escalation_notice_days === "number" ? p.escalation_notice_days : 30,
+        ...normalizeFollowupPrefs(p),
       };
     }
   } catch (_) {}
@@ -850,38 +850,61 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
     }
 
-    // 3. DYNAMIC GRACE PERIOD FOLLOW-UP
-    logs.push("Step 3: Checking expired grace period snoozes (snooze_until <= today)...");
+    // 3. FOLLOW-UPS ON UNPAID RENT (user-configurable)
+    // After the due-date reminder, unpaid rent keeps getting follow-ups at the pace in the owner's alert settings
+    // (frequency, maximum count, on/off). They start when a snooze runs out or, if the reminder was ignored, when the
+    // grace period ends. Snoozing again pauses them. (Previously a snoozed payment was re-emailed EVERY day after its snooze.)
+    logs.push("Step 3: Evaluating follow-ups for unpaid rent (per-user frequency and limits)...");
 
-    const { data: snoozedPayments, error: snoozeErr } = await adminClient
+    const { data: periodPayments } = await adminClient
       .from("rent_payments")
-      .select(`
-        id,
-        lease_id,
-        deal_id,
-        amount_due,
-        amount_paid,
-        snooze_until,
-        leases ( id, tenant_name, monthly_rent, user_id, grace_period_days, notification_email ),
-        deals ( id, title )
-      `)
-      .eq("status", "snoozed")
-      .lte("snooze_until", todayIso);
+      .select("lease_id, status, amount_paid, amount_due, snooze_until")
+      .eq("period_month", currentPeriodMonth);
+    const { data: periodTokens } = await adminClient
+      .from("reconciliation_tokens")
+      .select("lease_id, created_at")
+      .eq("action", "confirm")
+      .eq("period_month", currentPeriodMonth);
+
+    const paymentByLease = new Map<string, any>();
+    for (const pay of (periodPayments || []) as any[]) paymentByLease.set(String(pay.lease_id), pay);
+    const tokenTimesByLease = new Map<string, string[]>();
+    for (const t of (periodTokens || []) as any[]) {
+      const k = String(t.lease_id);
+      tokenTimesByLease.set(k, [...(tokenTimesByLease.get(k) || []), t.created_at]);
+    }
+
+    const followupCandidates: Array<{ leases: any; deals: any; amount_due: number; reason: string; followupNumber: number }> = [];
+    for (const lease of (Array.isArray(activeLeases) ? activeLeases : []) as any[]) {
+      if (scopeUserId && lease.user_id !== scopeUserId) continue;
+      const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
+      const payment = paymentByLease.get(String(lease.id)) || null;
+      const decision = decideFollowup({
+        today: now,
+        dueDay: Number(lease.payment_due_day) || 1,
+        graceDays: Number(lease.grace_period_days ?? 5),
+        rent: Number(lease.monthly_rent) || 0,
+        payment,
+        reminderTimes: tokenTimesByLease.get(String(lease.id)) || [],
+        prefs: userPrefs,
+      });
+      if (decision.send) {
+        followupCandidates.push({
+          leases: lease,
+          deals: lease.deals,
+          amount_due: Number(payment?.amount_due ?? lease.monthly_rent) || 0,
+          reason: decision.reason,
+          followupNumber: decision.followupNumber,
+        });
+      }
+    }
 
     let graceFollowupsSent = 0;
 
-    if (!snoozeErr && Array.isArray(snoozedPayments)) {
-      for (const p of snoozedPayments) {
-        const lease = p.leases as any;
-        const deal = p.deals as any;
-        if (!lease) continue;
-        if (scopeUserId && lease.user_id !== scopeUserId) continue;
-
-        const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
-        if (userPrefs.followup_grace_period === false) {
-          logs.push(`Skipping grace period follow-up for lease ${lease.id} (disabled by user timing preferences)`);
-          continue;
-        }
+    {
+      for (const p of followupCandidates) {
+        const lease = p.leases;
+        const deal = p.deals;
 
         const { email: targetEmail, source: targetSource } = await resolveRecipientEmail(
           adminClient,
@@ -892,19 +915,21 @@ export async function handleRequest(req: Request): Promise<Response> {
         logs.push(`Routing grace period follow-up for ${lease.tenant_name} to ${targetEmail} (resolved via ${targetSource})`);
 
         const confirmToken = generateHexToken();
+        const snoozeToken = generateHexToken();
         const tokenExpires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-        await adminClient.from("reconciliation_tokens").insert({
-          lease_id: lease.id,
-          deal_id: deal?.id || lease.id,
-          user_id: lease.user_id,
-          period_month: currentPeriodMonth,
-          action: "confirm",
-          token_hash: confirmToken,
-          expires_at: tokenExpires,
-        });
+        await adminClient.from("reconciliation_tokens").insert([
+          { lease_id: lease.id, deal_id: deal?.id || lease.id, user_id: lease.user_id, period_month: currentPeriodMonth, action: "confirm", token_hash: confirmToken, expires_at: tokenExpires },
+          { lease_id: lease.id, deal_id: deal?.id || lease.id, user_id: lease.user_id, period_month: currentPeriodMonth, action: "snooze", token_hash: snoozeToken, expires_at: tokenExpires },
+        ]);
 
         const confirmUrl = `${APP_BASE_URL}/reconcile?action=confirm&token=${confirmToken}`;
+        const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
+        const followupLabel = p.reason === "snooze_expired" ? "Snooze Ended" : "Rent Still Unpaid";
+        const followupTag = p.followupNumber > 1 ? ` · Follow-up #${p.followupNumber}` : "";
+        const followupSub = p.reason === "snooze_expired"
+          ? "The snooze you set has ended and no payment has been recorded."
+          : `The ${lease.grace_period_days ?? 5}-day grace period has passed without recorded payment.`;
         const rentFormatted = "$" + Math.round(Number(p.amount_due || lease.monthly_rent || 0)).toLocaleString("en-US");
 
         const followupHtml = `
@@ -926,9 +951,9 @@ export async function handleRequest(req: Request): Promise<Response> {
 </head>
 <body>
   <div class="card">
-    <div class="header">⚠️ Grace Period Expired</div>
+    <div class="header">⚠️ ${followupLabel}${followupTag}</div>
     <div class="title">Past-Due Rent: ${lease.tenant_name} (${rentFormatted})</div>
-    <div class="sub">The dynamic ${lease.grace_period_days || 5}-day grace period expired today without recorded payment.</div>
+    <div class="sub">${followupSub}</div>
 
     <div class="details">
       <p style="font-size: 12px; color: #cbd5e1; margin-bottom: 6px;"><strong>Property:</strong> ${deal?.title || "Commercial Asset"}</p>
@@ -937,7 +962,8 @@ export async function handleRequest(req: Request): Promise<Response> {
     </div>
 
     <a href="${confirmUrl}" class="btn-confirm">✓ Confirm Payment Received Now</a>
-    <a href="https://mathtree-app.web.app/operations.html" class="btn-ops">Open Operations & Issue Late Notice</a>
+    <a href="${snoozeUrl}" class="btn-ops">⏳ Snooze Again</a>
+    <a href="https://mathtree-app.web.app/operations" class="btn-ops">Open Operations & Issue Late Notice</a>
 
     <div class="footer">
       MathTree Automated Rent Tracking &bull; Zero-Login Ledger Confirmation
@@ -951,7 +977,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           const sendRes = await sendEmailWithResend(resendApiKey, {
             from: defaultFromEmail,
             to: targetEmail,
-            subject: `⚠️ Grace Period Expired: ${lease.tenant_name} (${rentFormatted}) Past Due`,
+            subject: `⚠️ ${followupLabel}${followupTag}: ${lease.tenant_name} (${rentFormatted}) Past Due`,
             html: followupHtml,
           });
 

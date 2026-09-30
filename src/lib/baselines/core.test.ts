@@ -74,6 +74,17 @@ describe('expected vs actual revenue', () => {
     expect(cmp.contractualYtd).toBe(2600 * 3);
   });
 
+  it('also totals the last 12 months of projected vs actual income', () => {
+    const payments = [
+      { period_month: '2026-01-01', amount_due: 2600, amount_paid: 2600, status: 'paid' },
+      { period_month: '2025-11-01', amount_due: 2600, amount_paid: 2600, status: 'paid' },
+      { period_month: '2024-01-01', amount_due: 2600, amount_paid: 2600, status: 'paid' }, // outside the window
+    ];
+    const cmp = compareToBaseline({ baseline, live, payments, leases: [], now: new Date('2026-03-20') });
+    expect(cmp.trailing12.collected).toBe(5200);
+    expect(cmp.trailing12.expected).toBeGreaterThan(cmp.expectedYtd);
+  });
+
   it('degrades gracefully for an old snapshot with no year-by-year detail', () => {
     const legacy: BaselineRow = { ...baseline, metrics_snapshot: { irr: 12.5 } };
     const cmp = compareToBaseline({ baseline: legacy, live, payments: [], leases: [], now: new Date('2026-03-20') });

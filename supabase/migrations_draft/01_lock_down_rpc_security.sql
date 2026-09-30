@@ -295,7 +295,283 @@ BEGIN
   SELECT * INTO v_lease FROM public.leases WHERE id = v_tok.lease_id;
   SELECT * INTO v_deal FROM public.deals WHERE id = v_tok.deal_id;
 
-  v_grace_days := COALESCE(v_lease.grace_period_days, 5);
+  -- How long a snooze lasts: the owner's alert setting if present, otherwise the lease's grace period
+  v_grace_days := COALESCE(
+    (SELECT CASE WHEN p.alert_preferences->>'snooze_days' ~ '^[0-9]{1,2}
+  v_snooze_date := CURRENT_DATE + v_grace_days;
+
+  INSERT INTO public.rent_payments (
+    user_id, lease_id, deal_id, period_month, due_date, amount_due, amount_paid, status, snooze_until, snoozed_at, reference_note
+  ) VALUES (
+    v_lease.user_id, v_lease.id, v_lease.deal_id, v_tok.period_month,
+    (v_tok.period_month + (COALESCE(v_lease.payment_due_day, 1) - 1)),
+    v_lease.monthly_rent, 0, 'snoozed', v_snooze_date, now(),
+    'Snoozed by owner: dynamic grace period of ' || v_grace_days || ' days applied'
+  )
+  ON CONFLICT (lease_id, period_month) DO UPDATE SET
+    status = 'snoozed', snooze_until = v_snooze_date, snoozed_at = now(),
+    reference_note = 'Snoozed by owner: dynamic grace period of ' || v_grace_days || ' days applied',
+    updated_at = now();
+
+  UPDATE public.reconciliation_tokens SET used_at = now() WHERE id = v_tok.id;
+
+  v_undo_token := encode(gen_random_bytes(32), 'hex');
+  INSERT INTO public.reconciliation_tokens (lease_id, deal_id, user_id, period_month, action, token_hash, expires_at)
+  VALUES (v_lease.id, v_deal.id, v_lease.user_id, v_tok.period_month, 'undo', v_undo_token, now() + INTERVAL '48 hours');
+
+  RETURN jsonb_build_object(
+    'success', true, 'action', 'snoozed', 'tenant_name', v_lease.tenant_name, 'deal_title', v_deal.title,
+    'grace_period_days', v_grace_days, 'snooze_until', v_snooze_date, 'undo_token', v_undo_token
+  );
+END;
+$function$;
+
+-- Only the service role (edge functions) and the SECURITY DEFINER functions above touch this table.
+REVOKE ALL ON public.reconciliation_tokens FROM anon, authenticated;
+
+---------------------------------------------------------------------------------------------------------------------
+-- 3g. Lease -> deal rent trigger: DROPPED. AUDIT FINDING: fn_sync_lease_to_deal called rpc_recalculate_deal (dropping the
+--     calculator would have made every lease change fail) and silently rewrote the deal's rent inputs on every lease edit.
+--     Owner decision: real-world events never rewrite the underwriting. (The Operations lease forms and the lease edge
+--     function no longer write to the deal either.)
+---------------------------------------------------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_sync_lease_to_deal ON public.leases;
+DROP FUNCTION IF EXISTS public.fn_sync_lease_to_deal();
+
+---------------------------------------------------------------------------------------------------------------------
+-- 3h. Daily rent escalations (called by the cron edge function with the service role). AUDIT FINDING: its last block
+--     recomputed stored analysis for every touched deal (metrics, valuation, total_equity) and rewrote the deal's rent
+--     inputs, with its own copy of the math; it would also break when those columns are dropped. Removed: escalations now
+--     only update the LEASE (and rent_increases). The escalation logic itself is unchanged.
+---------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.execute_scheduled_rent_escalations()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  r_lease RECORD;
+  v_new_rent NUMERIC;
+  v_updated_leases_count INTEGER := 0;
+BEGIN
+  FOR r_lease IN
+    SELECT l.*, ri.id AS pending_inc_id, ri.new_rent AS scheduled_new_rent, ri.increase_type AS ri_type, ri.scheduled_amount AS ri_amount
+    FROM public.leases l
+    LEFT JOIN LATERAL (
+      SELECT id, new_rent, increase_type, scheduled_amount
+      FROM public.rent_increases
+      WHERE lease_id = l.id
+        AND effective_date <= CURRENT_DATE
+        AND is_applied = false
+      ORDER BY effective_date DESC
+      LIMIT 1
+    ) ri ON true
+    WHERE l.is_active = true
+      AND (
+        ri.id IS NOT NULL
+        OR (l.next_escalation_date IS NOT NULL AND l.next_escalation_date <= CURRENT_DATE)
+      )
+  LOOP
+    IF r_lease.scheduled_new_rent IS NOT NULL THEN
+      v_new_rent := r_lease.scheduled_new_rent;
+    ELSIF r_lease.ri_amount IS NOT NULL THEN
+      IF r_lease.ri_type = 'percentage' THEN
+        v_new_rent := ROUND(r_lease.monthly_rent * (1 + r_lease.ri_amount / 100.0), 2);
+      ELSIF r_lease.ri_type = 'fixed_step' THEN
+        v_new_rent := r_lease.monthly_rent + r_lease.ri_amount;
+      ELSIF r_lease.ri_type = 'cpi' THEN
+        v_new_rent := ROUND(r_lease.monthly_rent * (1 + r_lease.ri_amount / 100.0), 2);
+      ELSE
+        v_new_rent := ROUND(r_lease.monthly_rent * (1 + r_lease.ri_amount / 100.0), 2);
+      END IF;
+    ELSIF r_lease.escalation_rate IS NOT NULL AND r_lease.escalation_rate > 0 THEN
+      IF r_lease.escalation_type ILIKE '%percent%' THEN
+        v_new_rent := ROUND(r_lease.monthly_rent * (1 + r_lease.escalation_rate / 100.0), 2);
+      ELSE
+        v_new_rent := r_lease.monthly_rent + r_lease.escalation_rate;
+      END IF;
+    ELSE
+      CONTINUE;
+    END IF;
+
+    IF r_lease.pending_inc_id IS NOT NULL THEN
+      UPDATE public.rent_increases
+      SET is_applied = true,
+          old_rent = COALESCE(old_rent, r_lease.monthly_rent),
+          new_rent = COALESCE(new_rent, v_new_rent)
+      WHERE id = r_lease.pending_inc_id;
+    ELSE
+      INSERT INTO public.rent_increases (
+        user_id, lease_id, deal_id, effective_date, old_rent, new_rent, increase_type, scheduled_amount, is_applied, reason
+      ) VALUES (
+        r_lease.user_id, r_lease.id, r_lease.deal_id, CURRENT_DATE, r_lease.monthly_rent, v_new_rent,
+        CASE
+          WHEN r_lease.escalation_type ILIKE '%percent%' THEN 'percentage'
+          WHEN r_lease.escalation_type ILIKE '%step%' OR r_lease.escalation_type ILIKE '%fixed%' OR r_lease.escalation_type ILIKE '%$%' THEN 'fixed_step'
+          WHEN r_lease.escalation_type ILIKE '%cpi%' THEN 'cpi'
+          ELSE 'percentage'
+        END,
+        r_lease.escalation_rate,
+        true,
+        'Contractual ' || COALESCE(r_lease.escalation_frequency, 'Annual') || ' escalation executed'
+      );
+    END IF;
+
+    UPDATE public.leases
+    SET previous_rent_amount = r_lease.monthly_rent,
+        monthly_rent = v_new_rent,
+        last_rent_increase_date = CURRENT_DATE,
+        next_escalation_date = CASE
+          WHEN r_lease.escalation_frequency ILIKE '%annual%' THEN (CURRENT_DATE + INTERVAL '1 year')::date
+          WHEN r_lease.escalation_frequency ILIKE '%month%' THEN (CURRENT_DATE + INTERVAL '1 month')::date
+          ELSE NULL
+        END,
+        updated_at = now()
+    WHERE id = r_lease.id;
+
+    v_updated_leases_count := v_updated_leases_count + 1;
+  END LOOP;
+
+  -- deals_recalculated is kept (always 0 now) so the edge function's log line keeps working
+  RETURN jsonb_build_object(
+    'success', true,
+    'leases_escalated', v_updated_leases_count,
+    'deals_recalculated', 0,
+    'executed_at', now()
+  );
+END;
+$function$;
+
+---------------------------------------------------------------------------------------------------------------------
+-- 3i. Profile <-> entity triggers. AUDIT FINDING: a user could set profiles.primary_entity_id to ANOTHER user's entity
+--     id; the trigger then copied that entity's name into their own profile (and the rename trigger kept it updated).
+--     Now the entity must belong to the profile's owner.
+---------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.sync_profile_from_primary_entity()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_entity_name TEXT;
+BEGIN
+  IF NEW.primary_entity_id IS NOT NULL THEN
+    SELECT name INTO v_entity_name
+    FROM public.entities
+    WHERE id = NEW.primary_entity_id AND user_id = NEW.id;   -- must be the profile owner's own entity
+
+    IF v_entity_name IS NULL THEN
+      RAISE EXCEPTION 'Primary entity not found or not owned by this profile';
+    END IF;
+    NEW.company_name := v_entity_name;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.sync_profile_on_entity_rename()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.name IS DISTINCT FROM OLD.name THEN
+    UPDATE public.profiles
+    SET company_name = NEW.name
+    WHERE primary_entity_id = NEW.id AND id = NEW.user_id;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+---------------------------------------------------------------------------------------------------------------------
+-- 3j. New-user profile trigger. AUDIT FINDING (low): it cast a user-supplied signup field straight to jsonb; malformed
+--     text made the account creation fail. Fall back to the defaults instead.
+---------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.handle_auth_user_sync()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_prefs jsonb;
+BEGIN
+  BEGIN
+    v_prefs := (NEW.raw_user_meta_data->>'alert_preferences')::jsonb;
+  EXCEPTION WHEN others THEN
+    v_prefs := NULL;
+  END;
+
+  INSERT INTO public.profiles (id, email, created_at, updated_at, alert_preferences)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.created_at, NOW()),
+    NOW(),
+    COALESCE(v_prefs, '{"advance_notice_days": 0, "remind_on_due": true, "followup_grace_period": true, "escalation_notice_days": 30}'::jsonb)
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET email = EXCLUDED.email,
+      updated_at = NOW(),
+      alert_preferences = COALESCE(public.profiles.alert_preferences, EXCLUDED.alert_preferences);
+  RETURN NEW;
+END;
+$function$;
+
+---------------------------------------------------------------------------------------------------------------------
+-- 4. What signed-in users may still call: no anon access, pinned search_path.
+--    (Only one user-facing function remains: rpc_evaluate_deal_notifications; everything
+--    else the app does goes through row-level-security tables and the edge functions.)
+---------------------------------------------------------------------------------------------------------------------
+REVOKE EXECUTE ON FUNCTION public.rpc_evaluate_deal_notifications(uuid)                    FROM PUBLIC, anon;
+ALTER FUNCTION public.sync_profile_preferences()                                           SET search_path = public;
+
+---------------------------------------------------------------------------------------------------------------------
+-- 5. Unused by the current app and by every edge function: drop them (smaller attack surface, nothing to keep in sync).
+--    Collaboration, scenario history and entities now go through the manage-* edge functions and direct table access
+--    under row-level security. Checked: no other database function calls any of these once 3c / 3g / 3h are in place.
+--    (rpc_recalculate_deal and rpc_get_debt_schedule are DB-side copies of the financial engine; there must be one engine.)
+---------------------------------------------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.rpc_sync_proforma_to_actuals(uuid, numeric);
+DROP FUNCTION IF EXISTS public.rpc_recalculate_deal(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.rpc_get_debt_schedule(numeric, numeric, integer, integer);
+DROP FUNCTION IF EXISTS public.schedule_advance_rent_increase(uuid, date, numeric, text, text, numeric);
+DROP FUNCTION IF EXISTS public.rpc_get_portfolio_operations_summary(uuid);
+DROP FUNCTION IF EXISTS public.rpc_get_user_entities(boolean);
+DROP FUNCTION IF EXISTS public.rpc_get_user_profile_with_companies();
+DROP FUNCTION IF EXISTS public.rpc_attach_entity_to_deal(uuid, uuid);
+DROP FUNCTION IF EXISTS public.rpc_create_or_update_entity(text, text, text, text, text, text, uuid);
+DROP FUNCTION IF EXISTS public.rpc_delete_entity(uuid);
+DROP FUNCTION IF EXISTS public.rpc_get_deal_shares(uuid);
+DROP FUNCTION IF EXISTS public.rpc_share_deal_with_collaborator(uuid, uuid, text, boolean);
+DROP FUNCTION IF EXISTS public.rpc_revoke_deal_share(uuid, uuid);
+DROP FUNCTION IF EXISTS public.rpc_invite_collaborator(text);
+DROP FUNCTION IF EXISTS public.rpc_respond_collaborator_invite(uuid, text);
+DROP FUNCTION IF EXISTS public.rpc_get_user_collaborators();
+DROP FUNCTION IF EXISTS public.rpc_save_parameter_snapshot(uuid, text, text, jsonb, text, boolean);
+DROP FUNCTION IF EXISTS public.rpc_restore_parameter_snapshot(uuid);
+DROP FUNCTION IF EXISTS public.rpc_delete_parameter_snapshot(uuid);
+DROP FUNCTION IF EXISTS public.rpc_get_deal_parameter_history(uuid);
+
+---------------------------------------------------------------------------------------------------------------------
+-- 6. We do not store EINs (owner decision 2026-09-30: no use for them, only liability). The column is empty (0 of 2 rows) and
+--    the only path that could write it, rpc_create_or_update_entity, is dropped above. manage-entities no longer writes it
+--    either, so deploy that function BEFORE applying this (an insert naming a missing column would fail).
+--    Bank name is dropped the same way (owner decision 2026-09-30): two rows currently hold a value, which is deleted with the column.
+---------------------------------------------------------------------------------------------------------------------
+ALTER TABLE public.entities DROP COLUMN IF EXISTS ein;
+ALTER TABLE public.entities DROP COLUMN IF EXISTS bank_name;
+
+COMMIT;
+ THEN (p.alert_preferences->>'snooze_days')::integer END
+       FROM public.profiles p WHERE p.id = v_lease.user_id),
+    v_lease.grace_period_days,
+    5
+  );
   v_snooze_date := CURRENT_DATE + v_grace_days;
 
   INSERT INTO public.rent_payments (

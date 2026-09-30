@@ -94,7 +94,7 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
             <span>Performance vs Pro-Forma</span>
           </h3>
           <p className="text-xs text-slate-400">
-            What we expected when we bought it, against today&apos;s outlook and what the property is actually collecting
+            Projected = what we expect to happen. Actual = the income really coming in (payments and rent roll).
           </p>
         </div>
         <div className="flex items-center space-x-2 text-[10px] font-mono text-slate-400">
@@ -121,8 +121,8 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
           <thead className="bg-slate-950/80 text-slate-400">
             <tr>
               <th className="py-2 px-3 font-semibold">Metric</th>
-              <th className="py-2 px-3 font-semibold">Expected at purchase</th>
-              <th className="py-2 px-3 font-semibold">Current outlook</th>
+              <th className="py-2 px-3 font-semibold">Projected at purchase</th>
+              <th className="py-2 px-3 font-semibold">Projected now (current assumptions)</th>
               <th className="py-2 px-3 font-semibold">Change</th>
             </tr>
           </thead>
@@ -144,9 +144,33 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
 
       {cmp.hasYearDetail ? (
         <div className="space-y-3">
+          <h4 className="text-xs font-bold text-white flex items-center space-x-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Actual performance: income coming in</span>
+          </h4>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Expected rent {cmp.year} YTD</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Last 12 months: projected</p>
+              <p className="text-base font-extrabold text-white mt-1">{formatCurrency(cmp.trailing12.expected)}</p>
+            </div>
+            <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Last 12 months: contractual</p>
+              <p className="text-base font-extrabold text-white mt-1">{formatCurrency(cmp.trailing12.contractual)}</p>
+            </div>
+            <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Last 12 months: actual collected</p>
+              <p className="text-base font-extrabold text-brand-400 mt-1">{formatCurrency(cmp.trailing12.collected)}</p>
+            </div>
+            <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Actual vs projected</p>
+              <p className={`text-base font-extrabold mt-1 ${cmp.trailing12.collected - cmp.trailing12.expected >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {cmp.trailing12.expected > 0 ? `${((cmp.trailing12.collected / cmp.trailing12.expected) * 100).toFixed(1)}%` : '—'}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Projected rent {cmp.year} YTD</p>
               <p className="text-base font-extrabold text-white mt-1">{formatCurrency(cmp.expectedYtd)}</p>
             </div>
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
@@ -154,11 +178,11 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
               <p className="text-base font-extrabold text-white mt-1">{formatCurrency(cmp.contractualYtd)}</p>
             </div>
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Collected YTD</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Actual collected YTD</p>
               <p className="text-base font-extrabold text-brand-400 mt-1">{formatCurrency(cmp.collectedYtd)}</p>
             </div>
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Collected vs expected</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Actual vs projected</p>
               <p className={`text-base font-extrabold mt-1 ${revenueGap >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {collectedPct === null ? '—' : `${collectedPct.toFixed(1)}%`}
                 <span className="text-[10px] font-mono font-normal text-slate-400 ml-1.5">
@@ -173,10 +197,10 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
               <thead className="bg-slate-950/80 text-slate-400">
                 <tr>
                   <th className="py-2 px-3 font-semibold">Month</th>
-                  <th className="py-2 px-3 font-semibold">Expected</th>
+                  <th className="py-2 px-3 font-semibold">Projected</th>
                   <th className="py-2 px-3 font-semibold">Contractual</th>
-                  <th className="py-2 px-3 font-semibold">Collected</th>
-                  <th className="py-2 px-3 font-semibold">vs expected</th>
+                  <th className="py-2 px-3 font-semibold">Actual collected</th>
+                  <th className="py-2 px-3 font-semibold">Actual vs projected</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-900/60">

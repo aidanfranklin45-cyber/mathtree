@@ -156,6 +156,8 @@ export interface Comparison {
   expectedYtd: number;
   contractualYtd: number;
   collectedYtd: number;
+  /** The last 12 months (including the current one): projected at purchase vs what the rent roll and payments show. */
+  trailing12: { expected: number; contractual: number; collected: number };
   months: MonthRow[];
 }
 
@@ -253,6 +255,12 @@ export function compareToBaseline(args: {
     months.push(monthRow(d.getFullYear(), d.getMonth() + 1));
   }
 
+  const t12: MonthRow[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(year, month - 1 - i, 1);
+    t12.push(monthRow(d.getFullYear(), d.getMonth() + 1));
+  }
+
   return {
     headline,
     hasYearDetail: !!baselineYear(baseline, year) || !!baselineYear(baseline, year - 1),
@@ -262,6 +270,11 @@ export function compareToBaseline(args: {
     expectedYtd: ytd.reduce((s, r) => s + r.expected, 0),
     contractualYtd: ytd.reduce((s, r) => s + (r.expected > 0 || r.collected > 0 ? r.contractual : 0), 0),
     collectedYtd: ytd.reduce((s, r) => s + r.collected, 0),
+    trailing12: {
+      expected: t12.reduce((s, r) => s + r.expected, 0),
+      contractual: t12.reduce((s, r) => s + (r.expected > 0 || r.collected > 0 ? r.contractual : 0), 0),
+      collected: t12.reduce((s, r) => s + r.collected, 0),
+    },
     months,
   };
 }
