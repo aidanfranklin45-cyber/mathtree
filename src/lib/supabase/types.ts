@@ -14,6 +14,377 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_notifications: {
+        Row: {
+          action_payload: Json | null
+          action_type: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          is_dismissed: boolean
+          is_read: boolean
+          message: string
+          severity: string
+          snoozed_until: string | null
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_payload?: Json | null
+          action_type?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          is_dismissed?: boolean
+          is_read?: boolean
+          message: string
+          severity?: string
+          snoozed_until?: string | null
+          title: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_payload?: Json | null
+          action_type?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          is_dismissed?: boolean
+          is_read?: boolean
+          message?: string
+          severity?: string
+          snoozed_until?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_notifications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "app_notifications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "app_notifications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "app_notifications_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_property_management_stats"
+            referencedColumns: ["deal_id"]
+          },
+        ]
+      }
+      collaborator_group_members: {
+        Row: {
+          created_at: string | null
+          group_id: string
+          id: string
+          member_email: string
+          member_user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          group_id: string
+          id?: string
+          member_email: string
+          member_user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          group_id?: string
+          id?: string
+          member_email?: string
+          member_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborator_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "collaborator_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collaborator_groups: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      deal_baselines: {
+        Row: {
+          baseline_type: string
+          captured_at: string
+          deal_id: string
+          id: string
+          inputs_snapshot: Json
+          metrics_snapshot: Json
+          projected_cash_flow: number | null
+          projected_cash_on_cash: number | null
+          projected_gross_rent_annual: number
+          projected_irr: number | null
+          projected_noi: number
+          purchase_price: number | null
+          user_id: string
+        }
+        Insert: {
+          baseline_type?: string
+          captured_at?: string
+          deal_id: string
+          id?: string
+          inputs_snapshot?: Json
+          metrics_snapshot?: Json
+          projected_cash_flow?: number | null
+          projected_cash_on_cash?: number | null
+          projected_gross_rent_annual?: number
+          projected_irr?: number | null
+          projected_noi?: number
+          purchase_price?: number | null
+          user_id: string
+        }
+        Update: {
+          baseline_type?: string
+          captured_at?: string
+          deal_id?: string
+          id?: string
+          inputs_snapshot?: Json
+          metrics_snapshot?: Json
+          projected_cash_flow?: number | null
+          projected_cash_on_cash?: number | null
+          projected_gross_rent_annual?: number
+          projected_irr?: number | null
+          projected_noi?: number
+          purchase_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_baselines_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_baselines_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_baselines_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_baselines_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_property_management_stats"
+            referencedColumns: ["deal_id"]
+          },
+        ]
+      }
+      deal_parameter_history: {
+        Row: {
+          category: string
+          created_at: string
+          deal_id: string
+          id: string
+          input_diff: Json | null
+          inputs: Json
+          is_auto_run: boolean | null
+          is_baseline: boolean
+          metric_diff: Json | null
+          metrics: Json
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          deal_id: string
+          id?: string
+          input_diff?: Json | null
+          inputs?: Json
+          is_auto_run?: boolean | null
+          is_baseline?: boolean
+          metric_diff?: Json | null
+          metrics?: Json
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+          input_diff?: Json | null
+          inputs?: Json
+          is_auto_run?: boolean | null
+          is_baseline?: boolean
+          metric_diff?: Json | null
+          metrics?: Json
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_parameter_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_parameter_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_parameter_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_parameter_history_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_property_management_stats"
+            referencedColumns: ["deal_id"]
+          },
+        ]
+      }
+      deal_shares: {
+        Row: {
+          can_view_scenarios: boolean
+          created_at: string
+          deal_id: string
+          group_id: string | null
+          id: string
+          owner_id: string
+          permission: string
+          shared_with_email: string | null
+          shared_with_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          can_view_scenarios?: boolean
+          created_at?: string
+          deal_id: string
+          group_id?: string | null
+          id?: string
+          owner_id: string
+          permission?: string
+          shared_with_email?: string | null
+          shared_with_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          can_view_scenarios?: boolean
+          created_at?: string
+          deal_id?: string
+          group_id?: string | null
+          id?: string
+          owner_id?: string
+          permission?: string
+          shared_with_email?: string | null
+          shared_with_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_shares_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_shares_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_shares_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_shares_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_property_management_stats"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "deal_shares_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "collaborator_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deals: {
         Row: {
           asset_type: string
@@ -27,7 +398,9 @@ export type Database = {
           is_demo: boolean | null
           location: string | null
           metrics: Json | null
+          metrics_computed_at: string | null
           notes: string | null
+          npv: number | null
           purchase_price: number | null
           scenario_tag: string | null
           status: string | null
@@ -49,7 +422,9 @@ export type Database = {
           is_demo?: boolean | null
           location?: string | null
           metrics?: Json | null
+          metrics_computed_at?: string | null
           notes?: string | null
+          npv?: number | null
           purchase_price?: number | null
           scenario_tag?: string | null
           status?: string | null
@@ -71,7 +446,9 @@ export type Database = {
           is_demo?: boolean | null
           location?: string | null
           metrics?: Json | null
+          metrics_computed_at?: string | null
           notes?: string | null
+          npv?: number | null
           purchase_price?: number | null
           scenario_tag?: string | null
           status?: string | null
@@ -96,6 +473,7 @@ export type Database = {
           bank_name: string | null
           created_at: string
           ein: string | null
+          entity_type: string
           formation_date: string | null
           formation_state: string | null
           id: string
@@ -108,6 +486,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           ein?: string | null
+          entity_type?: string
           formation_date?: string | null
           formation_state?: string | null
           id?: string
@@ -120,6 +499,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           ein?: string | null
+          entity_type?: string
           formation_date?: string | null
           formation_state?: string | null
           id?: string
@@ -142,7 +522,7 @@ export type Database = {
           is_active: boolean
           last_rent_increase_date: string | null
           lease_end_date: string | null
-          lease_start_date: string
+          lease_start_date: string | null
           lease_type: string | null
           monthly_rent: number
           next_escalation_date: string | null
@@ -169,7 +549,7 @@ export type Database = {
           is_active?: boolean
           last_rent_increase_date?: string | null
           lease_end_date?: string | null
-          lease_start_date: string
+          lease_start_date?: string | null
           lease_type?: string | null
           monthly_rent: number
           next_escalation_date?: string | null
@@ -196,7 +576,7 @@ export type Database = {
           is_active?: boolean
           last_rent_increase_date?: string | null
           lease_end_date?: string | null
-          lease_start_date?: string
+          lease_start_date?: string | null
           lease_type?: string | null
           monthly_rent?: number
           next_escalation_date?: string | null
@@ -225,6 +605,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "leases_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
             referencedColumns: ["deal_id"]
           },
           {
@@ -323,6 +710,13 @@ export type Database = {
             foreignKeyName: "parcels_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "parcels_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
             referencedRelation: "view_property_management_stats"
             referencedColumns: ["deal_id"]
           },
@@ -363,36 +757,147 @@ export type Database = {
       }
       profiles: {
         Row: {
+          alert_preferences: Json | null
           company_name: string | null
           created_at: string
+          discount_rate: number | null
           email: string | null
+          exit_cap_timing: string | null
+          exit_year: number | null
           full_name: string | null
           id: string
+          market_tier: string | null
           notification_email: string | null
           preferences: Json | null
+          primary_entity_id: string | null
+          property_class: string | null
           updated_at: string
         }
         Insert: {
+          alert_preferences?: Json | null
           company_name?: string | null
           created_at?: string
+          discount_rate?: number | null
           email?: string | null
+          exit_cap_timing?: string | null
+          exit_year?: number | null
           full_name?: string | null
           id: string
+          market_tier?: string | null
           notification_email?: string | null
           preferences?: Json | null
+          primary_entity_id?: string | null
+          property_class?: string | null
           updated_at?: string
         }
         Update: {
+          alert_preferences?: Json | null
           company_name?: string | null
           created_at?: string
+          discount_rate?: number | null
           email?: string | null
+          exit_cap_timing?: string | null
+          exit_year?: number | null
           full_name?: string | null
           id?: string
+          market_tier?: string | null
           notification_email?: string | null
           preferences?: Json | null
+          primary_entity_id?: string | null
+          property_class?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_primary_entity_id_fkey"
+            columns: ["primary_entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliation_tokens: {
+        Row: {
+          action: string
+          created_at: string
+          deal_id: string
+          expires_at: string
+          id: string
+          lease_id: string
+          period_month: string
+          token_hash: string
+          used_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          deal_id: string
+          expires_at: string
+          id?: string
+          lease_id: string
+          period_month: string
+          token_hash: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          deal_id?: string
+          expires_at?: string
+          id?: string
+          lease_id?: string
+          period_month?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_tokens_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_tokens_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_tokens_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_tokens_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_property_management_stats"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_tokens_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "leases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_tokens_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "view_monthly_rent_reconciliation"
+            referencedColumns: ["lease_id"]
+          },
+        ]
       }
       rent_increases: {
         Row: {
@@ -459,6 +964,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "rent_increases_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
             referencedColumns: ["deal_id"]
           },
           {
@@ -558,6 +1070,13 @@ export type Database = {
             foreignKeyName: "rent_payments_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "rent_payments_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
             referencedRelation: "view_property_management_stats"
             referencedColumns: ["deal_id"]
           },
@@ -633,6 +1152,13 @@ export type Database = {
             foreignKeyName: "units_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "units_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
             referencedRelation: "view_property_management_stats"
             referencedColumns: ["deal_id"]
           },
@@ -657,6 +1183,32 @@ export type Database = {
         }
         Relationships: []
       }
+      view_deal_performance_tracking: {
+        Row: {
+          active_tenant_count: number | null
+          actual_annual_rent: number | null
+          actual_monthly_rent: number | null
+          asset_type: string | null
+          baseline_annual_noi: number | null
+          baseline_monthly_rent: number | null
+          deal_id: string | null
+          deal_name: string | null
+          entity_id: string | null
+          rent_variance_monthly_usd: number | null
+          rent_variance_pct: number | null
+          status: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       view_monthly_rent_reconciliation: {
         Row: {
           amount_paid: number | null
@@ -664,9 +1216,15 @@ export type Database = {
           current_period: string | null
           deal_id: string | null
           deal_title: string | null
+          escalation_frequency: string | null
+          escalation_rate: number | null
+          escalation_type: string | null
           grace_period_days: number | null
           is_active: boolean | null
+          lease_end_date: string | null
           lease_id: string | null
+          lease_start_date: string | null
+          next_escalation_date: string | null
           paid_date: string | null
           payment_due_day: number | null
           payment_id: string | null
@@ -675,7 +1233,9 @@ export type Database = {
           reference_note: string | null
           snooze_until: string | null
           snoozed_at: string | null
+          tenant_email: string | null
           tenant_name: string | null
+          tenant_phone: string | null
           unit_number: string | null
           user_id: string | null
         }
@@ -692,6 +1252,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "view_deal_parcel_packages"
+            referencedColumns: ["deal_id"]
+          },
+          {
+            foreignKeyName: "leases_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "view_deal_performance_tracking"
             referencedColumns: ["deal_id"]
           },
           {
@@ -738,6 +1305,79 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_rent_payment_by_token: {
+        Args: { p_payment_method?: string; p_token: string }
+        Returns: Json
+      }
+      execute_scheduled_rent_escalations: { Args: never; Returns: Json }
+      rpc_attach_entity_to_deal: {
+        Args: { p_deal_id: string; p_entity_id: string }
+        Returns: Json
+      }
+      rpc_capture_deal_baseline: { Args: { p_deal_id: string }; Returns: Json }
+      rpc_create_or_update_entity: {
+        Args: {
+          p_bank_name?: string
+          p_ein?: string
+          p_entity_type?: string
+          p_formation_state?: string
+          p_id?: string
+          p_name: string
+          p_notes?: string
+        }
+        Returns: Json
+      }
+      rpc_delete_entity: { Args: { p_entity_id: string }; Returns: Json }
+      rpc_delete_parameter_snapshot: {
+        Args: { p_history_id: string }
+        Returns: Json
+      }
+      rpc_evaluate_deal_notifications: {
+        Args: { p_user_id: string }
+        Returns: {
+          action_payload: Json
+          action_type: string
+          created_at: string
+          is_dismissed: boolean
+          is_read: boolean
+          message: string
+          notif_type: string
+          notification_id: string
+          severity: string
+          target_deal_id: string
+          title: string
+        }[]
+      }
+      rpc_get_deal_parameter_history: {
+        Args: { p_deal_id: string }
+        Returns: {
+          category: string
+          created_at: string
+          deal_id: string
+          id: string
+          inputs: Json
+          is_baseline: boolean
+          metrics: Json
+          name: string
+          notes: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }[]
+      }
+      rpc_get_deal_shares: {
+        Args: { p_deal_id: string }
+        Returns: {
+          can_view_scenarios: boolean
+          collaborator_company: string
+          collaborator_email: string
+          collaborator_id: string
+          collaborator_name: string
+          permission: string
+          share_id: string
+          shared_at: string
+        }[]
+      }
       rpc_get_debt_schedule: {
         Args: {
           p_amort_years?: number
@@ -747,14 +1387,87 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_get_portfolio_operations_summary: {
+        Args: { p_user_id?: string }
+        Returns: Json
+      }
+      rpc_get_user_collaborators: { Args: never; Returns: Json }
+      rpc_get_user_entities: {
+        Args: { p_is_demo?: boolean }
+        Returns: {
+          bank_name: string
+          created_at: string
+          deal_count: number
+          ein: string
+          entity_type: string
+          formation_date: string
+          formation_state: string
+          id: string
+          name: string
+          notes: string
+          total_equity: number
+          updated_at: string
+        }[]
+      }
+      rpc_get_user_profile_with_companies: { Args: never; Returns: Json }
+      rpc_invite_collaborator: {
+        Args: { p_recipient_email: string }
+        Returns: Json
+      }
       rpc_recalculate_deal: {
         Args: { p_deal_id: string; p_new_inputs?: Json }
         Returns: Json
       }
-      rpc_get_portfolio_operations_summary: {
-        Args: { p_user_id?: string | null }
+      rpc_respond_collaborator_invite: {
+        Args: { p_action: string; p_invitation_id: string }
         Returns: Json
       }
+      rpc_restore_parameter_snapshot: {
+        Args: { p_history_id: string }
+        Returns: Json
+      }
+      rpc_revoke_deal_share: {
+        Args: { p_collaborator_id: string; p_deal_id: string }
+        Returns: Json
+      }
+      rpc_save_parameter_snapshot: {
+        Args: {
+          p_category?: string
+          p_deal_id: string
+          p_inputs?: Json
+          p_is_baseline?: boolean
+          p_name: string
+          p_notes?: string
+        }
+        Returns: Json
+      }
+      rpc_share_deal_with_collaborator: {
+        Args: {
+          p_can_view_scenarios?: boolean
+          p_collaborator_id: string
+          p_deal_id: string
+          p_permission?: string
+        }
+        Returns: Json
+      }
+      rpc_sync_proforma_to_actuals: {
+        Args: { p_actual_monthly_rent: number; p_deal_id: string }
+        Returns: Json
+      }
+      schedule_advance_rent_increase: {
+        Args: {
+          p_effective_date: string
+          p_increase_type?: string
+          p_lease_id: string
+          p_new_rent?: number
+          p_reason?: string
+          p_scheduled_amount?: number
+        }
+        Returns: Json
+      }
+      snooze_rent_payment_by_token: { Args: { p_token: string }; Returns: Json }
+      trigger_monthly_gis_sync: { Args: never; Returns: Json }
+      undo_rent_reconciliation: { Args: { p_token: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
@@ -886,7 +1599,7 @@ export const Constants = {
   public: {
     Enums: {},
   },
-} as const;
+} as const
 
 // Explicit Convenience Types for Views and Relational Entities
 export type DealParcelPackageView = Database['public']['Views']['view_deal_parcel_packages']['Row'];

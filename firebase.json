@@ -44,6 +44,16 @@
           }
         ]
       }
+    ],
+    "rewrites": [
+      {
+        "source": "/{dashboard,dashboard.html,app,app.html,project,project.html,operations,operations.html,reconcile,reconcile.html}",
+        "destination": "/app.html"
+      },
+      {
+        "source": "/project-*",
+        "destination": "/app.html"
+      }
     ]
   }
 }

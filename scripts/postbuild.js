@@ -1,25 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 
+// The authenticated app is the React build (dist/app.html). Only these static files ship beside it:
+// the marketing/login page, legal pages, the shared session (inactivity logout) script and icons.
+// The pre-React pages live in legacy/ and are intentionally not deployed.
 const RUNTIME_FILES = [
-  // Primary HTML pages & entrypoints
   'index.html',
-  'dashboard.html',
-  'project.html',
-  'operations.html',
-  'project-debt.html',
-  'project-diligence.html',
-  'project-proforma.html',
-  'project-property.html',
-  'project-sensitivity.html',
-  'project-tax.html',
-  'reconcile.html',
   'terms.html',
   'privacy.html',
-  // Client scripts & engines
   'session.js',
-  'address-service.js',
-  // Favicons & icons
   'favicon.ico',
   'favicon.png',
   'favicon.svg',
@@ -39,4 +28,4 @@ for (const file of RUNTIME_FILES) {
   }
 }
 
-console.log(`✓ Assembled ${copiedCount} production client runtime files into dist/`);
+console.log(`✓ Assembled ${copiedCount} static runtime files into dist/ (React app: dist/app.html)`);

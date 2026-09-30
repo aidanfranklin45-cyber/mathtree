@@ -130,7 +130,7 @@ export const LogPaymentModal: React.FC<LogPaymentModalProps> = ({
           </div>
           <div className="text-right">
             <div className="text-[10px] uppercase font-bold text-slate-400">Contractual Due</div>
-            <div className="font-mono font-bold text-emerald-400">
+            <div className="font-bold text-emerald-400 tabular-nums">
               ${contractualRent.toLocaleString()}
             </div>
           </div>
@@ -150,14 +150,14 @@ export const LogPaymentModal: React.FC<LogPaymentModalProps> = ({
               Payment Amount Received ($)
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">$</span>
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm tabular-nums">$</span>
               <input
                 type="number"
                 step="0.01"
                 required
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
-                className="w-full pl-8 pr-3.5 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white font-mono font-bold text-sm focus:outline-none focus:border-emerald-500 transition"
+                className="w-full pl-8 pr-3.5 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition tabular-nums"
                 placeholder="0.00"
               />
             </div>
@@ -199,7 +199,7 @@ export const LogPaymentModal: React.FC<LogPaymentModalProps> = ({
                   required
                   value={paidDate}
                   onChange={(e) => setPaidDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-emerald-500 transition"
+                  className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500 transition tabular-nums"
                 />
               </div>
             </div>

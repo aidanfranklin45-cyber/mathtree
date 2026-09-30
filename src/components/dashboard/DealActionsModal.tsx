@@ -1,108 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DealRecord } from '../../lib/math/types';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
-import { X, Trash2, Edit3, AlertTriangle, Loader2 } from 'lucide-react';
-
-interface EditDealModalProps {
-  isOpen: boolean;
-  deal: DealRecord | null;
-  onClose: () => void;
-  onSave: (updated: { id: string; title: string; location: string }) => Promise<void>;
-}
-
-export const EditDealModal: React.FC<EditDealModalProps> = ({
-  isOpen,
-  deal,
-  onClose,
-  onSave,
-}) => {
-  const [title, setTitle] = useState('');
-  const [location, setLocation] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (deal) {
-      setTitle(deal.title || '');
-      setLocation(deal.location || '');
-    }
-  }, [deal]);
-
-  if (!isOpen || !deal) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setIsSaving(true);
-    try {
-      await onSave({
-        id: deal.id,
-        title: title.trim(),
-        location: location.trim(),
-      });
-      onClose();
-    } catch (err) {
-      console.error('Failed to update deal:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Edit3 className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-black text-white">Edit Project Details</h3>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Project Name</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Location / Address</label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800/80">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-black transition disabled:opacity-50"
-            >
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+import { Loader2 } from 'lucide-react';
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -143,65 +42,59 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-slate-900 border border-rose-900/50 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-rose-400">
-            <AlertTriangle className="w-4 h-4" />
-            <h3 className="text-sm font-black text-white">Delete Project</h3>
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 font-black">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-white">Delete Project</h3>
+              <p className="text-xs text-rose-400 font-semibold mt-0.5">Permanent Deletion</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
+          <button type="button" onClick={onClose} className="text-slate-500 hover:text-white p-1 rounded-lg">✕</button>
         </div>
 
-        <div className="p-5 space-y-4">
-          <p className="text-xs text-slate-300">
-            Are you sure you want to permanently delete{' '}
-            <strong className="text-white font-black">{expectedName}</strong>? This action will remove
-            all financial models, lease history, and parcel sync data.
+        <div className="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+          <p className="text-xs text-slate-300 leading-relaxed">
+            This action <strong className="text-rose-400 font-bold">cannot be undone</strong>. All underwriting models,
+            pro-forma forecasts, and return metrics will be permanently deleted.
           </p>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-400 mb-1">
-              Type <span className="text-rose-400 font-mono select-all font-black">{expectedName}</span> to confirm:
+          <div className="space-y-1.5 pt-1">
+            <label className="text-[11px] font-bold text-slate-400 block">
+              To confirm, type &quot;<span className="text-emerald-400 font-mono font-bold select-all">{expectedName}</span>&quot; below:
             </label>
             <input
               type="text"
-              placeholder={expectedName}
+              autoFocus
               value={confirmInput}
               onChange={(e) => setConfirmInput(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-rose-500"
+              placeholder={`Type "${expectedName}" to confirm`}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
             />
           </div>
+        </div>
 
-          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-800/80">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold hover:bg-slate-700 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={!isMatch || isDeleting}
-              className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed flex items-center space-x-1.5"
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Deleting...</span>
-                </>
-              ) : (
-                <>
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Permanently</span>
-                </>
-              )}
-            </button>
-          </div>
+        <div className="flex items-center space-x-3 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!isMatch || isDeleting}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 transition ${isMatch && !isDeleting ? 'hover:bg-rose-500' : 'opacity-40 cursor-not-allowed'}`}
+          >
+            {isDeleting ? (
+              <span className="inline-flex items-center justify-center"><Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />Deleting...</span>
+            ) : (
+              'Delete Forever'
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -75,7 +75,7 @@ export function resolveLeaseMonthlyRent(
   lease: any,
   targetYear: number,
   targetMonth: number,
-): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string } {
+): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string; oneTimeCost?: number } {
   const baseRent = parseFloat(lease.monthlyRent || 0);
   if (baseRent <= 0) {
     return {
@@ -121,39 +121,90 @@ export function resolveLeaseMonthlyRent(
     };
   }
 
+  const escRate = parseFloat(lease.escalationRate !== undefined ? lease.escalationRate : 3.0);
+  const tenant = lease.tenantName || 'Tenant';
+
+  // Escalation cycles that have occurred by a given month (the contractual schedule keeps running through any extension)
+  const cyclesAt = (idx: number): number => {
+    if (lease.nextEscalationDate) {
+      let nextEscYear = startYear + 1;
+      let nextEscMonth = startMonth;
+      const nm = String(lease.nextEscalationDate).match(/(\d{4})[-/](\d{1,2})/);
+      if (nm) {
+        nextEscYear = parseInt(nm[1], 10);
+        nextEscMonth = parseInt(nm[2], 10);
+      }
+      const nextEscIdx = nextEscYear * 12 + nextEscMonth;
+      return idx >= nextEscIdx ? 1 + Math.floor((idx - nextEscIdx) / 12) : 0;
+    }
+    return Math.floor((idx - startIdx) / 12);
+  };
+  const rentAtIdx = (idx: number): number => Math.round(baseRent * Math.pow(1 + escRate / 100, cyclesAt(idx)) * 100) / 100;
+  const num = (v: any, fallback: number): number => {
+    const n = parseFloat(v);
+    return isNaN(n) ? fallback : n;
+  };
+  const fmtMo = (n: number) => `$${Math.round(n).toLocaleString()}/mo`;
+
   if (targetIdx > endIdx) {
+    const endLabel = lease.leaseEndDate || `${endYear}-${endMonth}`;
+    const mode = String(lease.expiryAssumption || 'none');
+
+    // Optional extension: the tenant exercises a renewal option; rent may step once, then escalations continue.
+    if (mode === 'extend') {
+      const extMonths = Math.max(1, Math.round(num(lease.extensionYears, 5) * 12));
+      if (targetIdx <= endIdx + extMonths) {
+        const step = num(lease.extensionRentChangePct, 0);
+        const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+        return {
+          monthlyRent: rent,
+          isActive: true,
+          status: 'extended',
+          escalationCycles: cyclesAt(targetIdx),
+          provenance: `${tenant}: ${fmtMo(rent)} (Extension option after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+        };
+      }
+    }
+
+    // Vacancy while a replacement tenant is found, then a new lease at old rent +/- a change.
+    if (mode === 'relet') {
+      const vacancyMonths = Math.max(0, Math.round(num(lease.reletVacancyMonths, 12)));
+      const newStartIdx = endIdx + 1 + vacancyMonths;
+      if (targetIdx < newStartIdx) {
+        return {
+          monthlyRent: 0,
+          isActive: false,
+          status: 'vacant_relet',
+          escalationCycles: 0,
+          provenance: `Vacant: re-leasing downtime after ${endLabel} (${vacancyMonths} mos)`,
+        };
+      }
+      const step = num(lease.reletRentChangePct, 0);
+      const startRent = rentAtIdx(endIdx) * (1 + step / 100);
+      const newCycles = Math.floor((targetIdx - newStartIdx) / 12);
+      const rent = Math.round(startRent * Math.pow(1 + escRate / 100, newCycles) * 100) / 100;
+      const reletCost = num(lease.reletCosts, 0);
+      return {
+        monthlyRent: rent,
+        isActive: true,
+        status: 'relet',
+        escalationCycles: newCycles,
+        provenance: `New tenant: ${fmtMo(rent)} (Re-let after ${vacancyMonths}-mo vacancy${step ? `, ${step > 0 ? '+' : ''}${step}% vs expiring rent` : ''})`,
+        oneTimeCost: targetIdx === newStartIdx && reletCost > 0 ? reletCost : 0,
+      };
+    }
+
     return {
       monthlyRent: 0,
       isActive: false,
       status: 'expired',
       escalationCycles: 0,
-      provenance: `Lease expired ${lease.leaseEndDate || `${endYear}-${endMonth}`}`,
+      provenance: `Lease expired ${endLabel}`,
     };
   }
 
-  const escRate = parseFloat(lease.escalationRate !== undefined ? lease.escalationRate : 3.0);
-  let cycles = 0;
-
-  if (lease.nextEscalationDate) {
-    let nextEscYear = startYear + 1;
-    let nextEscMonth = startMonth;
-    const m = String(lease.nextEscalationDate).match(/(\d{4})[-/](\d{1,2})/);
-    if (m) {
-      nextEscYear = parseInt(m[1], 10);
-      nextEscMonth = parseInt(m[2], 10);
-    }
-    const nextEscIdx = nextEscYear * 12 + nextEscMonth;
-    if (targetIdx >= nextEscIdx) {
-      cycles = 1 + Math.floor((targetIdx - nextEscIdx) / 12);
-    } else {
-      cycles = 0;
-    }
-  } else {
-    cycles = Math.floor((targetIdx - startIdx) / 12);
-  }
-
-  const compoundedRent = Math.round(baseRent * Math.pow(1 + escRate / 100, cycles) * 100) / 100;
-  const tenant = lease.tenantName || 'Tenant';
+  const cycles = cyclesAt(targetIdx);
+  const compoundedRent = rentAtIdx(targetIdx);
   const provenance =
     cycles === 0
       ? `${tenant}: $${baseRent.toLocaleString()}/mo (Base Rate)`
@@ -257,11 +308,11 @@ export function getAnnualAmortization(
       principalPaidThisYear = 0;
       totalPaymentThisYear = interestPaidThisYear;
     } else {
-      let remainingYearsForPayment = termYears - (year - 1);
-      if (finType === 'interest_only') {
-        remainingYearsForPayment = Math.max(1, (termYears - ioYears) - (year - ioYears - 1));
-      }
-      if (remainingYearsForPayment < 1) remainingYearsForPayment = 1;
+      // Remaining term is measured in elapsed months: after a partial first year (closing mid-year) only
+      // firstYearMonths of the term have passed, not a whole year, or a fixed payment drifts upward.
+      const monthsElapsed = year === 1 ? 0 : firstYearMonths + 12 * (year - 2);
+      let remainingYearsForPayment = termYears - monthsElapsed / 12;
+      if (remainingYearsForPayment < 1 / 12) remainingYearsForPayment = 1 / 12;
 
       const monthlyPayment = calculateMonthlyPayment(currentBalance, yearRate, remainingYearsForPayment);
 
@@ -658,6 +709,9 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
 
     let methodologyFootnote = '';
     const monthlyReceipts: Array<{ month: string; rent: number; status: string }> = [];
+    // Lease-expiry effects for this year: months a lease sits vacant awaiting a replacement tenant, and one-time re-leasing costs
+    let vacantLeaseMonths = 0;
+    let expiryOneTimeCosts = 0;
 
     if (hasExplicitLeases) {
       const startM = isStubYear ? closeMonth : 1;
@@ -668,6 +722,8 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
         let moGross = 0;
         for (const lease of (inputs.leases as any[])) {
           const leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo);
+          if (leaseRes.status === 'vacant_relet') vacantLeaseMonths += 1;
+          if (leaseRes.oneTimeCost) expiryOneTimeCosts += leaseRes.oneTimeCost;
           if (leaseRes.isActive) {
             moGross += leaseRes.monthlyRent;
             monthlyReceipts.push({
@@ -763,6 +819,19 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       const payrollMarketingRatio = inputs.isAutomated ? 0.04 : 0.13;
       operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee + (currentGrossIncome * payrollMarketingRatio);
       capexReserve = effectiveGrossIncome * 0.03;
+    }
+
+    if (hasExplicitLeases && (vacantLeaseMonths > 0 || expiryOneTimeCosts > 0)) {
+      // While a unit awaits a replacement tenant the owner carries taxes, insurance and upkeep (same basis as a vacant property)
+      if (vacantLeaseMonths > 0 && (currentGrossIncome > 0 || assetType !== 'commercial')) {
+        const assessedBasis = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || purchasePrice;
+        const annualHolding = (parseFloat(inputs.annualTaxes) || parseFloat(inputs.propertyTaxes) || (assessedBasis * 0.011))
+          + (parseFloat(inputs.annualInsurance) || parseFloat(inputs.insurance) || 600)
+          + (parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600);
+        const vacantShare = vacantLeaseMonths / Math.max(1, (inputs.leases as any[]).length);
+        operatingExpenses += annualHolding * (vacantShare / 12);
+      }
+      operatingExpenses += expiryOneTimeCosts;
     }
 
     const netOperatingIncome = effectiveGrossIncome - operatingExpenses;
@@ -1466,7 +1535,9 @@ export function calculateTaxAndDepreciation(assetType: string, inputs: Record<st
   };
 }
 
-export function calculateTaxMetrics(assetClass: string, inputs: DealInputs): TaxMetrics {
+export function calculateTaxMetrics(rawAssetClass: string, inputs: DealInputs): TaxMetrics {
+  // Normalise so aliases like 'residential' / 'multi_family' get the 27.5-year residential schedule
+  const assetClass = normalizeAssetClass(rawAssetClass);
   const baseRes = calculateProjections(assetClass, inputs);
   const tax = calculateTaxAndDepreciation(assetClass, inputs, baseRes);
   const landAllocationPct = parseFloat(String(inputs.landPercent || 20)) || 20;
@@ -1931,6 +2002,23 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
       description: `Target ARV ($${Math.round(targetArv).toLocaleString()}) exceeds Day 1 purchase price ($${Math.round(pPrice).toLocaleString()}) without an underwritten rehab budget.`
     });
   }
+
+  // Leases that run out inside the hold with no extension / re-let assumption silently drop to $0 income
+  const lastProj = results.projections[results.projections.length - 1];
+  const holdEndIdx = (Number(lastProj?.calendarYear) || 0) * 12 + 12;
+  (Array.isArray(inputs.leases) ? inputs.leases : []).forEach((l: any) => {
+    const m = String(l?.leaseEndDate || "").match(/(\d{4})[-/](\d{1,2})/);
+    if (!m || !holdEndIdx) return;
+    const endIdx = parseInt(m[1], 10) * 12 + parseInt(m[2], 10);
+    const mode = String(l?.expiryAssumption || "none");
+    if (endIdx < holdEndIdx && mode === "none") {
+      warnings.push({
+        level: "warning",
+        title: "Lease Expires Inside Hold Period",
+        description: `${l.tenantName || "The in-place lease"} ends ${l.leaseEndDate}, before the hold period ends, and no extension or re-let assumption is set. Income is modeled as $0 after expiry. Set what happens at expiration in Edit Inputs.`
+      });
+    }
+  });
 
   if (warnings.length === 0) {
     warnings.push({

@@ -1,4 +1,5 @@
 import { DealRecord, DealMetrics } from '../math/types';
+import { tryComputeDealMetrics } from '../engine/compute';
 
 export function exportDealProformaCSV(deal: DealRecord, metrics: DealMetrics): void {
   const p0 = metrics.projections[0] || {};
@@ -49,10 +50,11 @@ export function exportPortfolioCSV(deals: DealRecord[]): void {
   deals.forEach((d) => {
     const price = d.purchase_price || d.inputs?.purchasePrice || 0;
     const hold = d.inputs?.holdingPeriod || d.inputs?.exitYear || 10;
-    const irr = d.irr || d.metrics?.irr || 0;
-    const coc = d.cash_on_cash || d.metrics?.cashOnCash || 0;
+    const em = tryComputeDealMetrics(d);
+    const irr = em?.irr || 0;
+    const coc = em?.cashOnCash || 0;
     const rent = d.inputs?.grossRentAnnual || (d.inputs?.monthlyRent ? d.inputs.monthlyRent * 12 : 0);
-    const debt = d.metrics?.projections?.[0]?.debtService || 0;
+    const debt = em?.projections?.[0]?.debtService || 0;
     const entity = d.holding_entity || d.entity_id || 'Direct';
 
     csv += `"${(d.title || '').replace(/"/g, '""')}",${d.status},${d.asset_class},${price},${hold},${Number(irr).toFixed(2)}%,${Number(coc).toFixed(2)}%,${rent},${debt},"${entity}"\n`;

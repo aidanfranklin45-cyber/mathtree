@@ -10,17 +10,25 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#f4fcf7',
-          100: '#e1f9eb',
-          200: '#c2f1d4',
-          300: '#90e4b0',
-          400: '#56cf86',
+          // Legacy palette (dashboard.html / project.html CDN config) so React renders identically
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
           500: '#10b981',
           600: '#059669',
           700: '#047857',
           800: '#065f46',
           900: '#064e3b',
           950: '#022c22'
+        },
+        // Legacy accent colors used by cards and charts
+        accent: {
+          cyan: '#06b6d4',
+          violet: '#8b5cf6',
+          emerald: '#10b981',
+          amber: '#f59e0b'
         }
       },
       fontFamily: {

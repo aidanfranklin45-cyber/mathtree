@@ -390,7 +390,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         }
       }
 
-      // Persist updated deal inputs (PostgreSQL recompute_deal_financial_metrics trigger will fire)
+      // Persist updated deal inputs (facts only; analysis is computed on demand)
       await dbClient
         .from("deals")
         .update({

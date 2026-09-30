@@ -4,6 +4,7 @@
 
 import { supabase } from '../supabase/client';
 import type { DealRecord } from '../math/types';
+import { AddressService } from './addressService';
 
 const GIS_STALE_DAYS_THRESHOLD = 30;
 
@@ -67,7 +68,7 @@ export async function syncDealCountyGisInBackground(
     const county = deal.inputs.county || 'Yakima';
 
     // If AddressService exists globally (from window or script)
-    const addressService = (typeof window !== 'undefined' && (window as any).AddressService) || null;
+    const addressService: any = AddressService;
     let freshAssessor = null;
 
     if (addressService && apn) {
