@@ -676,4 +676,12 @@ DROP FUNCTION IF EXISTS public.rpc_restore_parameter_snapshot(uuid);
 DROP FUNCTION IF EXISTS public.rpc_delete_parameter_snapshot(uuid);
 DROP FUNCTION IF EXISTS public.rpc_get_deal_parameter_history(uuid);
 
+---------------------------------------------------------------------------------------------------------------------
+-- 6. We do not store EINs (owner decision 2026-09-30: no use for them, only liability). The column is empty (0 of 2 rows) and
+--    the only path that could write it, rpc_create_or_update_entity, is dropped above. manage-entities no longer writes it
+--    either, so deploy that function BEFORE applying this (an insert naming a missing column would fail).
+--    bank_name is handled separately: two rows currently hold a value; see README (decision pending).
+---------------------------------------------------------------------------------------------------------------------
+ALTER TABLE public.entities DROP COLUMN IF EXISTS ein;
+
 COMMIT;

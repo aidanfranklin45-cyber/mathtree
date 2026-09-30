@@ -33,7 +33,7 @@ diff (`supabase/functions/**`, `src/**`) and only take effect when deployed.
 - Daily job authenticated with the public anon key, monthly job sent no credential: replaced with a Vault-backed shared secret (draft 03).
 - Undo tokens were `md5(random() || clock)` (guessable); token table had excess client privileges. Fixed (3f).
 - 31 SECURITY DEFINER functions were executable by `anon`; 8 had a mutable `search_path`. Revoked / pinned / dropped.
-- EINs are stored in plaintext in `entities.ein` (protected by row-level security). Not changed; consider encrypting.
+- EINs: the `entities.ein` column is empty (0 of 2 rows) and `manage-entities` already wrote `null`; owner decision is to never store them. Column dropped in draft 01 (6), code no longer references it. `entities.bank_name` still holds a value in both rows: decision pending (drop the column, or clear the values and keep it).
 - Leaked-password protection is off (dashboard: Auth → Passwords). Not SQL.
 
 ### Reviewed and sound
@@ -56,7 +56,7 @@ Every table has row-level security with policies.
 
 - **App** (Firebase): the Operations page and Alert Settings now send the signed-in user's token to the monitor function.
 - **Edge functions** (Supabase): `configure-lease-terms`, `cron-daily-lease-monitor`, `batch-sync-gis`, `generate-pdf-brief`,
-  plus the new `_shared/auth.ts`. Deploy per function: `npx supabase functions deploy <name> --project-ref bgexwcepwbxvhxbpblhd --no-verify-jwt --use-api`.
+  `manage-entities` (no longer writes `ein`; must be live before draft 01 drops the column), plus the new `_shared/auth.ts`. Deploy per function: `npx supabase functions deploy <name> --project-ref bgexwcepwbxvhxbpblhd --no-verify-jwt --use-api`.
 
 ## Rollout order (matters)
 
@@ -64,7 +64,7 @@ Every table has row-level security with policies.
    old functions ignore, so nothing breaks yet.
 2. Choose the cron secret. Set it as the `CRON_SECRET` edge secret and in Vault (steps at the top of `03_cron_secret.sql`).
 3. Apply **03** (jobs now send the secret; harmless to the old functions).
-4. Deploy the four **edge functions**. They now require the user token / cron secret. (If they were deployed before step 3
+4. Deploy the five **edge functions** (the four above plus `manage-entities`). They now require the user token / cron secret. (If they were deployed before step 3
    the daily and monthly jobs would be rejected until 03 is applied.)
 5. Apply **01** (after the app is deployed, so baselines are captured by the app, not the old SQL function).
 6. Smoke-test: Operations page (Send reminder, Sync monitor, Alert test email, Edit lease), PDF brief, Sync pro-forma, alerts,
@@ -73,10 +73,16 @@ Every table has row-level security with policies.
 
 ## Decisions still open
 
-1. **Lease rent auto-sync (draft 01, 3g).** Today every lease change silently rewrites the deal's rent inputs to match the
-   rent roll. The draft keeps that (facts only, no calculator). Alternative: drop the trigger and rely on the explicit
-   "Sync pro-forma to actuals" action, so revenue variance stays visible. Which do you want?
-2. **Cron secret value and who sets it** (step 2). It changes production secrets, so it is yours or needs your explicit go-ahead.
+1. **Lease rent auto-sync (draft 01, 3g): direction agreed, design pending.** The current pro-forma of an OWNED deal is the live
+   picture of what it is actually making, so it should follow the rent roll automatically; the comparison that matters is
+   frozen baseline vs current. The 3g trigger is only an interim, partial version (it writes `monthlyRent`/`grossRentAnnual`,
+   which the engine ignores when the deal has explicit leases). Proposed replacement: derive the owned deal's leases from the
+   `leases` table on the fly (no sync, one source of truth), then retire the trigger, `rpc_sync_proforma_to_actuals`, the
+   manual "Sync pro-forma" buttons and the revenue-variance alert. Needs your go-ahead.
+2. **Cron secret** (step 2): there is no `CRON_SECRET` edge secret yet (only RESEND_*/SUPABASE_*). The edge-function side stays an edge
+   secret; the database scheduler needs its own copy in Vault because it cannot read edge secrets. Setting it changes
+   production secrets, so it is yours or needs your explicit go-ahead.
+3. **`entities.bank_name`**: drop the column (deletes 2 values) or clear and keep.
 
 ## Not yet done
 
