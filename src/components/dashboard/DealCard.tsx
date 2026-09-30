@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
@@ -59,7 +59,7 @@ const AssetIcon: React.FC<{ assetClass: string }> = ({ assetClass }) => {
 
 const menuItem = 'w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition';
 
-export const DealCard: React.FC<DealCardProps> = ({ deal, entities = [], onEdit, onDelete, onToggleStatus, onShare }) => {
+const DealCardComponent: React.FC<DealCardProps> = ({ deal, entities = [], onEdit, onDelete, onToggleStatus, onShare }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -75,9 +75,9 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, entities = [], onEdit,
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  // Everything below is computed from the deal's inputs on render; nothing is stored
-  const pit = resolvePointInTimeDealMetrics(deal, new Date());
-  const engine = tryComputeDealMetrics(deal);
+  // Everything below is computed on demand from the deal's inputs; memoized on deal identity
+  const pit = useMemo(() => resolvePointInTimeDealMetrics(deal, new Date()), [deal]);
+  const engine = useMemo(() => tryComputeDealMetrics(deal), [deal]);
   const inputs = deal.inputs || {};
   const aClass = String(deal.asset_class || deal.assetType || 'single-family');
   const dealTitle = resolveDealDisplayName(deal);
@@ -313,3 +313,5 @@ export const DealCard: React.FC<DealCardProps> = ({ deal, entities = [], onEdit,
     </div>
   );
 };
+
+export const DealCard = React.memo(DealCardComponent);

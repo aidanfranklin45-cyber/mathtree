@@ -15,6 +15,8 @@ globs: "**/*"
 ## 2. ARCHITECTURAL BLUEPRINT (ON DEMAND)
 - **Do Not Guess Schemas:** For database entities, Supabase tables/views, math formulas, or component layouts, read `@ARCHITECTURE.md` on demand.
 
-## 3. DEPLOYMENT Procedure
-- **once task is complete** have the user run the build and if the comes out clean then push to main and deploy do not run tests.
+## 3. GIT WORKFLOW & PR PROCEDURE (STRICT BRANCH ISOLATION)
+- **No Direct Pushes to Main:** You are STRICTLY FORBIDDEN from pushing directly to `main`.
+- **Isolated Branches:** All code modifications, investigations, and refactors MUST be developed on an isolated Git branch (e.g., `feat/*`, `fix/*`, `perf/*`).
+- **Post via Pull Request:** Once tasks and single-file verifications are complete, push the isolated branch to `origin` and present the PR link for the user to review and merge into `main`.
 
