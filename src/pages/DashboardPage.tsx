@@ -17,6 +17,7 @@ import { EntityManagerModal } from '../components/layout/EntityManagerModal';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import type { DealTopPatch } from '../stores/useDealStore';
 import { recordScenarioRun } from '../lib/scenarios';
+import { ensureBaseline } from '../lib/baselines/db';
 import {
   Building,
   Plus,
@@ -163,6 +164,8 @@ export const DashboardPage: React.FC = () => {
       setDeals((prev) =>
         prev.map((d) => (d.id === deal.id ? { ...d, status: nextStatus } : d)),
       );
+      // Freeze what we expected at acquisition the moment a deal becomes Owned
+      if (nextStatus === 'owned') void ensureBaseline({ ...deal, status: 'owned' });
     } catch (err) {
       console.error('Failed to toggle deal status:', err);
     }
@@ -187,6 +190,7 @@ export const DashboardPage: React.FC = () => {
     const merged = { ...target, ...top, purchase_price: payload.purchase_price, inputs } as DealRecord;
     setDeals((prev) => prev.map((d) => (d.id === target.id ? merged : d)));
     await recordScenarioRun(merged);
+    if (merged.status === 'owned') void ensureBaseline(merged);
     return true;
   };
 
