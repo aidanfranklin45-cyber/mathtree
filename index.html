@@ -1861,60 +1861,73 @@
     const { createClient } = window.supabase;
     const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Timeout notice check
-    (function checkTimeoutNotice() {
+    // Timeout, logout, or loop notice check & session purge
+    (function handleAuthStatus() {
       try {
         var params = new URLSearchParams(window.location.search);
-        if (params.get('reason') === 'timeout') {
-          var banner = document.createElement('div');
-          banner.id = 'timeout-notification-banner';
-          banner.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-[99999] max-w-md w-11/12 bg-amber-500/15 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-2xl text-xs flex items-center justify-between shadow-2xl shadow-amber-950/40 backdrop-blur-md transition-all';
-          banner.innerHTML = [
-            '<div class="flex items-center space-x-2.5">',
-            '  <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">',
-            '    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />',
-            '  </svg>',
-            '  <span>You were automatically signed out after <strong>30 minutes of inactivity</strong>.</span>',
-            '</div>',
-            '<button onclick="this.parentElement.remove()" class="text-amber-400/80 hover:text-amber-200 ml-3 font-bold text-sm leading-none p-1">✕</button>'
-          ].join('');
-          document.body.appendChild(banner);
+        var reason = params.get('reason');
+        if (reason) {
+          // Explicit sign-out reason provided: clear all local residue and ensure Supabase client signs out
+          if (window.MathTreeSession && window.MathTreeSession.clearSessionStorage) {
+            window.MathTreeSession.clearSessionStorage();
+          }
+          _supabase.auth.signOut().catch(function() {});
+
+          var bannerText = '';
+          if (reason === 'timeout') {
+            bannerText = 'You were automatically signed out after <strong>30 minutes of inactivity</strong>.';
+          } else if (reason === 'loop_detected') {
+            bannerText = 'A session error was detected and your session was reset. Please sign in again.';
+          } else if (reason === 'logout') {
+            bannerText = 'You have been signed out.';
+          }
+
+          if (bannerText) {
+            var banner = document.createElement('div');
+            banner.id = 'timeout-notification-banner';
+            banner.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-[99999] max-w-md w-11/12 bg-amber-500/15 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-2xl text-xs flex items-center justify-between shadow-2xl shadow-amber-950/40 backdrop-blur-md transition-all';
+            banner.innerHTML = [
+              '<div class="flex items-center space-x-2.5">',
+              '  <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">',
+              '    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />',
+              '  </svg>',
+              '  <span>' + bannerText + '</span>',
+              '</div>',
+              '<button onclick="this.parentElement.remove()" class="text-amber-400/80 hover:text-amber-200 ml-3 font-bold text-sm leading-none p-1">✕</button>'
+            ].join('');
+            document.body.appendChild(banner);
+          }
+
           if (window.history && window.history.replaceState) {
             var cleanUrl = window.location.pathname + window.location.hash;
             window.history.replaceState(null, '', cleanUrl);
           }
+          return; // STOP! Never auto-redirect to dashboard when arriving with a signout reason
         }
+
+        // Auto-redirect if already signed in and active (only if no signout reason was given)
+        _supabase.auth.getSession().then(function(result) {
+          var session = result.data && result.data.session;
+          if (session) {
+            if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
+              if (window.MathTreeSession.clearSessionStorage) {
+                window.MathTreeSession.clearSessionStorage();
+              }
+              _supabase.auth.signOut().catch(function() {});
+              return;
+            }
+            window.location.replace('/dashboard');
+          }
+        });
+
+        _supabase.auth.onAuthStateChange(function(event, session) {
+          if (event === 'SIGNED_IN' && session) {
+            if (window.MathTreeSession) window.MathTreeSession.resetSession();
+            window.location.replace('/dashboard');
+          }
+        });
       } catch (e) {}
     })();
-
-    // Auto-redirect if already signed in and active
-    _supabase.auth.getSession().then(function(result) {
-      var session = result.data && result.data.session;
-      if (session) {
-        if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
-          if (window.MathTreeSession.clearSessionStorage) {
-            window.MathTreeSession.clearSessionStorage();
-          }
-          _supabase.auth.signOut().catch(function() {});
-          return;
-        }
-        window.location.replace('dashboard.html');
-      }
-    });
-
-    _supabase.auth.onAuthStateChange(function(event, session) {
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        if (event !== 'SIGNED_IN' && window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
-          if (window.MathTreeSession.clearSessionStorage) {
-            window.MathTreeSession.clearSessionStorage();
-          }
-          _supabase.auth.signOut().catch(function() {});
-          return;
-        }
-        if (window.MathTreeSession) window.MathTreeSession.resetSession();
-        window.location.replace('dashboard.html');
-      }
-    });
 
     // Demo Sandbox Launcher (1-click institutional access)
     function launchDemoSandbox() {
@@ -1927,7 +1940,7 @@
         email: 'sandbox-guest@mathtree.internal',
         name: 'Institutional Sandbox'
       }));
-      window.location.href = 'dashboard.html';
+      window.location.href = '/dashboard';
     }
 
     // Bind UI CTAs
@@ -2551,7 +2564,7 @@
       var result = await _supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/dashboard.html',
+          redirectTo: window.location.origin + '/dashboard',
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account'
@@ -2578,7 +2591,7 @@
       } else {
         if (window.MathTreeSession) window.MathTreeSession.resetSession();
         if (result.data && result.data.session) {
-          window.location.replace('dashboard.html');
+          window.location.replace('/dashboard');
         }
       }
     }
@@ -2598,7 +2611,7 @@
         setAuthMsg(result.error.message, true);
       } else if (result.data && result.data.session) {
         if (window.MathTreeSession) window.MathTreeSession.resetSession();
-        window.location.replace('dashboard.html');
+        window.location.replace('/dashboard');
       } else {
         setAuthMsg('✅ Verification link sent to your institutional email.', false);
       }

@@ -103,7 +103,12 @@
         if (typeof storage.length === 'number' && typeof storage.key === 'function') {
           for (var i = storage.length - 1; i >= 0; i--) {
             var key = storage.key(i);
-            if (key && (key.indexOf('mathtree_deals_') === 0 || key.indexOf('mathtree_local_') === 0 || key.indexOf('mathtree_demo_') === 0)) {
+            if (key && (
+              key.indexOf('mathtree_deals_') === 0 ||
+              key.indexOf('mathtree_local_') === 0 ||
+              key.indexOf('mathtree_demo_') === 0 ||
+              (key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1)
+            )) {
               storage.removeItem(key);
             }
           }
@@ -114,7 +119,7 @@
 
   function logout(reason, supabaseClient, redirectUrl) {
     reason = reason || 'timeout';
-    redirectUrl = redirectUrl || ('index.html' + (reason === 'timeout' ? '?reason=timeout' : ''));
+    redirectUrl = redirectUrl || ('/' + (reason === 'timeout' ? '?reason=timeout' : ''));
 
     clearSessionStorage();
     hideWarningModal();
@@ -129,7 +134,7 @@
         var currentPath = window.location.pathname || '';
         var isLandingPage = currentPath.endsWith('index.html') || currentPath === '/' || currentPath === '';
         // If already on landing page and redirect target is also landing page, do not trigger a reload
-        if (isLandingPage && (redirectUrl.indexOf('index.html') !== -1 || redirectUrl.startsWith('/?'))) {
+        if (isLandingPage && (redirectUrl === '/' || redirectUrl.indexOf('index.html') !== -1 || redirectUrl.startsWith('/?') || redirectUrl.startsWith('?'))) {
           return;
         }
         window.location.replace(redirectUrl);

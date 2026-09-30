@@ -18,17 +18,22 @@ interface AppHeaderProps {
 export async function signOutOfMathTree(): Promise<void> {
   try {
     ['mathtree_local_deals', 'mathtree_demo_deals', 'mathtree_demo_mode', 'mathtree_active_user',
-      'mathtree_active_deal', 'mathtree_active_deal_id'].forEach((k) => localStorage.removeItem(k));
+      'mathtree_active_deal', 'mathtree_active_deal_id', 'mathtree_last_activity'].forEach((k) => localStorage.removeItem(k));
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith('mathtree_deals_') || key.startsWith('mathtree_local_') || key.startsWith('mathtree_demo_'))) {
+      if (key && (
+        key.startsWith('mathtree_deals_') ||
+        key.startsWith('mathtree_local_') ||
+        key.startsWith('mathtree_demo_') ||
+        (key.startsWith('sb-') && key.includes('-auth-token'))
+      )) {
         localStorage.removeItem(key);
       }
     }
     sessionStorage.removeItem('mathtree_active_deal_id');
   } catch { /* storage unavailable */ }
   try { await supabase.auth.signOut(); } catch { /* fall through to redirect */ }
-  window.location.replace('/index.html');
+  window.location.replace('/?reason=logout');
 }
 
 const navBase = 'px-3 py-1.5 rounded-lg text-xs transition';

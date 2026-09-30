@@ -85,7 +85,7 @@ export const DashboardPage: React.FC = () => {
     try {
       ['mathtree_demo_mode', 'mathtree_demo_deals', 'mathtree_entities_cache', 'mathtree_selected_entity_id'].forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
-    window.location.href = '/index.html';
+    window.location.replace('/');
   };
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
