@@ -37,7 +37,8 @@ export function useNotifications() {
       }
       if (!uid || !UUID.test(uid)) return;
       const { data, error } = await supabase.rpc('rpc_evaluate_deal_notifications' as never, { p_user_id: uid } as never);
-      if (!error && Array.isArray(data)) setNotifications(data as AppNotification[]);
+      // Revenue-variance alerts (old "sync pro-forma" prompts) are retired: the underwriting is never rewritten to match events
+      if (!error && Array.isArray(data)) setNotifications((data as AppNotification[]).filter((n) => n.notif_type !== 'revenue_variance'));
     } catch (err) {
       console.warn('[notifications] refresh failed:', err);
     } finally {
@@ -66,19 +67,5 @@ export function useNotifications() {
     setNotifications((prev) => prev.filter((n) => n.notification_id !== id));
   }, []);
 
-  /** Copies the live rent roll income into the deal's pro-forma inputs, then drops the variance alert. */
-  const syncProFormaToActuals = useCallback(async (dealId: string, actualMonthlyRent: number): Promise<boolean> => {
-    const { error } = await supabase.rpc('rpc_sync_proforma_to_actuals' as never, {
-      p_deal_id: dealId,
-      p_actual_monthly_rent: Number(actualMonthlyRent) || 0,
-    } as never);
-    if (error) {
-      console.error('[notifications] sync failed:', error);
-      return false;
-    }
-    setNotifications((prev) => prev.filter((n) => !(n.target_deal_id === dealId && n.notif_type === 'revenue_variance')));
-    return true;
-  }, []);
-
-  return { notifications, loading, refresh, dismiss, syncProFormaToActuals };
+    return { notifications, loading, refresh, dismiss };
 }

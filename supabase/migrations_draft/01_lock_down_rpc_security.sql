@@ -53,60 +53,9 @@ ALTER FUNCTION public.undo_rent_reconciliation(text)            SET search_path 
 -- 3. Functions with no caller check: rewrite the two the app uses so they only act for the signed-in user; the rest are dropped (5).
 ---------------------------------------------------------------------------------------------------------------------
 
--- 3a. Sync pro-forma rent to the actual rent roll: owner or an editor the deal was shared with.
-CREATE OR REPLACE FUNCTION public.rpc_sync_proforma_to_actuals(p_deal_id uuid, p_actual_monthly_rent numeric)
- RETURNS jsonb
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path = public
-AS $function$
-DECLARE
-  v_deal RECORD;
-  v_updated_inputs JSONB;
-  v_uid uuid := auth.uid();
-BEGIN
-  IF v_uid IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Authentication required');
-  END IF;
-
-  SELECT * INTO v_deal FROM public.deals WHERE id = p_deal_id;
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Deal not found');
-  END IF;
-
-  IF v_deal.user_id <> v_uid AND NOT EXISTS (
-    SELECT 1 FROM public.deal_shares s
-    WHERE s.deal_id = p_deal_id AND s.shared_with_user_id = v_uid AND s.permission = 'editor'
-  ) THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Not authorized for this deal');
-  END IF;
-
-  IF p_actual_monthly_rent IS NULL OR p_actual_monthly_rent < 0 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Invalid rent amount');
-  END IF;
-
-  v_updated_inputs := COALESCE(v_deal.inputs, '{}'::jsonb);
-  v_updated_inputs := jsonb_set(v_updated_inputs, '{grossRentPerMonth}', to_jsonb(p_actual_monthly_rent));
-  v_updated_inputs := jsonb_set(v_updated_inputs, '{grossRentAnnual}', to_jsonb(p_actual_monthly_rent * 12.0));
-  IF v_updated_inputs ? 'monthlyRent' THEN
-    v_updated_inputs := jsonb_set(v_updated_inputs, '{monthlyRent}', to_jsonb(p_actual_monthly_rent));
-  END IF;
-
-  UPDATE public.deals SET inputs = v_updated_inputs, updated_at = NOW() WHERE id = p_deal_id;
-
-  UPDATE public.app_notifications
-  SET is_dismissed = true, is_read = true, updated_at = NOW()
-  WHERE deal_id = p_deal_id AND type = 'revenue_variance';
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'deal_id', p_deal_id,
-    'new_monthly_rent', p_actual_monthly_rent,
-    'new_annual_rent', p_actual_monthly_rent * 12.0,
-    'message', 'Pro-forma successfully synchronized with actual operational revenue.'
-  );
-END;
-$function$;
+-- 3a. rpc_sync_proforma_to_actuals is DROPPED (section 5), not repaired. Owner decision 2026-09-30: the transactions and leases
+--     are the record of what actually happened; nothing may one-click rewrite the underwriting to match them. The gap
+--     between the underwriting / frozen baseline and reality is what the app reports, so it must stay visible.
 
 -- 3c. Notifications: always the caller's own. The p_user_id parameter is kept so the current client keeps working,
 --     but it must equal the caller (otherwise nothing is returned). Also no longer captures a stored-metrics baseline.
@@ -178,48 +127,7 @@ BEGIN
       WHERE an.user_id = v_uid AND an.deal_id = v_deal.id AND an.type = 'entity_missing' AND an.is_dismissed = false;
     END IF;
 
-    -- RULE C: Revenue variance (reported operations vs pro-forma)
-    IF v_active_leases_count > 0 THEN
-      v_projected_rent_monthly := COALESCE(
-        NULLIF(NULLIF(v_deal.inputs->>'grossRentAnnual', '')::numeric, 0) / 12.0,
-        NULLIF(v_deal.inputs->>'grossRentPerMonth', '')::numeric,
-        NULLIF(v_deal.inputs->>'monthlyRent', '')::numeric,
-        0
-      );
-
-      IF v_projected_rent_monthly > 0 THEN
-        v_variance_usd := v_active_rent_total - v_projected_rent_monthly;
-        v_variance_pct := ROUND(((v_variance_usd / v_projected_rent_monthly) * 100.0), 1);
-
-        IF ABS(v_variance_pct) >= 5.0 OR ABS(v_variance_usd) >= 150.0 THEN
-          IF NOT EXISTS (
-            SELECT 1 FROM public.app_notifications n
-            WHERE n.user_id = v_uid AND n.deal_id = v_deal.id AND n.type = 'revenue_variance' AND n.is_dismissed = false
-          ) THEN
-            INSERT INTO public.app_notifications (user_id, deal_id, type, severity, title, message, action_type, action_payload)
-            VALUES (
-              v_uid, v_deal.id, 'revenue_variance', 'warning',
-              'Revenue Variance Detected · ' || v_deal.title,
-              'Actual monthly rent roll ($' || TO_CHAR(v_active_rent_total, 'FM999,999,999') || '/mo) differs from your prospective pro-forma ($' || TO_CHAR(v_projected_rent_monthly, 'FM999,999,999') || '/mo) by ' || (CASE WHEN v_variance_pct > 0 THEN '+' ELSE '' END) || v_variance_pct || '%. Confirm to synchronize your pro-forma model to this real revenue.',
-              'sync_proforma_income',
-              jsonb_build_object(
-                'deal_id', v_deal.id, 'deal_title', v_deal.title,
-                'actual_monthly_rent', v_active_rent_total, 'projected_monthly_rent', v_projected_rent_monthly,
-                'variance_pct', v_variance_pct
-              )
-            );
-          END IF;
-        ELSE
-          UPDATE public.app_notifications an
-          SET is_dismissed = true, is_read = true, updated_at = NOW()
-          WHERE an.user_id = v_uid AND an.deal_id = v_deal.id AND an.type = 'revenue_variance' AND an.is_dismissed = false;
-        END IF;
-      END IF;
-    ELSE
-      UPDATE public.app_notifications an
-      SET is_dismissed = true, is_read = true, updated_at = NOW()
-      WHERE an.user_id = v_uid AND an.deal_id = v_deal.id AND an.type = 'revenue_variance' AND an.is_dismissed = false;
-    END IF;
+    -- (Revenue-variance alerts were retired: they existed only to prompt a pro-forma sync.)
 
     -- RULE D: Incomplete lease terms (missing start date)
     FOR v_lease IN SELECT * FROM public.leases l WHERE l.deal_id = v_deal.id AND l.is_active = true LOOP
@@ -251,6 +159,10 @@ BEGIN
 END;
 $function$;
 
+
+-- Retire existing revenue-variance alerts (they prompted a sync that no longer exists).
+UPDATE public.app_notifications SET is_dismissed = true, is_read = true, updated_at = now()
+WHERE type = 'revenue_variance' AND is_dismissed = false;
 
 ---------------------------------------------------------------------------------------------------------------------
 -- 3e. Baselines = "what we expected when we bought it". deal_baselines is a dated, frozen record of the pro-forma at
@@ -416,52 +328,19 @@ $function$;
 REVOKE ALL ON public.reconciliation_tokens FROM anon, authenticated;
 
 ---------------------------------------------------------------------------------------------------------------------
--- 3g. Lease rent sync (trigger on leases). AUDIT FINDING: fn_sync_lease_to_deal called rpc_recalculate_deal, the DB-side
---     calculator that also writes the stored analysis columns. Dropping the calculator (section 5) or the columns
---     (draft 02) would have made EVERY lease insert / update / delete fail. Rewritten to keep the behaviour (the deal's
---     monthly / annual rent inputs follow the active rent roll) and nothing else. No calculation, no stored analysis.
---     DECISION NEEDED: keep this automatic rent-roll -> pro-forma sync, or drop the trigger and rely on the explicit
---     "Sync pro-forma to actuals" action? (Auto-sync hides revenue variance and reshapes the "current outlook".)
+-- 3g. Lease -> deal rent trigger: DROPPED. AUDIT FINDING: fn_sync_lease_to_deal called rpc_recalculate_deal (dropping the
+--     calculator would have made every lease change fail) and silently rewrote the deal's rent inputs on every lease edit.
+--     Owner decision: real-world events never rewrite the underwriting. (The Operations lease forms and the lease edge
+--     function no longer write to the deal either.)
 ---------------------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.fn_sync_lease_to_deal()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path = public
-AS $function$
-DECLARE
-  v_deal_id uuid;
-  v_total_rent numeric;
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    v_deal_id := OLD.deal_id;
-  ELSE
-    v_deal_id := NEW.deal_id;
-  END IF;
-
-  IF v_deal_id IS NOT NULL THEN
-    SELECT COALESCE(SUM(monthly_rent), 0) INTO v_total_rent
-    FROM public.leases
-    WHERE deal_id = v_deal_id AND is_active = true;
-
-    IF v_total_rent > 0 THEN
-      UPDATE public.deals
-      SET inputs = COALESCE(inputs, '{}'::jsonb)
-                   || jsonb_build_object('monthlyRent', v_total_rent, 'grossRentAnnual', v_total_rent * 12),
-          updated_at = now()
-      WHERE id = v_deal_id;
-    END IF;
-  END IF;
-
-  RETURN COALESCE(NEW, OLD);
-END;
-$function$;
+DROP TRIGGER IF EXISTS trg_sync_lease_to_deal ON public.leases;
+DROP FUNCTION IF EXISTS public.fn_sync_lease_to_deal();
 
 ---------------------------------------------------------------------------------------------------------------------
 -- 3h. Daily rent escalations (called by the cron edge function with the service role). AUDIT FINDING: its last block
---     recomputed stored analysis for every touched deal (metrics, valuation, total_equity) with its own copy of the math,
---     and would break when those columns are dropped. The lease UPDATE above already fires fn_sync_lease_to_deal, so
---     that block was also redundant for the rent inputs. Removed; the escalation logic itself is unchanged.
+--     recomputed stored analysis for every touched deal (metrics, valuation, total_equity) and rewrote the deal's rent
+--     inputs, with its own copy of the math; it would also break when those columns are dropped. Removed: escalations now
+--     only update the LEASE (and rent_increases). The escalation logic itself is unchanged.
 ---------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.execute_scheduled_rent_escalations()
  RETURNS jsonb
@@ -643,10 +522,9 @@ $function$;
 
 ---------------------------------------------------------------------------------------------------------------------
 -- 4. What signed-in users may still call: no anon access, pinned search_path.
---    (Only two user-facing functions remain: rpc_sync_proforma_to_actuals and rpc_evaluate_deal_notifications; everything
+--    (Only one user-facing function remains: rpc_evaluate_deal_notifications; everything
 --    else the app does goes through row-level-security tables and the edge functions.)
 ---------------------------------------------------------------------------------------------------------------------
-REVOKE EXECUTE ON FUNCTION public.rpc_sync_proforma_to_actuals(uuid, numeric)              FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.rpc_evaluate_deal_notifications(uuid)                    FROM PUBLIC, anon;
 ALTER FUNCTION public.sync_profile_preferences()                                           SET search_path = public;
 
@@ -656,6 +534,7 @@ ALTER FUNCTION public.sync_profile_preferences()                                
 --    under row-level security. Checked: no other database function calls any of these once 3c / 3g / 3h are in place.
 --    (rpc_recalculate_deal and rpc_get_debt_schedule are DB-side copies of the financial engine; there must be one engine.)
 ---------------------------------------------------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.rpc_sync_proforma_to_actuals(uuid, numeric);
 DROP FUNCTION IF EXISTS public.rpc_recalculate_deal(uuid, jsonb);
 DROP FUNCTION IF EXISTS public.rpc_get_debt_schedule(numeric, numeric, integer, integer);
 DROP FUNCTION IF EXISTS public.schedule_advance_rent_increase(uuid, date, numeric, text, text, numeric);
@@ -680,8 +559,9 @@ DROP FUNCTION IF EXISTS public.rpc_get_deal_parameter_history(uuid);
 -- 6. We do not store EINs (owner decision 2026-09-30: no use for them, only liability). The column is empty (0 of 2 rows) and
 --    the only path that could write it, rpc_create_or_update_entity, is dropped above. manage-entities no longer writes it
 --    either, so deploy that function BEFORE applying this (an insert naming a missing column would fail).
---    bank_name is handled separately: two rows currently hold a value; see README (decision pending).
+--    Bank name is dropped the same way (owner decision 2026-09-30): two rows currently hold a value, which is deleted with the column.
 ---------------------------------------------------------------------------------------------------------------------
 ALTER TABLE public.entities DROP COLUMN IF EXISTS ein;
+ALTER TABLE public.entities DROP COLUMN IF EXISTS bank_name;
 
 COMMIT;

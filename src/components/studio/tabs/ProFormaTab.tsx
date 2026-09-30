@@ -32,7 +32,6 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdat
   const [endDate, setEndDate] = useState<string | null>(inputs.monthlyEndDate || null);
   const [showVarianceDetails, setShowVarianceDetails] = useState(false);
   const [actualMonthly, setActualMonthly] = useState<number | null>(null);
-  const [syncing, setSyncing] = useState(false);
 
   // ---- Property Management vs Pro-Forma variance (live rent roll) ----
   useEffect(() => {
@@ -53,13 +52,6 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdat
   const absPct = Math.abs(varPct);
   const accuracy = Math.max(0, Math.min(100, Math.round(100 - absPct)));
   const showVariance = actualMonthly !== null && !(projMonthly <= 0 && actual <= 0) && !(absPct < 5.0 || Math.abs(varUsd) < 100);
-
-  const syncProForma = async () => {
-    setSyncing(true);
-    const { error } = await supabase.rpc('rpc_sync_proforma_to_actuals' as never, { p_deal_id: deal.id, p_actual_monthly_rent: actual } as never);
-    setSyncing(false);
-    if (!error) onReloadDeal?.();
-  };
 
   // ---- Stub-year proration label ----
   const closing = String(inputs.closingDate || inputs.loiDate || '');
@@ -120,12 +112,6 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdat
               </div>
             </div>
             <div className="flex items-center space-x-2 shrink-0">
-              {actual > 0 && (
-                <button type="button" disabled={syncing} onClick={syncProForma}
-                  className="px-3 py-1 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition disabled:opacity-60">
-                  <span>⚡ Sync Pro-Forma (${Math.round(actual).toLocaleString()}/mo)</span>
-                </button>
-              )}
               <Link to="/operations" className="px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800 hover:bg-emerald-900 transition">Property Management →</Link>
               <button type="button" onClick={() => setShowVarianceDetails((v) => !v)} className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900 border border-slate-800 hover:text-white transition">
                 <span>{showVarianceDetails ? 'Hide Details ▴' : 'View Details ▾'}</span>

@@ -28,6 +28,8 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
   const [escalationType, setEscalationType] = useState<string>('Percentage Bump (%)');
   const [escalationRate, setEscalationRate] = useState<string>('3.0');
   const [nextEscalationDate, setNextEscalationDate] = useState<string>('');
+  const [dueDay, setDueDay] = useState<string>('1');
+  const [graceDays, setGraceDays] = useState<string>('5');
   const [tenantEmail, setTenantEmail] = useState<string>('');
   const [tenantPhone, setTenantPhone] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
@@ -88,6 +90,8 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
           escalation_frequency: 'Annual on Anniversary',
           last_rent_increase_date: leaseStartDate || new Date().toISOString().slice(0, 10),
           next_escalation_date: nextEscalationDate || null,
+          payment_due_day: Math.min(31, Math.max(1, parseInt(dueDay, 10) || 1)),
+          grace_period_days: Math.min(60, Math.max(0, parseInt(graceDays, 10) || 0)),
           tenant_email: tenantEmail.trim() || null,
           tenant_phone: tenantPhone.trim() || null,
           notes: notes.trim() || null,
@@ -141,46 +145,8 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
         }
       }
 
-      // 3. Sync to deal.inputs.leases if deal exists
-      const { data: dealData } = await supabase
-        .from('deals')
-        .select('inputs')
-        .eq('id', dealId)
-        .single();
-
-      if (dealData) {
-        const curInputs = (dealData.inputs as Record<string, any>) || {};
-        const curLeases = (curInputs.leases as any[]) || [];
-        const updatedLeases = [
-          ...curLeases,
-          {
-            tenantName: tenantName.trim(),
-            monthlyRent: rentNum,
-            annualRent: rentNum * 12,
-            leaseStartDate: leaseStartDate || new Date().toISOString().slice(0, 10),
-            leaseEndDate: leaseEndDate || '',
-            leaseType: leaseType,
-            escalationType: escalationType,
-            escalationRate: rateNum,
-            nextEscalationDate: nextEscalationDate || '',
-          },
-        ];
-
-        // Recalculate grossRentAnnual
-        const totalGrossRent = updatedLeases.reduce((sum: number, l: any) => sum + (l.monthlyRent * 12), 0);
-
-        await supabase
-          .from('deals')
-          .update({
-            inputs: {
-              ...curInputs,
-              leases: updatedLeases,
-              grossRentAnnual: totalGrossRent,
-              grossRentPerMonth: totalGrossRent / 12,
-            },
-          })
-          .eq('id', dealId);
-      }
+      // The deal's underwriting (pro-forma) inputs are deliberately left alone: the lease records what the contract says,
+      // and the app compares that with the underwriting and the frozen baseline.
 
       onSuccess();
       onClose();
@@ -303,6 +269,21 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
                 onChange={(e) => setLeaseEndDate(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Rent Due Day of Month</label>
+              <input type="number" min="1" max="31" step="1" value={dueDay} onChange={(e) => setDueDay(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums" />
+              <p className="text-[10px] text-slate-500 mt-1">Match the signed lease (e.g. 3 = due on the 3rd).</p>
+            </div>
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Grace Period (days)</label>
+              <input type="number" min="0" max="60" step="1" value={graceDays} onChange={(e) => setGraceDays(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums" />
+              <p className="text-[10px] text-slate-500 mt-1">Days after the due date before rent is overdue.</p>
             </div>
           </div>
 

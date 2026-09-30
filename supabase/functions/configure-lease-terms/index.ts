@@ -54,6 +54,8 @@ export interface ConfigureLeaseTermsPayload {
   escalation_frequency?: string | null;
   next_escalation_date?: string | null;
   notification_email?: string | null;
+  payment_due_day?: number | null;
+  grace_period_days?: number | null;
   notes?: string | null;
   scheduled_escalations?: ScheduledEscalationStep[];
   demo?: boolean;
@@ -174,6 +176,9 @@ export async function handleRequest(req: Request): Promise<Response> {
     const tenantPhone = payload.tenant_phone ? String(payload.tenant_phone).trim() : null;
     const notificationEmail = payload.notification_email ? String(payload.notification_email).trim() : null;
     const rawLeaseId = payload.lease_id || payload.id || null;
+    // Rent due day (1-31) and grace days: these must match the signed lease, so they are editable per lease
+    const dueDayRaw = parseInt(String(payload.payment_due_day ?? ""), 10);
+    const graceRaw = parseInt(String(payload.grace_period_days ?? ""), 10);
 
     const isRealUuid = (id: string | null | undefined): boolean => {
       return Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
@@ -277,6 +282,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         notes: payload.notes || null,
         updated_at: new Date().toISOString(),
       };
+      if (dueDayRaw >= 1 && dueDayRaw <= 31) leaseRecord.payment_due_day = dueDayRaw;
+      if (graceRaw >= 0 && graceRaw <= 60) leaseRecord.grace_period_days = graceRaw;
 
       if (payload.unit_id && isRealUuid(payload.unit_id)) {
         leaseRecord.unit_id = payload.unit_id;
@@ -378,51 +385,9 @@ export async function handleRequest(req: Request): Promise<Response> {
         }
       }
 
-      // 4. Synchronize parent deal inputs so model accuracy & pro-formas update immediately
-      const currentInputs = (deal.inputs && typeof deal.inputs === "object")
-        ? { ...(deal.inputs as Record<string, unknown>) }
-        : {};
-
-      currentInputs.monthlyRent = monthlyRent;
-      currentInputs.grossRentPerMonth = monthlyRent;
-      currentInputs.grossRentAnnual = Math.round(monthlyRent * 12);
-      currentInputs.tenantName = tenantName;
-      if (escRate) currentInputs.rentGrowthPercent = escRate;
-      if (escType) currentInputs.escalationType = escType;
-      if (nextEscDate) currentInputs.nextEscalationDate = nextEscDate;
-
-      // Update leases array in deal inputs if present
-      if (Array.isArray(currentInputs.leases)) {
-        const existingIdx = currentInputs.leases.findIndex(
-          (l: any) => l.id === realLeaseId || l.id === rawLeaseId
-        );
-        const leasePayload = {
-          id: realLeaseId,
-          tenantName,
-          monthlyRent,
-          leaseStartDate,
-          leaseEndDate,
-          securityDeposit,
-          escalationType: escType,
-          escalationRate: escRate,
-          escalationFrequency: escFreq,
-          nextEscalationDate: nextEscDate,
-        };
-        if (existingIdx >= 0) {
-          currentInputs.leases[existingIdx] = leasePayload;
-        } else {
-          currentInputs.leases.push(leasePayload);
-        }
-      }
-
-      // Persist updated deal inputs (facts only; analysis is computed on demand)
-      await dbClient
-        .from("deals")
-        .update({
-          inputs: currentInputs,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", dealId);
+      // The deal's underwriting inputs are NOT touched here. The lease and its payments are the record of what
+      // actually happened; the pro-forma and the frozen baseline stay the owner's expectations, and the gap between
+      // them is exactly what the app reports. (This used to overwrite the deal's rent and lease list on every save.)
 
       return jsonResponse({
         success: true,

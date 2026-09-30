@@ -68,6 +68,8 @@ export function seedForm(deal: DealRecord): Form {
     leaseEnd: str(lease.leaseEndDate || i.leaseEndDate),
     escalationType: str(lease.escalationType, 'Percentage Bump (%)'),
     nextEscalation: str(lease.nextEscalationDate),
+    dueDay: str(lease.paymentDueDay, 1),
+    graceDays: str(lease.gracePeriodDays, 5),
     expiryAssumption: str(lease.expiryAssumption, 'none'),
     extensionYears: str(lease.extensionYears, 5),
     extensionRentChangePct: str(lease.extensionRentChangePct, 0),

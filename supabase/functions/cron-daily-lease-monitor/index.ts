@@ -663,6 +663,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         notification_email,
         user_id,
         deal_id,
+        lease_start_date,
         deals ( id, title, user_id ),
         units ( unit_number, unit_type )
       `)
@@ -674,7 +675,9 @@ export async function handleRequest(req: Request): Promise<Response> {
       for (const lease of activeLeases) {
         if (scopeUserId && lease.user_id !== scopeUserId) continue;
         const userPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
-        const dueDay = Number(lease.payment_due_day) || 1;
+        // A due day of 29-31 falls on the last day of shorter months (otherwise those months would never trigger)
+        const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const dueDay = Math.min(Number(lease.payment_due_day) || 1, lastDayOfMonth);
         const advanceDays = Number(userPrefs.advance_notice_days) || 0;
 
         let shouldSend = false;
@@ -690,6 +693,23 @@ export async function handleRequest(req: Request): Promise<Response> {
           if (advanceDays === 0 || userPrefs.remind_on_due !== false) {
             shouldSend = true;
             isAdvanceNotice = false;
+          }
+        }
+        // Catch-up: if a run was missed or failed on the due day, still send this month's reminder within a week of it,
+        // unless one already went out for this period or the lease only started after the due date.
+        else if (todayDay > dueDay && todayDay - dueDay <= 7 && userPrefs.remind_on_due !== false) {
+          const dueIso = `${currentPeriodMonth.slice(0, 8)}${String(dueDay).padStart(2, "0")}`;
+          const startedBeforeDue = !lease.lease_start_date || String(lease.lease_start_date) <= dueIso;
+          const { count: alreadySent } = await adminClient
+            .from("reconciliation_tokens")
+            .select("id", { count: "exact", head: true })
+            .eq("lease_id", lease.id)
+            .eq("period_month", currentPeriodMonth)
+            .eq("action", "confirm");
+          if ((alreadySent ?? 0) === 0 && startedBeforeDue) {
+            shouldSend = true;
+            isAdvanceNotice = false;
+            logs.push(`Catch-up reminder for ${lease.tenant_name}: no reminder recorded for this period (due day ${dueDay}).`);
           }
         }
         else if (body.force_all) {

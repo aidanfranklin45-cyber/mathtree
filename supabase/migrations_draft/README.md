@@ -18,6 +18,15 @@ diff (`supabase/functions/**`, `src/**`) and only take effect when deployed.
 | 6 | DB `rpc_evaluate_deal_notifications` | Trusted a passed-in user id: read or create any user's notifications. | draft 01 (3c) |
 | 7 | DB `schedule_advance_rent_increase`, `rpc_get_portfolio_operations_summary` | Same pattern (write rent increases / read operations data for any id). Unused by the app. | dropped, draft 01 (5) |
 
+### The app itself rewrote the underwriting when leases changed (found while working on the rent model)
+
+Saving a lease in Operations (the edge function, `EditLeaseModal`, `AddLeaseModal`), a database trigger, and the daily
+escalation job all overwrote the deal's rent inputs and even replaced its lease list (which would have wiped the lease-expiry
+assumptions). Owner decision: the transactions and leases are the record of what happened, and nothing rewrites the
+underwriting to match. All of those writes are removed (code in this PR; the trigger and sync function are dropped in draft 01).
+The one-click "Sync Pro-Forma" buttons and the revenue-variance alert are gone; the comparison that matters is the frozen baseline
+vs reality (Overview card and the Operations table).
+
 ### Breaks if applied as first drafted (caught by the audit)
 
 - Trigger `trg_sync_lease_to_deal` calls `rpc_recalculate_deal`. Dropping that function (or the stored columns) would make
@@ -33,7 +42,7 @@ diff (`supabase/functions/**`, `src/**`) and only take effect when deployed.
 - Daily job authenticated with the public anon key, monthly job sent no credential: replaced with a Vault-backed shared secret (draft 03).
 - Undo tokens were `md5(random() || clock)` (guessable); token table had excess client privileges. Fixed (3f).
 - 31 SECURITY DEFINER functions were executable by `anon`; 8 had a mutable `search_path`. Revoked / pinned / dropped.
-- EINs: the `entities.ein` column is empty (0 of 2 rows) and `manage-entities` already wrote `null`; owner decision is to never store them. Column dropped in draft 01 (6), code no longer references it. `entities.bank_name` still holds a value in both rows: decision pending (drop the column, or clear the values and keep it).
+- EINs and bank names are never stored (owner decision). `entities.ein` was empty; `entities.bank_name` held a value in both rows. Both columns are dropped in draft 01 (6) (the two bank names are deleted with it) and no code references them.
 - Leaked-password protection is off (dashboard: Auth → Passwords). Not SQL.
 
 ### Reviewed and sound
@@ -54,7 +63,7 @@ Every table has row-level security with policies.
 
 ## Code changes in this PR that need deploying
 
-- **App** (Firebase): the Operations page and Alert Settings now send the signed-in user's token to the monitor function.
+- **App** (Firebase): the Operations page and Alert Settings now send the signed-in user's token to the monitor function; lease forms record the rent due day and grace period and no longer write to the deal; the Operations rent roll shows the next due date; the sync buttons are removed.
 - **Edge functions** (Supabase): `configure-lease-terms`, `cron-daily-lease-monitor`, `batch-sync-gis`, `generate-pdf-brief`,
   `manage-entities` (no longer writes `ein`; must be live before draft 01 drops the column), plus the new `_shared/auth.ts`. Deploy per function: `npx supabase functions deploy <name> --project-ref bgexwcepwbxvhxbpblhd --no-verify-jwt --use-api`.
 
@@ -62,7 +71,7 @@ Every table has row-level security with policies.
 
 1. Merge this PR. Deploy the **app** first (`firebase deploy --only hosting`): the new app sends user tokens, which the
    old functions ignore, so nothing breaks yet.
-2. Choose the cron secret. Set it as the `CRON_SECRET` edge secret and in Vault (steps at the top of `03_cron_secret.sql`).
+2. The cron secret already exists (edge secret + Vault). Nothing to do.
 3. Apply **03** (jobs now send the secret; harmless to the old functions).
 4. Deploy the five **edge functions** (the four above plus `manage-entities`). They now require the user token / cron secret. (If they were deployed before step 3
    the daily and monthly jobs would be rejected until 03 is applied.)
@@ -73,16 +82,17 @@ Every table has row-level security with policies.
 
 ## Decisions still open
 
-1. **Lease rent auto-sync (draft 01, 3g): direction agreed, design pending.** The current pro-forma of an OWNED deal is the live
+1. ~~Lease rent auto-sync~~ **Resolved:** no sync of any kind; the trigger and sync function are dropped (draft 01, 3a/3g). Old notes follow for reference. The current pro-forma of an OWNED deal is the live
    picture of what it is actually making, so it should follow the rent roll automatically; the comparison that matters is
    frozen baseline vs current. The 3g trigger is only an interim, partial version (it writes `monthlyRent`/`grossRentAnnual`,
    which the engine ignores when the deal has explicit leases). Proposed replacement: derive the owned deal's leases from the
    `leases` table on the fly (no sync, one source of truth), then retire the trigger, `rpc_sync_proforma_to_actuals`, the
    manual "Sync pro-forma" buttons and the revenue-variance alert. Needs your go-ahead.
-2. **Cron secret** (step 2): there is no `CRON_SECRET` edge secret yet (only RESEND_*/SUPABASE_*). The edge-function side stays an edge
-   secret; the database scheduler needs its own copy in Vault because it cannot read edge secrets. Setting it changes
-   production secrets, so it is yours or needs your explicit go-ahead.
-3. **`entities.bank_name`**: drop the column (deletes 2 values) or clear and keep.
+2. ~~Cron secret~~ **Done (2026-09-30):** a fresh 256-bit `CRON_SECRET` was set as an edge secret and the same value stored in Vault
+   (`cron_secret`); digests were compared and match. Nothing uses it yet, so the live site is unchanged: the scheduled jobs still
+   send the old anon key and the old functions ignore the secret. It takes effect in rollout steps 3-4. Rotate with
+   `supabase secrets set` plus `vault.update_secret` if it is ever exposed.
+3. ~~`entities.bank_name`~~ **Decided:** dropped with the EIN column (draft 01, 6).
 
 ## Not yet done
 

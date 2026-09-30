@@ -48,11 +48,13 @@ END;
 $function$;
 REVOKE EXECUTE ON FUNCTION public.trigger_monthly_gis_sync() FROM PUBLIC, anon, authenticated;
 
--- Daily lease monitor: same schedule (06:00 UTC), now carrying the secret instead of the anon key.
+-- Daily lease monitor: now carrying the secret instead of the anon key, and moved from 06:00 UTC to 15:00 UTC.
+-- (06:00 UTC is 10-11pm Pacific the evening BEFORE, so "rent is due today" reminders arrived a day early for a Yakima
+-- portfolio. 15:00 UTC is 7-8am Pacific.)
 SELECT cron.unschedule('daily-lease-monitor-job');
 SELECT cron.schedule(
   'daily-lease-monitor-job',
-  '0 6 * * *',
+  '0 15 * * *',
   $job$
   SELECT net.http_post(
     url := 'https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/cron-daily-lease-monitor',

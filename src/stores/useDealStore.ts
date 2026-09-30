@@ -114,8 +114,8 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       } catch (e) {}
     }
     return [
-      { id: 'ent-demo-1', name: 'Apex Real Estate Capital LLC', formation_state: 'WA', bank_name: 'Chase Commercial (*4892)' },
-      { id: 'ent-demo-2', name: 'Cascade Property Holdings LLC', formation_state: 'DE', bank_name: 'Wells Fargo Real Estate (*1042)' }
+      { id: 'ent-demo-1', name: 'Apex Real Estate Capital LLC', formation_state: 'WA' },
+      { id: 'ent-demo-2', name: 'Cascade Property Holdings LLC', formation_state: 'DE' }
     ];
   });
 
