@@ -109,6 +109,10 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     evaluateAuthSession().then((status) => {
       if (live && status === 'authenticated') {
         setReady(true);
+        // Load the investor profile so its analysis defaults (e.g. what happens after a lease ends) apply everywhere
+        void supabase.auth.getSession().then(({ data }) => {
+          if (data.session) void fetchProfile(supabase, data.session.user).catch(() => undefined);
+        });
       }
     });
 
