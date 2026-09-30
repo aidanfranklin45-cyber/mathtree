@@ -1,4 +1,5 @@
 import type { DealRecord } from '../../../lib/math/types';
+import { getExpiryDefaults } from '../../../lib/engine/expiryDefaults';
 
 export type Form = Record<string, string> & { manageProperty: string; storageAutomated: string };
 
@@ -70,10 +71,10 @@ export function seedForm(deal: DealRecord): Form {
     nextEscalation: str(lease.nextEscalationDate),
     dueDay: str(lease.paymentDueDay, 1),
     graceDays: str(lease.gracePeriodDays, 5),
-    expiryAssumption: str(lease.expiryAssumption, 'none'),
+    expiryAssumption: str(lease.expiryAssumption, ''),
     extensionYears: str(lease.extensionYears, 5),
     extensionRentChangePct: str(lease.extensionRentChangePct, 0),
-    reletVacancyMonths: str(lease.reletVacancyMonths, 12),
+    reletVacancyMonths: str(lease.reletVacancyMonths, getExpiryDefaults().vacancyMonths),
     reletRentChangePct: str(lease.reletRentChangePct, 0),
     reletCosts: str(lease.reletCosts, 0),
     gla: str(i.gla, 15000),

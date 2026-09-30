@@ -111,12 +111,15 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
           ...existingLease,
           paymentDueDay: Math.min(31, Math.max(1, parseInt(form.dueDay, 10) || 1)),
           gracePeriodDays: Math.min(60, Math.max(0, parseInt(form.graceDays, 10) || 0)),
-          expiryAssumption: form.expiryAssumption || 'none',
-          extensionYears: numOr(form.extensionYears, 5),
-          extensionRentChangePct: numOr(form.extensionRentChangePct, 0),
-          reletVacancyMonths: numOr(form.reletVacancyMonths, 12),
-          reletRentChangePct: numOr(form.reletRentChangePct, 0),
-          reletCosts: numOr(form.reletCosts, 0),
+          // Blank = use the investor default from the profile; an explicit choice is stored on this lease
+          expiryAssumption: form.expiryAssumption || undefined,
+          expirySource: undefined,
+          // Only the details that belong to the chosen assumption are stored (the default carries its own)
+          extensionYears: form.expiryAssumption === 'extend' ? numOr(form.extensionYears, 5) : undefined,
+          extensionRentChangePct: form.expiryAssumption === 'extend' || form.expiryAssumption === 'renew' ? numOr(form.extensionRentChangePct, 0) : undefined,
+          reletVacancyMonths: form.expiryAssumption === 'relet' ? numOr(form.reletVacancyMonths, 12) : undefined,
+          reletRentChangePct: form.expiryAssumption === 'relet' ? numOr(form.reletRentChangePct, 0) : undefined,
+          reletCosts: form.expiryAssumption === 'relet' ? numOr(form.reletCosts, 0) : undefined,
           tenantName: patch.tenantName,
           monthlyRent,
           annualRent: monthlyRent * 12,
@@ -470,9 +473,11 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 <span className="text-[10px] text-slate-500 italic">Income after the lease end date</span>
               </div>
               <select value={form.expiryAssumption} onChange={(e) => set('expiryAssumption', e.target.value)} className={`${inp2} font-bold`}>
-                <option value="none">No assumption • income stops when the lease ends</option>
-                <option value="extend">Tenant exercises extension option</option>
+                <option value="">Use my default (set in Profile)</option>
+                <option value="renew">Keep going on current terms (annual increases continue)</option>
                 <option value="relet">Vacancy while re-leasing, then new tenant</option>
+                <option value="extend">Tenant exercises a fixed-length extension option</option>
+                <option value="vacant">Pessimistic: the space stays vacant</option>
               </select>
               {form.expiryAssumption === 'extend' && (
                 <div className="grid grid-cols-2 gap-3 p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl">

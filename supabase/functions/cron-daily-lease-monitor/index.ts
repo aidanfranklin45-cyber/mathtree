@@ -193,9 +193,15 @@ export async function handleRequest(req: Request): Promise<Response> {
     // =========================================================================
     if (body.test === true || body.action === "send_test") {
       logs.push("Executing test email dispatch...");
-      // A signed-in user can only send the test to their own address (never an arbitrary recipient)
+      // A signed-in user can only send the test to their own address (never an arbitrary recipient): the notification
+      // email they chose in Alert Settings, else their account email. Real reminders go to the same place.
       if (caller) {
-        body.recipient_email = caller.email || "";
+        let own = caller.email || "";
+        try {
+          const { data: me } = await adminClient.from("profiles").select("notification_email").eq("id", caller.id).maybeSingle();
+          if (me?.notification_email && String(me.notification_email).includes("@")) own = String(me.notification_email).trim();
+        } catch (_) {}
+        body.recipient_email = own;
         body.email = undefined;
       }
 
