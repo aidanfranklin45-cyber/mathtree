@@ -130,6 +130,37 @@ export function buildBaselineDraft(
 // Comparison: expected (frozen baseline) vs current outlook (live engine) vs actual (rent roll and payments)
 // ---------------------------------------------------------------------------------------------------------------------
 
+/**
+ * Exit-plan assumptions. Changing them changes the math of the whole hold (IRR, equity multiple), so the baseline follows them:
+ * the purchase-time facts (price, rent, loan, costs) stay frozen, these follow the deal as it is planned today.
+ */
+export const PLAN_KEYS = ['exitYear', 'exitCapTiming', 'targetCapRate', 'targetExitCapRate', 'exitCapRate', 'discountRate', 'appreciationRate'] as const;
+const LEASE_PLAN_KEYS = ['expiryAssumption', 'expirySource', 'extensionYears', 'extensionRentChangePct', 'reletVacancyMonths', 'reletRentChangePct', 'reletCosts'] as const;
+
+/** The baseline's frozen purchase-time inputs, with the exit-plan assumptions taken from the deal as it stands now. */
+export function planAdjustedInputs(snapshot: Record<string, any>, current: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = { ...snapshot };
+  for (const k of PLAN_KEYS) {
+    if (current?.[k] === undefined) delete out[k];
+    else out[k] = current[k];
+  }
+  if (Array.isArray(snapshot?.leases)) {
+    const cur = Array.isArray(current?.leases) ? current.leases : [];
+    out.leases = snapshot.leases.map((l: any, i: number) => {
+      const next = { ...l };
+      for (const k of LEASE_PLAN_KEYS) {
+        if (cur[i]?.[k] === undefined) delete next[k];
+        else next[k] = cur[i][k];
+      }
+      return next;
+    });
+  }
+  return out;
+}
+
+const planSignature = (inputs: Record<string, any> | undefined): string =>
+  JSON.stringify([PLAN_KEYS.map((k) => inputs?.[k] ?? null), (Array.isArray(inputs?.leases) ? inputs!.leases : []).map((l: any) => LEASE_PLAN_KEYS.map((k) => l?.[k] ?? null))]);
+
 export interface HeadlineRow {
   key: string;
   label: string;
@@ -137,6 +168,8 @@ export interface HeadlineRow {
   current: number | null;
   delta: number | null;
   kind: 'pct' | 'currency' | 'multiple';
+  /** The expected value was re-run on the current exit plan / engine rather than read from the frozen record. */
+  replayed?: boolean;
 }
 
 export interface MonthRow {
@@ -149,6 +182,9 @@ export interface MonthRow {
 
 export interface Comparison {
   headline: HeadlineRow[];
+  /** IRR / equity multiple were re-run from the purchase facts on the current exit plan (and today's engine). */
+  replayed: boolean;
+  planChanged: boolean;
   hasYearDetail: boolean;
   engineVersion: string | null;
   year: number;
@@ -195,6 +231,8 @@ export function compareToBaseline(args: {
   live: DealMetrics;
   payments: PaymentLite[];
   leases: LeaseLite[];
+  /** The deal as it stands now; lets the expectation follow the current exit plan. */
+  deal?: Pick<DealRecord, 'asset_class' | 'inputs'>;
   now?: Date;
 }): Comparison {
   const { baseline, live, payments, leases } = args;
@@ -215,14 +253,32 @@ export function compareToBaseline(args: {
     delta: expected !== null && current !== null ? current - expected : null,
   });
 
+  // Plan-dependent expectations (IRR, equity multiple): if the exit plan has changed since capture, or the engine has, re-run the
+  // frozen purchase facts on today's plan and engine so like is compared with like.
+  const planChanged = !!args.deal && planSignature(baseline.inputs_snapshot as Record<string, any>) !== planSignature(args.deal.inputs as Record<string, any>);
+  const engineChanged = typeof snap.engineVersion !== 'string' || snap.engineVersion !== ENGINE_VERSION;
+  let replay: any = null;
+  if (args.deal && (planChanged || engineChanged)) {
+    try {
+      replay = computeDealMetrics({
+        id: baseline.deal_id,
+        asset_class: args.deal.asset_class,
+        purchase_price: baseline.purchase_price,
+        inputs: planAdjustedInputs(baseline.inputs_snapshot as Record<string, any>, args.deal.inputs as Record<string, any>),
+      } as DealRecord);
+    } catch {
+      replay = null;
+    }
+  }
+
   const headline: HeadlineRow[] = [
-    row('irr', 'Target IRR', nOrNull(baseline.projected_irr ?? snap.irr), nOrNull(live.irr), 'pct'),
+    row('irr', 'Target IRR', replay ? nOrNull(replay.irr) : nOrNull(baseline.projected_irr ?? snap.irr), nOrNull(live.irr), 'pct'),
     row('noi', 'NOI (first full year)', nOrNull(baseline.projected_noi), nOrNull(liveFF?.netOperatingIncome), 'currency'),
     row('cashFlow', 'Cash flow (first full year)', nOrNull(baseline.projected_cash_flow), nOrNull(liveFF?.cashFlow), 'currency'),
     row('coc', 'Cash-on-cash', nOrNull(baseline.projected_cash_on_cash), nOrNull(liveFF?.cashOnCash), 'pct'),
     row('dscr', 'DSCR', nOrNull(snap.dscr), nOrNull(live.dscr), 'multiple'),
-    row('em', 'Equity multiple', nOrNull(snap.equityMultiplier ?? snap.equityMultiple), nOrNull((live as any).equityMultiplier), 'multiple'),
-  ].filter((r) => r.expected !== null || r.current !== null);
+    row('em', 'Equity multiple', replay ? nOrNull(replay.equityMultiplier) : nOrNull(snap.equityMultiplier ?? snap.equityMultiple), nOrNull((live as any).equityMultiplier), 'multiple'),
+  ].map((r) => (replay && (r.key === 'irr' || r.key === 'em') ? { ...r, replayed: true } : r)).filter((r) => r.expected !== null || r.current !== null);
 
   const contractualNow = leases.filter((l) => l.is_active).reduce((s, l) => s + n(l.monthly_rent), 0);
   const byMonth = new Map<string, { due: number; paid: number }>();
@@ -263,6 +319,8 @@ export function compareToBaseline(args: {
 
   return {
     headline,
+    replayed: !!replay,
+    planChanged,
     hasYearDetail: !!baselineYear(baseline, year) || !!baselineYear(baseline, year - 1),
     engineVersion: typeof snap.engineVersion === 'string' ? snap.engineVersion : null,
     year,
