@@ -5,7 +5,7 @@
 -- results on every save; they are removed here. The stored columns themselves are dropped later (Migration B),
 -- after the views and functions that still mention them are rewritten.
 --
--- NOT APPLIED YET. Run only AFTER the React build is deployed: the legacy static pages relied on these triggers.
+-- APPLIED to the live database on 2026-09-30 (after the React build was deployed).
 
 -- 1. Triggers that recompute stored analysis
 DROP TRIGGER IF EXISTS trg_deals_recompute_metrics ON public.deals;
