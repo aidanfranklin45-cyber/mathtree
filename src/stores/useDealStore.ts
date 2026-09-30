@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { DealRecord, DealInputs, DealMetrics } from '../lib/math/types';
-import { generateMonthlyAmortizationSchedule } from '../lib/math/pointInTime';
+import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
+
+/** Top-level deal columns that can be patched alongside inputs. */
+export interface DealTopPatch {
+  location?: string;
+  purchase_price?: number;
+  title?: string;
+  status?: string;
+  entity_id?: string | null;
+}
 
 export interface DealStoreState {
   deal: DealRecord | null;
@@ -30,36 +39,25 @@ export interface DealStoreState {
   filterLeasesByLLC: (llc: string | null) => any[];
   updateInputs: (newInputs: Partial<DealInputs>) => void;
   saveDeal: () => Promise<boolean>;
+  /** Merge facts into the deal (inputs and optional top-level fields) and persist them immediately. */
+  patchDeal: (inputsPatch: Partial<DealInputs>, top?: DealTopPatch) => Promise<boolean>;
   loadDeal: (dealId?: string) => Promise<void>;
   loadPortfolioEquityAndAmortization: (entityId?: string | null) => Promise<void>;
 }
 
 // Map Postgres deal row into standard DealRecord
 export function mapSupabaseDeal(d: any): DealRecord {
+  // Inputs are the database facts, verbatim. The mapper must never invent values (a fabricated
+  // alias such as vacancyRatePercent would shadow a legitimate 0 in the engine's alias chains).
+  const raw: Record<string, any> = (d.inputs && typeof d.inputs === 'object') ? { ...d.inputs } : {};
+  // A string once got spread into inputs on one deal (keys "0".."7" spelling "prospect"); never carry such keys forward.
+  Object.keys(raw).forEach((k) => { if (/^d+$/.test(k)) delete raw[k]; });
   const inputs: DealInputs = {
     purchasePrice: parseFloat(d.purchase_price) || 0,
-    downPaymentPercent: d.inputs?.downPaymentPercent !== undefined ? parseFloat(d.inputs.downPaymentPercent) : 25,
-    interestRate: parseFloat(d.inputs?.interestRate) || 6.5,
-    loanTermYears: parseInt(d.inputs?.loanTermYears || d.inputs?.amortizationYears || d.inputs?.loanTerm || 30, 10),
-    holdingPeriod: parseInt(d.inputs?.holdingPeriod || d.inputs?.exitYear || 10, 10),
-    grossRentAnnual: parseFloat(d.inputs?.grossRentAnnual) || (parseFloat(d.inputs?.monthlyRent || d.inputs?.grossRentPerMonth || 0) * 12) || (d.inputs?.leases?.[0]?.annualRent || (d.inputs?.leases?.[0]?.monthlyRent ? d.inputs.leases[0].monthlyRent * 12 : 0)),
-    monthlyRent: parseFloat(d.inputs?.monthlyRent || d.inputs?.grossRentPerMonth) || (d.inputs?.leases?.[0]?.monthlyRent || 0),
-    closingCosts: parseFloat(d.inputs?.closingCosts) || 0,
-    rehabCosts: parseFloat(d.inputs?.rehabCosts || d.inputs?.rehabBudget) || 0,
-    operatingExpensesAnnual: parseFloat(d.inputs?.operatingExpensesAnnual) || 0,
-    vacancyRatePercent: parseFloat(d.inputs?.vacancyRatePercent !== undefined ? d.inputs.vacancyRatePercent : 5.0),
-    rentGrowthPercent: parseFloat(d.inputs?.rentGrowthPercent !== undefined ? d.inputs.rentGrowthPercent : 3.0),
-    expenseGrowthPercent: parseFloat(d.inputs?.expenseGrowthPercent !== undefined ? d.inputs.expenseGrowthPercent : 2.5),
-    exitCapRatePercent: parseFloat(d.inputs?.exitCapRatePercent !== undefined ? d.inputs.exitCapRatePercent : 6.5),
-    sellingCostPercent: parseFloat(d.inputs?.sellingCostPercent !== undefined ? d.inputs.sellingCostPercent : 3.0),
-    discountRatePercent: parseFloat(d.inputs?.discountRatePercent !== undefined ? d.inputs.discountRatePercent : 8.0),
-    primaryApn: d.inputs?.primaryApn || d.inputs?.apn || '',
-    county: d.inputs?.county || '',
-    squareFeet: parseInt(d.inputs?.squareFeet || d.inputs?.gla || 0, 10),
-    leases: d.inputs?.leases || [],
-    parcels: d.inputs?.parcels || [],
-    assessorData: d.inputs?.assessorData || {},
-    ...(d.inputs || {}),
+    ...raw,
+    leases: Array.isArray(raw.leases) ? raw.leases : [],
+    parcels: Array.isArray(raw.parcels) ? raw.parcels : [],
+    assessorData: raw.assessorData || {},
   };
 
   return {
@@ -74,13 +72,7 @@ export function mapSupabaseDeal(d: any): DealRecord {
     asset_class: d.asset_class || d.asset_type || 'commercial',
     status: d.status || 'owned',
     purchase_price: parseFloat(d.purchase_price) || inputs.purchasePrice || 0,
-    total_equity: parseFloat(d.total_equity) || 0,
-    loan_amount: parseFloat(d.loan_amount) || 0,
-    irr: parseFloat(d.irr) || 0,
-    cash_on_cash: parseFloat(d.cash_on_cash) || 0,
-    equity_multiple: parseFloat(d.equity_multiple) || 1.0,
-    year1_cashflow: parseFloat(d.year1_cashflow) || 0,
-    cap_rate: parseFloat(d.cap_rate) || 0,
+    // Analysis (IRR, equity, cash flow, ...) is never read from the row; it is computed on demand.
     is_demo: d.is_demo || false,
     inputs,
     created_at: d.created_at,
@@ -92,7 +84,11 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const [deal, setDeal] = useState<DealRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    // Deep links such as /project?id=...&tab=debt (the legacy project-<tab>.html pages redirect here)
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return t && ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'].includes(t) ? t : 'overview';
+  });
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
   const [netEquityNAV, setNetEquityNAV] = useState<number>(0);
@@ -157,105 +153,49 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     }
   }, [selectedEntityId, selectedLLC]);
 
-  // Load portfolio equity and amortization schedule from Supabase (Server-side accuracy)
+  // Portfolio equity is derived on the fly from each owned deal's facts (inputs + closing date);
+  // only rent receipts are fetched from the database.
   const loadPortfolioEquityAndAmortization = useCallback(async (entityIdFilter?: string | null) => {
     try {
       const targetEntity = (entityIdFilter && entityIdFilter !== 'all') ? entityIdFilter : null;
 
-      // Try RPC first if available
-      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc('get_portfolio_equity_and_amortization', {
-        p_entity_id: targetEntity || null
-      });
-
-      if (!rpcErr && rpcData) {
-        if (rpcData.summary) {
-          setTotalGAV(Number(rpcData.summary.totalGAV) || 0);
-          setCurrentLoanBalance(Number(rpcData.summary.totalLoanBalance) || 0);
-          setNetEquityNAV(Number(rpcData.summary.netEquityNAV) || 0);
-          setBlendedLTV(Number(rpcData.summary.blendedLTV) || 0);
-        }
-        if (Array.isArray(rpcData.amortizationSchedule)) {
-          setAmortizationSchedule(rpcData.amortizationSchedule);
-        }
-        return;
-      }
-
-      // Fallback: Query view_deal_equity_summary and rent_payments with distinct deal aggregation
-      let dealsQuery = supabase.from('deals').select('id, purchase_price, loan_amount, total_equity, entity_id, status, metrics');
+      let dealsQuery = supabase.from('deals').select('id, purchase_price, inputs, asset_type, entity_id, status, created_at, updated_at');
       if (targetEntity) {
         dealsQuery = dealsQuery.eq('entity_id', targetEntity);
       }
-
       const { data: dealsData, error: dealsErr } = await dealsQuery;
+      if (dealsErr || !dealsData) return;
 
-      if (!dealsErr && dealsData && dealsData.length > 0) {
-        const dealIds = dealsData.map((d: any) => d.id);
-        
-        let paymentsQuery = supabase.from('rent_payments').select('id, deal_id, lease_id, period_month, due_date, amount_due, amount_paid, paid_date, status, payment_method, reference_note, snooze_until').in('deal_id', dealIds);
-        const { data: paymentsData } = await paymentsQuery;
+      const owned = dealsData.filter((d: any) => d.status === 'owned').map(mapSupabaseDeal);
+      const today = new Date();
+      let sumGAV = 0;
+      let sumLoan = 0;
+      let sumEquity = 0;
+      owned.forEach((deal) => {
+        const pit = resolvePointInTimeDealMetrics(deal, today);
+        sumGAV += pit.currentVal;
+        sumLoan += pit.currentDebt;
+        sumEquity += pit.currentEquity;
+      });
 
-        const paymentsByDeal = new Map<string, number>();
-        (paymentsData || []).forEach((p: any) => {
-          if (p.status === 'paid' || p.status === 'partial') {
-            const cur = paymentsByDeal.get(p.deal_id) || 0;
-            paymentsByDeal.set(p.deal_id, cur + (Number(p.amount_paid) || 0));
-          }
-        });
+      setTotalGAV(sumGAV);
+      setCurrentLoanBalance(sumLoan);
+      setNetEquityNAV(sumEquity);
+      setBlendedLTV(sumGAV > 0 ? Number(((sumLoan / sumGAV) * 100).toFixed(2)) : 0);
 
-        let sumGAV = 0;
-        let sumLoan = 0;
-        let sumEquity = 0;
-
-        dealsData.forEach((d: any) => {
-          const price = Number(d.purchase_price) || 0;
-          const initialLoan = Number(d.loan_amount) || (price * 0.75);
-
-          // Compute current loan balance via proper amortization schedule
-          // rather than incorrectly subtracting rent receipts from principal
-          let curLoan = initialLoan;
-          try {
-            const closingDate = d.inputs?.closingDate || d.inputs?.loiDate || d.closing_date;
-            if (closingDate && initialLoan > 0) {
-              const closeDate = new Date(closingDate);
-              const now = new Date();
-              const monthsElapsed = Math.max(0,
-                (now.getFullYear() - closeDate.getFullYear()) * 12 +
-                (now.getMonth() - closeDate.getMonth())
-              );
-              if (monthsElapsed > 0) {
-                const sched = generateMonthlyAmortizationSchedule(
-                  { purchase_price: price, loan_amount: initialLoan, inputs: d.inputs || {} },
-                  monthsElapsed
-                );
-                if (sched.length > 0) {
-                  curLoan = sched[sched.length - 1].endingBalance;
-                }
-              }
-            }
-          } catch (_e) {
-            // If amortization fails, use the stored loan amount as-is
-            curLoan = initialLoan;
-          }
-
-          const curEquity = Math.max(0, price - curLoan);
-
-          sumGAV += price;
-          sumLoan += curLoan;
-          sumEquity += curEquity;
-        });
-
-        setTotalGAV(sumGAV);
-        setCurrentLoanBalance(sumLoan);
-        setNetEquityNAV(sumEquity);
-        setBlendedLTV(sumGAV > 0 ? Number(((sumLoan / sumGAV) * 100).toFixed(2)) : 0);
-
+      const dealIds = dealsData.map((d: any) => d.id);
+      if (dealIds.length > 0) {
+        const { data: paymentsData } = await supabase
+          .from('rent_payments')
+          .select('id, deal_id, lease_id, period_month, due_date, amount_due, amount_paid, paid_date, status, payment_method, reference_note, snooze_until')
+          .in('deal_id', dealIds);
         if (paymentsData) {
-          const sorted = [...paymentsData].sort((a: any, b: any) => new Date(b.period_month).getTime() - new Date(a.period_month).getTime());
+          const sorted = [...paymentsData].sort((x: any, y: any) => new Date(y.period_month).getTime() - new Date(x.period_month).getTime());
           setAmortizationSchedule(sorted);
         }
       }
     } catch (err) {
-      console.warn('[Store] Could not load realtime equity/amortization:', err);
+      console.warn('[Store] Could not load portfolio equity:', err);
     }
   }, []);
 
@@ -492,7 +432,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   const updateInputs = useCallback((newInputs: Partial<DealInputs>) => {
     setDeal((prev) => {
       if (!prev) return null;
-      const mergedInputs: DealInputs = { ...prev.inputs, ...newInputs };
+      const mergedInputs: DealInputs = { ...prev.inputs, ...(newInputs && typeof newInputs === 'object' ? newInputs : {}) };
       const updatedDeal: DealRecord = { ...prev, inputs: mergedInputs };
       return updatedDeal;
     });
@@ -516,6 +456,24 @@ export function useDealStore(initialDealId?: string): DealStoreState {
       console.error('Failed to save deal:', err);
       return false;
     }
+  }, [deal]);
+
+  const patchDeal = useCallback(async (inputsPatch: Partial<DealInputs>, top: DealTopPatch = {}): Promise<boolean> => {
+    if (!deal) return false;
+    const inputs = { ...deal.inputs, ...inputsPatch } as DealInputs;
+    setDeal((prev) => (prev ? ({ ...prev, ...top, inputs: { ...prev.inputs, ...inputsPatch } } as DealRecord) : prev));
+    const payload: Record<string, any> = {
+      inputs,
+      purchase_price: top.purchase_price ?? inputs.purchasePrice,
+      updated_at: new Date().toISOString(),
+    };
+    if (top.location !== undefined) payload.location = top.location;
+    if (top.title !== undefined) payload.title = top.title;
+    if (top.status !== undefined) payload.status = top.status;
+    if (top.entity_id !== undefined) payload.entity_id = top.entity_id;
+    const { error: saveErr } = await supabase.from('deals').update(payload as any).eq('id', deal.id);
+    if (saveErr) console.warn('Database save warning:', saveErr);
+    return !saveErr;
   }, [deal]);
 
   const filterLeasesByEntity = useCallback((entityId: string | null) => {
@@ -559,6 +517,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     filterLeasesByLLC,
     updateInputs,
     saveDeal,
+    patchDeal,
     loadDeal,
     loadPortfolioEquityAndAmortization,
   };

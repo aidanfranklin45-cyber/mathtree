@@ -1,235 +1,347 @@
-import React, { useState, useMemo } from 'react';
-import { DealRecord, DealMetrics } from '../../../lib/math/types';
-import { resolveCalendarProjections } from '../../../lib/math/pointInTime';
-import { FileText, Calendar, ChevronDown, ChevronUp, Info, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
+import { supabase } from '../../../lib/supabase/client';
+import { calculateMonthlyProjections } from '../../../lib/engine';
+import { prepareEngineInputs } from '../../../lib/engine/compute';
+import { formatCurrency } from '../../../lib/format';
+import { getProjectionStartYear } from '../../../lib/studio/projectionYear';
 
 interface ProFormaTabProps {
   deal: DealRecord;
   metrics: DealMetrics;
+  onUpdateInputs?: (patch: Partial<DealInputs>) => void;
+  /** Reload the deal after a pro-forma sync rewrote its inputs. */
+  onReloadDeal?: () => void;
 }
 
-export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics }) => {
-  const [showMonthlyReceipts, setShowMonthlyReceipts] = useState(false);
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const PRESETS: Array<[number, string]> = [[12, '1 Yr (12m)'], [24, '2 Yrs (24m)'], [36, '3 Yrs (36m)'], [60, '5 Yrs (60m)'], [120, '10 Yrs (120m)'], [180, '15 Yrs (180m)'], [360, '30 Yrs (360m)']];
+const presetOn = 'btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 transition shadow-sm';
+const presetOff = 'btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition';
 
-  /** Safely format a possibly-undefined/NaN number to N decimal places */
-  const safeFixed = (val: number | null | undefined, decimals = 2): string =>
-    val != null && isFinite(val) ? Number(val).toFixed(decimals) : '0.' + '0'.repeat(decimals);
+const signed = (v: number) => `${v < 0 ? '-' : ''}${formatCurrency(Math.abs(v))}`;
 
-  // Compute multi-timeline calendar projections with exact contractual lease escalations
-  const calProj = useMemo(() => {
-    return resolveCalendarProjections(deal, metrics.projections?.length || 10);
-  }, [deal, metrics]);
+export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdateInputs, onReloadDeal }) => {
+  const inputs: Record<string, any> = deal.inputs || {};
+  const projections = (metrics.projections ?? []) as Array<Record<string, any>>;
+  const startYr = getProjectionStartYear(deal);
 
-  // Use calendar projections if leases or closing date are defined, falling back to metrics.projections
-  const activeProjections = calProj.length > 0 ? calProj : (metrics.projections ?? []);
+  const [view, setView] = useState<'annual' | 'monthly'>('annual');
+  const [months, setMonths] = useState<number>(parseInt(String(inputs.monthlyTotalMonths || 24), 10) || 24);
+  const [endDate, setEndDate] = useState<string | null>(inputs.monthlyEndDate || null);
+  const [showVarianceDetails, setShowVarianceDetails] = useState(false);
+  const [actualMonthly, setActualMonthly] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  // ---- Property Management vs Pro-Forma variance (live rent roll) ----
+  useEffect(() => {
+    let live = true;
+    if (!deal.id) return;
+    supabase.from('leases').select('monthly_rent').eq('deal_id', deal.id).eq('is_active', true).then(({ data }) => {
+      if (!live) return;
+      setActualMonthly(data && data.length > 0 ? data.reduce((s, l: any) => s + (parseFloat(l.monthly_rent) || 0), 0) : null);
+    });
+    return () => { live = false; };
+  }, [deal.id, deal.updated_at]);
+
+  const projAnnual = parseFloat(inputs.grossRentAnnual) || 0;
+  const projMonthly = projAnnual > 0 ? projAnnual / 12 : (parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || 0);
+  const actual = actualMonthly ?? 0;
+  const varUsd = actual - projMonthly;
+  const varPct = projMonthly > 0 ? (varUsd / projMonthly) * 100 : 0;
+  const absPct = Math.abs(varPct);
+  const accuracy = Math.max(0, Math.min(100, Math.round(100 - absPct)));
+  const showVariance = actualMonthly !== null && !(projMonthly <= 0 && actual <= 0) && !(absPct < 5.0 || Math.abs(varUsd) < 100);
+
+  const syncProForma = async () => {
+    setSyncing(true);
+    const { error } = await supabase.rpc('rpc_sync_proforma_to_actuals' as never, { p_deal_id: deal.id, p_actual_monthly_rent: actual } as never);
+    setSyncing(false);
+    if (!error) onReloadDeal?.();
+  };
+
+  // ---- Stub-year proration label ----
+  const closing = String(inputs.closingDate || inputs.loiDate || '');
+  const closingMonth = /(\d{4})-(\d{2})/.test(closing) ? parseInt(closing.split('-')[1], 10) : 10;
+  const stubMonths = Math.max(1, 12 - closingMonth + 1);
+  const prorateOn = !!inputs.prorateFirstYear;
+
+  const toggleProrate = (checked: boolean) => {
+    onUpdateInputs?.({ prorateFirstYear: checked, firstYearMonths: checked ? stubMonths : 12 } as Partial<DealInputs>);
+  };
+
+  // ---- Monthly schedule (engine) ----
+  const monthly = useMemo(() => {
+    if (view !== 'monthly') return null;
+    try {
+      const opts: Record<string, any> = { startDate: inputs.closingDate || '2026-10-01', totalMonths: months };
+      if (endDate) opts.endDate = endDate;
+      return calculateMonthlyProjections(String(deal.asset_class), prepareEngineInputs(deal), opts);
+    } catch (e) {
+      console.warn('[ProForma] monthly projection failed', e);
+      return null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, months, endDate, deal.inputs, deal.asset_class]);
+
+  const setHorizon = (m: number) => { setMonths(Math.max(1, Math.min(360, m || 24))); setEndDate(null); };
+  const effectiveMonths: number = monthly?.totalMonths ?? months;
+
+  const exportCsv = () => {
+    if (!monthly?.monthlyProjections?.length) return;
+    const headers = ['Month #', 'Period', 'Operating Year', 'Gross Potential Rent', 'Vacancy Loss', 'Operating Expenses', 'Net Operating Income (NOI)', 'Debt Service Payment', 'Principal Paid', 'Interest Paid', 'Remaining Loan Balance', 'Net Cash Flow', 'Cumulative Cash Flow'];
+    const rows = (monthly.monthlyProjections as any[]).map((r) => [r.monthNumber, `"${r.label}"`, r.operatingYear, r.grossIncome, r.vacancyLoss, r.operatingExpenses, r.netOperatingIncome, r.debtService, r.principalPaid, r.interestPaid, r.remainingLoanBalance, r.netCashFlow, r.cumulativeCashFlow].join(','));
+    const blob = new Blob([[headers.join(','), ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(deal.title || 'deal').replace(/[^a-z0-9_-]/gi, '_')}_Monthly_CashFlow_Schedule_${monthly.startDateISO}_to_${monthly.endDateISO}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const parcelCount = Array.isArray(inputs.parcels) ? inputs.parcels.filter((p: any) => p.included).length : 1;
+  const parcelSuffix = parcelCount > 1 ? ` (${parcelCount} Parcels Combined)` : '';
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-              Calendar Pro-Forma
-            </span>
-            <span className="text-xs text-slate-400 font-medium">
-              Contractual Lease &amp; Amortization Synchronization
-            </span>
-          </div>
-          <h2 className="text-base font-black text-white tracking-tight">10-Year Pro-Forma Schedule &amp; Cash Flows</h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Compound annual growth rates: {deal.inputs.rentGrowthPercent || 3.0}% rent growth, {deal.inputs.expenseGrowthPercent || 2.5}% expense inflation
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <div className="text-right">
-            <div className="text-slate-400 text-[10px] uppercase font-sans">Exit Cap Rate</div>
-            <div className="font-bold text-white">{deal.inputs.exitCapRatePercent || 6.5}%</div>
-          </div>
-          <div className="text-right">
-            <div className="text-slate-400 text-[10px] uppercase font-sans">10-Yr IRR</div>
-            <div className="font-bold text-emerald-400">{safeFixed(metrics.irr, 1)}%</div>
-          </div>
-          <div className="text-right">
-            <div className="text-slate-400 text-[10px] uppercase font-sans">Equity Multiple</div>
-            <div className="font-bold text-emerald-400">{safeFixed(metrics.equityMultiplier)}x</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Pro-Forma Table */}
-      <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 overflow-x-auto shadow-sm">
-        <table className="w-full text-left text-xs">
-          <thead>
-            <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
-              <th className="py-3 px-2">Line Item</th>
-              {activeProjections.map((p) => (
-                <th key={p.year} className="py-3 px-2 text-right">
-                  Y{p.year} <span className="text-slate-500 font-normal">({p.calendarYear})</span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-            {/* Gross Potential Rent */}
-            <tr className="hover:bg-slate-800/40 transition">
-              <td className="py-2.5 px-2 font-sans font-medium text-slate-300">Gross Potential Rent</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  ${Math.round(p.grossPotentialRent).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Vacancy & Credit Loss */}
-            <tr className="hover:bg-slate-800/40 transition text-rose-400/80">
-              <td className="py-2.5 px-2 font-sans font-medium">Vacancy Loss ({deal.inputs.vacancyRatePercent || 5}%)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  -${Math.round(p.vacancyLoss).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Effective Gross Income */}
-            <tr className="hover:bg-slate-800/40 transition font-bold bg-slate-950/40 text-white">
-              <td className="py-2.5 px-2 font-sans">Effective Gross Income (EGI)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  ${Math.round(p.effectiveGrossIncome).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Operating Expenses */}
-            <tr className="hover:bg-slate-800/40 transition text-rose-400/90">
-              <td className="py-2.5 px-2 font-sans font-medium">Total Operating Expenses (OpEx)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  -${Math.round(p.operatingExpenses).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Net Operating Income (NOI) */}
-            <tr className="hover:bg-slate-800/40 transition font-black bg-emerald-950/20 text-emerald-400 border-y border-emerald-500/20">
-              <td className="py-3 px-2 font-sans">Net Operating Income (NOI)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-3 px-2 text-right text-sm">
-                  ${Math.round(p.netOperatingIncome).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Annual Debt Service */}
-            <tr className="hover:bg-slate-800/40 transition text-amber-400/90">
-              <td className="py-2.5 px-2 font-sans font-medium">Annual Debt Service (P&amp;I)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  -${Math.round(p.debtService).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Net Cash Flow (Before Tax) */}
-            <tr className="hover:bg-slate-800/40 transition font-black bg-slate-950/60 text-white border-b border-slate-700">
-              <td className="py-3 px-2 font-sans">Net Cash Flow (After Debt)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-3 px-2 text-right text-sm">
-                  ${Math.round(p.netCashFlow).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-
-            {/* Cash on Cash Return */}
-            <tr className="hover:bg-slate-800/40 transition font-bold text-emerald-400">
-              <td className="py-2.5 px-2 font-sans">Cash-on-Cash Yield</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  {(p.cashOnCash != null && isFinite(p.cashOnCash) ? Number(p.cashOnCash).toFixed(2) : '0.00')}%
-                </td>
-              ))}
-            </tr>
-
-            {/* DSCR Coverage */}
-            <tr className="hover:bg-slate-800/40 transition text-slate-400 text-[11px]">
-              <td className="py-2.5 px-2 font-sans">Debt Service Coverage (DSCR)</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  {typeof p.dscr === 'number' ? `${p.dscr.toFixed(2)}x` : p.dscr}
-                </td>
-              ))}
-            </tr>
-
-            {/* Ending Loan Balance */}
-            <tr className="hover:bg-slate-800/40 transition text-slate-400 text-[11px]">
-              <td className="py-2.5 px-2 font-sans">Ending Loan Balance</td>
-              {activeProjections.map((p) => (
-                <td key={p.year} className="py-2.5 px-2 text-right">
-                  ${Math.round(p.endingLoanBalance).toLocaleString()}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Audited Methodology Footnotes Card */}
-      <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white tracking-tight">
-              Institutional Defensibility &amp; Methodology Footnotes
-            </h3>
-          </div>
-          <button
-            onClick={() => setShowMonthlyReceipts(!showMonthlyReceipts)}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition"
-          >
-            <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{showMonthlyReceipts ? 'Hide Monthly Receipts' : 'View Granular Monthly Receipts'}</span>
-            {showMonthlyReceipts ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          {activeProjections
-            .filter((p) => p.methodologyFootnote)
-            .map((p) => (
-              <div key={p.year} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-white">Year {p.year} ({p.calendarYear})</span>
-                  <span className="text-[10px] font-mono text-emerald-400 font-semibold">
-                    ${Math.round(p.grossPotentialRent).toLocaleString()} Total Gross
-                  </span>
-                </div>
-                <p className="text-slate-400 text-[11px] leading-relaxed">
-                  {p.methodologyFootnote}
-                </p>
+      {/* Property Management vs Pro-Forma variance */}
+      {showVariance && (
+        <div className="rounded-2xl bg-emerald-950/20 border border-emerald-800/40 p-3.5 sm:p-4 transition backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <span className="text-base shrink-0">🍀</span>
+              <div className="min-w-0">
+                <span className="block text-xs font-bold text-white tracking-tight">Property Management vs. Underwritten Pro-Forma Variance</span>
+                <span className="block text-[11px] text-emerald-300 font-mono mt-0.5 truncate">
+                  In-Place Rent: <strong className="text-white font-mono">${Math.round(actual).toLocaleString()}/mo</strong> vs Pro-Forma: <strong className="text-white font-mono">${Math.round(projMonthly).toLocaleString()}/mo</strong>
+                </span>
               </div>
-            ))}
+            </div>
+            <div className="flex items-center space-x-2 shrink-0">
+              {actual > 0 && (
+                <button type="button" disabled={syncing} onClick={syncProForma}
+                  className="px-3 py-1 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/40 transition disabled:opacity-60">
+                  <span>⚡ Sync Pro-Forma (${Math.round(actual).toLocaleString()}/mo)</span>
+                </button>
+              )}
+              <Link to="/operations" className="px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-400 bg-emerald-950/70 border border-emerald-800 hover:bg-emerald-900 transition">Property Management →</Link>
+              <button type="button" onClick={() => setShowVarianceDetails((v) => !v)} className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-300 bg-slate-900 border border-slate-800 hover:text-white transition">
+                <span>{showVarianceDetails ? 'Hide Details ▴' : 'View Details ▾'}</span>
+              </button>
+            </div>
+          </div>
+          {showVarianceDetails && (
+            <div className="mt-3 pt-3 border-t border-emerald-900/40 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs font-mono">
+              <div className="p-2 rounded-xl bg-slate-950/60 border border-slate-900">
+                <span className="text-[10px] uppercase text-slate-400 font-sans font-bold block">In-Place Rent Roll</span>
+                <span className="text-emerald-400 font-bold text-sm block mt-0.5">${Math.round(actual).toLocaleString()}/mo</span>
+                <span className="text-[10px] text-slate-400 block">${Math.round(actual * 12).toLocaleString()}/yr</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/60 border border-slate-900">
+                <span className="text-[10px] uppercase text-slate-400 font-sans font-bold block">Modeled Year 1 Pro-Forma</span>
+                <span className="text-slate-200 font-bold text-sm block mt-0.5">${Math.round(projMonthly).toLocaleString()}/mo</span>
+                <span className="text-[10px] text-slate-400 block">${Math.round(projMonthly * 12).toLocaleString()}/yr</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/60 border border-slate-900">
+                <span className="text-[10px] uppercase text-slate-400 font-sans font-bold block">Revenue Variance</span>
+                <span className={`font-bold text-sm block mt-0.5 ${absPct <= 2 ? 'text-emerald-400' : varUsd > 0 ? 'text-teal-400' : 'text-amber-400'}`}>{varUsd >= 0 ? '+' : ''}${Math.round(varUsd).toLocaleString()}/mo</span>
+                <span className="text-[10px] block">{varPct >= 0 ? '+' : ''}{varPct.toFixed(1)}% spread • {accuracy}% Model Accuracy</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Forecast table */}
+      <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl overflow-hidden">
+        <div className="pb-4 border-b border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-white tracking-tight">
+              {view === 'monthly' ? 'Granular Month-by-Month Schedule (Post-Closing)' : `Detailed ${projections.length}-Year Forecast Table`}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {view === 'monthly'
+                ? 'Exact monthly debt service, principal paydown, and net cash distributions starting post-closing'
+                : <>Granular breakdowns of financials, equity accumulation, and returns{projections.length > 0 && <> • Starting Basis: <span className="text-emerald-400 font-bold">{formatCurrency(projections[0].propertyValue)}</span>{parcelSuffix}</>}</>}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-300 cursor-pointer bg-slate-950/70 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition" title="Prorate Year 1 for the post-closing stub period">
+              <input type="checkbox" checked={prorateOn} onChange={(e) => toggleProrate(e.target.checked)} className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-emerald-500 w-3.5 h-3.5" />
+              <span className="text-[11px]">Prorate {startYr} ({MONTH_NAMES[closingMonth - 1]}–Dec Stub: {stubMonths} Mo)</span>
+            </label>
+            <div className="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+              <button type="button" onClick={() => setView('annual')}
+                className={view === 'annual' ? 'px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition' : 'px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition'}>📅 Annual Pro-Forma</button>
+              <button type="button" onClick={() => setView('monthly')}
+                className={view === 'monthly' ? 'px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 transition' : 'px-3 py-1 text-xs font-bold rounded-lg text-slate-400 hover:text-slate-200 transition'}>📆 Monthly Schedule (Post-Closing)</button>
+            </div>
+          </div>
         </div>
 
-        {/* Collapsible Month-by-Month Receipts */}
-        {showMonthlyReceipts && (
-          <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-              Audited Month-by-Month Rental Receipts Log
-            </div>
-            <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/80 p-2 divide-y divide-slate-800/60 text-xs font-mono">
-              {activeProjections.flatMap((p) => p.monthlyReceipts || []).map((r, i) => (
-                <div key={i} className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-900/50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400 w-24 font-bold">{r.month}</span>
-                    <span className="text-slate-300 text-[11px] font-sans">{r.status}</span>
-                  </div>
-                  <div className={`font-bold ${r.rent > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                    ${r.rent.toLocaleString()}/mo
+        {view === 'annual' ? (
+          <div className="overflow-x-auto -mx-5 mt-4">
+            <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
+                  <th className="py-3 px-5 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Date / Period</th>
+                  <th className="py-3 px-4">Property Value</th>
+                  <th className="py-3 px-4">Gross Income</th>
+                  <th className="py-3 px-4">Vacancy Loss</th>
+                  <th className="py-3 px-4">Expenses</th>
+                  <th className="py-3 px-4">NOI</th>
+                  <th className="py-3 px-4">Debt Service</th>
+                  <th className="py-3 px-4">Cash Flow</th>
+                  <th className="py-3 px-4">Cash-on-Cash</th>
+                  <th className="py-3 px-4">Cap Rate</th>
+                  <th className="py-3 px-4">Loan Balance</th>
+                  <th className="py-3 px-4 pr-5">Equity</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-900/60">
+                {projections.map((p) => {
+                  const stub = p.operatingMonths && p.operatingMonths < 12;
+                  return (
+                    <tr key={p.year} className="border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition">
+                      <td className="py-3 px-5">
+                        <div className="text-white font-bold text-xs flex items-center">
+                          {startYr + p.year - 1}
+                          {stub && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded ml-1">Stub: {p.operatingMonths} Mo</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium">Year {p.year}{stub ? ` (${p.operatingMonths} operating months)` : ''}</div>
+                      </td>
+                      <td className="py-3.5 px-4">{formatCurrency(p.propertyValue)}</td>
+                      <td className="py-3.5 px-4">{formatCurrency(p.grossPotentialIncome)}</td>
+                      <td className="py-3.5 px-4 text-rose-400/85">{formatCurrency(p.vacancyLoss)}</td>
+                      <td className="py-3.5 px-4 text-slate-400">{formatCurrency(p.operatingExpenses)}</td>
+                      <td className="py-3.5 px-4 text-white font-semibold">{formatCurrency(p.netOperatingIncome)}</td>
+                      <td className="py-3.5 px-4 text-slate-500">{formatCurrency(p.debtService)}</td>
+                      <td className={`py-3.5 px-4 font-bold ${p.cashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(p.cashFlow)}</td>
+                      <td className="py-3.5 px-4">
+                        {p.isCoCNotMeaningful
+                          ? <span className="text-slate-400 font-bold" title="100% Debt Financed - Zero Initial Outlay">N/M</span>
+                          : `${(Number(p.cashOnCash) || 0).toFixed(1)}%`}
+                      </td>
+                      <td className="py-3.5 px-4">{(Number(p.capRate) || 0).toFixed(1)}%</td>
+                      <td className="py-3.5 px-4 text-slate-500">{formatCurrency(p.loanBalanceRemaining ?? p.endingLoanBalance)}</td>
+                      <td className="py-3.5 px-4 pr-5 text-brand-400 font-bold">{formatCurrency(p.equity)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="space-y-4 mt-4">
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-3.5 shadow-lg">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-sm">📆</div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white">Monthly Cash Flow Projection Horizon</h4>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{effectiveMonths} Months ({(effectiveMonths / 12).toFixed(1)} Yrs)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      {monthly ? `${monthly.startMonthName} ${monthly.startYear} ➔ ${monthly.endMonthName} ${monthly.endYear} (${effectiveMonths} Consecutive Months)` : 'Stretch projections across any custom month & year date range'}
+                    </p>
                   </div>
                 </div>
-              ))}
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-500">From (Closing):</span>
+                    <span className="font-mono font-bold text-slate-300 text-xs">{monthly ? `${monthly.startMonthName} ${monthly.startYear}` : '—'}</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-emerald-500/30">
+                    <label htmlFor="pf-end-date" className="text-[10px] uppercase font-bold text-emerald-400">Stretch To Date:</label>
+                    <input type="month" id="pf-end-date" value={monthly?.endDateISO || endDate || ''} onChange={(e) => e.target.value && setEndDate(e.target.value)}
+                      className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs font-mono font-bold text-white focus:outline-none focus:border-emerald-500" />
+                  </div>
+                  <button type="button" onClick={exportCsv} className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center space-x-1">
+                    <span>📥</span><span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-slate-900 text-xs">
+                <div className="flex items-center flex-wrap gap-1.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 mr-1">Quick Presets:</span>
+                  {PRESETS.map(([m, label]) => (
+                    <button key={m} type="button" onClick={() => setHorizon(m)} className={effectiveMonths === m ? presetOn : presetOff}>{label}</button>
+                  ))}
+                  <button type="button" onClick={() => setHorizon(parseInt(String(inputs.exitYear || inputs.holdingPeriod || 10), 10) * 12)}
+                    className="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-300 transition" title="Match underwriting exit hold period">🎯 Match Exit Hold</button>
+                </div>
+                <div className="flex items-center space-x-2 w-full sm:w-64">
+                  <span className="text-[10px] font-mono text-slate-500">1m</span>
+                  <input type="range" min={1} max={360} value={effectiveMonths} onChange={(e) => setHorizon(parseInt(e.target.value, 10))}
+                    className="w-full accent-emerald-500 h-1.5 bg-slate-900 rounded-lg cursor-pointer" />
+                  <span className="text-[10px] font-mono text-slate-500">360m</span>
+                </div>
+              </div>
+
+              {monthly?.summary && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2 border-t border-slate-900 text-center">
+                  {[
+                    ['Total Gross Rent', formatCurrency(monthly.summary.totalGrossIncome), 'text-white'],
+                    ['Total NOI', formatCurrency(monthly.summary.totalNOI), 'text-emerald-400'],
+                    ['Total Debt Service', formatCurrency(monthly.summary.totalDebtService), 'text-slate-300'],
+                    ['Principal Paydown', formatCurrency(monthly.summary.totalPrincipalPaid), 'text-cyan-400'],
+                    ['Cumulative Net Cash', signed(monthly.summary.netCumulativeCashFlow), monthly.summary.netCumulativeCashFlow < 0 ? 'text-rose-400' : 'text-emerald-400'],
+                    ['Ending Loan Balance', formatCurrency(monthly.summary.endingLoanBalance), 'text-slate-300'],
+                  ].map(([label, value, color]) => (
+                    <div key={label} className="bg-slate-900/60 p-2 rounded-xl border border-slate-900">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">{label}</div>
+                      <div className={`text-xs font-black ${color}`}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto -mx-5 rounded-b-xl">
+              <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-slate-800 text-slate-400 font-semibold bg-slate-950">
+                    <th className="py-3 px-5 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Month / Date</th>
+                    <th className="py-3 px-4">Operating Yr</th>
+                    <th className="py-3 px-4">Gross Income</th>
+                    <th className="py-3 px-4">Vacancy Loss</th>
+                    <th className="py-3 px-4">OpEx</th>
+                    <th className="py-3 px-4">NOI</th>
+                    <th className="py-3 px-4">Debt Payment</th>
+                    <th className="py-3 px-4">Principal</th>
+                    <th className="py-3 px-4">Interest</th>
+                    <th className="py-3 px-4">Loan Balance</th>
+                    <th className="py-3 px-4">Monthly Net Cash</th>
+                    <th className="py-3 px-4 pr-5">Cumulative Cash</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-900/60">
+                  {((monthly?.monthlyProjections as any[]) || []).map((m) => (
+                    <tr key={m.monthNumber} className="border-b border-slate-900/40 hover:bg-slate-900/30 text-slate-300 font-medium transition">
+                      <td className="py-3 px-5">
+                        <div className="text-white font-bold text-xs">{m.label}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">Month {m.monthNumber}</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-400 font-mono">Yr {m.operatingYear}</td>
+                      <td className="py-3.5 px-4">{formatCurrency(m.grossIncome)}</td>
+                      <td className="py-3.5 px-4 text-rose-400/85">{formatCurrency(m.vacancyLoss)}</td>
+                      <td className="py-3.5 px-4 text-slate-400">{formatCurrency(m.operatingExpenses)}</td>
+                      <td className="py-3.5 px-4 text-white font-semibold">{formatCurrency(m.netOperatingIncome)}</td>
+                      <td className="py-3.5 px-4 text-slate-400">{formatCurrency(m.debtService)}</td>
+                      <td className="py-3.5 px-4 text-cyan-400 font-medium">{formatCurrency(m.principalPaid)}</td>
+                      <td className="py-3.5 px-4 text-slate-500">{formatCurrency(m.interestPaid)}</td>
+                      <td className="py-3.5 px-4 text-slate-400 font-mono">{formatCurrency(m.remainingLoanBalance)}</td>
+                      <td className={`py-3.5 px-4 font-bold ${m.netCashFlow < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{signed(m.netCashFlow)}</td>
+                      <td className={`py-3.5 px-4 pr-5 font-bold ${m.cumulativeCashFlow < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{signed(m.cumulativeCashFlow)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -237,4 +349,3 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics }) => {
     </div>
   );
 };
-

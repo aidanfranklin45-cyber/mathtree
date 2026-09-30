@@ -1,0 +1,70 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`math engine (shared, browser-importable) > commercialNNN: headline metrics are stable 1`] = `
+{
+  "equityMultiplier": 6.74,
+  "initialCashInvested": 549500,
+  "irr": 27.76,
+  "loanAmount": 1387500,
+  "ltv": 75,
+  "monthlyMortgagePayment": 8769.94,
+  "npv": 1368607.58,
+  "projectionYears": 10,
+  "year1": {
+    "cashFlow": 82860.67,
+    "debtService": 105239.33,
+    "dscr": 1.79,
+    "noi": 188100,
+  },
+  "year10": {
+    "loanBalanceRemaining": 1176268.75,
+    "propertyValue": 3775812.86,
+  },
+}
+`;
+
+exports[`math engine (shared, browser-importable) > multiFamily: headline metrics are stable 1`] = `
+{
+  "equityMultiplier": 2.44,
+  "initialCashInvested": 124000,
+  "irr": 9.74,
+  "loanAmount": 460000,
+  "ltv": 80,
+  "monthlyMortgagePayment": 3060.39,
+  "npv": 23785.94,
+  "projectionYears": 10,
+  "year1": {
+    "cashFlow": -5743.66,
+    "debtService": 36724.7,
+    "dscr": 0.85,
+    "noi": 31331.04,
+  },
+  "year10": {
+    "loanBalanceRemaining": 394736.96,
+    "propertyValue": 750244.58,
+  },
+}
+`;
+
+exports[`math engine (shared, browser-importable) > residential: headline metrics are stable 1`] = `
+{
+  "equityMultiplier": 2.95,
+  "initialCashInvested": 81000,
+  "irr": 12.34,
+  "loanAmount": 225000,
+  "ltv": 75,
+  "monthlyMortgagePayment": 1459.35,
+  "npv": 35239.83,
+  "projectionYears": 10,
+  "year1": {
+    "cashFlow": 1207.85,
+    "debtService": 17512.15,
+    "dscr": 1.07,
+    "noi": 18720,
+  },
+  "year10": {
+    "loanBalanceRemaining": 191927.25,
+    "propertyValue": 391431.96,
+  },
+}
+`;

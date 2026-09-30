@@ -4,10 +4,19 @@ import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { mapSupabaseDeal } from '../stores/useDealStore';
 import { DealRecord } from '../lib/math/types';
 import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
+import { tryComputeDealMetrics } from '../lib/engine/compute';
 import { exportPortfolioBriefPDF } from '../lib/export/pdfBrief';
 import { DealCard } from '../components/dashboard/DealCard';
+import { ConnectedHeader } from '../components/layout/ConnectedHeader';
+import { ShareDealModal } from '../components/collaboration/ShareDealModal';
+import { fetchProfile } from '../lib/profile';
+import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
-import { EditDealModal, DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
+import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
+import { EntityManagerModal } from '../components/layout/EntityManagerModal';
+import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
+import type { DealTopPatch } from '../stores/useDealStore';
+import { recordScenarioRun } from '../lib/scenarios';
 import {
   Building,
   Plus,
@@ -41,9 +50,20 @@ export const DashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'newest' | 'price-desc' | 'price-asc' | 'irr-desc' | 'coc-desc'>('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
+  const [greetingName, setGreetingName] = useState('Investor');
 
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isSampleData, setIsSampleData] = useState(false);
+  const [entitiesOpen, setEntitiesOpen] = useState(false);
+  const isDemoSandbox = (() => { try { return !!localStorage.getItem('mathtree_demo_mode'); } catch { return false; } })();
+  const exitDemoMode = () => {
+    try {
+      ['mathtree_demo_mode', 'mathtree_demo_deals', 'mathtree_entities_cache', 'mathtree_selected_entity_id'].forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+    window.location.href = '/index.html';
+  };
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
 
@@ -70,6 +90,25 @@ export const DashboardPage: React.FC = () => {
         if (!error && data && data.length > 0) {
           list = data.map(mapSupabaseDeal);
         }
+
+        // Deals other people have shared with me (by user id or invited email)
+        const emailFilter = user.email ? `,shared_with_email.ilike.${user.email}` : '';
+        const { data: sharedRows, error: sharedErr } = await supabase
+          .from('deal_shares')
+          .select('id, deal_id, permission, owner_id, deals(*)')
+          .or(`shared_with_user_id.eq.${user.id}${emailFilter}`);
+        if (!sharedErr && sharedRows) {
+          const have = new Set(list.map((d) => d.id));
+          (sharedRows as any[])
+            .filter((sh) => sh.deals && !have.has(sh.deals.id))
+            .forEach((sh) => {
+              const mapped: any = mapSupabaseDeal(sh.deals);
+              mapped.is_shared = true;
+              mapped.shared_permission = sh.permission || 'viewer';
+              mapped.shared_by = sh.owner_id;
+              list.push(mapped);
+            });
+        }
       }
 
       // If user has no personal deals, check for shared deals or demo benchmark
@@ -82,9 +121,11 @@ export const DashboardPage: React.FC = () => {
           list = data.map(mapSupabaseDeal);
         } else {
           list = [mapSupabaseDeal(BENCHMARK_DEAL)];
+          setIsSampleData(true);
         }
       }
 
+      if (list.some((d) => !d.is_demo)) setIsSampleData(false);
       setDeals(list);
     } catch (err) {
       console.error('Failed to load portfolio deals:', err);
@@ -95,6 +136,20 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Greeting uses the investor profile's first name (same source as the legacy dashboard)
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const profile = await fetchProfile(supabase, data?.user);
+        const first = (profile.fullName || '').trim().split(/\s+/)[0];
+        if (live && first) setGreetingName(first);
+      } catch { /* keep default greeting */ }
+    })();
+    return () => { live = false; };
   }, []);
 
   const handleToggleStatus = async (deal: DealRecord) => {
@@ -113,21 +168,26 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const handleSaveEdit = async (updated: { id: string; title: string; location: string }) => {
-    try {
-      await supabase
-        .from('deals')
-        .update({ title: updated.title, location: updated.location })
-        .eq('id', updated.id);
-
-      setDeals((prev) =>
-        prev.map((d) =>
-          d.id === updated.id ? { ...d, title: updated.title, location: updated.location } : d,
-        ),
-      );
-    } catch (err) {
-      console.error('Failed to save deal edits:', err);
+  /** Full Edit Project Inputs (same form as the Deal Studio): saves facts only and logs a scenario run. */
+  const handleSaveEdit = async (inputsPatch: Record<string, any>, top: DealTopPatch): Promise<boolean> => {
+    const target = editingDeal;
+    if (!target) return false;
+    const inputs = { ...target.inputs, ...inputsPatch };
+    const payload: Record<string, any> = { inputs, updated_at: new Date().toISOString() };
+    if (top.title !== undefined) payload.title = top.title;
+    if (top.location !== undefined) payload.location = top.location;
+    if (top.status !== undefined) payload.status = top.status;
+    if (top.entity_id !== undefined) payload.entity_id = top.entity_id;
+    payload.purchase_price = top.purchase_price ?? inputs.purchasePrice;
+    const { error } = await supabase.from('deals').update(payload as any).eq('id', target.id);
+    if (error) {
+      console.error('Failed to save deal edits:', error);
+      return false;
     }
+    const merged = { ...target, ...top, purchase_price: payload.purchase_price, inputs } as DealRecord;
+    setDeals((prev) => prev.map((d) => (d.id === target.id ? merged : d)));
+    await recordScenarioRun(merged);
+    return true;
   };
 
   const handleConfirmDelete = async (dealId: string) => {
@@ -234,9 +294,9 @@ export const DashboardPage: React.FC = () => {
     } else if (sortBy === 'price-asc') {
       result.sort((a, b) => (Number(a.purchase_price) || 0) - (Number(b.purchase_price) || 0));
     } else if (sortBy === 'irr-desc') {
-      result.sort((a, b) => (Number(b.irr) || 0) - (Number(a.irr) || 0));
+      result.sort((a, b) => (tryComputeDealMetrics(b)?.irr || 0) - (tryComputeDealMetrics(a)?.irr || 0));
     } else if (sortBy === 'coc-desc') {
-      result.sort((a, b) => (Number(b.cash_on_cash) || 0) - (Number(a.cash_on_cash) || 0));
+      result.sort((a, b) => (tryComputeDealMetrics(b)?.cashOnCash || 0) - (tryComputeDealMetrics(a)?.cashOnCash || 0));
     } else {
       result.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     }
@@ -279,7 +339,7 @@ export const DashboardPage: React.FC = () => {
     pipelineDeals.forEach((d) => {
       const price = Number(d.purchase_price) || Number(d.inputs?.purchasePrice || 0);
       pipelineVal += price;
-      const irr = Number(d.irr) || Number(d.metrics?.irr || 0);
+      const irr = tryComputeDealMetrics(d)?.irr || 0;
       if (irr > 0) {
         sumIrr += irr;
         countIrr++;
@@ -303,67 +363,64 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Header */}
-      <header className="border-b border-slate-900 bg-slate-950/90 backdrop-blur-md sticky top-0 z-30 px-3 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center font-black text-slate-950 shadow-md">
-              🌿
-            </div>
-            <div>
-              <h1 className="text-base font-black text-white tracking-tight">MathTree Command Center</h1>
-              <p className="text-[11px] text-slate-400">Institutional Portfolio & Pipeline Underwriting</p>
-            </div>
-          </div>
+      <ConnectedHeader
+        active="portfolio"
+        deals={deals}
+        onProfileSaved={(profile) => {
+          const first = (profile.fullName || '').trim().split(/\s+/)[0];
+          if (first) setGreetingName(first);
+        }}
+        onDealsChanged={() => { void loadData(); }}
+      />
 
+      {isDemoSandbox ? (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
           <div className="flex items-center space-x-2">
-            <Link
-              to="/operations"
-              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold text-slate-300 transition hidden sm:inline-flex"
-            >
-              Property Management
-            </Link>
+            <span className="text-sm">🧪</span>
+            <span><strong>Interactive Demo Sandbox Active</strong> — You are viewing simulated institutional portfolio data. All underwriting adjustments persist in your browser session.</span>
+          </div>
+          <button onClick={exitDemoMode} className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-bold transition">Exit Demo Mode</button>
+        </div>
+      ) : isSampleData ? (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm">🌱</span>
+            <span><strong>Welcome to MathTree</strong> — You don't have any custom properties yet. You are viewing sample prospects backed by real Yakima County Assessor data. Click <strong>"+ New Project"</strong> above to analyze your first property.</span>
+          </div>
+          <button onClick={() => setIsWizardOpen(true)} className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition">+ New Project</button>
+        </div>
+      ) : null}
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-6">
+        {/* Greeting & New Project Hero Banner */}
+        <div className="bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-emerald-950/20 border border-slate-900 p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6 backdrop-blur-sm">
+          <div className="space-y-1 sm:space-y-1.5">
+            <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight">
+              Hey, <span className="text-brand-400">{greetingName}</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
+              Welcome to your Comprehensive Analysis and Administration Platform for Real Estate.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={() => exportPortfolioBriefPDF()}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-xs flex items-center space-x-1.5 transition shadow-sm border border-slate-800"
-              title="Export Portfolio PDF Memorandum"
+              className="px-3.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-center space-x-2 shadow-lg"
+              title="Print Executive Portfolio & Pipeline Brief"
             >
-              <FileDown className="w-3.5 h-3.5 text-rose-400" />
+              <svg className="w-4 h-4 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
               <span>Export Portfolio</span>
             </button>
             <button
               onClick={() => setIsWizardOpen(true)}
-              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs flex items-center space-x-1.5 transition shadow-sm"
+              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition flex items-center justify-center space-x-2"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>New Project</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-6">
-        {/* Greeting Hero Banner */}
-        <div className="bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-emerald-950/20 border border-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-semibold mb-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Institutional Portfolio Engine • Yakima Basin & Inland Northwest</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Executive Real Estate Portfolio
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
-              Defensible commercial underwriting, continuous debt schedules, and in-place lease synchronization.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsWizardOpen(true)}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-black transition flex items-center space-x-1.5 shadow-lg shadow-emerald-500/20"
-            >
-              <Plus className="w-4 h-4" />
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+              </svg>
               <span>Create New Project</span>
             </button>
           </div>
@@ -377,12 +434,12 @@ export const DashboardPage: React.FC = () => {
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Gross Asset Value</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-emerald-400 mt-1 sm:mt-2 block font-mono">
-              ${portfolioKPIs.ownedVal.toLocaleString()}
+            <span className="text-lg sm:text-2xl font-black text-emerald-400 mt-1 sm:mt-2 block tabular-nums">
+              {formatCurrency(portfolioKPIs.ownedVal)}
             </span>
             <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900">
-              <span>Net Equity: <strong className="text-slate-200 font-bold font-mono">${portfolioKPIs.ownedEquity.toLocaleString()}</strong></span>
-              <span className="text-slate-500 font-mono text-[10px]">{portfolioKPIs.ownedLtv}% LTV</span>
+              <span>Net Equity: <strong className="text-slate-200 font-bold">{formatCurrency(portfolioKPIs.ownedEquity)}</strong></span>
+              <span className="text-slate-500 font-mono text-[9px] sm:text-[10px]">{portfolioKPIs.ownedLtv}% LTV • Debt: {formatCurrency(portfolioKPIs.ownedDebt)}</span>
             </div>
           </div>
 
@@ -392,11 +449,13 @@ export const DashboardPage: React.FC = () => {
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Owned Annual Cash Flow</span>
               <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block font-mono">
-              ${portfolioKPIs.ownedCashflow.toLocaleString()}/yr
+            <span className="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block tabular-nums">
+              {formatCurrency(portfolioKPIs.ownedCashflow)}/yr
             </span>
-            <span className="text-[11px] text-emerald-400 mt-0.5 block truncate font-mono">
-              {portfolioKPIs.avgCoc}% Avg Cash-on-Cash
+            <span className="text-[10px] sm:text-[11px] text-emerald-400 mt-0.5 block truncate">
+              {portfolioKPIs.ownedEquity <= 0 && portfolioKPIs.ownedCashflow > 0
+                ? 'N/M (100% Financed)'
+                : `${portfolioKPIs.avgCoc.toFixed(1)}% Blended CoC Yield`}
             </span>
           </div>
 
@@ -406,11 +465,11 @@ export const DashboardPage: React.FC = () => {
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Pipeline Volume</span>
               <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-cyan-400 mt-1 sm:mt-2 block font-mono">
-              ${portfolioKPIs.pipelineVal.toLocaleString()}
+            <span className="text-lg sm:text-2xl font-black text-cyan-400 mt-1 sm:mt-2 block tabular-nums">
+              {formatCurrency(portfolioKPIs.pipelineVal)}
             </span>
             <span className="text-[11px] text-slate-400 mt-0.5 block truncate">
-              {portfolioKPIs.pipelineCount} prospective {portfolioKPIs.pipelineCount === 1 ? 'deal' : 'deals'}
+              {portfolioKPIs.pipelineCount} active prospective {portfolioKPIs.pipelineCount === 1 ? 'deal' : 'deals'}
             </span>
           </div>
 
@@ -420,8 +479,8 @@ export const DashboardPage: React.FC = () => {
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Pipeline Target IRR</span>
               <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
             </div>
-            <span className="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block font-mono">
-              {portfolioKPIs.blendedIrr > 0 ? `${portfolioKPIs.blendedIrr}%` : 'N/A'}
+            <span className="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block tabular-nums">
+              {portfolioKPIs.blendedIrr.toFixed(1)}%
             </span>
             <span className="text-[11px] text-cyan-400 mt-0.5 block truncate">
               Blended target return
@@ -508,7 +567,7 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => setStatusFilter('owned')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left shadow-sm ${
                       statusFilter === 'owned'
-                        ? 'bg-emerald-600 text-slate-950 font-black'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
@@ -516,7 +575,7 @@ export const DashboardPage: React.FC = () => {
                       <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                       <span>Owned Portfolio</span>
                     </div>
-                    <span className="text-[11px] opacity-90 font-mono">{counts.owned}</span>
+                    <span className="text-[11px] opacity-90">{counts.owned}</span>
                   </button>
 
                   <button
@@ -524,7 +583,7 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => setStatusFilter('prospect')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
                       statusFilter === 'prospect'
-                        ? 'bg-emerald-600 text-slate-950 font-black'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
@@ -532,7 +591,7 @@ export const DashboardPage: React.FC = () => {
                       <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
                       <span>Pipeline / Prospects</span>
                     </div>
-                    <span className="text-[11px] font-mono">{counts.prospect}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">{counts.prospect}</span>
                   </button>
 
                   <button
@@ -540,7 +599,7 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => setStatusFilter('all')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
                       statusFilter === 'all'
-                        ? 'bg-emerald-600 text-slate-950 font-black'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
@@ -548,7 +607,7 @@ export const DashboardPage: React.FC = () => {
                       <span className="w-2 h-2 rounded-full bg-white"></span>
                       <span>All Deals</span>
                     </div>
-                    <span className="text-[11px] font-mono">{counts.all}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">{counts.all}</span>
                   </button>
                 </div>
               </div>
@@ -564,44 +623,12 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => setAssetFilter('all')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left ${
                       assetFilter === 'all'
-                        ? 'bg-slate-800 text-white font-bold'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
                     <span>All Property Types</span>
-                    <span className="text-[11px] opacity-90 font-mono">{counts.all}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setAssetFilter('commercial')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
-                      assetFilter === 'commercial'
-                        ? 'bg-slate-800 text-white font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      <span>🏬</span>
-                      <span className="truncate">Commercial / Retail</span>
-                    </div>
-                    <span className="text-[11px] font-mono">{counts.commercial}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setAssetFilter('multi-unit')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
-                      assetFilter === 'multi-unit'
-                        ? 'bg-slate-800 text-white font-bold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2 truncate">
-                      <span>🏢</span>
-                      <span className="truncate">Multi-Unit / Apartments</span>
-                    </div>
-                    <span className="text-[11px] font-mono">{counts.multi}</span>
+                    <span className="text-[11px] opacity-90">{counts.all}</span>
                   </button>
 
                   <button
@@ -609,7 +636,7 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => setAssetFilter('single-family')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
                       assetFilter === 'single-family'
-                        ? 'bg-slate-800 text-white font-bold'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
@@ -617,7 +644,39 @@ export const DashboardPage: React.FC = () => {
                       <span>🏡</span>
                       <span className="truncate">Single Family (SFR)</span>
                     </div>
-                    <span className="text-[11px] font-mono">{counts.sfr}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">{counts.sfr}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAssetFilter('multi-unit')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                      assetFilter === 'multi-unit'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 truncate">
+                      <span>🏢</span>
+                      <span className="truncate">Multi-Unit / Apartments</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 shrink-0">{counts.multi}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAssetFilter('commercial')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                      assetFilter === 'commercial'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 truncate">
+                      <span>🏬</span>
+                      <span className="truncate">Commercial / Retail</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 shrink-0">{counts.commercial}</span>
                   </button>
 
                   <button
@@ -625,7 +684,7 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => setAssetFilter('storage')}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
                       assetFilter === 'storage'
-                        ? 'bg-slate-800 text-white font-bold'
+                        ? 'bg-brand-600 text-white font-bold shadow-sm'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
@@ -633,7 +692,7 @@ export const DashboardPage: React.FC = () => {
                       <span>📦</span>
                       <span className="truncate">Self-Storage</span>
                     </div>
-                    <span className="text-[11px] font-mono">{counts.storage}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">{counts.storage}</span>
                   </button>
                 </div>
               </div>
@@ -802,6 +861,7 @@ export const DashboardPage: React.FC = () => {
                     onEdit={(d) => setEditingDeal(d)}
                     onDelete={(d) => setDeletingDeal(d)}
                     onToggleStatus={handleToggleStatus}
+                    onShare={deal.is_shared ? undefined : (d) => setSharingDeal(d)}
                   />
                 ))}
               </div>
@@ -811,21 +871,28 @@ export const DashboardPage: React.FC = () => {
       </main>
 
       {/* Creation Wizard Modal */}
+      <ShareDealModal deal={sharingDeal} onClose={() => setSharingDeal(null)} onChanged={() => { void loadData(); }} />
+
       <ProjectWizardModal
         isOpen={isWizardOpen}
         onClose={() => setIsWizardOpen(false)}
+        onManageEntities={() => setEntitiesOpen(true)}
         onProjectCreated={(newProject) => {
           setDeals((prev) => [newProject, ...prev]);
         }}
       />
 
       {/* Edit Deal Modal */}
-      <EditDealModal
-        isOpen={!!editingDeal}
-        deal={editingDeal}
-        onClose={() => setEditingDeal(null)}
-        onSave={handleSaveEdit}
-      />
+      {editingDeal && (
+        <EditInputsModal
+          isOpen
+          deal={editingDeal}
+          onClose={() => setEditingDeal(null)}
+          onSave={handleSaveEdit}
+        />
+      )}
+
+      <EntityManagerModal isOpen={entitiesOpen} onClose={() => setEntitiesOpen(false)} onChanged={() => { void loadData(); }} />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

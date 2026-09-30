@@ -7,6 +7,8 @@ interface AddLeaseModalProps {
   deals: Array<{ id: string; title: string }>;
   onClose: () => void;
   onSuccess: () => void;
+  /** Preselect a property (vacant-row "Add Tenant" button, or an Alerts deep link). */
+  initialDealId?: string | null;
 }
 
 export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
@@ -14,6 +16,7 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
   deals,
   onClose,
   onSuccess,
+  initialDealId,
 }) => {
   const [dealId, setDealId] = useState<string>('');
   const [unitNumber, setUnitNumber] = useState<string>('');
@@ -30,6 +33,10 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && initialDealId) setDealId(initialDealId);
+  }, [isOpen, initialDealId]);
 
   useEffect(() => {
     if (deals.length > 0 && !dealId) {
@@ -272,7 +279,7 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
                 onChange={(e) => setMonthlyRent(e.target.value)}
                 required
                 placeholder="2500.00"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-bold focus:border-emerald-500 focus:outline-none tabular-nums"
               />
             </div>
           </div>
@@ -285,7 +292,7 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
                 value={leaseStartDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums"
               />
             </div>
             <div>
@@ -294,7 +301,7 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
                 type="date"
                 value={leaseEndDate}
                 onChange={(e) => setLeaseEndDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums"
               />
             </div>
           </div>

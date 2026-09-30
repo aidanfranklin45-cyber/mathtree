@@ -47,14 +47,15 @@ export interface DealInputs {
   grossRentAnnual?: number;
   grossRentPerMonth?: number;
   monthlyRent?: number;
-  vacancyRatePercent?: number;
-  rentGrowthPercent?: number;
+  vacancyRate?: number;
+  rentGrowth?: number;
   otherIncomeAnnual?: number;
   leases?: LeaseTerm[];
 
   // Operating Expenses
-  operatingExpensesAnnual?: number;
-  expenseGrowthPercent?: number;
+  /** Operating expenses as % of gross income. Case by case per lease type; there is no default. */
+  expenseRatio?: number;
+  operatingExpenseRatio?: number;
   propertyTaxAnnual?: number;
   insuranceAnnual?: number;
   managementFeePercent?: number;
@@ -66,7 +67,7 @@ export interface DealInputs {
   initialEquity?: number;
   loanAmount?: number;
   interestRate?: number;
-  loanTermYears?: number;
+  loanTerm?: number;
   amortizationYears?: number;
   financingType?: 'fixed' | 'arm' | 'interest_only' | 'seller_financing';
   interestOnlyYears?: number;
@@ -82,9 +83,9 @@ export interface DealInputs {
   leaseType?: string;
 
   // Valuation & Exit
-  exitCapRatePercent?: number;
-  sellingCostPercent?: number;
-  discountRatePercent?: number;
+  targetCapRate?: number;
+  targetExitCapRate?: number;
+  discountRate?: number;
 
   // Property Details & County GIS
   propertyType?: AssetClass;
@@ -125,7 +126,12 @@ export interface ProFormaYear {
   cumulativeCashFlow: number;
   endingLoanBalance: number;
   propertyValue: number;
-  exitProceedsNet: number;
+  exitProceedsNet?: number;
+  /** Engine-native names (aliased to grossPotentialRent / endingLoanBalance by the compute layer). */
+  grossPotentialIncome?: number;
+  loanBalanceRemaining?: number;
+  operatingMonths?: number;
+  isStubYear?: boolean;
   dscr: number | string;
   methodologyFootnote?: string;
   monthlyReceipts?: Array<{ month: string; rent: number; status: string }>;
@@ -159,6 +165,17 @@ export interface DealMetrics {
   equityMultiplier: number;
   npv: number;
   dscr: number | string;
+  /** True when the deal has no cash equity in (100% financed); IRR/CoC are not meaningful. */
+  isZeroEquity?: boolean;
+  /** 1-based year cumulative cash turns positive, or the engine's 'N/A' string. */
+  breakEvenYear?: number | string;
+  irrDisplay?: string;
+  equityMultiplierDisplay?: string;
+  monthlyMortgagePayment?: number;
+  /** Annual debt service (year 1). */
+  annualDebtService?: number;
+  /** Cash required at close (down payment + rehab + closing, net of any rolled-in costs). */
+  initialCashInvested?: number;
   projections: ProFormaYear[];
   amortizationSchedule: AmortizationScheduleEntry[];
 }
@@ -176,13 +193,6 @@ export interface DealRecord {
   assetType?: string;
   status: DealStatus;
   purchase_price: number;
-  total_equity?: number;
-  loan_amount?: number;
-  irr?: number;
-  cash_on_cash?: number;
-  equity_multiple?: number;
-  year1_cashflow?: number;
-  cap_rate?: number;
   is_demo?: boolean;
   is_shared?: boolean;
   entity_id?: string;

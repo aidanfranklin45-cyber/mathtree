@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDealStore } from '../stores/useDealStore';
-import { useDealProjections } from '../lib/supabase/useDealProjections';
+import { useComputedMetrics } from '../lib/engine/useComputedMetrics';
 import { StudioNavbar } from '../components/studio/StudioNavbar';
 import { OverviewTab } from '../components/studio/tabs/OverviewTab';
 import { ProFormaTab } from '../components/studio/tabs/ProFormaTab';
@@ -12,6 +12,10 @@ import { SensitivityTab } from '../components/studio/tabs/SensitivityTab';
 import { TaxTab } from '../components/studio/tabs/TaxTab';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import { ParameterHistoryModal } from '../components/studio/modals/ParameterHistoryModal';
+import { DealAuditorBanner } from '../components/studio/DealAuditorBanner';
+import { ScenarioSummaryCard } from '../components/studio/ScenarioSummaryCard';
+import { ShareDealModal } from '../components/collaboration/ShareDealModal';
+import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRun } from '../lib/scenarios';
 import { DealInputs } from '../lib/math/types';
 import { Loader2 } from 'lucide-react';
 
@@ -26,21 +30,17 @@ export const DealStudioPage: React.FC = () => {
     setIsEditModalOpen,
     updateInputs,
     saveDeal,
+    patchDeal,
+    loadDeal,
   } = useDealStore();
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [rawRuns, setRawRuns] = useState<ScenarioRun[]>([]);
+  const [runsVersion, setRunsVersion] = useState(0);
 
-  // All financial math lives here — driven by the Edge Function.
-  const {
-    metrics,
-    tax,
-    sensitivity,
-    loading: projLoading,
-    recalculate,
-  } = useDealProjections(deal, {
-    // Sensitivity matrix is computed lazily (only when the tab is active)
-    computeSensitivity: activeTab === 'sensitivity',
-  });
+  // All financial math is derived on the fly from the deal's inputs; nothing is stored or fetched.
+  const { metrics, tax, error: engineError } = useComputedMetrics(deal);
 
   // JIT 30-Day GIS Cache check: evaluates cache freshness once per active session per day
   React.useEffect(() => {
@@ -51,20 +51,50 @@ export const DealStudioPage: React.FC = () => {
     }
   }, [deal?.id]);
 
-  const handleRestoreInputs = async (restoredInputs: DealInputs) => {
-    updateInputs(restoredInputs);
-    await recalculate(restoredInputs);
-    await saveDeal();
+  // Parameter runs store inputs only; diffs and return impacts are recomputed from them by the engine
+  React.useEffect(() => {
+    if (!deal?.id) return;
+    let live = true;
+    listScenarioRuns(deal.id, 5).then((r) => { if (live) setRawRuns(r); }).catch(() => { if (live) setRawRuns([]); });
+    return () => { live = false; };
+  }, [deal?.id, runsVersion, isHistoryModalOpen]);
+
+  const runs = React.useMemo(() => (deal ? withComputedDiffs(deal, rawRuns) : []), [deal, rawRuns]);
+
+  /** Persist the deal, then log a scenario run if a tracked parameter actually changed. */
+  const saveAndRecord = async (): Promise<boolean> => {
+    const ok = await saveDeal();
+    if (ok && deal) {
+      await recordScenarioRun(deal);
+      setRunsVersion((v) => v + 1);
+    }
+    return ok;
   };
 
-  const isLoading = dealLoading || (projLoading && !metrics);
+  /** Property-tab edits (price, linked parcel ...) persist immediately and are logged as runs too. */
+  const patchAndRecord: typeof patchDeal = async (inputsPatch, top) => {
+    const ok = await patchDeal(inputsPatch, top);
+    if (ok && deal) {
+      await recordScenarioRun({ ...deal, inputs: { ...deal.inputs, ...inputsPatch } });
+      setRunsVersion((v) => v + 1);
+    }
+    return ok;
+  };
+
+  const handleRestoreInputs = async (restoredInputs: DealInputs) => {
+    updateInputs(restoredInputs);
+    await saveDeal();
+    setRunsVersion((v) => v + 1);
+  };
+
+  const isLoading = dealLoading;
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center p-4">
         <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mb-3" />
         <h2 className="text-base font-black text-white">Opening Deal Studio...</h2>
-        <p className="text-xs text-slate-400 mt-1">Loading PostgreSQL deal models and pro-forma projections</p>
+        <p className="text-xs text-slate-400 mt-1">Loading deal</p>
       </div>
     );
   }
@@ -74,7 +104,7 @@ export const DealStudioPage: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-center p-4">
         <div className="p-6 max-w-md bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
           <h2 className="text-base font-black text-rose-400">Failed to load deal</h2>
-          <p className="text-xs text-slate-400">{dealError || 'No active deal found.'}</p>
+          <p className="text-xs text-slate-400">{dealError || engineError || 'No active deal found.'}</p>
           <Link
             to="/"
             className="inline-block px-4 py-2 rounded-xl bg-emerald-600 text-slate-950 text-xs font-bold"
@@ -88,11 +118,6 @@ export const DealStudioPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
-      {projLoading && (
-        <div className="fixed top-0 left-0 right-0 h-0.5 bg-emerald-500/30 z-50 overflow-hidden">
-          <div className="h-full bg-emerald-400 animate-pulse w-full transition-all duration-300" />
-        </div>
-      )}
       <StudioNavbar
         deal={deal}
         metrics={metrics}
@@ -100,22 +125,25 @@ export const DealStudioPage: React.FC = () => {
         onSelectTab={setActiveTab}
         onOpenEditModal={() => setIsEditModalOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
+        onOpenShare={() => setIsShareOpen(true)}
+        scenarioCount={runs.length}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
-        {activeTab === 'overview' && <OverviewTab deal={deal} metrics={metrics} onSelectTab={setActiveTab} />}
-        {activeTab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} />}
-        {activeTab === 'property' && <PropertyTab deal={deal} metrics={metrics} />}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 md:pb-6 flex flex-col space-y-5">
+        <ScenarioSummaryCard
+          runs={runs}
+          isOwned={deal.status === 'owned'}
+          onOpenHistory={() => setIsHistoryModalOpen(true)}
+          onRestore={handleRestoreInputs}
+        />
+        <DealAuditorBanner deal={deal} metrics={metrics} />
+
+        {activeTab === 'overview' && <OverviewTab deal={deal} metrics={metrics} onSelectTab={setActiveTab} onOpenEdit={() => setIsEditModalOpen(true)} />}
+        {activeTab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
+        {activeTab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
         {activeTab === 'debt' && <DebtTab deal={deal} metrics={metrics} />}
-        {activeTab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} />}
-        {activeTab === 'sensitivity' && (
-          <SensitivityTab
-            deal={deal}
-            metrics={metrics}
-            sensitivity={sensitivity}
-            sensitivityLoading={projLoading}
-          />
-        )}
+        {activeTab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
+        {activeTab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} />}
         {activeTab === 'tax' && tax && <TaxTab deal={deal} metrics={metrics} tax={tax} />}
         {activeTab === 'tax' && !tax && (
           <div className="flex items-center justify-center py-20">
@@ -128,9 +156,10 @@ export const DealStudioPage: React.FC = () => {
         isOpen={isEditModalOpen}
         deal={deal}
         onClose={() => setIsEditModalOpen(false)}
-        onUpdateInputs={updateInputs}
-        onSaveDeal={saveDeal}
+        onSave={patchAndRecord}
       />
+
+      <ShareDealModal deal={isShareOpen ? deal : null} onClose={() => setIsShareOpen(false)} />
 
       <ParameterHistoryModal
         isOpen={isHistoryModalOpen}

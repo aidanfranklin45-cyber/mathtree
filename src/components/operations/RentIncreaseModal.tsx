@@ -185,7 +185,7 @@ export const RentIncreaseModal: React.FC<RentIncreaseModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-400 font-bold mb-1">Current Monthly Rent</label>
-              <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 font-mono font-bold">
+              <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 font-bold tabular-nums">
                 ${currentRent.toLocaleString()}
               </div>
             </div>
@@ -197,9 +197,9 @@ export const RentIncreaseModal: React.FC<RentIncreaseModalProps> = ({
                   step="0.1"
                   value={pctBump}
                   onChange={(e) => handlePctChange(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold focus:border-emerald-500 focus:outline-none tabular-nums"
                 />
-                <span className="absolute right-3 top-2 text-slate-400 font-mono">%</span>
+                <span className="absolute right-3 top-2 text-slate-400 tabular-nums">%</span>
               </div>
             </div>
           </div>
@@ -213,7 +213,7 @@ export const RentIncreaseModal: React.FC<RentIncreaseModalProps> = ({
                 required
                 value={newRent}
                 onChange={(e) => setNewRent(e.target.value)}
-                className="w-full bg-slate-950 border border-emerald-950 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold text-sm focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-slate-950 border border-emerald-950 rounded-xl px-3 py-2 text-emerald-400 font-bold text-sm focus:border-emerald-500 focus:outline-none tabular-nums"
               />
             </div>
             <div>
@@ -223,7 +223,7 @@ export const RentIncreaseModal: React.FC<RentIncreaseModalProps> = ({
                 required
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums"
               />
             </div>
           </div>

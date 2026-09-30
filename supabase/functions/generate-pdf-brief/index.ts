@@ -199,10 +199,46 @@ function runOnDemandMonteCarlo(
   };
 }
 
+
+/**
+ * The brief never reads stored analysis. Every figure (IRR, NPV, equity multiple, cash flow, equity, cap rate,
+ * projections) is recomputed here from the deal's inputs with the shared engine, so the PDF always matches the app.
+ * Any stored analysis columns on the row (irr, metrics, ...) are discarded.
+ */
+function withComputedAnalysis(d: any): any {
+  const raw = String(d?.asset_class || d?.asset_type || d?.assetType || 'commercial').toLowerCase().replace(/_/g, '-');
+  const cls = (raw === 'residential' || raw === 'single-family' || raw === 'sfr') ? 'residential'
+    : (raw === 'multi-family' || raw === 'multifamily' || raw === 'multi-unit') ? 'multi_family'
+    : (raw === 'storage' || raw === 'self-storage') ? 'storage' : 'commercial';
+  const base = { ...d };
+  for (const k of ['metrics', 'irr', 'npv', 'equity_multiple', 'cash_on_cash', 'year1_cashflow', 'total_equity', 'cap_rate', 'metrics_computed_at']) delete base[k];
+  try {
+    const inputs = { ...(d?.inputs || {}) };
+    if (!inputs.purchasePrice && d?.purchase_price) inputs.purchasePrice = Number(d.purchase_price);
+    const res: any = calculateProjections(cls as any, inputs);
+    const p1 = (res.projections && res.projections[0]) || {};
+    return {
+      ...base,
+      metrics: res,
+      irr: res.irr,
+      npv: res.npv,
+      equity_multiple: res.equityMultiplier,
+      cash_on_cash: p1.cashOnCash,
+      year1_cashflow: p1.cashFlow,
+      total_equity: res.initialCashInvested,
+      cap_rate: p1.capRate,
+    };
+  } catch (err) {
+    console.warn('[pdf-brief] could not compute deal', d?.id, err);
+    return { ...base, metrics: {} };
+  }
+}
+
 // =========================================================================
 // 1. SINGLE-DEAL EXECUTIVE UNDERWRITING MEMORANDUM BUILDER
 // =========================================================================
-function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
+function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
+  const deal = withComputedAnalysis(dealIn);
   const rawAssetClass = (deal.asset_class || deal.asset_type || deal.assetType || 'commercial').toLowerCase().replace(/_/g, '-');
   const isResidential = rawAssetClass === 'residential' || rawAssetClass === 'single-family' || rawAssetClass === 'sfr';
   const isMultiFamily = rawAssetClass === 'multi-family' || rawAssetClass === 'multifamily' || rawAssetClass === 'multi-unit';
@@ -258,7 +294,8 @@ function buildSingleDealBriefHtml(deal: any, parcelPackage?: any): string {
   const npv = parseFloat(metrics.npv ?? 0);
 
   // Dynamic DSCR & Covenant reconciliation (NO hardcoded conflict)
-  const dscrNum = (p0.dscr !== null && p0.dscr !== undefined) ? Number(p0.dscr) : (debtService > 0 ? (noi / debtService) : 0);
+  // Headline DSCR is the first full operating year (a mid-year closing makes year 1 a short stub)
+  const dscrNum = (metrics.dscr !== null && metrics.dscr !== undefined && !isNaN(Number(metrics.dscr))) ? Number(metrics.dscr) : ((p0.dscr !== null && p0.dscr !== undefined) ? Number(p0.dscr) : (debtService > 0 ? (noi / debtService) : 0));
   const dscrFormatted = debtService > 0 ? `${dscrNum.toFixed(2)}x` : 'N/A';
 
   let dscrEvaluation = '';
@@ -1519,7 +1556,7 @@ serve(async (req: Request) => {
           dealsList = demoDeals || [];
         }
 
-        const portfolioData = aggregateDealsToPortfolio(dealsList || [], { investorName: invName, companyName: compName });
+        const portfolioData = aggregateDealsToPortfolio((dealsList || []).map(withComputedAnalysis), { investorName: invName, companyName: compName });
         html = buildPortfolioBriefHtml(portfolioData);
       }
     } else {
