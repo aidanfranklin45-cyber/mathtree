@@ -1909,9 +1909,16 @@
         _supabase.auth.getSession().then(function(result) {
           var session = result.data && result.data.session;
           if (session) {
-            if (window.MathTreeSession && window.MathTreeSession.isTimedOut()) {
-              if (window.MathTreeSession.clearSessionStorage) {
-                window.MathTreeSession.clearSessionStorage();
+            var isValid = window.MathTreeSession && window.MathTreeSession.isValidSession
+              ? window.MathTreeSession.isValidSession(session)
+              : (typeof session.expires_at === 'number' ? session.expires_at > Math.floor(Date.now() / 1000) : true);
+
+            if (!isValid) {
+              // Token is expired, timed-out, or stale: purge auth token and call signOut instead of redirecting
+              if (window.MathTreeSession && window.MathTreeSession.clearAuthStorage) {
+                window.MathTreeSession.clearAuthStorage();
+              } else if (window.MathTreeSession && window.MathTreeSession.clearSessionStorage) {
+                window.MathTreeSession.clearSessionStorage({ authOnly: true });
               }
               _supabase.auth.signOut().catch(function() {});
               return;
@@ -1922,6 +1929,19 @@
 
         _supabase.auth.onAuthStateChange(function(event, session) {
           if (event === 'SIGNED_IN' && session) {
+            var isValid = window.MathTreeSession && window.MathTreeSession.isValidSession
+              ? window.MathTreeSession.isValidSession(session)
+              : (typeof session.expires_at === 'number' ? session.expires_at > Math.floor(Date.now() / 1000) : true);
+
+            if (!isValid) {
+              if (window.MathTreeSession && window.MathTreeSession.clearAuthStorage) {
+                window.MathTreeSession.clearAuthStorage();
+              } else if (window.MathTreeSession && window.MathTreeSession.clearSessionStorage) {
+                window.MathTreeSession.clearSessionStorage({ authOnly: true });
+              }
+              _supabase.auth.signOut().catch(function() {});
+              return;
+            }
             if (window.MathTreeSession) window.MathTreeSession.resetSession();
             window.location.replace('/dashboard');
           }

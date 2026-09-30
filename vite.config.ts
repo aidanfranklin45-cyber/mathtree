@@ -4,12 +4,11 @@ import path from 'path';
 import type { Plugin } from 'vite';
 
 /**
- * Dev only: the legacy static pages (dashboard.html, project.html, ...) still sit at the project root and
- * Vite serves real files before any SPA fallback. Send every app URL to the React entry (app.html)
- * instead so `npm run dev` shows the React app. The static marketing pages stay reachable (/index.html).
+ * Dev only: Send app routes (/dashboard, /project, ...) to the React entry (app.html) so `npm run dev`
+ * renders the SPA. The landing and marketing pages stay reachable (/ and /index.html).
  */
 const APP_PATHS = new Set([
-  '/', '/app', '/app.html', '/dashboard', '/dashboard.html', '/project', '/project.html',
+  '/app', '/app.html', '/dashboard', '/dashboard.html', '/project', '/project.html',
   '/operations', '/operations.html', '/reconcile', '/reconcile.html',
   ...['proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'].flatMap((t) => [`/project-${t}`, `/project-${t}.html`]),
 ]);

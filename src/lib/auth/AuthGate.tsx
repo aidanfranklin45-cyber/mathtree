@@ -6,15 +6,18 @@ declare global {
     /** Loaded from /session.js (30-minute inactivity logout + warning modal), shared with the static login page. */
     MathTreeSession?: {
       isTimedOut: (ms?: number) => boolean;
+      isValidSession: (session: unknown) => boolean;
       logout: (reason?: string, client?: unknown, redirectUrl?: string) => void;
       startWatcher: (client: unknown, options?: unknown) => void;
+      clearSessionStorage: (options?: { authOnly?: boolean }) => void;
+      clearAuthStorage: () => void;
     };
   }
 }
 
-const LOGIN_URL = '/';
+const LOGIN_URL = import.meta.env.DEV ? '/index.html' : '/';
 
-/** Circuit breaker: prevent ERR_TOO_MANY_REDIRECTS loops by detecting rapid repeated redirects to login. */
+/** Circuit breaker: prevent redirect loops by detecting rapid repeated bounces to login. */
 function checkRedirectLoop(): boolean {
   try {
     const key = 'mathtree_redirect_guard';
@@ -32,16 +35,25 @@ function checkRedirectLoop(): boolean {
     sessionStorage.setItem(key, JSON.stringify(data));
 
     if (data.count >= 3) {
-      console.warn('MathTree: Redirect loop detected, clearing auth storage and breaking loop.');
+      console.warn('MathTree: Redirect loop detected, clearing auth tokens and breaking loop.');
       sessionStorage.removeItem(key);
-      try {
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const k = localStorage.key(i);
-          if (k && (k.startsWith('sb-') || k.startsWith('mathtree_'))) {
-            localStorage.removeItem(k);
+      const session = window.MathTreeSession;
+      if (session?.clearAuthStorage) {
+        session.clearAuthStorage();
+      } else if (session?.clearSessionStorage) {
+        session.clearSessionStorage({ authOnly: true });
+      } else {
+        try {
+          localStorage.removeItem('mathtree_last_activity');
+          localStorage.removeItem('mathtree_active_user');
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('sb-') && k.includes('-auth-token')) {
+              localStorage.removeItem(k);
+            }
           }
-        }
-      } catch { /* storage unavailable */ }
+        } catch { /* storage unavailable */ }
+      }
       return true;
     }
   } catch { /* storage unavailable */ }
@@ -74,7 +86,8 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     const session = window.MathTreeSession;
 
     if (session?.isTimedOut()) {
-      session.logout('timeout', supabase, '/?reason=timeout');
+      const timeoutUrl = LOGIN_URL + (LOGIN_URL.includes('?') ? '&' : '?') + 'reason=timeout';
+      session.logout('timeout', supabase, timeoutUrl);
       return;
     }
 
@@ -86,9 +99,26 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
     supabase.auth.getSession().then(({ data }) => {
       if (!live) return;
-      if (!data.session) {
+      const s = data.session;
+      const isValid = s && (
+        session?.isValidSession
+          ? session.isValidSession(s)
+          : (typeof s.expires_at === 'number' ? s.expires_at > Math.floor(Date.now() / 1000) : true)
+      );
+
+      if (!isValid) {
+        if (s) {
+          // Token is stale or unusable: scrub auth storage and call signOut
+          if (session?.clearAuthStorage) {
+            session.clearAuthStorage();
+          } else if (session?.clearSessionStorage) {
+            session.clearSessionStorage({ authOnly: true });
+          }
+          supabase.auth.signOut().catch(() => {});
+        }
         if (checkRedirectLoop()) {
-          window.location.replace('/?reason=loop_detected');
+          const loopUrl = LOGIN_URL + (LOGIN_URL.includes('?') ? '&' : '?') + 'reason=loop_detected';
+          window.location.replace(loopUrl);
           return;
         }
         window.location.replace(LOGIN_URL);
@@ -102,7 +132,8 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'SIGNED_OUT' || (!s && event !== 'INITIAL_SESSION')) {
         if (checkRedirectLoop()) {
-          window.location.replace('/?reason=loop_detected');
+          const loopUrl = LOGIN_URL + (LOGIN_URL.includes('?') ? '&' : '?') + 'reason=loop_detected';
+          window.location.replace(loopUrl);
           return;
         }
         window.location.replace(LOGIN_URL);

@@ -89,25 +89,62 @@
     return Math.max(0, limit - elapsed);
   }
 
-  function clearSessionStorage() {
+  function isValidSession(session) {
+    if (!session || typeof session !== 'object') return false;
+    if (!session.access_token) return false;
+    if (typeof session.expires_at === 'number') {
+      var nowSec = Math.floor(Date.now() / 1000);
+      if (session.expires_at <= nowSec) {
+        return false;
+      }
+    }
+    if (isTimedOut()) {
+      return false;
+    }
+    return true;
+  }
+
+  function clearAuthStorage() {
     var storage = getStorage();
     if (storage) {
       try {
         storage.removeItem(STORAGE_KEY_LAST_ACTIVITY);
+        storage.removeItem('mathtree_active_user');
+        if (typeof storage.length === 'number' && typeof storage.key === 'function') {
+          for (var i = storage.length - 1; i >= 0; i--) {
+            var key = storage.key(i);
+            if (key && key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1) {
+              storage.removeItem(key);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  function clearSessionStorage(options) {
+    clearAuthStorage();
+    if (options && options.authOnly) {
+      return;
+    }
+    var storage = getStorage();
+    if (storage) {
+      try {
         storage.removeItem(STORAGE_KEY_DEMO);
         storage.removeItem('mathtree_local_deals');
         storage.removeItem('mathtree_demo_deals');
-        storage.removeItem('mathtree_active_user');
         storage.removeItem('mathtree_active_deal');
         storage.removeItem('mathtree_active_deal_id');
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem('mathtree_active_deal_id');
+        }
         if (typeof storage.length === 'number' && typeof storage.key === 'function') {
           for (var i = storage.length - 1; i >= 0; i--) {
             var key = storage.key(i);
             if (key && (
               key.indexOf('mathtree_deals_') === 0 ||
               key.indexOf('mathtree_local_') === 0 ||
-              key.indexOf('mathtree_demo_') === 0 ||
-              (key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1)
+              key.indexOf('mathtree_demo_') === 0
             )) {
               storage.removeItem(key);
             }
@@ -119,7 +156,11 @@
 
   function logout(reason, supabaseClient, redirectUrl) {
     reason = reason || 'timeout';
-    redirectUrl = redirectUrl || ('/' + (reason === 'timeout' ? '?reason=timeout' : ''));
+    if (!redirectUrl) {
+      var isDev = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      var baseTarget = isDev ? '/index.html' : '/';
+      redirectUrl = baseTarget + (reason === 'timeout' ? '?reason=timeout' : '');
+    }
 
     clearSessionStorage();
     hideWarningModal();
@@ -271,8 +312,10 @@
     resetSession: resetSession,
     getLastActivity: getLastActivity,
     isTimedOut: isTimedOut,
+    isValidSession: isValidSession,
     getRemainingTime: getRemainingTime,
     clearSessionStorage: clearSessionStorage,
+    clearAuthStorage: clearAuthStorage,
     logout: logout,
     renderWarningModal: renderWarningModal,
     hideWarningModal: hideWarningModal,
