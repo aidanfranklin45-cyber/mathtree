@@ -82,15 +82,12 @@ export const DashboardPage: React.FC = () => {
   const [entitiesOpen, setEntitiesOpen] = useState(false);
   const isDemoSandbox = (() => { try { return !!localStorage.getItem('mathtree_demo_mode'); } catch { return false; } })();
   const exitDemoMode = () => {
-    if (typeof window !== 'undefined' && window.MathTreeSession?.clearSessionStorage) {
-      window.MathTreeSession.clearSessionStorage();
-    }
+    window.MathTreeSession.clearSessionStorage();
     try {
       localStorage.removeItem('mathtree_entities_cache');
       localStorage.removeItem('mathtree_selected_entity_id');
     } catch { /* ignore */ }
-    const loginUrl = import.meta.env.DEV ? '/index.html' : '/';
-    window.location.replace(loginUrl);
+    window.location.replace(window.MathTreeSession.getLoginUrl());
   };
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);

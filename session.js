@@ -4,12 +4,20 @@
  * Syncs activity across tabs via localStorage.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
-  } else {
-    root.MathTreeSession = factory();
+  var instance = factory();
+  if (typeof module === 'object' && module && module.exports) {
+    module.exports = instance;
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+  if (root) {
+    root.MathTreeSession = instance;
+  }
+  if (typeof window !== 'undefined') {
+    window.MathTreeSession = instance;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.MathTreeSession = instance;
+  }
+}(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : this)), function () {
   'use strict';
 
   var STORAGE_KEY_LAST_ACTIVITY = 'mathtree_last_activity';
@@ -154,13 +162,18 @@
     }
   }
 
+  function getLoginUrl(reason) {
+    var isDev = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    var base = isDev ? '/index.html' : '/';
+    if (reason) {
+      return base + (base.indexOf('?') === -1 ? '?' : '&') + 'reason=' + encodeURIComponent(reason);
+    }
+    return base;
+  }
+
   function logout(reason, supabaseClient, redirectUrl) {
     reason = reason || 'timeout';
-    if (!redirectUrl) {
-      var isDev = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-      var baseTarget = isDev ? '/index.html' : '/';
-      redirectUrl = baseTarget + (reason === 'timeout' ? '?reason=timeout' : '');
-    }
+    redirectUrl = redirectUrl || getLoginUrl(reason === 'timeout' ? 'timeout' : undefined);
 
     clearSessionStorage();
     hideWarningModal();
@@ -316,6 +329,7 @@
     getRemainingTime: getRemainingTime,
     clearSessionStorage: clearSessionStorage,
     clearAuthStorage: clearAuthStorage,
+    getLoginUrl: getLoginUrl,
     logout: logout,
     renderWarningModal: renderWarningModal,
     hideWarningModal: hideWarningModal,

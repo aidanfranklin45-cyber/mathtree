@@ -4,9 +4,10 @@ import { supabase } from '../supabase/client';
 declare global {
   interface Window {
     /** Loaded from /session.js (30-minute inactivity logout + warning modal), shared with the static login page. */
-    MathTreeSession?: {
+    MathTreeSession: {
       isTimedOut: (ms?: number) => boolean;
       isValidSession: (session: unknown) => boolean;
+      getLoginUrl: (reason?: string) => string;
       logout: (reason?: string, client?: unknown, redirectUrl?: string) => void;
       startWatcher: (client: unknown, options?: unknown) => void;
       clearSessionStorage: (options?: { authOnly?: boolean }) => void;
@@ -15,10 +16,8 @@ declare global {
   }
 }
 
-const LOGIN_URL = import.meta.env.DEV ? '/index.html' : '/';
-
 /** Circuit breaker: prevent redirect loops by detecting rapid repeated bounces to login. */
-function checkRedirectLoop(): boolean {
+export function checkRedirectLoop(): boolean {
   try {
     const key = 'mathtree_redirect_guard';
     const now = Date.now();
@@ -37,23 +36,7 @@ function checkRedirectLoop(): boolean {
     if (data.count >= 3) {
       console.warn('MathTree: Redirect loop detected, clearing auth tokens and breaking loop.');
       sessionStorage.removeItem(key);
-      const session = window.MathTreeSession;
-      if (session?.clearAuthStorage) {
-        session.clearAuthStorage();
-      } else if (session?.clearSessionStorage) {
-        session.clearSessionStorage({ authOnly: true });
-      } else {
-        try {
-          localStorage.removeItem('mathtree_last_activity');
-          localStorage.removeItem('mathtree_active_user');
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const k = localStorage.key(i);
-            if (k && k.startsWith('sb-') && k.includes('-auth-token')) {
-              localStorage.removeItem(k);
-            }
-          }
-        } catch { /* storage unavailable */ }
-      }
+      window.MathTreeSession.clearAuthStorage();
       return true;
     }
   } catch { /* storage unavailable */ }
@@ -75,6 +58,44 @@ function isDemoVisit(): boolean {
 }
 
 /**
+ * Evaluates session and guards navigation.
+ * Returns 'authenticated' if session is valid or demo visit,
+ * or 'redirected' if invalid, timed out, or unauthenticated.
+ */
+export async function evaluateAuthSession(): Promise<'authenticated' | 'redirected'> {
+  if (window.MathTreeSession.isTimedOut()) {
+    window.MathTreeSession.logout('timeout', supabase, window.MathTreeSession.getLoginUrl('timeout'));
+    return 'redirected';
+  }
+
+  if (isDemoVisit()) {
+    window.MathTreeSession.startWatcher(null);
+    return 'authenticated';
+  }
+
+  const { data } = await supabase.auth.getSession();
+  const s = data.session;
+  const isValid = s && window.MathTreeSession.isValidSession(s);
+
+  if (!isValid) {
+    if (s) {
+      window.MathTreeSession.clearAuthStorage();
+      await supabase.auth.signOut().catch(() => {});
+    }
+    if (checkRedirectLoop()) {
+      window.location.replace(window.MathTreeSession.getLoginUrl('loop_detected'));
+      return 'redirected';
+    }
+    window.location.replace(window.MathTreeSession.getLoginUrl());
+    return 'redirected';
+  }
+
+  try { sessionStorage.removeItem('mathtree_redirect_guard'); } catch {}
+  window.MathTreeSession.startWatcher(supabase);
+  return 'authenticated';
+}
+
+/**
  * Same guard the legacy pages ran: expired inactivity timer or no session sends the visitor to the login page.
  * Demo mode (?demo=true) is allowed through without a session, as before.
  */
@@ -83,60 +104,20 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   useEffect(() => {
     let live = true;
-    const session = window.MathTreeSession;
 
-    if (session?.isTimedOut()) {
-      const timeoutUrl = LOGIN_URL + (LOGIN_URL.includes('?') ? '&' : '?') + 'reason=timeout';
-      session.logout('timeout', supabase, timeoutUrl);
-      return;
-    }
-
-    if (isDemoVisit()) {
-      session?.startWatcher(null);
-      setReady(true);
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!live) return;
-      const s = data.session;
-      const isValid = s && (
-        session?.isValidSession
-          ? session.isValidSession(s)
-          : (typeof s.expires_at === 'number' ? s.expires_at > Math.floor(Date.now() / 1000) : true)
-      );
-
-      if (!isValid) {
-        if (s) {
-          // Token is stale or unusable: scrub auth storage and call signOut
-          if (session?.clearAuthStorage) {
-            session.clearAuthStorage();
-          } else if (session?.clearSessionStorage) {
-            session.clearSessionStorage({ authOnly: true });
-          }
-          supabase.auth.signOut().catch(() => {});
-        }
-        if (checkRedirectLoop()) {
-          const loopUrl = LOGIN_URL + (LOGIN_URL.includes('?') ? '&' : '?') + 'reason=loop_detected';
-          window.location.replace(loopUrl);
-          return;
-        }
-        window.location.replace(LOGIN_URL);
-        return;
+    evaluateAuthSession().then((status) => {
+      if (live && status === 'authenticated') {
+        setReady(true);
       }
-      try { sessionStorage.removeItem('mathtree_redirect_guard'); } catch {}
-      session?.startWatcher(supabase);
-      setReady(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'SIGNED_OUT' || (!s && event !== 'INITIAL_SESSION')) {
         if (checkRedirectLoop()) {
-          const loopUrl = LOGIN_URL + (LOGIN_URL.includes('?') ? '&' : '?') + 'reason=loop_detected';
-          window.location.replace(loopUrl);
+          window.location.replace(window.MathTreeSession.getLoginUrl('loop_detected'));
           return;
         }
-        window.location.replace(LOGIN_URL);
+        window.location.replace(window.MathTreeSession.getLoginUrl());
       }
     });
     return () => { live = false; sub.subscription.unsubscribe(); };

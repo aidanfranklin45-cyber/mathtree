@@ -16,12 +16,9 @@ interface AppHeaderProps {
 
 /** Clears local session residue then signs out (same keys the legacy pages cleared). */
 export async function signOutOfMathTree(): Promise<void> {
-  if (typeof window !== 'undefined' && window.MathTreeSession?.clearSessionStorage) {
-    window.MathTreeSession.clearSessionStorage();
-  }
+  window.MathTreeSession.clearSessionStorage();
   try { await supabase.auth.signOut(); } catch { /* fall through to redirect */ }
-  const loginUrl = import.meta.env.DEV ? '/index.html?reason=logout' : '/?reason=logout';
-  window.location.replace(loginUrl);
+  window.location.replace(window.MathTreeSession.getLoginUrl('logout'));
 }
 
 const navBase = 'px-3 py-1.5 rounded-lg text-xs transition';

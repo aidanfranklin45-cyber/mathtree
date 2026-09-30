@@ -1868,9 +1868,7 @@
         var reason = params.get('reason');
         if (reason) {
           // Explicit sign-out reason provided: clear all local residue and ensure Supabase client signs out
-          if (window.MathTreeSession && window.MathTreeSession.clearSessionStorage) {
-            window.MathTreeSession.clearSessionStorage();
-          }
+          window.MathTreeSession.clearSessionStorage();
           _supabase.auth.signOut().catch(function() {});
 
           var bannerText = '';
@@ -1909,17 +1907,9 @@
         _supabase.auth.getSession().then(function(result) {
           var session = result.data && result.data.session;
           if (session) {
-            var isValid = window.MathTreeSession && window.MathTreeSession.isValidSession
-              ? window.MathTreeSession.isValidSession(session)
-              : (typeof session.expires_at === 'number' ? session.expires_at > Math.floor(Date.now() / 1000) : true);
-
-            if (!isValid) {
+            if (!window.MathTreeSession.isValidSession(session)) {
               // Token is expired, timed-out, or stale: purge auth token and call signOut instead of redirecting
-              if (window.MathTreeSession && window.MathTreeSession.clearAuthStorage) {
-                window.MathTreeSession.clearAuthStorage();
-              } else if (window.MathTreeSession && window.MathTreeSession.clearSessionStorage) {
-                window.MathTreeSession.clearSessionStorage({ authOnly: true });
-              }
+              window.MathTreeSession.clearAuthStorage();
               _supabase.auth.signOut().catch(function() {});
               return;
             }
@@ -1929,20 +1919,12 @@
 
         _supabase.auth.onAuthStateChange(function(event, session) {
           if (event === 'SIGNED_IN' && session) {
-            var isValid = window.MathTreeSession && window.MathTreeSession.isValidSession
-              ? window.MathTreeSession.isValidSession(session)
-              : (typeof session.expires_at === 'number' ? session.expires_at > Math.floor(Date.now() / 1000) : true);
-
-            if (!isValid) {
-              if (window.MathTreeSession && window.MathTreeSession.clearAuthStorage) {
-                window.MathTreeSession.clearAuthStorage();
-              } else if (window.MathTreeSession && window.MathTreeSession.clearSessionStorage) {
-                window.MathTreeSession.clearSessionStorage({ authOnly: true });
-              }
+            if (!window.MathTreeSession.isValidSession(session)) {
+              window.MathTreeSession.clearAuthStorage();
               _supabase.auth.signOut().catch(function() {});
               return;
             }
-            if (window.MathTreeSession) window.MathTreeSession.resetSession();
+            window.MathTreeSession.resetSession();
             window.location.replace('/dashboard');
           }
         });
@@ -1951,7 +1933,7 @@
 
     // Demo Sandbox Launcher (1-click institutional access)
     function launchDemoSandbox() {
-      if (window.MathTreeSession) window.MathTreeSession.recordActivity();
+      window.MathTreeSession.recordActivity();
       try {
         localStorage.removeItem('mathtree_local_deals');
       } catch(e) {}
@@ -2601,7 +2583,7 @@
       var password = (document.getElementById('_si-password') || {}).value || '';
       if (!email || !password) { setAuthMsg('Please enter email and password.', true); return; }
       setAuthMsg('Verifying credentials…', false);
-      if (window.MathTreeSession) window.MathTreeSession.resetSession();
+      window.MathTreeSession.resetSession();
       try {
         localStorage.removeItem('mathtree_demo_mode');
       } catch(e) {}
@@ -2609,7 +2591,7 @@
       if (result.error) {
         setAuthMsg(result.error.message, true);
       } else {
-        if (window.MathTreeSession) window.MathTreeSession.resetSession();
+        window.MathTreeSession.resetSession();
         if (result.data && result.data.session) {
           window.location.replace('/dashboard');
         }
@@ -2622,7 +2604,7 @@
       if (!email || !password) { setAuthMsg('Please fill in all fields.', true); return; }
       if (password.length < 6) { setAuthMsg('Password must be at least 6 characters.', true); return; }
       setAuthMsg('Setting up your account…', false);
-      if (window.MathTreeSession) window.MathTreeSession.resetSession();
+      window.MathTreeSession.resetSession();
       try {
         localStorage.removeItem('mathtree_demo_mode');
       } catch(e) {}
@@ -2630,7 +2612,7 @@
       if (result.error) {
         setAuthMsg(result.error.message, true);
       } else if (result.data && result.data.session) {
-        if (window.MathTreeSession) window.MathTreeSession.resetSession();
+        window.MathTreeSession.resetSession();
         window.location.replace('/dashboard');
       } else {
         setAuthMsg('✅ Verification link sent to your institutional email.', false);
