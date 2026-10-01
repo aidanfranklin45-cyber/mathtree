@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
 import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
+import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, type ReminderItem } from "../_shared/digest.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,12 +116,15 @@ interface AlertPreferences extends FollowupPrefs {
   advance_notice_days: number;
   remind_on_due: boolean;
   escalation_notice_days: number;
+  /** Combine into one email per property when at least this many tenants are due (0 = always one email per tenant). */
+  digest_min_tenants: number;
 }
 
 const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
   advance_notice_days: 0,
   remind_on_due: true,
   escalation_notice_days: 30,
+  digest_min_tenants: DEFAULT_DIGEST_MIN,
   ...DEFAULT_FOLLOWUP_PREFS,
 };
 
@@ -142,6 +146,7 @@ async function getUserAlertPreferences(
         advance_notice_days: typeof p.advance_notice_days === "number" ? p.advance_notice_days : 0,
         remind_on_due: p.remind_on_due !== false,
         escalation_notice_days: typeof p.escalation_notice_days === "number" ? p.escalation_notice_days : 30,
+        digest_min_tenants: normalizeDigestMin(p.digest_min_tenants),
         ...normalizeFollowupPrefs(p),
       };
     }
@@ -683,6 +688,38 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
 
     // 2. DYNAMIC DUE DATE & ADVANCE NOTICE DISPATCHING
+    // Sends a batch of prepared reminders: one digest per property when enough tenants are due, otherwise the tenant's own email.
+    // Returns how many tenants were notified.
+    const dispatchReminders = async (queue: ReminderItem[]): Promise<number> => {
+      if (queue.length === 0) return 0;
+      if (!resendApiKey) {
+        logs.push(`RESEND_API_KEY not configured. Prepared ${queue.length} reminder(s) with tokens but no email dispatch.`);
+        return 0;
+      }
+      const plan = planDispatch(queue);
+      let notified = 0;
+      for (const group of plan.digests) {
+        const mail = buildDigestEmail(group);
+        const res = await sendEmailWithResend(resendApiKey, { from: defaultFromEmail, to: group.to, subject: mail.subject, html: mail.html });
+        if (res.success) {
+          notified += group.items.length;
+          logs.push(`Digest sent to ${group.to}: ${group.items.length} tenants at ${group.dealTitle} (Resend ID: ${res.id})`);
+        } else {
+          logs.push(`Failed to send digest to ${group.to} for ${group.dealTitle}: ${res.error}`);
+        }
+      }
+      for (const it of plan.singles) {
+        const res = await sendEmailWithResend(resendApiKey, { from: defaultFromEmail, to: it.to, subject: it.single.subject, html: it.single.html });
+        if (res.success) {
+          notified += 1;
+          logs.push(`Email dispatched to ${it.to} for lease ${it.leaseId} (Resend ID: ${res.id})`);
+        } else {
+          logs.push(`Failed to send email to ${it.to}: ${res.error}`);
+        }
+      }
+      return notified;
+    };
+
     logs.push(`Step 2: Checking leases due today (day ${todayDay}) or with custom advance notice...`);
 
     const { data: activeLeasesRaw, error: activeLeasesErr } = await adminClient
@@ -720,6 +757,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     for (const l of (activeLeases || [])) leasesPerDeal.set(String(l.deal_id), (leasesPerDeal.get(String(l.deal_id)) || 0) + 1);
 
     let dueEmailsSent = 0;
+    const dueQueue: ReminderItem[] = [];
 
     if (!activeLeasesErr && Array.isArray(activeLeases)) {
       for (const lease of activeLeases) {
@@ -881,25 +919,26 @@ export async function handleRequest(req: Request): Promise<Response> {
 </html>
         `;
 
-        if (resendApiKey) {
-          const sendRes = await sendEmailWithResend(resendApiKey, {
-            from: defaultFromEmail,
-            to: targetEmail,
-            subject: emailSubject,
-            html: emailHtml,
-          });
-
-          if (sendRes.success) {
-            dueEmailsSent++;
-            logs.push(`Email dispatched to ${targetEmail} for lease ${lease.id} (Resend ID: ${sendRes.id})`);
-          } else {
-            logs.push(`Failed to send email to ${targetEmail}: ${sendRes.error}`);
-          }
-        } else {
-          logs.push(`RESEND_API_KEY not configured. Generated tokens for lease ${lease.id} without email dispatch.`);
-        }
+        dueQueue.push({
+          leaseId: String(lease.id),
+          dealId: String(lease.deal_id),
+          dealTitle,
+          to: targetEmail,
+          tenant: String(lease.tenant_name || "Tenant"),
+          space: unitLabel((lease.units as any)?.unit_number),
+          rent: Number(lease.monthly_rent) || 0,
+          kind: isAdvanceNotice ? "advance" : "due",
+          advanceDays: isAdvanceNotice ? advanceDays : undefined,
+          graceDays,
+          confirmUrl,
+          snoozeUrl,
+          digestMin: userPrefs.digest_min_tenants,
+          single: { subject: emailSubject, html: emailHtml },
+        });
       }
     }
+
+    dueEmailsSent += await dispatchReminders(dueQueue);
 
     // 3. FOLLOW-UPS ON UNPAID RENT (user-configurable)
     // After the due-date reminder, unpaid rent keeps getting follow-ups at the pace in the owner's alert settings
@@ -951,6 +990,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
 
     let graceFollowupsSent = 0;
+    const followupQueue: ReminderItem[] = [];
 
     {
       for (const p of followupCandidates) {
@@ -1024,25 +1064,27 @@ export async function handleRequest(req: Request): Promise<Response> {
 </html>
         `;
 
-        if (resendApiKey) {
-          const sendRes = await sendEmailWithResend(resendApiKey, {
-            from: defaultFromEmail,
-            to: targetEmail,
-            subject: `⚠️ ${followupLabel}${followupTag}: ${lease.tenant_name} (${rentFormatted}) Past Due`,
-            html: followupHtml,
-          });
-
-          if (sendRes.success) {
-            graceFollowupsSent++;
-            logs.push(`Grace period reminder sent to ${targetEmail} for lease ${lease.id} (Resend ID: ${sendRes.id})`);
-          } else {
-            logs.push(`Failed to send grace period reminder to ${targetEmail}: ${sendRes.error}`);
-          }
-        } else {
-          logs.push(`RESEND_API_KEY not configured. Tokens prepared for past-due lease ${lease.id} without dispatch.`);
-        }
+        const followupPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
+        followupQueue.push({
+          leaseId: String(lease.id),
+          dealId: String(deal?.id || lease.deal_id || lease.id),
+          dealTitle: deal?.title || "Commercial Asset",
+          to: targetEmail,
+          tenant: String(lease.tenant_name || "Tenant"),
+          space: unitLabel((lease.units as any)?.unit_number),
+          rent: Number(p.amount_due || lease.monthly_rent) || 0,
+          kind: "followup",
+          followupNumber: p.followupNumber,
+          graceDays: Number(lease.grace_period_days ?? 5),
+          confirmUrl,
+          snoozeUrl,
+          digestMin: followupPrefs.digest_min_tenants,
+          single: { subject: `⚠️ ${followupLabel}${followupTag}: ${lease.tenant_name} (${rentFormatted}) Past Due`, html: followupHtml },
+        });
       }
     }
+
+    graceFollowupsSent += await dispatchReminders(followupQueue);
 
     return new Response(
       JSON.stringify({
