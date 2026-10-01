@@ -17,13 +17,15 @@ interface Props {
   /** Called when shares change or a pro-forma sync rewrites deal inputs, so the page can reload. */
   onDealsChanged?: () => void;
   extraActions?: React.ReactNode;
+  /** Hide the account dropdown (Investor Profile, Collaborators, Alerts, Export) on pages that don't need it. */
+  hideAccountMenu?: boolean;
 }
 
 /**
  * The shared page header plus everything it opens: Action Center (alerts), Collaborators hub and
  * Investor Profile. Pages render this once instead of wiring three modals each.
  */
-export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfileSaved, onDealsChanged, extraActions }) => {
+export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfileSaved, onDealsChanged, extraActions, hideAccountMenu }) => {
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [collabOpen, setCollabOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -45,6 +47,7 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
         alertCount={notifications.length > 9 ? 9 : notifications.length}
         collaboratorInviteCount={sharedWithMe}
         extraActions={extraActions}
+        hideAccountMenu={hideAccountMenu}
       />
       <NotificationHub
         isOpen={alertsOpen}
