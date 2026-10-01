@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { isResidentialAsset } from '../../../supabase/functions/_shared/rentIncreaseRules';
 import { supabase, SUPABASE_URL } from '../../lib/supabase/client';
 
 type Row = Record<string, any>;
@@ -41,11 +42,15 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
   const lease = leaseId ? leases.find((l) => l.id === leaseId) || null : null;
   const deal = lease ? deals.find((d) => d.id === lease.deal_id) : null;
   const unit = lease ? units.find((u) => u.id === lease.unit_id) : null;
+  const isResidential = isResidentialAsset((deal as Record<string, any> | null | undefined)?.asset_type);
 
   const [tenantName, setTenantName] = useState('');
   const [rent, setRent] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [termType, setTermType] = useState<'fixed' | 'month_to_month'>('fixed');
+  const [subsidized, setSubsidized] = useState(false);
+  const [stabilizationExempt, setStabilizationExempt] = useState(false);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [deposit, setDeposit] = useState('');
@@ -63,6 +68,9 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
     setRent(String(lease.monthly_rent ?? 0));
     setStart(lease.lease_start_date || '');
     setEnd(lease.lease_end_date || '');
+    setTermType(lease.term_type === 'month_to_month' ? 'month_to_month' : 'fixed');
+    setSubsidized(!!lease.is_subsidized);
+    setStabilizationExempt(!!lease.stabilization_exempt);
     setEmail(lease.tenant_email || '');
     setPhone(lease.tenant_phone || '');
     setDeposit(String(lease.security_deposit || lease.deposit_amount || ''));
@@ -160,7 +168,10 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
         tenant_name: tenantName.trim() || 'In-Place Tenant',
         monthly_rent: monthlyRent,
         lease_start_date: start,
-        lease_end_date: end || null,
+        lease_end_date: termType === 'month_to_month' ? null : end || null,
+        term_type: termType,
+        is_subsidized: isResidential && subsidized,
+        stabilization_exempt: isResidential && stabilizationExempt,
         tenant_email: email.trim() || null,
         tenant_phone: phone.trim() || null,
         security_deposit: parseFloat(deposit) || 0,
@@ -200,7 +211,10 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
             tenant_name: payload.tenant_name,
             monthly_rent: monthlyRent,
             lease_start_date: start,
-            lease_end_date: end || null,
+            lease_end_date: payload.lease_end_date,
+            term_type: termType,
+            is_subsidized: payload.is_subsidized,
+            stabilization_exempt: payload.stabilization_exempt,
             tenant_email: payload.tenant_email,
             tenant_phone: payload.tenant_phone,
             security_deposit: payload.security_deposit,
@@ -269,6 +283,25 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
             </div>
           </div>
 
+          <div className="space-y-2">
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Lease Term</label>
+              <select value={termType} onChange={(e) => setTermType(e.target.value as 'fixed' | 'month_to_month')} className={input}>
+                <option value="fixed">Fixed term (has an end date)</option>
+                <option value="month_to_month">Month to month (open-ended, either side can end it with notice)</option>
+              </select>
+            </div>
+            {termType === 'month_to_month' && (
+              <p className="text-[10px] text-slate-500">Month-to-month leases have no end date and no automatic yearly increase. Any rent increase is a deliberate decision with written notice.</p>
+            )}
+            {isResidential && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={subsidized} onChange={(e) => setSubsidized(e.target.checked)} className="rounded bg-slate-900 border-slate-700" />Subsidized tenancy (rent based on income)</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={stabilizationExempt} onChange={(e) => setStabilizationExempt(e.target.checked)} className="rounded bg-slate-900 border-slate-700" />Exempt from the rent-increase cap (e.g. new construction)</label>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-400 font-bold mb-1">Lease Start Date *</label>
@@ -276,7 +309,11 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
             </div>
             <div>
               <label className="block text-slate-400 font-bold mb-1">Lease Expiration Date</label>
-              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={`${input} font-mono`} />
+              {termType === 'month_to_month' ? (
+                <div className={`${input} text-slate-500`}>Month to month (open-ended)</div>
+              ) : (
+                <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={`${input} font-mono`} />
+              )}
             </div>
           </div>
 

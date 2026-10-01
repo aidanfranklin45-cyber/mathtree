@@ -6,7 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
 import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
-import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, type ReminderItem } from "../_shared/digest.ts";
+import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
+import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -606,7 +607,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           new_rent,
           scheduled_amount,
           increase_type,
-          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, is_active, lease_start_date, lease_end_date, deals ( id, title, status, is_demo ) )
+          notice_sent_date,
+          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, is_active, is_subsidized, lease_start_date, lease_end_date, deals ( id, title, status, is_demo, asset_type, location, inputs ) )
         `)
         .eq("is_applied", false);
 
@@ -617,6 +619,51 @@ export async function handleRequest(req: Request): Promise<Response> {
           if (scopeUserId && leaseObj.user_id !== scopeUserId) continue;
           // Tenants are only written to for properties that are owned and have the lease in force (never prospects or demo data)
           if (!isReminderEligible({ dealStatus: leaseObj.deals?.status, isDemo: leaseObj.deals?.is_demo, leaseActive: leaseObj.is_active, leaseStartDate: leaseObj.lease_start_date, leaseEndDate: leaseObj.lease_end_date })) continue;
+          // Washington residential: the tenant must be given written notice (RCW 59.18.140), so these increases never take effect by
+          // themselves. Remind the OWNER to give the notice in time instead of sending the generic "no action required" heads-up.
+          if (isResidentialAsset(leaseObj.deals?.asset_type) && isWashingtonProperty({ location: leaseObj.deals?.location, inputs: leaseObj.deals?.inputs })) {
+            if (inc.notice_sent_date) continue; // notice already recorded
+            const needDays = leaseObj.is_subsidized ? WA_NOTICE_DAYS_SUBSIDIZED : WA_NOTICE_DAYS;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const daysToEffective = daysBetween(todayStr, String(inc.effective_date));
+            const stage = noticeReminderStage(daysToEffective, needDays);
+            if (!stage) continue;
+            const latest = addDays(String(inc.effective_date), -needDays);
+            const propTitleWa = leaseObj.deals?.title || "Property";
+            const newRentWa = "$" + Math.round(Number(inc.new_rent || 0)).toLocaleString("en-US");
+            const oldRentWa = "$" + Math.round(Number(leaseObj.monthly_rent || 0)).toLocaleString("en-US");
+            const subject = stage === "missed"
+              ? `Rent increase cannot take effect ${inc.effective_date}: notice deadline passed - ${leaseObj.tenant_name}, ${propTitleWa}`
+              : stage === "final"
+                ? `Last days to give rent-increase notice (by ${latest}): ${leaseObj.tenant_name} - ${propTitleWa}`
+                : `Give rent-increase notice by ${latest}: ${leaseObj.tenant_name} - ${propTitleWa}`;
+            const headline = stage === "missed"
+              ? `The ${needDays}-day notice deadline (${latest}) has passed without a recorded notice, so this increase cannot take effect on ${inc.effective_date}.`
+              : `Washington requires ${needDays} days' written notice before a rent increase. To take effect on <strong>${escapeHtml(inc.effective_date)}</strong>, the tenant must be given written notice by <strong>${escapeHtml(latest)}</strong>.`;
+            const action = stage === "missed"
+              ? "Open Operations and reschedule the increase for a later date (the app will show the earliest allowed date)."
+              : "Open Operations, choose Record Rent Escalation for this tenant, print the notice, give it to the tenant, then record the date you gave it. The rent will not change until that date is recorded.";
+            const { email: waTarget } = await resolveRecipientEmail(adminClient, leaseObj.user_id, leaseObj.notification_email, alertRecipientOverride);
+            if (resendApiKey) {
+              await sendEmailWithResend(resendApiKey, {
+                from: defaultFromEmail,
+                to: waTarget,
+                subject,
+                html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#020617;color:#f8fafc;margin:0;padding:24px;">
+<div style="background:#0f172a;border:1px solid ${stage === "missed" ? "#dc2626" : "#1e293b"};border-radius:16px;padding:28px;max-width:560px;margin:0 auto;">
+  <div style="font-size:12px;font-weight:800;color:${stage === "missed" ? "#f87171" : "#38bdf8"};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">MathTree &bull; Washington rent-increase notice</div>
+  <div style="font-size:20px;font-weight:800;color:#ffffff;margin-bottom:8px;">${escapeHtml(leaseObj.tenant_name)} &middot; ${escapeHtml(propTitleWa)}</div>
+  <div style="font-size:13px;color:#cbd5e1;line-height:1.55;margin-bottom:14px;">${headline}</div>
+  <div style="background:#020617;border:1px solid #1e293b;border-radius:12px;padding:14px;font-size:12px;color:#e2e8f0;margin-bottom:16px;">Planned increase: <strong>${oldRentWa}</strong> to <strong>${newRentWa}</strong> per month, effective <strong>${escapeHtml(inc.effective_date)}</strong>.</div>
+  <div style="font-size:12px;color:#94a3b8;line-height:1.5;margin-bottom:16px;">${action}</div>
+  <a href="${APP_BASE_URL}/operations" style="display:block;text-align:center;background:#1e293b;color:#e2e8f0;font-weight:700;font-size:13px;padding:12px 20px;border-radius:12px;text-decoration:none;">Open Operations</a>
+</div></body></html>`,
+              });
+              logs.push(`Washington notice reminder (${stage}) sent to ${waTarget} for lease ${leaseObj.id}`);
+            }
+            continue;
+          }
+
           const userPrefs = await getUserAlertPreferences(adminClient, leaseObj.user_id);
           const noticeDays = userPrefs.escalation_notice_days ?? 30;
           if (noticeDays <= 0) continue;

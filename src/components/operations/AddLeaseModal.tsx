@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isResidentialAsset, isWashingtonProperty } from '../../../supabase/functions/_shared/rentIncreaseRules';
 import { supabase } from '../../lib/supabase/client';
 import { X, Plus, Calendar, DollarSign, Building, AlertCircle } from 'lucide-react';
 
@@ -24,6 +25,12 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
   const [monthlyRent, setMonthlyRent] = useState<string>('');
   const [leaseStartDate, setLeaseStartDate] = useState<string>('');
   const [leaseEndDate, setLeaseEndDate] = useState<string>('');
+  const [termType, setTermType] = useState<'fixed' | 'month_to_month'>('fixed');
+  const [subsidized, setSubsidized] = useState(false);
+  const [stabilizationExempt, setStabilizationExempt] = useState(false);
+  const pickedDeal = (deals as Array<Record<string, any>>).find((d) => d.id === dealId);
+  const isResidential = isResidentialAsset(pickedDeal?.asset_type);
+  const isWaResidential = isResidential && isWashingtonProperty({ location: pickedDeal?.location, inputs: pickedDeal?.inputs });
   const [leaseType, setLeaseType] = useState<string>('NNN');
   const [escalationType, setEscalationType] = useState<string>('Percentage Bump (%)');
   const [escalationRate, setEscalationRate] = useState<string>('3.0');
@@ -84,7 +91,10 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
           monthly_rent: rentNum,
           lease_type: leaseType,
           lease_start_date: leaseStartDate || new Date().toISOString().slice(0, 10),
-          lease_end_date: leaseEndDate || null,
+          lease_end_date: termType === 'month_to_month' ? null : leaseEndDate || null,
+          term_type: termType,
+          is_subsidized: isResidential && subsidized,
+          stabilization_exempt: isResidential && stabilizationExempt,
           escalation_type: escalationType,
           escalation_rate: rateNum,
           escalation_frequency: 'Annual on Anniversary',
@@ -103,7 +113,8 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
       if (leaseErr) throw leaseErr;
 
       // 2. Generate scheduled contractual escalations across the full lease term
-      if (newLease && rateNum > 0 && leaseStartDate) {
+      // (Month-to-month leases, and Washington residential leases, get no automatic yearly increases: those are decided one at a time with written notice.)
+      if (newLease && rateNum > 0 && leaseStartDate && termType === 'fixed' && !isWaResidential) {
         const startParts = leaseStartDate.split('-');
         const startY = parseInt(startParts[0], 10);
         const startM = startParts[1];
@@ -250,6 +261,25 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Lease Term</label>
+              <select value={termType} onChange={(e) => setTermType(e.target.value as 'fixed' | 'month_to_month')} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="fixed">Fixed term (has an end date)</option>
+                <option value="month_to_month">Month to month (open-ended, either side can end it with notice)</option>
+              </select>
+            </div>
+            {termType === 'month_to_month' && (
+              <p className="text-[10px] text-slate-500">Month-to-month leases have no end date and no automatic yearly increase. Any rent increase is a deliberate decision with written notice.</p>
+            )}
+            {isResidential && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={subsidized} onChange={(e) => setSubsidized(e.target.checked)} className="rounded bg-slate-900 border-slate-700" />Subsidized tenancy (rent based on income)</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={stabilizationExempt} onChange={(e) => setStabilizationExempt(e.target.checked)} className="rounded bg-slate-900 border-slate-700" />Exempt from the rent-increase cap (e.g. new construction)</label>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-400 font-bold mb-1">Lease Start Date *</label>
@@ -263,12 +293,16 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
             </div>
             <div>
               <label className="block text-slate-400 font-bold mb-1">Lease Expiration</label>
-              <input
-                type="date"
-                value={leaseEndDate}
-                onChange={(e) => setLeaseEndDate(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums"
-              />
+              {termType === 'month_to_month' ? (
+                <div className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-500">Month to month (open-ended)</div>
+              ) : (
+                <input
+                  type="date"
+                  value={leaseEndDate}
+                  onChange={(e) => setLeaseEndDate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none tabular-nums"
+                />
+              )}
             </div>
           </div>
 

@@ -453,6 +453,7 @@ export type Database = {
           grace_period_days: number | null
           id: string
           is_active: boolean
+          is_subsidized: boolean
           last_rent_increase_date: string | null
           lease_end_date: string | null
           lease_start_date: string | null
@@ -464,9 +465,11 @@ export type Database = {
           payment_due_day: number | null
           previous_rent_amount: number | null
           security_deposit: number | null
+          stabilization_exempt: boolean
           tenant_email: string | null
           tenant_name: string
           tenant_phone: string | null
+          term_type: string
           unit_id: string | null
           updated_at: string
           user_id: string | null
@@ -480,6 +483,7 @@ export type Database = {
           grace_period_days?: number | null
           id?: string
           is_active?: boolean
+          is_subsidized?: boolean
           last_rent_increase_date?: string | null
           lease_end_date?: string | null
           lease_start_date?: string | null
@@ -491,9 +495,11 @@ export type Database = {
           payment_due_day?: number | null
           previous_rent_amount?: number | null
           security_deposit?: number | null
+          stabilization_exempt?: boolean
           tenant_email?: string | null
           tenant_name: string
           tenant_phone?: string | null
+          term_type?: string
           unit_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -507,6 +513,7 @@ export type Database = {
           grace_period_days?: number | null
           id?: string
           is_active?: boolean
+          is_subsidized?: boolean
           last_rent_increase_date?: string | null
           lease_end_date?: string | null
           lease_start_date?: string | null
@@ -518,9 +525,11 @@ export type Database = {
           payment_due_day?: number | null
           previous_rent_amount?: number | null
           security_deposit?: number | null
+          stabilization_exempt?: boolean
           tenant_email?: string | null
           tenant_name?: string
           tenant_phone?: string | null
+          term_type?: string
           unit_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1151,6 +1160,7 @@ export type Database = {
         Returns: Json
       }
       execute_scheduled_rent_escalations: { Args: never; Returns: Json }
+      hash_token: { Args: { p_token: string }; Returns: string }
       rpc_evaluate_deal_notifications: {
         Args: { p_user_id: string }
         Returns: {
