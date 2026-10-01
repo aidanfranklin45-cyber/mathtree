@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
-import { Lock, Mail, AlertCircle, CheckCircle2, Eye, EyeOff, Shield } from 'lucide-react';
+import { Lock, Mail, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 /**
  * Safely sanitizes redirect URLs to prevent open-redirect vulnerabilities.
@@ -467,11 +467,6 @@ export const LoginPage: React.FC = () => {
               <span>Or test drive full app in Demo Sandbox</span>
               <span>→</span>
             </button>
-          </div>
-
-          <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 text-center">
-            <Shield className="w-3.5 h-3.5 text-slate-600" />
-            <span>Encrypted with institutional TLS &amp; standard password manager autofill support.</span>
           </div>
         </div>
 
