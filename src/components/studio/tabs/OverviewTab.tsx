@@ -8,6 +8,7 @@ import { exportDealBriefPDF } from '../../../lib/export/pdfBrief';
 import { ProjectionsChart } from '../ProjectionsChart';
 import { PerformanceVsProforma } from '../PerformanceVsProforma';
 import { Link } from 'react-router-dom';
+import { currentLeases } from '../../../lib/leases';
 
 interface OverviewTabProps {
   deal: DealRecord;
@@ -93,9 +94,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
   const pClass = inputs.propertyClass || inputs.commClass || 'Class B';
   const assessed = Number(inputs.combinedAssessedValue) || Number(inputs.assessorData?.totalAssessedValue) || Number(inputs.totalAssessedValue) || 0;
 
-  const leases: any[] = Array.isArray(inputs.leases)
-    ? inputs.leases.filter((l: any) => l && (l.tenantName || parseFloat(l.monthlyRent) > 0 || parseFloat(l.annualRent) > 0))
-    : [];
+  const leases: any[] = currentLeases(inputs);
   const unitCount = parseInt(String(inputs.unitCount || inputs.numUnits || inputs.storageUnitCount || 0), 10);
   let tenancyTitle = 'Single-Tenant Asset';
   let tenancySub = '100% Baseline Occupancy';
