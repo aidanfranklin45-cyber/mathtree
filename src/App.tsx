@@ -6,6 +6,7 @@ import { AuthGate } from './lib/auth/AuthGate';
 const DealStudioPage = lazy(() => import('./pages/DealStudioPage').then((m) => ({ default: m.DealStudioPage })));
 const OperationsPage = lazy(() => import('./pages/OperationsPage').then((m) => ({ default: m.OperationsPage })));
 const ReconcilePage = lazy(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 
 const PageSpinner: React.FC = () => (
   <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -41,6 +42,10 @@ export const App: React.FC = () => {
           )))}
           {['/operations', '/operations.html'].map((p) => (
             <Route key={p} path={p} element={guard(<OperationsPage />)} />
+          ))}
+          {/* Authentication flow with password manager support */}
+          {['/login', '/login.html', '/signin'].map((p) => (
+            <Route key={p} path={p} element={<LoginPage />} />
           ))}
           {/* Public zero-login page linked from rent-alert emails */}
           <Route path="/reconcile" element={<ReconcilePage />} />
