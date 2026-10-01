@@ -43,6 +43,9 @@ export const App: React.FC = () => {
           {TABS.flatMap((t) => [`/project-${t}`, `/project-${t}.html`].map((p) => (
             <Route key={p} path={p} element={<StudioTabRedirect tab={t} />} />
           )))}
+          {['/compare', '/compare.html'].map((p) => (
+            <Route key={p} path={p} element={guard(<ComparePage />)} />
+          ))}
           <Route path="/brief" element={guard(<DealBriefPage />)} />
           <Route path="/portfolio-brief" element={guard(<PortfolioBriefPage />)} />
           {['/operations', '/operations.html'].map((p) => (
