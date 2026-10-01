@@ -22,6 +22,12 @@ function getEnv(key: string): string {
 
 const APP_BASE_URL = getEnv("APP_URL") || "https://mathtree-app.web.app";
 
+// Only a SHA-256 of each email token is stored; the raw token lives in the email link alone, so a copy of the table cannot be used to act on rent.
+async function sha256Hex(value: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function generateHexToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -290,7 +296,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             user_id: sampleLease?.user_id || null,
             period_month: currentPeriodMonth,
             action: "confirm",
-            token_hash: confirmToken,
+            token_hash: await sha256Hex(confirmToken),
             expires_at: tokenExpires,
           },
           {
@@ -299,7 +305,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             user_id: sampleLease?.user_id || null,
             period_month: currentPeriodMonth,
             action: "snooze",
-            token_hash: snoozeToken,
+            token_hash: await sha256Hex(snoozeToken),
             expires_at: tokenExpires,
           },
         ]);
@@ -455,7 +461,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           user_id: targetLease.user_id,
           period_month: currentPeriodMonth,
           action: "confirm",
-          token_hash: confirmToken,
+          token_hash: await sha256Hex(confirmToken),
           expires_at: tokenExpires,
         },
         {
@@ -464,7 +470,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           user_id: targetLease.user_id,
           period_month: currentPeriodMonth,
           action: "snooze",
-          token_hash: snoozeToken,
+          token_hash: await sha256Hex(snoozeToken),
           expires_at: tokenExpires,
         },
       ]);
@@ -757,7 +763,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             user_id: lease.user_id,
             period_month: currentPeriodMonth,
             action: "confirm",
-            token_hash: confirmToken,
+            token_hash: await sha256Hex(confirmToken),
             expires_at: tokenExpires,
           },
           {
@@ -766,7 +772,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             user_id: lease.user_id,
             period_month: currentPeriodMonth,
             action: "snooze",
-            token_hash: snoozeToken,
+            token_hash: await sha256Hex(snoozeToken),
             expires_at: tokenExpires,
           },
         ]);
@@ -925,8 +931,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         const tokenExpires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
         await adminClient.from("reconciliation_tokens").insert([
-          { lease_id: lease.id, deal_id: deal?.id || lease.id, user_id: lease.user_id, period_month: currentPeriodMonth, action: "confirm", token_hash: confirmToken, expires_at: tokenExpires },
-          { lease_id: lease.id, deal_id: deal?.id || lease.id, user_id: lease.user_id, period_month: currentPeriodMonth, action: "snooze", token_hash: snoozeToken, expires_at: tokenExpires },
+          { lease_id: lease.id, deal_id: deal?.id || lease.id, user_id: lease.user_id, period_month: currentPeriodMonth, action: "confirm", token_hash: await sha256Hex(confirmToken), expires_at: tokenExpires },
+          { lease_id: lease.id, deal_id: deal?.id || lease.id, user_id: lease.user_id, period_month: currentPeriodMonth, action: "snooze", token_hash: await sha256Hex(snoozeToken), expires_at: tokenExpires },
         ]);
 
         const confirmUrl = `${APP_BASE_URL}/reconcile?action=confirm&token=${confirmToken}`;
