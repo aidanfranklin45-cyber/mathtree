@@ -7,6 +7,10 @@
 //   * Contractual rent never varies (a signed lease with fixed bumps is fixed). Market rent after a lease ends drifts with the sampled
 //     rent growth (marketRentDrift in the engine); without leases the sampled growth applies to the whole rent.
 //   * Tenant default is an explicit, labelled risk: a probability over the hold and a downtime, not a hidden vacancy shock.
+//   * Residential tenants (apartments and houses) move out: each tenant has a yearly chance of leaving, then the space sits vacant for a
+//     stretch and costs a make-ready charge before a new tenant pays the same rent. The vacant stretch is calibrated so the average
+//     vacancy matches the deal's own vacancy setting; the spread around that average is what the simulation adds. Fixed-term tenants
+//     can only leave after their lease ends; month-to-month tenants can leave any time.
 //   * Exit cap rate, appreciation, vacancy and cost inflation are sampled as before.
 // Both profit in dollars and IRR are reported for every deal: IRR alone is unstable when equity is thin.
 
@@ -22,6 +26,12 @@ export interface MonteCarloOptions {
   tenantDefaultProbPct?: number;
   /** Months with no rent after a default (then the rent resumes). Default 12. */
   tenantDefaultDowntimeMonths?: number;
+  /** Residential: chance (%) that a tenant moves out in a year. Default 45 for apartments, 30 for houses (industry averages). */
+  turnoverPct?: number;
+  /** Residential: days a space sits vacant between tenants. Default: calibrated so the average vacancy matches the deal's vacancy rate. */
+  turnoverDowntimeDays?: number;
+  /** Residential: one-time make-ready cost per move-out ($). Default 1,500 for apartments, 2,000 for houses. */
+  turnoverMakeReadyCost?: number;
   /** Return the investor wants to clear (%), for "probability of meeting the hurdle". Default: the deal's discount rate, else 8. */
   hurdleRatePct?: number;
   /** Makes a run repeatable: the same seed and inputs give the same result. Without a seed (or rng) every run is different. */
@@ -89,6 +99,19 @@ export interface MonteCarloResult {
   /** Equity is thin when the cash put in is a small share of the price; IRR is then unstable and dollar profit is the steadier view. */
   equity: { cashInvested: number; pctOfPrice: number; thin: boolean };
   tenantDefault: { applies: boolean; probabilityPct: number; downtimeMonths: number; runsAffectedPct: number };
+  turnover: {
+    applies: boolean;
+    annualPct: number;
+    downtimeDays: number;
+    makeReadyCost: number;
+    /** True when the vacant stretch was set from the deal's vacancy rate (the default); false when the owner chose the days. */
+    calibratedToVacancy: boolean;
+    /** Average move-outs per run over the hold. */
+    avgMoveOutsPerRun: number;
+    /** Vacancy implied by the turnover rate and the vacant days (turnover x days / 365), as a percent. */
+    impliedVacancyPct: number;
+    dealVacancyPct: number;
+  };
   seed: number | null;
   telemetry: {
     baselineRentGrowth: number;
@@ -126,6 +149,18 @@ export interface MonteCarloRunner {
 }
 
 export const DEFAULT_TENANT_DEFAULT = { probabilityPct: 10, downtimeMonths: 12 } as const;
+
+/**
+ * Residential turnover defaults (industry averages, checked 2026-10): multifamily resident turnover runs about 40 to 50% a year with
+ * about 41 vacant days per turn; single-family rentals run 30 to 45 vacant days per turn. Direct make-ready cost (lost rent is counted
+ * separately as vacancy) is about $1,200 to $1,800 per apartment turn and $800 to $4,500 per house.
+ */
+export const DEFAULT_TURNOVER: Record<string, { annualPct: number; downtimeDays: number; makeReadyCost: number }> = {
+  "multi-unit": { annualPct: 45, downtimeDays: 41, makeReadyCost: 1500 },
+  "single-family": { annualPct: 30, downtimeDays: 40, makeReadyCost: 2000 },
+};
+
+const DAYS_PER_MONTH = 365 / 12;
 
 const num = (v: unknown): number | undefined => {
   if (v === undefined || v === null || v === '') return undefined;
@@ -308,6 +343,31 @@ export function createMonteCarloRunner(
   const defaultApplies = isCommercialOrStorage && !isZeroIncome;
   const defaultProbPct = defaultApplies ? Math.min(100, Math.max(0, options.tenantDefaultProbPct ?? DEFAULT_TENANT_DEFAULT.probabilityPct)) : 0;
   const defaultDowntime = Math.max(0, Math.round(options.tenantDefaultDowntimeMonths ?? DEFAULT_TENANT_DEFAULT.downtimeMonths));
+  // Residential turnover (apartments and houses with tenant leases): ordinary move-outs, tenant by tenant
+  const turnoverDefaults = DEFAULT_TURNOVER[assetType];
+  const turnoverApplies = !!turnoverDefaults && hasLeaseIncome;
+  const turnoverPct = turnoverApplies ? Math.min(100, Math.max(0, options.turnoverPct ?? turnoverDefaults.annualPct)) : 0;
+  const makeReady = turnoverApplies ? Math.max(0, options.turnoverMakeReadyCost ?? turnoverDefaults.makeReadyCost) : 0;
+  const calibrated = options.turnoverDowntimeDays === undefined;
+  // The deal's own vacancy setting is the anchor: pick the vacant stretch so turnover x stretch matches it (capped at six months)
+  const calibratedMonths = turnoverPct > 0 ? Math.min(6, (baseVacancy / 100) * 12 / (turnoverPct / 100)) : 0;
+  const downtimeMonthsMean = turnoverApplies ? (calibrated ? calibratedMonths : Math.max(0, options.turnoverDowntimeDays as number) / DAYS_PER_MONTH) : 0;
+  const closing = String(inputs.closingDate ?? "").match(/(\d{4})[-/](\d{1,2})/);
+  const closeIdx = (closing ? parseInt(closing[1], 10) : 2025) * 12 + (closing ? parseInt(closing[2], 10) : 7);
+  const ymIdx = (v: unknown): number | null => {
+    const m = String(v ?? "").match(/(\d{4})[-/](\d{1,2})/);
+    return m ? parseInt(m[1], 10) * 12 + parseInt(m[2], 10) : null;
+  };
+  // Months after closing from which each tenant can leave: a fixed-term tenant only once the lease has ended, a month-to-month tenant at once
+  const leaveFrom: Record<number, number> = {};
+  for (const i of rentedLeaseIdx) {
+    const l = explicitLeases[i];
+    const month2month = String(l?.termType ?? "") === "month_to_month" || !ymIdx(l?.leaseEndDate);
+    const endIdx = month2month ? null : ymIdx(l?.leaseEndDate);
+    const startIdx = ymIdx(l?.leaseStartDate);
+    leaveFrom[i] = Math.max(0, endIdx !== null ? endIdx + 1 - closeIdx : 0, startIdx !== null ? startIdx - closeIdx : 0);
+  }
+  let moveOutsTotal = 0;
   const seedUsed = options.rng ? null : options.seed !== undefined ? (typeof options.seed === 'number' ? options.seed : seedFromText(String(options.seed))) : null;
 
   const irrResults: number[] = new Array(runs);
@@ -370,14 +430,35 @@ export function createMonteCarloRunner(
     // With leases, contractual rent is fixed; only what the contract does not fix (rent after a lease ends) drifts with the sample
     if (hasLeaseIncome) scenario.marketRentDrift = sampledGrowth - baseGrowth;
 
+    // Residential move-outs: each tenant has a yearly chance of leaving, then the space is vacant for a stretch and costs a make-ready charge
+    const interruptions: Array<{ leaseIndex: number; startOffset: number; months: number; makeReadyCost: number }> = [];
+    if (turnoverApplies && turnoverPct > 0) {
+      for (const li of rentedLeaseIdx) {
+        const from = leaveFrom[li];
+        for (let blockStart = 0; blockStart < holdMonths; blockStart += 12) {
+          const lo = Math.max(blockStart, from);
+          const hi = Math.min(blockStart + 12, holdMonths); // exclusive
+          if (hi <= lo) continue;
+          // a part-year of eligibility carries a part-year of the yearly chance
+          if (rng() >= (turnoverPct / 100) * ((hi - lo) / 12)) continue;
+          const x = downtimeMonthsMean * (0.5 + rng()); // the stretch varies from half to one and a half times its average
+          const months = Math.floor(x) + (rng() < x - Math.floor(x) ? 1 : 0);
+          interruptions.push({ leaseIndex: li, startOffset: lo + Math.floor(rng() * (hi - lo)), months, makeReadyCost: makeReady * (0.75 + rng() * 0.5) });
+        }
+      }
+      moveOutsTotal += interruptions.length;
+      // The move-outs ARE the vacancy; adding the blanket vacancy rate as well would count it twice
+      scenario.vacancyRate = 0;
+      scenario.tenantInterruptions = interruptions;
+    }
+
     if (defaultProbPct > 0 && rng() < defaultProbPct / 100) {
       defaultRuns += 1;
       if (hasLeaseIncome) {
-        scenario.tenantInterruption = {
-          leaseIndex: pickDefaultedLease(),
-          startOffset: Math.floor(rng() * holdMonths),
-          months: defaultDowntime,
-        };
+        scenario.tenantInterruptions = [
+          ...(scenario.tenantInterruptions ?? []),
+          { leaseIndex: pickDefaultedLease(), startOffset: Math.floor(rng() * holdMonths), months: defaultDowntime },
+        ];
       } else {
         // No lease objects to interrupt: spread the lost months across the hold as extra vacancy
         scenario.vacancyRate = Math.min(60, sampledVacancy + (defaultDowntime / holdMonths) * 100);
@@ -467,6 +548,16 @@ export function createMonteCarloRunner(
         probabilityPct: defaultProbPct,
         downtimeMonths: defaultDowntime,
         runsAffectedPct: round1((defaultRuns / runs) * 100),
+      },
+      turnover: {
+        applies: turnoverApplies && turnoverPct > 0,
+        annualPct: turnoverPct,
+        downtimeDays: Math.round(downtimeMonthsMean * DAYS_PER_MONTH),
+        makeReadyCost: makeReady,
+        calibratedToVacancy: calibrated,
+        avgMoveOutsPerRun: round1(moveOutsTotal / runs),
+        impliedVacancyPct: round1(turnoverPct * (downtimeMonthsMean * DAYS_PER_MONTH) / 365),
+        dealVacancyPct: round1(baseVacancy),
       },
       seed: seedUsed,
       telemetry: {

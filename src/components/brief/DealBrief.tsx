@@ -205,6 +205,9 @@ const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }
     td.applies
       ? { name: 'Tenant default', base: `${td.probabilityPct}% chance`, how: `One tenant stops paying for ${td.downtimeMonths} months, at a random point in the hold`, range: `Happened in ${td.runsAffectedPct}% of runs` }
       : { name: 'Tenant default', base: 'Not applied', how: 'Not modeled for this asset type', range: '-' },
+    mc.turnover.applies
+      ? { name: 'Tenant turnover', base: `${mc.turnover.annualPct}% a year`, how: `Each move-out leaves the space empty about ${mc.turnover.downtimeDays} days and costs $${mc.turnover.makeReadyCost.toLocaleString()} to re-let; fixed-term tenants leave only after their lease ends`, range: `${mc.turnover.avgMoveOutsPerRun} move-outs per run; ${mc.turnover.impliedVacancyPct}% average vacancy vs ${mc.turnover.dealVacancyPct}% set` }
+      : { name: 'Tenant turnover', base: 'Not applied', how: 'Apartments and houses with tenant leases only', range: '-' },
   ];
 
   return (

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
-import { calculateSensitivityMatrix, createMonteCarloRunner, seedFromText, DEFAULT_TENANT_DEFAULT, type MonteCarloResult } from '../../../lib/engine';
+import { calculateSensitivityMatrix, createMonteCarloRunner, seedFromText, DEFAULT_TENANT_DEFAULT, DEFAULT_TURNOVER, type MonteCarloResult } from '../../../lib/engine';
 import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from '../../../lib/engine/expiryDefaults';
 
 import { prepareEngineInputs } from '../../../lib/engine/compute';
@@ -41,6 +41,11 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
   const [volCap, setVolCap] = useState(100);
   const [defProb, setDefProb] = useState<number>(DEFAULT_TENANT_DEFAULT.probabilityPct);
   const [defMonths, setDefMonths] = useState<number>(DEFAULT_TENANT_DEFAULT.downtimeMonths);
+  // Residential turnover: industry-average starting points; the vacant days follow the deal's own vacancy setting unless chosen here
+  const turnoverStart = DEFAULT_TURNOVER[normalizeAsset(String(deal.asset_class))];
+  const [turnPct, setTurnPct] = useState<number>(turnoverStart?.annualPct ?? 45);
+  const [turnDays, setTurnDays] = useState<number | null>(null);
+  const [makeReady, setMakeReady] = useState<number>(turnoverStart?.makeReadyCost ?? 1500);
   const [mc, setMc] = useState<MonteCarloResult | null>(null);
   const [running, setRunning] = useState(false);
   const [rerun, setRerun] = useState(0);
@@ -91,7 +96,8 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
         // Seeded from the deal (plus the re-run count): the same deal shows the same chart until it changes or you re-run
         const runner = createMonteCarloRunner(asset, merged, {
           runs: 1000, rentGrowthVolPct: volRent, vacancyVolPct: volVacancy, exitCapSpreadBps: volCap,
-          tenantDefaultProbPct: defProb, tenantDefaultDowntimeMonths: defMonths, seed: seedFromText(`${dealKey}|${rerun}`),
+          tenantDefaultProbPct: defProb, tenantDefaultDowntimeMonths: defMonths,
+          turnoverPct: turnPct, turnoverDowntimeDays: turnDays ?? undefined, turnoverMakeReadyCost: makeReady, seed: seedFromText(`${dealKey}|${rerun}`),
         });
         const tick = () => {
           if (cancelled) return;
@@ -118,7 +124,7 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
       window.clearTimeout(start);
       window.clearTimeout(handle);
     };
-  }, [merged, asset, volRent, volVacancy, volCap, defProb, defMonths, rerun]);
+  }, [merged, asset, volRent, volVacancy, volCap, defProb, defMonths, turnPct, turnDays, makeReady, rerun]);
 
   const dealName = resolveDealDisplayName(deal);
   const telem = mc?.telemetry;
@@ -264,6 +270,11 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
             Only {mc.equity.pctOfPrice.toFixed(1)}% of the price is your own cash, so IRR swings hard on early cash flow and is an unstable yardstick for this deal. The dollar-profit figures and chart are the steadier view.
           </p>
         )}
+        {mc?.turnover.applies && (
+          <p className="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
+            Includes tenant turnover: {mc.turnover.annualPct}% of tenants leave each year (about {mc.turnover.avgMoveOutsPerRun} move-outs per run over the hold). Each space sits empty for about {mc.turnover.downtimeDays} days and costs {formatCurrency(mc.turnover.makeReadyCost)} to get ready. That averages {mc.turnover.impliedVacancyPct}% vacancy against your {mc.turnover.dealVacancyPct}% setting{mc.turnover.calibratedToVacancy ? ', which sets the vacant days' : ''}. Fixed-term tenants can only leave once their lease ends; month-to-month tenants can leave any year.
+          </p>
+        )}
         {mc?.tenantDefault.applies && (
           <p className="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
             Includes tenant-default risk: a {mc.tenantDefault.probabilityPct}% chance over the hold that a tenant stops paying for {mc.tenantDefault.downtimeMonths} months (it happened in {mc.tenantDefault.runsAffectedPct}% of these runs). Contractual rent and escalations are not varied; only rent after a lease ends moves with market growth.
@@ -346,7 +357,36 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
               <p className="text-[10px] text-slate-500 mt-1">{isZeroRent ? 'Stochastic land value appreciation variance over the 10-year holding period.' : 'Capital markets expansion / liquidity uncertainty at terminal exit year.'}</p>
             </div>
           </div>
-          {!isZeroRent && (
+          {!isZeroRent && !!DEFAULT_TURNOVER[asset] && Array.isArray(merged.leases) && merged.leases.some((l: any) => (parseFloat(l.monthlyRent) || 0) > 0) && (
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-900 bg-slate-950/30 text-xs">
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-slate-400 font-medium">Tenant Turnover (leave each year)</label>
+                  <span className="font-mono text-white font-bold">{turnPct}%</span>
+                </div>
+                <input type="range" min={0} max={100} step={5} value={turnPct} onChange={(e) => setTurnPct(parseInt(e.target.value, 10))} className="w-full accent-accent-violet bg-slate-900 cursor-pointer" />
+                <p className="text-[10px] text-slate-500 mt-1">Share of tenants who move out in a year. Industry average: about 45% for apartments, 30% for houses. Set 0 to use your vacancy rate only.</p>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-slate-400 font-medium">Vacant Days Between Tenants</label>
+                  <span className="font-mono text-white font-bold">{turnDays === null ? 'matches vacancy' : turnDays}</span>
+                </div>
+                <label className="flex items-center gap-2 text-[11px] text-slate-300 mb-1"><input type="checkbox" checked={turnDays === null} onChange={(e) => setTurnDays(e.target.checked ? null : 41)} className="rounded bg-slate-900 border-slate-700" />Match my vacancy setting (recommended)</label>
+                <input type="range" min={0} max={120} step={5} value={turnDays ?? 41} disabled={turnDays === null} onChange={(e) => setTurnDays(parseInt(e.target.value, 10))} className="w-full accent-accent-violet bg-slate-900 cursor-pointer disabled:opacity-40" />
+                <p className="text-[10px] text-slate-500 mt-1">By default the vacant stretch is set so the average vacancy equals the deal's vacancy rate. Industry average: about 41 days.</p>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-slate-400 font-medium">Make-Ready Cost per Move-Out</label>
+                  <span className="font-mono text-white font-bold">${makeReady.toLocaleString()}</span>
+                </div>
+                <input type="range" min={0} max={5000} step={250} value={makeReady} onChange={(e) => setMakeReady(parseInt(e.target.value, 10))} className="w-full accent-accent-violet bg-slate-900 cursor-pointer" />
+                <p className="text-[10px] text-slate-500 mt-1">Cleaning, paint and repairs between tenants (lost rent is counted as vacancy). Typical: $1,200 to $1,800 per apartment.</p>
+              </div>
+            </div>
+          )}
+          {!isZeroRent && !DEFAULT_TURNOVER[asset] && (
             <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-900 bg-slate-950/30 text-xs">
               <div>
                 <div className="flex justify-between items-center mb-1">
