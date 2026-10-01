@@ -29,6 +29,8 @@ import {
 } from '../lib/compare/compareTypes';
 import { exportComparisonCSV } from '../lib/compare/compareExport';
 import { listScenarioRuns, ScenarioRun } from '../lib/scenarios';
+import { getInitialBaseline } from '../lib/baselines/db';
+import { dealFromBaseline, baselineHeading, baselineEngineDriftNote } from '../lib/compare/baselineColumn';
 import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 
 const DEAL_FIELDS = 'id, user_id, title, location, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
@@ -50,6 +52,8 @@ export const ComparePage: React.FC = () => {
   const [columns, setColumns] = useState<ComparisonColumn[]>([]);
   // Scenarios that came out identical and were folded into one column (shown as a note above the table)
   const [mergeNotes, setMergeNotes] = useState<MergedColumnNote[]>([]);
+  // Plain notes about the baseline (none recorded yet; engine has changed since it was captured)
+  const [infoNotes, setInfoNotes] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Scope: prospective deals by default; Owned and All are one click away. Resolved once the deals have loaded.
@@ -177,6 +181,46 @@ export const ComparePage: React.FC = () => {
     [],
   );
 
+  // Scenario-mode columns for one deal: Live, the real Acquisition Baseline (owned deals with a recorded snapshot), Bull, Bear,
+  // and saved runs. Identical results fold into one column. A deal with no baseline simply has no baseline column.
+  const loadVersionColumns = useCallback(
+    async (deal: DealRecord): Promise<{ columns: ComparisonColumn[]; notes: MergedColumnNote[]; infos: string[] }> => {
+      const isOwned = deal.status === 'owned';
+      const [historyRuns, baselineRow] = await Promise.all([
+        listScenarioRuns(deal.id, 3),
+        isOwned ? getInitialBaseline(deal.id) : Promise.resolve(null),
+      ]);
+
+      const infos: string[] = [];
+      const cols: ComparisonColumn[] = [buildColumn(deal, 'live', 'Active Live Model', undefined, true)];
+
+      if (isOwned) {
+        if (baselineRow) {
+          const baseCol = buildColumn(dealFromBaseline(deal, baselineRow), 'baseline', baselineHeading(baselineRow), undefined, false);
+          cols.push(baseCol);
+          const drift = baselineEngineDriftNote(baselineRow, baseCol.summary.irr);
+          if (drift) infos.push(drift);
+        } else if (deal.is_demo || deal.is_shared) {
+          infos.push('Acquisition baselines are only recorded for deals you own (not sample or shared deals), so there is no baseline column here.');
+        } else {
+          infos.push('No acquisition baseline has been recorded for this property yet, so there is no baseline column. Open it in the Deal Studio to record one.');
+        }
+      }
+
+      cols.push(
+        buildColumn(deal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
+        buildColumn(deal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
+      );
+      (historyRuns ?? []).forEach((run) => {
+        cols.push(buildColumn(deal, 'history', run.name || 'Historical Run', run.inputs, false));
+      });
+
+      const merged = mergeIdenticalColumns(cols);
+      return { columns: merged.columns, notes: merged.notes, infos };
+    },
+    [buildColumn],
+  );
+
   // Initialize columns when deals load or mode changes
   useEffect(() => {
     if (!scopeReady) return;
@@ -194,6 +238,7 @@ export const ComparePage: React.FC = () => {
       );
       setColumns(cols);
       setMergeNotes([]);
+      setInfoNotes([]);
     } else if (mode === 'versions') {
       // Pick focus deal
       const focusId = selectedSingleDealId || searchParams.get('dealId') || scopedDeals[0]?.id;
@@ -206,45 +251,21 @@ export const ComparePage: React.FC = () => {
       // Also corrects a focus deal that the current scope no longer includes
       if (selectedSingleDealId !== targetDeal.id) setSelectedSingleDealId(targetDeal.id);
 
-      // Load scenario runs from DB for this deal, plus standard presets
+      // Load the real baseline (owned deals) and saved runs from the database, plus the standard presets
       let isLive = true;
       (async () => {
-        const historyRuns = await listScenarioRuns(targetDeal.id, 3);
+        const built = await loadVersionColumns(targetDeal);
         if (!isLive) return;
-
-        const defaultCols: ComparisonColumn[] = [
-          buildColumn(targetDeal, 'live', 'Active Live Model', undefined, true),
-          buildColumn(targetDeal, 'baseline', 'Acquisition Baseline', undefined, false),
-          buildColumn(targetDeal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
-          buildColumn(targetDeal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
-        ];
-
-        // Add history runs if available
-        if (historyRuns && historyRuns.length > 0) {
-          historyRuns.forEach((run) => {
-            defaultCols.push(
-              buildColumn(
-                targetDeal,
-                'history',
-                run.name || 'Historical Run',
-                run.inputs,
-                false,
-              ),
-            );
-          });
-        }
-
-        // Scenarios that produce the same figures as the live model collapse into one column
-        const merged = mergeIdenticalColumns(defaultCols);
-        setColumns(merged.columns);
-        setMergeNotes(merged.notes);
+        setColumns(built.columns);
+        setMergeNotes(built.notes);
+        setInfoNotes(built.infos);
       })();
 
       return () => {
         isLive = false;
       };
     }
-  }, [scopedDeals, scopeReady, mode, selectedSingleDealId, buildColumn]);
+  }, [scopedDeals, scopeReady, mode, selectedSingleDealId, buildColumn, loadVersionColumns]);
 
   // Mode change handler
   const handleSetMode = (nextMode: ComparisonMode) => {
@@ -300,21 +321,20 @@ export const ComparePage: React.FC = () => {
       );
       setColumns(top);
       setMergeNotes([]);
+      setInfoNotes([]);
     } else if (mode === 'versions' && selectedSingleDealId) {
       const deal = scopedDeals.find((d) => d.id === selectedSingleDealId) || scopedDeals[0];
       if (deal) {
-        const merged = mergeIdenticalColumns([
-          buildColumn(deal, 'live', 'Active Live Model', undefined, true),
-          buildColumn(deal, 'baseline', 'Acquisition Baseline', undefined, false),
-          buildColumn(deal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
-          buildColumn(deal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
-        ]);
-        setColumns(merged.columns);
-        setMergeNotes(merged.notes);
+        void loadVersionColumns(deal).then((built) => {
+          setColumns(built.columns);
+          setMergeNotes(built.notes);
+          setInfoNotes(built.infos);
+        });
       }
     } else {
       setColumns([]);
       setMergeNotes([]);
+      setInfoNotes([]);
     }
   };
 
@@ -360,10 +380,13 @@ export const ComparePage: React.FC = () => {
           scopeCounts={scopeCounts}
         />
 
-        {!loading && mode === 'versions' && mergeNotes.length > 0 && (
+        {!loading && mode === 'versions' && (mergeNotes.length > 0 || infoNotes.length > 0) && (
           <div className="rounded-2xl border border-cyan-900/60 bg-cyan-950/20 px-4 py-3 text-xs text-slate-300 space-y-1">
+            {infoNotes.map((t, i) => (
+              <p key={`i${i}`}>{t}</p>
+            ))}
             {mergeNotes.map((n, i) => (
-              <p key={i}>{describeMergedNote(n)}</p>
+              <p key={`m${i}`}>{describeMergedNote(n)}</p>
             ))}
           </div>
         )}
