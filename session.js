@@ -4,12 +4,20 @@
  * Syncs activity across tabs via localStorage.
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
-  } else {
-    root.MathTreeSession = factory();
+  var instance = factory();
+  if (typeof module === 'object' && module && module.exports) {
+    module.exports = instance;
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+  if (root) {
+    root.MathTreeSession = instance;
+  }
+  if (typeof window !== 'undefined') {
+    window.MathTreeSession = instance;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.MathTreeSession = instance;
+  }
+}(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : (typeof self !== 'undefined' ? self : this)), function () {
   'use strict';
 
   var STORAGE_KEY_LAST_ACTIVITY = 'mathtree_last_activity';
@@ -89,27 +97,78 @@
     return Math.max(0, limit - elapsed);
   }
 
-  function clearSessionStorage() {
+  function isValidSession(session) {
+    if (!session || typeof session !== 'object') return false;
+    if (!session.access_token) return false;
+    if (typeof session.expires_at === 'number') {
+      var nowSec = Math.floor(Date.now() / 1000);
+      if (session.expires_at <= nowSec) {
+        return false;
+      }
+    }
+    if (isTimedOut()) {
+      return false;
+    }
+    return true;
+  }
+
+  function clearAuthStorage() {
     var storage = getStorage();
     if (storage) {
       try {
         storage.removeItem(STORAGE_KEY_LAST_ACTIVITY);
-        storage.removeItem(STORAGE_KEY_DEMO);
-        storage.removeItem('mathtree_local_deals');
-        storage.removeItem('mathtree_demo_deals');
         storage.removeItem('mathtree_active_user');
-        storage.removeItem('mathtree_active_deal');
-        storage.removeItem('mathtree_active_deal_id');
         if (typeof storage.length === 'number' && typeof storage.key === 'function') {
           for (var i = storage.length - 1; i >= 0; i--) {
             var key = storage.key(i);
-            if (key && (key.indexOf('mathtree_deals_') === 0 || key.indexOf('mathtree_local_') === 0 || key.indexOf('mathtree_demo_') === 0)) {
+            if (key && key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1) {
               storage.removeItem(key);
             }
           }
         }
       } catch (e) {}
     }
+  }
+
+  function clearSessionStorage(options) {
+    clearAuthStorage();
+    if (options && options.authOnly) {
+      return;
+    }
+    var storage = getStorage();
+    if (storage) {
+      try {
+        storage.removeItem(STORAGE_KEY_DEMO);
+        storage.removeItem('mathtree_local_deals');
+        storage.removeItem('mathtree_demo_deals');
+        storage.removeItem('mathtree_active_deal');
+        storage.removeItem('mathtree_active_deal_id');
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem('mathtree_active_deal_id');
+        }
+        if (typeof storage.length === 'number' && typeof storage.key === 'function') {
+          for (var i = storage.length - 1; i >= 0; i--) {
+            var key = storage.key(i);
+            if (key && (
+              key.indexOf('mathtree_deals_') === 0 ||
+              key.indexOf('mathtree_local_') === 0 ||
+              key.indexOf('mathtree_demo_') === 0
+            )) {
+              storage.removeItem(key);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  function getLoginUrl(reason) {
+    var isDev = typeof window !== 'undefined' && window.location && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    var base = isDev ? '/index.html' : '/';
+    if (reason) {
+      return base + (base.indexOf('?') === -1 ? '?' : '&') + 'reason=' + encodeURIComponent(reason);
+    }
+    return base;
   }
 
   function logout(reason, supabaseClient, redirectUrl) {
@@ -266,8 +325,11 @@
     resetSession: resetSession,
     getLastActivity: getLastActivity,
     isTimedOut: isTimedOut,
+    isValidSession: isValidSession,
     getRemainingTime: getRemainingTime,
     clearSessionStorage: clearSessionStorage,
+    clearAuthStorage: clearAuthStorage,
+    getLoginUrl: getLoginUrl,
     logout: logout,
     renderWarningModal: renderWarningModal,
     hideWarningModal: hideWarningModal,

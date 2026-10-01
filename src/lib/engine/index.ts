@@ -5,6 +5,7 @@
  * supabase/functions/_shared (Edge Functions are Deno and can only bundle that directory).
  * Nothing derived from it is stored: call these functions on demand, memoise in React.
  */
+export { ENGINE_VERSION } from './version';
 export {
   calculateProjections,
   calculateMonthlyProjections,
@@ -27,6 +28,8 @@ export {
   auditDealRisks,
   normalizeAssetClass,
   resolveLeaseMonthlyRent,
+  firstFullYear,
+  numOr,
 } from '@engine/math-engine.ts';
 export { runMonteCarlo } from '@engine/monte-carlo.ts';
 export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin } from '@engine/monte-carlo.ts';

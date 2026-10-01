@@ -6,6 +6,7 @@ import { formatCurrency } from '../../../lib/format';
 import { getDefaultTargetYear, getProjectionStartYear } from '../../../lib/studio/projectionYear';
 import { exportDealBriefPDF } from '../../../lib/export/pdfBrief';
 import { ProjectionsChart } from '../ProjectionsChart';
+import { PerformanceVsProforma } from '../PerformanceVsProforma';
 import { Link } from 'react-router-dom';
 
 interface OverviewTabProps {
@@ -339,6 +340,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           </button>
         </div>
       </div>
+
+      {/* Expected at purchase vs current outlook vs actual collections (owned assets only) */}
+      {isOwned && <PerformanceVsProforma deal={deal} metrics={metrics} />}
 
       {/* Projections visualizer */}
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">

@@ -97,6 +97,8 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
         marketTier: form.marketTier,
         propertyClass: form.propertyClass,
         exitCapTiming: form.exitCapTiming,
+        leaseExpiryMode: form.leaseExpiryMode,
+        leaseExpiryVacancyMonths: Math.min(60, Math.max(0, parseInt(String(form.leaseExpiryVacancyMonths), 10) || 0)),
         primaryEntityId: form.primaryEntityId || null,
         companyName: form.companyName,
       }, supabase, data?.user);
@@ -304,6 +306,21 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   </label>
                 ))}
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelCls}>When a Lease Ends Before Your Exit</label>
+              <select value={form.leaseExpiryMode} onChange={(e) => set('leaseExpiryMode', e.target.value as InvestorProfile['leaseExpiryMode'])} className={inputCls}>
+                <option value="renew">Keep the lease going on current terms (annual increases continue)</option>
+                <option value="relet">Brief vacancy, then back to the same rent with annual increases</option>
+                <option value="vacant">Pessimistic: the space stays vacant</option>
+              </select>
+              {form.leaseExpiryMode === 'relet' && (
+                <div className="flex items-center space-x-2">
+                  <label className="text-[10px] font-bold text-slate-400">Vacant months</label>
+                  <input type="number" min={0} max={60} step={1} value={form.leaseExpiryVacancyMonths} onChange={(e) => set('leaseExpiryVacancyMonths', e.target.value as unknown as number)} className={`${inputCls} w-24`} />
+                </div>
+              )}
+              <p className="text-[10px] text-slate-500 leading-relaxed">Applies to every property unless you choose differently for it in Edit Inputs (At Lease Expiration).</p>
             </div>
           </div>
 

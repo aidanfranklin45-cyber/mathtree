@@ -49,6 +49,8 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [deposit, setDeposit] = useState('');
+  const [dueDay, setDueDay] = useState('1');
+  const [graceDays, setGraceDays] = useState('5');
   const [active, setActive] = useState(true);
   const [steps, setSteps] = useState<Step[]>([]);
   const [saving, setSaving] = useState(false);
@@ -65,6 +67,8 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
     setPhone(lease.tenant_phone || '');
     setDeposit(String(lease.security_deposit || lease.deposit_amount || ''));
     setActive(lease.is_active !== false);
+    setDueDay(String(lease.payment_due_day || 1));
+    setGraceDays(String(lease.grace_period_days ?? 5));
 
     const scheduled = increases
       .filter((inc) => inc.lease_id === lease.id && inc.is_applied !== true)
@@ -125,31 +129,8 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
     setSteps(out);
   };
 
-  /** Facts only: the deal's rent and lease list. Analysis is recomputed from these on demand, never stored. */
-  const syncLeaseFactsToDeal = async (dealId: string) => {
-    const dealRow = deals.find((d) => String(d.id) === String(dealId));
-    if (!dealRow) return;
-    const { data: fresh } = await supabase.from('leases').select('*').eq('deal_id', dealId).neq('is_active', false);
-    const list = fresh || [];
-    const total = list.reduce((s: number, l: Row) => s + (parseFloat(l.monthly_rent) || 0), 0);
-    const inputs = { ...(dealRow.inputs || {}) };
-    inputs.monthlyRent = total;
-    inputs.grossRentPerMonth = total;
-    inputs.grossRentAnnual = total * 12;
-    inputs.leases = list.map((l: Row) => ({
-      tenantName: l.tenant_name || 'Commercial Tenant',
-      monthlyRent: parseFloat(l.monthly_rent) || 0,
-      annualRent: (parseFloat(l.monthly_rent) || 0) * 12,
-      leaseStartDate: l.lease_start_date || inputs.leaseStartDate || inputs.closingDate || '',
-      leaseEndDate: l.lease_end_date || inputs.leaseExpiration || '',
-      leaseType: l.lease_type || inputs.leaseType || 'NNN',
-      escalationType: l.escalation_type || 'Percentage Bump (%)',
-      escalationRate: l.escalation_rate !== undefined && l.escalation_rate !== null ? parseFloat(l.escalation_rate) : 3.0,
-      escalationFrequency: l.escalation_frequency || 'Annual on Anniversary',
-      nextEscalationDate: l.next_escalation_date || '',
-    }));
-    await supabase.from('deals').update({ inputs, updated_at: new Date().toISOString() } as any).eq('id', dealId);
-  };
+  // Saving a lease records what the contract says. It never rewrites the deal's underwriting (pro-forma) inputs:
+  // the gap between the underwriting and what actually happens is the thing the app is meant to show.
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +169,8 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
         escalation_rate: escRate,
         escalation_frequency: lease.escalation_frequency || 'Annual on Anniversary',
         next_escalation_date: nextEsc,
+        payment_due_day: Math.min(31, Math.max(1, parseInt(dueDay, 10) || 1)),
+        grace_period_days: Math.min(60, Math.max(0, parseInt(graceDays, 10) || 0)),
         scheduled_escalations: valid,
       };
 
@@ -226,6 +209,8 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
             escalation_rate: escRate,
             escalation_frequency: payload.escalation_frequency,
             next_escalation_date: nextEsc,
+            payment_due_day: payload.payment_due_day,
+            grace_period_days: payload.grace_period_days,
             updated_at: new Date().toISOString(),
           } as any)
           .select('id')
@@ -249,7 +234,6 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
         }
       }
 
-      await syncLeaseFactsToDeal(lease.deal_id);
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error configuring lease terms');
@@ -293,6 +277,19 @@ export const EditLeaseModal: React.FC<Props> = ({ leaseId, deals, units, increas
             <div>
               <label className="block text-slate-400 font-bold mb-1">Lease Expiration Date</label>
               <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={`${input} font-mono`} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Rent Due Day of Month</label>
+              <input type="number" min="1" max="31" step="1" value={dueDay} onChange={(e) => setDueDay(e.target.value)} className={`${input} font-mono`} />
+              <p className="text-[10px] text-slate-500 mt-1">Match the signed lease (e.g. 3 = due on the 3rd). Days 29-31 fall on the last day of shorter months.</p>
+            </div>
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Grace Period (days)</label>
+              <input type="number" min="0" max="60" step="1" value={graceDays} onChange={(e) => setGraceDays(e.target.value)} className={`${input} font-mono`} />
+              <p className="text-[10px] text-slate-500 mt-1">Days after the due date before rent is marked overdue.</p>
             </div>
           </div>
 

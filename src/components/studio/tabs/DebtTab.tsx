@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DealRecord, DealMetrics } from '../../../lib/math/types';
 import { formatCurrency } from '../../../lib/format';
 import { getProjectionStartYear } from '../../../lib/studio/projectionYear';
+import { firstFullYear } from '../../../lib/engine';
 
 interface DebtTabProps {
   deal: DealRecord;
@@ -16,9 +17,8 @@ export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics }) => {
   const projections = (metrics.projections ?? []) as Array<Record<string, any>>;
   const schedule = (metrics.amortizationSchedule ?? []) as Array<Record<string, any>>;
   const startYr = getProjectionStartYear(deal);
-  // When closing is mid-year the first calendar year is a partial stub; coverage ratios for it compare a few months of
-  // NOI to a few payments and read low. Use the first full operating year, the same basis as the engine headline DSCR.
-  const y1 = (projections[0] && Number(projections[0].operatingMonths) < 12 && projections[1]) ? projections[1] : projections[0];
+  const isStub = Boolean(projections[0] && Number(projections[0].operatingMonths) < 12);
+  const y1 = firstFullYear(projections) || projections[0];
 
   const dscr = y1 && y1.dscr !== null && y1.dscr !== undefined && !isNaN(Number(y1.dscr)) ? `${Number(y1.dscr).toFixed(2)}x` : 'N/A';
   const debtYield = y1 && y1.debtYield !== null && y1.debtYield !== undefined && !isNaN(Number(y1.debtYield)) ? `${Number(y1.debtYield).toFixed(2)}%` : 'N/A';
@@ -45,8 +45,16 @@ export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics }) => {
               <div className={tile}><p className={tileLabel}>Loan Amount</p><p className="text-sm font-bold text-white mt-1">{formatCurrency(metrics.loanAmount)}</p></div>
               <div className={tile}><p className={tileLabel}>Loan-to-Value (LTV)</p><p className="text-sm font-bold text-white mt-1">{(Number(metrics.ltv) || 0).toFixed(1)}%</p></div>
               <div className={tile}><p className={tileLabel}>Monthly Payment</p><p className="text-sm font-bold text-white mt-1">{formatCurrency(Number(metrics.monthlyMortgagePayment) || 0)}/mo</p></div>
-              <div className={tile}><p className={tileLabel}>Year 1 DSCR</p><p className="text-sm font-bold text-white mt-1">{dscr}</p></div>
-              <div className={tile}><p className={tileLabel}>Year 1 Debt Yield</p><p className="text-sm font-bold text-white mt-1">{debtYield}</p></div>
+              <div className={tile}>
+                <p className={tileLabel}>{isStub ? 'Stabilized DSCR' : 'Year 1 DSCR'}</p>
+                <p className="text-sm font-bold text-white mt-1">{dscr}</p>
+                {isStub && <span className="text-[9px] font-semibold text-cyan-400">Yr 2 Run Rate</span>}
+              </div>
+              <div className={tile}>
+                <p className={tileLabel}>{isStub ? 'Stabilized Debt Yield' : 'Year 1 Debt Yield'}</p>
+                <p className="text-sm font-bold text-white mt-1">{debtYield}</p>
+                {isStub && <span className="text-[9px] font-semibold text-cyan-400">Yr 2 Run Rate</span>}
+              </div>
             </div>
 
             <div>

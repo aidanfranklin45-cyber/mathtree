@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase/client';
+import { supabase, SUPABASE_URL } from '../lib/supabase/client';
+import { authJsonHeaders } from '../lib/supabase/authHeaders';
 import { MonthlyRentReconciliationView } from '../lib/supabase/types';
-import { buildOperations, escalationInfo, formatPeriodMonth, type Row, type RentRollRow } from '../lib/operations/rentRoll';
+import { buildOperations, escalationInfo, formatPeriodMonth, getDueInfo, type Row, type RentRollRow } from '../lib/operations/rentRoll';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { LogPaymentModal } from '../components/operations/LogPaymentModal';
 import { AddLeaseModal } from '../components/operations/AddLeaseModal';
@@ -23,6 +24,7 @@ export const OperationsPage: React.FC = () => {
   const [units, setUnits] = useState<Row[]>([]);
   const [payments, setPayments] = useState<Row[]>([]);
   const [increases, setIncreases] = useState<Row[]>([]);
+  const [baselines, setBaselines] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -53,13 +55,14 @@ export const OperationsPage: React.FC = () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
       const scoped = (q: any) => (uid ? q.eq('user_id', uid) : q);
-      const [rDeals, rLeases, rUnits, rPay, rInc, rEnt] = await Promise.allSettled([
+      const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase] = await Promise.allSettled([
         scoped(supabase.from('deals').select('*')).order('title', { ascending: true }),
         scoped(supabase.from('leases').select('*')).order('is_active', { ascending: false }),
         scoped(supabase.from('units').select('*')).order('unit_number', { ascending: true }),
         scoped(supabase.from('rent_payments').select('*')).order('period_month', { ascending: false }),
         scoped(supabase.from('rent_increases').select('*')).order('effective_date', { ascending: false }),
         scoped(supabase.from('entities').select('*')).order('name', { ascending: true }),
+        scoped(supabase.from('deal_baselines').select('deal_id,baseline_type,projected_gross_rent_annual,captured_at')),
       ]);
       const rows = (r: PromiseSettledResult<any>): Row[] => (r.status === 'fulfilled' && r.value.data) || [];
       setDeals(rows(rDeals));
@@ -68,6 +71,7 @@ export const OperationsPage: React.FC = () => {
       setPayments(rows(rPay));
       setIncreases(rows(rInc));
       setEntities(rows(rEnt));
+      setBaselines(rows(rBase));
     } catch (err) {
       console.error('Operations load error:', err);
     } finally {
@@ -183,7 +187,7 @@ export const OperationsPage: React.FC = () => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/cron-daily-lease-monitor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        headers: await authJsonHeaders(),
         body: JSON.stringify({ lease_id: row.id }),
       });
       const data = await res.json().catch(() => ({}));
@@ -202,7 +206,7 @@ export const OperationsPage: React.FC = () => {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/cron-daily-lease-monitor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await authJsonHeaders(),
       });
       const data = await res.json();
       if (data?.success) {
@@ -216,13 +220,6 @@ export const OperationsPage: React.FC = () => {
     } finally {
       setSyncing(false);
     }
-  };
-
-  const syncProForma = async (id: string, actualMonthlyRent: number) => {
-    const { error } = await supabase.rpc('rpc_sync_proforma_to_actuals' as never, { p_deal_id: id, p_actual_monthly_rent: actualMonthlyRent } as never);
-    if (error) return flash('err', `Failed to synchronize pro-forma: ${error.message}`);
-    flash('ok', `Pro-forma synchronized to live operational revenue: $${Math.round(actualMonthlyRent).toLocaleString()}/mo`);
-    await load();
   };
 
   const activeLeaseCount = rows.filter((r) => !r.is_vacant).length;
@@ -391,31 +388,33 @@ export const OperationsPage: React.FC = () => {
         {/* Underwriting vs Actuals */}
         <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm">
           <div className="px-5 py-4 border-b border-slate-800 bg-slate-900/90">
-            <h3 className="text-sm sm:text-base font-extrabold text-white"><span>⚖️ Underwriting vs. Actuals (Performance &amp; Model Accuracy)</span></h3>
-            <p className="text-xs text-slate-400 mt-0.5">Compare realized operational rent rolls against initial underwritten pro-forma baselines.</p>
+            <h3 className="text-sm sm:text-base font-extrabold text-white"><span>⚖️ Projected vs. Actual (Baseline at Purchase vs. In-Place Rent)</span></h3>
+            <p className="text-xs text-slate-400 mt-0.5">Actual = what each property really rents for today. Projected = what we expected when we bought it. Nothing here changes the underwriting: the payments and leases are the record of what happened.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
                   <th className="py-3 px-4">Property Asset</th>
-                  <th className="py-3 px-4 text-right">Pro-Forma Rent (Proj)</th>
-                  <th className="py-3 px-4 text-right">In-Place Rent (Actual)</th>
+                  <th className="py-3 px-4 text-right">Projected at Purchase</th>
+                  <th className="py-3 px-4 text-right">Actual In-Place Rent</th>
                   <th className="py-3 px-4 text-right">Monthly Variance ($)</th>
                   <th className="py-3 px-4 text-right">Variance (%)</th>
-                  <th className="py-3 px-4 text-center">Forecast Accuracy</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 text-center">Actual vs Projected</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {scopedDeals.length === 0 ? (
-                  <tr><td colSpan={7} className="p-8 text-center text-slate-500 font-semibold">No property models loaded in this scope.</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-slate-500 font-semibold">No property models loaded in this scope.</td></tr>
                 ) : scopedDeals.map((deal) => {
                   const actual = leases.filter((l) => String(l.deal_id) === String(deal.id) && l.is_active !== false)
                     .reduce((s, l) => s + (parseFloat(l.monthly_rent) || 0), 0);
+                  // Expected = the frozen baseline captured at acquisition; deals without one fall back to today's pro-forma
+                  const baseline = baselines.find((b) => String(b.deal_id) === String(deal.id) && b.baseline_type === 'initial_underwriting');
                   const inputs = deal.inputs || {};
-                  const projAnnual = parseFloat(inputs.grossRentAnnual) || 0;
+                  const projAnnual = baseline ? (parseFloat(baseline.projected_gross_rent_annual) || 0) : (parseFloat(inputs.grossRentAnnual) || 0);
                   const proj = projAnnual > 0 ? projAnnual / 12 : (parseFloat(inputs.grossRentPerMonth) || parseFloat(inputs.monthlyRent) || 0);
+                  const expectedNote = baseline ? `Baseline ${String(baseline.captured_at || '').slice(0, 10)}` : 'Pro-forma (no baseline yet)';
                   const varUsd = actual - proj;
                   const varPct = proj > 0 ? (varUsd / proj) * 100 : 0;
                   const absPct = Math.abs(varPct);
@@ -428,7 +427,10 @@ export const OperationsPage: React.FC = () => {
                         <div className="font-bold text-white">{deal.title || deal.name}</div>
                         <div className="text-[10px] text-slate-400 capitalize">{deal.status || 'prospect'} • {deal.asset_class || deal.asset_type || 'Commercial'}</div>
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-slate-300">${Math.round(proj).toLocaleString()} / mo</td>
+                      <td className="py-3 px-4 text-right font-mono text-slate-300">
+                        ${Math.round(proj).toLocaleString()} / mo
+                        <span className="block text-[10px] font-sans text-slate-500">{expectedNote}</span>
+                      </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-white">${Math.round(actual).toLocaleString()} / mo</td>
                       <td className={`py-3 px-4 text-right font-mono font-bold ${varColor}`}>{varUsd >= 0 ? '+' : ''}${Math.round(varUsd).toLocaleString()}</td>
                       <td className="py-3 px-4 text-right">
@@ -443,16 +445,6 @@ export const OperationsPage: React.FC = () => {
                           <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className={`h-full rounded-full ${barColor}`} style={{ width: `${accuracy}%` }} /></div>
                           <span className="font-mono text-[10px] font-bold text-slate-300">{accuracy}%</span>
                         </div>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {absPct >= 5 && actual > 0 ? (
-                          <button onClick={() => syncProForma(deal.id, actual)}
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md transition">
-                            <span>⚡ Sync Pro-Forma</span>
-                          </button>
-                        ) : (
-                          <span className="text-[11px] font-semibold text-slate-500 flex items-center justify-end space-x-1"><span>✓ Pro-Forma Aligned</span></span>
-                        )}
                       </td>
                     </tr>
                   );
@@ -493,6 +485,7 @@ export const OperationsPage: React.FC = () => {
                   <th className="py-3 px-4">Property &amp; Unit</th>
                   <th className="py-3 px-4">Tenant</th>
                   <th className="py-3 px-4 text-right">In-Place Rent</th>
+                  <th className="py-3 px-4">Rent Due</th>
                   <th className="py-3 px-4">Lease Expiration</th>
                   <th className="py-3 px-4">Last Escalation</th>
                   <th className="py-3 px-4 text-center">Month Status</th>
@@ -501,9 +494,9 @@ export const OperationsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs">
                 {loading && rows.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-slate-400"><div className="animate-pulse flex flex-col items-center justify-center space-y-2"><div className="h-4 w-32 bg-slate-800 rounded" /><span className="text-xs">Connecting to Supabase production database...</span></div></td></tr>
+                  <tr><td colSpan={8} className="py-12 text-center text-slate-400"><div className="animate-pulse flex flex-col items-center justify-center space-y-2"><div className="h-4 w-32 bg-slate-800 rounded" /><span className="text-xs">Connecting to Supabase production database...</span></div></td></tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-slate-400">
+                  <tr><td colSpan={8} className="py-10 text-center text-slate-400">
                     <div className="max-w-sm mx-auto space-y-3">
                       <span className="text-3xl block">📋</span>
                       <p className="font-bold text-white text-sm">No Properties or Leases in Selected Scope</p>
@@ -527,6 +520,7 @@ export const OperationsPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-medium text-slate-500 text-xs">$0.00</td>
                         <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">—</td>
+                        <td className="py-3 px-4 text-slate-600 font-mono text-[11px]">—</td>
                         <td className="py-3 px-4"><span className="text-[11px] text-slate-500 italic">No Active Lease</span></td>
                         <td className="py-3 px-4 text-center"><span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">Vacant</span></td>
                         <td className="py-3 px-4 text-right">
@@ -549,6 +543,7 @@ export const OperationsPage: React.FC = () => {
 
                   const unit = unitOf(row);
                   const payment = paymentFor(row.id);
+                  const dueInfo = getDueInfo(row, payments.find((p) => p.lease_id === row.id && p.period_month === formatPeriodMonth(now)), now);
                   const esc = escalationInfo(row, increases, now);
                   const isPaid = payment?.status === 'paid';
                   const isSnoozed = Boolean(payment?.snooze_until && new Date(payment.snooze_until) >= now);
@@ -578,6 +573,14 @@ export const OperationsPage: React.FC = () => {
                         <span className="block text-[10px] text-slate-400">{row.tenant_email || row.tenant_phone || 'No contact on file'}</span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-xs">${rentFormatted}</td>
+                      <td className="py-3 px-4">
+                        <span className="block font-mono text-[11px] text-slate-200">
+                          Next due {dueInfo.nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          <span className="text-slate-500"> · {dueInfo.daysUntilNext === 0 ? 'today' : `in ${dueInfo.daysUntilNext}d`}</span>
+                        </span>
+                        <span className={`block text-[10px] font-semibold ${dueInfo.state === 'paid' ? 'text-emerald-400' : dueInfo.state === 'overdue' ? 'text-rose-400' : dueInfo.state === 'late' || dueInfo.state === 'snoozed' ? 'text-amber-400' : 'text-slate-400'}`}>{dueInfo.summary}</span>
+                        <span className="block text-[10px] text-slate-500">Due day {dueInfo.dueDay}{row.is_derived ? ' (set via Edit)' : ''}</span>
+                      </td>
                       <td className="py-3 px-4 text-slate-300 font-mono text-[11px]">
                         {row.lease_end_date ? row.lease_end_date : <span className="text-amber-400/90 font-semibold">Month-to-Month</span>}
                       </td>

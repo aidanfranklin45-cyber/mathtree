@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase/client';
+import { fetchProfile } from '../profile';
 
 declare global {
   interface Window {
     PasswordCredential?: any;
     /** Loaded from /session.js (30-minute inactivity logout + warning modal), shared with the static login page. */
-    MathTreeSession?: {
+    MathTreeSession: {
       isTimedOut: (ms?: number) => boolean;
+      isValidSession: (session: unknown) => boolean;
+      getLoginUrl: (reason?: string) => string;
       logout: (reason?: string, client?: unknown, redirectUrl?: string) => void;
       startWatcher: (client: unknown, options?: unknown) => void;
       resetSession?: () => void;
@@ -32,6 +35,44 @@ function isDemoVisit(): boolean {
 }
 
 /**
+ * Evaluates session and guards navigation.
+ * Returns 'authenticated' if session is valid or demo visit,
+ * or 'redirected' if invalid, timed out, or unauthenticated.
+ */
+export async function evaluateAuthSession(): Promise<'authenticated' | 'redirected'> {
+  if (window.MathTreeSession.isTimedOut()) {
+    window.MathTreeSession.logout('timeout', supabase, window.MathTreeSession.getLoginUrl('timeout'));
+    return 'redirected';
+  }
+
+  if (isDemoVisit()) {
+    window.MathTreeSession.startWatcher(null);
+    return 'authenticated';
+  }
+
+  const { data } = await supabase.auth.getSession();
+  const s = data.session;
+  const isValid = s && window.MathTreeSession.isValidSession(s);
+
+  if (!isValid) {
+    if (s) {
+      window.MathTreeSession.clearAuthStorage();
+      await supabase.auth.signOut().catch(() => {});
+    }
+    if (checkRedirectLoop()) {
+      window.location.replace(window.MathTreeSession.getLoginUrl('loop_detected'));
+      return 'redirected';
+    }
+    window.location.replace(window.MathTreeSession.getLoginUrl());
+    return 'redirected';
+  }
+
+  try { sessionStorage.removeItem('mathtree_redirect_guard'); } catch {}
+  window.MathTreeSession.startWatcher(supabase);
+  return 'authenticated';
+}
+
+/**
  * Same guard the legacy pages ran: expired inactivity timer or no session sends the visitor to the login page.
  * Demo mode (?demo=true) is allowed through without a session, as before.
  */
@@ -47,24 +88,24 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       return;
     }
 
-    if (isDemoVisit()) {
-      session?.startWatcher(null);
-      setReady(true);
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!live) return;
-      if (!data.session) {
-        window.location.replace(LOGIN_URL);
-        return;
+    evaluateAuthSession().then((status) => {
+      if (live && status === 'authenticated') {
+        setReady(true);
+        // Load the investor profile so its analysis defaults (e.g. what happens after a lease ends) apply everywhere
+        void supabase.auth.getSession().then(({ data }) => {
+          if (data.session) void fetchProfile(supabase, data.session.user).catch(() => undefined);
+        });
       }
-      session?.startWatcher(supabase);
-      setReady(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
-      if (event === 'SIGNED_OUT' || (!s && event !== 'INITIAL_SESSION')) window.location.replace(LOGIN_URL);
+      if (event === 'SIGNED_OUT' || (!s && event !== 'INITIAL_SESSION')) {
+        if (checkRedirectLoop()) {
+          window.location.replace(window.MathTreeSession.getLoginUrl('loop_detected'));
+          return;
+        }
+        window.location.replace(window.MathTreeSession.getLoginUrl());
+      }
     });
     return () => { live = false; sub.subscription.unsubscribe(); };
   }, []);

@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix, TaxMetrics } from '../math/types';
 import { computeDealMetrics, computeSensitivity, computeTaxMetrics } from './compute';
+import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from './expiryDefaults';
 
 export interface ComputedMetricsState {
   metrics: DealMetrics | null;
@@ -18,6 +19,8 @@ export function useComputedMetrics(
   deal: DealRecord | null,
   opts: { computeSensitivity?: boolean; overrides?: Partial<DealInputs> } = {},
 ): ComputedMetricsState {
+  // Re-run when the investor changes their lease-expiry default in Profile
+  const expiryVersion = useSyncExternalStore(subscribeExpiryDefaults, getExpiryDefaultsVersion);
   const inputsKey = JSON.stringify(deal?.inputs ?? null);
   const overridesKey = JSON.stringify(opts.overrides ?? null);
   const assetClass = deal?.asset_class;
@@ -38,5 +41,5 @@ export function useComputedMetrics(
     }
     // deal is intentionally keyed by its facts, not object identity
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deal?.id, assetClass, purchasePrice, inputsKey, overridesKey, opts.computeSensitivity]);
+  }, [deal?.id, assetClass, purchasePrice, inputsKey, overridesKey, opts.computeSensitivity, expiryVersion]);
 }

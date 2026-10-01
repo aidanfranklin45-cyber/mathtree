@@ -17,6 +17,7 @@ import { EntityManagerModal } from '../components/layout/EntityManagerModal';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import type { DealTopPatch } from '../stores/useDealStore';
 import { recordScenarioRun } from '../lib/scenarios';
+import { ensureBaseline } from '../lib/baselines/db';
 import {
   Building,
   Plus,
@@ -81,10 +82,12 @@ export const DashboardPage: React.FC = () => {
   const [entitiesOpen, setEntitiesOpen] = useState(false);
   const isDemoSandbox = (() => { try { return !!localStorage.getItem('mathtree_demo_mode'); } catch { return false; } })();
   const exitDemoMode = () => {
+    window.MathTreeSession.clearSessionStorage();
     try {
-      ['mathtree_demo_mode', 'mathtree_demo_deals', 'mathtree_entities_cache', 'mathtree_selected_entity_id'].forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem('mathtree_entities_cache');
+      localStorage.removeItem('mathtree_selected_entity_id');
     } catch { /* ignore */ }
-    window.location.href = '/index.html';
+    window.location.replace(window.MathTreeSession.getLoginUrl());
   };
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
@@ -250,6 +253,8 @@ export const DashboardPage: React.FC = () => {
       setDeals((prev) =>
         prev.map((d) => (d.id === deal.id ? { ...d, status: nextStatus } : d)),
       );
+      // Freeze what we expected at acquisition the moment a deal becomes Owned
+      if (nextStatus === 'owned') void ensureBaseline({ ...deal, status: 'owned' });
     } catch (err) {
       console.error('Failed to toggle deal status:', err);
     }
@@ -274,6 +279,7 @@ export const DashboardPage: React.FC = () => {
     const merged = { ...target, ...top, purchase_price: payload.purchase_price, inputs } as DealRecord;
     setDeals((prev) => prev.map((d) => (d.id === target.id ? merged : d)));
     await recordScenarioRun(merged);
+    if (merged.status === 'owned') void ensureBaseline(merged);
     return true;
   };
 

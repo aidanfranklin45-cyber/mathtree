@@ -94,8 +94,8 @@ function deriveLeasesFromInputs(deal: Row): Row[] {
         security_deposit: num(l.securityDeposit) || rent * 2,
         lease_start_date: start,
         lease_end_date: l.leaseEndDate || inputs.leaseExpiration || null,
-        payment_due_day: 1,
-        grace_period_days: 5,
+        payment_due_day: Math.min(31, Math.max(1, parseInt(String(l.paymentDueDay ?? 1), 10) || 1)),
+        grace_period_days: Math.max(0, parseInt(String(l.gracePeriodDays ?? 5), 10) || 0),
         last_rent_increase_date: start,
         previous_rent_amount: rent,
         escalation_type: l.escalationType || 'Percentage Bump (%)',
@@ -127,8 +127,8 @@ function deriveLeasesFromInputs(deal: Row): Row[] {
       security_deposit: inputs.securityDeposit || rent * 2,
       lease_start_date: start,
       lease_end_date: inputs.leaseExpiration || null,
-      payment_due_day: 1,
-      grace_period_days: 5,
+      payment_due_day: Math.min(31, Math.max(1, parseInt(String(inputs.paymentDueDay ?? 1), 10) || 1)),
+      grace_period_days: Math.max(0, parseInt(String(inputs.gracePeriodDays ?? 5), 10) || 0),
       last_rent_increase_date: inputs.leaseStartDate || inputs.closingDate || (deal.created_at ? String(deal.created_at).split('T')[0] : null),
       previous_rent_amount: rent,
       escalation_type: inputs.escalationType || 'Percentage Bump (%)',
@@ -336,4 +336,73 @@ export function buildOperations(input: RentRollInput): OperationsResult {
       earliestUpcomingStep,
     },
   };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Rent due dates. Rent is a recurring obligation, never "done": once a month is paid the next due date is simply next month's.
+// ---------------------------------------------------------------------------------------------------------------------
+
+export type DueState = 'upcoming' | 'due_today' | 'paid' | 'snoozed' | 'late' | 'overdue';
+
+export interface DueInfo {
+  dueDay: number;
+  /** This month's due date (the date the current period's rent falls/fell due). */
+  currentDue: Date;
+  /** The next date rent falls due that still matters: this month's if still ahead and unpaid, otherwise next month's. */
+  nextDue: Date;
+  daysUntilNext: number;
+  state: DueState;
+  /** Days past the due date for an unpaid current period (0 if not late). */
+  daysLate: number;
+  /** Short human label for the state, e.g. "Paid through Mar", "Mar rent 7 days late". */
+  summary: string;
+}
+
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const DAY_MS = 86400000;
+const daysBetween = (a: Date, b: Date) => Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY_MS);
+const monthShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+
+/** The due date in a given month; a due day of 29-31 falls on the last day of shorter months. */
+export function dueDateIn(year: number, month0: number, dueDay: number): Date {
+  const lastDay = new Date(year, month0 + 1, 0).getDate();
+  return new Date(year, month0, Math.min(Math.max(1, Math.floor(dueDay) || 1), lastDay));
+}
+
+/**
+ * Where does this lease stand on rent? `payment` is the payment record for the CURRENT calendar month (if any);
+ * `today` is injected for testing.
+ */
+export function getDueInfo(lease: Row, payment: Row | undefined, today: Date = new Date()): DueInfo {
+  const dueDay = Math.min(31, Math.max(1, parseInt(String(lease.payment_due_day ?? ''), 10) || 1));
+  const grace = Math.max(0, parseInt(String(lease.grace_period_days ?? ''), 10) || 0);
+  const day = startOfDay(today);
+  const y = day.getFullYear();
+  const m = day.getMonth();
+  const currentDue = dueDateIn(y, m, dueDay);
+  const followingDue = dueDateIn(y, m + 1, dueDay);
+
+  const rent = num(lease.monthly_rent);
+  const paid = !!payment && (payment.status === 'paid' || (rent > 0 && num(payment.amount_paid) >= rent));
+  const snoozed = !paid && !!payment?.snooze_until && startOfDay(new Date(payment.snooze_until)) >= day;
+  const month = monthShort(currentDue);
+
+  if (paid) {
+    return { dueDay, currentDue, nextDue: followingDue, daysUntilNext: daysBetween(day, followingDue), state: 'paid', daysLate: 0, summary: `Paid through ${month}` };
+  }
+
+  const untilCurrent = daysBetween(day, currentDue);
+  if (untilCurrent > 0) {
+    return { dueDay, currentDue, nextDue: currentDue, daysUntilNext: untilCurrent, state: 'upcoming', daysLate: 0, summary: `${month} rent due in ${untilCurrent} day${untilCurrent === 1 ? '' : 's'}` };
+  }
+  if (untilCurrent === 0) {
+    return { dueDay, currentDue, nextDue: currentDue, daysUntilNext: 0, state: 'due_today', daysLate: 0, summary: `${month} rent due today` };
+  }
+
+  const daysLate = -untilCurrent;
+  const state: DueState = snoozed ? 'snoozed' : daysLate > grace ? 'overdue' : 'late';
+  const summary = snoozed
+    ? `${month} rent snoozed`
+    : `${month} rent ${daysLate} day${daysLate === 1 ? '' : 's'} late${daysLate > grace ? ' (past grace)' : ''}`;
+  return { dueDay, currentDue, nextDue: followingDue, daysUntilNext: daysBetween(day, followingDue), state, daysLate, summary };
 }

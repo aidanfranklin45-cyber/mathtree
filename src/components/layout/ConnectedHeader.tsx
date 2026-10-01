@@ -29,7 +29,7 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
   const [entitiesOpen, setEntitiesOpen] = useState(false);
   const [entityTarget, setEntityTarget] = useState<EntityTarget | null>(null);
   const [returnToProfile, setReturnToProfile] = useState(false);
-  const { notifications, refresh, dismiss, syncProFormaToActuals } = useNotifications();
+  const { notifications, refresh, dismiss } = useNotifications();
 
   const sharedWithMe = deals.filter((d) => d.is_shared).length;
 
@@ -50,8 +50,6 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
         notifications={notifications}
         onRefresh={refresh}
         onDismiss={dismiss}
-        onSyncProForma={syncProFormaToActuals}
-        onSynced={onDealsChanged}
         onAssignEntity={(dealId, dealTitle) => { setEntityTarget({ dealId, dealTitle }); setReturnToProfile(false); setEntitiesOpen(true); }}
       />
       <CollaboratorsHubModal isOpen={collabOpen} onClose={() => setCollabOpen(false)} deals={deals} onChanged={onDealsChanged} />

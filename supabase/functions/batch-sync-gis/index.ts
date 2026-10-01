@@ -1,5 +1,6 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { isCronAuthorized } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,14 @@ function getEnv(key: string): string {
 export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  // Scheduler only: this re-syncs every deal against county GIS with the service role.
+  if (!isCronAuthorized(req)) {
+    return new Response(JSON.stringify({ error: "Authentication required" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   }
 
   const startTime = Date.now();

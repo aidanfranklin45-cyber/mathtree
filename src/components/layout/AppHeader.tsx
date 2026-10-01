@@ -16,19 +16,9 @@ interface AppHeaderProps {
 
 /** Clears local session residue then signs out (same keys the legacy pages cleared). */
 export async function signOutOfMathTree(): Promise<void> {
-  try {
-    ['mathtree_local_deals', 'mathtree_demo_deals', 'mathtree_demo_mode', 'mathtree_active_user',
-      'mathtree_active_deal', 'mathtree_active_deal_id'].forEach((k) => localStorage.removeItem(k));
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('mathtree_deals_') || key.startsWith('mathtree_local_') || key.startsWith('mathtree_demo_'))) {
-        localStorage.removeItem(key);
-      }
-    }
-    sessionStorage.removeItem('mathtree_active_deal_id');
-  } catch { /* storage unavailable */ }
+  window.MathTreeSession.clearSessionStorage();
   try { await supabase.auth.signOut(); } catch { /* fall through to redirect */ }
-  window.location.replace('/index.html');
+  window.location.replace(window.MathTreeSession.getLoginUrl('logout'));
 }
 
 const navBase = 'px-3 py-1.5 rounded-lg text-xs transition';
@@ -39,7 +29,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   <header className="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
       {/* Brand */}
-      <Link to="/" className="flex items-center space-x-2.5 sm:space-x-3 shrink-0">
+      <Link to="/dashboard" className="flex items-center space-x-2.5 sm:space-x-3 shrink-0">
         <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 relative group">
           <div className="absolute inset-0 rounded-xl bg-brand-400 blur-sm opacity-50 group-hover:opacity-75 transition-opacity" />
           <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white relative z-10 filter drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

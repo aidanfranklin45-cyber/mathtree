@@ -29,7 +29,7 @@ const FIXTURES: Record<string, any> = {
   },
 };
 
-describe.each(Object.entries(FIXTURES))('core analysis: %s', (_name, deal) => {
+describe.each(Object.entries(FIXTURES))('core analysis: %s', (_name: string, deal: any) => {
   const m: any = computeDealMetrics(deal);
   const p = m.projections;
 
@@ -96,10 +96,39 @@ describe('facts only', () => {
   });
 });
 
-describe('mid-year closing (partial first year)', () => {
+describe('mid-year closing (partial first year) — Stop and Go Burgers', () => {
   const deal: any = {
     asset_class: 'commercial',
-    inputs: { purchasePrice: 300000, downPaymentPercent: 0, interestRate: 4.53, loanTerm: 20, exitYear: 15, closingDate: '2025-07-15', closingCosts: 12000, grossRentAnnual: 31200, monthlyRent: 2600, vacancyRate: 1, expenseRatio: 1, targetCapRate: 7.5, leaseType: 'NNN', discountRate: 6 },
+    inputs: {
+      purchasePrice: 300000,
+      downPaymentPercent: 0,
+      interestRate: 4.53,
+      loanTerm: 20,
+      exitYear: 10,
+      closingDate: '2025-07-15',
+      closingCosts: 12000,
+      grossRentAnnual: 31200,
+      monthlyRent: 2600,
+      vacancyRate: 1,
+      expenseRatio: 1,
+      targetCapRate: 7.5,
+      leaseType: 'NNN',
+      discountRate: 6,
+      leases: [
+        {
+          leaseType: 'NNN',
+          annualRent: 31200,
+          tenantName: 'Stop and Go Burgers',
+          monthlyRent: 2600,
+          leaseEndDate: '2035-08-03',
+          escalationRate: 3,
+          escalationType: 'Percentage Bump (%)',
+          leaseStartDate: '2025-08-03',
+          nextEscalationDate: '2026-08-03',
+          escalationFrequency: 'Annual on Anniversary',
+        },
+      ],
+    },
   };
   const m: any = computeDealMetrics(deal);
 
@@ -109,8 +138,29 @@ describe('mid-year closing (partial first year)', () => {
     for (const y of m.projections.slice(1, 10)) expect(y.debtService).toBeCloseTo(fullYearDs, 0);
   });
 
-  it('headline DSCR is the first full year, not the stub year', () => {
-    expect(m.dscr).toBeCloseTo(m.projections[1].dscr, 2);
+  it('headline DSCR is the first full year (1.36x), not the stub year (1.12x)', () => {
+    expect(m.projections[0].dscr).toBeCloseTo(1.12, 2);
+    expect(m.projections[1].dscr).toBeCloseTo(1.36, 2);
+    expect(m.dscr).toBeCloseTo(1.36, 2);
+  });
+
+  it('preserves 0% down payment without falling back to 20% or 25%', () => {
+    expect(m.downPaymentAmount).toBe(0);
+    expect(m.initialCashInvested).toBe(12000); // 0 down + 12000 closing costs
+    expect(m.loanAmount).toBe(300000);
+  });
+
+  it('auditor skips false-positive 1.25x covenant warning on stub year, but emits partial stub coverage note', () => {
+    const warnings = auditDealRisks('commercial', deal.inputs, m);
+    // Should NOT warn about covenant breach because stabilized full years are 1.36x (>= 1.25x)
+    expect(warnings.some((w: any) => w.title === 'Tight Lenders Coverage (DSCR < 1.25x)')).toBe(false);
+    expect(warnings.some((w: any) => w.title === 'Critical Debt Service Risk (DSCR < 1.0x)')).toBe(false);
+
+    // BUT should preserve signal via low-severity info note about initial stub period coverage
+    const stubNote = warnings.find((w: any) => w.title === 'Partial Stub-Year Coverage Note');
+    expect(stubNote).toBeDefined();
+    expect(stubNote.level).toBe('info');
+    expect(stubNote.description).toContain('1.12x');
   });
 });
 
@@ -122,12 +172,12 @@ describe('lease expiry assumptions (case-by-case)', () => {
   }) as any;
   const byYear = (m: any, cal: number) => m.projections.find((p: any) => p.calendarYear === cal);
 
-  it('default (no assumption) keeps income at $0 after expiry and the auditor flags it', () => {
-    const d = build({});
+  it('vacant assumption keeps income at $0 after expiry and the auditor flags it with warning', () => {
+    const d = build({ expiryAssumption: 'vacant' });
     const m: any = computeDealMetrics(d);
     expect(byYear(m, 2037).grossPotentialIncome).toBe(0);
     const warnings = auditDealRisks('commercial', d.inputs, m);
-    expect(warnings.some((w: any) => w.title === 'Lease Expires Inside Hold Period')).toBe(true);
+    expect(warnings.some((w: any) => w.title === 'Lease Expires Inside Hold Period' && w.level === 'warning')).toBe(true);
   });
 
   it('extension option keeps rent flowing, with an optional one-time rent step', () => {
@@ -136,7 +186,7 @@ describe('lease expiry assumptions (case-by-case)', () => {
     expect(byYear(plain, 2037).grossPotentialIncome).toBeGreaterThan(0);
     expect(byYear(plain, 2039).grossPotentialIncome).toBeGreaterThan(byYear(plain, 2037).grossPotentialIncome); // escalations continue
     expect(byYear(stepped, 2037).grossPotentialIncome).toBeCloseTo(byYear(plain, 2037).grossPotentialIncome * 1.1, 0);
-    expect(auditDealRisks('commercial', build({ expiryAssumption: 'extend' }).inputs, plain).some((w: any) => w.title === 'Lease Expires Inside Hold Period')).toBe(false);
+    expect(auditDealRisks('commercial', build({ expiryAssumption: 'extend' }).inputs, plain).some((w: any) => w.title === 'Lease Expires Inside Hold Period' && w.level === 'warning')).toBe(false);
   });
 
   it('a short extension ends on schedule', () => {
@@ -146,7 +196,7 @@ describe('lease expiry assumptions (case-by-case)', () => {
   });
 
   it('vacancy then re-let: downtime earns nothing and carries holding costs, then a new tenant starts', () => {
-    const none: any = computeDealMetrics(build({}));
+    const none: any = computeDealMetrics(build({ expiryAssumption: 'vacant' }));
     const relet: any = computeDealMetrics(build({ expiryAssumption: 'relet', reletVacancyMonths: 12 }));
     // Lease ends Aug 2035 -> vacant Sep 2035 .. Aug 2036 -> new tenant Sep 2036
     expect(byYear(relet, 2036).grossPotentialIncome).toBeGreaterThan(0);

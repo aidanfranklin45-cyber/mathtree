@@ -5,6 +5,7 @@ import {
   type DiffItem, type ScenarioRun, type ScenarioRunView,
 } from '../../../lib/scenarios';
 import { computeDealMetrics } from '../../../lib/engine/compute';
+import { firstFullYear } from '../../../lib/engine';
 
 interface Props {
   isOpen: boolean;
@@ -21,7 +22,7 @@ function summarize(inputs: Record<string, any>, m: DealMetrics | null) {
   const purchasePrice = Number(inputs.purchasePrice || 0);
   const downPaymentPct = Number(inputs.downPaymentPercent != null ? inputs.downPaymentPercent : 20);
   const p0: any = m?.projections?.[0];
-  const firstFull: any = p0 && Number(p0.operatingMonths) < 12 && m?.projections?.[1] ? m.projections[1] : p0;
+  const firstFull: any = firstFullYear(m?.projections) || p0;
   const grossRentAnnual = Number(inputs.grossRentAnnual || (inputs.monthlyRent ? inputs.monthlyRent * 12 : 0));
   return {
     purchasePrice,

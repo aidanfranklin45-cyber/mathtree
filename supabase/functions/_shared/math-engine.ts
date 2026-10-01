@@ -148,7 +148,21 @@ export function resolveLeaseMonthlyRent(
 
   if (targetIdx > endIdx) {
     const endLabel = lease.leaseEndDate || `${endYear}-${endMonth}`;
-    const mode = String(lease.expiryAssumption || 'none');
+    // With no stated assumption the lease is assumed to continue on its current terms (the investor default, see leaseExpiry.ts).
+    const mode = String(lease.expiryAssumption || 'renew');
+
+    // Renewal on current terms for the rest of the hold: rent keeps escalating, optionally with a one-time reset.
+    if (mode === 'renew') {
+      const step = num(lease.extensionRentChangePct, 0);
+      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+      return {
+        monthlyRent: rent,
+        isActive: true,
+        status: 'extended',
+        escalationCycles: cyclesAt(targetIdx),
+        provenance: `${tenant}: ${fmtMo(rent)} (Assumed renewal on current terms after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+      };
+    }
 
     // Optional extension: the tenant exercises a renewal option; rent may step once, then escalations continue.
     if (mode === 'extend') {
@@ -549,6 +563,28 @@ export function calculateIRR(initialCashOrFlows: any, optionalFlows?: number[]):
 // ---------------------------------------------------------------------------
 // 7. Core Pro-Forma Engine: calculateProjections
 // ---------------------------------------------------------------------------
+/**
+ * Safely parses a numeric input, returning fallback if undefined, null, empty string, or NaN.
+ * Never treats 0 as falsy.
+ */
+export function numOr(v: any, fallback: number): number {
+  return (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ? Number(v) : fallback;
+}
+
+/**
+ * Resolves the first full operating year from a projections array.
+ * When closing mid-year, year 1 is a partial stub (operatingMonths < 12);
+ * coverage and annualised performance ratios use the first full operating year (year 2).
+ */
+export function firstFullYear<T extends { operatingMonths?: number }>(projections?: T[] | null): T | undefined {
+  if (!projections || projections.length === 0) return undefined;
+  const p0 = projections[0];
+  if (p0 && Number(p0.operatingMonths) < 12 && projections[1]) {
+    return projections[1];
+  }
+  return p0;
+}
+
 export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}): any {
   const assetType = normalizeAssetClass(rawAssetType);
 
@@ -700,6 +736,8 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   let cumulativePrincipalPaid = 0;
   let cumulativeCashInvested = initialCashInvested;
   let entryCapRate = 0;
+  // Lease-driven year 1 is often a partial year (lease starts after closing); its NOI over the full price is not a cap rate
+  let entryCapPending = false;
 
   for (let year = 1; year <= holdingPeriod; year++) {
     const calYear = closeYear + (year - 1);
@@ -860,12 +898,18 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       } else {
         entryCapRate = targetCapRate;
       }
+      entryCapPending = hasExplicitLeases && monthlyReceipts.filter((r) => r.rent > 0).length < 12;
+    } else if (entryCapPending && hasExplicitLeases && monthlyReceipts.filter((r) => r.rent > 0).length >= 12) {
+      // Going-in cap rate on the first full year of income (same basis as the headline DSCR)
+      entryCapPending = false;
+      if (initialPropertyValue > 0 && netOperatingIncome > 0) entryCapRate = (netOperatingIncome / initialPropertyValue) * 100;
     }
+    const capStillPending = entryCapPending; // still waiting for a full year of income: value stays at cost
 
     const isIncomeProducing = (currentGrossIncome > 0 && netOperatingIncome > 0);
     if ((assetType === 'commercial' || assetType === 'storage') && isIncomeProducing) {
       const exitCapTiming = inputs.exitCapTiming || 'amortized';
-      if (year === 1) {
+      if (year === 1 || capStillPending) {
         currentPropertyValue = initialPropertyValue;
       } else {
         if (exitCapTiming === 'day1' || exitCapTiming === 'immediate') {
@@ -1036,13 +1080,13 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     irr: Math.round(irr * 100) / 100,
     equityMultiplier: Math.round(equityMultiplier * 100) / 100,
     equity_multiple: Math.round(equityMultiplier * 100) / 100,
-    noi: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].netOperatingIncome : (projections[0]?.netOperatingIncome ?? 0)) * 100) / 100,
-    capRate: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].capRate : (projections[0]?.capRate ?? entryCapRate)) * 100) / 100,
-    dscr: (projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].dscr : (projections[0]?.dscr ?? null),
-    cashOnCash: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashOnCash : (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
-    cash_on_cash: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashOnCash : (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
-    year1_cashflow: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashFlow : (projections[0]?.cashFlow ?? 0)) * 100) / 100,
-    year1Cashflow: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashFlow : (projections[0]?.cashFlow ?? 0)) * 100) / 100,
+    noi: Math.round(((firstFullYear(projections)?.netOperatingIncome) ?? (projections[0]?.netOperatingIncome ?? 0)) * 100) / 100,
+    capRate: Math.round(((firstFullYear(projections)?.capRate) ?? (projections[0]?.capRate ?? entryCapRate)) * 100) / 100,
+    dscr: firstFullYear(projections)?.dscr ?? (projections[0]?.dscr ?? null),
+    cashOnCash: Math.round(((firstFullYear(projections)?.cashOnCash) ?? (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
+    cash_on_cash: Math.round(((firstFullYear(projections)?.cashOnCash) ?? (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
+    year1_cashflow: Math.round(((firstFullYear(projections)?.cashFlow) ?? (projections[0]?.cashFlow ?? 0)) * 100) / 100,
+    year1Cashflow: Math.round(((firstFullYear(projections)?.cashFlow) ?? (projections[0]?.cashFlow ?? 0)) * 100) / 100,
     total_equity: Math.round(initialCashInvested * 100) / 100,
     breakEvenYear,
     ltv: Math.round(acquisitionLtv * 100) / 100,
@@ -1112,7 +1156,8 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
   const requiredYears = Math.min(30, Math.max(10, Math.ceil(monthsCount / 12)));
   const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears, prorateFirstYear: false });
   const purchasePrice = annualBase.purchasePrice;
-  const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (parseFloat(inputs.downPaymentPercent || 25) / 100)));
+  const downPct = numOr(inputs.downPaymentPercent, 25);
+  const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (downPct / 100)));
   const interestRate = parseFloat(inputs.interestRate) || 6.5;
   const loanTerm = parseInt(inputs.loanTerm) || 30;
 
@@ -1149,11 +1194,13 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
       monthlyGross = leaseGross;
     }
 
-    const monthlyVacancy = monthlyGross * (parseFloat(inputs.vacancyRate || 5) / 100);
+    const vacPct = numOr(inputs.vacancyRate ?? inputs.vacancyRatePercent, 5);
+    const monthlyVacancy = monthlyGross * (vacPct / 100);
     const monthlyEGI = monthlyGross - monthlyVacancy;
     let monthlyOpex = 0;
     if (monthlyGross > 0) {
-      monthlyOpex = monthlyGross * (parseFloat(inputs.expenseRatio || 25) / 100);
+      const expPct = numOr(inputs.expenseRatio ?? inputs.operatingExpenseRatio, 25);
+      monthlyOpex = monthlyGross * (expPct / 100);
     } else {
       const assessedBasis = parseFloat(inputs.totalAssessedValue || inputs.combinedAssessedValue || purchasePrice);
       monthlyOpex = ((assessedBasis * 0.011) / 12) + 100;
@@ -1939,19 +1986,32 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
     return warnings;
   }
 
-  const validDscrs = results.projections.filter((p: any) => p.dscr !== null).map((p: any) => p.dscr);
+  const fullYearProjs = results.projections.filter((p: any) => (p.operatingMonths ?? 12) >= 12);
+  const covenantProjs = fullYearProjs.length > 0 ? fullYearProjs : results.projections;
+  const validDscrs = covenantProjs.filter((p: any) => p.dscr !== null).map((p: any) => p.dscr);
   const minDscr = validDscrs.length > 0 ? Math.min(...validDscrs) : 1.5;
+
   if (minDscr < 1.0) {
     warnings.push({
       level: 'danger',
       title: 'Critical Debt Service Risk (DSCR < 1.0x)',
-      description: `Property NOI falls below annual mortgage payments (min DSCR is ${minDscr.toFixed(2)}x), causing negative leverage.`
+      description: `Property NOI falls below annual mortgage payments (min stabilized DSCR is ${minDscr.toFixed(2)}x), causing negative leverage.`
     });
   } else if (minDscr < 1.25) {
     warnings.push({
       level: 'warning',
       title: 'Tight Lenders Coverage (DSCR < 1.25x)',
-      description: `Minimum DSCR is ${minDscr.toFixed(2)}x, which may fail traditional commercial underwriting standards (1.25x minimum).`
+      description: `Minimum stabilized DSCR is ${minDscr.toFixed(2)}x, which may fail traditional commercial underwriting standards (1.25x minimum).`
+    });
+  }
+
+  // Preserve stub-year signal: if Year 1 is a partial stub and its coverage is below 1.25x, emit low-severity info note
+  const p0 = results.projections[0];
+  if (p0 && Number(p0.operatingMonths) < 12 && p0.dscr !== null && p0.dscr < 1.25) {
+    warnings.push({
+      level: 'info',
+      title: 'Partial Stub-Year Coverage Note',
+      description: `Initial ${p0.operatingMonths}-month stub period carries ${Number(p0.dscr).toFixed(2)}x debt coverage prior to full-year stabilization (${minDscr.toFixed(2)}x stabilized DSCR).`
     });
   }
 
@@ -2003,24 +2063,40 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
     });
   }
 
-  // Leases that run out inside the hold with no extension / re-let assumption silently drop to $0 income
+  // Leases that run out inside the hold: say what the numbers assume happens next
   const lastProj = results.projections[results.projections.length - 1];
   const holdEndIdx = (Number(lastProj?.calendarYear) || 0) * 12 + 12;
   (Array.isArray(inputs.leases) ? inputs.leases : []).forEach((l: any) => {
     const m = String(l?.leaseEndDate || "").match(/(\d{4})[-/](\d{1,2})/);
     if (!m || !holdEndIdx) return;
     const endIdx = parseInt(m[1], 10) * 12 + parseInt(m[2], 10);
-    const mode = String(l?.expiryAssumption || "none");
-    if (endIdx < holdEndIdx && mode === "none") {
+    if (endIdx >= holdEndIdx) return;
+    const who = l.tenantName || "The in-place lease";
+    const mode = String(l?.expiryAssumption || "renew");
+    const fromDefault = l?.expirySource === "default" || !l?.expiryAssumption;
+    const where = fromDefault ? "your investor default (Profile) applies; change it for this property in Edit Inputs" : "set in Edit Inputs";
+    if (mode === "vacant" || mode === "none") {
       warnings.push({
         level: "warning",
         title: "Lease Expires Inside Hold Period",
-        description: `${l.tenantName || "The in-place lease"} ends ${l.leaseEndDate}, before the hold period ends, and no extension or re-let assumption is set. Income is modeled as $0 after expiry. Set what happens at expiration in Edit Inputs.`
+        description: `${who} ends ${l.leaseEndDate}, before the hold period ends. Pessimistic case: the space stays vacant and income is $0 after expiry (${where}).`
+      });
+    } else if (mode === "relet") {
+      warnings.push({
+        level: "info",
+        title: "Lease Expires Inside Hold Period",
+        description: `${who} ends ${l.leaseEndDate}, before the hold period ends. Assumes a vacancy of ${Math.round(Number(l.reletVacancyMonths ?? 12))} months, then re-leasing at the expiring rent with annual increases (${where}).`
+      });
+    } else {
+      warnings.push({
+        level: "info",
+        title: "Lease Expires Inside Hold Period",
+        description: `${who} ends ${l.leaseEndDate}, before the hold period ends. Assumes it renews on current terms, with annual increases continuing (${where}).`
       });
     }
   });
 
-  if (warnings.length === 0) {
+  if (!warnings.some((w: any) => w.level !== 'info')) {
     warnings.push({
       level: 'success',
       title: 'Robust Financial Profile',
