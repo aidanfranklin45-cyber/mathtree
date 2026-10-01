@@ -16,6 +16,9 @@ export interface PortfolioDealRow {
   id: string;
   name: string;
   location: string | null;
+  status: 'owned' | 'prospect';
+  isOwned: boolean;
+  statusLabel: string;
   assetClass: BriefAssetClass;
   classLabel: string;
   apn: string | null;
@@ -116,12 +119,18 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
     const parcelAcres = parcels.reduce((s, p) => s + p.acres, 0);
     const price = num(d.purchase_price) || num(inputs.purchasePrice);
     const em = tryComputeDealMetrics(d);
-    const isOwned = d.status === 'owned';
+    const statusNorm = String(d.status || 'prospect').toLowerCase();
+    const isOwned = statusNorm === 'owned';
+    const status: 'owned' | 'prospect' = isOwned ? 'owned' : 'prospect';
+    const statusLabel = isOwned ? 'Owned Asset' : 'Pipeline Prospect';
 
     const base = {
       id: d.id,
       name: resolveDealDisplayName(d),
       location: text(d.location) ?? text(inputs.location),
+      status,
+      isOwned,
+      statusLabel,
       assetClass,
       classLabel: text(inputs.facilityType) ?? CLASS_LABEL[assetClass],
       apn: hasApn ? `${primary.apn}${parcels.length > 1 ? ` (+${parcels.length - 1})` : ''}` : null,
@@ -170,8 +179,8 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
   };
 
   const rows = deals.map(rowFor);
-  const owned = rows.filter((_, i) => deals[i].status === 'owned');
-  const pipeline = rows.filter((_, i) => deals[i].status !== 'owned');
+  const owned = rows.filter((r) => r.isOwned);
+  const pipeline = rows.filter((r) => !r.isOwned);
 
   const totalVolume = kpis.ownedVal + kpis.pipelineVal;
   const sectors: PortfolioSector[] = SECTORS.map((s) => {
@@ -209,7 +218,7 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
     sectors,
     owned,
     pipeline,
-    audit: rows,
+    audit: [...rows].sort((a, b) => (a.isOwned === b.isOwned ? 0 : a.isOwned ? -1 : 1)),
     flags,
   };
 }
