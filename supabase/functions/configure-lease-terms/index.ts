@@ -44,6 +44,9 @@ export interface ConfigureLeaseTermsPayload {
   monthly_rent: number;
   lease_start_date: string;
   lease_end_date?: string | null;
+  term_type?: string | null;
+  is_subsidized?: boolean | null;
+  stabilization_exempt?: boolean | null;
   tenant_email?: string | null;
   tenant_phone?: string | null;
   security_deposit?: number;
@@ -280,6 +283,13 @@ export async function handleRequest(req: Request): Promise<Response> {
       };
       if (dueDayRaw >= 1 && dueDayRaw <= 31) leaseRecord.payment_due_day = dueDayRaw;
       if (graceRaw >= 0 && graceRaw <= 60) leaseRecord.grace_period_days = graceRaw;
+      // Lease term (fixed or month to month) and the Washington residential flags; month to month has no end date
+      if (payload.term_type === "fixed" || payload.term_type === "month_to_month") {
+        leaseRecord.term_type = payload.term_type;
+        if (payload.term_type === "month_to_month") leaseRecord.lease_end_date = null;
+      }
+      if (typeof payload.is_subsidized === "boolean") leaseRecord.is_subsidized = payload.is_subsidized;
+      if (typeof payload.stabilization_exempt === "boolean") leaseRecord.stabilization_exempt = payload.stabilization_exempt;
 
       if (payload.unit_id && isRealUuid(payload.unit_id)) {
         leaseRecord.unit_id = payload.unit_id;

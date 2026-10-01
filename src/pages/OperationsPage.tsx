@@ -569,7 +569,7 @@ export const OperationsPage: React.FC = () => {
                         <span className="block text-[11px] text-emerald-400 font-medium">{unit.unit_number} <span className="text-slate-500">({unit.unit_type || 'Commercial'})</span></span>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="block font-semibold text-slate-200">{row.tenant_name}</span>
+                        <span className="block font-semibold text-slate-200">{row.tenant_name}{row.term_type === 'month_to_month' && <span className="ml-1.5 align-middle inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-sky-500/10 text-sky-300 border border-sky-500/20">Month-to-month</span>}</span>
                         <span className="block text-[10px] text-slate-400">{row.tenant_email || row.tenant_phone || 'No contact on file'}</span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400 text-xs">${rentFormatted}</td>

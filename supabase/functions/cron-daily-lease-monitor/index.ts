@@ -5,6 +5,9 @@ import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
+import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
+import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
+import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,12 +117,15 @@ interface AlertPreferences extends FollowupPrefs {
   advance_notice_days: number;
   remind_on_due: boolean;
   escalation_notice_days: number;
+  /** Combine into one email per property when at least this many tenants are due (0 = always one email per tenant). */
+  digest_min_tenants: number;
 }
 
 const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
   advance_notice_days: 0,
   remind_on_due: true,
   escalation_notice_days: 30,
+  digest_min_tenants: DEFAULT_DIGEST_MIN,
   ...DEFAULT_FOLLOWUP_PREFS,
 };
 
@@ -141,6 +147,7 @@ async function getUserAlertPreferences(
         advance_notice_days: typeof p.advance_notice_days === "number" ? p.advance_notice_days : 0,
         remind_on_due: p.remind_on_due !== false,
         escalation_notice_days: typeof p.escalation_notice_days === "number" ? p.escalation_notice_days : 30,
+        digest_min_tenants: normalizeDigestMin(p.digest_min_tenants),
         ...normalizeFollowupPrefs(p),
       };
     }
@@ -277,7 +284,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       const testDealId = sampleLease?.deal_id || "39ae6978-f10e-419f-a2b8-d50630bf3d6b";
       const testTenant = sampleLease?.tenant_name || "Valvoline Instant Oil Change";
       const testDealTitle = sampleLease?.deals?.title || "Union Gap Commercial Center";
-      const testUnitNumber = sampleLease?.units?.unit_number ? `Unit ${sampleLease.units.unit_number}` : "Main Facility";
+      const testUnitNumber = unitLabel(sampleLease?.units?.unit_number) || "Main Facility";
       const testRent = sampleLease?.monthly_rent
         ? "$" + Math.round(Number(sampleLease.monthly_rent)).toLocaleString("en-US")
         : "$11,139";
@@ -423,7 +430,10 @@ export async function handleRequest(req: Request): Promise<Response> {
           notification_email,
           user_id,
           deal_id,
-          deals ( id, title, user_id ),
+          is_active,
+          lease_start_date,
+          lease_end_date,
+          deals ( id, title, user_id, status, is_demo ),
           units ( unit_number, unit_type )
         `)
         .eq("id", body.lease_id)
@@ -433,6 +443,21 @@ export async function handleRequest(req: Request): Promise<Response> {
         return new Response(
           JSON.stringify({ success: false, error: "Lease record not found: " + (leaseErr?.message || body.lease_id), logs }),
           { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const manualVerdict = reminderEligibility({ dealStatus: (targetLease.deals as any)?.status, isDemo: (targetLease.deals as any)?.is_demo, leaseActive: (targetLease as any).is_active, leaseStartDate: (targetLease as any).lease_start_date, leaseEndDate: (targetLease as any).lease_end_date });
+      if (!manualVerdict.eligible) {
+        const why: Record<string, string> = {
+          not_owned: "this property is not marked Owned yet (rent reminders are only sent for owned properties)",
+          demo: "this is demo data",
+          inactive: "this lease is not active",
+          not_started: "this lease has not started yet",
+          ended: "this lease has ended",
+        };
+        return new Response(
+          JSON.stringify({ success: false, error: "No reminder sent: " + (why[manualVerdict.reason] || "the lease is not eligible"), logs }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
 
@@ -479,7 +504,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
       const rentFormatted = "$" + Math.round(Number(targetLease.monthly_rent || 0)).toLocaleString("en-US");
       const dealTitle = (targetLease.deals as any)?.title || "Commercial Property";
-      const unitName = (targetLease.units as any)?.unit_number ? `Unit ${(targetLease.units as any).unit_number}` : "Main Facility";
+      const unitName = unitLabel((targetLease.units as any)?.unit_number) || "Main Facility";
       const graceDays = targetLease.grace_period_days || 5;
 
       const emailHtml = `
@@ -582,7 +607,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           new_rent,
           scheduled_amount,
           increase_type,
-          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, deals ( id, title ) )
+          notice_sent_date,
+          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, is_active, is_subsidized, lease_start_date, lease_end_date, deals ( id, title, status, is_demo, asset_type, location, inputs ) )
         `)
         .eq("is_applied", false);
 
@@ -591,6 +617,53 @@ export async function handleRequest(req: Request): Promise<Response> {
           const leaseObj = inc.leases as any;
           if (!leaseObj) continue;
           if (scopeUserId && leaseObj.user_id !== scopeUserId) continue;
+          // Tenants are only written to for properties that are owned and have the lease in force (never prospects or demo data)
+          if (!isReminderEligible({ dealStatus: leaseObj.deals?.status, isDemo: leaseObj.deals?.is_demo, leaseActive: leaseObj.is_active, leaseStartDate: leaseObj.lease_start_date, leaseEndDate: leaseObj.lease_end_date })) continue;
+          // Washington residential: the tenant must be given written notice (RCW 59.18.140), so these increases never take effect by
+          // themselves. Remind the OWNER to give the notice in time instead of sending the generic "no action required" heads-up.
+          if (isResidentialAsset(leaseObj.deals?.asset_type) && isWashingtonProperty({ location: leaseObj.deals?.location, inputs: leaseObj.deals?.inputs })) {
+            if (inc.notice_sent_date) continue; // notice already recorded
+            const needDays = leaseObj.is_subsidized ? WA_NOTICE_DAYS_SUBSIDIZED : WA_NOTICE_DAYS;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const daysToEffective = daysBetween(todayStr, String(inc.effective_date));
+            const stage = noticeReminderStage(daysToEffective, needDays);
+            if (!stage) continue;
+            const latest = addDays(String(inc.effective_date), -needDays);
+            const propTitleWa = leaseObj.deals?.title || "Property";
+            const newRentWa = "$" + Math.round(Number(inc.new_rent || 0)).toLocaleString("en-US");
+            const oldRentWa = "$" + Math.round(Number(leaseObj.monthly_rent || 0)).toLocaleString("en-US");
+            const subject = stage === "missed"
+              ? `Rent increase cannot take effect ${inc.effective_date}: notice deadline passed - ${leaseObj.tenant_name}, ${propTitleWa}`
+              : stage === "final"
+                ? `Last days to give rent-increase notice (by ${latest}): ${leaseObj.tenant_name} - ${propTitleWa}`
+                : `Give rent-increase notice by ${latest}: ${leaseObj.tenant_name} - ${propTitleWa}`;
+            const headline = stage === "missed"
+              ? `The ${needDays}-day notice deadline (${latest}) has passed without a recorded notice, so this increase cannot take effect on ${inc.effective_date}.`
+              : `Washington requires ${needDays} days' written notice before a rent increase. To take effect on <strong>${escapeHtml(inc.effective_date)}</strong>, the tenant must be given written notice by <strong>${escapeHtml(latest)}</strong>.`;
+            const action = stage === "missed"
+              ? "Open Operations and reschedule the increase for a later date (the app will show the earliest allowed date)."
+              : "Open Operations, choose Record Rent Escalation for this tenant, print the notice, give it to the tenant, then record the date you gave it. The rent will not change until that date is recorded.";
+            const { email: waTarget } = await resolveRecipientEmail(adminClient, leaseObj.user_id, leaseObj.notification_email, alertRecipientOverride);
+            if (resendApiKey) {
+              await sendEmailWithResend(resendApiKey, {
+                from: defaultFromEmail,
+                to: waTarget,
+                subject,
+                html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#020617;color:#f8fafc;margin:0;padding:24px;">
+<div style="background:#0f172a;border:1px solid ${stage === "missed" ? "#dc2626" : "#1e293b"};border-radius:16px;padding:28px;max-width:560px;margin:0 auto;">
+  <div style="font-size:12px;font-weight:800;color:${stage === "missed" ? "#f87171" : "#38bdf8"};text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">MathTree &bull; Washington rent-increase notice</div>
+  <div style="font-size:20px;font-weight:800;color:#ffffff;margin-bottom:8px;">${escapeHtml(leaseObj.tenant_name)} &middot; ${escapeHtml(propTitleWa)}</div>
+  <div style="font-size:13px;color:#cbd5e1;line-height:1.55;margin-bottom:14px;">${headline}</div>
+  <div style="background:#020617;border:1px solid #1e293b;border-radius:12px;padding:14px;font-size:12px;color:#e2e8f0;margin-bottom:16px;">Planned increase: <strong>${oldRentWa}</strong> to <strong>${newRentWa}</strong> per month, effective <strong>${escapeHtml(inc.effective_date)}</strong>.</div>
+  <div style="font-size:12px;color:#94a3b8;line-height:1.5;margin-bottom:16px;">${action}</div>
+  <a href="${APP_BASE_URL}/operations" style="display:block;text-align:center;background:#1e293b;color:#e2e8f0;font-weight:700;font-size:13px;padding:12px 20px;border-radius:12px;text-decoration:none;">Open Operations</a>
+</div></body></html>`,
+              });
+              logs.push(`Washington notice reminder (${stage}) sent to ${waTarget} for lease ${leaseObj.id}`);
+            }
+            continue;
+          }
+
           const userPrefs = await getUserAlertPreferences(adminClient, leaseObj.user_id);
           const noticeDays = userPrefs.escalation_notice_days ?? 30;
           if (noticeDays <= 0) continue;
@@ -662,9 +735,59 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
 
     // 2. DYNAMIC DUE DATE & ADVANCE NOTICE DISPATCHING
+    // Sends a batch of prepared reminders: one digest per property when enough tenants are due, otherwise the tenant's own email.
+    // Returns how many tenants were notified.
+    const dispatchReminders = async (queue: ReminderItem[]): Promise<number> => {
+      if (queue.length === 0) return 0;
+      if (!resendApiKey) {
+        logs.push(`RESEND_API_KEY not configured. Prepared ${queue.length} reminder(s) with tokens but no email dispatch.`);
+        return 0;
+      }
+      const plan = planDispatch(queue);
+      let notified = 0;
+      for (const group of plan.digests) {
+        // One link, good for 14 days, that opens the rent checklist for exactly these tenants (only its hash is stored)
+        const rawToken = generateHexToken();
+        const first = group.items[0];
+        const { error: batchErr } = await adminClient.from("rent_batches").insert({
+          user_id: first.userId,
+          deal_id: first.dealId,
+          period_month: first.periodMonth,
+          lease_ids: group.items.map((i) => i.leaseId),
+          kind: group.isFollowup ? "followup" : "reminder",
+          token_hash: await sha256Hex(rawToken),
+          expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        if (batchErr) {
+          // Never lose a reminder: fall back to each tenant's own email
+          logs.push(`Could not create the checklist link for ${group.dealTitle} (${batchErr.message}); sending individual emails instead.`);
+          plan.singles.push(...group.items);
+          continue;
+        }
+        const mail = buildDigestEmail(group, `${APP_BASE_URL}/reconcile?action=manage&token=${rawToken}`);
+        const res = await sendEmailWithResend(resendApiKey, { from: defaultFromEmail, to: group.to, subject: mail.subject, html: mail.html });
+        if (res.success) {
+          notified += group.items.length;
+          logs.push(`Digest with rent checklist sent to ${group.to}: ${group.items.length} tenants at ${group.dealTitle} (Resend ID: ${res.id})`);
+        } else {
+          logs.push(`Failed to send digest to ${group.to} for ${group.dealTitle}: ${res.error}`);
+        }
+      }
+      for (const it of plan.singles) {
+        const res = await sendEmailWithResend(resendApiKey, { from: defaultFromEmail, to: it.to, subject: it.single.subject, html: it.single.html });
+        if (res.success) {
+          notified += 1;
+          logs.push(`Email dispatched to ${it.to} for lease ${it.leaseId} (Resend ID: ${res.id})`);
+        } else {
+          logs.push(`Failed to send email to ${it.to}: ${res.error}`);
+        }
+      }
+      return notified;
+    };
+
     logs.push(`Step 2: Checking leases due today (day ${todayDay}) or with custom advance notice...`);
 
-    const { data: activeLeases, error: activeLeasesErr } = await adminClient
+    const { data: activeLeasesRaw, error: activeLeasesErr } = await adminClient
       .from("leases")
       .select(`
         id,
@@ -675,13 +798,31 @@ export async function handleRequest(req: Request): Promise<Response> {
         notification_email,
         user_id,
         deal_id,
+        is_active,
         lease_start_date,
-        deals ( id, title, user_id ),
+        lease_end_date,
+        deals ( id, title, user_id, status, is_demo ),
         units ( unit_number, unit_type )
       `)
       .eq("is_active", true);
 
+    // Only owned, non-demo properties with the lease in force are chased for rent. Prospects have no tenant to collect from and demo
+    // data is never emailed.
+    const skippedReasons: Record<string, number> = {};
+    const activeLeases: any[] | null = Array.isArray(activeLeasesRaw)
+      ? (activeLeasesRaw as any[]).filter((l) => {
+          const verdict = reminderEligibility({ dealStatus: l.deals?.status, isDemo: l.deals?.is_demo, leaseActive: l.is_active, leaseStartDate: l.lease_start_date, leaseEndDate: l.lease_end_date });
+          if (!verdict.eligible) skippedReasons[verdict.reason] = (skippedReasons[verdict.reason] || 0) + 1;
+          return verdict.eligible;
+        })
+      : null;
+    if (Object.keys(skippedReasons).length > 0) logs.push(`Skipped leases (no reminder): ${Object.entries(skippedReasons).map(([k, v]) => `${v} ${k}`).join(", ")}`);
+    // A building with several tenants needs the space in the subject line to tell the emails apart
+    const leasesPerDeal = new Map<string, number>();
+    for (const l of (activeLeases || [])) leasesPerDeal.set(String(l.deal_id), (leasesPerDeal.get(String(l.deal_id)) || 0) + 1);
+
     let dueEmailsSent = 0;
+    const dueQueue: ReminderItem[] = [];
 
     if (!activeLeasesErr && Array.isArray(activeLeases)) {
       for (const lease of activeLeases) {
@@ -781,7 +922,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
         const rentFormatted = "$" + Math.round(Number(lease.monthly_rent || 0)).toLocaleString("en-US");
         const dealTitle = (lease.deals as any)?.title || "Commercial Property";
-        const unitName = (lease.units as any)?.unit_number ? `Unit ${(lease.units as any).unit_number}` : "Main Facility";
+        const unitName = unitLabel((lease.units as any)?.unit_number) || "Main Facility";
+        const spaceInSubject = (leasesPerDeal.get(String(lease.deal_id)) || 0) > 1 && unitLabel((lease.units as any)?.unit_number) ? ` (${unitName})` : "";
         const graceDays = lease.grace_period_days || 5;
 
         const emailTitle = isAdvanceNotice
@@ -791,8 +933,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           ? `Advance Notice: Contractual rent for <strong>${lease.tenant_name}</strong> is due in <strong>${advanceDays} day${advanceDays > 1 ? "s" : ""}</strong> (on day ${dueDay} of the month).`
           : `Contractual rent is due today for <strong>${lease.tenant_name}</strong>. Reconcile with a single click below.`;
         const emailSubject = isAdvanceNotice
-          ? `Upcoming Rent Due in ${advanceDays} Day${advanceDays > 1 ? "s" : ""}: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`
-          : `Rent Due Today: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`;
+          ? `Upcoming Rent Due in ${advanceDays} Day${advanceDays > 1 ? "s" : ""}: ${lease.tenant_name}${spaceInSubject} (${rentFormatted}) - ${dealTitle}`
+          : `Rent Due Today: ${lease.tenant_name}${spaceInSubject} (${rentFormatted}) - ${dealTitle}`;
 
         const emailHtml = `
 <!DOCTYPE html>
@@ -842,25 +984,28 @@ export async function handleRequest(req: Request): Promise<Response> {
 </html>
         `;
 
-        if (resendApiKey) {
-          const sendRes = await sendEmailWithResend(resendApiKey, {
-            from: defaultFromEmail,
-            to: targetEmail,
-            subject: emailSubject,
-            html: emailHtml,
-          });
-
-          if (sendRes.success) {
-            dueEmailsSent++;
-            logs.push(`Email dispatched to ${targetEmail} for lease ${lease.id} (Resend ID: ${sendRes.id})`);
-          } else {
-            logs.push(`Failed to send email to ${targetEmail}: ${sendRes.error}`);
-          }
-        } else {
-          logs.push(`RESEND_API_KEY not configured. Generated tokens for lease ${lease.id} without email dispatch.`);
-        }
+        dueQueue.push({
+          leaseId: String(lease.id),
+          userId: String(lease.user_id),
+          periodMonth: currentPeriodMonth,
+          dealId: String(lease.deal_id),
+          dealTitle,
+          to: targetEmail,
+          tenant: String(lease.tenant_name || "Tenant"),
+          space: unitLabel((lease.units as any)?.unit_number),
+          rent: Number(lease.monthly_rent) || 0,
+          kind: isAdvanceNotice ? "advance" : "due",
+          advanceDays: isAdvanceNotice ? advanceDays : undefined,
+          graceDays,
+          confirmUrl,
+          snoozeUrl,
+          digestMin: userPrefs.digest_min_tenants,
+          single: { subject: emailSubject, html: emailHtml },
+        });
       }
     }
+
+    dueEmailsSent += await dispatchReminders(dueQueue);
 
     // 3. FOLLOW-UPS ON UNPAID RENT (user-configurable)
     // After the due-date reminder, unpaid rent keeps getting follow-ups at the pace in the owner's alert settings
@@ -912,6 +1057,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
 
     let graceFollowupsSent = 0;
+    const followupQueue: ReminderItem[] = [];
 
     {
       for (const p of followupCandidates) {
@@ -985,25 +1131,29 @@ export async function handleRequest(req: Request): Promise<Response> {
 </html>
         `;
 
-        if (resendApiKey) {
-          const sendRes = await sendEmailWithResend(resendApiKey, {
-            from: defaultFromEmail,
-            to: targetEmail,
-            subject: `⚠️ ${followupLabel}${followupTag}: ${lease.tenant_name} (${rentFormatted}) Past Due`,
-            html: followupHtml,
-          });
-
-          if (sendRes.success) {
-            graceFollowupsSent++;
-            logs.push(`Grace period reminder sent to ${targetEmail} for lease ${lease.id} (Resend ID: ${sendRes.id})`);
-          } else {
-            logs.push(`Failed to send grace period reminder to ${targetEmail}: ${sendRes.error}`);
-          }
-        } else {
-          logs.push(`RESEND_API_KEY not configured. Tokens prepared for past-due lease ${lease.id} without dispatch.`);
-        }
+        const followupPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
+        followupQueue.push({
+          leaseId: String(lease.id),
+          userId: String(lease.user_id),
+          periodMonth: currentPeriodMonth,
+          dealId: String(deal?.id || lease.deal_id || lease.id),
+          dealTitle: deal?.title || "Commercial Asset",
+          to: targetEmail,
+          tenant: String(lease.tenant_name || "Tenant"),
+          space: unitLabel((lease.units as any)?.unit_number),
+          rent: Number(p.amount_due || lease.monthly_rent) || 0,
+          kind: "followup",
+          followupNumber: p.followupNumber,
+          graceDays: Number(lease.grace_period_days ?? 5),
+          confirmUrl,
+          snoozeUrl,
+          digestMin: followupPrefs.digest_min_tenants,
+          single: { subject: `⚠️ ${followupLabel}${followupTag}: ${lease.tenant_name} (${rentFormatted}) Past Due`, html: followupHtml },
+        });
       }
     }
+
+    graceFollowupsSent += await dispatchReminders(followupQueue);
 
     return new Response(
       JSON.stringify({
