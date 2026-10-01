@@ -1,7 +1,7 @@
 import { escalationInfo, getDueInfo, type DueInfo, type EscalationInfo, type Row, type RentRollRow } from '../../lib/operations/rentRoll';
 
 export type StatusTone = 'ok' | 'warn' | 'bad' | 'info' | 'muted';
-export type AttentionKind = 'overdue' | 'escalation' | 'due_soon';
+export type AttentionKind = 'overdue' | 'escalation' | 'due_soon' | 'recovery';
 export type StatusKey = 'paid' | 'overdue' | 'late' | 'snoozed' | 'due_today' | 'upcoming' | 'vacant';
 
 /** Everything a rent-roll row needs to render, computed once so the table, action list and drawer agree. */

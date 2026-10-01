@@ -18,6 +18,10 @@ import { RentRollTable } from '../components/operations/RentRollTable';
 import { LeaseDrawer } from '../components/operations/LeaseDrawer';
 import { ProjectedVsActual } from '../components/operations/ProjectedVsActual';
 import { MenuItem, Popover, triggerBtn } from '../components/operations/Popover';
+import { RecoveriesPanel } from '../components/operations/RecoveriesPanel';
+import { summarizeLeaseRecoveries, type LeaseRecoverySummary, RECOVERY_CATEGORY_LABELS } from '../lib/operations/recoveries';
+import { syncRecoveryItems } from '../lib/operations/recoveryDb';
+import { isResidentialAsset } from '../../supabase/functions/_shared/rentIncreaseRules';
 import { buildRowView, type RowHandlers } from '../components/operations/rowStatus';
 
 export const OperationsPage: React.FC = () => {
@@ -31,6 +35,11 @@ export const OperationsPage: React.FC = () => {
   const [payments, setPayments] = useState<Row[]>([]);
   const [increases, setIncreases] = useState<Row[]>([]);
   const [baselines, setBaselines] = useState<Row[]>([]);
+  const [recTerms, setRecTerms] = useState<Row[]>([]);
+  const [recItems, setRecItems] = useState<Row[]>([]);
+  const [recons, setRecons] = useState<Row[]>([]);
+  const [meters, setMeters] = useState<Row[]>([]);
+  const [readings, setReadings] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -64,7 +73,7 @@ export const OperationsPage: React.FC = () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
       const scoped = (q: any) => (uid ? q.eq('user_id', uid) : q);
-      const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase] = await Promise.allSettled([
+      const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase, rTerms, rItems, rRecons, rMeters, rReads] = await Promise.allSettled([
         scoped(supabase.from('deals').select('*')).order('title', { ascending: true }),
         scoped(supabase.from('leases').select('*')).order('is_active', { ascending: false }),
         scoped(supabase.from('units').select('*')).order('unit_number', { ascending: true }),
@@ -72,8 +81,31 @@ export const OperationsPage: React.FC = () => {
         scoped(supabase.from('rent_increases').select('*')).order('effective_date', { ascending: false }),
         scoped(supabase.from('entities').select('*')).order('name', { ascending: true }),
         scoped(supabase.from('deal_baselines').select('deal_id,baseline_type,projected_gross_rent_annual,captured_at')),
+        scoped(supabase.from('lease_recovery_terms').select('*')),
+        scoped(supabase.from('lease_recovery_items').select('*')).order('due_date', { ascending: true }),
+        scoped(supabase.from('cam_reconciliations').select('*')),
+        scoped(supabase.from('utility_meters').select('*')),
+        scoped(supabase.from('meter_readings').select('*')),
       ]);
       const rows = (r: PromiseSettledResult<any>): Row[] => (r.status === 'fulfilled' && r.value.data) || [];
+      // Recovery tables may not exist yet on an older database; that just means nothing is tracked.
+      const termRows = rows(rTerms);
+      let itemRows = rows(rItems);
+      const trackedIds = new Set(rows(rLeases).filter((l) => l.track_recoveries && l.is_active !== false).map((l) => l.id));
+      try {
+        const created = await syncRecoveryItems(termRows.filter((t) => trackedIds.has(t.lease_id)), itemRows);
+        if (created > 0) {
+          const { data } = await scoped(supabase.from('lease_recovery_items').select('*')).order('due_date', { ascending: true });
+          itemRows = data || itemRows;
+        }
+      } catch (syncErr) {
+        console.warn('Recovery schedule sync skipped:', syncErr);
+      }
+      setRecTerms(termRows);
+      setRecItems(itemRows);
+      setRecons(rows(rRecons));
+      setMeters(rows(rMeters));
+      setReadings(rows(rReads));
       setDeals(rows(rDeals));
       setLeases(rows(rLeases));
       setUnits(rows(rUnits));
@@ -93,6 +125,13 @@ export const OperationsPage: React.FC = () => {
   // Deep link from the Action Center: /operations?action=add-lease&deal_id=...
   useEffect(() => {
     if (loading) return;
+    // Deep link from a recovery notification: /operations?lease_id=... opens that lease's drawer
+    const linkedLease = searchParams.get('lease_id');
+    if (linkedLease && !searchParams.get('action')) {
+      setSelectedId(linkedLease);
+      setSearchParams({}, { replace: true });
+      return;
+    }
     if (searchParams.get('action') === 'add-lease') {
       setAddLeaseDealId(searchParams.get('deal_id'));
       setAddLeaseOpen(true);
@@ -238,17 +277,38 @@ export const OperationsPage: React.FC = () => {
   const currentMonthPeriod = formatPeriodMonth(now);
 
   // One computed view per row, shared by the action list, the table and the drawer
+  // NNN recovery roll-up per opted-in lease (empty for everyone else)
+  const recoverySummaries = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const out = new Map<string, LeaseRecoverySummary>();
+    for (const l of leases) {
+      if (!l.track_recoveries) continue;
+      out.set(l.id, summarizeLeaseRecoveries(l, recTerms.filter((t) => t.lease_id === l.id) as any, recItems.filter((i) => i.lease_id === l.id) as any, today));
+    }
+    return out;
+  }, [leases, recTerms, recItems]);
+
   const views = useMemo(
-    () => rows.map((r) => buildRowView(
-      r,
-      r.is_vacant ? undefined : payments.find((p) => p.lease_id === r.id && p.period_month === period),
-      r.is_vacant ? undefined : payments.find((p) => p.lease_id === r.id && p.period_month === currentMonthPeriod),
-      increases,
-      new Date(),
-      isCurrentPeriod,
-    )),
-    [rows, payments, increases, period, currentMonthPeriod, isCurrentPeriod],
+    () => rows.map((r) => {
+      const view = buildRowView(
+        r,
+        r.is_vacant ? undefined : payments.find((p) => p.lease_id === r.id && p.period_month === period),
+        r.is_vacant ? undefined : payments.find((p) => p.lease_id === r.id && p.period_month === currentMonthPeriod),
+        increases,
+        new Date(),
+        isCurrentPeriod,
+      );
+      if (!view.vacant && isCurrentPeriod && (recoverySummaries.get(r.id)?.overdue ?? 0) > 0) view.attention.push('recovery');
+      return view;
+    }),
+    [rows, payments, increases, period, currentMonthPeriod, isCurrentPeriod, recoverySummaries],
   );
+
+  const recoveryNote = (leaseId: string) => {
+    const s = recoverySummaries.get(leaseId);
+    if (!s || s.overdue === 0) return '';
+    return `${s.overdue} NNN ${s.overdue === 1 ? 'item' : 'items'} overdue${s.next ? ` · ${RECOVERY_CATEGORY_LABELS[s.next.category]} due ${s.next.due_date}` : ''}`;
+  };
 
   const visibleViews = useMemo(() => views.filter((v) => {
     switch (statusFilter) {
@@ -391,6 +451,7 @@ export const OperationsPage: React.FC = () => {
             handlers={handlers}
             onSelect={setSelectedId}
             onShowAll={() => setStatusFilter('attention')}
+            recoveryNote={recoveryNote}
           />
         )}
 
@@ -439,6 +500,20 @@ export const OperationsPage: React.FC = () => {
         unit={selectedView ? unitOf(selectedView.row) : null}
         payments={payments}
         handlers={drawerHandlers}
+        recoveries={selectedView && !isResidentialAsset(dealOf(selectedView.row.deal_id)?.asset_type) ? (
+          <RecoveriesPanel
+            lease={selectedView.row}
+            derived={selectedView.derived}
+            propertySqft={Number(dealOf(selectedView.row.deal_id)?.inputs?.gla ?? dealOf(selectedView.row.deal_id)?.inputs?.commSqFt) || null}
+            unitSqft={Number(unitOf(selectedView.row).sqft) || null}
+            terms={recTerms}
+            items={recItems}
+            recons={recons}
+            meters={meters}
+            readings={readings}
+            onChanged={() => { void load(); }}
+          />
+        ) : null}
         onClose={() => setSelectedId(null)}
       />
 
