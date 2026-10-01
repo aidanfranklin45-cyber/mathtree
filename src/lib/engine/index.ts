@@ -28,6 +28,8 @@ export {
   auditDealRisks,
   normalizeAssetClass,
   resolveLeaseMonthlyRent,
+  firstFullYear,
+  numOr,
 } from '@engine/math-engine.ts';
 export { runMonteCarlo } from '@engine/monte-carlo.ts';
 export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin } from '@engine/monte-carlo.ts';

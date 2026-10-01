@@ -246,9 +246,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     try {
       const name = w.name.trim() || 'New Underwriting Project';
       const location = w.location.trim() || 'United States';
-      const purchasePrice = num(w.price) || 1000000;
-      const downPaymentPercent = num(w.down) || 25;
-      const interestRate = num(w.rate) || 6.5;
+      const purchasePrice = num(w.price, 1000000);
+      const downPaymentPercent = num(w.down, 25);
+      const interestRate = num(w.rate, 6.5);
 
       let grossRent = num(w.grossRent);
       let unitCount = 1; let storageUnitCount = 20; let storageSqFt = 2000; let isAutomated = false; let rentPerUnit = 0; let arv = 0;
@@ -285,7 +285,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const inputs: Record<string, any> = {
         purchasePrice, downPaymentPercent, interestRate,
         loanTerm: int(w.amort, 25) || 25,
-        rehabCosts: num(w.rehab), closingCosts: num(w.closing) || purchasePrice * 0.02,
+        rehabCosts: num(w.rehab, 0), closingCosts: w.closing.trim() !== '' ? num(w.closing, 0) : purchasePrice * 0.02,
         rehabFinancingMode: w.rehabMode, financeRehabAndClosingCosts: w.rehabMode === 'roll_into_loan',
         grossRentPerMonth: grossRent, grossRentAnnual: grossRent * 12, monthlyRent: grossRent,
         unitCount, numUnits: unitCount,
@@ -299,10 +299,10 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           : asset === 'multi-unit' ? rentPerUnit || Math.round(grossRent / unitCount) : undefined,
         leaseType: w.leaseType || (asset === 'commercial' ? 'NNN' : 'Gross'),
         arv: asset === 'single-family' ? arv : undefined,
-        vacancyRate: num(w.vacancy) || 5,
-        expenseRatio: num(w.opexRatio) || 35, operatingExpenseRatio: num(w.opexRatio) || 35,
-        rentGrowth: num(w.rentGrowth) || 3, annualRentGrowth: num(w.rentGrowth) || 3,
-        targetCapRate: num(w.exitCap) || 6.5,
+        vacancyRate: num(w.vacancy, 5),
+        expenseRatio: num(w.opexRatio, 35), operatingExpenseRatio: num(w.opexRatio, 35),
+        rentGrowth: num(w.rentGrowth, 3), annualRentGrowth: num(w.rentGrowth, 3),
+        targetCapRate: num(w.exitCap, 6.5),
         marketTier: w.marketTier, propertyClass: w.propertyClass, facilityType: w.facilityType,
         commTier: w.marketTier, commClass: w.propertyClass, storageTier: w.marketTier, storageClass: w.propertyClass,
         exitYear: profile.exitYear, discountRate: profile.discountRate, exitCapTiming: profile.exitCapTiming,
