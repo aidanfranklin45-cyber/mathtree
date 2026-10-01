@@ -78,7 +78,7 @@ export const BRIEF_CSS = `
 .brief .btn { background: #059669; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .brief .btn.alt2 { background: #e2e8f0; color: #0f172a; }
 @media print { .brief { padding: 0; max-width: none; } .brief .toolbar { display: none; } }
-@media (max-width: 900px) { .brief .score { grid-template-columns: repeat(3, 1fr); } .brief .cards { grid-template-columns: 1fr; } .brief .mcg { grid-template-columns: repeat(2, 1fr); } .brief { overflow-x: auto; } .brief .fine ol { columns: 1; } }
+@media screen and (max-width: 900px) { .brief .score { grid-template-columns: repeat(3, 1fr); } .brief .cards { grid-template-columns: 1fr; } .brief .mcg { grid-template-columns: repeat(2, 1fr); } .brief { overflow-x: auto; } .brief .fine ol { columns: 1; } }
 `;
 
 interface Marker { value: number; label: string; color: string; dash?: boolean }

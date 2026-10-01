@@ -24,7 +24,7 @@ const PORTFOLIO_CSS = `
 .brief .gov .cell strong { color: #047857; display: block; }
 .brief .gov .cell p { color: #475569; margin: 1px 0 0 0; }
 .brief .empty { padding: 10px; font-size: 12px; color: #64748b; text-align: center; }
-@media (max-width: 900px) { .brief .sc6 { grid-template-columns: repeat(3, 1fr); } .brief .gov .grid { grid-template-columns: 1fr 1fr; } }
+@media screen and (max-width: 900px) { .brief .sc6 { grid-template-columns: repeat(3, 1fr); } .brief .gov .grid { grid-template-columns: 1fr 1fr; } }
 `;
 
 export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => void; onClose?: () => void }> = ({ model: m, onPrint, onClose }) => {
