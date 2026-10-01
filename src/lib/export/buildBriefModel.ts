@@ -102,7 +102,7 @@ function mapParcel(p: ParcelRow): BriefParcel {
 }
 
 /** Parcels come from the `parcels` table; deals that predate it fall back to `inputs.parcels` (camelCase JSON). */
-function resolveParcels(parcelRows: ParcelRow[], inputs: Record<string, any>): BriefParcel[] {
+export function resolveParcels(parcelRows: ParcelRow[], inputs: Record<string, any>): BriefParcel[] {
   const rows: ParcelRow[] = parcelRows.length > 0
     ? parcelRows
     : (Array.isArray(inputs.parcels) ? inputs.parcels : [])

@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import type { BriefModel } from '../../lib/export/buildBriefModel';
 import { createMonteCarloRunner, seedFromText, type MonteCarloResult, type MonteCarloHistogramBin } from '../../lib/engine';
 
-const NP = 'Not provided';
-const cur = (n: number): string => (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
-const pct = (n: number, d = 2): string => `${n.toFixed(d)}%`;
+export const NP = 'Not provided';
+export const cur = (n: number): string => (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
+export const pct = (n: number, d = 2): string => `${n.toFixed(d)}%`;
 const pctShort = (n: number): string => (Math.abs(n - Math.round(n)) < 0.005 ? n.toFixed(0) : n.toFixed(1));
 const compact = (v: number): string => {
   const a = Math.abs(v);
@@ -13,7 +13,7 @@ const compact = (v: number): string => {
 };
 const orNP = (v: string | null | undefined): string => (v && v.trim() ? v : NP);
 
-const BRIEF_CSS = `
+export const BRIEF_CSS = `
 @page { size: letter landscape; margin: 7mm 9mm; }
 .brief { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: #0f172a; background: #ffffff; padding: 14px 18px; max-width: 1180px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .brief * { box-sizing: border-box; }
