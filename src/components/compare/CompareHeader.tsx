@@ -1,5 +1,5 @@
 import React from 'react';
-import { ComparisonMode, ComparisonColumn } from '../../lib/compare/compareTypes';
+import { ComparisonMode, CompareScope } from '../../lib/compare/compareTypes';
 import { DealRecord } from '../../lib/math/types';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { FileDown, Plus, BarChart3, Table as TableIcon, RefreshCw, Sparkles, Scale, SlidersHorizontal } from 'lucide-react';
@@ -16,7 +16,17 @@ interface CompareHeaderProps {
   deals: DealRecord[];
   selectedSingleDealId: string | null;
   onSelectSingleDeal: (dealId: string) => void;
+  scope: CompareScope;
+  onSetScope: (s: CompareScope) => void;
+  scopeCounts: Record<CompareScope, number>;
 }
+
+const SCOPE_LABEL: Record<CompareScope, string> = { pipeline: 'Pipeline', owned: 'Owned', all: 'All' };
+const SCOPE_HINT: Record<CompareScope, string> = {
+  pipeline: 'Prospective deals you are underwriting.',
+  owned: 'Properties you own, modeled on their underwriting inputs.',
+  all: 'Pipeline and owned properties together.',
+};
 
 export const CompareHeader: React.FC<CompareHeaderProps> = ({
   mode,
@@ -30,6 +40,9 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
   deals,
   selectedSingleDealId,
   onSelectSingleDeal,
+  scope,
+  onSetScope,
+  scopeCounts,
 }) => {
   return (
     <div className="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-emerald-950/20 border border-slate-900 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl space-y-4 backdrop-blur-sm">
@@ -48,7 +61,7 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Benchmark return profiles, capital allocations, and financing variations side-by-side.
+                Underwrite prospective deals side-by-side, or compare the properties you own.
               </p>
             </div>
           </div>
@@ -157,6 +170,30 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
           </button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3">
+        {/* Portfolio scope: which deals this studio works with */}
+        <div className="flex items-center space-x-2" title={SCOPE_HINT[scope]}>
+          <span className="text-xs font-bold text-slate-400 shrink-0">Show:</span>
+          <div className="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800" role="group" aria-label="Deal scope">
+            {(['pipeline', 'owned', 'all'] as CompareScope[]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onSetScope(s)}
+                aria-pressed={scope === s}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                  scope === s
+                    ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>{SCOPE_LABEL[s]}</span>
+                <span className="px-1.5 rounded-full bg-slate-800 text-[10px] text-slate-300 font-mono">{scopeCounts[s]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* When in single property version mode: select the property */}
         {mode === 'versions' && (
           <div className="flex items-center space-x-2">
@@ -174,7 +211,9 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
             </select>
           </div>
         )}
+        </div>
       </div>
+      <p className="text-[11px] text-slate-500">{SCOPE_HINT[scope]}</p>
     </div>
   );
 };

@@ -4,6 +4,10 @@ import {
   getPresetOverrides,
   evaluateWinners,
   ComparisonColumn,
+  dealScope,
+  filterDealsByScope,
+  countDealsByScope,
+  resolveInitialScope,
 } from './compareTypes';
 import { BENCHMARK_DEAL } from '../supabase/client';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
@@ -121,5 +125,36 @@ describe('Project Comparison Logic & Metrics', () => {
     expect(winners.maxDscrId).toBe('col-3');
     expect(winners.maxNoiId).toBe('col-3');
     expect(winners.minPriceId).toBe('col-2');
+  });
+});
+
+describe('Compare scope (pipeline / owned / all)', () => {
+  const d = (id: string, status: string): any => ({ id, status });
+  const deals = [d('p1', 'prospect'), d('p2', 'pipeline'), d('o1', 'owned'), d('o2', 'owned'), d('a1', 'archived')];
+
+  it('classifies owned vs pipeline, with archived only under All', () => {
+    expect(dealScope(d('x', 'owned'))).toBe('owned');
+    expect(dealScope(d('x', 'prospect'))).toBe('pipeline');
+    expect(dealScope(d('x', 'pipeline'))).toBe('pipeline');
+    expect(dealScope(d('x', 'archived'))).toBe('archived');
+    expect(filterDealsByScope(deals, 'pipeline').map((x) => x.id)).toEqual(['p1', 'p2']);
+    expect(filterDealsByScope(deals, 'owned').map((x) => x.id)).toEqual(['o1', 'o2']);
+    expect(filterDealsByScope(deals, 'all')).toHaveLength(5);
+    expect(countDealsByScope(deals)).toEqual({ pipeline: 2, owned: 2, all: 5 });
+  });
+
+  it('opens on Pipeline by default, All when there are no prospective deals', () => {
+    expect(resolveInitialScope(deals, null)).toBe('pipeline');
+    expect(resolveInitialScope([d('o1', 'owned')], null)).toBe('all');
+    expect(resolveInitialScope(deals, 'owned')).toBe('owned');
+    expect(resolveInitialScope(deals, 'nonsense')).toBe('pipeline');
+  });
+
+  it('never hides a deal that a link asked for', () => {
+    // a shared link to an owned deal opens on All, not on an empty-looking Pipeline view
+    expect(resolveInitialScope(deals, null, ['o1'])).toBe('all');
+    expect(resolveInitialScope(deals, 'pipeline', ['p1', 'o2'])).toBe('all');
+    expect(resolveInitialScope(deals, 'owned', ['o1'])).toBe('owned');
+    expect(resolveInitialScope(deals, null, ['p1'])).toBe('pipeline');
   });
 });
