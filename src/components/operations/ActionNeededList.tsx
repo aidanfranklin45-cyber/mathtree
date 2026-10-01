@@ -7,15 +7,17 @@ interface Props {
   handlers: RowHandlers;
   onSelect: (leaseId: string) => void;
   onShowAll: () => void;
+  /** One-line summary of a lease's late NNN items, for the 'recovery' attention kind. */
+  recoveryNote?: (leaseId: string) => string;
 }
 
 const MAX_SHOWN = 5;
-const ORDER: Record<AttentionKind, number> = { overdue: 0, escalation: 1, due_soon: 2 };
+const ORDER: Record<AttentionKind, number> = { overdue: 0, recovery: 1, escalation: 2, due_soon: 3 };
 
 interface Item { key: string; view: RowView; kind: AttentionKind }
 
 /** "What needs me right now": overdue rent, escalations that have come due, and rent due within days. */
-export const ActionNeededList: React.FC<Props> = ({ views, dealTitle, handlers, onSelect, onShowAll }) => {
+export const ActionNeededList: React.FC<Props> = ({ views, dealTitle, handlers, onSelect, onShowAll, recoveryNote }) => {
   const items: Item[] = views
     .flatMap((view) => view.attention.map((kind) => ({ key: `${view.row.id}:${kind}`, view, kind })))
     .sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
@@ -41,7 +43,9 @@ export const ActionNeededList: React.FC<Props> = ({ views, dealTitle, handlers, 
         {shown.map(({ key, view, kind }) => {
           const { row, due, esc } = view;
           const who = `${row.tenant_name || 'Tenant'} · ${dealTitle(row.deal_id)}`;
-          const detail = kind === 'overdue'
+          const detail = kind === 'recovery'
+            ? <span className="text-rose-400">{recoveryNote?.(row.id) || 'NNN charges overdue'}</span>
+            : kind === 'overdue'
             ? <span className="text-rose-400">{due?.summary || 'Rent overdue'}</span>
             : kind === 'escalation'
               ? <span className="text-amber-300">Escalation due {esc?.nearestScheduled ? `${esc.nearestScheduled.effective_date} (${esc.scheduledValStr})` : ''}</span>
@@ -53,7 +57,9 @@ export const ActionNeededList: React.FC<Props> = ({ views, dealTitle, handlers, 
                 <div className="text-[11px] truncate">{detail}</div>
               </div>
               <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                {kind === 'escalation' ? (
+                {kind === 'recovery' ? (
+                  <button type="button" onClick={() => onSelect(row.id)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-amber-200 bg-amber-950/60 border border-amber-700 hover:bg-amber-700 transition">Review</button>
+                ) : kind === 'escalation' ? (
                   <button type="button" disabled={view.derived} onClick={() => handlers.escalate(row)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-blue-200 bg-blue-950/70 border border-blue-700 hover:bg-blue-700 disabled:opacity-40 transition">Escalate</button>
                 ) : (
                   <button type="button" disabled={view.derived} onClick={() => handlers.pay(row)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-emerald-200 bg-emerald-950/80 border border-emerald-600 hover:bg-emerald-600 hover:text-white disabled:opacity-40 transition">✓ Mark Paid</button>

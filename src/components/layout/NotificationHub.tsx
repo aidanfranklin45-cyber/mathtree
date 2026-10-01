@@ -63,6 +63,14 @@ export const NotificationHub: React.FC<Props> = ({ isOpen, onClose, notification
             {dismissBtn(n, 'Dismiss')}
           </div>
         );
+      case 'view_deal':
+        return n.action_payload?.lease_id ? (
+          <div className="mt-3 flex items-center gap-2">
+            <button onClick={() => { onClose(); navigate(`/operations?lease_id=${encodeURIComponent(String(n.action_payload?.lease_id))}`); }}
+              className="flex-1 py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 transition text-center">Open Lease</button>
+            {dismissBtn(n, 'Dismiss')}
+          </div>
+        ) : null;
       default:
         return null;
     }

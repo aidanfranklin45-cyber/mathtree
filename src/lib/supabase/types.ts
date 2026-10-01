@@ -443,6 +443,282 @@ export type Database = {
         }
         Relationships: []
       }
+      cam_reconciliations: {
+        Row: {
+          admin_fee_pct: number | null
+          cap_applied: boolean
+          cap_pct: number | null
+          charge: number
+          created_at: string
+          deal_id: string
+          estimates_paid: number
+          id: string
+          lease_id: string
+          notes: string | null
+          prior_year_billed: number | null
+          settled_date: string | null
+          share_pct: number
+          status: string
+          total_expenses: number
+          true_up: number
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          admin_fee_pct?: number | null
+          cap_applied?: boolean
+          cap_pct?: number | null
+          charge?: number
+          created_at?: string
+          deal_id: string
+          estimates_paid?: number
+          id?: string
+          lease_id: string
+          notes?: string | null
+          prior_year_billed?: number | null
+          settled_date?: string | null
+          share_pct?: number
+          status?: string
+          total_expenses?: number
+          true_up?: number
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          admin_fee_pct?: number | null
+          cap_applied?: boolean
+          cap_pct?: number | null
+          charge?: number
+          created_at?: string
+          deal_id?: string
+          estimates_paid?: number
+          id?: string
+          lease_id?: string
+          notes?: string | null
+          prior_year_billed?: number | null
+          settled_date?: string | null
+          share_pct?: number
+          status?: string
+          total_expenses?: number
+          true_up?: number
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      utility_meters: {
+        Row: {
+          base_charge: number
+          created_at: string
+          deal_id: string
+          id: string
+          is_active: boolean
+          label: string
+          lease_id: string
+          multiplier: number
+          rate_per_unit: number
+          term_id: string | null
+          unit_of_measure: string
+          updated_at: string
+          user_id: string
+          utility_type: string
+        }
+        Insert: {
+          base_charge?: number
+          created_at?: string
+          deal_id: string
+          id?: string
+          is_active?: boolean
+          label: string
+          lease_id: string
+          multiplier?: number
+          rate_per_unit?: number
+          term_id?: string | null
+          unit_of_measure?: string
+          updated_at?: string
+          user_id: string
+          utility_type?: string
+        }
+        Update: {
+          base_charge?: number
+          created_at?: string
+          deal_id?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          lease_id?: string
+          multiplier?: number
+          rate_per_unit?: number
+          term_id?: string | null
+          unit_of_measure?: string
+          updated_at?: string
+          user_id?: string
+          utility_type?: string
+        }
+        Relationships: []
+      }
+      meter_readings: {
+        Row: {
+          charge: number
+          created_at: string
+          current_reading: number
+          deal_id: string
+          id: string
+          item_id: string | null
+          lease_id: string
+          meter_id: string
+          note: string | null
+          previous_reading: number
+          reading_date: string
+          usage: number
+          user_id: string
+        }
+        Insert: {
+          charge?: number
+          created_at?: string
+          current_reading: number
+          deal_id: string
+          id?: string
+          item_id?: string | null
+          lease_id: string
+          meter_id: string
+          note?: string | null
+          previous_reading: number
+          reading_date: string
+          usage?: number
+          user_id: string
+        }
+        Update: {
+          charge?: number
+          created_at?: string
+          current_reading?: number
+          deal_id?: string
+          id?: string
+          item_id?: string | null
+          lease_id?: string
+          meter_id?: string
+          note?: string | null
+          previous_reading?: number
+          reading_date?: string
+          usage?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      lease_recovery_items: {
+        Row: {
+          amount_actual: number | null
+          amount_expected: number | null
+          category: string
+          created_at: string
+          deal_id: string
+          due_date: string
+          id: string
+          lease_id: string
+          note: string | null
+          paid_date: string | null
+          term_id: string
+          updated_at: string
+          user_id: string
+          verified: boolean
+          verified_date: string | null
+        }
+        Insert: {
+          amount_actual?: number | null
+          amount_expected?: number | null
+          category: string
+          created_at?: string
+          deal_id: string
+          due_date: string
+          id?: string
+          lease_id: string
+          note?: string | null
+          paid_date?: string | null
+          term_id: string
+          updated_at?: string
+          user_id: string
+          verified?: boolean
+          verified_date?: string | null
+        }
+        Update: {
+          amount_actual?: number | null
+          amount_expected?: number | null
+          category?: string
+          created_at?: string
+          deal_id?: string
+          due_date?: string
+          id?: string
+          lease_id?: string
+          note?: string | null
+          paid_date?: string | null
+          term_id?: string
+          updated_at?: string
+          user_id?: string
+          verified?: boolean
+          verified_date?: string | null
+        }
+        Relationships: []
+      }
+      lease_recovery_terms: {
+        Row: {
+          basis: string
+          category: string
+          created_at: string
+          deal_id: string
+          expected_amount: number | null
+          first_due_date: string
+          frequency: string
+          id: string
+          is_active: boolean
+          label: string
+          lease_id: string
+          mode: string
+          notes: string | null
+          share_pct: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          basis?: string
+          category: string
+          created_at?: string
+          deal_id: string
+          expected_amount?: number | null
+          first_due_date: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          lease_id: string
+          mode?: string
+          notes?: string | null
+          share_pct?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          basis?: string
+          category?: string
+          created_at?: string
+          deal_id?: string
+          expected_amount?: number | null
+          first_due_date?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          lease_id?: string
+          mode?: string
+          notes?: string | null
+          share_pct?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leases: {
         Row: {
           created_at: string
@@ -466,6 +742,7 @@ export type Database = {
           previous_rent_amount: number | null
           security_deposit: number | null
           stabilization_exempt: boolean
+          track_recoveries: boolean
           tenant_email: string | null
           tenant_name: string
           tenant_phone: string | null
@@ -496,6 +773,7 @@ export type Database = {
           previous_rent_amount?: number | null
           security_deposit?: number | null
           stabilization_exempt?: boolean
+          track_recoveries?: boolean
           tenant_email?: string | null
           tenant_name: string
           tenant_phone?: string | null
@@ -526,6 +804,7 @@ export type Database = {
           previous_rent_amount?: number | null
           security_deposit?: number | null
           stabilization_exempt?: boolean
+          track_recoveries?: boolean
           tenant_email?: string | null
           tenant_name?: string
           tenant_phone?: string | null

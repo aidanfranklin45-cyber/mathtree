@@ -8,6 +8,8 @@ import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type Fo
 import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
 import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
 import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
+import { missingItems } from "../_shared/recoveries.ts";
+import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, RECOVERY_ALERT_TYPES, type RecoveryPrefs } from "../_shared/recoveryAlerts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1155,6 +1157,80 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     graceFollowupsSent += await dispatchReminders(followupQueue);
 
+    // NNN recovery tracking: create the next scheduled items for opted-in leases, then refresh the in-app alerts.
+    // Failures here must never block rent reminders, so they are logged and swallowed.
+    let recoveryAlerts = { inserted: 0, updated: 0, dismissed: 0, items_created: 0, emails_sent: 0 };
+    try {
+      let leaseQ = adminClient.from("leases").select("id, deal_id, user_id, tenant_name, track_recoveries, is_active").eq("track_recoveries", true).eq("is_active", true);
+      if (scopeUserId) leaseQ = leaseQ.eq("user_id", scopeUserId);
+      const { data: recLeases } = await leaseQ;
+      const leaseIds = (recLeases || []).map((l: any) => l.id);
+      if (leaseIds.length > 0) {
+        const [termsRes, itemsRes, reconRes, dealsRes] = await Promise.all([
+          adminClient.from("lease_recovery_terms").select("*").in("lease_id", leaseIds),
+          adminClient.from("lease_recovery_items").select("*").in("lease_id", leaseIds),
+          adminClient.from("cam_reconciliations").select("lease_id, year, status").in("lease_id", leaseIds),
+          adminClient.from("deals").select("id, title").in("id", [...new Set((recLeases || []).map((l: any) => l.deal_id))]),
+        ]);
+        const recTerms = (termsRes.data || []) as any[];
+        let recItems = (itemsRes.data || []) as any[];
+
+        const leaseById = new Map((recLeases || []).map((l: any) => [l.id, l]));
+        // Each owner chooses how far ahead to hear about each kind of item; schedule far enough for the longest of them.
+        const ownerIds = [...new Set((recLeases || []).map((l: any) => l.user_id))];
+        const { data: profs } = await adminClient.from("profiles").select("id, alert_preferences").in("id", ownerIds);
+        const prefsByUser: Record<string, RecoveryPrefs> = {};
+        for (const id of ownerIds) prefsByUser[id as string] = normalizeRecoveryPrefs((profs || []).find((p: any) => p.id === id)?.alert_preferences);
+        const horizon = maxLeadDays(Object.values(prefsByUser));
+        const created = missingItems(recTerms, recItems, addDays(todayIso, horizon), addDays(todayIso, -60)).map((m) => {
+          const t = recTerms.find((x) => x.id === m.term_id);
+          return { user_id: t.user_id, term_id: t.id, lease_id: t.lease_id, deal_id: t.deal_id, category: t.category, due_date: m.due_date, amount_expected: m.amount_expected ?? null };
+        }).filter((r) => leaseById.has(r.lease_id));
+        if (created.length > 0) {
+          const { data: inserted } = await adminClient.from("lease_recovery_items")
+            .upsert(created, { onConflict: "term_id,due_date", ignoreDuplicates: true }).select();
+          recItems = recItems.concat(inserted || []);
+          recoveryAlerts.items_created = (inserted || []).length;
+        }
+
+        const sinceIso = new Date(now.getTime() - 7 * 86400000).toISOString();
+        const { data: notifs } = await adminClient.from("app_notifications")
+          .select("id, type, action_payload, is_dismissed, updated_at")
+          .in("type", [...RECOVERY_ALERT_TYPES]).in("user_id", [...new Set((recLeases || []).map((l: any) => l.user_id))]);
+        const leaseOf = (n: any) => (n.action_payload?.lease_id as string | undefined) ?? null;
+        const open = (notifs || []).filter((n: any) => !n.is_dismissed);
+        // A notification dismissed within the last week stays quiet even though its condition still holds.
+        const quiet = new Set((notifs || []).filter((n: any) => n.is_dismissed && n.updated_at >= sinceIso).map((n: any) => `${n.type}|${leaseOf(n)}`));
+
+        const plan = planRecoveryAlerts({
+          leases: (recLeases || []) as any[], deals: (dealsRes.data || []) as any[], terms: recTerms, items: recItems, prefsByUser,
+          reconciliations: (reconRes.data || []) as any[],
+          existing: open.map((n: any) => ({ id: n.id, type: n.type, lease_id: leaseOf(n) })),
+          today: todayIso,
+        });
+        const fresh = plan.insert.filter((a) => !quiet.has(`${a.type}|${a.action_payload.lease_id}`));
+        if (fresh.length > 0) await adminClient.from("app_notifications").insert(fresh);
+        for (const u of plan.update) await adminClient.from("app_notifications").update({ title: u.title, message: u.message, updated_at: now.toISOString() }).eq("id", u.id);
+        if (plan.dismissIds.length > 0) await adminClient.from("app_notifications").update({ is_dismissed: true, is_read: true, updated_at: now.toISOString() }).in("id", plan.dismissIds);
+        recoveryAlerts = { ...recoveryAlerts, inserted: fresh.length, updated: plan.update.length, dismissed: plan.dismissIds.length };
+
+        // One email per owner for the alerts raised in this run (never for refreshed ones, so a long-overdue item doesn't email daily).
+        if (resendApiKey && fresh.length > 0) {
+          for (const ownerId of new Set(fresh.map((a) => a.user_id))) {
+            if (!prefsByUser[ownerId]?.email) continue;
+            const mine = fresh.filter((a) => a.user_id === ownerId);
+            const { email } = await resolveRecipientEmail(adminClient, ownerId, null, alertRecipientOverride);
+            const { subject, html } = buildRecoveryEmail(mine, "https://mathtree-app.web.app/operations");
+            const sent = await sendEmailWithResend(resendApiKey, { from: defaultFromEmail, to: email, subject, html });
+            if (sent.success) recoveryAlerts.emails_sent++;
+            else logs.push(`NNN alert email to owner failed: ${sent.error}`);
+          }
+        }
+      }
+    } catch (recErr: any) {
+      logs.push(`Recovery tracking pass failed: ${recErr?.message || recErr}`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -1162,6 +1238,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         escalations: escData,
         due_date_notifications_sent: dueEmailsSent,
         grace_period_followups_sent: graceFollowupsSent,
+        recovery_tracking: recoveryAlerts,
         logs: logs,
       }),
       {

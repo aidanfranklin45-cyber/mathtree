@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { isResidentialAsset, isWashingtonProperty } from '../../../supabase/functions/_shared/rentIncreaseRules';
 import { supabase } from '../../lib/supabase/client';
+import { defaultTrackRecoveries } from '../../lib/operations/recoveries';
 import { X, Plus, Calendar, DollarSign, Building, AlertCircle } from 'lucide-react';
 
 interface AddLeaseModalProps {
@@ -32,6 +33,8 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
   const isResidential = isResidentialAsset(pickedDeal?.asset_type);
   const isWaResidential = isResidential && isWashingtonProperty({ location: pickedDeal?.location, inputs: pickedDeal?.inputs });
   const [leaseType, setLeaseType] = useState<string>('NNN');
+  const [trackOverride, setTrackOverride] = useState<boolean | null>(null);
+  const trackRecoveries = !isResidential && (trackOverride ?? defaultTrackRecoveries(leaseType));
   const [escalationType, setEscalationType] = useState<string>('Percentage Bump (%)');
   const [escalationRate, setEscalationRate] = useState<string>('3.0');
   const [nextEscalationDate, setNextEscalationDate] = useState<string>('');
@@ -112,6 +115,7 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
           tenant_name: tenantName.trim(),
           monthly_rent: rentNum,
           lease_type: leaseType,
+          track_recoveries: trackRecoveries,
           lease_start_date: leaseStartDate || new Date().toISOString().slice(0, 10),
           lease_end_date: termType === 'month_to_month' ? null : leaseEndDate || null,
           term_type: termType,
@@ -256,6 +260,16 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
               </select>
             </div>
           </div>
+
+          {!isResidential && (
+            <label className="flex items-start gap-2 text-slate-300 cursor-pointer">
+              <input type="checkbox" checked={trackRecoveries} onChange={(e) => setTrackOverride(e.target.checked)} className="mt-0.5 accent-emerald-500" />
+              <span>
+                <span className="font-bold">Track tenant-paid taxes, insurance, CAM &amp; utilities</span>
+                <span className="block text-slate-500">Optional. Set up what this tenant owes from the lease details panel after saving.</span>
+              </span>
+            </label>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

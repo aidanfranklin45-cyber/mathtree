@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase, SUPABASE_URL } from '../../lib/supabase/client';
 import { authJsonHeaders } from '../../lib/supabase/authHeaders';
+import { DEFAULT_RECOVERY_LEAD_DAYS, normalizeRecoveryPrefs, RECOVERY_CATEGORY_LABELS, type RecoveryCategory } from '../../lib/operations/recoveries';
 
 interface Props {
   isOpen: boolean;
@@ -36,6 +37,10 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [followupMax, setFollowupMax] = useState('3');
   const [snoozeDays, setSnoozeDays] = useState(''); // blank = use each lease's grace period
   const [digestMin, setDigestMin] = useState('3'); // combine into one email per property at this many tenants; 0 = never
+  const [recLead, setRecLead] = useState<Record<RecoveryCategory, string>>(
+    () => Object.fromEntries(Object.entries(DEFAULT_RECOVERY_LEAD_DAYS).map(([k, v]) => [k, String(v)])) as Record<RecoveryCategory, string>,
+  ); // days of warning before tenant-paid items (tax, insurance, CAM...) are due
+  const [recEmail, setRecEmail] = useState(true);
   const [timingMsg, setTimingMsg] = useState<Msg>(null);
 
   const [testEmail, setTestEmail] = useState('');
@@ -70,6 +75,9 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (p.followup_max_count !== undefined) setFollowupMax(String(p.followup_max_count));
         if (p.snooze_days !== undefined && p.snooze_days !== null) setSnoozeDays(String(p.snooze_days));
         if (p.digest_min_tenants !== undefined) setDigestMin(String(p.digest_min_tenants));
+        const rp = normalizeRecoveryPrefs(p);
+        setRecLead(Object.fromEntries(Object.entries(rp.leadDays).map(([k, v]) => [k, String(v)])) as Record<RecoveryCategory, string>);
+        setRecEmail(rp.email);
       }
     })();
     return () => { live = false; };
@@ -108,6 +116,8 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       followup_max_count: parseInt(followupMax || '3', 10),
       snooze_days: snoozeDays === '' ? null : parseInt(snoozeDays, 10),
       digest_min_tenants: parseInt(digestMin || '3', 10),
+      recovery_lead_days: normalizeRecoveryPrefs({ recovery_lead_days: recLead }).leadDays,
+      recovery_email: recEmail,
     };
     const { error } = await supabase
       .from('profiles')
@@ -270,6 +280,22 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   {['2', '3', '5', '10'].map((v) => <option key={v} value={v}>One email per property when {v} or more tenants are due</option>)}
                 </select>
                 <p className="text-[10px] text-slate-500">The combined email lists every tenant with its own Paid and Missing buttons, so a 12-unit building sends one email instead of twelve.</p>
+              </div>
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="block text-[11px] font-semibold text-slate-300">Tenant-paid costs (NNN): warn me this many days before</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {(Object.keys(DEFAULT_RECOVERY_LEAD_DAYS) as RecoveryCategory[]).map((c) => (
+                    <div key={c} className="space-y-1">
+                      <span className="block text-[10px] text-slate-400">{RECOVERY_CATEGORY_LABELS[c]}</span>
+                      <input type="number" min="0" max="180" value={recLead[c]} onChange={(e) => setRecLead((cur) => ({ ...cur, [c]: e.target.value }))} className={`w-full ${field}`} />
+                    </div>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                  <input type="checkbox" checked={recEmail} onChange={(e) => setRecEmail(e.target.checked)} className="accent-cyan-500" />
+                  Also email me when one of these is overdue or coming due
+                </label>
+                <p className="text-[10px] text-slate-500">Only leases with tracking turned on are included. You get one email per day at most, listing what is new.</p>
               </div>
             </div>
             <div className="flex items-center justify-between pt-1">
