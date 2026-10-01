@@ -1,6 +1,6 @@
 # Monte Carlo: why it is slow, why it stopped looking normal, and the plan to fix both
 
-Status: **Phase A is implemented** (this branch). Phases B1, B2 and C are next. Decisions from the owner are in section 4.
+Status: **Phases A, B1, B2 and C are implemented** (branches `perf/monte-carlo-phase-a`, then `feat/monte-carlo-model`, which builds on it). Decisions from the owner are in section 4. Remaining: deploy `generate-pdf-brief` after merge, and antithetic sampling (optional).
 Measured 2026-09-30 on the owner's real deals (read-only), 1,000 runs, node, a seeded random source so runs are repeatable.
 
 ## Summary
@@ -86,19 +86,21 @@ Result: 1,000 runs went from 2.9 s / 3.2 s / 1.9 s to **0.21 s / 0.39 s / 0.16 s
 5. **Stop auto-thrashing.** Re-run on slider release (not on every tick), key the result cache by a hash of the inputs, and keep the previous result on screen while recomputing. Make `merged` depend on the deal's inputs, not on the object identity.
 6. **Tests:** lean and full output must be identical for all fixtures (no result change allowed); a generous performance budget test (for example under 2 ms per projection with leases) to catch regressions.
 
-### Phase B1: remove misleading display (no model change)
+### Phase B1: remove misleading display (no model change): **DONE on `feat/monte-carlo-model`**
 1. Replace the percentile-clipped end bars with fixed-width bins across the 1st to 99th percentile plus two labelled overflow bars. Never invent a window; if the range is tiny, say "outcomes are tightly clustered".
 2. Seed the random source from the deal (a hash of its inputs), so the same deal gives the same chart until it changes. Add an explicit "Re-run with a new seed" button.
 3. Replace the stale "about 16 ms" comment with a measured note.
 
-### Phase B2: fix the model (needs the owner's decisions below)
+### Phase B2: fix the model: **DONE on `feat/monte-carlo-model`**
+
+Shipped: market rent after a lease ends now drifts with the sampled rent growth (contract rent never varies), tenant default is an explicit labelled probability plus downtime (default 10% over the hold, 12 months, adjustable in the tab; commercial and storage with income only), net profit in dollars is reported next to IRR for every deal with a thin-equity note, the probability of clearing the hurdle is reported, the histogram is fixed-width between the 1st and 99th percentile with end bars only when something falls outside, runs are seeded from the deal (repeatable; the Re-Run button draws a new sample), and the PDF brief uses the same simulation at 1,000 runs. The 6% hidden vacancy shock for commercial deals is gone (replaced by the visible default risk).
 1. **Make rent growth live with leases.** Apply the sampled growth to everything not fixed by contract: rent steps at renewal or re-let, percentage escalators if the lease says "market" (CPI-style), and any uncontracted period. Fixed dollar bumps and fixed percentage bumps stay fixed unless the owner chooses "vary contractual escalators".
 2. **Add tenant default as an explicit, labelled risk** (probability over the hold and a downtime length) in place of the hidden 6% vacancy shock, and let the owner set it.
 3. **Add a dollar-profit view** (and equity multiple) next to IRR, and show a note when equity is under about 10% of price ("IRR is not a stable measure here"). Offer the choice in the chart.
 4. **PDF brief uses the shared simulation** (`runMonteCarlo`, 1,000 runs, seeded from the deal id so the brief is repeatable) instead of its own 500-trial model. The brief shows the same tenant-default assumption, IRR and dollar-profit percentiles as the app.
 5. **Antithetic sampling** (pair each draw with its mirror) to halve run-to-run noise at the same run count.
 
-### Phase C: tests that would have caught this
+### Phase C: tests that would have caught this: **DONE** (`monteCarloModel.test.ts`, 17 tests)
 * **Every sampled input must matter.** For each volatility the simulation exposes, a fixture where setting it to 0 versus a large value changes the output (this is the test that would have flagged the dead rent-growth input).
 * Seeded golden outputs for three fixtures: a normal-equity single lease, a zero-equity deal, a no-income deal.
 * A shape test on a normal-equity fixture: excess kurtosis and skew within agreed bounds, and no bin holding over 40% of runs.

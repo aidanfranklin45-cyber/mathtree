@@ -30,5 +30,5 @@ export {
   firstFullYear,
   numOr,
 } from '@engine/math-engine.ts';
-export { runMonteCarlo, createMonteCarloRunner } from '@engine/monte-carlo.ts';
-export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin, MonteCarloRunner } from '@engine/monte-carlo.ts';
+export { runMonteCarlo, createMonteCarloRunner, buildFixedHistogram, seededRandom, seedFromText, DEFAULT_TENANT_DEFAULT } from '@engine/monte-carlo.ts';
+export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin, MonteCarloRunner, ProfitSummary } from '@engine/monte-carlo.ts';

@@ -90,14 +90,18 @@ function leaseDates(lease: any): LeaseDates {
 /**
  * `opts.lean` skips the human-readable provenance text (locale-formatted strings are the main cost of this function) for callers
  * that only need the numbers, such as the Monte Carlo. Rent, status, cycles and one-time costs are identical either way.
+ *
+ * `opts.drift` (percentage points a year) moves only what the contract does not fix: rent after the lease end (renewal, extension
+ * or re-let) is market rent, so it drifts. Contractual rent before the end never changes. 0 / undefined = no drift.
  */
 export function resolveLeaseMonthlyRent(
   lease: any,
   targetYear: number,
   targetMonth: number,
-  opts?: { lean?: boolean },
+  opts?: { lean?: boolean; drift?: number },
 ): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string; oneTimeCost?: number } {
   const lean = opts?.lean === true;
+  const drift = Number(opts?.drift) || 0;
   const baseRent = parseFloat(lease.monthlyRent || 0);
   if (baseRent <= 0) {
     return {
@@ -145,6 +149,8 @@ export function resolveLeaseMonthlyRent(
     return isNaN(n) ? fallback : n;
   };
   const fmtMo = (n: number) => `$${Math.round(n).toLocaleString()}/mo`;
+  // Market drift compounds only over the time since the contract ended
+  const driftFactor = (idx: number): number => (drift ? Math.pow(1 + drift / 100, Math.max(0, idx - endIdx) / 12) : 1);
 
   if (targetIdx > endIdx) {
     const endLabel = lease.leaseEndDate || `${endYear}-${endMonth}`;
@@ -154,7 +160,7 @@ export function resolveLeaseMonthlyRent(
     // Renewal on current terms for the rest of the hold: rent keeps escalating, optionally with a one-time reset.
     if (mode === 'renew') {
       const step = num(lease.extensionRentChangePct, 0);
-      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * driftFactor(targetIdx) * 100) / 100;
       return {
         monthlyRent: rent,
         isActive: true,
@@ -169,7 +175,7 @@ export function resolveLeaseMonthlyRent(
       const extMonths = Math.max(1, Math.round(num(lease.extensionYears, 5) * 12));
       if (targetIdx <= endIdx + extMonths) {
         const step = num(lease.extensionRentChangePct, 0);
-        const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+        const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * driftFactor(targetIdx) * 100) / 100;
         return {
           monthlyRent: rent,
           isActive: true,
@@ -196,7 +202,7 @@ export function resolveLeaseMonthlyRent(
       const step = num(lease.reletRentChangePct, 0);
       const startRent = rentAtIdx(endIdx) * (1 + step / 100);
       const newCycles = Math.floor((targetIdx - newStartIdx) / 12);
-      const rent = Math.round(startRent * Math.pow(1 + escRate / 100, newCycles) * 100) / 100;
+      const rent = Math.round(startRent * Math.pow(1 + escRate / 100, newCycles) * driftFactor(targetIdx) * 100) / 100;
       const reletCost = num(lease.reletCosts, 0);
       return {
         monthlyRent: rent,
@@ -592,6 +598,12 @@ export function firstFullYear<T extends { operatingMonths?: number }>(projection
  */
 export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}, opts?: { lean?: boolean }): any {
   const lean = opts?.lean === true;
+  // Scenario inputs used by the Monte Carlo (both optional; absent = no effect):
+  //   marketRentDrift   percentage points a year added to market rent after a lease ends (contractual rent is never moved)
+  //   tenantInterruption {leaseIndex, months, startIdx (year*12+month) | startOffset (months after closing)}: that lease stops paying
+  //   for that window, then resumes
+  const marketRentDrift = Number(inputs.marketRentDrift) || 0;
+  const interruption = inputs.tenantInterruption && Number(inputs.tenantInterruption.months) > 0 ? inputs.tenantInterruption : null;
   const assetType = normalizeAssetClass(rawAssetType);
 
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
@@ -765,8 +777,19 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
 
       for (let mo = startM; mo <= 12; mo++) {
         let moGross = 0;
-        for (const lease of (inputs.leases as any[])) {
-          const leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo, { lean });
+        const leaseList = inputs.leases as any[];
+        for (let li = 0; li < leaseList.length; li++) {
+          const lease = leaseList[li];
+          let leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo, { lean, drift: marketRentDrift });
+          if (interruption && li === interruption.leaseIndex && leaseRes.isActive) {
+            const idx = calYear * 12 + mo;
+            const winStart = interruption.startIdx ?? (closeYear * 12 + closeMonth + (Number(interruption.startOffset) || 0));
+            if (idx >= winStart && idx < winStart + interruption.months) {
+              // The tenant defaulted: no rent during the downtime, and the owner carries the property like any vacancy
+              vacantLeaseMonths += 1;
+              leaseRes = { ...leaseRes, monthlyRent: 0, isActive: false, status: 'tenant_default', provenance: lean ? '' : 'Tenant default: downtime' };
+            }
+          }
           if (leaseRes.status === 'vacant_relet') vacantLeaseMonths += 1;
           if (leaseRes.oneTimeCost) expiryOneTimeCosts += leaseRes.oneTimeCost;
           if (lean) {
