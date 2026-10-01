@@ -2048,7 +2048,7 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
     warnings.push({
       level: 'warning',
       title: 'Aggressive Exit Cap Rate Assumption',
-      description: `Exit cap rate (${exitCap.toFixed(2)}%) is priced more aggressively than typical institutional ranges (${benchmarkRange.min.toFixed(2)}% - ${benchmarkRange.max.toFixed(2)}%) for ${marketTier} ${propClass} assets.`
+      description: `Exit cap rate (${exitCap.toFixed(2)}%) is priced more aggressively than typical market ranges (${benchmarkRange.min.toFixed(2)}% - ${benchmarkRange.max.toFixed(2)}%) for ${marketTier} ${propClass} assets.`
     });
   }
 

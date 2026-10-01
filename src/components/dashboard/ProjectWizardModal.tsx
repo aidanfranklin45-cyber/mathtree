@@ -146,7 +146,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const guidance = useMemo(() => {
     const tierDesc = w.marketTier.includes('1') ? 'Primary Gateway Metro (High Liquidity, Low Cap Rates)'
       : w.marketTier.includes('2') ? 'Secondary Growth Metro (Core-Plus Yields)' : 'Tertiary / Regional Market (Higher Yields, Lower Liquidity)';
-    const classDesc = w.propertyClass.includes('A') ? 'Trophy/Institutional Quality' : w.propertyClass.includes('B') ? 'Value-Add / Core-Plus' : 'Workforce Housing / Opportunity';
+    const classDesc = w.propertyClass.includes('A') ? 'Prime / Trophy Quality' : w.propertyClass.includes('B') ? 'Value-Add / Core-Plus' : 'Workforce Housing / Opportunity';
     return `${tierDesc} • ${classDesc}`;
   }, [w.marketTier, w.propertyClass]);
 
@@ -635,7 +635,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <label htmlFor="wiz-property-class" className={lbl2}>Property Class</label>
               <select id="wiz-property-class" value={w.propertyClass} onChange={(e) => set({ propertyClass: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
-                <option value="Class A">Class A • Institutional / Trophy</option>
+                <option value="Class A">Class A • Prime / Trophy</option>
                 <option value="Class B">Class B • Value-Add / Core-Plus</option>
                 <option value="Class C">Class C • Workforce / Opportunity</option>
               </select>
@@ -881,7 +881,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         <div className="p-4 bg-brand-950/30 border border-brand-800/60 rounded-2xl space-y-2">
-          <div className="flex items-center space-x-2 text-xs font-bold text-brand-300"><span>🏛️ Institutional Underwriting Engine Ready</span></div>
+          <div className="flex items-center space-x-2 text-xs font-bold text-brand-300"><span>🏛️ Underwriting Engine Ready</span></div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
             When submitted, MathTree will compute your 10-year pro-forma, evaluate debt covenants, run Monte Carlo stress-testing, and deliver a presentation-ready Executive Pitch Deck.
           </p>

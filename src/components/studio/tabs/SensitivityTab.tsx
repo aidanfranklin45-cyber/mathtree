@@ -219,7 +219,7 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
           <span className="text-lg leading-none">🛡️</span>
           <div className="space-y-1 flex-1">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-white text-xs">{mc?.riskClassification || 'Institutional Risk Assessment'}</span>
+              <span className="font-bold text-white text-xs">{mc?.riskClassification || 'Risk Assessment'}</span>
               <span className={badgeCls}>{mc ? badgeText : 'Strong Downside Buffer'}</span>
             </div>
             <p className="text-slate-400 text-xs leading-relaxed">

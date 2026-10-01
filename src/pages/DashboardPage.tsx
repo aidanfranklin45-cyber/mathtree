@@ -474,7 +474,7 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
           <div className="flex items-center space-x-2">
             <span className="text-sm">🧪</span>
-            <span><strong>Interactive Demo Sandbox Active</strong> — You are viewing simulated institutional portfolio data. All underwriting adjustments persist in your browser session.</span>
+            <span><strong>Interactive Demo Sandbox Active</strong> — You are viewing simulated portfolio data. All underwriting adjustments persist in your browser session.</span>
           </div>
           <button onClick={exitDemoMode} className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-bold transition">Exit Demo Mode</button>
         </div>

@@ -243,7 +243,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <p className="font-semibold text-accent-violet flex items-center gap-1"><span>⚡</span><span>Internal Rate of Return (IRR)</span></p>
-                <p className="text-slate-400">The annualized rate of return that equates the present value of all cash flows (including net sale equity at exit) to your initial investment. Think of it as the speed at which your capital grows. A higher IRR is better, with institutional real estate typically targeting 12% to 18%.</p>
+                <p className="text-slate-400">The annualized rate of return that equates the present value of all cash flows (including net sale equity at exit) to your initial investment. Think of it as the speed at which your capital grows. A higher IRR is better, with commercial real estate typically targeting 12% to 18%.</p>
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-white flex items-center gap-1"><span>💸</span><span>Net Present Value (NPV)</span></p>
@@ -415,7 +415,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
       <div className="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-slate-950 p-5 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">Due Diligence &amp; Institutional Deliverables</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">Due Diligence &amp; Deliverables</span>
             <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{(deal as any).verified_items_count || 8}/8 Verified</span>
           </div>
           <p className="text-xs text-slate-400">All 8 underwriting inputs mapped to verifiable economic provenance, gap analysis, and deliverables.</p>

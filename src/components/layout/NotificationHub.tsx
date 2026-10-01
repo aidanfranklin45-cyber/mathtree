@@ -80,7 +80,7 @@ export const NotificationHub: React.FC<Props> = ({ isOpen, onClose, notification
                 <span>Action Center</span>
                 <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono">{notifications.length}</span>
               </h3>
-              <p className="text-[11px] text-slate-400">Institutional reminders &amp; pro-forma checks</p>
+              <p className="text-[11px] text-slate-400">Portfolio reminders &amp; pro-forma checks</p>
             </div>
           </div>
           <div className="flex items-center space-x-1">

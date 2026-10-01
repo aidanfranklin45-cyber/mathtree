@@ -1,5 +1,5 @@
 // generate-pdf-brief/index.ts
-// Institutional PDF & Executive Brief Serverless Generator for MathTree
+// Executive PDF Brief Serverless Generator for MathTree
 // Dual-Mode: Single-Asset Underwriting Memo & Portfolio & Pipeline Command Center Brief
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -323,7 +323,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
 
   let dscrEvaluation = '';
   if (dscrNum >= 1.25 && cashFlow > 0) {
-    dscrEvaluation = `Calibrated to lending terms. ${isProrated ? 'Stabilized debt' : 'Debt'} service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${fmtCurr(isProrated ? (firstFull.cashFlow ?? cashFlow) : cashFlow)}/yr) comfortably exceeding institutional 1.25x covenant floor.${isProrated && p0.dscr ? ` Note: Year 1 partial stub coverage is ${Number(p0.dscr).toFixed(2)}x (${p0.operatingMonths || 6} mos) before full-year stabilization.` : ''}`;
+    dscrEvaluation = `Calibrated to lending terms. ${isProrated ? 'Stabilized debt' : 'Debt'} service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${fmtCurr(isProrated ? (firstFull.cashFlow ?? cashFlow) : cashFlow)}/yr) comfortably exceeding standard 1.25x covenant floor.${isProrated && p0.dscr ? ` Note: Year 1 partial stub coverage is ${Number(p0.dscr).toFixed(2)}x (${p0.operatingMonths || 6} mos) before full-year stabilization.` : ''}`;
   } else if (dscrNum >= 1.0 && cashFlow > 0) {
     dscrEvaluation = `Moderate coverage. Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x yields positive cash flow (${fmtCurr(cashFlow)}/yr) but sits below preferred 1.25x bank covenant buffer; sensitive to vacancy spikes or debt rate increases.`;
   } else {
@@ -436,7 +436,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
     warnings.push({ title: 'Unlinked Assessor Parcel', description: 'Property is not tied to an active county parcel number; official assessment and boundary lines unverified.' });
   }
   if (dscrFormatted !== 'N/A' && dscrNum < 1.25) {
-    warnings.push({ title: `${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR Below 1.25x Covenant Floor`, description: `Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x is below the institutional underwriting threshold of 1.25x.` });
+    warnings.push({ title: `${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR Below 1.25x Covenant Floor`, description: `Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x is below the underwriting threshold of 1.25x.` });
   }
   if (isProrated && p0 && Number(p0.operatingMonths) < 12 && p0.dscr !== null && p0.dscr !== undefined && Number(p0.dscr) < 1.25) {
     warnings.push({ title: 'Partial Stub-Year Coverage Note', description: `Initial ${p0.operatingMonths}-month stub period carries ${Number(p0.dscr).toFixed(2)}x debt coverage prior to full-year stabilization (${dscrFormatted} stabilized DSCR).` });
@@ -498,7 +498,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>MathTree Institutional Underwriting Brief - ${title}</title>
+  <title>MathTree Underwriting Brief - ${title}</title>
   <style>
     @page { size: letter landscape; margin: 7mm 9mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: #0f172a; margin: 0; padding: 10px; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -675,7 +675,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
             ${vacRate <= 0.001
               ? 'Models 100% economic occupancy with zero vacancy friction based on fully stabilized in-place tenancy and continuous historical occupancy.'
-              : `Enforces institutional underwriting allowance of ${vacRate}% to buffer tenant rollover friction, collection delay, and physical downtime. Asset maintains operational cash flow solvency up to 20% economic vacancy tolerance.`}
+              : `Enforces standard underwriting allowance of ${vacRate}% to buffer tenant rollover friction, collection delay, and physical downtime. Asset maintains operational cash flow solvency up to 20% economic vacancy tolerance.`}
           </td>
         </tr>
 
@@ -774,7 +774,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   <!-- 3. 10-Year Pro-Forma Cash Flow Waterfall Table -->
   <div class="box">
     <div class="box-header" style="background: #0f172a;">
-      <span>📊 10-Year Institutional Pro-Forma Forecast</span>
+      <span>📊 10-Year Pro-Forma Forecast</span>
       <span style="font-size: 8px; color: #34d399;">Calendar-Year Cash Flow Waterfall</span>
     </div>
     <table class="table-data" style="text-align: right;">
@@ -864,7 +864,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   <!-- Footer -->
   <div class="footer">
     <span>MathTree Real Estate Underwriting Platform • Direct Postgres Engine</span>
-    <span>Confidential Institutional Investment Memo • ${isProrated ? 'Stabilized DSCR' : 'Senior DSCR'}: ${dscrFormatted} • Generated ${dateStr}</span>
+    <span>Confidential Investment Memo • ${isProrated ? 'Stabilized DSCR' : 'Senior DSCR'}: ${dscrFormatted} • Generated ${dateStr}</span>
   </div>
 
   <script>
@@ -1191,7 +1191,7 @@ function buildPortfolioBriefHtml(portfolio: any): string {
   <!-- Footer -->
   <div class="footer">
     <span>MathTree Real Estate Portfolio & Pipeline Studio • Direct Postgres Engine</span>
-    <span>Confidential Institutional Underwriting Report • Generated for ${invName} (${compName}) • ${dateStr}</span>
+    <span>Confidential Underwriting Report • Generated for ${invName} (${compName}) • ${dateStr}</span>
   </div>
 
   <script>

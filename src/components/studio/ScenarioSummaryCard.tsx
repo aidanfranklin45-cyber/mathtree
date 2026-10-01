@@ -83,6 +83,7 @@ const MetricChips: React.FC<{ diff: unknown }> = ({ diff }) => (
 
 export const ScenarioSummaryCard: React.FC<Props> = ({ runs, isOwned, onOpenHistory, onRestore }) => {
   const count = runs.length;
+  if (count === 0) return null;
   const latest = runs[0];
   const hasInputDiff = !!latest && latest.inputDiff.length > 0;
   const hasMetricDiff = !!latest && latest.metricDiff.length > 0;

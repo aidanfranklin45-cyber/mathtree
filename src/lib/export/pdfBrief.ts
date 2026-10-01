@@ -1,4 +1,4 @@
-﻿import { supabase, SUPABASE_ANON_KEY } from '../supabase/client';
+import { supabase, SUPABASE_ANON_KEY } from '../supabase/client';
 
 export async function openPdfBrief(url: string): Promise<void> {
   const win = window.open('', '_blank');
@@ -19,7 +19,7 @@ export async function openPdfBrief(url: string): Promise<void> {
   <div class="card">
     <div class="spinner"></div>
     <div class="brand">🌿 MATHTREE</div>
-    <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">Generating Institutional PDF Brief...</div>
+    <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">Generating PDF Brief...</div>
     <div style="font-size: 12px; color: #64748b; line-height: 1.5;">Preparing print-optimized pro-forma schedule, debt breakdown, and executive memorandum</div>
   </div>
 </body>
