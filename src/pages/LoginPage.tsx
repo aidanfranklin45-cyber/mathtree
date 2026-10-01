@@ -3,23 +3,25 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { Lock, Mail, AlertCircle, CheckCircle2, Eye, EyeOff, Shield } from 'lucide-react';
 
-declare global {
-  interface Window {
-    PasswordCredential?: any;
-    MathTreeSession?: {
-      resetSession?: () => void;
-      startWatcher?: (client: unknown, options?: unknown) => void;
-      isTimedOut?: (ms?: number) => boolean;
-      logout?: (reason?: string, client?: unknown, redirectUrl?: string) => void;
-    };
+/**
+ * Safely sanitizes redirect URLs to prevent open-redirect vulnerabilities.
+ * Strictly requires the target to start with a single '/' and rejects protocol/domain manipulation.
+ */
+function sanitizeNextUrl(raw: string | null): string {
+  if (!raw) return '/dashboard';
+  const trimmed = raw.trim();
+  // Valid in-app relative path starts with a single '/' and is NOT followed by '/' or '\'
+  if (/^\/[^\/\\]/.test(trimmed)) {
+    return trimmed;
   }
+  return '/dashboard';
 }
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
-  const nextUrl = searchParams.get('next') || '/dashboard';
+  const nextUrl = sanitizeNextUrl(searchParams.get('next'));
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [loading, setLoading] = useState(false);
@@ -32,7 +34,8 @@ export const LoginPage: React.FC = () => {
     let live = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!live) return;
-      if (data.session && !window.MathTreeSession?.isTimedOut?.()) {
+      const isTimedOut = window.MathTreeSession?.isTimedOut?.() ?? false;
+      if (data.session && !isTimedOut) {
         navigate(nextUrl, { replace: true });
       }
     });
@@ -72,7 +75,7 @@ export const LoginPage: React.FC = () => {
     const password = (formData.get('password') as string || '');
 
     if (!email || !password) {
-      setErrorMsg('Please enter both institutional email and password.');
+      setErrorMsg('Please enter both email and password.');
       return;
     }
 
@@ -158,7 +161,7 @@ export const LoginPage: React.FC = () => {
       } else {
         // Confirmation email sent
         setLoading(false);
-        setSuccessMsg('Verification link sent! Please check your institutional email to confirm your account.');
+        setSuccessMsg('Verification link sent! Please check your email inbox to confirm your account.');
         // Prompt password manager to remember newly created password
         await storeCredentialInBrowser(email, password);
       }
@@ -247,7 +250,7 @@ export const LoginPage: React.FC = () => {
           <div className="relative flex items-center justify-center my-2">
             <div className="border-t border-[#1E2230] w-full" />
             <span className="bg-[#0D111A] px-3 text-[10px] text-slate-500 uppercase tracking-wider font-bold whitespace-nowrap">
-              or credentials
+              or email credentials
             </span>
             <div className="border-t border-[#1E2230] w-full" />
           </div>
@@ -294,7 +297,7 @@ export const LoginPage: React.FC = () => {
 
           {/* ========================================================
               PASSWORD MANAGER OPTIMIZED FORMS
-              1. Uses standard <form> tag with method="post" and action="/login"
+              1. Uses standard <form> tag with method="post" action="javascript:void(0);"
               2. Explicit name="username" and autoComplete="username"
               3. Explicit name="password" and autoComplete="current-password" / "new-password"
               4. Standard <button type="submit"> for native submit capture
@@ -303,7 +306,7 @@ export const LoginPage: React.FC = () => {
             <form
               id="form-signin"
               method="post"
-              action="/login"
+              action="javascript:void(0);"
               onSubmit={handleSignIn}
               className="space-y-4"
             >
@@ -312,7 +315,7 @@ export const LoginPage: React.FC = () => {
                   htmlFor="signin-username"
                   className="block text-xs font-semibold text-slate-300 mb-1.5"
                 >
-                  Institutional Email
+                  Email Address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -324,7 +327,7 @@ export const LoginPage: React.FC = () => {
                     type="email"
                     required
                     autoComplete="username"
-                    placeholder="investor@mathtree.app"
+                    placeholder="name@company.com"
                     className="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-600 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>
@@ -380,7 +383,7 @@ export const LoginPage: React.FC = () => {
             <form
               id="form-signup"
               method="post"
-              action="/login"
+              action="javascript:void(0);"
               onSubmit={handleSignUp}
               className="space-y-4"
             >
@@ -389,7 +392,7 @@ export const LoginPage: React.FC = () => {
                   htmlFor="signup-username"
                   className="block text-xs font-semibold text-slate-300 mb-1.5"
                 >
-                  Institutional Email
+                  Email Address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -401,7 +404,7 @@ export const LoginPage: React.FC = () => {
                     type="email"
                     required
                     autoComplete="username"
-                    placeholder="investor@mathtree.app"
+                    placeholder="name@company.com"
                     className="w-full bg-[#090A0F] border border-[#1E2230] text-slate-100 placeholder-slate-600 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-emerald-500 transition"
                   />
                 </div>

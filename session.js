@@ -114,7 +114,7 @@
 
   function logout(reason, supabaseClient, redirectUrl) {
     reason = reason || 'timeout';
-    redirectUrl = redirectUrl || ('index.html' + (reason === 'timeout' ? '?reason=timeout' : ''));
+    redirectUrl = redirectUrl || ('/login' + (reason === 'timeout' ? '?reason=timeout' : ''));
 
     clearSessionStorage();
     hideWarningModal();
@@ -127,9 +127,9 @@
     function doRedirect() {
       if (typeof window !== 'undefined' && window.location) {
         var currentPath = window.location.pathname || '';
-        var isLandingPage = currentPath.endsWith('index.html') || currentPath === '/' || currentPath === '';
-        // If already on landing page and redirect target is also landing page, do not trigger a reload
-        if (isLandingPage && (redirectUrl.indexOf('index.html') !== -1 || redirectUrl.startsWith('/?'))) {
+        var isLandingOrLogin = currentPath.endsWith('index.html') || currentPath === '/' || currentPath === '' || currentPath.endsWith('/login');
+        // If already on landing or login page and redirect target is also landing/login, do not trigger a reload
+        if (isLandingOrLogin && (redirectUrl.indexOf('index.html') !== -1 || redirectUrl.indexOf('/login') !== -1 || redirectUrl.startsWith('/?'))) {
           return;
         }
         window.location.replace(redirectUrl);

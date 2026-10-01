@@ -3,11 +3,14 @@ import { supabase } from '../supabase/client';
 
 declare global {
   interface Window {
+    PasswordCredential?: any;
     /** Loaded from /session.js (30-minute inactivity logout + warning modal), shared with the static login page. */
     MathTreeSession?: {
       isTimedOut: (ms?: number) => boolean;
       logout: (reason?: string, client?: unknown, redirectUrl?: string) => void;
       startWatcher: (client: unknown, options?: unknown) => void;
+      resetSession?: () => void;
+      recordActivity?: () => void;
     };
   }
 }
