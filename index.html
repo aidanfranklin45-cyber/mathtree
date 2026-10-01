@@ -2408,11 +2408,32 @@
       updateHero();
     }
 
-    // ==================== AUTH MODAL COMPONENT ====================
     function closeAuthModal() {}
 
     function showAuthModal(initialTab) {
       window.location.href = '/login' + (initialTab === 'signup' ? '?mode=signup' : '');
+    }
+
+    async function doGoogleSignIn() {
+      if (window.MathTreeSession && window.MathTreeSession.resetSession) {
+        window.MathTreeSession.resetSession();
+      }
+      try {
+        localStorage.removeItem('mathtree_demo_mode');
+      } catch(e) {}
+      var result = await _supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/dashboard',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account'
+          }
+        }
+      });
+      if (result && result.error) {
+        console.error('Google sign-in error:', result.error.message);
+      }
     }
   </script>
 </body>
