@@ -69,6 +69,24 @@ describe('buildPortfolioModel', () => {
     expect(m.investorName).toBeNull();
     expect(m.hurdleRate).toBeNull();
   });
+
+  it('correctly tags property status and defaults missing status to prospect', () => {
+    const mixedDeals = [
+      mk('d1', 'owned', 'commercial'),
+      mk('d2', 'prospect', 'residential'),
+      { ...mk('d3', '', 'storage'), status: undefined },
+    ];
+    const m = buildPortfolioModel(mixedDeals, [], { now });
+    expect(m.owned).toHaveLength(1);
+    expect(m.pipeline).toHaveLength(2);
+    expect(m.owned[0].isOwned).toBe(true);
+    expect(m.owned[0].status).toBe('owned');
+    expect(m.owned[0].statusLabel).toBe('Owned Asset');
+    expect(m.pipeline[0].isOwned).toBe(false);
+    expect(m.pipeline[0].status).toBe('prospect');
+    expect(m.pipeline[1].isOwned).toBe(false);
+    expect(m.pipeline[1].status).toBe('prospect');
+  });
 });
 
 describe('PortfolioBrief render', () => {
@@ -86,5 +104,12 @@ describe('PortfolioBrief render', () => {
     expect(html).toContain('Not provided');
     expect(html).toContain('Unlinked county parcels');
     expect(html).not.toContain('Yakima');
+
+    // Clear ownership status indicators
+    expect(html).toContain('🏛️ Owned');
+    expect(html).toContain('🏛️ Owned Asset');
+    expect(html).toContain('🎯 Prospect');
+    expect(html).toContain('🎯 Pipeline Prospect');
+    expect(html).toContain('Portfolio Status');
   });
 });

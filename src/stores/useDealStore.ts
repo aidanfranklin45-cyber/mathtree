@@ -70,7 +70,7 @@ export function mapSupabaseDeal(d: any): DealRecord {
     state: d.state,
     zip: d.zip,
     asset_class: d.asset_class || d.asset_type || 'commercial',
-    status: d.status || 'owned',
+    status: d.status || 'prospect',
     purchase_price: parseFloat(d.purchase_price) || inputs.purchasePrice || 0,
     // Analysis (IRR, equity, cash flow, ...) is never read from the row; it is computed on demand.
     is_demo: d.is_demo || false,

@@ -7,10 +7,17 @@ const pctOrNA = (v: number | null, d = 2): string => (v === null ? 'N/M' : pct(v
 const curOrNP = (v: number | null): string => (v === null ? NP : cur(v));
 const cfColor = (v: number | null): string => (v !== null && v < 0 ? '#e11d48' : '#059669');
 
-const NameCell: React.FC<{ r: PortfolioDealRow }> = ({ r }) => (
+const NameCell: React.FC<{ r: PortfolioDealRow; showStatus?: boolean }> = ({ r, showStatus = true }) => (
   <td>
-    <strong style={{ fontSize: 12, display: 'block' }}>{r.name}</strong>
-    <span style={{ color: '#64748b', fontSize: 10.5 }}>{orNP(r.location)}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <strong style={{ fontSize: 12 }}>{r.name}</strong>
+      {showStatus && (
+        <span className={`pill ${r.isOwned ? 'pill-green' : 'pill-blue'}`} style={{ fontSize: 9, padding: '1px 5px', lineHeight: '12px' }}>
+          {r.isOwned ? '🏛️ Owned' : '🎯 Prospect'}
+        </span>
+      )}
+    </div>
+    <span style={{ color: '#64748b', fontSize: 10.5, display: 'block', marginTop: 1 }}>{orNP(r.location)}</span>
   </td>
 );
 const ApnCell: React.FC<{ r: PortfolioDealRow }> = ({ r }) => <td className="mono" style={{ textAlign: 'center' }}>{r.apn ?? 'Pending Link'}</td>;
@@ -122,7 +129,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
                   <td className="num" style={{ fontWeight: 700, color: cfColor(r.coc) }}>{pctOrNA(r.coc, 1)}</td>
                   <td className="num">{curOrNP(r.noi)}</td>
                   <td className="num" style={{ color: '#475569' }}>{r.debt === null ? NP : `${cur(r.debt)} (${r.ltv !== null ? `${Math.round(r.ltv)}%` : NP})`}</td>
-                  <td style={{ textAlign: 'center' }}><span className="pill" style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' }}>{orNP(r.stage)}</span></td>
+                  <td style={{ textAlign: 'center' }}><span className="pill pill-blue" style={{ fontSize: 9.5, padding: '2px 6px' }}>{r.stage && r.stage.toLowerCase() !== 'prospect' ? `Prospect • ${r.stage}` : '🎯 Prospect'}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -131,16 +138,36 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
       </div>
 
       <div className="box split pg">
-        <div className="bh" style={{ background: '#1e293b' }}><span>🏛️ County Assessor &amp; Structural Characteristics Cross-Verification Audit</span><span className="sub" style={{ color: '#fff' }}>Tax Roll Audit</span></div>
+        <div className="bh" style={{ background: '#1e293b' }}><span>🏛️ County Assessor &amp; Structural Characteristics Cross-Verification Audit</span><span className="sub" style={{ color: '#fff' }}>Tax Roll Audit ({m.owned.length} Owned Holdings, {m.pipeline.length} Acquisition Prospects)</span></div>
         <table>
-          <thead><tr><th style={{ width: '22%' }}>Property &amp; Location</th><th style={{ width: '15%' }}>Assessor APN</th><th style={{ width: '18%' }}>Owner of Record</th><th style={{ width: '15%' }}>Assessed Value</th><th style={{ width: '12%' }}>Parcel Area</th><th style={{ width: '18%' }}>Structural Specs &amp; Zoning</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ width: '22%' }}>Property &amp; Location</th>
+              <th style={{ width: '13%', textAlign: 'center' }}>Portfolio Status</th>
+              <th style={{ width: '12%', textAlign: 'center' }}>Assessor APN</th>
+              <th style={{ width: '18%' }}>Owner of Record (Tax Roll)</th>
+              <th style={{ width: '11%' }} className="num">Assessed Value</th>
+              <th style={{ width: '10%' }}>Parcel Area</th>
+              <th style={{ width: '14%' }}>Structural Specs &amp; Zoning</th>
+            </tr>
+          </thead>
           <tbody>
             {m.audit.map((r, i) => (
               <tr key={r.id} className={i % 2 ? 'alt' : ''}>
-                <NameCell r={r} />
-                <td className="mono">{r.apn ?? 'Pending Link'}</td>
-                <td style={{ fontWeight: 700 }}>{orNP(r.owner)}</td>
-                <td style={{ fontWeight: 700, color: '#059669' }}>{r.assessed !== null ? cur(r.assessed) : NP}</td>
+                <NameCell r={r} showStatus={true} />
+                <td style={{ textAlign: 'center' }}>
+                  <span className={`pill ${r.isOwned ? 'pill-green' : 'pill-blue'}`} style={{ fontSize: 9.5, padding: '2px 6px', display: 'inline-block' }}>
+                    {r.isOwned ? '🏛️ Owned Asset' : '🎯 Pipeline Prospect'}
+                  </span>
+                </td>
+                <td className="mono" style={{ textAlign: 'center' }}>{r.apn ?? 'Pending Link'}</td>
+                <td>
+                  <strong style={{ display: 'block' }}>{orNP(r.owner)}</strong>
+                  <span style={{ fontSize: 9.5, color: r.isOwned ? '#047857' : '#64748b' }}>
+                    {r.isOwned ? '🏛️ Owned Entity / Grantee' : '🎯 Third-Party / Target'}
+                  </span>
+                </td>
+                <td className="num" style={{ fontWeight: 700, color: '#059669' }}>{r.assessed !== null ? cur(r.assessed) : NP}</td>
                 <td>{r.acres > 0 ? `${r.acres.toFixed(2)} Acres` : NP}</td>
                 <td>
                   <span>{[r.yearBuilt ? `Built ${r.yearBuilt}` : null, r.buildingSqFt > 0 ? `${Math.round(r.buildingSqFt).toLocaleString()} Sq Ft` : null].filter(Boolean).join(' • ') || NP}</span><br />
