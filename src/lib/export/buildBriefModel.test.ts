@@ -92,6 +92,27 @@ describe('DealBrief render', () => {
     expect(html).not.toContain('Old');
     expect(html).toContain('$300,000 Down (30%)');
     expect(html).toContain('Not provided');
+    // Methodology is fine print at the end, not a column in the assumptions
+    expect(html).not.toContain('How Reached');
+    expect(html).toContain('Methodology, Diligence Provenance');
+  });
+
+  it('explains the Monte Carlo: period, what was varied and by how many standard deviations', async () => {
+    const React = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { DealBrief } = await import('../../components/brief/DealBrief');
+    const { runMonteCarlo } = await import('../engine');
+    const deal = mkDeal(baseInputs);
+    const m = buildBriefModel(deal, leases, parcels);
+    const mc = runMonteCarlo('commercial', m.monteCarloInputs, { runs: 200, seed: 7 });
+    const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: mc }));
+    expect(html).toContain('What the simulation varied');
+    expect(html).toContain('σ = 1.5 pts');
+    expect(html).toContain('Net profit in dollars over the 10-year hold');
+    expect(html).toContain('Break even $0');
+    expect(html).toContain('Exit cap rate');
+    expect(html).toContain('Tenant default');
+    expect(mc.telemetry.volatility.holdYears).toBe(10);
   });
 });
 
