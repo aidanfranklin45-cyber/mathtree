@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
 
 interface AppHeaderProps {
-  active: 'portfolio' | 'operations';
+  active: 'portfolio' | 'operations' | 'compare';
   /** Buttons render only when their handler exists, so nothing in the header is a dead control. */
   onOpenAlerts?: () => void;
   onOpenCollaborators?: () => void;
@@ -50,7 +50,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
       </Link>
 
-      {/* Dual hub switcher */}
+      {/* Tri-hub switcher */}
       <nav className="hidden md:flex items-center space-x-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
         <Link
           to="/"
@@ -61,18 +61,33 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           Portfolio &amp; Pipeline
         </Link>
         <Link
+          to="/compare"
+          className={active === 'compare'
+            ? `${navBase} font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm flex items-center space-x-1.5`
+            : `${navBase} font-semibold text-slate-400 hover:text-white flex items-center space-x-1.5`}
+        >
+          <span>Compare</span>
+          {active === 'compare' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+        </Link>
+        <Link
           to="/operations"
           className={active === 'operations'
             ? `${navBase} font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm flex items-center space-x-1.5`
             : `${navBase} font-semibold text-slate-400 hover:text-white flex items-center space-x-1.5`}
         >
           <span>Property Management</span>
-          {active !== 'operations' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+          {active !== 'operations' && active !== 'compare' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
         </Link>
       </nav>
 
       {/* Account & actions */}
       <div className="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+        <Link
+          to="/compare"
+          className="md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition"
+        >
+          <span>Compare</span>
+        </Link>
         <Link
           to="/operations"
           className="md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition"

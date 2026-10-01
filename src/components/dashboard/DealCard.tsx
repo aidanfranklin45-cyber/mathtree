@@ -15,6 +15,8 @@ interface DealCardProps {
   onToggleStatus: (deal: DealRecord) => void;
   /** Optional until the collaborators hub exists; the menu entry only shows when provided. */
   onShare?: (deal: DealRecord) => void;
+  isSelectedForCompare?: boolean;
+  onToggleCompareSelect?: (dealId: string) => void;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
@@ -59,7 +61,16 @@ const AssetIcon: React.FC<{ assetClass: string }> = ({ assetClass }) => {
 
 const menuItem = 'w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition';
 
-const DealCardComponent: React.FC<DealCardProps> = ({ deal, entities = [], onEdit, onDelete, onToggleStatus, onShare }) => {
+const DealCardComponent: React.FC<DealCardProps> = ({
+  deal,
+  entities = [],
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  onShare,
+  isSelectedForCompare,
+  onToggleCompareSelect,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -194,6 +205,26 @@ const DealCardComponent: React.FC<DealCardProps> = ({ deal, entities = [], onEdi
           </div>
 
           <div className="flex items-center space-x-2 shrink-0 ml-auto">
+            {onToggleCompareSelect && (
+              <label
+                onClick={(e) => e.stopPropagation()}
+                className={`flex items-center space-x-1 cursor-pointer px-2 py-0.5 rounded-md border text-[10px] font-bold transition ${
+                  isSelectedForCompare
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white'
+                }`}
+                title="Select asset for side-by-side comparison"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!isSelectedForCompare}
+                  onChange={() => onToggleCompareSelect(deal.id)}
+                  className="w-3 h-3 rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0 cursor-pointer"
+                />
+                <span className="hidden sm:inline">Compare</span>
+              </label>
+            )}
+
             <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${stInfo.className} border whitespace-nowrap shrink-0`}>
               {stInfo.label}
             </span>
@@ -208,6 +239,10 @@ const DealCardComponent: React.FC<DealCardProps> = ({ deal, entities = [], onEdi
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-8 w-52 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-50">
+                  <button onClick={closeThen(() => navigate(`/compare?dealId=${deal.id}`))} className={menuItem}>
+                    <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                    <span>Compare Deal Scenarios</span>
+                  </button>
                   <button onClick={closeThen(() => onToggleStatus(deal))} className={menuItem}>
                     <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                     <span>{isOwned ? 'Move to Pipeline (Prospect)' : 'Mark as Acquired (Owned)'}</span>
