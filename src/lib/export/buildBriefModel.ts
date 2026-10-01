@@ -1,6 +1,6 @@
 import type { DealMetrics, DealRecord, ProFormaYear } from '../math/types';
 import { computeDealMetrics, prepareEngineInputs } from '../engine/compute';
-import { firstFullYear } from '../engine';
+import { firstFullYear, calculateDownPaymentMatrix, type DownPaymentMatrixResult } from '../engine';
 
 /**
  * The single source for the deal brief. Every figure comes from ONE engine run (`computeDealMetrics`, the same call the
@@ -227,6 +227,7 @@ export interface BriefModel {
   warnings: Array<{ title: string; description: string }>;
   /** Inputs for the on-demand Monte Carlo (same preparation the Sensitivity tab uses). */
   monteCarloInputs: Record<string, any>;
+  downPaymentMatrix: DownPaymentMatrixResult;
 }
 
 const money = (n: number): string => '$' + Math.round(n).toLocaleString('en-US');
@@ -241,12 +242,13 @@ export function buildBriefModel(
   const metrics = computeDealMetrics(deal);
   const raw = metrics as unknown as Record<string, any>;
   const inputs = prepareEngineInputs(deal) as Record<string, any>;
-
   const assetClass = normalizeBriefAssetClass(deal.asset_class ?? deal.assetType);
   const isResidential = assetClass === 'residential';
   const isMultiFamily = assetClass === 'multi_family';
   const isStorage = assetClass === 'storage';
   const status = String(deal.status || 'prospect').toLowerCase();
+
+  const downPaymentMatrix = calculateDownPaymentMatrix(assetClass, inputs);
 
   const proj = (metrics.projections ?? []) as ProFormaYear[];
   const p0 = (proj[0] ?? {}) as Record<string, any>;
@@ -459,5 +461,6 @@ export function buildBriefModel(
     opexProvenance,
     warnings,
     monteCarloInputs: inputs,
+    downPaymentMatrix,
   };
 }

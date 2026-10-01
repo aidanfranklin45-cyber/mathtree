@@ -292,6 +292,311 @@ const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }
   );
 };
 
+const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
+  const matrix = m.downPaymentMatrix;
+  const rows = matrix?.rows || [];
+  if (rows.length === 0) return null;
+
+  const maxDs = Math.max(...rows.map((r) => r.annualDebtService), 1);
+  const cocs = rows.map((r) => r.cashOnCash);
+  const minCoc = Math.min(0, ...cocs);
+  const maxCoc = Math.max(15, ...cocs);
+  const cocRange = maxCoc - minCoc || 1;
+
+  const W = 1000;
+  const H = 190;
+  const padL = 60;
+  const padR = 60;
+  const padT = 20;
+  const padB = 30;
+  const usableW = W - padL - padR;
+  const usableH = H - padT - padB;
+
+  const stepX = rows.length > 1 ? usableW / (rows.length - 1) : usableW / 2;
+  const pts = rows.map((r, i) => {
+    const x = padL + i * stepX;
+    const barH = Math.max(0, (r.annualDebtService / maxDs) * usableH);
+    const barY = padT + usableH - barH;
+    const cocFrac = (r.cashOnCash - minCoc) / cocRange;
+    const lineY = padT + usableH - cocFrac * usableH;
+    return { ...r, x, barH, barY, lineY };
+  });
+
+  const cocPath = pts.length > 1
+    ? pts.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.lineY.toFixed(1)}`, '')
+    : '';
+
+  const baselinePt = pts.find((pt) => pt.isBaseline);
+
+  const levLabel = matrix.leverageType === 'positive'
+    ? 'Positive Financial Leverage'
+    : matrix.leverageType === 'negative'
+      ? 'Negative Financial Leverage'
+      : 'Neutral Financial Leverage';
+
+  const levColor = matrix.leverageType === 'positive'
+    ? '#059669'
+    : matrix.leverageType === 'negative'
+      ? '#e11d48'
+      : '#475569';
+
+  return (
+    <div className="box pg">
+      <div className="bh" style={{ background: '#0284c7' }}>
+        <span>📉 Down Payment &amp; Leverage Sensitivity</span>
+        <span className="sub" style={{ color: '#bae6fd' }}>Cost of Debt vs. Cash-on-Cash Return</span>
+      </div>
+      <div className="mc">
+        <p className="mcp">
+          <strong>Leverage &amp; Capitalization Trade-Off.</strong> Evaluates the asset at fixed acquisition pricing across equity down payment tiers ({rows[0].downPaymentPercent}% to {rows[rows.length - 1].downPaymentPercent}%).
+          {matrix.leverageType === 'positive' && (
+            <span> Because the going-in cap rate ({matrix.goingInCapRate.toFixed(2)}%) exceeds the senior loan constant ({matrix.loanConstant?.toFixed(2)}%), borrowing generates <strong>positive leverage</strong>, amplifying cash-on-cash yield at higher leverage.</span>
+          )}
+          {matrix.leverageType === 'negative' && (
+            <span> Because the senior loan constant ({matrix.loanConstant?.toFixed(2)}%) exceeds the going-in cap rate ({matrix.goingInCapRate.toFixed(2)}%), borrowing creates <strong>negative leverage</strong>. Increasing equity down payment improves cash-on-cash return while expanding debt service coverage.</span>
+          )}
+          {matrix.leverageType === 'neutral' && (
+            <span> The senior loan constant is balanced with the going-in cap rate ({matrix.goingInCapRate.toFixed(2)}%), creating neutral leverage.</span>
+          )}
+          {matrix.debtServicePer5PctDown > 0 && (
+            <span> Each incremental +5% equity down payment reduces debt service by approximately <strong>{cur(matrix.debtServicePer5PctDown)}/year</strong>.</span>
+          )}
+        </p>
+
+        <div className="mcg" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 12 }}>
+          <div className="mct">
+            <p className="l">Going-In Cap Rate</p>
+            <p className="v" style={{ color: '#0f172a' }}>{pct(matrix.goingInCapRate)}</p>
+          </div>
+          <div className="mct">
+            <p className="l">Senior Loan Constant</p>
+            <p className="v" style={{ color: '#0284c7' }}>{matrix.loanConstant !== null ? pct(matrix.loanConstant) : 'N/A'}</p>
+          </div>
+          <div className="mct">
+            <p className="l">Leverage Profile</p>
+            <p className="v" style={{ color: levColor, fontSize: 14, textTransform: 'uppercase' }}>{levLabel}</p>
+          </div>
+          <div className="mct">
+            <p className="l">Debt Savings (+5% Down)</p>
+            <p className="v" style={{ color: '#059669' }}>{matrix.debtServicePer5PctDown > 0 ? `${cur(matrix.debtServicePer5PctDown)}/yr` : 'N/A'}</p>
+          </div>
+        </div>
+
+        {/* Dual-Metric SVG Visual Chart */}
+        <div className="mct" style={{ marginBottom: 12, padding: '10px 12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
+              Annual Debt Service ($) vs. Cash-on-Cash Return (%)
+            </span>
+            <div style={{ display: 'flex', gap: 14, fontSize: 11, fontWeight: 700 }}>
+              <span style={{ color: '#0284c7' }}>■ Annual Debt Service ($)</span>
+              <span style={{ color: '#059669' }}>● Cash-on-Cash Return (%)</span>
+              <span style={{ color: '#1d4ed8' }}>┆ Underwritten Baseline ({m.downPaymentPct.toFixed(0)}%)</span>
+            </div>
+          </div>
+
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, overflow: 'visible' }}>
+            {/* Horizontal Grid lines */}
+            {[0, 0.25, 0.5, 0.75, 1.0].map((frac, i) => {
+              const y = padT + usableH * (1 - frac);
+              const valDs = maxDs * frac;
+              const valCoc = minCoc + cocRange * frac;
+              return (
+                <g key={i}>
+                  <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#e2e8f0" strokeDasharray="3 3" />
+                  <text x={padL - 8} y={y + 3} fill="#64748b" fontSize="10" textAnchor="end" fontFamily="sans-serif">
+                    {compact(valDs)}
+                  </text>
+                  <text x={W - padR + 8} y={y + 3} fill="#059669" fontSize="10" textAnchor="start" fontFamily="sans-serif">
+                    {valCoc.toFixed(1)}%
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Baseline Marker */}
+            {baselinePt && (
+              <g>
+                <line
+                  x1={baselinePt.x}
+                  y1={padT - 6}
+                  x2={baselinePt.x}
+                  y2={padT + usableH}
+                  stroke="#1d4ed8"
+                  strokeWidth="2"
+                  strokeDasharray="4 3"
+                />
+                <rect
+                  x={baselinePt.x - 38}
+                  y={padT - 18}
+                  width="76"
+                  height="15"
+                  rx="3"
+                  fill="#eff6ff"
+                  stroke="#3b82f6"
+                  strokeWidth="1"
+                />
+                <text
+                  x={baselinePt.x}
+                  y={padT - 7}
+                  fill="#1d4ed8"
+                  fontSize="9"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  fontFamily="sans-serif"
+                >
+                  Baseline {baselinePt.downPaymentPercent}%
+                </text>
+              </g>
+            )}
+
+            {/* Debt Service Bars */}
+            {pts.map((pt) => {
+              const barW = Math.max(16, Math.min(42, stepX * 0.44));
+              const barFill = pt.isBaseline ? '#0284c7' : '#0f766e';
+              return (
+                <g key={`bar-${pt.downPaymentPercent}`}>
+                  <rect
+                    x={pt.x - barW / 2}
+                    y={pt.barY}
+                    width={barW}
+                    height={pt.barH}
+                    rx="3"
+                    fill={barFill}
+                    opacity="0.85"
+                  />
+                  <text
+                    x={pt.x}
+                    y={H - padB + 15}
+                    fill={pt.isBaseline ? '#1d4ed8' : '#334155'}
+                    fontSize="11"
+                    fontWeight={pt.isBaseline ? 'bold' : '600'}
+                    textAnchor="middle"
+                    fontFamily="sans-serif"
+                  >
+                    {pt.downPaymentPercent}%
+                  </text>
+                  <text
+                    x={pt.x}
+                    y={H - padB + 27}
+                    fill="#64748b"
+                    fontSize="9"
+                    textAnchor="middle"
+                    fontFamily="sans-serif"
+                  >
+                    {compact(pt.downPaymentAmount)}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Cash-on-Cash Return Line */}
+            {cocPath && (
+              <path
+                d={cocPath}
+                fill="none"
+                stroke="#059669"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+
+            {/* Cash-on-Cash Points */}
+            {pts.map((pt) => {
+              const ptColor = pt.cashOnCash >= 0 ? '#059669' : '#e11d48';
+              return (
+                <g key={`pt-${pt.downPaymentPercent}`}>
+                  <circle
+                    cx={pt.x}
+                    cy={pt.lineY}
+                    r={pt.isBaseline ? 5.5 : 4}
+                    fill={ptColor}
+                    stroke="#ffffff"
+                    strokeWidth="2"
+                  />
+                  {pt.isBaseline && (
+                    <circle cx={pt.x} cy={pt.lineY} r="9" fill="none" stroke="#34d399" strokeWidth="1.5" />
+                  )}
+                  <text
+                    x={pt.x}
+                    y={pt.lineY - 7}
+                    fill={ptColor}
+                    fontSize="9.5"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    fontFamily="sans-serif"
+                  >
+                    {pt.cashOnCash.toFixed(1)}%
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Comparative Matrix Table */}
+        <table>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'center' }}>Down Payment %</th>
+              <th className="num">Equity Required</th>
+              <th className="num">Loan Amount (LTV)</th>
+              <th className="num">Monthly Debt Service</th>
+              <th className="num">Annual Debt Service</th>
+              <th className="num" style={{ color: '#059669' }}>Net Cash Flow</th>
+              <th className="num" style={{ color: '#047857' }}>Cash-on-Cash Return</th>
+              <th className="num">Senior DSCR</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const isBase = row.isBaseline;
+              const dscrText = row.dscr !== null ? `${row.dscr.toFixed(2)}x` : 'N/A (All-Cash)';
+              const dscrCl = row.dscr !== null && row.dscr >= 1.25 ? '#0284c7' : '#d97706';
+              return (
+                <tr
+                  key={row.downPaymentPercent}
+                  style={isBase ? { background: '#eff6ff', fontWeight: 700 } : (i % 2 ? { background: '#f8fafc' } : {})}
+                >
+                  <td style={{ textAlign: 'center' }}>
+                    {row.downPaymentPercent}%
+                    {isBase && (
+                      <span
+                        className="pill pill-blue"
+                        style={{ marginLeft: 6, fontSize: 8.5, padding: '1px 5px' }}
+                      >
+                        CURRENT BASELINE
+                      </span>
+                    )}
+                  </td>
+                  <td className="num">{cur(row.initialCashInvested)}</td>
+                  <td className="num">
+                    {cur(row.loanAmount)} <span style={{ fontSize: 9.5, color: '#64748b' }}>({row.ltv.toFixed(0)}% LTV)</span>
+                  </td>
+                  <td className="num">
+                    {row.monthlyDebtService > 0 ? `${cur(row.monthlyDebtService)}/mo` : '$0 (All-Cash)'}
+                  </td>
+                  <td className="num">{cur(row.annualDebtService)}</td>
+                  <td className="num" style={{ fontWeight: 800, color: row.netCashFlow >= 0 ? '#059669' : '#e11d48' }}>
+                    {cur(row.netCashFlow)}/yr
+                  </td>
+                  <td className="num" style={{ fontWeight: 800, color: row.cashOnCash >= 0 ? '#047857' : '#e11d48' }}>
+                    {pct(row.cashOnCash)}
+                  </td>
+                  <td className="num" style={{ fontWeight: 700, color: dscrCl }}>
+                    {dscrText}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResult | null; onPrint?: () => void; onClose?: () => void }> = ({ model: m, monteCarlo, onPrint, onClose }) => {
   const multi = m.parcels.length > 1;
   const primary = m.parcels[0];
@@ -554,7 +859,10 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         )}
       </div>
 
-      {/* PAGE 4: Monte Carlo */}
+      {/* PAGE 4: Down Payment & Leverage Sensitivity */}
+      <DownPaymentSection m={m} />
+
+      {/* PAGE 5: Monte Carlo */}
       <MonteCarloSection m={m} mc={monteCarlo} />
 
       {/* LAST: methodology and diligence provenance, as fine print */}
