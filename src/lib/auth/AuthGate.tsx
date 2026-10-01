@@ -12,10 +12,39 @@ declare global {
       getLoginUrl: (reason?: string) => string;
       logout: (reason?: string, client?: unknown, redirectUrl?: string) => void;
       startWatcher: (client: unknown, options?: unknown) => void;
+      clearSessionStorage: (options?: { authOnly?: boolean }) => void;
+      clearAuthStorage: () => void;
       resetSession?: () => void;
       recordActivity?: () => void;
     };
   }
+}
+
+/** Circuit breaker: prevent redirect loops by detecting rapid repeated bounces to login. */
+export function checkRedirectLoop(): boolean {
+  try {
+    const key = 'mathtree_redirect_guard';
+    const now = Date.now();
+    const raw = sessionStorage.getItem(key);
+    const data: { count: number; first: number } = raw ? JSON.parse(raw) : { count: 0, first: now };
+
+    // Reset window after 10 seconds
+    if (now - data.first > 10000) {
+      sessionStorage.setItem(key, JSON.stringify({ count: 1, first: now }));
+      return false;
+    }
+
+    data.count += 1;
+    sessionStorage.setItem(key, JSON.stringify(data));
+
+    if (data.count >= 3) {
+      console.warn('MathTree: Redirect loop detected, clearing auth tokens and breaking loop.');
+      sessionStorage.removeItem(key);
+      window.MathTreeSession.clearAuthStorage();
+      return true;
+    }
+  } catch { /* storage unavailable */ }
+  return false;
 }
 
 const LOGIN_URL = '/login';
