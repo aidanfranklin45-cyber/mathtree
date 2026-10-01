@@ -106,6 +106,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     patch.leaseEndDate = form.leaseEnd || '';
     const existingLease = (Array.isArray((deal.inputs as any)?.leases) && (deal.inputs as any).leases[0]) || {};
     const numOr = (v: string, fb: number) => { const n = parseFloat(v); return isNaN(n) ? fb : n; };
+    // This form edits the primary (first) lease; any other leases on the deal (e.g. an earlier intercompany rent period) are kept as they are
+    const otherLeases = Array.isArray((deal.inputs as any)?.leases) ? (deal.inputs as any).leases.slice(1) : [];
     patch.leases = monthlyRent > 0
       ? [{
           ...existingLease,
@@ -131,7 +133,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
           escalationFrequency: 'Annual on Anniversary',
           nextEscalationDate: form.nextEscalation,
           is_active: true,
-        }]
+        }, ...otherLeases]
       : [];
 
     const ok = await onSave(patch as Partial<DealInputs>, {
