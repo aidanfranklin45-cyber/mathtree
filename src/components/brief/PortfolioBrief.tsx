@@ -84,7 +84,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         <div className="tile"><p className="tl">Owned Net Cash Flow</p><p className="tv" style={{ color: cfColor(k.ownedCashflow) }}>{cur(k.ownedCashflow)}/yr</p><p className="sub">CoC Yield: <strong>{k.ownedEquity > 0 ? `${k.avgCoc}%` : 'N/M'}</strong></p></div>
         <div className="tile"><p className="tl">Pipeline Deal Volume</p><p className="tv" style={{ color: '#0284c7' }}>{cur(k.pipelineVal)}</p><p className="sub">Active Prospects: <strong>{k.pipelineCount} Deals</strong></p></div>
         <div className="tile"><p className="tl">Target Pipeline Return</p><p className="tv" style={{ color: '#0284c7' }}>{k.blendedIrr > 0 ? `${k.blendedIrr}%` : 'N/A'}</p><p className="sub">Average 10-Yr IRR</p></div>
-        <div className="tile"><p className="tl">Physical Footprint</p><p className="tv">{m.footprintAcres > 0 ? `${m.footprintAcres.toFixed(2)} Ac` : NP}</p><p className="sub">{m.footprintSqFt > 0 ? `${Math.round(m.footprintSqFt).toLocaleString()} Sq Ft` : `Sq Ft: ${NP}`}</p></div>
+        <div className="tile"><p className="tl">Owned Physical Footprint</p><p className="tv">{m.footprintAcres > 0 ? `${m.footprintAcres.toFixed(2)} Ac` : NP}</p><p className="sub">{m.footprintSqFt > 0 ? `${Math.round(m.footprintSqFt).toLocaleString()} Sq Ft` : `Sq Ft: ${NP}`}</p></div>
       </div>
 
       <div className="box split">
@@ -133,7 +133,14 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
             <tbody>
               {m.ownedProForma.map((p) => (
                 <tr key={p.year} className={p.year % 2 === 0 ? 'alt' : ''}>
-                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{p.calendarYear} <span style={{ fontSize: 9.5, color: '#64748b', fontWeight: 400 }}>(Yr {p.year})</span></td>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                    <div>{p.calendarYear} <span style={{ fontSize: 9.5, color: '#64748b', fontWeight: 400 }}>(Yr {p.year})</span></div>
+                    {p.exitNote && (
+                      <div style={{ fontSize: 8.5, color: p.exitNote.startsWith('Exit') ? '#b45309' : '#0369a1', fontWeight: 600, marginTop: 1 }}>
+                        {p.exitNote}
+                      </div>
+                    )}
+                  </td>
                   <td className="num">{cur(p.propertyValue)}</td>
                   <td className="num">{cur(p.grossIncome)}</td>
                   <td className="num" style={{ color: '#e11d48' }}>{cur(p.vacancyLoss)}</td>
@@ -149,6 +156,20 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
               ))}
             </tbody>
           </table>
+          {m.dispositions.length > 0 && (
+            <div style={{ fontSize: 9.5, color: '#334155', padding: '6px 10px', background: '#f8fafc', borderTop: '1px solid #cbd5e1', lineHeight: 1.45 }}>
+              <span style={{ fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>
+                📌 Capital Realization &amp; Staggered Disposition Disclosures:
+              </span>
+              <ul style={{ margin: '2px 0 0 0', paddingLeft: 16 }}>
+                {m.dispositions.map((disp, i) => (
+                  <li key={i}>
+                    <strong>Yr {disp.exitYear} ({disp.calendarYear}) Disposition — {disp.dealName}:</strong> Scheduled investment exit ({cur(disp.propertyValue)} valuation, ~{cur(disp.equityRealized)} realized equity returned). The apparent step-down in portfolio book equity from Year {disp.exitYear} to Year {disp.exitYear + 1} represents capital liquidation and return of equity/proceeds upon disposition, not an operating loss. Subsequent periods (Yr {disp.exitYear + 1}+) represent the remaining in-place operating assets.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -236,12 +257,15 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
       </div>
 
       <div className="gov">
-        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', marginBottom: 6 }}>Portfolio Governance Standards &amp; Diligence Policy</div>
+        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', marginBottom: 6 }}>Portfolio Governance Standards, Diligence Policy &amp; Disclosures</div>
         <div className="grid">
           <div className="cell"><strong>Closing Proration Policy</strong><p>Underwritten based on verified closing timelines; applies calendar proration only when elected.</p></div>
           <div className="cell"><strong>Occupancy &amp; Vacancy Policy</strong><p>Underwriting vacancy calibrated to in-place tenant leases, lease stability, and market comps.</p></div>
           <div className="cell"><strong>Debt Stress Coverage</strong><p>Commercial notes stress-tested against +100 bps rate shifts; min Year 1 DSCR covenant floor of 1.25x.</p></div>
-          <div className="cell"><strong>Operating Liquidity Reserve</strong><p>Pipeline deals require min 6-month P&amp;I operating buffer to absorb transitional rollover or rehab lags.</p></div>
+          <div className="cell">
+            <strong>Capital Realization &amp; Staggered Exits</strong>
+            <p>{m.dispositions.length > 0 ? `Portfolio hold horizons vary. ${m.dispositions.map((d) => `${d.dealName} exits at Year ${d.exitYear}`).join(', ')}; capital proceeds are returned upon disposition and excluded from subsequent in-place operating equity.` : 'Underwritten cash flows reflect active operating periods; capital proceeds from asset sales are distributed upon disposition.'}</p>
+          </div>
         </div>
       </div>
 
