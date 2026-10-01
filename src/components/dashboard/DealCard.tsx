@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
-import { exportDealBriefPDF } from '../../lib/export/pdfBrief';
+import { openDealBrief } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import { formatCurrency } from '../../lib/format';
+import { currentLeases } from '../../lib/leases';
 
 interface DealCardProps {
   deal: DealRecord;
@@ -116,9 +117,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
           : [];
   const isMultiAddress = addressesList.length > 1;
 
-  const leasesList: any[] = Array.isArray(inputs.leases)
-    ? inputs.leases.filter((l: any) => l && (l.tenantName || parseFloat(l.monthlyRent) > 0 || parseFloat(l.annualRent) > 0))
-    : [];
+  const leasesList: any[] = currentLeases(inputs);
   const unitCount = parseInt(String(inputs.unitCount || inputs.numUnits || inputs.storageUnitCount || 0), 10);
 
   let tenancyRow: React.ReactNode = null;
@@ -257,11 +256,11 @@ const DealCardComponent: React.FC<DealCardProps> = ({
                       <span>Share with Collaborators</span>
                     </button>
                   )}
-                  <button onClick={closeThen(() => { void exportDealBriefPDF(deal.id); })} className={menuItem}>
+                  <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
                     <svg className="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                     <span>View Pitch Deck</span>
                   </button>
-                  <button onClick={closeThen(() => { void exportDealBriefPDF(deal.id); })} className={menuItem}>
+                  <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
                     <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                     <span>Print Executive Brief (PDF)</span>
                   </button>
@@ -314,7 +313,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
             <span className="text-xs font-black text-white mt-0.5 block">{formatCurrency(pit.currentVal)}</span>
           </div>
           <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">10-Yr IRR</span>
+            <span className="text-[9px] uppercase font-bold text-slate-500 block">{Math.max(1, parseInt(String(inputs.exitYear ?? ''), 10) || 10)}-Yr IRR</span>
             <span className="text-xs font-black text-brand-400 mt-0.5 block">{irrStr}</span>
           </div>
           <div>
