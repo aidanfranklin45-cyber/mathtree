@@ -56,6 +56,9 @@ export interface DealInputs {
   /** Operating expenses as % of gross income. Case by case per lease type; there is no default. */
   expenseRatio?: number;
   operatingExpenseRatio?: number;
+  /** Annual operating expense inflation rate (%) */
+  expenseGrowth?: number;
+  expenseInflation?: number;
   propertyTaxAnnual?: number;
   insuranceAnnual?: number;
   managementFeePercent?: number;

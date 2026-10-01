@@ -57,6 +57,7 @@ const INPUT_KEYS: Array<Omit<DiffItem, 'oldValue' | 'newValue' | 'delta'> & { ke
   { key: 'monthlyRent', keys: ['monthlyRent', 'grossRentPerMonth'], label: 'Gross Monthly Rent', isCurrency: true },
   { key: 'vacancyRate', keys: ['vacancyRate'], label: 'Vacancy Rate', isPct: true },
   { key: 'expenseRatio', keys: ['expenseRatio', 'operatingExpenseRatio'], label: 'Expense Ratio', isPct: true },
+  { key: 'expenseGrowth', keys: ['expenseGrowth', 'expenseInflation', 'expenseGrowthRate', 'expenseGrowthPercent'], label: 'Expense Inflation', isPct: true },
   { key: 'rehabCosts', keys: ['rehabCosts', 'rehabBudget'], label: 'Rehab / CapEx', isCurrency: true },
   { key: 'closingCosts', keys: ['closingCosts'], label: 'Closing Costs', isCurrency: true },
   { key: 'targetCapRate', keys: ['targetCapRate', 'targetExitCapRate', 'exitCapRate'], label: 'Exit Cap Rate', isPct: true },

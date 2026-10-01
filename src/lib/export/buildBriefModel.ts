@@ -371,9 +371,11 @@ export function buildBriefModel(
       : `Derived from contractual ${leaseKind} lease agreements (${money(monthlyRent)}/mo, ${money(annualRent)}/yr).`;
   }
 
+  const expGrowthVal = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent;
+  const expInflationText = expGrowthVal !== undefined ? ` with ${pct1(num(expGrowthVal))}% annual expense inflation` : '';
   const opexProvenance = isResidential
-    ? `Underwritten at ${pct1(expenseRatioPct)}% of gross revenue (${money(opExAnnual)}/yr) to cover residential property management, county real estate taxes, hazard insurance, and maintenance reserves.`
-    : `Underwritten under ${leaseKind} structure at ${pct1(expenseRatioPct)}% of gross income (${money(opExAnnual)}/yr).`;
+    ? `Underwritten at ${pct1(expenseRatioPct)}% of gross revenue (${money(opExAnnual)}/yr)${expInflationText} to cover residential property management, county real estate taxes, hazard insurance, and maintenance reserves.`
+    : `Underwritten under ${leaseKind} structure at ${pct1(expenseRatioPct)}% of gross income (${money(opExAnnual)}/yr)${expInflationText}.`;
 
   const warnings: Array<{ title: string; description: string }> = [];
   const stub = isProrated ? 'Stabilized ' : 'Year 1 ';
