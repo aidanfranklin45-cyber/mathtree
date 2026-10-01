@@ -7,6 +7,7 @@ import { buildOperations, escalationInfo, formatPeriodMonth, getDueInfo, type Ro
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { LogPaymentModal } from '../components/operations/LogPaymentModal';
 import { AddLeaseModal } from '../components/operations/AddLeaseModal';
+import { RentRollModal } from '../components/operations/RentRollModal';
 import { RentIncreaseModal } from '../components/operations/RentIncreaseModal';
 import { AlertSettingsModal } from '../components/operations/AlertSettingsModal';
 import { AuditTrailModal } from '../components/operations/AuditTrailModal';
@@ -37,6 +38,7 @@ export const OperationsPage: React.FC = () => {
   const [paymentItem, setPaymentItem] = useState<MonthlyRentReconciliationView | null>(null);
   const [rentIncreaseItem, setRentIncreaseItem] = useState<MonthlyRentReconciliationView | null>(null);
   const [addLeaseOpen, setAddLeaseOpen] = useState(false);
+  const [rentRollOpen, setRentRollOpen] = useState(false);
   const [addLeaseDealId, setAddLeaseDealId] = useState<string | null>(null);
   const [alertSettingsOpen, setAlertSettingsOpen] = useState(false);
   const [auditLeaseId, setAuditLeaseId] = useState<string | null>(null);
@@ -242,6 +244,13 @@ export const OperationsPage: React.FC = () => {
             >
               <svg className="w-3.5 h-3.5 text-blue-400 shrink-0 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
               <span className="pointer-events-none">Alert Emails</span>
+            </button>
+            <button
+              onClick={() => setRentRollOpen(true)}
+              className="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition"
+              title="Enter or edit every tenant of a property, tenant by tenant"
+            >
+              <span>Rent Roll</span>
             </button>
             <button
               onClick={() => { setAddLeaseDealId(null); setAddLeaseOpen(true); }}
@@ -652,6 +661,15 @@ export const OperationsPage: React.FC = () => {
         initialDealId={addLeaseDealId}
         onClose={() => setAddLeaseOpen(false)}
         onSuccess={() => { setAddLeaseOpen(false); void load(); }}
+      />
+      <RentRollModal
+        isOpen={rentRollOpen}
+        deals={deals}
+        units={units}
+        leases={leases}
+        initialDealId={dealId !== 'all' ? dealId : null}
+        onClose={() => setRentRollOpen(false)}
+        onSaved={() => { setRentRollOpen(false); void load(); flash('ok', 'Rent roll saved.'); }}
       />
       <EditLeaseModal leaseId={editLeaseId} deals={deals} units={units} increases={increases} leases={ops.scopedLeases} onClose={() => setEditLeaseId(null)} onSaved={() => { setEditLeaseId(null); void load(); }} />
       <AlertSettingsModal isOpen={alertSettingsOpen} onClose={() => setAlertSettingsOpen(false)} />

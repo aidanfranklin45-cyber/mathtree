@@ -81,12 +81,34 @@ export const AddLeaseModal: React.FC<AddLeaseModalProps> = ({
       const sessionRes = await supabase.auth.getSession();
       const userId = sessionRes.data?.session?.user?.id || null;
 
+      // 0. The unit / suite the form asks for: reuse the property's unit of that name, or create it (this field used to be ignored)
+      let unitId: string | null = null;
+      const unitLabelText = unitNumber.trim();
+      if (unitLabelText) {
+        const { data: existingUnit } = await supabase.from('units').select('id').eq('deal_id', dealId).ilike('unit_number', unitLabelText).maybeSingle();
+        if (existingUnit) {
+          unitId = (existingUnit as { id: string }).id;
+          await supabase.from('units').update({ status: 'occupied', updated_at: new Date().toISOString() }).eq('id', unitId);
+        } else {
+          const { data: newUnit } = await supabase.from('units').insert({
+            user_id: userId,
+            deal_id: dealId,
+            unit_number: unitLabelText,
+            unit_type: isResidential ? 'Residential' : 'Commercial / Retail',
+            market_rent: rentNum,
+            status: 'occupied',
+          }).select('id').single();
+          unitId = (newUnit as { id: string } | null)?.id ?? null;
+        }
+      }
+
       // 1. Insert into leases table
       const { data: newLease, error: leaseErr } = await supabase
         .from('leases')
         .insert({
           deal_id: dealId,
           user_id: userId,
+          unit_id: unitId,
           tenant_name: tenantName.trim(),
           monthly_rent: rentNum,
           lease_type: leaseType,
