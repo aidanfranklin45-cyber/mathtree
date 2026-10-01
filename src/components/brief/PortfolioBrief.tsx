@@ -74,7 +74,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         <div className="hside">
           <p style={{ margin: 0, fontWeight: 600 }}>Report Date: <strong style={{ color: '#0f172a' }}>{m.dateStr}</strong></p>
           <p style={{ margin: '2px 0 0 0' }}>Underwritten Assets: <strong style={{ color: '#0f172a' }}>{m.totalDeals} ({m.owned.length} Owned, {m.pipeline.length} Pipeline)</strong></p>
-          <p style={{ margin: '2px 0 0 0' }}>Total Real Estate Capital: <strong style={{ color: '#059669' }}>{cur(m.totalVolume)}</strong></p>
+          <p style={{ margin: '2px 0 0 0' }}>Hold Horizon: <strong style={{ color: '#0f172a' }}>{m.holdYears} Years</strong> • Total Real Estate Capital: <strong style={{ color: '#059669' }}>{cur(m.totalVolume)}</strong></p>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
 
       {m.ownedProForma.length > 0 && (
         <div className="box split">
-          <div className="bh" style={{ background: '#0f4033' }}><span>📊 Owned Portfolio 5-Year Operating Pro-Forma &amp; Cash Flow Waterfall</span><span className="sub" style={{ color: '#34d399' }}>Aggregated Performance Forecast</span></div>
+          <div className="bh" style={{ background: '#0f4033' }}><span>📊 Owned Portfolio {m.holdYears}-Year Operating Pro-Forma &amp; Cash Flow Waterfall</span><span className="sub" style={{ color: '#34d399' }}>Full {m.holdYears}-Year Holding Period Performance Forecast</span></div>
           <table>
             <thead>
               <tr>

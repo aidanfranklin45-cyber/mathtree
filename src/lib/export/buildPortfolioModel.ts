@@ -76,6 +76,7 @@ export interface PortfolioModel {
   companyName: string | null;
   hurdleRate: number | null;
   dateStr: string;
+  holdYears: number;
   kpis: PortfolioKpis;
   totalVolume: number;
   totalDeals: number;
@@ -233,9 +234,9 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
   }
 
   const ownedProForma: PortfolioProFormaYear[] = [];
+  const holdYears = ownedDealProjections.length > 0 ? Math.max(1, ...ownedDealProjections.map((p) => p.length)) : 10;
   if (ownedDealProjections.length > 0) {
-    const yearsCount = Math.min(5, Math.max(...ownedDealProjections.map((p) => p.length)));
-    for (let y = 0; y < yearsCount; y++) {
+    for (let y = 0; y < holdYears; y++) {
       let propVal = 0;
       let gross = 0;
       let vac = 0;
@@ -287,6 +288,7 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
     companyName: text(opts.companyName),
     hurdleRate: opts.hurdleRate ?? null,
     dateStr: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    holdYears,
     kpis,
     totalVolume,
     totalDeals: deals.length,
