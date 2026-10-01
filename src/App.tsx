@@ -8,6 +8,7 @@ const OperationsPage = lazy(() => import('./pages/OperationsPage').then((m) => (
 const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })));
 const ReconcilePage = lazy(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
 const DealBriefPage = lazy(() => import('./pages/DealBriefPage').then((m) => ({ default: m.DealBriefPage })));
+const PortfolioBriefPage = lazy(() => import('./pages/PortfolioBriefPage').then((m) => ({ default: m.PortfolioBriefPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 
 const PageSpinner: React.FC = () => (

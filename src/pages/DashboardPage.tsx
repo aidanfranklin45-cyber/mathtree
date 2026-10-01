@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
-import { mapSupabaseDeal } from '../stores/useDealStore';
+import { supabase } from '../lib/supabase/client';
 import { DealRecord } from '../lib/math/types';
-import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../lib/engine/compute';
-import { exportPortfolioBriefPDF } from '../lib/export/pdfBrief';
+import { openPortfolioBrief } from '../lib/export/pdfBrief';
+import { computePortfolioKpis } from '../lib/portfolio/kpis';
+import { loadPortfolioDeals } from '../lib/portfolio/loadDeals';
 import { DealCard } from '../components/dashboard/DealCard';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
@@ -100,89 +100,21 @@ export const DashboardPage: React.FC = () => {
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
 
-  // Only select live columns that exist on the deals table (avoids PostgREST 400 errors)
-  const DEAL_FIELDS = 'id, user_id, title, location, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
-
   const loadData = async () => {
     setLoading(true);
     try {
-      const sessionRes = await supabase.auth.getSession();
-      const user = sessionRes.data?.session?.user;
-
-      // 1. Fetch Entities & Deals concurrently in parallel
-      const entitiesPromise = supabase.from('entities').select('id, name');
-
-      let dealsPromise: PromiseLike<any>;
-      let sharesPromise: PromiseLike<any>;
-
-      if (user) {
-        dealsPromise = supabase
-          .from('deals')
-          .select(DEAL_FIELDS)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        const emailFilter = user.email ? `,shared_with_email.ilike.${user.email}` : '';
-        sharesPromise = supabase
-          .from('deal_shares')
-          .select(`id, deal_id, permission, owner_id, deals(${DEAL_FIELDS})`)
-          .or(`shared_with_user_id.eq.${user.id}${emailFilter}`);
-      } else {
-        dealsPromise = Promise.resolve({ data: null, error: null });
-        sharesPromise = Promise.resolve({ data: null, error: null });
-      }
-
-      const [entRes, dealsRes, sharesRes] = await Promise.all([
-        entitiesPromise,
-        dealsPromise,
-        sharesPromise,
+      // Entities and deals load in parallel; the deal set itself comes from the shared loader (also used by the portfolio brief)
+      const [entRes, loaded] = await Promise.all([
+        supabase.from('entities').select('id, name'),
+        loadPortfolioDeals(),
       ]);
 
       if (entRes.data && entRes.data.length > 0) {
         setEntities(entRes.data as LegalEntity[]);
       }
 
-      if (dealsRes.error) {
-        console.error('[dashboard] failed to load deals:', dealsRes.error);
-      }
-      if (sharesRes.error) {
-        console.error('[dashboard] failed to load shared deals:', sharesRes.error);
-      }
-
-      let list: DealRecord[] = [];
-      if (dealsRes.data && dealsRes.data.length > 0) {
-        list = (dealsRes.data as any[]).map(mapSupabaseDeal);
-      }
-
-      if (sharesRes.data && Array.isArray(sharesRes.data)) {
-        const have = new Set(list.map((d) => d.id));
-        (sharesRes.data as any[])
-          .filter((sh) => sh.deals && !have.has(sh.deals.id))
-          .forEach((sh) => {
-            const mapped: any = mapSupabaseDeal(sh.deals);
-            mapped.is_shared = true;
-            mapped.shared_permission = sh.permission || 'viewer';
-            mapped.shared_by = sh.owner_id;
-            list.push(mapped);
-          });
-      }
-
-      // If user has no personal deals, check for shared deals or demo benchmark
-      if (list.length === 0) {
-        const { data, error } = await supabase
-          .from('deals')
-          .select(DEAL_FIELDS)
-          .order('created_at', { ascending: false })
-          .limit(25);
-        if (!error && data && data.length > 0) {
-          list = (data as any[]).map(mapSupabaseDeal);
-        } else {
-          list = [mapSupabaseDeal(BENCHMARK_DEAL)];
-          setIsSampleData(true);
-        }
-      }
-
-      if (list.some((d) => !d.is_demo)) setIsSampleData(false);
+      const list = loaded.deals;
+      setIsSampleData(loaded.isSample);
       setDeals(list);
     } catch (err) {
       console.error('Failed to load portfolio deals:', err);
@@ -409,62 +341,8 @@ export const DashboardPage: React.FC = () => {
     return result;
   }, [baseForCounts, statusFilter, assetFilter, sortBy]);
 
-  // 4 Executive KPI Tiles (Matching dashboard.html)
-  const portfolioKPIs = useMemo(() => {
-    const today = new Date();
-
-    // 1. Owned Portfolio Metrics
-    const ownedDeals = deals.filter((d) => d.status === 'owned');
-    let ownedVal = 0;
-    let ownedDebt = 0;
-    let ownedEquity = 0;
-    let ownedCashflow = 0;
-    let weightedCocSum = 0;
-
-    ownedDeals.forEach((d) => {
-      const pit = resolvePointInTimeDealMetrics(d, today);
-      ownedVal += pit.currentVal;
-      ownedDebt += pit.currentDebt;
-      ownedEquity += pit.currentEquity;
-      ownedCashflow += pit.currentCashFlow;
-      if (pit.currentEquity > 0) {
-        weightedCocSum += (pit.currentCashFlow / pit.currentEquity) * pit.currentEquity;
-      }
-    });
-
-    const ownedLtv = ownedVal > 0 ? (ownedDebt / ownedVal) * 100 : 0;
-    const avgCoc = ownedEquity > 0 ? (weightedCocSum / ownedEquity) * 100 : 0;
-
-    // 2. Pipeline Metrics
-    const pipelineDeals = deals.filter((d) => d.status !== 'owned');
-    let pipelineVal = 0;
-    let sumIrr = 0;
-    let countIrr = 0;
-
-    pipelineDeals.forEach((d) => {
-      const price = Number(d.purchase_price) || Number(d.inputs?.purchasePrice || 0);
-      pipelineVal += price;
-      const irr = tryComputeDealMetrics(d)?.irr || 0;
-      if (irr > 0) {
-        sumIrr += irr;
-        countIrr++;
-      }
-    });
-
-    const blendedIrr = countIrr > 0 ? sumIrr / countIrr : 0;
-
-    return {
-      ownedVal: Math.round(ownedVal),
-      ownedDebt: Math.round(ownedDebt),
-      ownedEquity: Math.round(ownedEquity),
-      ownedCashflow: Math.round(ownedCashflow),
-      ownedLtv: Math.round(ownedLtv * 10) / 10,
-      avgCoc: Math.round(avgCoc * 10) / 10,
-      pipelineVal: Math.round(pipelineVal),
-      pipelineCount: pipelineDeals.length,
-      blendedIrr: Math.round(blendedIrr * 10) / 10,
-    };
-  }, [deals]);
+  // 4 executive KPI tiles: the same function the portfolio brief uses
+  const portfolioKPIs = useMemo(() => computePortfolioKpis(deals, new Date()), [deals]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -518,7 +396,7 @@ export const DashboardPage: React.FC = () => {
               <span>Compare Projects</span>
             </Link>
             <button
-              onClick={() => exportPortfolioBriefPDF()}
+              onClick={() => openPortfolioBrief()}
               className="px-3.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-center space-x-2 shadow-lg"
               title="Print Executive Portfolio & Pipeline Brief"
             >
