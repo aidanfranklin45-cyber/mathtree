@@ -68,11 +68,31 @@ const num = (v: unknown): number | undefined => {
 const round1 = (v: number) => Math.round(v * 10) / 10;
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
+/** A simulation that can be advanced in slices, so a browser can keep the page responsive and cancel when inputs change. */
+export interface MonteCarloRunner {
+  readonly total: number;
+  readonly completed: number;
+  /** Runs up to `count` more trials (default: all that remain) and returns how many have completed. */
+  step(count?: number): number;
+  /** Summarises a finished simulation. */
+  finish(): MonteCarloResult;
+}
+
 export function runMonteCarlo(
   rawAssetType: string,
   inputs: Record<string, any>,
   options: MonteCarloOptions = {},
 ): MonteCarloResult {
+  const runner = createMonteCarloRunner(rawAssetType, inputs, options);
+  runner.step(runner.total);
+  return runner.finish();
+}
+
+export function createMonteCarloRunner(
+  rawAssetType: string,
+  inputs: Record<string, any>,
+  options: MonteCarloOptions = {},
+): MonteCarloRunner {
   const rng = options.rng ?? Math.random;
   const gaussian = (mean: number, stdDev: number): number => {
     let u = 0;
@@ -117,8 +137,9 @@ export function runMonteCarlo(
   let totalIrr = 0;
   let negativeIrrRuns = 0;
   let negativeCashFlowRuns = 0;
+  let completed = 0;
 
-  for (let r = 0; r < runs; r++) {
+  const runOne = (r: number): void => {
     const sampledGrowth = gaussian(baseGrowth, growthStdDev);
     const sampledApprec = gaussian(baseApprec, apprecStdDev);
     const sampledExitCap = baseExitCap > 0 ? Math.max(3.0, gaussian(baseExitCap, exitCapSpreadPct)) : baseExitCap;
@@ -153,6 +174,7 @@ export function runMonteCarlo(
       sampledVacancy = Math.max(1.0, Math.min(45.0, gaussian(baseVacancy, vacancyStdDev)));
     }
 
+    // lean: numbers only (no per-month text), about 8x faster with leases and identical results
     const res = calculateProjections(assetType, {
       ...inputs,
       rentGrowth: sampledGrowth,
@@ -161,81 +183,102 @@ export function runMonteCarlo(
       targetCapRate: sampledExitCap,
       targetExitCapRate: sampledExitCap,
       holdingInflation: sampledHoldingInflation,
-    });
+    }, { lean: true });
 
     const runIrr = Number(res.irr) || 0;
     irrResults[r] = runIrr;
     totalIrr += runIrr;
     if (runIrr < 0) negativeIrrRuns++;
     if ((res.projections?.[0]?.cashFlow ?? 0) < 0) negativeCashFlowRuns++;
-  }
+  };
 
-  irrResults.sort((a, b) => a - b);
-  const pct = (p: number) => irrResults[Math.min(runs - 1, Math.floor(runs * p))];
-  const p5 = pct(0.05);
-  const p10 = pct(0.1);
-  const p25 = pct(0.25);
-  const p50 = pct(0.5);
-  const p75 = pct(0.75);
-  const p90 = pct(0.9);
-  const p95 = pct(0.95);
-  const minIrr = irrResults[0];
-  const maxIrr = irrResults[runs - 1];
-  const meanIrr = round2(totalIrr / runs);
+  const summarize = (): MonteCarloResult => {
+    irrResults.sort((a, b) => a - b);
+    const pct = (p: number) => irrResults[Math.min(runs - 1, Math.floor(runs * p))];
+    const p5 = pct(0.05);
+    const p10 = pct(0.1);
+    const p25 = pct(0.25);
+    const p50 = pct(0.5);
+    const p75 = pct(0.75);
+    const p90 = pct(0.9);
+    const p95 = pct(0.95);
+    const minIrr = irrResults[0];
+    const maxIrr = irrResults[runs - 1];
+    const meanIrr = round2(totalIrr / runs);
 
-  let sumSquares = 0;
-  for (let i = 0; i < runs; i++) sumSquares += Math.pow(irrResults[i] - meanIrr, 2);
-  const stdDev = round2(Math.sqrt(sumSquares / runs));
-  const probNegativeIrr = round1((negativeIrrRuns / runs) * 100);
-  const probNegativeCashFlow = round1((negativeCashFlowRuns / runs) * 100);
+    let sumSquares = 0;
+    for (let i = 0; i < runs; i++) sumSquares += Math.pow(irrResults[i] - meanIrr, 2);
+    const stdDev = round2(Math.sqrt(sumSquares / runs));
+    const probNegativeIrr = round1((negativeIrrRuns / runs) * 100);
+    const probNegativeCashFlow = round1((negativeCashFlowRuns / runs) * 100);
 
-  const skewnessIndex = round2((meanIrr - p50) / (stdDev || 1));
-  const riskFreeRate = 4.25;
-  const sharpeRatio = round2((meanIrr - riskFreeRate) / (stdDev || 1));
+    const skewnessIndex = round2((meanIrr - p50) / (stdDev || 1));
+    const riskFreeRate = 4.25;
+    const sharpeRatio = round2((meanIrr - riskFreeRate) / (stdDev || 1));
 
-  let riskClassification = 'Balanced Core-Plus Risk';
-  if (p5 > 25 && probNegativeCashFlow === 0) riskClassification = 'High-Yield Outperformer / Strong Downside Buffer';
-  else if (p5 < 0) riskClassification = 'High Leverage / Asymmetric Tail Risk Vulnerable';
-  else if (probNegativeCashFlow > 15) riskClassification = 'Capital Call Vulnerable (Operating Cash Flow Risk)';
+    let riskClassification = 'Balanced Core-Plus Risk';
+    if (p5 > 25 && probNegativeCashFlow === 0) riskClassification = 'High-Yield Outperformer / Strong Downside Buffer';
+    else if (p5 < 0) riskClassification = 'High Leverage / Asymmetric Tail Risk Vulnerable';
+    else if (probNegativeCashFlow > 15) riskClassification = 'Capital Call Vulnerable (Operating Cash Flow Risk)';
 
-  const usesCap = isCommercialOrStorage && !isZeroIncome;
+    const usesCap = isCommercialOrStorage && !isZeroIncome;
+
+    return {
+      runs,
+      assetType,
+      meanIrr,
+      medianIrr: p50,
+      stdDev,
+      minIrr,
+      maxIrr,
+      p5Irr: p5,
+      p10Irr: p10,
+      p25Irr: p25,
+      p50Irr: p50,
+      p75Irr: p75,
+      p90Irr: p90,
+      p95Irr: p95,
+      var95: p5,
+      probabilityPositive: round1(100 - probNegativeIrr),
+      probNegativeIrr,
+      probNegativeCashFlow,
+      skewnessIndex,
+      sharpeRatio,
+      riskClassification,
+      histogramBins: buildAdaptiveHistogramBins(irrResults, 10),
+      telemetry: {
+        baselineRentGrowth: baseGrowth,
+        baselineVacancy: baseVacancy,
+        baselineExitMetric: usesCap ? baseExitCap : baseApprec,
+        exitMetricType: usesCap ? 'Exit Cap Rate' : 'Annual Land Appreciation',
+        rentGrowthRange: [round1(baseGrowth - growthStdDev), round1(baseGrowth + growthStdDev)],
+        vacancyRange:
+          assetType === 'single-family'
+            ? [0.0, 25.0]
+            : [round1(Math.max(0, baseVacancy - vacancyStdDev)), round1(baseVacancy + vacancyStdDev)],
+        exitMetricRange: usesCap
+          ? [round2(Math.max(1, baseExitCap - exitCapSpreadPct)), round2(baseExitCap + exitCapSpreadPct)]
+          : [round1(baseApprec - apprecStdDev), round1(baseApprec + apprecStdDev)],
+      },
+    };
+  };
 
   return {
-    runs,
-    assetType,
-    meanIrr,
-    medianIrr: p50,
-    stdDev,
-    minIrr,
-    maxIrr,
-    p5Irr: p5,
-    p10Irr: p10,
-    p25Irr: p25,
-    p50Irr: p50,
-    p75Irr: p75,
-    p90Irr: p90,
-    p95Irr: p95,
-    var95: p5,
-    probabilityPositive: round1(100 - probNegativeIrr),
-    probNegativeIrr,
-    probNegativeCashFlow,
-    skewnessIndex,
-    sharpeRatio,
-    riskClassification,
-    histogramBins: buildAdaptiveHistogramBins(irrResults, 10),
-    telemetry: {
-      baselineRentGrowth: baseGrowth,
-      baselineVacancy: baseVacancy,
-      baselineExitMetric: usesCap ? baseExitCap : baseApprec,
-      exitMetricType: usesCap ? 'Exit Cap Rate' : 'Annual Land Appreciation',
-      rentGrowthRange: [round1(baseGrowth - growthStdDev), round1(baseGrowth + growthStdDev)],
-      vacancyRange:
-        assetType === 'single-family'
-          ? [0.0, 25.0]
-          : [round1(Math.max(0, baseVacancy - vacancyStdDev)), round1(baseVacancy + vacancyStdDev)],
-      exitMetricRange: usesCap
-        ? [round2(Math.max(1, baseExitCap - exitCapSpreadPct)), round2(baseExitCap + exitCapSpreadPct)]
-        : [round1(baseApprec - apprecStdDev), round1(baseApprec + apprecStdDev)],
+    total: runs,
+    get completed() {
+      return completed;
+    },
+    step(count = runs) {
+      const end = Math.min(runs, completed + Math.max(0, Math.floor(count)));
+      while (completed < end) {
+        runOne(completed);
+        completed += 1;
+      }
+      return completed;
+    },
+    finish() {
+      if (completed < runs) throw new Error(`Monte Carlo is incomplete (${completed}/${runs} runs)`);
+      return summarize();
     },
   };
 }

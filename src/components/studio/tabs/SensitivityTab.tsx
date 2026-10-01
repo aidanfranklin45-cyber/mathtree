@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { DealRecord, DealMetrics } from '../../../lib/math/types';
-import { calculateSensitivityMatrix, runMonteCarlo, type MonteCarloResult } from '../../../lib/engine';
+import { calculateSensitivityMatrix, createMonteCarloRunner, type MonteCarloResult } from '../../../lib/engine';
+import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from '../../../lib/engine/expiryDefaults';
 import { prepareEngineInputs } from '../../../lib/engine/compute';
 import { formatCurrency } from '../../../lib/format';
 import { resolveDealDisplayName } from '../../../lib/math/pointInTime';
@@ -41,11 +42,15 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
   const [primerOpen, setPrimerOpen] = useState(false);
 
   const asset = normalizeAsset(String(deal.asset_class));
+  // Keyed by the deal's facts, not the object: a re-render that hands over an identical deal must not re-run the simulation
+  const expiryVersion = useSyncExternalStore(subscribeExpiryDefaults, getExpiryDefaultsVersion);
+  const dealKey = JSON.stringify([deal.inputs, deal.purchase_price, deal.asset_class]);
   const merged = useMemo(() => {
     const m: Record<string, any> = prepareEngineInputs(deal);
     if (!m.targetCapRate) m.targetCapRate = m.targetExitCapRate || m.exitCapRate || m.appreciationRate || 6.5;
     return m;
-  }, [deal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealKey, expiryVersion]);
 
   // ---- 2D heatmap: ranges centered on the current inputs ----
   const grid = useMemo(() => {
@@ -66,23 +71,44 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
     }
   }, [merged, asset, rowParam, colParam]);
 
-  // ---- Monte Carlo: runs in the browser (about 16 ms per 1,000 engine runs), debounced like the legacy page ----
+  // ---- Monte Carlo: runs in the browser when this tab opens, in slices (about 0.2-0.4 s for 1,000 runs on lease-based deals) so the
+  // page never freezes, and a run that is superseded by a newer input is cancelled ----
   const isZeroRent =
     (parseFloat(merged.grossRentAnnual) || 0) <= 0 && (parseFloat(merged.grossRentPerMonth) || 0) <= 0 && (parseFloat(merged.monthlyRent) || 0) <= 0 &&
     (!Array.isArray(merged.leases) || merged.leases.length === 0 || !merged.leases.some((l: any) => (parseFloat(l.monthlyRent) || 0) > 0));
 
   useEffect(() => {
+    let cancelled = false;
+    let handle = 0;
     setRunning(true);
-    const t = window.setTimeout(() => {
+    const start = window.setTimeout(() => {
       try {
-        setMc(runMonteCarlo(asset, merged, { runs: 1000, rentGrowthVolPct: volRent, vacancyVolPct: volVacancy, exitCapSpreadBps: volCap }));
+        const runner = createMonteCarloRunner(asset, merged, { runs: 1000, rentGrowthVolPct: volRent, vacancyVolPct: volVacancy, exitCapSpreadBps: volCap });
+        const tick = () => {
+          if (cancelled) return;
+          try {
+            runner.step(100);
+            if (runner.completed < runner.total) {
+              handle = window.setTimeout(tick, 0);
+              return;
+            }
+            setMc(runner.finish());
+          } catch (e) {
+            console.warn('[Monte Carlo] failed', e);
+          }
+          setRunning(false);
+        };
+        tick();
       } catch (e) {
         console.warn('[Monte Carlo] failed', e);
-      } finally {
         setRunning(false);
       }
     }, 250);
-    return () => window.clearTimeout(t);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+      window.clearTimeout(handle);
+    };
   }, [merged, asset, volRent, volVacancy, volCap, rerun]);
 
   const dealName = resolveDealDisplayName(deal);
