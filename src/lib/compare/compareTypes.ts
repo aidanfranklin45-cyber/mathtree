@@ -6,6 +6,48 @@ export type ComparisonMode = 'properties' | 'versions' | 'custom';
 
 export type ScenarioPresetType = 'live' | 'baseline' | 'bull' | 'bear' | 'history' | 'custom';
 
+/** Which deals the studio works with: prospective deals (the default), the portfolio you own, or both. */
+export type CompareScope = 'pipeline' | 'owned' | 'all';
+
+export const COMPARE_SCOPES: CompareScope[] = ['pipeline', 'owned', 'all'];
+
+export const isCompareScope = (v: unknown): v is CompareScope => v === 'pipeline' || v === 'owned' || v === 'all';
+
+/** A deal is "owned" when its status says so; otherwise it is pipeline, unless it is archived (archived shows only under All). */
+export function dealScope(deal: Pick<DealRecord, 'status'>): 'owned' | 'pipeline' | 'archived' {
+  if (deal.status === 'owned') return 'owned';
+  if (deal.status === 'archived') return 'archived';
+  return 'pipeline';
+}
+
+export function filterDealsByScope<T extends Pick<DealRecord, 'status'>>(deals: T[], scope: CompareScope): T[] {
+  if (scope === 'all') return deals;
+  return deals.filter((d) => dealScope(d) === scope);
+}
+
+export function countDealsByScope(deals: Array<Pick<DealRecord, 'status'>>): Record<CompareScope, number> {
+  return { pipeline: filterDealsByScope(deals, 'pipeline').length, owned: filterDealsByScope(deals, 'owned').length, all: deals.length };
+}
+
+/**
+ * The scope to open with. A requested scope (from the URL) wins, unless a deal asked for by link falls outside it (then All,
+ * so a shared link never hides its own deals). With no request: Pipeline, or All when there are no prospective deals at all.
+ */
+export function resolveInitialScope(
+  deals: Array<Pick<DealRecord, 'id' | 'status'>>,
+  requested: unknown,
+  requestedDealIds: string[] = [],
+): CompareScope {
+  const counts = countDealsByScope(deals);
+  let scope: CompareScope = isCompareScope(requested) ? requested : counts.pipeline > 0 ? 'pipeline' : 'all';
+  if (scope !== 'all' && requestedDealIds.length > 0) {
+    const visible = new Set(filterDealsByScope(deals, scope).map((d) => d.id));
+    const asked = deals.filter((d) => requestedDealIds.includes(d.id));
+    if (asked.some((d) => !visible.has(d.id))) scope = 'all';
+  }
+  return scope;
+}
+
 export interface ComparisonSummary {
   purchasePrice: number;
   initialCash: number;

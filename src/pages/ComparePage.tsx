@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase, BENCHMARK_DEAL } from '../lib/supabase/client';
 import { mapSupabaseDeal } from '../stores/useDealStore';
@@ -13,6 +13,10 @@ import { WhatIfScrubberBar } from '../components/compare/WhatIfScrubberBar';
 import {
   ComparisonMode,
   ComparisonColumn,
+  CompareScope,
+  filterDealsByScope,
+  countDealsByScope,
+  resolveInitialScope,
   ScenarioPresetType,
   extractComparisonSummary,
   evaluateWinners,
@@ -40,6 +44,21 @@ export const ComparePage: React.FC = () => {
   // Columns & custom overrides
   const [columns, setColumns] = useState<ComparisonColumn[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // Scope: prospective deals by default; Owned and All are one click away. Resolved once the deals have loaded.
+  const [scope, setScope] = useState<CompareScope>('pipeline');
+  const [scopeReady, setScopeReady] = useState(false);
+  const linkHonored = useRef(false);
+  const scopedDeals = useMemo(() => filterDealsByScope(deals, scope), [deals, scope]);
+  const scopeCounts = useMemo(() => countDealsByScope(deals), [deals]);
+
+  useEffect(() => {
+    if (scopeReady || deals.length === 0) return;
+    const dealParam = searchParams.get('dealId');
+    const asked = [...(searchParams.get('deals')?.split(',').filter(Boolean) || []), ...(dealParam ? [dealParam] : [])];
+    setScope(resolveInitialScope(deals, searchParams.get('scope'), asked));
+    setScopeReady(true);
+  }, [deals, scopeReady, searchParams]);
 
   // Load all deals
   const loadDeals = async () => {
@@ -87,9 +106,10 @@ export const ComparePage: React.FC = () => {
   }, []);
 
   // Update URL params when mode or single deal changes
-  const updateUrlParams = (newMode: ComparisonMode, dealId: string | null) => {
+  const updateUrlParams = (newMode: ComparisonMode, dealId: string | null, nextScope: CompareScope = scope) => {
     const params = new URLSearchParams();
     params.set('mode', newMode);
+    params.set('scope', nextScope);
     if (dealId) params.set('dealId', dealId);
     setSearchParams(params, { replace: true });
   };
@@ -152,26 +172,31 @@ export const ComparePage: React.FC = () => {
 
   // Initialize columns when deals load or mode changes
   useEffect(() => {
-    if (deals.length === 0) return;
+    if (!scopeReady) return;
 
     if (mode === 'properties') {
-      // Check if deals param was provided (e.g. ?deals=id1,id2,id3)
-      const requestedIds = searchParams.get('deals')?.split(',').filter(Boolean) || [];
+      // A ?deals=id1,id2,id3 link is honored on the first build only; later scope changes use the scope's own defaults
+      const requestedIds = linkHonored.current ? [] : (searchParams.get('deals')?.split(',').filter(Boolean) || []);
+      linkHonored.current = true;
       const selected = requestedIds.length > 0
-        ? deals.filter((d) => requestedIds.includes(d.id))
-        : deals.slice(0, 3); // default to top 3 deals
+        ? scopedDeals.filter((d) => requestedIds.includes(d.id))
+        : scopedDeals.slice(0, 3); // default to the top 3 deals in scope
 
-      const cols = (selected.length > 0 ? selected : deals.slice(0, 1)).map((d, idx) =>
+      const cols = (selected.length > 0 ? selected : scopedDeals.slice(0, 1)).map((d, idx) =>
         buildColumn(d, 'live', 'Live Active Model', undefined, idx === 0),
       );
       setColumns(cols);
     } else if (mode === 'versions') {
       // Pick focus deal
-      const focusId = selectedSingleDealId || searchParams.get('dealId') || deals[0]?.id;
-      const targetDeal = deals.find((d) => d.id === focusId) || deals[0];
-      if (!targetDeal) return;
+      const focusId = selectedSingleDealId || searchParams.get('dealId') || scopedDeals[0]?.id;
+      const targetDeal = scopedDeals.find((d) => d.id === focusId) || scopedDeals[0];
+      if (!targetDeal) {
+        setColumns([]);
+        return;
+      }
 
-      if (!selectedSingleDealId) setSelectedSingleDealId(targetDeal.id);
+      // Also corrects a focus deal that the current scope no longer includes
+      if (selectedSingleDealId !== targetDeal.id) setSelectedSingleDealId(targetDeal.id);
 
       // Load scenario runs from DB for this deal, plus standard presets
       let isLive = true;
@@ -208,12 +233,18 @@ export const ComparePage: React.FC = () => {
         isLive = false;
       };
     }
-  }, [deals, mode, selectedSingleDealId, buildColumn]);
+  }, [scopedDeals, scopeReady, mode, selectedSingleDealId, buildColumn]);
 
   // Mode change handler
   const handleSetMode = (nextMode: ComparisonMode) => {
     setMode(nextMode);
     updateUrlParams(nextMode, selectedSingleDealId);
+  };
+
+  // Scope change: the columns rebuild from the new scope's defaults
+  const handleSetScope = (next: CompareScope) => {
+    setScope(next);
+    updateUrlParams(mode, selectedSingleDealId, next);
   };
 
   // Focus deal change in version mode
@@ -253,12 +284,12 @@ export const ComparePage: React.FC = () => {
   // Reset columns
   const handleReset = () => {
     if (mode === 'properties') {
-      const top = deals.slice(0, 3).map((d, idx) =>
+      const top = scopedDeals.slice(0, 3).map((d, idx) =>
         buildColumn(d, 'live', 'Live Active Model', undefined, idx === 0),
       );
       setColumns(top);
     } else if (mode === 'versions' && selectedSingleDealId) {
-      const deal = deals.find((d) => d.id === selectedSingleDealId) || deals[0];
+      const deal = scopedDeals.find((d) => d.id === selectedSingleDealId) || scopedDeals[0];
       if (deal) {
         setColumns([
           buildColumn(deal, 'live', 'Active Live Model', undefined, true),
@@ -273,8 +304,8 @@ export const ComparePage: React.FC = () => {
   };
 
   const currentFocusDeal = useMemo(() => {
-    return deals.find((d) => d.id === selectedSingleDealId) || deals[0];
-  }, [deals, selectedSingleDealId]);
+    return scopedDeals.find((d) => d.id === selectedSingleDealId) || scopedDeals[0];
+  }, [scopedDeals, selectedSingleDealId]);
 
   const handleAddWhatIf = (overrides: Partial<DealInputs>, name: string) => {
     if (!currentFocusDeal) return;
@@ -300,10 +331,20 @@ export const ComparePage: React.FC = () => {
           onOpenAddModal={() => setIsAddModalOpen(true)}
           onExportCsv={() => exportComparisonCSV(columns)}
           onReset={handleReset}
-          deals={deals}
+          deals={scopedDeals}
           selectedSingleDealId={selectedSingleDealId}
           onSelectSingleDeal={handleSelectSingleDeal}
+          scope={scope}
+          onSetScope={handleSetScope}
+          scopeCounts={scopeCounts}
         />
+
+        {!loading && deals.length > 0 && scopedDeals.length === 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-xs text-slate-300">
+            No {scope === 'owned' ? 'owned' : 'pipeline'} deals yet.{' '}
+            <button type="button" onClick={() => handleSetScope('all')} className="font-bold text-emerald-400 hover:text-emerald-300 underline">Show all deals</button>
+          </div>
+        )}
 
         {/* Interactive What-If Scrubber in Scenario / Version Mode */}
         {mode === 'versions' && currentFocusDeal && (
@@ -338,6 +379,7 @@ export const ComparePage: React.FC = () => {
         deals={deals}
         onSelectDeal={handleAddDeal}
         alreadySelectedDealIds={columns.map((c) => c.dealId)}
+        initialStatusFilter={scope === 'owned' ? 'owned' : scope === 'pipeline' ? 'prospect' : 'all'}
       />
     </div>
   );

@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DealRecord } from '../../lib/math/types';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { formatCurrency } from '../../lib/format';
-import { ScenarioPresetType } from '../../lib/compare/compareTypes';
+import { ScenarioPresetType, dealScope } from '../../lib/compare/compareTypes';
 import { Search, X, Plus, Building, Layers } from 'lucide-react';
 
 interface AddProjectModalProps {
@@ -11,6 +11,8 @@ interface AddProjectModalProps {
   deals: DealRecord[];
   onSelectDeal: (deal: DealRecord, preset: ScenarioPresetType, customName?: string) => void;
   alreadySelectedDealIds: string[];
+  /** Which group the list opens on (follows the page's Pipeline / Owned / All scope). */
+  initialStatusFilter?: 'all' | 'owned' | 'prospect';
 }
 
 export const AddProjectModal: React.FC<AddProjectModalProps> = ({
@@ -19,16 +21,20 @@ export const AddProjectModal: React.FC<AddProjectModalProps> = ({
   deals,
   onSelectDeal,
   alreadySelectedDealIds,
+  initialStatusFilter = 'all',
 }) => {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'owned' | 'prospect'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'owned' | 'prospect'>(initialStatusFilter);
+  useEffect(() => {
+    if (isOpen) setStatusFilter(initialStatusFilter);
+  }, [isOpen, initialStatusFilter]);
   const [selectedPreset, setSelectedPreset] = useState<ScenarioPresetType>('live');
 
   const filteredDeals = useMemo(() => {
     return deals.filter((d) => {
-      if (statusFilter !== 'all' && (d.status || 'prospect') !== statusFilter) {
-        return false;
-      }
+      // Same rule as the page scope: owned vs pipeline (archived deals only show under All)
+      if (statusFilter === 'owned' && dealScope(d) !== 'owned') return false;
+      if (statusFilter === 'prospect' && dealScope(d) !== 'pipeline') return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         const title = resolveDealDisplayName(d).toLowerCase();
