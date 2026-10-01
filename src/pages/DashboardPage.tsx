@@ -30,6 +30,7 @@ import {
   TrendingUp,
   Layers,
   ChevronDown,
+  Scale,
 } from 'lucide-react';
 
 interface LegalEntity {
@@ -75,6 +76,13 @@ export const DashboardPage: React.FC = () => {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+
+  const handleToggleCompareSelect = useCallback((dealId: string) => {
+    setSelectedForCompare((prev) =>
+      prev.includes(dealId) ? prev.filter((id) => id !== dealId) : [...prev, dealId],
+    );
+  }, []);
 
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -501,6 +509,14 @@ export const DashboardPage: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <Link
+              to="/compare"
+              className="px-3.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition flex items-center justify-center space-x-2 shadow-lg group"
+              title="Compare Projects & Scenarios Side-by-Side"
+            >
+              <Scale className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span>Compare Projects</span>
+            </Link>
             <button
               onClick={() => exportPortfolioBriefPDF()}
               className="px-3.5 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold text-slate-300 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition flex items-center justify-center space-x-2 shadow-lg"
@@ -959,6 +975,8 @@ export const DashboardPage: React.FC = () => {
                     onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
                     onShare={deal.is_shared ? undefined : handleShareDeal}
+                    isSelectedForCompare={selectedForCompare.includes(deal.id)}
+                    onToggleCompareSelect={handleToggleCompareSelect}
                   />
                 ))}
               </div>
@@ -966,6 +984,33 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Floating Multi-Deal Compare Toolbar */}
+      {selectedForCompare.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-emerald-500/50 rounded-2xl shadow-2xl px-5 py-3 flex items-center space-x-4 backdrop-blur-md animate-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-black text-white">
+              {selectedForCompare.length} {selectedForCompare.length === 1 ? 'asset' : 'assets'} selected for comparison
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setSelectedForCompare([])}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+            >
+              Clear
+            </button>
+            <Link
+              to={`/compare?deals=${selectedForCompare.join(',')}`}
+              className="px-4 py-1.5 rounded-xl text-xs font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 transition flex items-center space-x-1.5 shadow-lg shadow-emerald-500/20"
+            >
+              <span>Compare in Matrix ({selectedForCompare.length})</span>
+              <span>➔</span>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Creation Wizard Modal */}
       <ShareDealModal deal={sharingDeal} onClose={() => setSharingDeal(null)} onChanged={() => { void loadData(); }} />
