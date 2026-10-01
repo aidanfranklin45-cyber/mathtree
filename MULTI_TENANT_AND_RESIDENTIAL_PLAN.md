@@ -61,8 +61,8 @@ Nothing models month to month today; a lease with no end date is only an open-en
 
 ## 4. Decisions (owner, 2026-10-01) and status
 
-1. **Digest emails: yes.** Built (branch `feat/digest-reminders`, live). One email per property per day when 3 or more tenants are due (an owner setting: 2, 3, 5, 10, or never combine). Each tenant keeps its own Paid and Missing buttons; past-due follow-ups are digested separately from routine reminders; names are escaped; one tenant still gets its own email exactly as before.
-2. **Rent-roll detail (unit mix versus a full rent roll): not needed as a separate setting.** Vacancy and the building's make-up are already configured per deal when it is created and updated in Edit Inputs. No new profile-level setting; Phases 4 and 5 will read the deal's own vacancy configuration.
+1. **Digest emails: yes, as a checklist.** One email per property per day when 3 or more tenants are due (an owner setting: 2, 3, 5, 10, or never combine), with ONE "Manage rent payments" button. It opens a page that needs no sign-in: tick everyone who paid and press Save. Ticked tenants are recorded as paid; unticked tenants are snoozed for the owner's snooze setting (else the lease's grace period) and followed up from there, exactly as if "Missing rent" had been pressed. Reopening the link lets the owner correct a mistake; a month already recorded as paid some other way is shown as paid and left alone. The link is a long random value stored only as a hash, expires after 14 days and can only touch the leases it was issued for. A single tenant still gets the one-tenant email with Confirm and Snooze buttons. Built (`feat/rent-checklist`, migration 09, live; the page appears when merged).
+2. **A tenant-by-tenant rent roll, not a unit mix.** Tenants pay different rents depending on when they came in, so each tenant is its own lease row (unit, tenant, rent, move-in date, lease dates or month to month, due day). Vacancy and the building's make-up stay configured per deal when it is created and updated in Edit Inputs; no new profile-level setting.
 3. **Turnover / vacancy assumptions come from the deal's own vacancy configuration** (Edit Inputs), not a global default.
 4. **Rent-increase notice follows Washington law.** Built (branch `feat/wa-rent-increase-rules`, live), see below.
 
@@ -83,8 +83,11 @@ Checked against the statute pages and the Department of Commerce on 2026-10-01. 
 |---|---|---|
 | 1 | Eligibility rule, escalation guard, repair | **Done, live** |
 | 2 | Lease term type (fixed / month to month), flags, badge, Washington notice rules | **Done, live** (term type also in the lease-saving function) |
-| 3 | Digest emails | **Done, live** (space labels in the PDF and Overview still to do) |
+| 3 | Digest emails with the rent checklist | **Done, live** (space labels in the PDF and Overview still to do) |
 | 4 | Residential turnover model in the engine and Monte Carlo, from the deal's own vacancy configuration; "continue month to month" expiry mode | Next |
-| 5 | Rent-roll import and unit mix, expiry ladder | Later |
+| 5 | **Tenant-by-tenant rent roll**: add many tenants at once (a grid you can paste a spreadsheet into) creating the unit and lease rows, with each tenant's own rent and move-in date; expiry ladder | **Next, after your go-ahead** |
 
 Still open: a starting turnover assumption for residential (placeholder about 25% a year with 1 to 2 months of downtime; to be expressed through each deal's vacancy configuration rather than a global setting).
+
+### Note for the rent roll and the analysis
+A building with many tenants means many leases in the analysis: the engine evaluates every lease for every month of the hold, and the Monte Carlo repeats that 1,000 times. At about 0.2 ms per lease per run, a 12-tenant building is fine, but a 120-unit facility would take around 10 seconds. The fix is to compute each lease's monthly rent schedule once per simulation and only add the pieces that change per run (market drift after a lease ends, a tenant default), which makes the cost almost independent of the number of tenants. That belongs with Phase 5.
