@@ -4,7 +4,6 @@ import { DealRecord, DealMetrics } from '../../lib/math/types';
 import { openDealBrief } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
-import { apnBadgeLabel, getAssessorPortalUrl } from '../../lib/services/assessorPortal';
 
 interface StudioNavbarProps {
   deal: DealRecord;
@@ -99,9 +98,6 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
           ? inputs.parcels.map((p: any) => (typeof p === 'string' ? p : p.address || `APN: ${p.apn || p.parcelNumber}`))
           : [];
 
-  const apn: string | undefined = inputs.primaryApn || inputs.apn || inputs.assessorData?.apn;
-  const county: string | undefined = inputs.county || inputs.parcels?.[0]?.county || inputs.assessorData?.county;
-  const parcelCount = Array.isArray(inputs.parcels) ? inputs.parcels.length : 0;
 
   const menuBtn = 'w-full px-3.5 py-2 text-left text-xs font-semibold hover:bg-slate-800 hover:text-white flex items-center space-x-2.5 transition';
 
@@ -153,13 +149,6 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                 </div>
               )}
 
-              {apn && (
-                <a href={getAssessorPortalUrl(county, apn)} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 text-[10px] font-semibold hover:border-emerald-700 transition"
-                  title="Open the official County Assessor record">
-                  <span>{apnBadgeLabel(county, apn, parcelCount)} ↗</span>
-                </a>
-              )}
             </div>
           </div>
         </div>
@@ -206,17 +195,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                       </button>
                     );
                   })}
-                  <div className="my-1 border-t border-slate-800/80" />
-                  <Link to="/operations" className="flex items-center justify-between p-2 rounded-xl transition group text-emerald-300 hover:bg-slate-800/90 hover:text-white">
-                    <div className="flex items-center space-x-2.5">
-                      <span className="text-base shrink-0">🍀</span>
-                      <div>
-                        <span className="block text-xs font-bold leading-snug">Property Management</span>
-                        <span className="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Live rent roll, active leases &amp; collections ledger</span>
-                      </div>
-                    </div>
-                    <span className="text-emerald-400 text-xs font-bold">↗</span>
-                  </Link>
+
                 </div>
               </div>
             )}

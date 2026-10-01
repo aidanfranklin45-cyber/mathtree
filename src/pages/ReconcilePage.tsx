@@ -191,7 +191,7 @@ const SingleActionPage: React.FC = () => {
         </div>
 
         <div style={{ marginTop: 24, fontSize: 11, color: '#475569', letterSpacing: '0.02em' }}>
-          MathTree Institutional Asset Management &bull; Zero-Login Secure Action
+          MathTree Asset Management &bull; Zero-Login Secure Action
         </div>
       </div>
     </div>

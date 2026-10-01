@@ -60,7 +60,7 @@ export const DealBriefPage: React.FC<{ publicDemo?: boolean }> = ({ publicDemo =
   const mc = useBriefMonteCarlo(model?.assetClass ?? 'commercial', model?.monteCarloInputs ?? {}, model?.discountRate ?? 8, String(facts?.deal.id ?? 'mathtree'));
 
   useEffect(() => {
-    if (model) document.title = `MathTree Institutional Underwriting Brief - ${model.title}`;
+    if (model) document.title = `MathTree Underwriting Brief - ${model.title}`;
   }, [model]);
 
   if (error) return <div className={shell}><div><h3 className="font-bold text-rose-600">Failed to generate brief</h3><p className="text-sm mt-2">{error}</p></div></div>;

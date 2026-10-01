@@ -93,7 +93,7 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
             <span className="text-xl">📖</span>
             <div>
               <h3 className="text-base font-extrabold text-white tracking-tight">Stochastic Market Volatility &amp; Monte Carlo Primer</h3>
-              <p className="text-xs text-slate-400">Institutional risk underwriting theory, mathematical mechanics, and distribution interpretation</p>
+              <p className="text-xs text-slate-400">Quantitative risk underwriting theory, mathematical mechanics, and distribution interpretation</p>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close modal" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition text-sm font-bold">✕</button>
@@ -149,7 +149,7 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
           </div>
         </div>
 
-        {/* Section 3: Interpreting the Key Institutional Metrics */}
+        {/* Section 3: Interpreting Key Risk Metrics */}
         <div className="space-y-2">
           <div className="flex items-center space-x-2 text-brand-400 font-bold uppercase tracking-wider text-[11px]">
             <span>3. How to Read Distribution Metrics</span>
@@ -158,7 +158,7 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
             <div className="p-3 flex items-start space-x-3">
               <span className="font-mono text-accent-rose font-bold min-w-[70px]">P5 (VaR):</span>
               <div>
-                <strong className="text-white">Value at Risk (5th Percentile Floor):</strong> In 95% of simulated economic environments (950 out of 1,000 runs), your actual IRR will equal or exceed this number. This is your institutional downside safety net.
+                <strong className="text-white">Value at Risk (5th Percentile Floor):</strong> In 95% of simulated economic environments (950 out of 1,000 runs), your actual IRR will equal or exceed this number. This is your downside safety net.
               </div>
             </div>
             <div className="p-3 flex items-start space-x-3">
@@ -212,7 +212,7 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
                 <span className="text-amber-400">🏭</span> Commercial (Office, Retail, Industrial)
               </span>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                <strong className="text-slate-200">Lease-Roll Cliff & Cap Rate Spread:</strong> Multi-year leases (3–10 years) provide multi-year operating stability, but concentrate vulnerability into binary lease expiration years. The simulation models non-renewal downtime (6–12 months) and capital market liquidity swings via exit capitalization rate spreads (&plusmn;100 bps), capturing institutional disposition volatility.
+                <strong className="text-slate-200">Lease-Roll Cliff & Cap Rate Spread:</strong> Multi-year leases (3–10 years) provide multi-year operating stability, but concentrate vulnerability into binary lease expiration years. The simulation models non-renewal downtime (6–12 months) and capital market liquidity swings via exit capitalization rate spreads (&plusmn;100 bps), capturing market disposition volatility.
               </p>
             </div>
             <div className="bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80 space-y-1.5">
@@ -278,7 +278,7 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
                 </p>
                 <div className="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800 text-[11px] text-slate-400">
                   <strong className="text-accent-violet">What Monte Carlo reveals about this specific return:</strong>{' '}
-                  Because debt service ({formatCurrency(ds)}/yr) is fixed while equity ({formatCurrency(initialCash)}) is lean, adverse operational shocks (e.g. temporary vacancy or tenant turnover) reduce equity cash flow rapidly. The Monte Carlo simulation tests 1,000 randomized micro-economic paths against these exact parameters to verify whether the downside floor (P5 Value-at-Risk) remains institutionally viable without requiring capital calls.
+                  Because debt service ({formatCurrency(ds)}/yr) is fixed while equity ({formatCurrency(initialCash)}) is lean, adverse operational shocks (e.g. temporary vacancy or tenant turnover) reduce equity cash flow rapidly. The Monte Carlo simulation tests 1,000 randomized micro-economic paths against these exact parameters to verify whether the downside floor (P5 Value-at-Risk) remains economically viable without requiring capital calls.
                 </div>
               </div>
             </div>

@@ -818,7 +818,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
 
       {/* PAGE 3: pro-forma */}
       <div className="box split pf pg">
-        <div className="bh"><span>📊 {m.holdYears}-Year Institutional Pro-Forma Forecast</span><span className="sub">Calendar-Year Cash Flow Waterfall</span></div>
+        <div className="bh"><span>📊 {m.holdYears}-Year Pro-Forma Forecast</span><span className="sub">Calendar-Year Cash Flow Waterfall</span></div>
         <table>
           <thead>
             <tr>
@@ -879,7 +879,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
 
       <div className="foot">
         <span>MathTree Real Estate Underwriting Platform • Computed from live deal data</span>
-        <span>Confidential Institutional Investment Memo • {dscrLabel}: {m.dscrFormatted} • Generated {m.dateStr}</span>
+        <span>Confidential Investment Memo • {dscrLabel}: {m.dscrFormatted} • Generated {m.dateStr}</span>
       </div>
     </div>
   );

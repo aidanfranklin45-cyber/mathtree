@@ -171,7 +171,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
 
       <div className="foot">
         <span>MathTree Real Estate Portfolio &amp; Pipeline Studio • Computed from live deal data</span>
-        <span>Confidential Institutional Underwriting Report • Generated for {orNP(m.investorName)} ({orNP(m.companyName)}) • {m.dateStr}</span>
+        <span>Confidential Underwriting Report • Generated for {orNP(m.investorName)} ({orNP(m.companyName)}) • {m.dateStr}</span>
       </div>
     </div>
   );

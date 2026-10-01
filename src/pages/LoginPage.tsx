@@ -225,7 +225,7 @@ export const LoginPage: React.FC = () => {
             <span className="font-extrabold text-2xl tracking-tight text-white">MathTree</span>
           </Link>
           <p className="mt-2 text-xs font-medium text-slate-400">
-            Institutional Real Estate Underwriting &amp; Portfolio Management
+            Commercial Real Estate Underwriting &amp; Portfolio Management
           </p>
         </div>
 

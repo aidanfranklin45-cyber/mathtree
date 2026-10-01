@@ -124,7 +124,7 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
       {
         id: 'exit', icon: '🎯', name: '8. Terminal Cap Rate & Hold Horizon', category: 'acquisition' as const,
         value: `${holdYrs}-Year Hold • ${asset === 'commercial' || asset === 'storage' ? `${inputs.targetCapRate ?? 0}% Exit Cap (+50 bps spread)` : `${inputs.appreciationRate ?? 0}%/yr Appreciation`}`,
-        provenance: `Modeled with an institutional terminal cap rate spread (+50 bps expansion buffer over entry yield) to stress-test liquidity, asset vintage aging, and capital market shifts over the ${holdYrs}-year hold.`,
+        provenance: `Modeled with a terminal cap rate spread (+50 bps expansion buffer over entry yield) to stress-test liquidity, asset vintage aging, and capital market shifts over the ${holdYrs}-year hold.`,
       },
     ];
   }, [deal, metrics, asset]);
@@ -144,7 +144,7 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
               <span>Underwriting Assumptions Provenance &amp; Diligence Bridge</span>
               <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                {category === 'all' ? 'Institutional Audit' : `${category.toUpperCase()} FOCUS`}
+                {category === 'all' ? 'Comprehensive Audit' : `${category.toUpperCase()} FOCUS`}
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">Granular provenance for every model input: Economic Derivation, Assessor Benchmarks, and Quantitative Valuation Sensitivity.</p>

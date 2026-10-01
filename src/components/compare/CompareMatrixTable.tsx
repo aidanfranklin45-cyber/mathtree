@@ -274,7 +274,7 @@ export const CompareMatrixTable: React.FC<CompareMatrixTableProps> = ({
         {
           key: 'dscr',
           label: 'Senior DSCR (Debt Coverage)',
-          description: 'Net Operating Income divided by annual debt service (institutional safety ratio)',
+          description: 'Net Operating Income divided by annual debt service (lender coverage ratio)',
           get: (s) => s.dscr,
           format: (v) => (v !== null ? `${v.toFixed(2)}x` : 'N/A (All Cash)'),
           highlight: true,

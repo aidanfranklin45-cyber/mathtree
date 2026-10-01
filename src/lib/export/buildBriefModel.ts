@@ -339,7 +339,7 @@ export function buildBriefModel(
   // Narrative, built only from the numbers above
   let dscrEvaluation: string;
   if (dscrNum >= 1.25 && cashFlow > 0) {
-    dscrEvaluation = `Calibrated to lending terms. ${isProrated ? 'Stabilized debt' : 'Debt'} service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${money(isProrated ? num(firstFull.cashFlow ?? cashFlow) : cashFlow)}/yr) comfortably exceeding institutional 1.25x covenant floor.${isProrated && p0.dscr ? ` Note: Year 1 partial stub coverage is ${Number(p0.dscr).toFixed(2)}x (${months} mos) before full-year stabilization.` : ''}`;
+    dscrEvaluation = `Calibrated to lending terms. ${isProrated ? 'Stabilized debt' : 'Debt'} service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${money(isProrated ? num(firstFull.cashFlow ?? cashFlow) : cashFlow)}/yr) comfortably exceeding standard 1.25x covenant floor.${isProrated && p0.dscr ? ` Note: Year 1 partial stub coverage is ${Number(p0.dscr).toFixed(2)}x (${months} mos) before full-year stabilization.` : ''}`;
   } else if (dscrNum >= 1.0 && cashFlow > 0) {
     dscrEvaluation = `Moderate coverage. Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x yields positive cash flow (${money(cashFlow)}/yr) but sits below preferred 1.25x bank covenant buffer; sensitive to vacancy spikes or debt rate increases.`;
   } else {
@@ -379,7 +379,7 @@ export function buildBriefModel(
   const stub = isProrated ? 'Stabilized ' : 'Year 1 ';
   if (cashFlow < 0) warnings.push({ title: 'Negative Operating Cash Flow', description: `${isProrated ? 'Stub ' : 'Year 1 '}underwritten cash flow is ${money(cashFlow)}. Operating deficit requires debt restructuring or cash reserve.` });
   if (!hasApn) warnings.push({ title: 'Unlinked Assessor Parcel', description: 'Property is not tied to an active county parcel number; official assessment and boundary lines unverified.' });
-  if (dscrFormatted !== 'N/A' && dscrNum < 1.25) warnings.push({ title: `${stub}DSCR Below 1.25x Covenant Floor`, description: `Projected ${stub}DSCR of ${dscrNum.toFixed(2)}x is below the institutional underwriting threshold of 1.25x.` });
+  if (dscrFormatted !== 'N/A' && dscrNum < 1.25) warnings.push({ title: `${stub}DSCR Below 1.25x Covenant Floor`, description: `Projected ${stub}DSCR of ${dscrNum.toFixed(2)}x is below the underwriting threshold of 1.25x.` });
   if (rentVarianceMonthly !== null && monthlyRent > 0 && Math.abs(rentVarianceMonthly) / monthlyRent >= 0.05) {
     warnings.push({ title: 'Rent Roll Differs From Underwriting', description: `In-place rent roll is ${money(rentRollMonthly)}/mo versus ${money(monthlyRent)}/mo underwritten (${rentVarianceMonthly >= 0 ? '+' : '-'}${money(Math.abs(rentVarianceMonthly))}/mo).` });
   }
