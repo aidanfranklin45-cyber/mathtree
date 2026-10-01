@@ -5,6 +5,7 @@ import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
+import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -277,7 +278,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       const testDealId = sampleLease?.deal_id || "39ae6978-f10e-419f-a2b8-d50630bf3d6b";
       const testTenant = sampleLease?.tenant_name || "Valvoline Instant Oil Change";
       const testDealTitle = sampleLease?.deals?.title || "Union Gap Commercial Center";
-      const testUnitNumber = sampleLease?.units?.unit_number ? `Unit ${sampleLease.units.unit_number}` : "Main Facility";
+      const testUnitNumber = unitLabel(sampleLease?.units?.unit_number) || "Main Facility";
       const testRent = sampleLease?.monthly_rent
         ? "$" + Math.round(Number(sampleLease.monthly_rent)).toLocaleString("en-US")
         : "$11,139";
@@ -423,7 +424,10 @@ export async function handleRequest(req: Request): Promise<Response> {
           notification_email,
           user_id,
           deal_id,
-          deals ( id, title, user_id ),
+          is_active,
+          lease_start_date,
+          lease_end_date,
+          deals ( id, title, user_id, status, is_demo ),
           units ( unit_number, unit_type )
         `)
         .eq("id", body.lease_id)
@@ -433,6 +437,21 @@ export async function handleRequest(req: Request): Promise<Response> {
         return new Response(
           JSON.stringify({ success: false, error: "Lease record not found: " + (leaseErr?.message || body.lease_id), logs }),
           { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const manualVerdict = reminderEligibility({ dealStatus: (targetLease.deals as any)?.status, isDemo: (targetLease.deals as any)?.is_demo, leaseActive: (targetLease as any).is_active, leaseStartDate: (targetLease as any).lease_start_date, leaseEndDate: (targetLease as any).lease_end_date });
+      if (!manualVerdict.eligible) {
+        const why: Record<string, string> = {
+          not_owned: "this property is not marked Owned yet (rent reminders are only sent for owned properties)",
+          demo: "this is demo data",
+          inactive: "this lease is not active",
+          not_started: "this lease has not started yet",
+          ended: "this lease has ended",
+        };
+        return new Response(
+          JSON.stringify({ success: false, error: "No reminder sent: " + (why[manualVerdict.reason] || "the lease is not eligible"), logs }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
 
@@ -479,7 +498,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
       const rentFormatted = "$" + Math.round(Number(targetLease.monthly_rent || 0)).toLocaleString("en-US");
       const dealTitle = (targetLease.deals as any)?.title || "Commercial Property";
-      const unitName = (targetLease.units as any)?.unit_number ? `Unit ${(targetLease.units as any).unit_number}` : "Main Facility";
+      const unitName = unitLabel((targetLease.units as any)?.unit_number) || "Main Facility";
       const graceDays = targetLease.grace_period_days || 5;
 
       const emailHtml = `
@@ -582,7 +601,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           new_rent,
           scheduled_amount,
           increase_type,
-          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, deals ( id, title ) )
+          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, is_active, lease_start_date, lease_end_date, deals ( id, title, status, is_demo ) )
         `)
         .eq("is_applied", false);
 
@@ -591,6 +610,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           const leaseObj = inc.leases as any;
           if (!leaseObj) continue;
           if (scopeUserId && leaseObj.user_id !== scopeUserId) continue;
+          // Tenants are only written to for properties that are owned and have the lease in force (never prospects or demo data)
+          if (!isReminderEligible({ dealStatus: leaseObj.deals?.status, isDemo: leaseObj.deals?.is_demo, leaseActive: leaseObj.is_active, leaseStartDate: leaseObj.lease_start_date, leaseEndDate: leaseObj.lease_end_date })) continue;
           const userPrefs = await getUserAlertPreferences(adminClient, leaseObj.user_id);
           const noticeDays = userPrefs.escalation_notice_days ?? 30;
           if (noticeDays <= 0) continue;
@@ -664,7 +685,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     // 2. DYNAMIC DUE DATE & ADVANCE NOTICE DISPATCHING
     logs.push(`Step 2: Checking leases due today (day ${todayDay}) or with custom advance notice...`);
 
-    const { data: activeLeases, error: activeLeasesErr } = await adminClient
+    const { data: activeLeasesRaw, error: activeLeasesErr } = await adminClient
       .from("leases")
       .select(`
         id,
@@ -675,11 +696,28 @@ export async function handleRequest(req: Request): Promise<Response> {
         notification_email,
         user_id,
         deal_id,
+        is_active,
         lease_start_date,
-        deals ( id, title, user_id ),
+        lease_end_date,
+        deals ( id, title, user_id, status, is_demo ),
         units ( unit_number, unit_type )
       `)
       .eq("is_active", true);
+
+    // Only owned, non-demo properties with the lease in force are chased for rent. Prospects have no tenant to collect from and demo
+    // data is never emailed.
+    const skippedReasons: Record<string, number> = {};
+    const activeLeases: any[] | null = Array.isArray(activeLeasesRaw)
+      ? (activeLeasesRaw as any[]).filter((l) => {
+          const verdict = reminderEligibility({ dealStatus: l.deals?.status, isDemo: l.deals?.is_demo, leaseActive: l.is_active, leaseStartDate: l.lease_start_date, leaseEndDate: l.lease_end_date });
+          if (!verdict.eligible) skippedReasons[verdict.reason] = (skippedReasons[verdict.reason] || 0) + 1;
+          return verdict.eligible;
+        })
+      : null;
+    if (Object.keys(skippedReasons).length > 0) logs.push(`Skipped leases (no reminder): ${Object.entries(skippedReasons).map(([k, v]) => `${v} ${k}`).join(", ")}`);
+    // A building with several tenants needs the space in the subject line to tell the emails apart
+    const leasesPerDeal = new Map<string, number>();
+    for (const l of (activeLeases || [])) leasesPerDeal.set(String(l.deal_id), (leasesPerDeal.get(String(l.deal_id)) || 0) + 1);
 
     let dueEmailsSent = 0;
 
@@ -781,7 +819,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         const snoozeUrl = `${APP_BASE_URL}/reconcile?action=snooze&token=${snoozeToken}`;
         const rentFormatted = "$" + Math.round(Number(lease.monthly_rent || 0)).toLocaleString("en-US");
         const dealTitle = (lease.deals as any)?.title || "Commercial Property";
-        const unitName = (lease.units as any)?.unit_number ? `Unit ${(lease.units as any).unit_number}` : "Main Facility";
+        const unitName = unitLabel((lease.units as any)?.unit_number) || "Main Facility";
+        const spaceInSubject = (leasesPerDeal.get(String(lease.deal_id)) || 0) > 1 && unitLabel((lease.units as any)?.unit_number) ? ` (${unitName})` : "";
         const graceDays = lease.grace_period_days || 5;
 
         const emailTitle = isAdvanceNotice
@@ -791,8 +830,8 @@ export async function handleRequest(req: Request): Promise<Response> {
           ? `Advance Notice: Contractual rent for <strong>${lease.tenant_name}</strong> is due in <strong>${advanceDays} day${advanceDays > 1 ? "s" : ""}</strong> (on day ${dueDay} of the month).`
           : `Contractual rent is due today for <strong>${lease.tenant_name}</strong>. Reconcile with a single click below.`;
         const emailSubject = isAdvanceNotice
-          ? `Upcoming Rent Due in ${advanceDays} Day${advanceDays > 1 ? "s" : ""}: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`
-          : `Rent Due Today: ${lease.tenant_name} (${rentFormatted}) - ${dealTitle}`;
+          ? `Upcoming Rent Due in ${advanceDays} Day${advanceDays > 1 ? "s" : ""}: ${lease.tenant_name}${spaceInSubject} (${rentFormatted}) - ${dealTitle}`
+          : `Rent Due Today: ${lease.tenant_name}${spaceInSubject} (${rentFormatted}) - ${dealTitle}`;
 
         const emailHtml = `
 <!DOCTYPE html>
