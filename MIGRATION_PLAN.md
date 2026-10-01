@@ -159,3 +159,6 @@ Phase 6 additions from this work:
 - **Computed, never stored:** which parameters moved, and how IRR, cash-on-cash, cash flow, cap rate, equity multiple and DSCR changed. `src/lib/scenarios.ts` runs the shared engine on each run's inputs and diffs consecutive runs, so history can never go stale when the model improves.
 - **Recording:** automatic after any saved edit (Edit Inputs, applying the assessed value, restoring a run) when a tracked parameter actually changed; owned assets are frozen; the newest 5 automatic runs are kept, named snapshots never pruned. The client talks to the table directly; the `manage-scenarios` edge function is no longer used by React.
 - **Phase 6:** delete the `manage-scenarios` function (legacy pages still call it until retired) and drop `deal_parameter_history.metrics`, `input_diff`, `metric_diff` after clearing them.
+
+## PDF briefs (done)
+The deal brief (`/brief`), portfolio brief (`/portfolio-brief`) and the public sample memo (`/demo-brief`, demo deals only, no sign-in) are React pages computed in the browser from the app's own data and the shared engine. The `generate-pdf-brief` edge function source was removed; the deployed copy is deleted by hand with `supabase functions delete generate-pdf-brief` once `/demo-brief` is verified live. `legacy/*.html` still mention it but are not shipped.
