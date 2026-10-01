@@ -207,16 +207,6 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                     );
                   })}
                   <div className="my-1 border-t border-slate-800/80" />
-                  <Link to={`/compare?dealId=${deal.id}`} className="flex items-center justify-between p-2 rounded-xl transition group text-cyan-300 hover:bg-slate-800/90 hover:text-white">
-                    <div className="flex items-center space-x-2.5">
-                      <span className="text-base shrink-0">⚖️</span>
-                      <div>
-                        <span className="block text-xs font-bold leading-snug">Comparison Matrix</span>
-                        <span className="block text-[10px] text-slate-400 group-hover:text-slate-200 leading-snug">Benchmark variations &amp; alternative assets</span>
-                      </div>
-                    </div>
-                    <span className="text-cyan-400 text-xs font-bold">↗</span>
-                  </Link>
                   <Link to="/operations" className="flex items-center justify-between p-2 rounded-xl transition group text-emerald-300 hover:bg-slate-800/90 hover:text-white">
                     <div className="flex items-center space-x-2.5">
                       <span className="text-base shrink-0">🍀</span>
@@ -265,10 +255,6 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                   </button>
                 )}
                 <div className="my-1 border-t border-slate-800" />
-                <Link to={`/compare?dealId=${deal.id}`} className={`${menuBtn} text-cyan-300`} title="Comparison Studio">
-                  <span className="text-cyan-400 shrink-0">⚖️</span>
-                  <span>Compare in Matrix</span>
-                </Link>
                 <Link to="/operations" className={`${menuBtn} text-emerald-300`} title="Property Management">
                   <span className="text-emerald-400 shrink-0">🍀</span>
                   <span>Property Management</span>

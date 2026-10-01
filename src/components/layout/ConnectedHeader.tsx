@@ -7,6 +7,7 @@ import { InvestorProfileModal } from './InvestorProfileModal';
 import { NotificationHub } from './NotificationHub';
 import { CollaboratorsHubModal } from '../collaboration/CollaboratorsHubModal';
 import { EntityManagerModal, type EntityTarget } from './EntityManagerModal';
+import { openPortfolioBrief } from '../../lib/export/pdfBrief';
 
 interface Props {
   active: 'portfolio' | 'operations' | 'compare';
@@ -40,6 +41,7 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
         onOpenAlerts={() => { setAlertsOpen(true); void refresh(); }}
         onOpenCollaborators={() => setCollabOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
+        onExportPortfolio={openPortfolioBrief}
         alertCount={notifications.length > 9 ? 9 : notifications.length}
         collaboratorInviteCount={sharedWithMe}
         extraActions={extraActions}
