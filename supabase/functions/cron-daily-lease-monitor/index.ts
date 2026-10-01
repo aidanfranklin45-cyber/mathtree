@@ -746,11 +746,29 @@ export async function handleRequest(req: Request): Promise<Response> {
       const plan = planDispatch(queue);
       let notified = 0;
       for (const group of plan.digests) {
-        const mail = buildDigestEmail(group);
+        // One link, good for 14 days, that opens the rent checklist for exactly these tenants (only its hash is stored)
+        const rawToken = generateHexToken();
+        const first = group.items[0];
+        const { error: batchErr } = await adminClient.from("rent_batches").insert({
+          user_id: first.userId,
+          deal_id: first.dealId,
+          period_month: first.periodMonth,
+          lease_ids: group.items.map((i) => i.leaseId),
+          kind: group.isFollowup ? "followup" : "reminder",
+          token_hash: await sha256Hex(rawToken),
+          expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        if (batchErr) {
+          // Never lose a reminder: fall back to each tenant's own email
+          logs.push(`Could not create the checklist link for ${group.dealTitle} (${batchErr.message}); sending individual emails instead.`);
+          plan.singles.push(...group.items);
+          continue;
+        }
+        const mail = buildDigestEmail(group, `${APP_BASE_URL}/reconcile?action=manage&token=${rawToken}`);
         const res = await sendEmailWithResend(resendApiKey, { from: defaultFromEmail, to: group.to, subject: mail.subject, html: mail.html });
         if (res.success) {
           notified += group.items.length;
-          logs.push(`Digest sent to ${group.to}: ${group.items.length} tenants at ${group.dealTitle} (Resend ID: ${res.id})`);
+          logs.push(`Digest with rent checklist sent to ${group.to}: ${group.items.length} tenants at ${group.dealTitle} (Resend ID: ${res.id})`);
         } else {
           logs.push(`Failed to send digest to ${group.to} for ${group.dealTitle}: ${res.error}`);
         }
@@ -968,6 +986,8 @@ export async function handleRequest(req: Request): Promise<Response> {
 
         dueQueue.push({
           leaseId: String(lease.id),
+          userId: String(lease.user_id),
+          periodMonth: currentPeriodMonth,
           dealId: String(lease.deal_id),
           dealTitle,
           to: targetEmail,
@@ -1114,6 +1134,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         const followupPrefs = await getUserAlertPreferences(adminClient, lease.user_id);
         followupQueue.push({
           leaseId: String(lease.id),
+          userId: String(lease.user_id),
+          periodMonth: currentPeriodMonth,
           dealId: String(deal?.id || lease.deal_id || lease.id),
           dealTitle: deal?.title || "Commercial Asset",
           to: targetEmail,
