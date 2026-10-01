@@ -21,6 +21,12 @@ export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics, onUpdateInputs 
   const startYr = getProjectionStartYear(deal);
   const isStub = Boolean(projections[0] && Number(projections[0].operatingMonths) < 12);
   const y1 = firstFullYear(projections) || projections[0];
+  // Cost basis follows the project's rehab financing election: rolled-in rehab/closing is part of the financed basis.
+  const inputs: Record<string, any> = deal.inputs || {};
+  const rolledIn = (inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket')) === 'roll_into_loan';
+  const costBasis = (Number(metrics.purchasePrice) || 0)
+    + (rolledIn ? (parseFloat(inputs.rehabCosts) || 0) + (parseFloat(inputs.closingCosts) || 0) : 0);
+  const costLabel = rolledIn ? 'LTC' : 'LTV @ Cost';
 
   const dscr = y1 && y1.dscr !== null && y1.dscr !== undefined && !isNaN(Number(y1.dscr)) ? `${Number(y1.dscr).toFixed(2)}x` : 'N/A';
   const debtYield = y1 && y1.debtYield !== null && y1.debtYield !== undefined && !isNaN(Number(y1.debtYield)) ? `${Number(y1.debtYield).toFixed(2)}%` : 'N/A';
@@ -73,7 +79,10 @@ export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics, onUpdateInputs 
                       <th className="py-2.5 px-4 text-accent-rose">Interest Paid</th>
                       <th className="py-2.5 px-4">Ending Balance</th>
                       <th className="py-2.5 px-4 text-emerald-400">Cumulative Paydown</th>
-                      <th className="py-2.5 px-4 pr-5 text-slate-400">LTV (%)</th>
+                      <th className="py-2.5 px-4 text-slate-400" title={rolledIn
+                        ? 'Ending loan balance ÷ total financed basis (purchase + rehab + closing, as rolled into the loan): isolates pure loan paydown, ignoring appreciation.'
+                        : 'Ending loan balance ÷ original purchase price: isolates pure loan paydown, ignoring appreciation.'}>{costLabel} (%)</th>
+                      <th className="py-2.5 px-4 pr-5 text-slate-400" title="Ending loan balance ÷ projected property value: paydown plus appreciation (or cap-rate-driven value).">LTV @ Market (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60">
@@ -100,6 +109,7 @@ export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics, onUpdateInputs 
                           <td className="py-2.5 px-4 text-accent-rose font-semibold">{formatCurrency(row.interestPaid)}</td>
                           <td className="py-2.5 px-4">{formatCurrency(row.endingBalance)}</td>
                           <td className="py-2.5 px-4 text-emerald-400 font-bold">{formatCurrency(cumPaydown)}</td>
+                          <td className="py-2.5 px-4 text-slate-400 font-bold">{costBasis > 0 ? ((Number(row.endingBalance) || 0) / costBasis * 100).toFixed(1) : '0.0'}%</td>
                           <td className="py-2.5 px-4 pr-5 text-slate-400 font-bold">{proj ? (Number(proj.ltv) || 0).toFixed(1) : '0.0'}%</td>
                         </tr>
                       );
