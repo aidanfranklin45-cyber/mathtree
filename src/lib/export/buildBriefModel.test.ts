@@ -94,3 +94,20 @@ describe('DealBrief render', () => {
     expect(html).toContain('Not provided');
   });
 });
+
+describe('stub first year', () => {
+  it('reports the real monthly rent, not the stub year divided by 12', () => {
+    const deal = mkDeal({
+      purchasePrice: 300000, downPaymentPercent: 100, interestRate: 0, closingCosts: 12000, vacancyRate: 1, expenseRatio: 1, exitYear: 15,
+      closingDate: '2025-07-15', prorateFirstYear: true, firstYearMonths: 6,
+      leases: [{ tenantName: 'Tenant', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2025-07-15', leaseEndDate: '2036-07-31', escalationRate: 0 }],
+    });
+    const m = buildBriefModel(deal, [], []);
+    expect(m.isProrated).toBe(true);
+    expect(Number(m.p0.grossPotentialIncome)).toBeLessThan(m.annualRent);
+    expect(m.monthlyRent).toBeGreaterThan(2500);
+    expect(m.monthlyRent).toBeLessThan(2750);
+    const roll = buildBriefModel(deal, [{ tenant_name: 'Tenant', monthly_rent: 2600, is_active: true }], []);
+    expect(roll.warnings.some((w) => w.title === 'Rent Roll Differs From Underwriting')).toBe(false);
+  });
+});

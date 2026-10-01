@@ -98,6 +98,20 @@ export interface MonteCarloResult {
     rentGrowthRange: [number, number];
     vacancyRange: [number, number];
     exitMetricRange: [number, number];
+    /** What was varied and by how much (one standard deviation, in percentage points), so a report can state it. */
+    volatility: {
+      holdYears: number;
+      /** True when signed lease rent is held fixed and only rent after a lease ends drifts. */
+      contractualRentFixed: boolean;
+      rentGrowthStdDev: number;
+      /** Null for single-family, which uses a turnover-event model instead of a bell curve. */
+      vacancyStdDev: number | null;
+      exitMetricStdDev: number;
+      appreciationStdDev: number;
+      baselineAppreciation: number;
+      costInflationMean: number;
+      costInflationStdDev: number;
+    };
   };
 }
 
@@ -278,6 +292,13 @@ export function createMonteCarloRunner(
         : 1.5;
 
   const unitCount = parseInt(String(inputs.unitCount || inputs.storageUnitCount || 0), 10);
+  // One vacancy standard deviation per asset type, used by the sampler and reported in the result
+  const vacancySigma =
+    assetType === 'single-family' ? null
+    : assetType === 'multi-unit' ? vacancyStdDev / Math.sqrt(Math.max(1, (unitCount || 8) / 4))
+    : assetType === 'commercial' ? vacancyStdDev * 0.75
+    : assetType === 'storage' ? vacancyStdDev * 1.15
+    : vacancyStdDev;
   const holdYears = Math.max(1, Math.round(num(inputs.exitYear) ?? num(inputs.holdingPeriod) ?? 10));
   const holdMonths = holdYears * 12;
   const hurdleRate = options.hurdleRatePct ?? num(inputs.discountRate) ?? 8;
@@ -327,13 +348,12 @@ export function createMonteCarloRunner(
         sampledVacancy = Math.max(0, gaussian(0.5, 0.4));
       }
     } else if (assetType === 'multi-unit') {
-      const effectiveStdDev = vacancyStdDev / Math.sqrt(Math.max(1, (unitCount || 8) / 4));
-      sampledVacancy = Math.max(1.0, Math.min(45.0, gaussian(baseVacancy, effectiveStdDev)));
+      sampledVacancy = Math.max(1.0, Math.min(45.0, gaussian(baseVacancy, vacancySigma as number)));
     } else if (assetType === 'commercial') {
       // Ordinary vacancy noise only: a tenant default is modelled separately and visibly
-      sampledVacancy = isZeroIncome ? 0 : Math.max(0.5, Math.min(30.0, gaussian(baseVacancy, vacancyStdDev * 0.75)));
+      sampledVacancy = isZeroIncome ? 0 : Math.max(0.5, Math.min(30.0, gaussian(baseVacancy, vacancySigma as number)));
     } else if (assetType === 'storage') {
-      sampledVacancy = Math.max(2.0, Math.min(45.0, gaussian(baseVacancy, vacancyStdDev * 1.15)));
+      sampledVacancy = Math.max(2.0, Math.min(45.0, gaussian(baseVacancy, vacancySigma as number)));
     } else {
       sampledVacancy = Math.max(1.0, Math.min(45.0, gaussian(baseVacancy, vacancyStdDev)));
     }
@@ -462,6 +482,17 @@ export function createMonteCarloRunner(
         exitMetricRange: usesCap
           ? [round2(Math.max(1, baseExitCap - exitCapSpreadPct)), round2(baseExitCap + exitCapSpreadPct)]
           : [round1(baseApprec - apprecStdDev), round1(baseApprec + apprecStdDev)],
+        volatility: {
+          holdYears,
+          contractualRentFixed: hasLeaseIncome,
+          rentGrowthStdDev: growthStdDev,
+          vacancyStdDev: vacancySigma === null ? null : round2(vacancySigma),
+          exitMetricStdDev: usesCap ? exitCapSpreadPct : apprecStdDev,
+          appreciationStdDev: apprecStdDev,
+          baselineAppreciation: baseApprec,
+          costInflationMean: 2.5,
+          costInflationStdDev: 1.0,
+        },
       },
     };
   };
