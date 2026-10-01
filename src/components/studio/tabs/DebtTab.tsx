@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { DealRecord, DealMetrics } from '../../../lib/math/types';
+import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { formatCurrency } from '../../../lib/format';
 import { getProjectionStartYear } from '../../../lib/studio/projectionYear';
 import { firstFullYear } from '../../../lib/engine';
+import { DownPaymentSensitivityCard } from '../DownPaymentSensitivityCard';
 
 interface DebtTabProps {
   deal: DealRecord;
   metrics: DealMetrics;
+  onUpdateInputs?: (patch: Partial<DealInputs>) => void;
 }
 
 const tile = 'bg-slate-950/60 p-3 rounded-xl border border-slate-900';
 const tileLabel = 'text-[10px] font-bold tracking-wider text-slate-500 uppercase';
 
-export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics }) => {
+export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics, onUpdateInputs }) => {
   const [open, setOpen] = useState(true);
   const projections = (metrics.projections ?? []) as Array<Record<string, any>>;
   const schedule = (metrics.amortizationSchedule ?? []) as Array<Record<string, any>>;
@@ -109,6 +111,9 @@ export const DebtTab: React.FC<DebtTabProps> = ({ deal, metrics }) => {
           </div>
         )}
       </div>
+
+      <DownPaymentSensitivityCard deal={deal} metrics={metrics} onUpdateInputs={onUpdateInputs} />
     </div>
   );
 };
+

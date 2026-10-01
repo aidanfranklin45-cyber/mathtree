@@ -144,9 +144,9 @@ export const DealStudioPage: React.FC = () => {
         {activeTab === 'overview' && <OverviewTab deal={deal} metrics={metrics} onSelectTab={setActiveTab} onOpenEdit={() => setIsEditModalOpen(true)} />}
         {activeTab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
         {activeTab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
-        {activeTab === 'debt' && <DebtTab deal={deal} metrics={metrics} />}
+        {activeTab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
         {activeTab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
-        {activeTab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} />}
+        {activeTab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
         {activeTab === 'tax' && tax && <TaxTab deal={deal} metrics={metrics} tax={tax} />}
         {activeTab === 'tax' && !tax && (
           <div className="flex items-center justify-center py-20">

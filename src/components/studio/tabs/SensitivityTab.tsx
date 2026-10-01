@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { DealRecord, DealMetrics } from '../../../lib/math/types';
+import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { calculateSensitivityMatrix, createMonteCarloRunner, seedFromText, DEFAULT_TENANT_DEFAULT, type MonteCarloResult } from '../../../lib/engine';
 import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from '../../../lib/engine/expiryDefaults';
+
 import { prepareEngineInputs } from '../../../lib/engine/compute';
 import { formatCurrency } from '../../../lib/format';
 import { resolveDealDisplayName } from '../../../lib/math/pointInTime';
 import { MonteCarloChart } from '../MonteCarloChart';
 import { StochasticPrimerModal } from '../StochasticPrimerModal';
+import { DownPaymentSensitivityCard } from '../DownPaymentSensitivityCard';
 
 interface Props {
   deal: DealRecord;
   metrics: DealMetrics;
+  onUpdateInputs?: (patch: Partial<DealInputs>) => void;
 }
 
 type RowParam = 'interestRate' | 'purchasePrice' | 'downPaymentPercent';
@@ -30,7 +33,7 @@ function normalizeAsset(ac: string): string {
   return 'commercial';
 }
 
-export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
+export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs }) => {
   const [rowParam, setRowParam] = useState<RowParam>('interestRate');
   const [colParam, setColParam] = useState<ColParam>('targetCapRate');
   const [volRent, setVolRent] = useState(1.5);
@@ -389,7 +392,10 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
         </div>
       </div>
 
+      <DownPaymentSensitivityCard deal={deal} metrics={metrics} onUpdateInputs={onUpdateInputs} />
+
       <StochasticPrimerModal isOpen={primerOpen} onClose={() => setPrimerOpen(false)} deal={deal} metrics={metrics} />
     </div>
   );
 };
+
