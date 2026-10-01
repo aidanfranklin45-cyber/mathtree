@@ -9,6 +9,7 @@ import { CompareHeader } from '../components/compare/CompareHeader';
 import { CompareMatrixTable } from '../components/compare/CompareMatrixTable';
 import { CompareCharts } from '../components/compare/CompareCharts';
 import { AddProjectModal } from '../components/compare/AddProjectModal';
+import { WhatIfScrubberBar } from '../components/compare/WhatIfScrubberBar';
 import {
   ComparisonMode,
   ComparisonColumn,
@@ -271,6 +272,16 @@ export const ComparePage: React.FC = () => {
     }
   };
 
+  const currentFocusDeal = useMemo(() => {
+    return deals.find((d) => d.id === selectedSingleDealId) || deals[0];
+  }, [deals, selectedSingleDealId]);
+
+  const handleAddWhatIf = (overrides: Partial<DealInputs>, name: string) => {
+    if (!currentFocusDeal) return;
+    const newCol = buildColumn(currentFocusDeal, 'custom', name, overrides, false);
+    setColumns((prev) => [...prev, newCol]);
+  };
+
   // Winners calculation
   const winners = useMemo(() => evaluateWinners(columns), [columns]);
 
@@ -293,6 +304,14 @@ export const ComparePage: React.FC = () => {
           selectedSingleDealId={selectedSingleDealId}
           onSelectSingleDeal={handleSelectSingleDeal}
         />
+
+        {/* Interactive What-If Scrubber in Scenario / Version Mode */}
+        {mode === 'versions' && currentFocusDeal && (
+          <WhatIfScrubberBar
+            deal={currentFocusDeal}
+            onAddWhatIfColumn={handleAddWhatIf}
+          />
+        )}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
