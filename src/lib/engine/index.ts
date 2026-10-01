@@ -10,6 +10,7 @@ export {
   calculateProjections,
   calculateMonthlyProjections,
   calculateSensitivityMatrix,
+  calculateDownPaymentMatrix,
   calculateTaxMetrics,
   calculateTaxAndDepreciation,
   calculateHoldingPeriodWealth,
@@ -20,7 +21,6 @@ export {
   calculateNPV,
   calculateIRR,
   calculateRefinanceEvent,
-  runMonteCarloSimulation,
   solveTargetPurchasePrice,
   generateScenarioVariants,
   aggregatePortfolio,
@@ -31,5 +31,10 @@ export {
   firstFullYear,
   numOr,
 } from '@engine/math-engine.ts';
-export { runMonteCarlo } from '@engine/monte-carlo.ts';
-export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin } from '@engine/monte-carlo.ts';
+export type {
+  DownPaymentMatrixRow,
+  DownPaymentMatrixResult,
+} from '@engine/math-engine.ts';
+export { runMonteCarlo, createMonteCarloRunner, buildFixedHistogram, seededRandom, seedFromText, DEFAULT_TENANT_DEFAULT, DEFAULT_TURNOVER } from '@engine/monte-carlo.ts';
+export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin, MonteCarloRunner, ProfitSummary } from '@engine/monte-carlo.ts';
+

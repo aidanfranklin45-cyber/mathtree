@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase, SUPABASE_URL } from '../lib/supabase/client';
+import { RentChecklist } from '../components/operations/RentChecklist';
 
 /**
  * Public, zero-login landing page for the one-click buttons in rent-alert emails
@@ -82,7 +83,7 @@ async function runAction(rpc: string, params: Record<string, unknown>, action: s
   }
 }
 
-export const ReconcilePage: React.FC = () => {
+const SingleActionPage: React.FC = () => {
   const [params] = useSearchParams();
   const [view, setView] = useState<View>({
     tone: 'loading', badge: '', title: 'Processing Action', subtitle: 'Connecting to MathTree ledger...', rows: [], primary: 'Open Operations',
@@ -195,4 +196,15 @@ export const ReconcilePage: React.FC = () => {
       </div>
     </div>
   );
+};
+
+/**
+ * One public page for every link in the rent emails. A link with action=manage opens the multi-tenant checklist; the others are the
+ * one-tenant Confirm / Snooze / Undo buttons.
+ */
+export const ReconcilePage: React.FC = () => {
+  const [params] = useSearchParams();
+  const token = (params.get('token') || '').trim();
+  if ((params.get('action') || '').toLowerCase().trim() === 'manage' && token) return <RentChecklist token={token} />;
+  return <SingleActionPage />;
 };

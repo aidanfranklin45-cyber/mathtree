@@ -35,6 +35,7 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [followupFreq, setFollowupFreq] = useState('3');
   const [followupMax, setFollowupMax] = useState('3');
   const [snoozeDays, setSnoozeDays] = useState(''); // blank = use each lease's grace period
+  const [digestMin, setDigestMin] = useState('3'); // combine into one email per property at this many tenants; 0 = never
   const [timingMsg, setTimingMsg] = useState<Msg>(null);
 
   const [testEmail, setTestEmail] = useState('');
@@ -68,6 +69,7 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
         if (p.followup_frequency_days !== undefined) setFollowupFreq(String(p.followup_frequency_days));
         if (p.followup_max_count !== undefined) setFollowupMax(String(p.followup_max_count));
         if (p.snooze_days !== undefined && p.snooze_days !== null) setSnoozeDays(String(p.snooze_days));
+        if (p.digest_min_tenants !== undefined) setDigestMin(String(p.digest_min_tenants));
       }
     })();
     return () => { live = false; };
@@ -105,6 +107,7 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       followup_frequency_days: parseInt(followupFreq || '3', 10),
       followup_max_count: parseInt(followupMax || '3', 10),
       snooze_days: snoozeDays === '' ? null : parseInt(snoozeDays, 10),
+      digest_min_tenants: parseInt(digestMin || '3', 10),
     };
     const { error } = await supabase
       .from('profiles')
@@ -260,6 +263,14 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               </div>
               <p className="text-[10px] text-slate-500">Follow-ups are counted per month's rent and pause while a snooze is running. Every email has Confirm and Snooze buttons.</p>
+              <div className="space-y-1 pt-1">
+                <label className="block text-[11px] font-semibold text-slate-300">Buildings with several tenants</label>
+                <select value={digestMin} onChange={(e) => setDigestMin(e.target.value)} className={`w-full ${field}`}>
+                  <option value="0">Always one email per tenant</option>
+                  {['2', '3', '5', '10'].map((v) => <option key={v} value={v}>One email per property when {v} or more tenants are due</option>)}
+                </select>
+                <p className="text-[10px] text-slate-500">The combined email lists every tenant with its own Paid and Missing buttons, so a 12-unit building sends one email instead of twelve.</p>
+              </div>
             </div>
             <div className="flex items-center justify-between pt-1">
               <button type="button" onClick={saveTiming} className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition flex items-center space-x-1.5 text-xs shadow-md shadow-cyan-900/30">

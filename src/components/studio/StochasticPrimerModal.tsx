@@ -2,6 +2,7 @@ import React from 'react';
 import type { DealMetrics, DealRecord } from '../../lib/math/types';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { formatCurrency } from '../../lib/format';
+import { currentLeases } from '../../lib/leases';
 
 interface Props {
   isOpen: boolean;
@@ -26,7 +27,7 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
   const asset = normalizeAsset(String(deal.asset_class));
   const dealName = resolveDealDisplayName(deal);
   const p1: Record<string, any> = (metrics.projections?.[0] as any) || {};
-  const leases: any[] = Array.isArray(inputs.leases) ? inputs.leases : [];
+  const leases: any[] = currentLeases(inputs);
 
   let tenantInfo: React.ReactNode;
   if (asset === 'commercial') {

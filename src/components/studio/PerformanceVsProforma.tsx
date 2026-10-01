@@ -64,7 +64,7 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
 
   const canRebaseline = !deal.is_shared && !deal.is_demo;
   const onRebaseline = async () => {
-    if (!window.confirm('Replace the frozen baseline with today’s assumptions? The original expectation will be discarded.')) return;
+    if (!window.confirm('Replace the baseline with today’s assumptions? The current baseline is kept in history.')) return;
     setBusy(true);
     await rebaseline(deal);
     await load();
@@ -82,8 +82,14 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
 
   const captured = new Date(baseline.captured_at);
   const capturedStr = isNaN(captured.getTime()) ? '' : captured.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const collectedPct = cmp.expectedYtd > 0 ? (cmp.collectedYtd / cmp.expectedYtd) * 100 : null;
-  const revenueGap = cmp.collectedYtd - cmp.expectedYtd;
+  // Compare collections only with what was projected for the months that have payment records; a month with no record is unknown, not zero
+  const ytdCov = cmp.coverage.ytd;
+  const t12Cov = cmp.coverage.trailing12;
+  const collectedPct = ytdCov.expectedRecorded > 0 ? (cmp.collectedYtd / ytdCov.expectedRecorded) * 100 : null;
+  const revenueGap = cmp.collectedYtd - ytdCov.expectedRecorded;
+  const t12Pct = t12Cov.expectedRecorded > 0 ? (cmp.trailing12.collected / t12Cov.expectedRecorded) * 100 : null;
+  const t12Gap = cmp.trailing12.collected - t12Cov.expectedRecorded;
+  const coverageText = (c: { recorded: number; total: number }) => (c.recorded >= c.total ? `all ${c.total} months recorded` : `${c.recorded} of ${c.total} months recorded`);
 
   return (
     <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
@@ -108,7 +114,7 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
               onClick={onRebaseline}
               disabled={busy}
               className="px-2 py-0.5 rounded border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition disabled:opacity-50"
-              title="Discard the frozen baseline and capture today's assumptions"
+              title="Capture today's assumptions as the new baseline (the current one is kept in history)"
             >
               {busy ? 'Working…' : 'Re-baseline'}
             </button>
@@ -166,12 +172,18 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
               <p className="text-[10px] font-bold text-slate-500 uppercase">Last 12 months: actual collected</p>
               <p className="text-base font-extrabold text-brand-400 mt-1">{formatCurrency(cmp.trailing12.collected)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{coverageText(t12Cov)}</p>
             </div>
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
               <p className="text-[10px] font-bold text-slate-500 uppercase">Actual vs projected</p>
-              <p className={`text-base font-extrabold mt-1 ${cmp.trailing12.collected - cmp.trailing12.expected >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {cmp.trailing12.expected > 0 ? `${((cmp.trailing12.collected / cmp.trailing12.expected) * 100).toFixed(1)}%` : '—'}
-              </p>
+              {t12Pct === null ? (
+                <p className="text-sm font-bold text-slate-500 mt-1">No payments recorded</p>
+              ) : (
+                <>
+                  <p className={`text-base font-extrabold mt-1 ${t12Gap >= -0.5 ? 'text-emerald-400' : 'text-rose-400'}`}>{t12Pct.toFixed(1)}%</p>
+                  {t12Cov.recorded < t12Cov.total && <p className="text-[10px] text-slate-500 mt-0.5">on the {t12Cov.recorded} recorded months</p>}
+                </>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -186,15 +198,23 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
               <p className="text-[10px] font-bold text-slate-500 uppercase">Actual collected YTD</p>
               <p className="text-base font-extrabold text-brand-400 mt-1">{formatCurrency(cmp.collectedYtd)}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{coverageText(ytdCov)}</p>
             </div>
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-900">
               <p className="text-[10px] font-bold text-slate-500 uppercase">Actual vs projected</p>
-              <p className={`text-base font-extrabold mt-1 ${revenueGap >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {collectedPct === null ? '—' : `${collectedPct.toFixed(1)}%`}
-                <span className="text-[10px] font-mono font-normal text-slate-400 ml-1.5">
-                  ({revenueGap >= 0 ? '+' : '-'}{formatCurrency(Math.abs(revenueGap))})
-                </span>
-              </p>
+              {collectedPct === null ? (
+                <p className="text-sm font-bold text-slate-500 mt-1">No payments recorded</p>
+              ) : (
+                <>
+                  <p className={`text-base font-extrabold mt-1 ${revenueGap >= -0.5 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {collectedPct.toFixed(1)}%
+                    <span className="text-[10px] font-mono font-normal text-slate-400 ml-1.5">
+                      ({revenueGap >= 0 ? '+' : '-'}{formatCurrency(Math.abs(revenueGap))})
+                    </span>
+                  </p>
+                  {ytdCov.recorded < ytdCov.total && <p className="text-[10px] text-slate-500 mt-0.5">on the {ytdCov.recorded} recorded months</p>}
+                </>
+              )}
             </div>
           </div>
 
@@ -212,7 +232,7 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
               <tbody className="divide-y divide-slate-900/60">
                 {cmp.months.map((m) => {
                   const gap = m.collected - m.expected;
-                  const settled = !m.isCurrent || m.collected > 0;
+                  const settled = m.recorded;
                   return (
                     <tr key={m.month} className="hover:bg-slate-900/30 transition">
                       <td className="py-2 px-3 font-semibold text-slate-300">
@@ -221,7 +241,9 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
                       </td>
                       <td className="py-2 px-3 font-mono text-slate-200">{m.expected > 0 ? formatCurrency(m.expected) : '—'}</td>
                       <td className="py-2 px-3 font-mono text-slate-200">{m.contractual > 0 ? formatCurrency(m.contractual) : '—'}</td>
-                      <td className="py-2 px-3 font-mono font-bold text-white">{m.collected > 0 ? formatCurrency(m.collected) : '—'}</td>
+                      <td className="py-2 px-3 font-mono font-bold text-white">
+                        {m.recorded ? formatCurrency(m.collected) : <span className="font-sans font-normal italic text-slate-500">not recorded</span>}
+                      </td>
                       <td className={`py-2 px-3 font-mono font-bold ${!settled || m.expected === 0 ? 'text-slate-500' : gap >= -0.5 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {!settled || m.expected === 0 ? '—' : `${gap >= 0 ? '+' : '-'}${formatCurrency(Math.abs(gap))}`}
                       </td>

@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase/client';
 import { AddressService } from '../../../lib/services/addressService';
 import { computeDealMetrics } from '../../../lib/engine/compute';
 import { formatCurrency } from '../../../lib/format';
+import { rentRollToInputs } from '../../../lib/underwriting/rentRollInputs';
 
 interface EditInputsModalProps {
   isOpen: boolean;
@@ -32,11 +33,20 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
   const [saving, setSaving] = useState(false);
   const [addrResults, setAddrResults] = useState<any[]>([]);
   const addrTimer = useRef<ReturnType<typeof setTimeout>>();
+  // The property's tenant rent roll (operating records), offered as an underwriting source for deals that are not owned yet
+  const [roll, setRoll] = useState<{ leases: any[]; units: any[]; loaded: boolean }>({ leases: [], units: [], loaded: false });
+  const [rollApplied, setRollApplied] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setForm(seedForm(deal));
     setAddrResults([]);
+    setRollApplied(false);
+    setRoll({ leases: [], units: [], loaded: false });
+    Promise.all([
+      supabase.from('leases').select('*').eq('deal_id', deal.id).eq('is_active', true),
+      supabase.from('units').select('*').eq('deal_id', deal.id),
+    ]).then(([l, u]) => setRoll({ leases: (l.data as any[]) ?? [], units: (u.data as any[]) ?? [], loaded: true })).catch(() => setRoll({ leases: [], units: [], loaded: true }));
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, deal.id]);
@@ -45,6 +55,11 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
   const asset = String(deal.asset_class ?? 'commercial');
 
   const built = useMemo(() => buildInputs(form, deal), [form, deal]);
+
+  const isOwnedDeal = (deal as { status?: string }).status === 'owned';
+  const rollResult = useMemo(() => rentRollToInputs({ leases: roll.leases, units: roll.units, today: new Date().toISOString().slice(0, 10), assetClass: asset }), [roll, asset]);
+  // Once a deal is underwritten from its rent roll, its tenants and rent are read-only here (the rent roll is where they change)
+  const rollMode = rollApplied || (deal.inputs as Record<string, unknown>)?.rentRollSource === 'rent_roll';
 
   // Live pro-forma: derived on demand by the shared engine, never stored.
   const preview = useMemo(() => {
@@ -63,14 +78,14 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     try {
       const inputs: Record<string, any> = { ...built };
       if (inputs.grossRentAnnual === 0 || inputs.monthlyRent === 0) inputs.leases = [];
-      const m: any = computeDealMetrics({ asset_class: deal.asset_class, inputs: { ...deal.inputs, ...inputs } as DealInputs });
+      const m: any = computeDealMetrics({ asset_class: deal.asset_class, inputs: { ...deal.inputs, ...inputs, ...(rollApplied ? rollResult.patch : {}) } as DealInputs });
       cf = m.projections?.[0]?.cashFlow ?? 0;
       npv = m.npv ?? 0;
     } catch {
       /* incomplete form: show the static part only */
     }
     return { ltv, loan, equity, cf, npv };
-  }, [form, built, deal]);
+  }, [form, built, deal, rollApplied, rollResult]);
 
   const onLocation = (val: string) => {
     set('location', val);
@@ -101,12 +116,16 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
 
     // In-place lease terms
     const monthlyRent = built.monthlyRent || built.grossRentPerMonth || 0;
-    patch.tenantName = form.tenantName.trim() || name;
-    patch.leaseStartDate = form.leaseStart || built.closingDate || '';
-    patch.leaseEndDate = form.leaseEnd || '';
+    if (!rollMode) {
+      patch.tenantName = form.tenantName.trim() || name;
+      patch.leaseStartDate = form.leaseStart || built.closingDate || '';
+      patch.leaseEndDate = form.leaseEnd || '';
+    }
     const existingLease = (Array.isArray((deal.inputs as any)?.leases) && (deal.inputs as any).leases[0]) || {};
     const numOr = (v: string, fb: number) => { const n = parseFloat(v); return isNaN(n) ? fb : n; };
-    patch.leases = monthlyRent > 0
+    // This form edits the primary (first) lease; any other leases on the deal (e.g. an earlier intercompany rent period) are kept as they are
+    const otherLeases = Array.isArray((deal.inputs as any)?.leases) ? (deal.inputs as any).leases.slice(1) : [];
+    if (!rollMode) patch.leases = monthlyRent > 0
       ? [{
           ...existingLease,
           paymentDueDay: Math.min(31, Math.max(1, parseInt(form.dueDay, 10) || 1)),
@@ -131,8 +150,16 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
           escalationFrequency: 'Annual on Anniversary',
           nextEscalationDate: form.nextEscalation,
           is_active: true,
-        }]
+        }, ...otherLeases]
       : [];
+
+    if (rollMode) {
+      // The tenants and their rent are the rent roll's: keep the saved totals unless the owner just re-applied it
+      for (const k of ['grossRentAnnual', 'grossRentPerMonth', 'monthlyRent'] as const) {
+        if ((deal.inputs as Record<string, unknown>)?.[k] !== undefined) patch[k] = (deal.inputs as Record<string, unknown>)[k];
+      }
+    }
+    if (rollApplied) Object.assign(patch, rollResult.patch);
 
     const ok = await onSave(patch as Partial<DealInputs>, {
       title: name,
@@ -259,11 +286,11 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className={label}>Annual Gross Rent ($) <span className="text-slate-600 font-normal">(Commercial)</span></label>
-                <input type="number" min="0" step="any" value={form.grossRentAnnual} onChange={(e) => set('grossRentAnnual', e.target.value)} className={inp2} />
+                <input type="number" min="0" step="any" value={form.grossRentAnnual} onChange={(e) => set('grossRentAnnual', e.target.value)} disabled={rollMode} className={`${inp2} ${rollMode ? 'opacity-50' : ''}`} />
               </div>
               <div className="space-y-1">
                 <label className={label}>Monthly Rent / Unit ($) <span className="text-slate-600 font-normal">(SFR · Multi · Storage)</span></label>
-                <input type="number" min="0" step="any" value={form.grossRentMonthly} onChange={(e) => set('grossRentMonthly', e.target.value)} className={inp2} />
+                <input type="number" min="0" step="any" value={form.grossRentMonthly} onChange={(e) => set('grossRentMonthly', e.target.value)} disabled={rollMode} className={`${inp2} ${rollMode ? 'opacity-50' : ''}`} />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3 pt-1 border-t border-slate-900">
@@ -414,6 +441,50 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
             </div>
           </div>
 
+          <div className="p-3 bg-slate-950/60 rounded-xl border border-sky-900/40 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-sky-400">🏢 Tenant Rent Roll</span>
+              <span className="text-[10px] text-slate-400">{rollMode ? 'Underwritten tenant by tenant' : 'Optional'}</span>
+            </div>
+            {isOwnedDeal ? (
+              <p className="text-[11px] text-slate-400 leading-relaxed">This property is owned, so its underwriting stays frozen at purchase (see the baseline on the Overview tab). Your tenants live in Operations &rarr; Rent Roll and are compared with that baseline.</p>
+            ) : !roll.loaded ? (
+              <p className="text-[11px] text-slate-500">Loading the rent roll&hellip;</p>
+            ) : rollResult.summary.tenants === 0 && !rollMode ? (
+              <p className="text-[11px] text-slate-400 leading-relaxed">No tenants are entered for this property yet. Add them in Operations &rarr; Rent Roll (you can paste them from a spreadsheet), then come back here to underwrite from them. A single-tenant property just uses the lease fields below.</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {([
+                    ['Tenants', String(rollResult.summary.tenants)],
+                    ['Vacant units', String(rollResult.summary.vacantUnits)],
+                    ['Monthly rent', formatCurrency(rollResult.summary.monthlyRent)],
+                    ['Annual rent', formatCurrency(rollResult.summary.annualRent)],
+                  ] as const).map(([l, v]) => (
+                    <div key={l} className="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5"><div className="text-[9px] font-bold uppercase text-slate-500">{l}</div><div className="text-xs font-extrabold text-white">{v}</div></div>
+                  ))}
+                </div>
+                {rollResult.warnings.map((w) => <p key={w} className="text-[10px] text-amber-300/90 leading-relaxed">&bull; {w}</p>)}
+                {rollApplied ? (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
+                    <span>These {rollResult.summary.tenants} tenants replace the single-tenant inputs when you press Save.</span>
+                    <button type="button" onClick={() => setRollApplied(false)} className="px-2 py-0.5 rounded-md border border-emerald-500/40 text-emerald-200 hover:text-white">Undo</button>
+                  </div>
+                ) : (
+                  <button type="button" disabled={rollResult.summary.tenants === 0} onClick={() => setRollApplied(true)} className="w-full py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold disabled:opacity-40">Underwrite from this rent roll</button>
+                )}
+                {rollMode && !rollApplied && (
+                  <p className="text-[10px] text-slate-500 leading-relaxed">Currently underwritten from {String((deal.inputs as Record<string, unknown>)?.rentRollTenantCount ?? '')} tenants as of {String((deal.inputs as Record<string, unknown>)?.rentRollAsOf ?? '')}. After changing the rent roll, press the button again to refresh. This is a one-way copy you choose to make; nothing updates the underwriting automatically.</p>
+                )}
+              </>
+            )}
+          </div>
+
+          {rollMode ? (
+            <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80 text-[11px] text-slate-400 leading-relaxed">
+              Tenants, rents and lease dates come from the rent roll. To change a tenant, edit it in Operations &rarr; Rent Roll and press <strong>Underwrite from this rent roll</strong> again.
+            </div>
+          ) : (
           <div className="p-3 bg-slate-950/60 rounded-xl border border-emerald-900/40 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">📑 In-Place Lease & Tenant Terms</span>
@@ -510,6 +581,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               )}
             </div>
           </div>
+          )}
 
           <div className="space-y-2">
             {asset === 'commercial' && (

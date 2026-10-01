@@ -18,7 +18,7 @@ interface Props {
 type Asset = 'single-family' | 'multi-unit' | 'commercial' | 'storage';
 
 interface Defaults {
-  name: string; location: string; marketTier: string; propertyClass: string; facilityType: string; subTypes: string[];
+  marketTier: string; propertyClass: string; facilityType: string; subTypes: string[];
   gla: number; leaseType: string; price: number; down: number; closing: number; rehab: number; rent: number; other: number;
   vacancy: number; rentGrowth: number; opexRatio: number; expenseGrowth: number; rate: number; amort: number; exitCap: number; apprec: number;
   sfrArv?: number; sfrSqFt?: number; multiUnits?: number; multiSqFt?: number; rentPerUnit?: number; commSqFt?: number; annualRent?: number;
@@ -27,34 +27,52 @@ interface Defaults {
 
 const DEFAULTS: Record<Asset, Defaults> = {
   'single-family': {
-    name: 'Benchmark Gamma: Single-Family BRRRR Case', location: 'Synthetic Model • Generic Metro', marketTier: 'Tier 2', propertyClass: 'Class B',
+    marketTier: 'Tier 2', propertyClass: 'Class B',
     facilityType: 'BRRRR Value-Add Single-Family',
     subTypes: ['Turnkey Single-Family Rental', 'BRRRR Value-Add Single-Family', 'New Construction Spec SFR', 'Single-Family Fix & Flip'],
     gla: 2400, sfrSqFt: 2400, sfrArv: 450000, leaseType: 'Gross', price: 450000, down: 20, closing: 9000, rehab: 20000, rent: 3200, other: 0,
     vacancy: 4.0, rentGrowth: 3.0, opexRatio: 30.0, expenseGrowth: 2.5, rate: 6.5, amort: 30, exitCap: 6.0, apprec: 3.5,
   },
   'multi-unit': {
-    name: 'Benchmark Beta: 12-Unit Multifamily Value-Add', location: 'Synthetic Model • Generic Metro', marketTier: 'Tier 2', propertyClass: 'Class B',
+    marketTier: 'Tier 2', propertyClass: 'Class B',
     facilityType: 'Garden-Style Community',
     subTypes: ['Garden-Style Community', 'Mid / High-Rise Apartments', 'Duplex / Triplex / Quadplex (2-4 Units)', 'Build-to-Rent (BTR) Community'],
     multiUnits: 12, multiSqFt: 11000, gla: 11000, leaseType: 'Gross', rentPerUnit: 1500, price: 1850000, down: 25, closing: 37000, rehab: 75000,
     rent: 18000, other: 800, vacancy: 6.0, rentGrowth: 3.5, opexRatio: 40.0, expenseGrowth: 2.5, rate: 6.25, amort: 30, exitCap: 6.5, apprec: 4.0,
   },
   commercial: {
-    name: 'Benchmark Alpha: Class-A Industrial Facility', location: 'Synthetic Model • Generic Metro', marketTier: 'Tier 1', propertyClass: 'Class A',
+    marketTier: 'Tier 1', propertyClass: 'Class A',
     facilityType: 'Industrial Logistics / Warehouse',
     subTypes: ['Industrial Logistics / Warehouse', 'Retail Strip / Center', 'Class-A Office / Medical', 'Flex / R&D Facility'],
     gla: 15000, commSqFt: 15000, leaseType: 'NNN', annualRent: 150000, price: 1200000, down: 25, closing: 24000, rehab: 50000, rent: 12500, other: 500,
     vacancy: 5.0, rentGrowth: 3.0, opexRatio: 35.0, expenseGrowth: 2.5, rate: 6.5, amort: 30, exitCap: 6.75, apprec: 3.5,
   },
   storage: {
-    name: 'Benchmark Delta: Automated Self-Storage Facility', location: 'Synthetic Model • Generic Metro', marketTier: 'Tier 1', propertyClass: 'Class A',
+    marketTier: 'Tier 1', propertyClass: 'Class A',
     facilityType: 'Drive-Up Standard (Single-Story)',
     subTypes: ['Climate-Controlled (Multi-Story)', 'Drive-Up Standard (Single-Story)', 'Outdoor / RV & Boat Parking', 'Hybrid Flex Facility'],
     storageUnits: 20, storageSqFt: 2000, isAutomated: true, leaseType: 'Gross', rentPerUnit: 85, gla: 2000, price: 230000, down: 30, closing: 4600, rehab: 5000,
     rent: 1700, other: 0, vacancy: 5.0, rentGrowth: 3.0, opexRatio: 30.0, expenseGrowth: 2.5, rate: 6.75, amort: 25, exitCap: 7.2, apprec: 3.0,
   },
 };
+
+export const ASSET_NAME_PLACEHOLDERS: Record<Asset, string> = {
+  'single-family': 'e.g. 808 W Fremont Ave or West Valley Residential',
+  'multi-unit': 'e.g. 12-Unit Multifamily Community or Apple Tree Vistas',
+  commercial: 'e.g. Industrial Logistics Center Alpha or Downtown Commercial',
+  storage: 'e.g. Automated Self-Storage Facility or Longfibre Storage',
+};
+
+export function deriveProjectName(customName: string, location: string, asset: Asset): string {
+  const trimmedName = customName.trim();
+  if (trimmedName) return trimmedName;
+  const trimmedLoc = location.trim();
+  if (trimmedLoc && trimmedLoc !== 'Synthetic Model • Generic Metro' && trimmedLoc !== 'United States') {
+    const street = trimmedLoc.split(',')[0].trim();
+    if (street) return street;
+  }
+  return `${ASSET_BADGES[asset]} Underwriting Project`;
+}
 
 const ASSET_CARDS: { id: Asset; icon: string; title: string; sub: string }[] = [
   { id: 'single-family', icon: '🏡', title: 'Single-Family', sub: 'SFR, Turnkey, BRRRR' },
@@ -82,7 +100,7 @@ const seed = (a: Asset): W => {
   const d = DEFAULTS[a];
   const s = (n: unknown) => String(n ?? '');
   return {
-    name: d.name, location: d.location, entity: '', asset: a, gla: s(d.gla), leaseType: d.leaseType,
+    name: '', location: '', entity: '', asset: a, gla: s(d.gla), leaseType: d.leaseType,
     rehabMode: 'out_of_pocket', facilityType: d.facilityType, marketTier: d.marketTier, propertyClass: d.propertyClass,
     price: s(d.price), down: s(d.down), closing: s(d.closing), rehab: s(d.rehab), grossRent: s(d.rent), other: s(d.other),
     vacancy: s(d.vacancy), rentGrowth: s(d.rentGrowth), opexRatio: s(d.opexRatio), expenseGrowth: s(d.expenseGrowth),
@@ -112,6 +130,7 @@ const int = (v: string, fb = 0) => { const n = parseInt(v, 10); return isNaN(n) 
 export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProjectCreated, onManageEntities }) => {
   const [step, setStep] = useState(1);
   const [w, setW] = useState<W>(() => seed('commercial'));
+  const [isNameTouched, setIsNameTouched] = useState(false);
   const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,7 +144,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   useEffect(() => {
     if (!isOpen) return;
-    setStep(1); setW(seed('commercial')); setError(null); setSubmitting(false);
+    setStep(1); setW(seed('commercial')); setIsNameTouched(false); setError(null); setSubmitting(false);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false);
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
@@ -137,7 +156,52 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     try { return AddressService.aggregateParcelPackage(parcels) as any; } catch { return { totalAcres: 0, totalSqFt: 0, totalAssessedValue: 0, totalParcels: 0 }; }
   }, [parcels]);
 
-  const selectAsset = (a: Asset) => set(seed(a));
+  const selectAsset = (a: Asset) => {
+    const d = DEFAULTS[a];
+    const s = (n: unknown) => String(n ?? '');
+    setW((prev) => ({
+      ...prev,
+      asset: a,
+      // Strictly preserve user identity and location inputs across asset class switches
+      name: prev.name,
+      location: prev.location,
+      entity: prev.entity,
+      gla: s(d.gla),
+      leaseType: d.leaseType,
+      facilityType: d.facilityType,
+      marketTier: prev.location ? prev.marketTier : d.marketTier,
+      propertyClass: d.propertyClass,
+      price: s(d.price),
+      down: s(d.down),
+      closing: s(d.closing),
+      rehab: s(d.rehab),
+      grossRent: s(d.rent),
+      other: s(d.other),
+      vacancy: s(d.vacancy),
+      rentGrowth: s(d.rentGrowth),
+      opexRatio: s(d.opexRatio),
+      expenseGrowth: s(d.expenseGrowth),
+      rate: s(d.rate),
+      amort: s(d.amort),
+      exitCap: s(d.exitCap),
+      apprec: s(d.apprec),
+      storageUnits: s(d.storageUnits ?? 20),
+      storageSqft: s(d.storageSqFt ?? 2000),
+      storageAutomated: String(d.isAutomated !== false),
+      storageRentPerUnit: s(d.rentPerUnit ?? 85),
+      storageGrossRent: s(d.rent ?? 1700),
+      multiUnits: s(d.multiUnits ?? 12),
+      multiSqft: s(d.multiSqFt ?? 11000),
+      multiRentPerUnit: s(d.rentPerUnit ?? 1500),
+      multiGrossRent: s(d.rent ?? 18000),
+      commSqft: s(d.commSqFt ?? 15000),
+      commAnnualRent: s(d.annualRent ?? d.rent * 12),
+      commGrossRent: s(d.rent),
+      sfrArv: s(d.sfrArv ?? 450000),
+      sfrSqft: s(d.sfrSqFt ?? 2400),
+      sfrGrossRent: s(d.rent),
+    }));
+  };
 
   const benchmark = useMemo(() => {
     try { return getBenchmarkCapRateRange(asset, w.marketTier, w.propertyClass, w.facilityType) as any; } catch { return null; }
@@ -188,6 +252,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     const { isYakima, isSpokane } = countyOf(item);
     const patch: W = { location: item.formattedAddress };
     if (isYakima || isSpokane) patch.marketTier = isSpokane ? 'Tier 2' : 'Tier 3';
+
+    // Auto-populate project name with street or parcel address if not manually customized
+    const suggestedName = item.street?.trim() || item.formattedAddress?.split(',')[0]?.trim() || item.formattedAddress?.trim() || '';
+    if (!isNameTouched || !w.name.trim()) {
+      patch.name = suggestedName;
+    }
+
     set(patch);
     setAddrOpen(false);
     try {
@@ -244,7 +315,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setSubmitting(true);
     setError(null);
     try {
-      const name = w.name.trim() || 'New Underwriting Project';
+      const name = deriveProjectName(w.name, w.location, asset);
       const location = w.location.trim() || 'United States';
       const purchasePrice = num(w.price, 1000000);
       const downPaymentPercent = num(w.down, 25);
@@ -306,6 +377,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         marketTier: w.marketTier, propertyClass: w.propertyClass, facilityType: w.facilityType,
         commTier: w.marketTier, commClass: w.propertyClass, storageTier: w.marketTier, storageClass: w.propertyClass,
         exitYear: profile.exitYear, discountRate: profile.discountRate, exitCapTiming: profile.exitCapTiming,
+        propertyAddress: location, address: location,
         county: a?.county || null, primaryApn: a?.apn || null,
         totalAcreage: a?.packageAcres || pkg.totalAcres || a?.acres || null,
         totalAssessedValue: pkg.totalAssessedValue || a?.totalAssessedValue || null,
@@ -359,8 +431,18 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       <div className={`space-y-5 ${step === 1 ? '' : 'hidden'}`}>
         <div className="space-y-1.5">
           <label htmlFor="wiz-deal-name" className={lbl}>Project / Deal Name</label>
-          <input id="wiz-deal-name" type="text" placeholder="e.g. Industrial Logistics Center Alpha" value={w.name} onChange={(e) => set({ name: e.target.value })}
-            className={`${inputBase} py-2.5 px-3.5 text-sm placeholder-slate-600 font-medium`} />
+          <input
+            id="wiz-deal-name"
+            type="text"
+            placeholder={w.location ? (w.location.split(',')[0].trim() || ASSET_NAME_PLACEHOLDERS[asset]) : ASSET_NAME_PLACEHOLDERS[asset]}
+            value={w.name}
+            onChange={(e) => {
+              const val = e.target.value;
+              setIsNameTouched(val.trim().length > 0);
+              set({ name: val });
+            }}
+            className={`${inputBase} py-2.5 px-3.5 text-sm placeholder-slate-600 font-medium`}
+          />
         </div>
 
         <div className="space-y-1.5">
