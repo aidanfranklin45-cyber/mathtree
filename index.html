@@ -2416,12 +2416,8 @@
     }
 
     function showAuthModal(initialTab) {
-      var existing = document.getElementById('_auth-modal');
-      if (existing) {
-        switchAuthTab(initialTab);
-        return;
-      }
-      initialTab = initialTab || 'signin';
+      window.location.href = '/login' + (initialTab === 'signup' ? '?mode=signup' : '');
+    }
 
       var modal = document.createElement('div');
       modal.id = '_auth-modal';

@@ -47,7 +47,7 @@
     ],
     "rewrites": [
       {
-        "source": "/{dashboard,dashboard.html,app,app.html,project,project.html,operations,operations.html,reconcile,reconcile.html}",
+        "source": "/{login,login.html,signin,dashboard,dashboard.html,app,app.html,project,project.html,operations,operations.html,reconcile,reconcile.html}",
         "destination": "/app.html"
       },
       {

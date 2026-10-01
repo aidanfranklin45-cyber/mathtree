@@ -11,6 +11,7 @@ import type { Plugin } from 'vite';
 const APP_PATHS = new Set([
   '/', '/app', '/app.html', '/dashboard', '/dashboard.html', '/project', '/project.html',
   '/operations', '/operations.html', '/reconcile', '/reconcile.html',
+  '/login', '/login.html', '/signin',
   ...['proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'].flatMap((t) => [`/project-${t}`, `/project-${t}.html`]),
 ]);
 const reactDevRoutes = (): Plugin => ({

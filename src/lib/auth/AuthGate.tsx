@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-const LOGIN_URL = '/index.html';
+const LOGIN_URL = '/login';
 
 function isDemoVisit(): boolean {
   try {
@@ -40,7 +40,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     const session = window.MathTreeSession;
 
     if (session?.isTimedOut()) {
-      session.logout('timeout', supabase);
+      session.logout('timeout', supabase, LOGIN_URL);
       return;
     }
 
