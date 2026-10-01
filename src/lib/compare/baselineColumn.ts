@@ -42,3 +42,12 @@ export function baselineEngineDriftNote(row: Pick<BaselineRow, 'projected_irr'>,
   if (Number.isNaN(frozen) || Math.abs(frozen - recomputedIrr) < 0.1) return null;
   return `The Acquisition Baseline re-runs the inputs frozen at acquisition through today's engine (${recomputedIrr.toFixed(1)}% IRR). The record kept at the time showed ${frozen.toFixed(1)}%, so the engine has changed since.`;
 }
+
+/**
+ * The deal with a scenario's overrides applied: what is captured when the owner adopts that scenario as the new baseline.
+ * Undefined overrides are dropped (they would blank the field); the engine then reads exactly what the column showed.
+ */
+export function dealWithScenario(deal: DealRecord, overrides: Partial<DealInputs> | undefined): DealRecord {
+  const clean = Object.fromEntries(Object.entries(overrides ?? {}).filter(([, v]) => v !== undefined));
+  return { ...deal, inputs: { ...deal.inputs, ...clean } as DealInputs };
+}

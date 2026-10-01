@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { UpdateBaselineModal } from '../../components/compare/UpdateBaselineModal';
 import { buildBaselineDraft } from '../baselines/core';
-import { extractComparisonSummary, mergeIdenticalColumns, ComparisonColumn } from './compareTypes';
-import { dealFromBaseline, baselineHeading, baselineEngineDriftNote } from './baselineColumn';
+import { extractComparisonSummary, mergeIdenticalColumns, getPresetOverrides, columnFingerprint, ComparisonColumn } from './compareTypes';
+import { dealFromBaseline, baselineHeading, baselineEngineDriftNote, dealWithScenario } from './baselineColumn';
 
 const acquisitionInputs = {
   purchasePrice: 400000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, closingCosts: 5000,
@@ -61,5 +64,65 @@ describe('real acquisition baseline (owned deals)', () => {
     const note = baselineEngineDriftNote({ projected_irr: 10 }, 12.5);
     expect(note).toContain('12.5%');
     expect(note).toContain('10.0%');
+  });
+});
+
+describe('updating the baseline from a scenario', () => {
+  it('captures exactly what the column showed, and the new baseline round-trips through the baseline column', () => {
+    const deal = owned(acquisitionInputs);
+    for (const type of ['bull', 'bear'] as const) {
+      const overrides = getPresetOverrides(type, deal.inputs);
+      const shown = extractComparisonSummary(deal, overrides).summary;
+      const adopted = dealWithScenario(deal, overrides);
+      const captured = extractComparisonSummary(adopted, {}).summary;
+      expect(captured.irr).toBeCloseTo(shown.irr, 6);
+      expect(captured.noi).toBeCloseTo(shown.noi, 6);
+      expect(captured.cashFlowYear1).toBeCloseTo(shown.cashFlowYear1, 6);
+
+      // record it as the baseline, then read it back the way the compare page does
+      const back = extractComparisonSummary(dealFromBaseline(deal, rowFrom(adopted)), {}).summary;
+      expect(back.irr).toBeCloseTo(shown.irr, 6);
+      expect(back.noi).toBeCloseTo(shown.noi, 6);
+    }
+  });
+
+  it('drops undefined overrides instead of blanking fields', () => {
+    const deal = owned(acquisitionInputs);
+    const next = dealWithScenario(deal, { monthlyRent: undefined, vacancyRate: 9 } as any);
+    expect(next.inputs.monthlyRent).toBe(2000);
+    expect(next.inputs.vacancyRate).toBe(9);
+    expect(deal.inputs.vacancyRate).toBe(5); // original untouched
+  });
+});
+
+describe('UpdateBaselineModal', () => {
+  const render = async (props: Record<string, any>) => {
+    return renderToStaticMarkup(React.createElement(UpdateBaselineModal, { isOpen: true, onClose: () => {}, dealTitle: 'Rental', busy: false, error: null, onConfirm: () => {}, ...props } as any));
+  };
+
+  it('offers the live model and scenarios, disables one that equals the current baseline, and says history is kept', async () => {
+    const deal = owned(acquisitionInputs);
+    const live = col(deal, 'live');
+    const bull = { ...col(owned({ ...acquisitionInputs, monthlyRent: 2400, grossRentAnnual: 28800 }), 'bull'), scenarioName: 'Bull Case' };
+    const html = await render({ candidates: [live, bull], baselineFingerprint: columnFingerprint(live), baselineCapturedAt: '2025-03-04T12:00:00Z', baselineIrr: 9.5 });
+    expect(html).toContain('Update acquisition baseline');
+    expect(html).toContain('Same results as the current baseline');
+    expect(html).toContain('kept in history');
+    expect(html).toContain('Mar 4, 2025');
+    expect(html).toContain('Set as new baseline');
+    expect(html).toContain('Bull Case');
+  });
+
+  it('with no baseline yet, offers to record one; busy and error states render', async () => {
+    const live = col(owned(acquisitionInputs), 'live');
+    const html = await render({ candidates: [live], baselineFingerprint: null, baselineCapturedAt: null, baselineIrr: null, busy: true, error: 'The baseline could not be saved' });
+    expect(html).toContain('Record acquisition baseline');
+    expect(html).toContain('Saving');
+    expect(html).toContain('could not be saved');
+    expect(html).not.toContain('kept in history');
+  });
+
+  it('renders nothing when closed', async () => {
+    expect(await render({ isOpen: false, candidates: [], baselineFingerprint: null, baselineCapturedAt: null, baselineIrr: null })).toBe('');
   });
 });

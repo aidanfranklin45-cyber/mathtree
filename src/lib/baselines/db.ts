@@ -45,19 +45,53 @@ export async function ensureBaseline(
   }
 }
 
-/** Deliberate owner action: discard the frozen baseline and capture today's pro-forma instead. */
-export async function rebaseline(
+/** Marks an archived baseline. The table keeps one live baseline per deal; older ones are relabelled, never edited or deleted. */
+export const SUPERSEDED_PREFIX = 'superseded_';
+
+/**
+ * Deliberate owner action: make `deal`'s current assumptions the baseline (today's model, or a scenario the owner adopts by
+ * passing the deal with that scenario's inputs applied) WITHOUT losing the old baseline.
+ *
+ * A baseline's content is frozen by a database trigger (inputs, projections, price and capture date cannot be edited), but its
+ * type label can change, so the previous baseline is relabelled `superseded_<time>` and kept as history, then the new one is
+ * inserted. If the insert fails the previous baseline is put back, so a failure never leaves the deal with none.
+ */
+export async function replaceBaseline(
   deal: Pick<DealRecord, 'id' | 'status' | 'asset_class' | 'purchase_price' | 'inputs' | 'user_id' | 'is_demo' | 'is_shared'>,
 ): Promise<EnsureResult> {
   try {
-    if (deal.status !== 'owned' || deal.is_shared || deal.is_demo) return 'skipped';
-    const { error } = await supabase.from('deal_baselines').delete().eq('deal_id', deal.id).eq('baseline_type', BASELINE_TYPE);
-    if (error) throw error;
-    return await ensureBaseline(deal);
+    if (deal.status !== 'owned' || deal.is_demo || deal.is_shared || !UUID.test(deal.id)) return 'skipped';
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid || (deal.user_id && deal.user_id !== uid)) return 'skipped';
+
+    const previous = await getInitialBaseline(deal.id);
+    if (previous) {
+      const { error: archiveErr } = await supabase
+        .from('deal_baselines')
+        .update({ baseline_type: `${SUPERSEDED_PREFIX}${Date.now()}` } as any)
+        .eq('id', previous.id);
+      if (archiveErr) throw archiveErr;
+    }
+
+    const draft = buildBaselineDraft(deal, uid);
+    const { error: insertErr } = await supabase.from('deal_baselines').insert(draft as any);
+    if (insertErr) {
+      if (previous) await supabase.from('deal_baselines').update({ baseline_type: BASELINE_TYPE } as any).eq('id', previous.id);
+      throw insertErr;
+    }
+    return 'created';
   } catch (err) {
-    console.warn('[baselines] could not re-baseline:', err);
+    console.warn('[baselines] could not replace the baseline:', err);
     return 'error';
   }
+}
+
+/** The Deal Studio's Re-baseline: capture today's pro-forma as the baseline (the previous one is kept in history). */
+export async function rebaseline(
+  deal: Pick<DealRecord, 'id' | 'status' | 'asset_class' | 'purchase_price' | 'inputs' | 'user_id' | 'is_demo' | 'is_shared'>,
+): Promise<EnsureResult> {
+  return replaceBaseline(deal);
 }
 
 /** Actuals for the comparison: contractual rent from the rent roll and what was collected. Facts only. */
