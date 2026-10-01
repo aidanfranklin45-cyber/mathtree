@@ -14,6 +14,7 @@ import {
 } from '../_shared/math-engine.ts';
 import { getCaller, canAccessDeal } from '../_shared/auth.ts';
 import { applyLeaseExpiryDefaults, normalizeExpiryDefaults, DEFAULT_EXPIRY } from '../_shared/leaseExpiry.ts';
+import { runMonteCarlo, seedFromText, type MonteCarloHistogramBin } from '../_shared/monte-carlo.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,172 +38,111 @@ function fmtDec(num: any, decimals = 1): string {
 }
 
 // =========================================================================
-// MONTE CARLO STOCHASTIC VOLATILITY ENGINE (ON-DEMAND AT INITIALIZATION)
+// MONTE CARLO (the SAME simulation the app's Sensitivity tab runs: _shared/monte-carlo.ts)
 // =========================================================================
-interface MonteCarloResult {
+interface MonteCarloBrief {
   p10: number;
   p50: number;
   p90: number;
   mean: number;
   probExceedingHurdle: number;
   probNegativeIrr: number;
-  svgChart: string;
+  profitP10: number;
+  profitP50: number;
+  profitP90: number;
+  probLoss: number;
+  tenantDefaultText: string;
+  equityThin: boolean;
+  runs: number;
+  irrChart: string;
+  profitChart: string;
   narrative: string;
+}
+
+const compactMoney = (v: number): string => {
+  const a = Math.abs(v);
+  const t = a >= 1_000_000 ? `${(a / 1_000_000).toFixed(2)}M` : a >= 1000 ? `${Math.round(a / 1000)}k` : `${Math.round(a)}`;
+  return `${v < 0 ? '-' : ''}$${t}`;
+};
+
+/** Inline SVG bar chart of a distribution; bars are coloured by whether the outcome is a loss, below the hurdle, or above it. */
+function distributionSvg(bins: MonteCarloHistogramBin[], axisLabel: (b: MonteCarloHistogramBin) => string, tone: (b: MonteCarloHistogramBin) => string): string {
+  const chartWidth = 540;
+  const chartHeight = 65;
+  const barGap = 3;
+  const n = Math.max(1, bins.length);
+  const barW = (chartWidth - (n - 1) * barGap) / n;
+  const maxCount = Math.max(1, ...bins.map((b) => b.count));
+  let bars = '';
+  bins.forEach((bin, idx) => {
+    const h = (bin.count / maxCount) * 40;
+    const x = idx * (barW + barGap);
+    const y = 46 - h;
+    const labelText = idx % 2 === 0 ? axisLabel(bin) : '';
+    bars += `
+      <g>
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${tone(bin)}" opacity="0.9" />
+        <text x="${(x + barW / 2).toFixed(1)}" y="57" font-size="6" fill="#64748b" text-anchor="middle" font-family="sans-serif">${labelText}</text>
+        <text x="${(x + barW / 2).toFixed(1)}" y="${Math.max(7, y - 2).toFixed(1)}" font-size="5.5" font-weight="bold" fill="#334155" text-anchor="middle" font-family="sans-serif">${bin.count}</text>
+      </g>`;
+  });
+  return `<svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width: 100%; height: ${chartHeight}px; overflow: visible;">${bars}</svg>`;
 }
 
 function runOnDemandMonteCarlo(
   assetClass: string,
   baseInputs: any,
   hurdleRate: number,
-  dealSeedStr = 'mathtree'
-): MonteCarloResult {
-  // Deterministic LCG pseudo-random generator based on deal seed
-  let seed = 0;
-  for (let i = 0; i < dealSeedStr.length; i++) {
-    seed = (seed << 5) - seed + dealSeedStr.charCodeAt(i);
-    seed |= 0;
-  }
-  seed = Math.abs(seed) || 54321;
+  dealSeedStr = 'mathtree',
+): MonteCarloBrief {
+  const RUNS = 1000;
+  // Seeded from the deal so the brief shows the same sample every time it is generated
+  const r = runMonteCarlo(assetClass, baseInputs, { runs: RUNS, hurdleRatePct: hurdleRate, seed: seedFromText(dealSeedStr) });
 
-  function nextRandom(): number {
-    seed = (seed * 1664525 + 1013904223) % 4294967296;
-    return seed / 4294967296;
-  }
+  const irrChart = distributionSvg(
+    r.histogramBins,
+    (b) => `${b.isTail && b.binStart < b.binEnd && b.label.startsWith('<') ? '<' : ''}${Math.round(b.binStart)}%`,
+    (b) => (b.binEnd < 0 ? '#e11d48' : b.binEnd < hurdleRate ? '#d97706' : '#059669'),
+  );
+  const profitChart = distributionSvg(
+    r.profit.histogramBins,
+    (b) => compactMoney(b.binStart),
+    (b) => (b.binEnd < 0 ? '#e11d48' : '#059669'),
+  );
 
-  function randomNorm(mean = 0, stdev = 1): number {
-    const u1 = Math.max(1e-7, nextRandom());
-    const u2 = nextRandom();
-    return mean + Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2) * stdev;
-  }
+  const td = r.tenantDefault;
+  const tenantDefaultText = td.applies
+    ? `a ${td.probabilityPct}% chance that a tenant stops paying for ${td.downtimeMonths} months (it occurred in ${td.runsAffectedPct}% of runs)`
+    : 'no tenant-default risk applied';
 
-  const TRIALS = 500;
-  const irrs: number[] = [];
-
-  const basePrice = parseFloat(baseInputs.purchasePrice || baseInputs.price || 0);
-  const baseGrossRent = parseFloat(baseInputs.grossRentAnnual || (baseInputs.monthlyRent ? baseInputs.monthlyRent * 12 : 0) || (basePrice * 0.08));
-  const baseVacancy = (baseInputs.vacancyRate !== undefined && baseInputs.vacancyRate !== null && baseInputs.vacancyRate !== '') ? parseFloat(baseInputs.vacancyRate) : 5.0;
-  const baseExpenseRatio = (baseInputs.expenseRatio !== undefined && baseInputs.expenseRatio !== null && baseInputs.expenseRatio !== '') ? parseFloat(baseInputs.expenseRatio) : (baseInputs.operatingExpenseRatio !== undefined ? parseFloat(baseInputs.operatingExpenseRatio) : 25.0);
-  const baseExitCap = parseFloat(baseInputs.targetCapRate || baseInputs.exitCapRate || 7.0);
-
-  for (let i = 0; i < TRIALS; i++) {
-    // 1. Rent fluctuation (±7.5% stdev)
-    const rentMult = Math.max(0.75, Math.min(1.25, 1.0 + randomNorm(0, 0.075)));
-    const simRent = baseGrossRent * rentMult;
-
-    // 2. Vacancy stress (stochastic shift)
-    const vacShift = Math.max(0.0, Math.min(22.0, baseVacancy + (baseVacancy === 0 ? Math.max(0, randomNorm(0, 1.5)) : randomNorm(0, 3.5))));
-
-    // 3. OpEx ratio swing (±3.0%)
-    const opexShift = Math.max(10.0, Math.min(50.0, baseExpenseRatio + randomNorm(0, 3.0)));
-
-    // 4. Exit cap expansion / compression (±0.75%)
-    const capShift = Math.max(4.0, Math.min(14.0, baseExitCap + randomNorm(0, 0.75)));
-
-    const simInputs = {
-      ...baseInputs,
-      grossRentAnnual: simRent,
-      monthlyRent: simRent / 12,
-      grossRentPerMonth: simRent / 12,
-      vacancyRate: vacShift,
-      expenseRatio: opexShift,
-      targetCapRate: capShift,
-      exitCapRate: capShift,
-    };
-
-    try {
-      const res = calculateProjections(assetClass as any, simInputs);
-      const irrVal = parseFloat(res.irr as any) || 0;
-      irrs.push(irrVal);
-    } catch {
-      irrs.push(0);
-    }
-  }
-
-  irrs.sort((a, b) => a - b);
-
-  const p10 = irrs[Math.floor(TRIALS * 0.10)] ?? 0;
-  const p50 = irrs[Math.floor(TRIALS * 0.50)] ?? 0;
-  const p90 = irrs[Math.floor(TRIALS * 0.90)] ?? 0;
-  const mean = irrs.reduce((s, x) => s + x, 0) / TRIALS;
-
-  const countAboveHurdle = irrs.filter(x => x >= hurdleRate).length;
-  const probExceedingHurdle = Math.round((countAboveHurdle / TRIALS) * 100);
-  const countNegative = irrs.filter(x => x < 0).length;
-  const probNegativeIrr = Math.round((countNegative / TRIALS) * 100);
-
-  // Build SVG Histogram with 10 bins
-  const minIrr = Math.floor(Math.max(-10, p10 - 2.5));
-  const maxIrr = Math.ceil(Math.min(40, p90 + 2.5));
-  const binCount = 10;
-  const binWidth = Math.max(0.5, (maxIrr - minIrr) / binCount);
-
-  const bins: { label: string; count: number; start: number; end: number }[] = [];
-  for (let b = 0; b < binCount; b++) {
-    const bStart = minIrr + b * binWidth;
-    const bEnd = bStart + binWidth;
-    const count = irrs.filter(x => (b === binCount - 1 ? (x >= bStart && x <= bEnd + 0.001) : (x >= bStart && x < bEnd))).length;
-    bins.push({
-      label: `${bStart.toFixed(0)}-${bEnd.toFixed(0)}%`,
-      start: bStart,
-      end: bEnd,
-      count
-    });
-  }
-
-  const maxBinCount = Math.max(1, ...bins.map(b => b.count));
-  const chartWidth = 540;
-  const chartHeight = 65;
-  const barGap = 4;
-  const totalBarWidth = (chartWidth - (binCount - 1) * barGap) / binCount;
-
-  // Hurdle rate marker X position
-  const hurdleX = Math.max(15, Math.min(chartWidth - 15, ((hurdleRate - minIrr) / (maxIrr - minIrr)) * chartWidth));
-
-  let barsSvg = '';
-  bins.forEach((bin, idx) => {
-    const barH = (bin.count / maxBinCount) * 44;
-    const x = idx * (totalBarWidth + barGap);
-    const y = 48 - barH;
-    let fillColor = '#059669'; // Emerald for >= hurdleRate
-    if (bin.end < 0) {
-      fillColor = '#e11d48'; // Rose
-    } else if (bin.end < hurdleRate) {
-      fillColor = '#d97706'; // Amber
-    }
-
-    barsSvg += `
-      <g>
-        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${totalBarWidth.toFixed(1)}" height="${barH.toFixed(1)}" rx="2" fill="${fillColor}" opacity="0.9" />
-        <text x="${(x + totalBarWidth / 2).toFixed(1)}" y="58" font-size="6.5" fill="#64748b" text-anchor="middle" font-family="sans-serif">${bin.start.toFixed(0)}%</text>
-        <text x="${(x + totalBarWidth / 2).toFixed(1)}" y="${Math.max(8, y - 2).toFixed(1)}" font-size="6" font-weight="bold" fill="#334155" text-anchor="middle" font-family="sans-serif">${bin.count}</text>
-      </g>
-    `;
-  });
-
-  const svgChart = `
-    <svg viewBox="0 0 ${chartWidth} ${chartHeight}" style="width: 100%; height: ${chartHeight}px; overflow: visible;">
-      <!-- Bars -->
-      ${barsSvg}
-      <!-- Hurdle Rate Reference Line -->
-      <line x1="${hurdleX.toFixed(1)}" y1="2" x2="${hurdleX.toFixed(1)}" y2="48" stroke="#047857" stroke-width="1.5" stroke-dasharray="3 2" />
-      <text x="${hurdleX.toFixed(1)}" y="4" font-size="6.5" font-weight="800" fill="#047857" text-anchor="middle" font-family="sans-serif">Hurdle ${hurdleRate.toFixed(1)}%</text>
-    </svg>
-  `;
-
-  const narrative = `Stochastic trial across 500 randomized economic runs modeling simultaneous market variations: rental rate drift (±7.5%), vacancy shocks (up to 20% stress peak), exit cap spread expansion (±75 bps), and inflationary OpEx swing (±3.0%). The asset demonstrates a <strong>${probExceedingHurdle}% win-rate probability</strong> of meeting or exceeding your <strong>${hurdleRate.toFixed(1)}% hurdle rate</strong>, with a Value-at-Risk (P10) downside floor of <strong>${p10.toFixed(1)}% IRR</strong> and an upside P90 of <strong>${p90.toFixed(1)}% IRR</strong> (expected median: <strong>${p50.toFixed(1)}% IRR</strong>). Downside negative cash return risk is limited to <strong>${probNegativeIrr}%</strong> of trials.`;
+  const narrative =
+    `Simulation of ${r.runs.toLocaleString()} randomized economic runs, the same model used in the app. Contractual lease rent and its escalations are held fixed; ` +
+    `market rent after a lease ends, exit cap rate (±75 to 100 bps), vacancy, appreciation and cost inflation vary, with ${tenantDefaultText}. ` +
+    `The asset clears your <strong>${hurdleRate.toFixed(1)}% hurdle rate</strong> in <strong>${r.probAboveHurdle}%</strong> of runs, with a downside (P10) IRR of <strong>${r.p10Irr.toFixed(1)}%</strong>, ` +
+    `a median of <strong>${r.p50Irr.toFixed(1)}%</strong> and an upside (P90) of <strong>${r.p90Irr.toFixed(1)}%</strong>. ` +
+    `In dollars, net profit over the hold has a P10 of <strong>${compactMoney(r.profit.p10)}</strong>, a median of <strong>${compactMoney(r.profit.median)}</strong> and a P90 of <strong>${compactMoney(r.profit.p90)}</strong>; ` +
+    `the chance of losing money is <strong>${r.profit.probLoss}%</strong>.` +
+    (r.equity.thin ? ` Only ${r.equity.pctOfPrice.toFixed(1)}% of the price is the investor's own cash, so IRR is an unstable yardstick here and dollar profit is the steadier measure.` : '');
 
   return {
-    p10,
-    p50,
-    p90,
-    mean,
-    probExceedingHurdle,
-    probNegativeIrr,
-    svgChart,
-    narrative
+    p10: r.p10Irr,
+    p50: r.p50Irr,
+    p90: r.p90Irr,
+    mean: r.meanIrr,
+    probExceedingHurdle: r.probAboveHurdle,
+    probNegativeIrr: r.probNegativeIrr,
+    profitP10: r.profit.p10,
+    profitP50: r.profit.median,
+    profitP90: r.profit.p90,
+    probLoss: r.profit.probLoss,
+    tenantDefaultText,
+    equityThin: r.equity.thin,
+    runs: r.runs,
+    irrChart,
+    profitChart,
+    narrative,
   };
 }
-
 
 /**
  * The brief never reads stored analysis. Every figure (IRR, NPV, equity multiple, cash flow, equity, cap rate,
@@ -442,8 +382,9 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
     warnings.push({ title: 'Partial Stub-Year Coverage Note', description: `Initial ${p0.operatingMonths}-month stub period carries ${Number(p0.dscr).toFixed(2)}x debt coverage prior to full-year stabilization (${dscrFormatted} stabilized DSCR).` });
   }
 
-  // Run On-Demand Monte Carlo Simulation (500 trials, zero database footprint)
-  const mc = runOnDemandMonteCarlo(assetClass, inputs, discountRate, String(deal.id || deal.title || 'mathtree'));
+  // Run the shared Monte Carlo simulation (1,000 runs, seeded from the deal, zero database footprint)
+  const mcInputs = applyLeaseExpiryDefaults({ ...inputs, purchasePrice: inputs.purchasePrice || deal.purchase_price }, dealIn?._expiryDefaults || DEFAULT_EXPIRY);
+  const mc = runOnDemandMonteCarlo(assetClass, mcInputs, discountRate, String(deal.id || deal.title || 'mathtree'));
 
   // Build Waterfall Rows
   let waterfallRows = '';
@@ -811,7 +752,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   <!-- 4. Monte Carlo Stochastic Simulation & Volatility Audit (On-Demand) -->
   <div class="box">
     <div class="box-header" style="background: #064e3b; display: flex; justify-content: space-between; align-items: center;">
-      <span>🎲 Stochastic Monte Carlo Simulation &amp; Risk Distribution (500 Runs)</span>
+      <span>🎲 Stochastic Monte Carlo Simulation &amp; Risk Distribution (${mc.runs.toLocaleString()} Runs)</span>
       <span style="font-size: 8px; color: #a7f3d0;">Value-at-Risk (VaR) &amp; Volatility Stress Audit</span>
     </div>
     <div style="padding: 6px 8px; background: #ffffff;">
@@ -839,9 +780,38 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
         </div>
       </div>
 
-      <!-- Inline SVG Distribution Histogram -->
+      <!-- Net profit in dollars (IRR alone is unstable when equity is thin) -->
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 5px;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Net Profit P10 (Downside)</p>
+          <p style="font-size: 11px; font-weight: 800; color: ${mc.profitP10 >= 0 ? '#d97706' : '#e11d48'}; margin: 1px 0 0 0;">${compactMoney(mc.profitP10)}</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Net Profit P50 (Median)</p>
+          <p style="font-size: 11px; font-weight: 800; color: #0f172a; margin: 1px 0 0 0;">${compactMoney(mc.profitP50)}</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Net Profit P90 (Upside)</p>
+          <p style="font-size: 11px; font-weight: 800; color: #059669; margin: 1px 0 0 0;">${compactMoney(mc.profitP90)}</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Chance of Losing Money</p>
+          <p style="font-size: 11px; font-weight: 800; color: ${mc.probLoss > 0 ? '#e11d48' : '#059669'}; margin: 1px 0 0 0;">${mc.probLoss}% (profit &lt; $0)</p>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px;">
+          <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0;">Tenant Default Risk</p>
+          <p style="font-size: 11px; font-weight: 800; color: #475569; margin: 1px 0 0 0;">${mc.tenantDefaultText.startsWith('a ') ? 'Included' : 'None applied'}</p>
+        </div>
+      </div>
+
+      <!-- Inline SVG Distribution Histograms -->
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; margin-bottom: 5px;">
-        ${mc.svgChart}
+        <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0 0 2px 0;">IRR distribution</p>
+        ${mc.irrChart}
+      </div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; margin-bottom: 5px;">
+        <p style="font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0 0 2px 0;">Net profit distribution ($)</p>
+        ${mc.profitChart}
       </div>
 
       <!-- Narrative Interpretation -->

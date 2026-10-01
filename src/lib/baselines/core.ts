@@ -178,6 +178,17 @@ export interface MonthRow {
   contractual: number;
   collected: number;
   isCurrent: boolean;
+  /** A payment record exists for this month. No record means "not recorded", which is not the same as "collected nothing". */
+  recorded: boolean;
+}
+
+/** How much of the period actually has payment records, and what was projected for just those months. */
+export interface Coverage {
+  /** Months in the period that had projected income or a payment record. */
+  total: number;
+  recorded: number;
+  /** Projected income for the recorded months only: the fair thing to compare collections with. */
+  expectedRecorded: number;
 }
 
 export interface Comparison {
@@ -194,6 +205,7 @@ export interface Comparison {
   collectedYtd: number;
   /** The last 12 months (including the current one): projected at purchase vs what the rent roll and payments show. */
   trailing12: { expected: number; contractual: number; collected: number };
+  coverage: { ytd: Coverage; trailing12: Coverage };
   months: MonthRow[];
 }
 
@@ -299,6 +311,8 @@ export function compareToBaseline(args: {
       contractual: pay && pay.due > 0 ? pay.due : contractualNow,
       collected: pay ? pay.paid : 0,
       isCurrent: y === year && m1 === month,
+      // The current month only counts once something has come in; a pending row is not yet a result
+      recorded: !!pay && (!(y === year && m1 === month) || pay.paid > 0),
     };
   };
 
@@ -317,6 +331,12 @@ export function compareToBaseline(args: {
     t12.push(monthRow(d.getFullYear(), d.getMonth() + 1));
   }
 
+  const coverageOf = (rows: MonthRow[]): Coverage => ({
+    total: rows.filter((r) => r.expected > 0 || r.recorded).length,
+    recorded: rows.filter((r) => r.recorded).length,
+    expectedRecorded: rows.filter((r) => r.recorded).reduce((sum, r) => sum + r.expected, 0),
+  });
+
   return {
     headline,
     replayed: !!replay,
@@ -333,6 +353,7 @@ export function compareToBaseline(args: {
       contractual: t12.reduce((s, r) => s + (r.expected > 0 || r.collected > 0 ? r.contractual : 0), 0),
       collected: t12.reduce((s, r) => s + r.collected, 0),
     },
+    coverage: { ytd: coverageOf(ytd), trailing12: coverageOf(t12) },
     months,
   };
 }

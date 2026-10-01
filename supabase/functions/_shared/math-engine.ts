@@ -71,11 +71,37 @@ export function calculateRemainingBalance(
 // ---------------------------------------------------------------------------
 // 2b. Contractual Lease Escalation & Granular Monthly Rent Resolver
 // ---------------------------------------------------------------------------
+type LeaseDates = { start: [number, number] | null; end: [number, number] | null; next: [number, number] | null };
+const leaseDateCache = new WeakMap<object, { dates: LeaseDates; start: unknown; end: unknown; next: unknown }>();
+const parseYearMonth = (v: unknown): [number, number] | null => {
+  if (!v) return null;
+  const m = String(v).match(/(\d{4})[-/](\d{1,2})/);
+  return m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : null;
+};
+/** A lease's dates are parsed once, not once per month of the hold (the Monte Carlo evaluates the same lease thousands of times). */
+function leaseDates(lease: any): LeaseDates {
+  const hit = leaseDateCache.get(lease);
+  if (hit && hit.start === lease.leaseStartDate && hit.end === lease.leaseEndDate && hit.next === lease.nextEscalationDate) return hit.dates;
+  const dates: LeaseDates = { start: parseYearMonth(lease.leaseStartDate), end: parseYearMonth(lease.leaseEndDate), next: parseYearMonth(lease.nextEscalationDate) };
+  leaseDateCache.set(lease, { dates, start: lease.leaseStartDate, end: lease.leaseEndDate, next: lease.nextEscalationDate });
+  return dates;
+}
+
+/**
+ * `opts.lean` skips the human-readable provenance text (locale-formatted strings are the main cost of this function) for callers
+ * that only need the numbers, such as the Monte Carlo. Rent, status, cycles and one-time costs are identical either way.
+ *
+ * `opts.drift` (percentage points a year) moves only what the contract does not fix: rent after the lease end (renewal, extension
+ * or re-let) is market rent, so it drifts. Contractual rent before the end never changes. 0 / undefined = no drift.
+ */
 export function resolveLeaseMonthlyRent(
   lease: any,
   targetYear: number,
   targetMonth: number,
+  opts?: { lean?: boolean; drift?: number },
 ): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string; oneTimeCost?: number } {
+  const lean = opts?.lean === true;
+  const drift = Number(opts?.drift) || 0;
   const baseRent = parseFloat(lease.monthlyRent || 0);
   if (baseRent <= 0) {
     return {
@@ -83,29 +109,13 @@ export function resolveLeaseMonthlyRent(
       isActive: false,
       status: 'pre_commencement',
       escalationCycles: 0,
-      provenance: 'No contractual rent specified',
+      provenance: lean ? '' : 'No contractual rent specified',
     };
   }
 
-  let startYear = targetYear;
-  let startMonth = targetMonth;
-  if (lease.leaseStartDate) {
-    const m = String(lease.leaseStartDate).match(/(\d{4})[-/](\d{1,2})/);
-    if (m) {
-      startYear = parseInt(m[1], 10);
-      startMonth = parseInt(m[2], 10);
-    }
-  }
-
-  let endYear = 2099;
-  let endMonth = 12;
-  if (lease.leaseEndDate) {
-    const m = String(lease.leaseEndDate).match(/(\d{4})[-/](\d{1,2})/);
-    if (m) {
-      endYear = parseInt(m[1], 10);
-      endMonth = parseInt(m[2], 10);
-    }
-  }
+  const dates = leaseDates(lease);
+  const [startYear, startMonth] = dates.start ?? [targetYear, targetMonth];
+  const [endYear, endMonth] = dates.end ?? [2099, 12];
 
   const targetIdx = targetYear * 12 + targetMonth;
   const startIdx = startYear * 12 + startMonth;
@@ -117,7 +127,7 @@ export function resolveLeaseMonthlyRent(
       isActive: false,
       status: 'pre_commencement',
       escalationCycles: 0,
-      provenance: `Pre-commencement (Lease starts ${lease.leaseStartDate || `${startYear}-${startMonth}`})`,
+      provenance: lean ? '' : `Pre-commencement (Lease starts ${lease.leaseStartDate || `${startYear}-${startMonth}`})`,
     };
   }
 
@@ -127,13 +137,7 @@ export function resolveLeaseMonthlyRent(
   // Escalation cycles that have occurred by a given month (the contractual schedule keeps running through any extension)
   const cyclesAt = (idx: number): number => {
     if (lease.nextEscalationDate) {
-      let nextEscYear = startYear + 1;
-      let nextEscMonth = startMonth;
-      const nm = String(lease.nextEscalationDate).match(/(\d{4})[-/](\d{1,2})/);
-      if (nm) {
-        nextEscYear = parseInt(nm[1], 10);
-        nextEscMonth = parseInt(nm[2], 10);
-      }
+      const [nextEscYear, nextEscMonth] = dates.next ?? [startYear + 1, startMonth];
       const nextEscIdx = nextEscYear * 12 + nextEscMonth;
       return idx >= nextEscIdx ? 1 + Math.floor((idx - nextEscIdx) / 12) : 0;
     }
@@ -145,6 +149,8 @@ export function resolveLeaseMonthlyRent(
     return isNaN(n) ? fallback : n;
   };
   const fmtMo = (n: number) => `$${Math.round(n).toLocaleString()}/mo`;
+  // Market drift compounds only over the time since the contract ended
+  const driftFactor = (idx: number): number => (drift ? Math.pow(1 + drift / 100, Math.max(0, idx - endIdx) / 12) : 1);
 
   if (targetIdx > endIdx) {
     const endLabel = lease.leaseEndDate || `${endYear}-${endMonth}`;
@@ -154,13 +160,13 @@ export function resolveLeaseMonthlyRent(
     // Renewal on current terms for the rest of the hold: rent keeps escalating, optionally with a one-time reset.
     if (mode === 'renew') {
       const step = num(lease.extensionRentChangePct, 0);
-      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * driftFactor(targetIdx) * 100) / 100;
       return {
         monthlyRent: rent,
         isActive: true,
         status: 'extended',
         escalationCycles: cyclesAt(targetIdx),
-        provenance: `${tenant}: ${fmtMo(rent)} (Assumed renewal on current terms after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+        provenance: lean ? '' : `${tenant}: ${fmtMo(rent)} (Assumed renewal on current terms after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
       };
     }
 
@@ -169,13 +175,13 @@ export function resolveLeaseMonthlyRent(
       const extMonths = Math.max(1, Math.round(num(lease.extensionYears, 5) * 12));
       if (targetIdx <= endIdx + extMonths) {
         const step = num(lease.extensionRentChangePct, 0);
-        const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * 100) / 100;
+        const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * driftFactor(targetIdx) * 100) / 100;
         return {
           monthlyRent: rent,
           isActive: true,
           status: 'extended',
           escalationCycles: cyclesAt(targetIdx),
-          provenance: `${tenant}: ${fmtMo(rent)} (Extension option after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+          provenance: lean ? '' : `${tenant}: ${fmtMo(rent)} (Extension option after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
         };
       }
     }
@@ -190,20 +196,20 @@ export function resolveLeaseMonthlyRent(
           isActive: false,
           status: 'vacant_relet',
           escalationCycles: 0,
-          provenance: `Vacant: re-leasing downtime after ${endLabel} (${vacancyMonths} mos)`,
+          provenance: lean ? '' : `Vacant: re-leasing downtime after ${endLabel} (${vacancyMonths} mos)`,
         };
       }
       const step = num(lease.reletRentChangePct, 0);
       const startRent = rentAtIdx(endIdx) * (1 + step / 100);
       const newCycles = Math.floor((targetIdx - newStartIdx) / 12);
-      const rent = Math.round(startRent * Math.pow(1 + escRate / 100, newCycles) * 100) / 100;
+      const rent = Math.round(startRent * Math.pow(1 + escRate / 100, newCycles) * driftFactor(targetIdx) * 100) / 100;
       const reletCost = num(lease.reletCosts, 0);
       return {
         monthlyRent: rent,
         isActive: true,
         status: 'relet',
         escalationCycles: newCycles,
-        provenance: `New tenant: ${fmtMo(rent)} (Re-let after ${vacancyMonths}-mo vacancy${step ? `, ${step > 0 ? '+' : ''}${step}% vs expiring rent` : ''})`,
+        provenance: lean ? '' : `New tenant: ${fmtMo(rent)} (Re-let after ${vacancyMonths}-mo vacancy${step ? `, ${step > 0 ? '+' : ''}${step}% vs expiring rent` : ''})`,
         oneTimeCost: targetIdx === newStartIdx && reletCost > 0 ? reletCost : 0,
       };
     }
@@ -213,14 +219,15 @@ export function resolveLeaseMonthlyRent(
       isActive: false,
       status: 'expired',
       escalationCycles: 0,
-      provenance: `Lease expired ${endLabel}`,
+      provenance: lean ? '' : `Lease expired ${endLabel}`,
     };
   }
 
   const cycles = cyclesAt(targetIdx);
   const compoundedRent = rentAtIdx(targetIdx);
-  const provenance =
-    cycles === 0
+  const provenance = lean
+    ? ''
+    : cycles === 0
       ? `${tenant}: $${baseRent.toLocaleString()}/mo (Base Rate)`
       : `${tenant}: $${compoundedRent.toLocaleString()}/mo (${cycles}x +${escRate}% Escalation)`;
 
@@ -585,7 +592,18 @@ export function firstFullYear<T extends { operatingMonths?: number }>(projection
   return p0;
 }
 
-export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}): any {
+/**
+ * `opts.lean` returns the same numbers without the explanatory text (per-month receipts, methodology footnotes). Use it when
+ * evaluating many scenarios (Monte Carlo); the figures are identical to a full run.
+ */
+export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}, opts?: { lean?: boolean }): any {
+  const lean = opts?.lean === true;
+  // Scenario inputs used by the Monte Carlo (both optional; absent = no effect):
+  //   marketRentDrift   percentage points a year added to market rent after a lease ends (contractual rent is never moved)
+  //   tenantInterruption {leaseIndex, months, startIdx (year*12+month) | startOffset (months after closing)}: that lease stops paying
+  //   for that window, then resumes
+  const marketRentDrift = Number(inputs.marketRentDrift) || 0;
+  const interruption = inputs.tenantInterruption && Number(inputs.tenantInterruption.months) > 0 ? inputs.tenantInterruption : null;
   const assetType = normalizeAssetClass(rawAssetType);
 
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
@@ -750,6 +768,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     // Lease-expiry effects for this year: months a lease sits vacant awaiting a replacement tenant, and one-time re-leasing costs
     let vacantLeaseMonths = 0;
     let expiryOneTimeCosts = 0;
+    let incomeMonths = 0; // months this year in which any lease pays rent
 
     if (hasExplicitLeases) {
       const startM = isStubYear ? closeMonth : 1;
@@ -758,10 +777,25 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
 
       for (let mo = startM; mo <= 12; mo++) {
         let moGross = 0;
-        for (const lease of (inputs.leases as any[])) {
-          const leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo);
+        const leaseList = inputs.leases as any[];
+        for (let li = 0; li < leaseList.length; li++) {
+          const lease = leaseList[li];
+          let leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo, { lean, drift: marketRentDrift });
+          if (interruption && li === interruption.leaseIndex && leaseRes.isActive) {
+            const idx = calYear * 12 + mo;
+            const winStart = interruption.startIdx ?? (closeYear * 12 + closeMonth + (Number(interruption.startOffset) || 0));
+            if (idx >= winStart && idx < winStart + interruption.months) {
+              // The tenant defaulted: no rent during the downtime, and the owner carries the property like any vacancy
+              vacantLeaseMonths += 1;
+              leaseRes = { ...leaseRes, monthlyRent: 0, isActive: false, status: 'tenant_default', provenance: lean ? '' : 'Tenant default: downtime' };
+            }
+          }
           if (leaseRes.status === 'vacant_relet') vacantLeaseMonths += 1;
           if (leaseRes.oneTimeCost) expiryOneTimeCosts += leaseRes.oneTimeCost;
+          if (lean) {
+            if (leaseRes.isActive) moGross += leaseRes.monthlyRent;
+            continue;
+          }
           if (leaseRes.isActive) {
             moGross += leaseRes.monthlyRent;
             monthlyReceipts.push({
@@ -783,12 +817,15 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
             });
           }
         }
+        if (moGross > 0) incomeMonths += 1;
         yearGross += moGross;
       }
       currentGrossIncome = yearGross;
 
-      const bucketKeys = Object.keys(rateBuckets).map(Number).sort((a, b) => a - b);
-      if (bucketKeys.length === 0) {
+      const bucketKeys = lean ? [] : Object.keys(rateBuckets).map(Number).sort((a, b) => a - b);
+      if (lean) {
+        // numbers only: no per-month receipts, no explanatory text
+      } else if (bucketKeys.length === 0) {
         methodologyFootnote = `${calYear}: Pre-lease holding period (${operatingMonths} mos). Contractual rent $0.`;
       } else if (bucketKeys.length === 1) {
         const b = rateBuckets[bucketKeys[0]];
@@ -898,8 +935,8 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       } else {
         entryCapRate = targetCapRate;
       }
-      entryCapPending = hasExplicitLeases && monthlyReceipts.filter((r) => r.rent > 0).length < 12;
-    } else if (entryCapPending && hasExplicitLeases && monthlyReceipts.filter((r) => r.rent > 0).length >= 12) {
+      entryCapPending = hasExplicitLeases && incomeMonths < 12;
+    } else if (entryCapPending && hasExplicitLeases && incomeMonths >= 12) {
       // Going-in cap rate on the first full year of income (same basis as the headline DSCR)
       entryCapPending = false;
       if (initialPropertyValue > 0 && netOperatingIncome > 0) entryCapRate = (netOperatingIncome / initialPropertyValue) * 100;
@@ -1393,94 +1430,6 @@ export function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount 
   return bins;
 }
 
-export function runMonteCarloSimulation(assetType: string, baseInputs: Record<string, any>, iterations = 500): any {
-  const irrs: number[] = [];
-  const npvs: number[] = [];
-  let negativeCashFlowCount = 0;
-  let negativeIrrCount = 0;
-
-  const baseRentGrowth = parseFloat(baseInputs.rentGrowth) || 3.0;
-  const baseVacancy = parseFloat(baseInputs.vacancyRate) || 5.0;
-  const baseExitCap = parseFloat(baseInputs.targetCapRate || baseInputs.targetExitCapRate || 6.5);
-  const baseApprec = parseFloat(baseInputs.appreciationRate) || 3.0;
-  const isCommercialOrStorage = (assetType === 'commercial' || assetType === 'storage');
-
-  const growthStdDev = 1.2;
-  const vacancyStdDev = 2.0;
-  const exitCapSpreadPct = 0.8;
-  const apprecStdDev = 1.5;
-
-  for (let i = 0; i < iterations; i++) {
-    const simRentGrowth = Math.max(-10, gaussianRandom(baseRentGrowth, growthStdDev));
-    const simVacancy = Math.max(0, Math.min(30, gaussianRandom(baseVacancy, vacancyStdDev)));
-    const simExitCap = Math.max(2.5, gaussianRandom(baseExitCap, exitCapSpreadPct));
-    const simApprec = Math.max(-15, gaussianRandom(baseApprec, apprecStdDev));
-
-    const simInputs = {
-      ...baseInputs,
-      rentGrowth: simRentGrowth,
-      vacancyRate: simVacancy,
-      targetCapRate: simExitCap,
-      targetExitCapRate: simExitCap,
-      appreciationRate: simApprec
-    };
-
-    const res = calculateProjections(assetType, simInputs);
-    irrs.push(res.irr);
-    npvs.push(res.npv);
-
-    if (res.projections && res.projections.some((p: any) => p.cashFlow < 0)) {
-      negativeCashFlowCount++;
-    }
-    if (res.irr < 0) {
-      negativeIrrCount++;
-    }
-  }
-
-  irrs.sort((a, b) => a - b);
-  const meanIrr = irrs.reduce((a, b) => a + b, 0) / iterations;
-  const medianIrr = irrs[Math.floor(iterations * 0.5)];
-  const p5Irr = irrs[Math.floor(iterations * 0.05)];
-  const p95Irr = irrs[Math.floor(iterations * 0.95)];
-  const meanNpv = npvs.reduce((a, b) => a + b, 0) / iterations;
-
-  const bins = buildAdaptiveHistogramBins(irrs, 10);
-  const variance = irrs.reduce((acc, val) => acc + Math.pow(val - meanIrr, 2), 0) / iterations;
-  const stdDev = Math.sqrt(variance);
-  const skewnessIndex = stdDev > 0 ? (meanIrr - medianIrr) / stdDev : 0;
-  const riskFreeRate = 4.0;
-  const sharpeRatio = stdDev > 0 ? (meanIrr - riskFreeRate) / stdDev : 0;
-
-  let riskClassification = 'Conservative / Low Tail Risk';
-  if (p5Irr < 4.0 && p5Irr >= 0) {
-    riskClassification = 'Moderate Cyclical Sensitivity';
-  } else if (p5Irr < 0) {
-    riskClassification = 'High Leverage / Asymmetric Tail Risk Vulnerable';
-  } else if ((negativeCashFlowCount / iterations) * 100 > 15) {
-    riskClassification = 'Capital Call Vulnerable (Operating Cash Flow Risk)';
-  }
-
-  return {
-    iterations,
-    meanIrr: Math.round(meanIrr * 100) / 100,
-    medianIrr: Math.round(medianIrr * 100) / 100,
-    p5Irr: Math.round(p5Irr * 100) / 100,
-    p95Irr: Math.round(p95Irr * 100) / 100,
-    meanNpv: Math.round(meanNpv * 100) / 100,
-    probNegativeCashFlow: Math.round((negativeCashFlowCount / iterations) * 1000) / 10,
-    probNegativeIrr: Math.round((negativeIrrCount / iterations) * 1000) / 10,
-    skewnessIndex,
-    sharpeRatio,
-    riskClassification,
-    histogramBins: bins,
-    telemetry: {
-      baselineRentGrowth: baseRentGrowth,
-      baselineVacancy: baseVacancy,
-      baselineExitMetric: isCommercialOrStorage ? baseExitCap : baseApprec,
-      exitMetricType: isCommercialOrStorage ? 'Exit Cap Rate' : 'Annual Appreciation'
-    }
-  };
-}
 
 // ---------------------------------------------------------------------------
 // 11. Tax & Cost Segregation Engine
@@ -2118,7 +2067,6 @@ export const PropertyMath = {
   getMonthlyAmortization,
   calculateRemainingBalance,
   calculateSensitivityMatrix,
-  runMonteCarloSimulation,
   buildAdaptiveHistogramBins,
   calculateTaxAndDepreciation,
   calculateTaxMetrics,
