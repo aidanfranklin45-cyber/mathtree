@@ -6,6 +6,7 @@ import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { exportDealBriefPDF } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import { formatCurrency } from '../../lib/format';
+import { currentLeases } from '../../lib/leases';
 
 interface DealCardProps {
   deal: DealRecord;
@@ -105,9 +106,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({ deal, entities = [], onEdi
           : [];
   const isMultiAddress = addressesList.length > 1;
 
-  const leasesList: any[] = Array.isArray(inputs.leases)
-    ? inputs.leases.filter((l: any) => l && (l.tenantName || parseFloat(l.monthlyRent) > 0 || parseFloat(l.annualRent) > 0))
-    : [];
+  const leasesList: any[] = currentLeases(inputs);
   const unitCount = parseInt(String(inputs.unitCount || inputs.numUnits || inputs.storageUnitCount || 0), 10);
 
   let tenancyRow: React.ReactNode = null;
@@ -279,7 +278,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({ deal, entities = [], onEdi
             <span className="text-xs font-black text-white mt-0.5 block">{formatCurrency(pit.currentVal)}</span>
           </div>
           <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">10-Yr IRR</span>
+            <span className="text-[9px] uppercase font-bold text-slate-500 block">{Math.max(1, parseInt(String(inputs.exitYear ?? ''), 10) || 10)}-Yr IRR</span>
             <span className="text-xs font-black text-brand-400 mt-0.5 block">{irrStr}</span>
           </div>
           <div>
