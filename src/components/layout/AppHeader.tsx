@@ -13,6 +13,8 @@ interface AppHeaderProps {
   collaboratorInviteCount?: number;
   /** Page-specific buttons rendered before the account dropdown (e.g. Operations' Alert Emails / Add Lease). */
   extraActions?: React.ReactNode;
+  /** Hide the account/portfolio dropdown on pages where those tools are not needed (they live on the Dashboard). */
+  hideAccountMenu?: boolean;
 }
 
 /** Clears local session residue then signs out (same keys the legacy pages cleared). */
@@ -33,6 +35,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   alertCount = 0,
   collaboratorInviteCount = 0,
   extraActions,
+  hideAccountMenu = false,
 }) => {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -147,6 +150,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {extraActions}
 
           {/* Consolidated Menu Dropdown (right by the Exit tab) */}
+          {!hideAccountMenu && (
           <div className="relative" ref={menuRef}>
             <button
               ref={triggerRef}
@@ -255,6 +259,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* Exit / Sign Out Button (placed directly beside the dropdown menu) */}
           <button
