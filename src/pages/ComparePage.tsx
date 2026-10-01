@@ -17,6 +17,11 @@ import {
   filterDealsByScope,
   countDealsByScope,
   resolveInitialScope,
+  mergeIdenticalColumns,
+  describeMergedNote,
+  columnFingerprint,
+  scenarioShortLabel,
+  MergedColumnNote,
   ScenarioPresetType,
   extractComparisonSummary,
   evaluateWinners,
@@ -43,6 +48,8 @@ export const ComparePage: React.FC = () => {
 
   // Columns & custom overrides
   const [columns, setColumns] = useState<ComparisonColumn[]>([]);
+  // Scenarios that came out identical and were folded into one column (shown as a note above the table)
+  const [mergeNotes, setMergeNotes] = useState<MergedColumnNote[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Scope: prospective deals by default; Owned and All are one click away. Resolved once the deals have loaded.
@@ -186,6 +193,7 @@ export const ComparePage: React.FC = () => {
         buildColumn(d, 'live', 'Live Active Model', undefined, idx === 0),
       );
       setColumns(cols);
+      setMergeNotes([]);
     } else if (mode === 'versions') {
       // Pick focus deal
       const focusId = selectedSingleDealId || searchParams.get('dealId') || scopedDeals[0]?.id;
@@ -226,7 +234,10 @@ export const ComparePage: React.FC = () => {
           });
         }
 
-        setColumns(defaultCols);
+        // Scenarios that produce the same figures as the live model collapse into one column
+        const merged = mergeIdenticalColumns(defaultCols);
+        setColumns(merged.columns);
+        setMergeNotes(merged.notes);
       })();
 
       return () => {
@@ -288,18 +299,22 @@ export const ComparePage: React.FC = () => {
         buildColumn(d, 'live', 'Live Active Model', undefined, idx === 0),
       );
       setColumns(top);
+      setMergeNotes([]);
     } else if (mode === 'versions' && selectedSingleDealId) {
       const deal = scopedDeals.find((d) => d.id === selectedSingleDealId) || scopedDeals[0];
       if (deal) {
-        setColumns([
+        const merged = mergeIdenticalColumns([
           buildColumn(deal, 'live', 'Active Live Model', undefined, true),
           buildColumn(deal, 'baseline', 'Acquisition Baseline', undefined, false),
           buildColumn(deal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
           buildColumn(deal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
         ]);
+        setColumns(merged.columns);
+        setMergeNotes(merged.notes);
       }
     } else {
       setColumns([]);
+      setMergeNotes([]);
     }
   };
 
@@ -310,6 +325,12 @@ export const ComparePage: React.FC = () => {
   const handleAddWhatIf = (overrides: Partial<DealInputs>, name: string) => {
     if (!currentFocusDeal) return;
     const newCol = buildColumn(currentFocusDeal, 'custom', name, overrides, false);
+    // A what-if that gives the same figures as a column already shown adds nothing: say so instead of repeating it
+    const twin = columns.find((c) => columnFingerprint(c) === columnFingerprint(newCol));
+    if (twin) {
+      setMergeNotes((prev) => [...prev, { kept: scenarioShortLabel(twin), dropped: [name], noRent: twin.summary.grossRentAnnual <= 0 }]);
+      return;
+    }
     setColumns((prev) => [...prev, newCol]);
   };
 
@@ -338,6 +359,14 @@ export const ComparePage: React.FC = () => {
           onSetScope={handleSetScope}
           scopeCounts={scopeCounts}
         />
+
+        {!loading && mode === 'versions' && mergeNotes.length > 0 && (
+          <div className="rounded-2xl border border-cyan-900/60 bg-cyan-950/20 px-4 py-3 text-xs text-slate-300 space-y-1">
+            {mergeNotes.map((n, i) => (
+              <p key={i}>{describeMergedNote(n)}</p>
+            ))}
+          </div>
+        )}
 
         {!loading && deals.length > 0 && scopedDeals.length === 0 && (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-xs text-slate-300">
