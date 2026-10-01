@@ -55,11 +55,39 @@ export interface PortfolioSector {
   avgIrr: number | null;
 }
 
+export interface PortfolioDispositionEvent {
+  dealId: string;
+  dealName: string;
+  exitYear: number;
+  calendarYear: number;
+  propertyValue: number;
+  equityRealized: number;
+  loanPayoff: number;
+}
+
+export interface PortfolioProFormaYear {
+  year: number;
+  calendarYear: number;
+  propertyValue: number;
+  grossIncome: number;
+  vacancyLoss: number;
+  operatingExpenses: number;
+  netOperatingIncome: number;
+  debtService: number;
+  netCashFlow: number;
+  cashOnCash: number;
+  capRate: number;
+  loanBalance: number;
+  endingEquity: number;
+  exitNote?: string | null;
+}
+
 export interface PortfolioModel {
   investorName: string | null;
   companyName: string | null;
   hurdleRate: number | null;
   dateStr: string;
+  holdYears: number;
   kpis: PortfolioKpis;
   totalVolume: number;
   totalDeals: number;
@@ -67,6 +95,8 @@ export interface PortfolioModel {
   footprintSqFt: number;
   sectors: PortfolioSector[];
   owned: PortfolioDealRow[];
+  ownedProForma: PortfolioProFormaYear[];
+  dispositions: PortfolioDispositionEvent[];
   pipeline: PortfolioDealRow[];
   audit: PortfolioDealRow[];
   flags: Array<{ title: string; description: string }>;
@@ -205,18 +235,120 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
   const unlinked = rows.filter((r) => r.parcelCount === 0);
   if (unlinked.length > 0) flags.push({ title: 'Unlinked county parcels', description: `${unlinked.length} of ${rows.length} assets have no county parcel linked: ${unlinked.map((r) => r.name).join(', ')}.` });
 
+  // Build aggregated portfolio pro-forma for owned operating holdings across the full holding horizon
+  const ownedDeals = deals.filter((d) => (d.status || 'prospect').toLowerCase() === 'owned');
+  const ownedDealProjections: Array<Array<Record<string, any>>> = [];
+  for (const d of ownedDeals) {
+    const em = tryComputeDealMetrics(d);
+    if (em && Array.isArray(em.projections) && em.projections.length > 0) {
+      ownedDealProjections.push(em.projections);
+    }
+  }
+
+  const ownedProForma: PortfolioProFormaYear[] = [];
+  const holdYears = ownedDealProjections.length > 0 ? Math.max(1, ...ownedDealProjections.map((p) => p.length)) : 10;
+  const dispositions: PortfolioDispositionEvent[] = [];
+
+  for (const d of ownedDeals) {
+    const em = tryComputeDealMetrics(d);
+    if (em && Array.isArray(em.projections) && em.projections.length > 0) {
+      if (em.projections.length < holdYears) {
+        const lastP = em.projections[em.projections.length - 1];
+        const val = Number(lastP.propertyValue) || 0;
+        const loan = Number(lastP.loanBalanceRemaining ?? lastP.endingLoanBalance) || 0;
+        dispositions.push({
+          dealId: d.id,
+          dealName: resolveDealDisplayName(d),
+          exitYear: em.projections.length,
+          calendarYear: lastP.calendarYear || (now.getFullYear() + em.projections.length - 1),
+          propertyValue: Math.round(val),
+          equityRealized: Math.round(Math.max(0, val - loan)),
+          loanPayoff: Math.round(loan),
+        });
+      }
+    }
+  }
+
+  dispositions.forEach((disp) => {
+    flags.push({
+      title: `Scheduled Asset Disposition & Capital Realization (Yr ${disp.exitYear} / ${disp.calendarYear})`,
+      description: `${disp.dealName} reaches its underwritten exit horizon in Year ${disp.exitYear} with ${money(disp.propertyValue)} valuation and ~${money(disp.equityRealized)} in net equity proceeds realized. Subsequent pro-forma periods (Yr ${disp.exitYear + 1}+) reflect the remaining active operating portfolio, accounting for the step-down in in-place book equity.`,
+    });
+  });
+
+  if (ownedDealProjections.length > 0) {
+    for (let y = 0; y < holdYears; y++) {
+      let propVal = 0;
+      let gross = 0;
+      let vac = 0;
+      let opex = 0;
+      let noi = 0;
+      let ds = 0;
+      let cf = 0;
+      let loan = 0;
+      let calYear: number | undefined = undefined;
+
+      for (const proj of ownedDealProjections) {
+        const p = proj[y];
+        if (!p) continue;
+        if (p.calendarYear && !calYear) calYear = p.calendarYear;
+        propVal += Number(p.propertyValue) || 0;
+        gross += Number(p.grossPotentialIncome ?? p.grossPotentialRent ?? p.effectiveGrossIncome) || 0;
+        vac += Number(p.vacancyLoss) || 0;
+        opex += Number(p.operatingExpenses) || 0;
+        noi += Number(p.netOperatingIncome) || 0;
+        ds += Number(p.debtService) || 0;
+        cf += Number(p.netCashFlow ?? p.cashFlow) || 0;
+        loan += Number(p.loanBalanceRemaining ?? p.endingLoanBalance) || 0;
+      }
+
+      const equity = Math.max(0, propVal - loan);
+      const capRate = propVal > 0 && noi > 0 ? (noi / propVal) * 100 : 0;
+      const coc = equity > 0 ? (cf / equity) * 100 : 0;
+
+      const exitingThisYear = dispositions.filter((disp) => disp.exitYear === y + 1);
+      const exitedPrior = dispositions.filter((disp) => disp.exitYear === y);
+      let exitNote: string | null = null;
+      if (exitingThisYear.length > 0) {
+        exitNote = `Exit: ${exitingThisYear.map((e) => `${e.dealName} (${money(e.equityRealized)} equity realized)`).join(', ')}`;
+      } else if (exitedPrior.length > 0) {
+        exitNote = `* Post-exit in-place portfolio (excludes ${exitedPrior.map((e) => e.dealName).join(', ')})`;
+      }
+
+      ownedProForma.push({
+        year: y + 1,
+        calendarYear: calYear || now.getFullYear() + y,
+        propertyValue: Math.round(propVal),
+        grossIncome: Math.round(gross),
+        vacancyLoss: Math.round(vac),
+        operatingExpenses: Math.round(opex),
+        netOperatingIncome: Math.round(noi),
+        debtService: Math.round(ds),
+        netCashFlow: Math.round(cf),
+        cashOnCash: Number(coc.toFixed(2)),
+        capRate: Number(capRate.toFixed(2)),
+        loanBalance: Math.round(loan),
+        endingEquity: Math.round(equity),
+        exitNote,
+      });
+    }
+  }
+
   return {
     investorName: text(opts.investorName),
     companyName: text(opts.companyName),
     hurdleRate: opts.hurdleRate ?? null,
     dateStr: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    holdYears,
     kpis,
     totalVolume,
     totalDeals: deals.length,
-    footprintAcres: rows.reduce((s, r) => s + r.acres, 0),
-    footprintSqFt: rows.reduce((s, r) => s + r.buildingSqFt, 0),
+    footprintAcres: owned.reduce((s, r) => s + r.acres, 0),
+    footprintSqFt: owned.reduce((s, r) => s + r.buildingSqFt, 0),
     sectors,
     owned,
+    ownedProForma,
+    dispositions,
     pipeline,
     audit: [...rows].sort((a, b) => (a.isOwned === b.isOwned ? 0 : a.isOwned ? -1 : 1)),
     flags,

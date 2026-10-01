@@ -62,6 +62,8 @@ describe('buildPortfolioModel', () => {
     expect(own2.apn).toBeNull();
     expect(own2.assessed).toBeNull();
     expect(m.flags.some((f) => f.title === 'Unlinked county parcels' && f.description.includes('2 of 4'))).toBe(true);
+    // Footprint acres must only reflect owned holdings (1.5 ac from own1, not pipe1's 2.0 ac)
+    expect(m.footprintAcres).toBeCloseTo(1.5, 4);
   });
 
   it('prints investor name only when provided, never a made-up one', () => {
@@ -87,6 +89,44 @@ describe('buildPortfolioModel', () => {
     expect(m.pipeline[1].isOwned).toBe(false);
     expect(m.pipeline[1].status).toBe('prospect');
   });
+
+  it('builds an aggregated portfolio pro-forma for owned operating holdings across the full holding period', () => {
+    const m = buildPortfolioModel(deals, parcels, { now });
+    expect(m.holdYears).toBe(10);
+    expect(m.ownedProForma).toHaveLength(10);
+    const yr1 = m.ownedProForma[0];
+    expect(yr1.year).toBe(1);
+    expect(yr1.calendarYear).toBeGreaterThanOrEqual(2024);
+    expect(yr1.propertyValue).toBe(1_400_000); // 1,000,000 (own1) + 400,000 (own2)
+    expect(yr1.grossIncome).toBeGreaterThan(0);
+    expect(yr1.netOperatingIncome).toBeGreaterThan(0);
+    expect(yr1.netCashFlow).toBeDefined();
+    expect(yr1.endingEquity).toBeGreaterThan(0);
+    const yr10 = m.ownedProForma[9];
+    expect(yr10.year).toBe(10);
+    expect(yr10.propertyValue).toBeGreaterThan(yr1.propertyValue);
+  });
+
+  it('detects staggered exits, populates dispositions, exit notes, and audit disclosures', () => {
+    const staggeredDeals = [
+      mk('own1', 'owned', 'commercial', { closingDate: '2024-03-01', exitYear: 5 }),
+      mk('own2', 'owned', 'residential', { closingDate: '2024-03-01', exitYear: 10 }, 500_000),
+    ];
+    const m = buildPortfolioModel(staggeredDeals, [], { now });
+    expect(m.holdYears).toBe(10);
+    expect(m.ownedProForma).toHaveLength(10);
+    expect(m.dispositions).toHaveLength(1);
+    expect(m.dispositions[0].dealId).toBe('own1');
+    expect(m.dispositions[0].exitYear).toBe(5);
+    expect(m.dispositions[0].equityRealized).toBeGreaterThan(0);
+    // Year 5 exit note
+    expect(m.ownedProForma[4].exitNote).toContain('Exit: Deal own1');
+    // Year 6 post-exit note
+    expect(m.ownedProForma[5].exitNote).toContain('Post-exit in-place portfolio');
+    // Year 5 book equity includes both; Year 6 reflects own2 only after capital proceeds realization
+    expect(m.ownedProForma[4].propertyValue).toBeGreaterThan(m.ownedProForma[5].propertyValue);
+    expect(m.flags.some((f) => f.title.includes('Scheduled Asset Disposition & Capital Realization'))).toBe(true);
+  });
 });
 
 describe('PortfolioBrief render', () => {
@@ -111,5 +151,26 @@ describe('PortfolioBrief render', () => {
     expect(html).toContain('🎯 Prospect');
     expect(html).toContain('🎯 Pipeline Prospect');
     expect(html).toContain('Portfolio Status');
+
+    // Portfolio level pro-forma
+    expect(html).toContain('Owned Portfolio 10-Year Operating Pro-Forma');
+    expect(html).toContain('Full 10-Year Holding Period Performance Forecast');
+    expect(html).toContain('Portfolio NOI');
+  });
+
+  it('renders capital realization disclosures when staggered property exits are present', async () => {
+    const React = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { PortfolioBrief } = await import('../../components/brief/PortfolioBrief');
+    const staggeredDeals = [
+      mk('own1', 'owned', 'commercial', { closingDate: '2024-03-01', exitYear: 5 }),
+      mk('own2', 'owned', 'residential', { closingDate: '2024-03-01', exitYear: 10 }, 500_000),
+    ];
+    const m = buildPortfolioModel(staggeredDeals, [], { now });
+    const html = renderToStaticMarkup(React.createElement(PortfolioBrief, { model: m }));
+    expect(html).toContain('Capital Realization &amp; Staggered Disposition Disclosures');
+    expect(html).toContain('Yr 5');
+    expect(html).toContain('Scheduled investment exit');
+    expect(html).toContain('Capital Realization &amp; Staggered Exits');
   });
 });
