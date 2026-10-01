@@ -1,5 +1,9 @@
 # Draft database and edge-function security changes
 
+> **Status (2026-09-30): ALL APPLIED to production** — 01 (RPC lock-down), 02 (stored analysis dropped), 03 (cron secret, 15:00 UTC), 04 + 05 (email tokens stored hashed).
+> This folder is now a record of what was run, in what order. The files stay outside `supabase/migrations/` on purpose (the live schema was
+> never built from that folder); do not re-run them. Safety copy of the data 02 deleted: kept locally by the owner (`MathTreeBackups`).
+
 The SQL here is deliberately outside `supabase/migrations/` so `supabase db push` ignores it. Nothing in this folder runs
 until we review it together and apply it on purpose. The matching **edge-function and app code** fixes are in this PR's
 diff (`supabase/functions/**`, `src/**`) and only take effect when deployed.
@@ -80,6 +84,12 @@ Every table has row-level security with policies.
    an email confirm link, marking a deal Owned (baseline created).
 7. Take a backup marker, then apply **02**; regenerate `src/lib/supabase/types.ts`.
 
+## Email-token hashing (04 + 05, applied)
+
+`reconciliation_tokens.token_hash` now holds SHA-256(token); the raw token exists only in the emailed link (and the undo link handed to the browser).
+`04` added `public.hash_token()` and made the lookups accept a raw or hashed value (transition); `cron-daily-lease-monitor` was deployed storing
+hashes; `05` converted the stored rows and made lookups hash-only. Links already emailed kept working throughout.
+
 ## Follow-up emails (configurable)
 
 The daily function now follows each owner's Alert Settings: **follow up every N days**, **stop after M follow-ups** (or keep going until paid),
@@ -104,5 +114,5 @@ takes effect when draft 01 is applied; frequency and maximum take effect when th
 
 ## Not yet done
 
-- These drafts are not syntax-tested: try them on a Supabase development branch first.
-- Optional hardening: store only a hash of each email token (needs a small cron-function change and a transition period).
+- Leaked-password protection (Supabase Auth dashboard toggle) is still the owner's to switch on.
+- Confirm the first daily 15:00 UTC run succeeded (cron response log).
