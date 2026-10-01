@@ -59,18 +59,32 @@ Nothing models month to month today; a lease with no end date is only an open-en
 * **Emails** drop "lease expires" wording for month-to-month tenants and say "Month to month".
 * Residential reminders already work under the new rule (an open-ended lease counts as in force).
 
-## 4. Phases and decisions
+## 4. Decisions (owner, 2026-10-01) and status
 
-| Phase | What | Notes |
+1. **Digest emails: yes.** Built (branch `feat/digest-reminders`, live). One email per property per day when 3 or more tenants are due (an owner setting: 2, 3, 5, 10, or never combine). Each tenant keeps its own Paid and Missing buttons; past-due follow-ups are digested separately from routine reminders; names are escaped; one tenant still gets its own email exactly as before.
+2. **Rent-roll detail (unit mix versus a full rent roll): not needed as a separate setting.** Vacancy and the building's make-up are already configured per deal when it is created and updated in Edit Inputs. No new profile-level setting; Phases 4 and 5 will read the deal's own vacancy configuration.
+3. **Turnover / vacancy assumptions come from the deal's own vacancy configuration** (Edit Inputs), not a global default.
+4. **Rent-increase notice follows Washington law.** Built (branch `feat/wa-rent-increase-rules`, live), see below.
+
+### Washington rent increases (RCW 59.18.140 and 59.18.700), as built
+Checked against the statute pages and the Department of Commerce on 2026-10-01. A helper, not legal advice.
+
+* **Applies to** residential deals (houses and apartments) located in Washington (assessor state, or ", WA" in the address).
+* **Enforced (blocks the increase):** at least **90 days'** written notice (30 for subsidized tenancies); no increase before a fixed-term lease ends; no increase in the first 12 months of a tenancy; the new rent may not exceed the lesser of 7% plus CPI or 10% (2026: **9.683%**, 2027: **10%**, from the Commerce announcements; other years use the 10% ceiling with a warning to check). Properties marked exempt skip the cap and first-year rule (the notice period still applies).
+* **Warned, not blocked:** a second increase within 12 months (reported in secondary sources, not confirmed in the statute text); mailing the notice (allow extra days).
+* **Record Rent Escalation screen:** shows the rules live, starts at the earliest legal effective date, prints a **notice for the tenant**, and records the date the notice was given. A future-dated increase is *scheduled* (the rent does not change early); a past or present date applies immediately only if the notice was given far enough ahead. It also no longer rewrites the deal's pro-forma (an old leftover).
+* **The rent cannot change without the notice:** the nightly escalation job skips Washington residential leases entirely unless an explicit scheduled increase has a recorded notice date at least 90 (or 30) days before its effective date. There is no automatic yearly increase for these leases.
+* **Reminders to the owner** (not the tenant): 14 days and 3 days before the last day to give notice, and the day after it passes ("this increase can no longer take effect on that date").
+* **Lease term:** Add and Edit Lease now have *Fixed term* or *Month to month* (no end date, no auto-increase, "Month-to-month" badge in Operations), plus *subsidized* and *exempt from the cap* flags for residential leases.
+* **Not confirmed:** the statute prescribes no particular wording for the notice; the printable notice is a plain template and says to have a Washington attorney review it. Tenants are not emailed by the app: the owner delivers the notice and records when.
+
+### Phases
+| Phase | What | Status |
 |---|---|---|
 | 1 | Eligibility rule, escalation guard, repair | **Done, live** |
-| 2 | Lease term type (fixed / month to month), badge, hide expiry for month to month; "continue month to month" mode | Small database change (a column) |
-| 3 | Digest emails; space labels in the PDF and Overview | Needs your digest decision |
-| 4 | Turnover model for residential in the engine and Monte Carlo | Changes Sensitivity-tab numbers for houses and apartments |
-| 5 | Rent-roll import and unit mix, expiry ladder | Largest piece |
+| 2 | Lease term type (fixed / month to month), flags, badge, Washington notice rules | **Done, live** (term type also in the lease-saving function) |
+| 3 | Digest emails | **Done, live** (space labels in the PDF and Overview still to do) |
+| 4 | Residential turnover model in the engine and Monte Carlo, from the deal's own vacancy configuration; "continue month to month" expiry mode | Next |
+| 5 | Rent-roll import and unit mix, expiry ladder | Later |
 
-Decisions needed:
-1. **Digest or one email per tenant?** Recommendation: digest when 3 or more tenants of one property are due the same day.
-2. **For apartments and storage, unit mix or a full rent roll?** Recommendation: both, chosen by property type.
-3. **Default annual turnover for residential** (a placeholder of about 25% a year, with 1 to 2 months of downtime) and whether you want separate residential and commercial defaults.
-4. **Month-to-month increase notice default:** how many days should the app warn before an increase?
+Still open: a starting turnover assumption for residential (placeholder about 25% a year with 1 to 2 months of downtime; to be expressed through each deal's vacancy configuration rather than a global setting).
