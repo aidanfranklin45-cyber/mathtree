@@ -9,7 +9,7 @@ import { CollaboratorsHubModal } from '../collaboration/CollaboratorsHubModal';
 import { EntityManagerModal, type EntityTarget } from './EntityManagerModal';
 
 interface Props {
-  active: 'portfolio' | 'operations';
+  active: 'portfolio' | 'operations' | 'compare';
   /** Deals the page has loaded (owned + shared with me); used by the Collaborators hub. */
   deals?: DealRecord[];
   onProfileSaved?: (profile: InvestorProfile) => void;

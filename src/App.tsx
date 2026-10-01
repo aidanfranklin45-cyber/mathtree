@@ -5,6 +5,7 @@ import { AuthGate } from './lib/auth/AuthGate';
 
 const DealStudioPage = lazy(() => import('./pages/DealStudioPage').then((m) => ({ default: m.DealStudioPage })));
 const OperationsPage = lazy(() => import('./pages/OperationsPage').then((m) => ({ default: m.OperationsPage })));
+const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })));
 const ReconcilePage = lazy(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
 const DealBriefPage = lazy(() => import('./pages/DealBriefPage').then((m) => ({ default: m.DealBriefPage })));
 const PortfolioBriefPage = lazy(() => import('./pages/PortfolioBriefPage').then((m) => ({ default: m.PortfolioBriefPage })));
