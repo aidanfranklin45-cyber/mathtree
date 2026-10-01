@@ -19,7 +19,7 @@ import { LeaseDrawer } from '../components/operations/LeaseDrawer';
 import { ProjectedVsActual } from '../components/operations/ProjectedVsActual';
 import { MenuItem, Popover, triggerBtn } from '../components/operations/Popover';
 import { RecoveriesPanel } from '../components/operations/RecoveriesPanel';
-import { summarizeLeaseRecoveries, type LeaseRecoverySummary, RECOVERY_CATEGORY_LABELS } from '../lib/operations/recoveries';
+import { summarizeLeaseRecoveries, normalizeRecoveryPrefs, maxLeadDays, DEFAULT_RECOVERY_PREFS, type LeaseRecoverySummary, type RecoveryPrefs, RECOVERY_CATEGORY_LABELS } from '../lib/operations/recoveries';
 import { syncRecoveryItems } from '../lib/operations/recoveryDb';
 import { isResidentialAsset } from '../../supabase/functions/_shared/rentIncreaseRules';
 import { buildRowView, type RowHandlers } from '../components/operations/rowStatus';
@@ -40,6 +40,7 @@ export const OperationsPage: React.FC = () => {
   const [recons, setRecons] = useState<Row[]>([]);
   const [meters, setMeters] = useState<Row[]>([]);
   const [readings, setReadings] = useState<Row[]>([]);
+  const [recPrefs, setRecPrefs] = useState<RecoveryPrefs>(DEFAULT_RECOVERY_PREFS);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -93,7 +94,10 @@ export const OperationsPage: React.FC = () => {
       let itemRows = rows(rItems);
       const trackedIds = new Set(rows(rLeases).filter((l) => l.track_recoveries && l.is_active !== false).map((l) => l.id));
       try {
-        const created = await syncRecoveryItems(termRows.filter((t) => trackedIds.has(t.lease_id)), itemRows);
+        const { data: prof } = uid ? await supabase.from('profiles').select('alert_preferences').eq('id', uid).maybeSingle() : { data: null };
+        const prefs = normalizeRecoveryPrefs(prof?.alert_preferences as Record<string, unknown> | null);
+        setRecPrefs(prefs);
+        const created = await syncRecoveryItems(termRows.filter((t) => trackedIds.has(t.lease_id)), itemRows, maxLeadDays([prefs]));
         if (created > 0) {
           const { data } = await scoped(supabase.from('lease_recovery_items').select('*')).order('due_date', { ascending: true });
           itemRows = data || itemRows;
@@ -283,10 +287,10 @@ export const OperationsPage: React.FC = () => {
     const out = new Map<string, LeaseRecoverySummary>();
     for (const l of leases) {
       if (!l.track_recoveries) continue;
-      out.set(l.id, summarizeLeaseRecoveries(l, recTerms.filter((t) => t.lease_id === l.id) as any, recItems.filter((i) => i.lease_id === l.id) as any, today));
+      out.set(l.id, summarizeLeaseRecoveries(l, recTerms.filter((t) => t.lease_id === l.id) as any, recItems.filter((i) => i.lease_id === l.id) as any, today, { leadDays: recPrefs.leadDays }));
     }
     return out;
-  }, [leases, recTerms, recItems]);
+  }, [leases, recTerms, recItems, recPrefs]);
 
   const views = useMemo(
     () => rows.map((r) => {
@@ -511,6 +515,7 @@ export const OperationsPage: React.FC = () => {
             recons={recons}
             meters={meters}
             readings={readings}
+            leadDays={recPrefs.leadDays}
             onChanged={() => { void load(); }}
           />
         ) : null}

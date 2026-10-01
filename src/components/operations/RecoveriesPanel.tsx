@@ -23,6 +23,8 @@ interface Props {
   recons: Row[];
   meters: Row[];
   readings: Row[];
+  /** Owner's reminder lead time per category, so "Due soon" here matches the alerts. */
+  leadDays?: Partial<Record<RecoveryCategory, number>>;
   onChanged: () => void;
 }
 
@@ -40,7 +42,7 @@ const field = 'w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-
 const lbl = 'block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 const today = () => new Date().toISOString().split('T')[0];
 
-export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft, unitSqft, terms, items, recons, meters, readings, onChanged }) => {
+export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft, unitSqft, terms, items, recons, meters, readings, leadDays, onChanged }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -108,7 +110,7 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
   const views = leaseItems.flatMap((item) => {
     const term = termById.get(item.term_id);
     if (!term) return [];
-    return [{ item, term, status: itemStatus(item as any, term.mode, today()) }];
+    return [{ item, term, status: itemStatus(item as any, term.mode, today(), { dueSoonDays: leadDays?.[term.category as RecoveryCategory] }) }];
   }).sort((a, b) => a.item.due_date.localeCompare(b.item.due_date));
   const open = views.filter((v) => v.status !== 'complete');
   const done = views.filter((v) => v.status === 'complete').reverse();

@@ -20,9 +20,9 @@ export const SCHEDULE_BACKFILL_DAYS = 60;
  * Creates any scheduled items that don't exist yet for the given terms. Idempotent (unique on term + due date), so the
  * page and the daily monitor can both call it. Returns how many rows were created.
  */
-export async function syncRecoveryItems(terms: Row[], items: Row[]): Promise<number> {
+export async function syncRecoveryItems(terms: Row[], items: Row[], aheadDays: number = SCHEDULE_AHEAD_DAYS): Promise<number> {
   const today = todayIso();
-  const missing = missingItems(terms as RecoveryTerm[], items as RecoveryItem[], shiftDays(today, SCHEDULE_AHEAD_DAYS), shiftDays(today, -SCHEDULE_BACKFILL_DAYS));
+  const missing = missingItems(terms as RecoveryTerm[], items as RecoveryItem[], shiftDays(today, aheadDays), shiftDays(today, -SCHEDULE_BACKFILL_DAYS));
   if (missing.length === 0) return 0;
   const termById = new Map(terms.map((t) => [t.id, t]));
   const rows = missing.map((m) => {

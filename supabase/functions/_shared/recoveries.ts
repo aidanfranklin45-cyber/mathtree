@@ -39,7 +39,12 @@ export interface RecoveryItem {
   verified?: boolean;
 }
 
-interface StatusOpts { graceDays?: number; dueSoonDays?: number }
+interface StatusOpts {
+  graceDays?: number;
+  dueSoonDays?: number;
+  /** Per-category look-ahead (owner preference); overrides `dueSoonDays` where set. */
+  leadDays?: Partial<Record<RecoveryCategory, number>>;
+}
 
 const MONTHS_PER: Record<RecoveryFrequency, number> = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 };
 const DAY_MS = 86_400_000;
@@ -139,7 +144,7 @@ export const summarizeLeaseRecoveries = (
   for (const item of items) {
     const term = byTerm.get(item.term_id);
     if (!term) continue;
-    const status = itemStatus(item, term.mode, today, opts);
+    const status = itemStatus(item, term.mode, today, { ...opts, dueSoonDays: opts.leadDays?.[term.category] ?? opts.dueSoonDays });
     if (status === 'complete') { sum.complete++; continue; }
     if (status === 'overdue') sum.overdue++;
     if (status === 'due_soon') sum.dueSoon++;
