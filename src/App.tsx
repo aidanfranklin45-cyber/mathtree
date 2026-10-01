@@ -44,6 +44,8 @@ export const App: React.FC = () => {
             <Route key={p} path={p} element={<StudioTabRedirect tab={t} />} />
           )))}
           <Route path="/brief" element={guard(<DealBriefPage />)} />
+          {/* Public sample memo linked from the landing page: no sign-in, demo deals only */}
+          <Route path="/demo-brief" element={<DealBriefPage publicDemo />} />
           <Route path="/portfolio-brief" element={guard(<PortfolioBriefPage />)} />
           {['/operations', '/operations.html'].map((p) => (
             <Route key={p} path={p} element={guard(<OperationsPage />)} />
