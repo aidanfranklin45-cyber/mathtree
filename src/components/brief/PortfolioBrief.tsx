@@ -23,15 +23,29 @@ const NameCell: React.FC<{ r: PortfolioDealRow; showStatus?: boolean }> = ({ r, 
 const ApnCell: React.FC<{ r: PortfolioDealRow }> = ({ r }) => <td className="mono" style={{ textAlign: 'center' }}>{r.apn ?? 'Pending Link'}</td>;
 
 const PORTFOLIO_CSS = `
-.brief .sc6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 12px; }
-.brief .tile .sub { font-size: 10.5px; color: #64748b; margin: 2px 0 0 0; }
-.brief .gov { border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; padding: 8px 10px; margin-bottom: 12px; break-inside: avoid; }
-.brief .gov .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 10.5px; }
-.brief .gov .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; }
-.brief .gov .cell strong { color: #047857; display: block; }
-.brief .gov .cell p { color: #475569; margin: 1px 0 0 0; }
-.brief .empty { padding: 10px; font-size: 12px; color: #64748b; text-align: center; }
+.brief { padding: 12px 18px; max-width: 1200px; }
+.brief .hdr { margin-bottom: 8px; padding-bottom: 6px; }
+.brief .sc6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 8px; }
+.brief .tile { padding: 6px 8px; }
+.brief .tile .tv { font-size: 17px; }
+.brief .tile .sub { font-size: 10px; color: #64748b; margin: 2px 0 0 0; }
+.brief .box { margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid; }
+.brief .box.split { break-inside: auto; page-break-inside: auto; }
+.brief .bh { padding: 5px 8px; font-size: 11px; }
+.brief table { font-size: 10.5px; line-height: 1.35; }
+.brief th, .brief td { padding: 4px 6px; }
+.brief .gov { border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; padding: 6px 8px; margin-bottom: 8px; break-inside: avoid; }
+.brief .gov .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 10px; }
+.brief .gov .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 5px 7px; }
+.brief .gov .cell strong { color: #047857; display: block; font-size: 10.5px; }
+.brief .gov .cell p { color: #475569; margin: 1px 0 0 0; font-size: 9.5px; }
+.brief .empty { padding: 8px; font-size: 11.5px; color: #64748b; text-align: center; }
 @media screen and (max-width: 900px) { .brief .sc6 { grid-template-columns: repeat(3, 1fr); } .brief .gov .grid { grid-template-columns: 1fr 1fr; } }
+@media print {
+  @page { size: letter landscape; margin: 6mm 8mm; }
+  .brief { padding: 0; max-width: none; }
+  .brief .box { margin-bottom: 6px; }
+}
 `;
 
 export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => void; onClose?: () => void }> = ({ model: m, onPrint, onClose }) => {
@@ -73,25 +87,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         <div className="tile"><p className="tl">Physical Footprint</p><p className="tv">{m.footprintAcres > 0 ? `${m.footprintAcres.toFixed(2)} Ac` : NP}</p><p className="sub">{m.footprintSqFt > 0 ? `${Math.round(m.footprintSqFt).toLocaleString()} Sq Ft` : `Sq Ft: ${NP}`}</p></div>
       </div>
 
-      <div className="box">
-        <div className="bh" style={{ background: '#334155' }}><span>Sector Diversification &amp; Asset Allocation Matrix</span><span className="sub" style={{ color: '#fff' }}>Capital Allocation</span></div>
-        <table>
-          <thead><tr><th>Asset Class / Sector</th><th className="num">Deals</th><th className="num">Aggregate Valuation</th><th className="num">Portfolio Weight</th><th className="num">Annual Cash Flow</th><th className="num">Avg Target IRR</th></tr></thead>
-          <tbody>
-            {m.sectors.map((s, i) => (
-              <tr key={s.id} className={i % 2 ? 'alt' : ''}>
-                <td style={{ fontWeight: 700 }}>{s.icon} {s.label}</td>
-                <td className="num">{s.count}</td><td className="num" style={{ fontWeight: 700 }}>{cur(s.value)}</td>
-                <td className="num">{s.weightPct.toFixed(1)}%</td>
-                <td className="num" style={{ fontWeight: 700, color: cfColor(s.cashFlow) }}>{cur(s.cashFlow)}/yr</td>
-                <td className="num" style={{ fontWeight: 700, color: '#059669' }}>{s.avgIrr !== null ? pct(s.avgIrr, 1) : 'N/A'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="box split pg">
+      <div className="box split">
         <div className="bh" style={{ background: '#064e3b' }}><span>🏛️ Owned Operating Holdings — Performance &amp; Equity Register ({m.owned.length} Assets)</span><span className="sub" style={{ color: '#fff' }}>In-Place GAV: {cur(k.ownedVal)}</span></div>
         {m.owned.length > 0 ? (
           <table>
@@ -114,7 +110,67 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         ) : <div className="empty">No active properties currently recorded in owned portfolio.</div>}
       </div>
 
+      {m.ownedProForma.length > 0 && (
+        <div className="box split">
+          <div className="bh" style={{ background: '#0f4033' }}><span>📊 Owned Portfolio 5-Year Operating Pro-Forma &amp; Cash Flow Waterfall</span><span className="sub" style={{ color: '#34d399' }}>Aggregated Performance Forecast</span></div>
+          <table>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'center' }}>Operating Period</th>
+                <th className="num">Portfolio Value</th>
+                <th className="num">Gross Revenue</th>
+                <th className="num">Vacancy Loss</th>
+                <th className="num">OpEx</th>
+                <th className="num" style={{ fontWeight: 800 }}>Portfolio NOI</th>
+                <th className="num">Debt Service</th>
+                <th className="num" style={{ color: '#059669', fontWeight: 800 }}>Net Cash Flow</th>
+                <th className="num">CoC Yield</th>
+                <th className="num">Cap Rate</th>
+                <th className="num">Loan Balance</th>
+                <th className="num" style={{ color: '#059669', fontWeight: 800 }}>Ending Equity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {m.ownedProForma.map((p) => (
+                <tr key={p.year} className={p.year % 2 === 0 ? 'alt' : ''}>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{p.calendarYear} <span style={{ fontSize: 9.5, color: '#64748b', fontWeight: 400 }}>(Yr {p.year})</span></td>
+                  <td className="num">{cur(p.propertyValue)}</td>
+                  <td className="num">{cur(p.grossIncome)}</td>
+                  <td className="num" style={{ color: '#e11d48' }}>{cur(p.vacancyLoss)}</td>
+                  <td className="num" style={{ color: '#64748b' }}>{cur(p.operatingExpenses)}</td>
+                  <td className="num" style={{ fontWeight: 700 }}>{cur(p.netOperatingIncome)}</td>
+                  <td className="num" style={{ color: '#64748b' }}>{cur(p.debtService)}</td>
+                  <td className="num" style={{ fontWeight: 800, color: cfColor(p.netCashFlow) }}>{cur(p.netCashFlow)}</td>
+                  <td className="num" style={{ fontWeight: 700, color: '#059669' }}>{pctOrNA(p.cashOnCash, 1)}</td>
+                  <td className="num">{pctOrNA(p.capRate)}</td>
+                  <td className="num" style={{ color: '#64748b' }}>{cur(p.loanBalance)}</td>
+                  <td className="num" style={{ fontWeight: 800, color: '#059669' }}>{cur(p.endingEquity)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="box split pg">
+        <div className="bh" style={{ background: '#334155' }}><span>Sector Diversification &amp; Asset Allocation Matrix</span><span className="sub" style={{ color: '#fff' }}>Capital Allocation</span></div>
+        <table>
+          <thead><tr><th>Asset Class / Sector</th><th className="num">Deals</th><th className="num">Aggregate Valuation</th><th className="num">Portfolio Weight</th><th className="num">Annual Cash Flow</th><th className="num">Avg Target IRR</th></tr></thead>
+          <tbody>
+            {m.sectors.map((s, i) => (
+              <tr key={s.id} className={i % 2 ? 'alt' : ''}>
+                <td style={{ fontWeight: 700 }}>{s.icon} {s.label}</td>
+                <td className="num">{s.count}</td><td className="num" style={{ fontWeight: 700 }}>{cur(s.value)}</td>
+                <td className="num">{s.weightPct.toFixed(1)}%</td>
+                <td className="num" style={{ fontWeight: 700, color: cfColor(s.cashFlow) }}>{cur(s.cashFlow)}/yr</td>
+                <td className="num" style={{ fontWeight: 700, color: '#059669' }}>{s.avgIrr !== null ? pct(s.avgIrr, 1) : 'N/A'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="box split">
         <div className="bh" style={{ background: '#0369a1' }}><span>🎯 Acquisition Pipeline — Prospect Underwriting Register ({m.pipeline.length} Opportunities)</span><span className="sub" style={{ color: '#fff' }}>Pipeline Volume: {cur(k.pipelineVal)}</span></div>
         {m.pipeline.length > 0 ? (
           <table>
@@ -137,7 +193,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         ) : <div className="empty">No prospective acquisition opportunities currently in pipeline.</div>}
       </div>
 
-      <div className="box split pg">
+      <div className="box split">
         <div className="bh" style={{ background: '#1e293b' }}><span>🏛️ County Assessor &amp; Structural Characteristics Cross-Verification Audit</span><span className="sub" style={{ color: '#fff' }}>Tax Roll Audit ({m.owned.length} Owned Holdings, {m.pipeline.length} Acquisition Prospects)</span></div>
         <table>
           <thead>

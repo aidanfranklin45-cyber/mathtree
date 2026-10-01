@@ -87,6 +87,19 @@ describe('buildPortfolioModel', () => {
     expect(m.pipeline[1].isOwned).toBe(false);
     expect(m.pipeline[1].status).toBe('prospect');
   });
+
+  it('builds an aggregated 5-year portfolio pro-forma for owned operating holdings', () => {
+    const m = buildPortfolioModel(deals, parcels, { now });
+    expect(m.ownedProForma).toHaveLength(5);
+    const yr1 = m.ownedProForma[0];
+    expect(yr1.year).toBe(1);
+    expect(yr1.calendarYear).toBeGreaterThanOrEqual(2024);
+    expect(yr1.propertyValue).toBe(1_400_000); // 1,000,000 (own1) + 400,000 (own2)
+    expect(yr1.grossIncome).toBeGreaterThan(0);
+    expect(yr1.netOperatingIncome).toBeGreaterThan(0);
+    expect(yr1.netCashFlow).toBeDefined();
+    expect(yr1.endingEquity).toBeGreaterThan(0);
+  });
 });
 
 describe('PortfolioBrief render', () => {
@@ -111,5 +124,9 @@ describe('PortfolioBrief render', () => {
     expect(html).toContain('🎯 Prospect');
     expect(html).toContain('🎯 Pipeline Prospect');
     expect(html).toContain('Portfolio Status');
+
+    // Portfolio level pro-forma
+    expect(html).toContain('Owned Portfolio 5-Year Operating Pro-Forma');
+    expect(html).toContain('Portfolio NOI');
   });
 });

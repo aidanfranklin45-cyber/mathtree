@@ -55,6 +55,22 @@ export interface PortfolioSector {
   avgIrr: number | null;
 }
 
+export interface PortfolioProFormaYear {
+  year: number;
+  calendarYear: number;
+  propertyValue: number;
+  grossIncome: number;
+  vacancyLoss: number;
+  operatingExpenses: number;
+  netOperatingIncome: number;
+  debtService: number;
+  netCashFlow: number;
+  cashOnCash: number;
+  capRate: number;
+  loanBalance: number;
+  endingEquity: number;
+}
+
 export interface PortfolioModel {
   investorName: string | null;
   companyName: string | null;
@@ -67,6 +83,7 @@ export interface PortfolioModel {
   footprintSqFt: number;
   sectors: PortfolioSector[];
   owned: PortfolioDealRow[];
+  ownedProForma: PortfolioProFormaYear[];
   pipeline: PortfolioDealRow[];
   audit: PortfolioDealRow[];
   flags: Array<{ title: string; description: string }>;
@@ -205,6 +222,66 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
   const unlinked = rows.filter((r) => r.parcelCount === 0);
   if (unlinked.length > 0) flags.push({ title: 'Unlinked county parcels', description: `${unlinked.length} of ${rows.length} assets have no county parcel linked: ${unlinked.map((r) => r.name).join(', ')}.` });
 
+  // Build aggregated 5-year portfolio pro-forma for owned operating holdings
+  const ownedDeals = deals.filter((d) => (d.status || 'prospect').toLowerCase() === 'owned');
+  const ownedDealProjections: Array<Array<Record<string, any>>> = [];
+  for (const d of ownedDeals) {
+    const em = tryComputeDealMetrics(d);
+    if (em && Array.isArray(em.projections) && em.projections.length > 0) {
+      ownedDealProjections.push(em.projections);
+    }
+  }
+
+  const ownedProForma: PortfolioProFormaYear[] = [];
+  if (ownedDealProjections.length > 0) {
+    const yearsCount = Math.min(5, Math.max(...ownedDealProjections.map((p) => p.length)));
+    for (let y = 0; y < yearsCount; y++) {
+      let propVal = 0;
+      let gross = 0;
+      let vac = 0;
+      let opex = 0;
+      let noi = 0;
+      let ds = 0;
+      let cf = 0;
+      let loan = 0;
+      let calYear: number | undefined = undefined;
+
+      for (const proj of ownedDealProjections) {
+        const p = proj[y];
+        if (!p) continue;
+        if (p.calendarYear && !calYear) calYear = p.calendarYear;
+        propVal += Number(p.propertyValue) || 0;
+        gross += Number(p.grossPotentialIncome ?? p.grossPotentialRent ?? p.effectiveGrossIncome) || 0;
+        vac += Number(p.vacancyLoss) || 0;
+        opex += Number(p.operatingExpenses) || 0;
+        noi += Number(p.netOperatingIncome) || 0;
+        ds += Number(p.debtService) || 0;
+        cf += Number(p.netCashFlow ?? p.cashFlow) || 0;
+        loan += Number(p.loanBalanceRemaining ?? p.endingLoanBalance) || 0;
+      }
+
+      const equity = Math.max(0, propVal - loan);
+      const capRate = propVal > 0 && noi > 0 ? (noi / propVal) * 100 : 0;
+      const coc = equity > 0 ? (cf / equity) * 100 : 0;
+
+      ownedProForma.push({
+        year: y + 1,
+        calendarYear: calYear || now.getFullYear() + y,
+        propertyValue: Math.round(propVal),
+        grossIncome: Math.round(gross),
+        vacancyLoss: Math.round(vac),
+        operatingExpenses: Math.round(opex),
+        netOperatingIncome: Math.round(noi),
+        debtService: Math.round(ds),
+        netCashFlow: Math.round(cf),
+        cashOnCash: Number(coc.toFixed(2)),
+        capRate: Number(capRate.toFixed(2)),
+        loanBalance: Math.round(loan),
+        endingEquity: Math.round(equity),
+      });
+    }
+  }
+
   return {
     investorName: text(opts.investorName),
     companyName: text(opts.companyName),
@@ -217,6 +294,7 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
     footprintSqFt: rows.reduce((s, r) => s + r.buildingSqFt, 0),
     sectors,
     owned,
+    ownedProForma,
     pipeline,
     audit: [...rows].sort((a, b) => (a.isOwned === b.isOwned ? 0 : a.isOwned ? -1 : 1)),
     flags,
