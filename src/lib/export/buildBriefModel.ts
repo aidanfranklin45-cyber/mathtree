@@ -287,12 +287,14 @@ export function buildBriefModel(
   const dscrFormatted = dscr !== null && debtService > 0 ? `${dscr.toFixed(2)}x` : 'N/A';
   const dscrNum = dscr ?? 0;
 
-  // Revenue and expenses: straight from the first projection year the engine produced
-  const annualRent = num(p0.grossPotentialIncome ?? p0.grossPotentialRent);
+  // Revenue and expenses from the first FULL operating year. A closing mid-year makes Year 1 a stub holding only a few
+  // months of rent, so dividing it by 12 would understate the monthly rent (6 months of $2,600 is $15,600, not $1,300/mo).
+  const fy = firstFull;
+  const annualRent = num(fy.grossPotentialIncome ?? fy.grossPotentialRent);
   const monthlyRent = annualRent / 12;
-  const vacancyLossAnnual = num(p0.vacancyLoss);
+  const vacancyLossAnnual = num(fy.vacancyLoss);
   const vacancyPct = annualRent > 0 ? (vacancyLossAnnual / annualRent) * 100 : 0;
-  const opExAnnual = num(p0.operatingExpenses);
+  const opExAnnual = num(fy.operatingExpenses);
   const expenseRatioPct = annualRent > 0 ? (opExAnnual / annualRent) * 100 : 0;
 
   // Leases: underwriting leases (what the engine ran) and the live rent roll (what is actually in place)

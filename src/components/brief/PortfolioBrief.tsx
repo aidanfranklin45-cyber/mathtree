@@ -9,22 +9,22 @@ const cfColor = (v: number | null): string => (v !== null && v < 0 ? '#e11d48' :
 
 const NameCell: React.FC<{ r: PortfolioDealRow }> = ({ r }) => (
   <td>
-    <strong style={{ fontSize: 8.5, display: 'block' }}>{r.name}</strong>
-    <span style={{ color: '#64748b', fontSize: 7.5 }}>{orNP(r.location)}</span>
+    <strong style={{ fontSize: 12, display: 'block' }}>{r.name}</strong>
+    <span style={{ color: '#64748b', fontSize: 10.5 }}>{orNP(r.location)}</span>
   </td>
 );
 const ApnCell: React.FC<{ r: PortfolioDealRow }> = ({ r }) => <td className="mono" style={{ textAlign: 'center' }}>{r.apn ?? 'Pending Link'}</td>;
 
 const PORTFOLIO_CSS = `
-.brief .sc6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 10px; }
-.brief .tile .sub { font-size: 7.5px; color: #64748b; margin: 1px 0 0 0; }
-.brief .gov { border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; padding: 6px 8px; margin-bottom: 8px; }
-.brief .gov .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 7.5px; }
-.brief .gov .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; }
+.brief .sc6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 12px; }
+.brief .tile .sub { font-size: 10.5px; color: #64748b; margin: 2px 0 0 0; }
+.brief .gov { border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; padding: 8px 10px; margin-bottom: 12px; break-inside: avoid; }
+.brief .gov .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 10.5px; }
+.brief .gov .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; }
 .brief .gov .cell strong { color: #047857; display: block; }
 .brief .gov .cell p { color: #475569; margin: 1px 0 0 0; }
-.brief .empty { padding: 8px; font-size: 8.5px; color: #64748b; text-align: center; }
-@media (max-width: 900px) { .brief .sc6 { grid-template-columns: repeat(3, 1fr); } }
+.brief .empty { padding: 10px; font-size: 12px; color: #64748b; text-align: center; }
+@media (max-width: 900px) { .brief .sc6 { grid-template-columns: repeat(3, 1fr); } .brief .gov .grid { grid-template-columns: 1fr 1fr; } }
 `;
 
 export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => void; onClose?: () => void }> = ({ model: m, onPrint, onClose }) => {
@@ -43,14 +43,14 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
       <div className="hdr">
         <div>
           <div className="row"><span className="logo" style={{ fontSize: 22 }}>MathTree</span><span className="pill pill-green">Portfolio &amp; Pipeline Command Center</span></div>
-          <h1 style={{ fontSize: 16, fontWeight: 800, margin: '3px 0 0 0' }}>Executive Portfolio &amp; Acquisition Pipeline Underwriting Brief</h1>
-          <div className="row" style={{ fontSize: 9.5, color: '#475569', fontWeight: 600, marginTop: 2, gap: 10, flexWrap: 'wrap' }}>
+          <h1>Executive Portfolio &amp; Acquisition Pipeline Underwriting Brief</h1>
+          <div className="row hmeta">
             <span>👤 Sponsor / Investor: <strong style={{ color: '#0f172a' }}>{orNP(m.investorName)}</strong></span><span>•</span>
             <span>🏢 Entity: <strong style={{ color: '#0f172a' }}>{orNP(m.companyName)}</strong></span><span>•</span>
             <span>🎯 Hurdle Rate: <strong style={{ color: '#059669' }}>{m.hurdleRate !== null ? `${m.hurdleRate.toFixed(1)}% / yr` : NP}</strong></span>
           </div>
         </div>
-        <div style={{ textAlign: 'right', fontSize: 9.5, color: '#64748b' }}>
+        <div className="hside">
           <p style={{ margin: 0, fontWeight: 600 }}>Report Date: <strong style={{ color: '#0f172a' }}>{m.dateStr}</strong></p>
           <p style={{ margin: '2px 0 0 0' }}>Underwritten Assets: <strong style={{ color: '#0f172a' }}>{m.totalDeals} ({m.owned.length} Owned, {m.pipeline.length} Pipeline)</strong></p>
           <p style={{ margin: '2px 0 0 0' }}>Total Real Estate Capital: <strong style={{ color: '#059669' }}>{cur(m.totalVolume)}</strong></p>
@@ -84,7 +84,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         </table>
       </div>
 
-      <div className="box">
+      <div className="box split pg">
         <div className="bh" style={{ background: '#064e3b' }}><span>🏛️ Owned Operating Holdings — Performance &amp; Equity Register ({m.owned.length} Assets)</span><span className="sub" style={{ color: '#fff' }}>In-Place GAV: {cur(k.ownedVal)}</span></div>
         {m.owned.length > 0 ? (
           <table>
@@ -107,7 +107,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         ) : <div className="empty">No active properties currently recorded in owned portfolio.</div>}
       </div>
 
-      <div className="box">
+      <div className="box split pg">
         <div className="bh" style={{ background: '#0369a1' }}><span>🎯 Acquisition Pipeline — Prospect Underwriting Register ({m.pipeline.length} Opportunities)</span><span className="sub" style={{ color: '#fff' }}>Pipeline Volume: {cur(k.pipelineVal)}</span></div>
         {m.pipeline.length > 0 ? (
           <table>
@@ -130,7 +130,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         ) : <div className="empty">No prospective acquisition opportunities currently in pipeline.</div>}
       </div>
 
-      <div className="box">
+      <div className="box split pg">
         <div className="bh" style={{ background: '#1e293b' }}><span>🏛️ County Assessor &amp; Structural Characteristics Cross-Verification Audit</span><span className="sub" style={{ color: '#fff' }}>Tax Roll Audit</span></div>
         <table>
           <thead><tr><th style={{ width: '22%' }}>Property &amp; Location</th><th style={{ width: '15%' }}>Assessor APN</th><th style={{ width: '18%' }}>Owner of Record</th><th style={{ width: '15%' }}>Assessed Value</th><th style={{ width: '12%' }}>Parcel Area</th><th style={{ width: '18%' }}>Structural Specs &amp; Zoning</th></tr></thead>
@@ -144,7 +144,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
                 <td>{r.acres > 0 ? `${r.acres.toFixed(2)} Acres` : NP}</td>
                 <td>
                   <span>{[r.yearBuilt ? `Built ${r.yearBuilt}` : null, r.buildingSqFt > 0 ? `${Math.round(r.buildingSqFt).toLocaleString()} Sq Ft` : null].filter(Boolean).join(' • ') || NP}</span><br />
-                  <span style={{ fontSize: 7, color: '#64748b' }}>Zoning: {orNP(r.zoning)}</span>
+                  <span style={{ fontSize: 10, color: '#64748b' }}>Zoning: {orNP(r.zoning)}</span>
                 </td>
               </tr>
             ))}
@@ -153,7 +153,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
       </div>
 
       <div className="gov">
-        <div style={{ fontSize: 8.5, fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Portfolio Governance Standards &amp; Diligence Policy</div>
+        <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', marginBottom: 6 }}>Portfolio Governance Standards &amp; Diligence Policy</div>
         <div className="grid">
           <div className="cell"><strong>Closing Proration Policy</strong><p>Underwritten based on verified closing timelines; applies calendar proration only when elected.</p></div>
           <div className="cell"><strong>Occupancy &amp; Vacancy Policy</strong><p>Underwriting vacancy calibrated to in-place tenant leases, lease stability, and market comps.</p></div>

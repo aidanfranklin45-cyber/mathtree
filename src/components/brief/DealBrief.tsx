@@ -13,74 +13,132 @@ const compact = (v: number): string => {
 };
 const orNP = (v: string | null | undefined): string => (v && v.trim() ? v : NP);
 
+/**
+ * Print sizes are tuned for readability: body 12px, tables 11.5px, headline figures 17-22px (roughly 9pt and up on paper).
+ * Each major section starts a new landscape page (`.pg`); fine print (methodology and disclosures) closes the document.
+ */
 export const BRIEF_CSS = `
-@page { size: letter landscape; margin: 7mm 9mm; }
-.brief { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; color: #0f172a; background: #ffffff; padding: 14px 18px; max-width: 1180px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@page { size: letter landscape; margin: 8mm 10mm; }
+.brief { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; font-size: 12px; color: #0f172a; background: #ffffff; padding: 16px 22px; max-width: 1180px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .brief * { box-sizing: border-box; }
-.brief .hdr { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid #059669; padding-bottom: 6px; margin-bottom: 8px; }
-.brief .logo { font-size: 18px; font-weight: 900; color: #059669; letter-spacing: -0.5px; }
-.brief .pill { display: inline-block; font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; }
+.brief .pg { break-before: page; page-break-before: always; }
+.brief .hdr { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #059669; padding-bottom: 8px; margin-bottom: 12px; gap: 16px; }
+.brief .logo { font-size: 24px; font-weight: 900; color: #059669; letter-spacing: -0.5px; }
+.brief h1 { font-size: 20px; font-weight: 800; margin: 4px 0 0 0; }
+.brief .pill { display: inline-block; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
 .brief .pill-green { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
 .brief .pill-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 .brief .pill-slate { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-.brief .row { display: flex; align-items: center; gap: 6px; }
-.brief .score { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-bottom: 8px; }
-.brief .tile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 5px 7px; }
-.brief .tl { font-size: 7px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0; }
-.brief .tv { font-size: 13px; font-weight: 800; margin: 2px 0 0 0; }
-.brief .tv small { font-size: 8px; color: #64748b; font-weight: 400; }
-.brief .box { border: 1px solid #cbd5e1; border-radius: 5px; overflow: hidden; margin-bottom: 8px; break-inside: avoid; page-break-inside: avoid; }
-.brief .bh { background: #0f172a; color: #fff; padding: 4px 8px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.3px; }
-.brief .bh .sub { font-size: 8px; color: #34d399; }
-.brief table { width: 100%; font-size: 8px; border-collapse: collapse; line-height: 1.35; }
-.brief th { background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; padding: 3px 5px; text-align: left; }
-.brief td { padding: 3.5px 5px; border-bottom: 1px solid #f1f5f9; }
+.brief .row { display: flex; align-items: center; gap: 8px; }
+.brief .hmeta { font-size: 12px; color: #475569; font-weight: 600; margin-top: 4px; flex-wrap: wrap; }
+.brief .hside { text-align: right; font-size: 12px; color: #64748b; line-height: 1.6; }
+.brief .score { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 12px; }
+.brief .tile { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; }
+.brief .tl { font-size: 9.5px; font-weight: 700; color: #64748b; text-transform: uppercase; margin: 0; letter-spacing: 0.2px; }
+.brief .tv { font-size: 19px; font-weight: 800; margin: 3px 0 0 0; }
+.brief .tv small { font-size: 11px; color: #64748b; font-weight: 400; }
+.brief .box { border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
+.brief .box.split { break-inside: auto; page-break-inside: auto; }
+.brief .bh { background: #0f172a; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 800; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; letter-spacing: 0.3px; gap: 10px; }
+.brief .bh .sub { font-size: 11px; color: #34d399; font-weight: 700; text-transform: none; }
+.brief table { width: 100%; font-size: 11.5px; border-collapse: collapse; line-height: 1.4; }
+.brief th { background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 800; color: #1e293b; padding: 5px 7px; text-align: left; font-size: 10.5px; }
+.brief td { padding: 5px 7px; border-bottom: 1px solid #f1f5f9; }
 .brief .num { text-align: right; }
 .brief .k { color: #64748b; font-weight: 700; }
 .brief .mono { font-family: monospace; font-weight: 700; color: #047857; }
 .brief .tot td { background: #ecfdf5; font-weight: 800; border-top: 1px solid #a7f3d0; }
-.brief .lab { font-size: 8px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; }
-.brief .big { font-size: 13.5px; font-weight: 900; letter-spacing: -0.3px; }
-.brief .meta { font-size: 8px; color: #334155; margin-top: 2px; }
-.brief .prov { color: #334155; font-size: 8px; line-height: 1.35; vertical-align: middle; padding: 5px 6px; }
 .brief .alt td { background: #f8fafc; }
-.brief .mc { padding: 6px 8px; }
-.brief .mcg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 5px; }
-.brief .mct { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px 6px; }
+.brief .pf table { font-size: 11px; }
+.brief .pf th, .brief .pf td { padding: 5px 6px; }
+.brief .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+.brief .card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 9px 12px; background: #fff; }
+.brief .card:nth-child(4n+2), .brief .card:nth-child(4n+3) { background: #f8fafc; }
+.brief .lab { font-size: 10.5px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px; }
+.brief .big { font-size: 22px; font-weight: 900; letter-spacing: -0.3px; }
+.brief .mid { font-size: 15px; font-weight: 800; }
+.brief .meta { font-size: 11.5px; color: #334155; margin-top: 3px; line-height: 1.45; }
+.brief .fine { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; background: #f8fafc; margin-bottom: 10px; break-inside: avoid; page-break-inside: avoid; }
+.brief .fine h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #475569; margin: 0 0 4px 0; letter-spacing: 0.3px; }
+.brief .fine ol { margin: 0; padding-left: 16px; columns: 2; column-gap: 24px; font-size: 9.5px; color: #475569; line-height: 1.45; }
+.brief .fine li { break-inside: avoid; margin-bottom: 4px; }
+.brief .fine p { font-size: 9px; color: #64748b; margin: 4px 0 0 0; line-height: 1.4; }
+.brief .mc { padding: 10px 12px; }
+.brief .mcg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 8px; }
+.brief .mct { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 6px 9px; }
 .brief .mct p { margin: 0; }
-.brief .mct .l { font-size: 7px; color: #64748b; font-weight: 700; text-transform: uppercase; }
-.brief .mct .v { font-size: 11px; font-weight: 800; margin-top: 1px; }
-.brief .warn { border: 1px solid #fde68a; background: #fffbeb; border-radius: 5px; padding: 5px 8px; margin-bottom: 8px; }
-.brief .warn p { font-size: 8px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 2px 0; }
-.brief .warn ul { margin: 0; padding-left: 12px; font-size: 7.5px; color: #78350f; line-height: 1.3; }
-.brief .foot { border-top: 1px solid #cbd5e1; padding-top: 4px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; margin-top: 8px; }
-.brief .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
-.brief .btn { background: #059669; color: #fff; border: 0; border-radius: 6px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.brief .mct .l { font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+.brief .mct .v { font-size: 17px; font-weight: 800; margin-top: 2px; }
+.brief .mcp { font-size: 11px; color: #334155; line-height: 1.5; margin: 0 0 8px 0; }
+.brief .warn { border: 1px solid #fde68a; background: #fffbeb; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; break-inside: avoid; }
+.brief .warn p { font-size: 11.5px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 3px 0; }
+.brief .warn ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: #78350f; line-height: 1.45; }
+.brief .foot { border-top: 1px solid #cbd5e1; padding-top: 5px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-top: 10px; gap: 12px; }
+.brief .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+.brief .btn { background: #059669; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .brief .btn.alt2 { background: #e2e8f0; color: #0f172a; }
 @media print { .brief { padding: 0; max-width: none; } .brief .toolbar { display: none; } }
-@media (max-width: 900px) { .brief .score { grid-template-columns: repeat(3, 1fr); } .brief { overflow-x: auto; } }
+@media (max-width: 900px) { .brief .score { grid-template-columns: repeat(3, 1fr); } .brief .cards { grid-template-columns: 1fr; } .brief .mcg { grid-template-columns: repeat(2, 1fr); } .brief { overflow-x: auto; } .brief .fine ol { columns: 1; } }
 `;
 
-function Histogram({ bins, label, tone }: { bins: MonteCarloHistogramBin[]; label: (b: MonteCarloHistogramBin) => string; tone: (b: MonteCarloHistogramBin) => string }) {
-  const W = 540, H = 65, gap = 3;
-  const n = Math.max(1, bins.length);
-  const bw = (W - (n - 1) * gap) / n;
-  const max = Math.max(1, ...bins.map((b) => b.count));
+interface Marker { value: number; label: string; color: string; dash?: boolean }
+
+/**
+ * Distribution of the simulated runs. The extreme 1% tails are not drawn as stretched bars (they distort the axis); they are
+ * stated in a note instead. Bars show the share of runs, the axis is proportional, and the percentile markers sit on the same scale.
+ */
+function DistributionChart({ bins, runs, fmt, markers, tone, axisTitle }: {
+  bins: MonteCarloHistogramBin[]; runs: number; fmt: (v: number) => string; markers: Marker[];
+  tone: (b: MonteCarloHistogramBin) => string; axisTitle: string;
+}) {
+  const core = bins.filter((b) => !b.isTail);
+  const low = bins.find((b) => b.isTail && core.length > 0 && b.binEnd <= core[0].binStart);
+  const high = bins.find((b) => b.isTail && core.length > 0 && b.binStart >= core[core.length - 1].binEnd);
+  if (core.length < 2) {
+    return <p className="mcp">Every run landed on {core[0] ? fmt(core[0].binStart) : fmt(0)}: nothing in this simulation moves this result.</p>;
+  }
+  const W = 1000, H = 200, x0 = 40, x1 = 972, base = 148, maxH = 96, gap = 5;
+  const lo = core[0].binStart, hi = core[core.length - 1].binEnd;
+  const xOf = (v: number) => x0 + ((Math.min(hi, Math.max(lo, v)) - lo) / (hi - lo)) * (x1 - x0);
+  const bw = (x1 - x0 - (core.length - 1) * gap) / core.length;
+  const maxShare = Math.max(...core.map((b) => b.count / runs));
+  const edges = [...core.map((b) => b.binStart), hi];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, overflow: 'visible' }}>
-      {bins.map((b, i) => {
-        const h = (b.count / max) * 40;
-        const x = i * (bw + gap);
-        const y = 46 - h;
-        return (
-          <g key={i}>
-            <rect x={x} y={y} width={bw} height={h} rx={2} fill={tone(b)} opacity={0.9} />
-            <text x={x + bw / 2} y={57} fontSize={6} fill="#64748b" textAnchor="middle">{i % 2 === 0 ? label(b) : ''}</text>
-            <text x={x + bw / 2} y={Math.max(7, y - 2)} fontSize={5.5} fontWeight="bold" fill="#334155" textAnchor="middle">{b.count}</text>
-          </g>
-        );
-      })}
-    </svg>
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label={axisTitle}>
+        <line x1={x0} y1={base} x2={x1} y2={base} stroke="#94a3b8" strokeWidth={1.5} />
+        {core.map((b, i) => {
+          const share = b.count / runs;
+          const h = (share / maxShare) * maxH;
+          const x = x0 + i * (bw + gap);
+          return (
+            <g key={i}>
+              <rect x={x} y={base - h} width={bw} height={h} rx={2} fill={tone(b)} opacity={0.9} />
+              {share >= 0.005 && <text x={x + bw / 2} y={base - h - 5} fontSize={14} fontWeight="bold" fill="#334155" textAnchor="middle">{`${Math.round(share * 100)}%`}</text>}
+            </g>
+          );
+        })}
+        {edges.map((v, i) => i % 2 === 0 && (
+          <text key={i} x={xOf(v)} y={base + 18} fontSize={14} fill="#475569" textAnchor="middle">{fmt(v)}</text>
+        ))}
+        {markers.map((m, i) => {
+          const x = xOf(m.value);
+          const ty = 16 + (i % 2) * 17;
+          return (
+            <g key={m.label}>
+              <line x1={x} y1={ty + 4} x2={x} y2={base} stroke={m.color} strokeWidth={2} strokeDasharray={m.dash ? '5 4' : undefined} />
+              <text x={x} y={ty} fontSize={14} fontWeight="bold" fill={m.color} textAnchor="middle">{m.label}</text>
+            </g>
+          );
+        })}
+        <text x={(x0 + x1) / 2} y={H - 8} fontSize={14} fontStyle="italic" fill="#64748b" textAnchor="middle">{axisTitle}</text>
+      </svg>
+      {(low || high) && (
+        <p style={{ fontSize: 10, color: '#64748b', margin: '2px 0 0 0' }}>
+          Not drawn (the extreme 1% on each side): {low ? `${low.count} run${low.count === 1 ? '' : 's'} below ${fmt(lo)}` : ''}{low && high ? '; ' : ''}{high ? `${high.count} run${high.count === 1 ? '' : 's'} above ${fmt(hi)}` : ''}.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -117,49 +175,117 @@ const dscrColor = (d: number | null): string => (d !== null && d >= 1.25 ? '#028
 const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }> = ({ m, mc }) => {
   if (!mc) {
     return (
-      <div className="box">
-        <div className="bh" style={{ background: '#064e3b' }}><span>🎲 Stochastic Monte Carlo Simulation &amp; Risk Distribution</span><span className="sub">Running 1,000 trials…</span></div>
-        <div className="mc"><p style={{ fontSize: 9, color: '#64748b', margin: 0 }}>Simulating…</p></div>
+      <div className="box pg">
+        <div className="bh" style={{ background: '#064e3b' }}><span>🎲 Monte Carlo Simulation &amp; Risk Distribution</span><span className="sub">Running 1,000 trials…</span></div>
+        <div className="mc"><p className="mcp" style={{ margin: 0 }}>Simulating…</p></div>
       </div>
     );
   }
   const hurdle = m.discountRate;
   const td = mc.tenantDefault;
-  const tenantText = td.applies ? `a ${td.probabilityPct}% chance that a tenant stops paying for ${td.downtimeMonths} months (it occurred in ${td.runsAffectedPct}% of runs)` : 'no tenant-default risk applied';
+  const t = mc.telemetry;
+  const v = t.volatility;
+  const yrs = v.holdYears;
+  const irrDec = mc.p95Irr - mc.p5Irr < 6 ? 1 : 0;
+  const fmtIrr = (x: number) => `${x.toFixed(irrDec)}%`;
+  const tight = mc.p95Irr - mc.p5Irr < 3;
+  const rng = (r: [number, number]) => `${r[0]}% to ${r[1]}%`;
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  const factors: Array<{ name: string; base: string; how: string; range: string }> = [
+    v.contractualRentFixed
+      ? { name: 'Contractual lease rent', base: 'As signed', how: 'Not varied. A signed lease and its scheduled bumps are fixed.', range: 'Fixed' }
+      : { name: 'Rent', base: 'Deal rent inputs', how: 'No lease schedule, so all rent follows the sampled growth below.', range: '-' },
+    { name: v.contractualRentFixed ? 'Market rent growth after a lease ends' : 'Rent growth', base: `${t.baselineRentGrowth}%/yr`, how: `σ = ${v.rentGrowthStdDev} pts`, range: rng(t.rentGrowthRange) },
+    v.vacancyStdDev === null
+      ? { name: 'Vacancy', base: `${t.baselineVacancy}%`, how: 'Random tenant-turnover events (not a bell curve)', range: rng(t.vacancyRange) }
+      : { name: 'Vacancy', base: `${t.baselineVacancy}%`, how: `σ = ${v.vacancyStdDev} pts`, range: rng(t.vacancyRange) },
+    { name: t.exitMetricType === 'Exit Cap Rate' ? 'Exit cap rate' : 'Annual land appreciation', base: `${t.baselineExitMetric}%`, how: `σ = ${v.exitMetricStdDev} pts`, range: rng(t.exitMetricRange) },
+    { name: 'Property appreciation', base: `${v.baselineAppreciation}%/yr`, how: `σ = ${v.appreciationStdDev} pts`, range: rng([r1(v.baselineAppreciation - v.appreciationStdDev), r1(v.baselineAppreciation + v.appreciationStdDev)]) },
+    { name: 'Operating cost inflation', base: `${v.costInflationMean}%/yr`, how: `σ = ${v.costInflationStdDev} pt`, range: rng([r1(v.costInflationMean - v.costInflationStdDev), r1(v.costInflationMean + v.costInflationStdDev)]) },
+    td.applies
+      ? { name: 'Tenant default', base: `${td.probabilityPct}% chance`, how: `One tenant stops paying for ${td.downtimeMonths} months, at a random point in the hold`, range: `Happened in ${td.runsAffectedPct}% of runs` }
+      : { name: 'Tenant default', base: 'Not applied', how: 'Not modeled for this asset type', range: '-' },
+  ];
+
   return (
-    <div className="box">
+    <div className="box pg">
       <div className="bh" style={{ background: '#064e3b' }}>
-        <span>🎲 Stochastic Monte Carlo Simulation &amp; Risk Distribution ({mc.runs.toLocaleString()} Runs)</span>
-        <span className="sub" style={{ color: '#a7f3d0' }}>Value-at-Risk (VaR) &amp; Volatility Stress Audit</span>
+        <span>🎲 Monte Carlo Simulation &amp; Risk Distribution ({mc.runs.toLocaleString()} Runs, {yrs}-Year Hold)</span>
+        <span className="sub" style={{ color: '#a7f3d0' }}>Value-at-Risk &amp; Volatility Stress Audit</span>
       </div>
       <div className="mc">
+        <p className="mcp">
+          <strong>How to read this.</strong> The deal is re-run {mc.runs.toLocaleString()} times. Each run draws random values for the factors in the table at the end of this page
+          (centered on this deal's own inputs) and re-scores the whole {yrs}-year hold with the same engine as the pro-forma.
+          P10 means 10% of runs did worse than this value, P50 is the middle run, and P90 means only 10% did better.
+        </p>
+
         <div className="mcg">
-          <div className="mct"><p className="l">P10 (Downside Floor)</p><p className="v" style={{ color: mc.p10Irr >= 0 ? '#d97706' : '#e11d48' }}>{mc.p10Irr.toFixed(1)}% IRR</p></div>
-          <div className="mct"><p className="l">P50 (Median Expected)</p><p className="v">{mc.p50Irr.toFixed(1)}% IRR</p></div>
-          <div className="mct"><p className="l">P90 (Upside Scenario)</p><p className="v" style={{ color: '#059669' }}>{mc.p90Irr.toFixed(1)}% IRR</p></div>
-          <div className="mct"><p className="l">Hurdle Beat Probability</p><p className="v" style={{ color: '#047857' }}>{mc.probAboveHurdle}% (≥{hurdle.toFixed(1)}%)</p></div>
-          <div className="mct"><p className="l">Capital Loss Risk</p><p className="v" style={{ color: mc.probNegativeIrr > 0 ? '#e11d48' : '#059669' }}>{mc.probNegativeIrr}% (&lt;0% IRR)</p></div>
+          <div className="mct"><p className="l">P10 IRR (Downside)</p><p className="v" style={{ color: mc.p10Irr >= 0 ? '#d97706' : '#e11d48' }}>{mc.p10Irr.toFixed(1)}%</p></div>
+          <div className="mct"><p className="l">P50 IRR (Median)</p><p className="v">{mc.p50Irr.toFixed(1)}%</p></div>
+          <div className="mct"><p className="l">P90 IRR (Upside)</p><p className="v" style={{ color: '#059669' }}>{mc.p90Irr.toFixed(1)}%</p></div>
+          <div className="mct"><p className="l">Runs Clearing {hurdle.toFixed(1)}% Hurdle</p><p className="v" style={{ color: '#047857' }}>{mc.probAboveHurdle}%</p></div>
+          <div className="mct"><p className="l">Runs With Negative IRR</p><p className="v" style={{ color: mc.probNegativeIrr > 0 ? '#e11d48' : '#059669' }}>{mc.probNegativeIrr}%</p></div>
         </div>
         <div className="mcg">
-          <div className="mct"><p className="l">Net Profit P10 (Downside)</p><p className="v" style={{ color: mc.profit.p10 >= 0 ? '#d97706' : '#e11d48' }}>{compact(mc.profit.p10)}</p></div>
-          <div className="mct"><p className="l">Net Profit P50 (Median)</p><p className="v">{compact(mc.profit.median)}</p></div>
-          <div className="mct"><p className="l">Net Profit P90 (Upside)</p><p className="v" style={{ color: '#059669' }}>{compact(mc.profit.p90)}</p></div>
-          <div className="mct"><p className="l">Chance of Losing Money</p><p className="v" style={{ color: mc.profit.probLoss > 0 ? '#e11d48' : '#059669' }}>{mc.profit.probLoss}% (profit &lt; $0)</p></div>
-          <div className="mct"><p className="l">Tenant Default Risk</p><p className="v" style={{ color: '#475569' }}>{td.applies ? 'Included' : 'None applied'}</p></div>
+          <div className="mct"><p className="l">P10 Net Profit (Downside)</p><p className="v" style={{ color: mc.profit.p10 >= 0 ? '#d97706' : '#e11d48' }}>{compact(mc.profit.p10)}</p></div>
+          <div className="mct"><p className="l">P50 Net Profit (Median)</p><p className="v">{compact(mc.profit.median)}</p></div>
+          <div className="mct"><p className="l">P90 Net Profit (Upside)</p><p className="v" style={{ color: '#059669' }}>{compact(mc.profit.p90)}</p></div>
+          <div className="mct"><p className="l">Runs That Lose Money</p><p className="v" style={{ color: mc.profit.probLoss > 0 ? '#e11d48' : '#059669' }}>{mc.profit.probLoss}%</p></div>
+          <div className="mct"><p className="l">Cash Put In At Closing</p><p className="v">{compact(mc.equity.cashInvested)}</p></div>
         </div>
-        <div className="mct" style={{ marginBottom: 5 }}>
-          <p className="l" style={{ marginBottom: 2 }}>IRR distribution</p>
-          <Histogram bins={mc.histogramBins} label={(b) => `${Math.round(b.binStart)}%`} tone={(b) => (b.binEnd < 0 ? '#e11d48' : b.binEnd < hurdle ? '#d97706' : '#059669')} />
+
+        <div className="mct" style={{ marginBottom: 8, padding: '8px 10px' }}>
+          <p style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>Return (IRR) across {mc.runs.toLocaleString()} runs</p>
+          <p style={{ fontSize: 11, color: '#475569', margin: '2px 0 4px 0', lineHeight: 1.45 }}>
+            IRR is the yearly return on the cash you put in, over the full {yrs}-year hold including the sale. Each bar is the share of runs that landed in that range.
+            {tight
+              ? ` The spread is tight (P5 ${fmtIrr(mc.p5Irr)} to P95 ${fmtIrr(mc.p95Irr)})${v.contractualRentFixed ? ' because most income is fixed by lease' : ''}, so most runs land close to the median.`
+              : ` 90% of runs landed between ${fmtIrr(mc.p5Irr)} (P5) and ${fmtIrr(mc.p95Irr)} (P95).`}
+          </p>
+          <DistributionChart
+            bins={mc.histogramBins} runs={mc.runs} fmt={fmtIrr} axisTitle="Levered IRR over the hold"
+            tone={(b) => (b.binEnd < 0 ? '#e11d48' : b.binEnd < hurdle ? '#d97706' : '#059669')}
+            markers={[
+              { value: mc.p10Irr, label: `P10 ${fmtIrr(mc.p10Irr)}`, color: '#b45309' },
+              { value: mc.p50Irr, label: `P50 ${fmtIrr(mc.p50Irr)}`, color: '#0f172a' },
+              { value: mc.p90Irr, label: `P90 ${fmtIrr(mc.p90Irr)}`, color: '#047857' },
+              { value: hurdle, label: `Hurdle ${hurdle.toFixed(1)}%`, color: '#7c3aed', dash: true },
+            ]}
+          />
         </div>
-        <div className="mct" style={{ marginBottom: 5 }}>
-          <p className="l" style={{ marginBottom: 2 }}>Net profit distribution ($)</p>
-          <Histogram bins={mc.profit.histogramBins} label={(b) => compact(b.binStart)} tone={(b) => (b.binEnd < 0 ? '#e11d48' : '#059669')} />
+
+        <div className="mct" style={{ marginBottom: 8, padding: '8px 10px' }}>
+          <p style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>Net profit in dollars over the {yrs}-year hold</p>
+          <p style={{ fontSize: 11, color: '#475569', margin: '2px 0 4px 0', lineHeight: 1.45 }}>
+            Net profit = every year's cash flow after debt service, plus the equity left at the end of year {yrs} (value less the remaining loan, as the pro-forma shows it),
+            minus the {compact(mc.equity.cashInvested)} put in at closing. It is a plain dollar total: not discounted and before income tax.
+            {mc.equity.thin ? ` Only ${mc.equity.pctOfPrice.toFixed(1)}% of the price is your own cash, so IRR swings widely on small changes and this dollar figure is the steadier measure.` : ''}
+          </p>
+          <DistributionChart
+            bins={mc.profit.histogramBins} runs={mc.runs} fmt={compact} axisTitle={`Net profit over ${yrs} years ($)`}
+            tone={(b) => (b.binEnd < 0 ? '#e11d48' : '#059669')}
+            markers={[
+              { value: mc.profit.p10, label: `P10 ${compact(mc.profit.p10)}`, color: '#b45309' },
+              { value: mc.profit.median, label: `P50 ${compact(mc.profit.median)}`, color: '#0f172a' },
+              { value: mc.profit.p90, label: `P90 ${compact(mc.profit.p90)}`, color: '#047857' },
+              { value: 0, label: 'Break even $0', color: '#e11d48', dash: true },
+            ]}
+          />
         </div>
-        <p style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.4, margin: 0 }}>
-          Simulation of {mc.runs.toLocaleString()} randomized economic runs, the same model used in the app. Contractual lease rent and its escalations are held fixed; market rent after a lease ends, exit cap rate, vacancy, appreciation and cost inflation vary, with {tenantText}.
-          The asset clears your <strong>{hurdle.toFixed(1)}% hurdle rate</strong> in <strong>{mc.probAboveHurdle}%</strong> of runs, with a downside (P10) IRR of <strong>{mc.p10Irr.toFixed(1)}%</strong>, a median of <strong>{mc.p50Irr.toFixed(1)}%</strong> and an upside (P90) of <strong>{mc.p90Irr.toFixed(1)}%</strong>.
-          Net profit over the hold has a P10 of <strong>{compact(mc.profit.p10)}</strong>, a median of <strong>{compact(mc.profit.median)}</strong> and a P90 of <strong>{compact(mc.profit.p90)}</strong>; the chance of losing money is <strong>{mc.profit.probLoss}%</strong>.
-          {mc.equity.thin ? ` Only ${mc.equity.pctOfPrice.toFixed(1)}% of the price is the investor's own cash, so IRR is an unstable yardstick here and dollar profit is the steadier measure.` : ''}
+
+        <p style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', margin: '8px 0 3px 0' }}>What the simulation varied</p>
+        <table>
+          <thead><tr><th style={{ width: '25%' }}>Factor</th><th style={{ width: '14%' }}>This deal's base</th><th style={{ width: '37%' }}>How it was varied</th><th style={{ width: '24%' }}>Typical range (±1σ)</th></tr></thead>
+          <tbody>
+            {factors.map((f) => (
+              <tr key={f.name}><td style={{ fontWeight: 700 }}>{f.name}</td><td>{f.base}</td><td>{f.how}</td><td>{f.range}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <p style={{ fontSize: 10, color: '#64748b', lineHeight: 1.45, margin: '4px 0 0 0' }}>
+          σ is one standard deviation: about two-thirds of runs fall within ±1σ of the base case and about 95% within ±2σ. Draws are bell-curve (normal) and independent.
+          The simulation is seeded from the deal, so the same deal always prints the same charts.
         </p>
       </div>
     </div>
@@ -169,10 +295,26 @@ const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }
 export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResult | null; onPrint?: () => void; onClose?: () => void }> = ({ model: m, monteCarlo, onPrint, onClose }) => {
   const multi = m.parcels.length > 1;
   const primary = m.parcels[0];
+  const stab = m.isProrated ? 'Stabilized' : 'Year 1';
   const dscrLabel = m.isProrated ? 'Stabilized DSCR' : 'Senior DSCR';
   const dpLine = m.rehabMode === 'roll_into_loan'
     ? `${cur(m.downPaymentAmt)} Down Payment (${pctShort(m.downPaymentPct)}% LTC) • ${cur(m.rehabCosts)} Rehab + ${cur(m.closingCosts)} Closing Financed`
     : `${cur(m.downPaymentAmt)} Down (${pctShort(m.downPaymentPct)}%) + ${cur(m.rehabCosts)} Rehab + ${cur(m.closingCosts)} Closing (Funded Out-of-Pocket)`;
+  const leaseLine = m.underwritingLeases.length > 0
+    ? m.underwritingLeases.map((l) => `${l.tenant ?? 'Tenant'} ${cur(l.monthlyRent)}/mo${l.start ? ` (${l.start}${l.end ? ` to ${l.end}` : ''})` : ''}`).join(' • ')
+    : 'Underwritten from deal rent inputs (no underwriting lease schedule)';
+
+  // Methodology and diligence provenance are disclosures: they close the document in fine print
+  const disclosures: Array<{ title: string; text: string }> = [
+    { title: 'Acquisition Price & Basis', text: `Reconciled against official ${m.county ?? 'county'} assessed valuation (${m.parcelTotals.assessed > 0 ? `${cur(m.parcelTotals.assessed)} total assessed basis` : 'county tax roll'}) and purchase contract terms.` },
+    { title: 'Total Initial Capital Outlay', text: `Total Day 1 sponsor equity required to capitalize the acquisition, fund closing costs (${cur(m.closingCosts)}), and execute renovation scope (${cur(m.rehabCosts)})${m.arv ? ` to capture After-Repair Value (${cur(m.arv)})` : ''}. ${m.rehabMode === 'roll_into_loan' ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and closing settlements are funded 100% upfront out of sponsor equity.'}${m.capexReservePct !== null ? ` Ongoing replacement reserves: ${m.capexReservePct}%/yr.` : ''}` },
+    { title: 'Vacancy & Economic Downtime', text: m.vacancyPct <= 0.001 ? 'Models 100% economic occupancy with zero vacancy friction.' : `Underwriting allowance of ${pctShort(m.vacancyPct)}% buffers tenant rollover friction, collection delay, and physical downtime.` },
+    { title: 'Loan-to-Value & Leverage', text: m.debtProvenance },
+    { title: 'Financing Terms & Debt Service', text: m.dscrEvaluation },
+    { title: 'Gross In-Place Revenue & Tenancy', text: m.revenueProvenance },
+    { title: 'Operating Expenses & Management', text: m.opexProvenance },
+    { title: 'Hold Horizon & Terminal Exit Cap Rate', text: `Exit value is capitalized at the ${m.exitCapRate}% terminal cap rate over the ${m.holdYears}-year investment horizon.` },
+  ];
 
   return (
     <div className="brief" id="printable-brief">
@@ -185,6 +327,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         </div>
       )}
 
+      {/* PAGE 1: who, headline numbers, county record, rent roll */}
       <div className="hdr">
         <div>
           <div className="row">
@@ -192,8 +335,8 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             <span className="pill pill-green">{m.memoTypeLabel}</span>
             <span className={`pill ${m.status === 'owned' ? 'pill-green' : 'pill-blue'}`}>{m.status === 'owned' ? '🏛️ Owned Operating Asset' : '🎯 Pipeline Prospect'}</span>
           </div>
-          <h1 style={{ fontSize: 15, fontWeight: 800, margin: '3px 0 0 0' }}>{m.title}</h1>
-          <div className="row" style={{ fontSize: 9, color: '#475569', fontWeight: 600, marginTop: 2, flexWrap: 'wrap' }}>
+          <h1>{m.title}</h1>
+          <div className="row hmeta">
             <span>📍 <strong>{orNP(m.location)}</strong></span><span>•</span>
             <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}{multi ? ` (+${m.parcels.length - 1} Adjacent)` : ''}</span><span>•</span>
             <span>🏛️ {orNP(m.county)}</span><span>•</span>
@@ -201,10 +344,10 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             {multi && <span className="pill pill-green">📦 {m.parcels.length}-Parcel Package</span>}
           </div>
         </div>
-        <div style={{ textAlign: 'right', fontSize: 9, color: '#64748b' }}>
-          <p style={{ margin: 0, fontWeight: 600 }}>Report Date: <strong style={{ color: '#0f172a' }}>{m.dateStr}</strong></p>
-          <p style={{ margin: '1.5px 0 0 0' }}>Target Hold Period: <strong style={{ color: '#0f172a' }}>{m.holdYears} Years</strong></p>
-          <p style={{ margin: '1.5px 0 0 0' }}>Settlement Closing: <strong style={{ color: '#059669' }}>{m.closingDate ?? `${m.startYear} Full Calendar Year`}</strong></p>
+        <div className="hside">
+          <div>Report Date: <strong style={{ color: '#0f172a' }}>{m.dateStr}</strong></div>
+          <div>Target Hold Period: <strong style={{ color: '#0f172a' }}>{m.holdYears} Years</strong></div>
+          <div>Settlement Closing: <strong style={{ color: '#059669' }}>{m.closingDate ?? `${m.startYear} Full Calendar Year`}</strong></div>
         </div>
       </div>
 
@@ -213,11 +356,10 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         <div className="tile"><p className="tl">Gross Monthly Rent</p><p className="tv">{cur(m.monthlyRent)}<small>/mo</small></p></div>
         <div className="tile"><p className="tl">Year 1 Net Cash Flow</p><p className="tv" style={{ color: m.cashFlow >= 0 ? '#059669' : '#e11d48' }}>{cur(m.cashFlow)}<small> ({cur(m.monthlyCashFlow)}/mo)</small></p></div>
         <div className="tile"><p className="tl">Equity Multiplier</p><p className="tv">{m.equityMultiple.toFixed(2)}x</p></div>
-        <div className="tile"><p className="tl">Year 1 Cap Rate</p><p className="tv">{pct(m.capRate)}</p></div>
+        <div className="tile"><p className="tl">{stab} Cap Rate</p><p className="tv">{pct(m.capRate)}</p></div>
         <div className="tile"><p className="tl">{dscrLabel}</p><p className="tv" style={{ color: dscrColor(m.dscr) }}>{m.dscrFormatted}</p></div>
       </div>
 
-      {/* 1. Official County Assessor & Parcel Records: every included parcel */}
       <div className="box">
         <div className="bh">
           <span>🏛️ Official County Assessor &amp; Parcel Records</span>
@@ -235,7 +377,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             <tbody>
               {m.parcels.map((p) => (
                 <tr key={p.apn}>
-                  <td className="mono">{p.apn}{p.isPrimary && <span style={{ color: '#64748b', fontSize: 7, marginLeft: 3 }}>(PRIMARY)</span>}</td>
+                  <td className="mono">{p.apn}{p.isPrimary && <span style={{ color: '#64748b', fontSize: 9, marginLeft: 4 }}>(PRIMARY)</span>}</td>
                   <td>{orNP(p.address)}</td>
                   <td className="num">{p.assessed > 0 ? cur(p.assessed) : 'Pending'}</td>
                   <td className="num">{cur(p.land)}</td><td className="num">{cur(p.improvement)}</td>
@@ -252,7 +394,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             </tbody>
           </table>
         ) : (
-          <div style={{ padding: '6px 8px', fontSize: 8, color: '#64748b' }}>No county parcel is linked to this deal. Assessment and boundary data: {NP}.</div>
+          <div style={{ padding: '8px 10px', fontSize: 11.5, color: '#64748b' }}>No county parcel is linked to this deal. Assessment and boundary data: {NP}.</div>
         )}
         <table>
           <tbody>
@@ -272,7 +414,6 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         </table>
       </div>
 
-      {/* 2. Rent roll: every active lease */}
       <div className="box">
         <div className="bh">
           <span>📋 In-Place Rent Roll</span>
@@ -302,107 +443,75 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             </tbody>
           </table>
         ) : (
-          <div style={{ padding: '6px 8px', fontSize: 8, color: '#64748b' }}>
+          <div style={{ padding: '8px 10px', fontSize: 11.5, color: '#64748b' }}>
             No active leases are recorded in Operations. Underwritten rent of {cur(m.monthlyRent)}/mo comes from the deal's underwriting inputs.
           </div>
         )}
       </div>
 
-      {/* 3. Core underwriting assumptions */}
-      <div className="box">
+      {/* PAGE 2: the eight underwriting assumptions as large cards, then risk flags */}
+      <div className="box pg">
         <div className="bh">
-          <span>⚖️ Core Underwriting Assumptions &amp; Capital Structure (High-Level Overview)</span>
-          <span className="sub" style={{ background: '#047857', color: '#fff', padding: '1.5px 7px', borderRadius: 3 }}>Strategic Inputs &amp; Provenance</span>
+          <span>⚖️ Core Underwriting Assumptions &amp; Capital Structure</span>
+          <span className="sub">Methodology notes are in the fine print at the end</span>
         </div>
-        <table>
-          <thead><tr><th style={{ width: '42%', borderRight: '1px solid #e2e8f0' }}>Underwriting Metric &amp; Strategic Value</th><th style={{ width: '58%' }}>Methodology &amp; Diligence Provenance (How Reached)</th></tr></thead>
-          <tbody>
-            <tr>
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">1. Acquisition Price &amp; Basis</div>
-                <div><span className="big" style={{ color: '#059669' }}>{cur(m.price)}</span>{m.buildingSqFt > 0 && <span className="meta" style={{ marginLeft: 4 }}>(${(m.price / m.buildingSqFt).toFixed(0)}/sq ft)</span>}</div>
-              </td>
-              <td className="prov">
-                Reconciled against official {m.county ?? 'county'} assessed valuation ({m.parcelTotals.assessed > 0 ? `${cur(m.parcelTotals.assessed)} total assessed basis` : 'county tax roll'}) and purchase contract terms.
-              </td>
-            </tr>
-            <tr className="alt">
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">2. Total Initial Capital Outlay (Equity, Rehab &amp; Closing)</div>
-                <div><span className="big" style={{ color: '#0284c7' }}>{cur(m.equity)}</span> <span className="pill" style={{ background: '#e0f2fe', color: '#0369a1' }}>Total Upfront Cash Required</span></div>
-                <div className="meta" style={{ fontWeight: 600 }}>{dpLine}</div>
-              </td>
-              <td className="prov">
-                Represents total Day 1 sponsor equity required to capitalize the acquisition, fund closing costs ({cur(m.closingCosts)}), and execute renovation scope ({cur(m.rehabCosts)}){m.arv ? ` to capture After-Repair Value (${cur(m.arv)})` : ''}. {m.rehabMode === 'roll_into_loan' ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and closing settlements are funded 100% upfront out of sponsor equity.'}{m.capexReservePct !== null ? ` Ongoing replacement reserves: ${m.capexReservePct}%/yr.` : ''}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">3. Vacancy &amp; Economic Downtime</div>
-                <div><span className="big">{pctShort(m.vacancyPct)}% of Gross</span> <span className="meta">({cur(m.vacancyLossAnnual)}/yr reserve)</span></div>
-              </td>
-              <td className="prov">
-                {m.vacancyPct <= 0.001
-                  ? 'Models 100% economic occupancy with zero vacancy friction.'
-                  : `Underwriting allowance of ${pctShort(m.vacancyPct)}% buffers tenant rollover friction, collection delay, and physical downtime.`}
-              </td>
-            </tr>
-            <tr className="alt">
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">4. Loan-to-Value &amp; Leverage Structure</div>
-                <div><span className="big">{pctShort(m.ltvPct)}% {m.rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'}</span> <span style={{ fontSize: 11.5, fontWeight: 800, color: '#047857' }}>{cur(m.loanAmt)} Senior Debt</span></div>
-                <div className="meta">Required Sponsor Equity: {cur(m.equity)} ({m.rehabMode === 'roll_into_loan' ? `${pctShort(m.downPaymentPct)}% LTC Down Payment` : `${cur(m.downPaymentAmt)} Down + ${cur(m.rehabCosts + m.closingCosts)} Outlay`})</div>
-              </td>
-              <td className="prov">{m.debtProvenance}</td>
-            </tr>
-            <tr>
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">5. Financing Terms &amp; Debt Service</div>
-                <div><span style={{ fontSize: 13, fontWeight: 900 }}>{m.interestRate}% • {m.loanTerm} Yrs</span> <span style={{ fontSize: 11, fontWeight: 800, color: '#0284c7' }}>{cur(m.monthlyDebtService)}/mo P&amp;I</span></div>
-                <div className="meta">
-                  {cur(m.debtService)}{m.isProrated ? ` Stub Yr 1 Debt (${m.p0.operatingMonths} mos)` : '/yr Annual Debt'} ({cur(m.principalPerMonth)}/mo Prin • {cur(m.interestPerMonth)}/mo Int) • DSCR: <strong style={{ color: dscrColor(m.dscr) }}>{m.dscrFormatted}</strong>
-                </div>
-              </td>
-              <td className="prov">{m.dscrEvaluation}</td>
-            </tr>
-            <tr className="alt">
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">6. Gross In-Place Revenue &amp; Tenancy</div>
-                <div><span className="big" style={{ color: '#059669' }}>{cur(m.monthlyRent)}/mo</span> <span className="meta">({cur(m.annualRent)}/yr)</span></div>
-                <div className="meta">
-                  {m.underwritingLeases.length > 0
-                    ? m.underwritingLeases.map((l) => `${l.tenant ?? 'Tenant'} ${cur(l.monthlyRent)}/mo${l.start ? ` (${l.start}${l.end ? ` to ${l.end}` : ''})` : ''}`).join(' • ')
-                    : 'Underwritten from deal rent inputs (no underwriting lease schedule)'}
-                </div>
-              </td>
-              <td className="prov">{m.revenueProvenance}</td>
-            </tr>
-            <tr>
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">7. Operating Expenses &amp; Management</div>
-                <div><span className="big">{pctShort(m.expenseRatioPct)}% of GPI</span> <span className="meta">({cur(m.opExAnnual)}/yr)</span></div>
-                <div className="meta">{cur(m.opExAnnual / 12)}/mo OpEx</div>
-              </td>
-              <td className="prov">{m.opexProvenance}</td>
-            </tr>
-            <tr className="alt">
-              <td style={{ borderRight: '1px solid #e2e8f0' }}>
-                <div className="lab">8. Hold Horizon &amp; Terminal Exit Cap Rate</div>
-                <div><span className="big">{m.holdYears}-Year Hold</span> <span style={{ fontSize: 11, fontWeight: 800, color: '#059669' }}>{m.exitCapRate}% Exit Cap</span></div>
-                <div className="meta" style={{ color: '#047857', fontWeight: 700 }}>
-                  {m.closingDate ? `Closing Settlement: ${m.closingDate}${m.isProrated ? ` (${m.p0.operatingMonths} Mos Stub Prorated)` : ''}` : `Underwriting Period: Full Calendar Year (${m.startYear})`}
-                </div>
-              </td>
-              <td className="prov">Exit value is capitalized at the {m.exitCapRate}% terminal cap rate over the {m.holdYears}-year investment horizon.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="cards">
+          <div className="card">
+            <div className="lab">1. Acquisition Price &amp; Basis</div>
+            <div><span className="big" style={{ color: '#059669' }}>{cur(m.price)}</span>{m.buildingSqFt > 0 && <span className="meta" style={{ marginLeft: 6 }}>(${(m.price / m.buildingSqFt).toFixed(0)}/sq ft)</span>}</div>
+            <div className="meta">{m.parcelTotals.assessed > 0 ? `County assessed basis ${cur(m.parcelTotals.assessed)}` : 'County assessment: Not provided'}</div>
+          </div>
+          <div className="card">
+            <div className="lab">2. Total Initial Capital Outlay</div>
+            <div><span className="big" style={{ color: '#0284c7' }}>{cur(m.equity)}</span> <span className="pill" style={{ background: '#e0f2fe', color: '#0369a1' }}>Upfront cash required</span></div>
+            <div className="meta">{dpLine}</div>
+          </div>
+          <div className="card">
+            <div className="lab">3. Vacancy &amp; Economic Downtime</div>
+            <div><span className="big">{pctShort(m.vacancyPct)}%</span> <span className="mid" style={{ color: '#64748b' }}>of gross</span></div>
+            <div className="meta">{cur(m.vacancyLossAnnual)}/yr reserve</div>
+          </div>
+          <div className="card">
+            <div className="lab">4. Loan-to-Value &amp; Leverage</div>
+            <div><span className="big">{pctShort(m.ltvPct)}% {m.rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'}</span> <span className="mid" style={{ color: '#047857' }}>{cur(m.loanAmt)} senior debt</span></div>
+            <div className="meta">Sponsor equity {cur(m.equity)} ({m.rehabMode === 'roll_into_loan' ? `${pctShort(m.downPaymentPct)}% LTC down payment` : `${cur(m.downPaymentAmt)} down + ${cur(m.rehabCosts + m.closingCosts)} outlay`})</div>
+          </div>
+          <div className="card">
+            <div className="lab">5. Financing Terms &amp; Debt Service</div>
+            <div><span className="mid">{m.interestRate}% • {m.loanTerm} yrs</span> <span className="mid" style={{ color: '#0284c7' }}>{cur(m.monthlyDebtService)}/mo P&amp;I</span></div>
+            <div className="meta">
+              {cur(m.debtService)}{m.isProrated ? ` stub Yr 1 debt (${m.p0.operatingMonths} mos)` : '/yr annual debt'} • {cur(m.principalPerMonth)}/mo principal, {cur(m.interestPerMonth)}/mo interest • DSCR <strong style={{ color: dscrColor(m.dscr) }}>{m.dscrFormatted}</strong>
+            </div>
+          </div>
+          <div className="card">
+            <div className="lab">6. Gross In-Place Revenue &amp; Tenancy</div>
+            <div><span className="big" style={{ color: '#059669' }}>{cur(m.monthlyRent)}/mo</span> <span className="meta">({cur(m.annualRent)}/yr)</span></div>
+            <div className="meta">{leaseLine}</div>
+          </div>
+          <div className="card">
+            <div className="lab">7. Operating Expenses &amp; Management</div>
+            <div><span className="big">{pctShort(m.expenseRatioPct)}%</span> <span className="mid" style={{ color: '#64748b' }}>of gross income</span></div>
+            <div className="meta">{cur(m.opExAnnual)}/yr • {cur(m.opExAnnual / 12)}/mo</div>
+          </div>
+          <div className="card">
+            <div className="lab">8. Hold Horizon &amp; Exit Cap Rate</div>
+            <div><span className="big">{m.holdYears}-year hold</span> <span className="mid" style={{ color: '#059669' }}>{m.exitCapRate}% exit cap</span></div>
+            <div className="meta">{m.closingDate ? `Closing ${m.closingDate}${m.isProrated ? ` (${m.p0.operatingMonths} months in year 1)` : ''}` : `Underwriting period: full calendar year ${m.startYear}`}</div>
+          </div>
+        </div>
       </div>
 
-      {/* 4. Pro-forma */}
-      <div className="box">
+      {m.warnings.length > 0 && (
+        <div className="warn">
+          <p>Deal Risk &amp; Underwriting Audit Flags</p>
+          <ul>{m.warnings.map((w, i) => <li key={i}><strong>{w.title}:</strong> {w.description}</li>)}</ul>
+        </div>
+      )}
+
+      {/* PAGE 3: pro-forma */}
+      <div className="box split pf pg">
         <div className="bh"><span>📊 {m.holdYears}-Year Institutional Pro-Forma Forecast</span><span className="sub">Calendar-Year Cash Flow Waterfall</span></div>
-        <table className="num">
+        <table>
           <thead>
             <tr>
               <th style={{ textAlign: 'center' }}>Date / Period</th><th className="num">Asset Value</th><th className="num">Gross Income</th><th className="num">Vacancy</th>
@@ -416,7 +525,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
               const coc = Number(p.cashOnCash ?? 0);
               return (
                 <tr key={i} className={i % 2 ? 'alt' : ''}>
-                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{p.calendarYear || m.startYear + (p.year || i + 1) - 1} <span style={{ fontSize: 7.5, color: '#64748b', fontWeight: 400 }}>(Yr {p.year || i + 1})</span></td>
+                  <td style={{ textAlign: 'center', fontWeight: 700 }}>{p.calendarYear || m.startYear + (p.year || i + 1) - 1} <span style={{ fontSize: 9.5, color: '#64748b', fontWeight: 400 }}>(Yr {p.year || i + 1})</span></td>
                   <td className="num">{cur(p.propertyValue)}</td>
                   <td className="num">{cur(p.grossPotentialIncome ?? p.effectiveGrossIncome ?? 0)}</td>
                   <td className="num" style={{ color: '#e11d48' }}>{cur(p.vacancyLoss || 0)}</td>
@@ -434,9 +543,9 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
           </tbody>
         </table>
         {m.proj.some((p: any) => p.methodologyFootnote) && (
-          <div style={{ fontSize: 7.5, color: '#334155', padding: '4px 8px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', lineHeight: 1.4 }}>
-            <span style={{ fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>📌 Contractual Lease &amp; Calendar Provenance Footnotes:</span>
-            <ul style={{ margin: '2px 0 0 0', paddingLeft: 14 }}>
+          <div style={{ fontSize: 9.5, color: '#475569', padding: '6px 10px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', lineHeight: 1.45 }}>
+            <span style={{ fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>Contractual lease &amp; calendar provenance footnotes</span>
+            <ul style={{ margin: '3px 0 0 0', paddingLeft: 16 }}>
               {m.proj.filter((p: any) => p.methodologyFootnote).map((p: any, i) => (
                 <li key={i}><strong>Yr {p.year} ({p.calendarYear || m.startYear + p.year - 1}):</strong> {p.methodologyFootnote}</li>
               ))}
@@ -445,14 +554,17 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         )}
       </div>
 
+      {/* PAGE 4: Monte Carlo */}
       <MonteCarloSection m={m} mc={monteCarlo} />
 
-      {m.warnings.length > 0 && (
-        <div className="warn">
-          <p>Deal Risk &amp; Underwriting Audit Flags</p>
-          <ul>{m.warnings.map((w, i) => <li key={i}><strong>{w.title}:</strong> {w.description}</li>)}</ul>
-        </div>
-      )}
+      {/* LAST: methodology and diligence provenance, as fine print */}
+      <div className="fine">
+        <h3>Methodology, Diligence Provenance &amp; Disclosures</h3>
+        <ol>
+          {disclosures.map((d) => <li key={d.title}><strong>{d.title}.</strong> {d.text}</li>)}
+        </ol>
+        <p>Figures in this brief are computed from the deal's recorded inputs, its in-place rent roll and linked county parcels. Provenance statements describe how each figure was derived and are not independently verified.</p>
+      </div>
 
       <div className="foot">
         <span>MathTree Real Estate Underwriting Platform • Computed from live deal data</span>
