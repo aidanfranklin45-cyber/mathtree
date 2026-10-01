@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { DealRecord, DealMetrics } from '../../../lib/math/types';
-import { calculateSensitivityMatrix, runMonteCarlo, type MonteCarloResult } from '../../../lib/engine';
+import { calculateSensitivityMatrix, createMonteCarloRunner, seedFromText, DEFAULT_TENANT_DEFAULT, type MonteCarloResult } from '../../../lib/engine';
+import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from '../../../lib/engine/expiryDefaults';
 import { prepareEngineInputs } from '../../../lib/engine/compute';
 import { formatCurrency } from '../../../lib/format';
 import { resolveDealDisplayName } from '../../../lib/math/pointInTime';
@@ -35,17 +36,23 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
   const [volRent, setVolRent] = useState(1.5);
   const [volVacancy, setVolVacancy] = useState(2.5);
   const [volCap, setVolCap] = useState(100);
+  const [defProb, setDefProb] = useState<number>(DEFAULT_TENANT_DEFAULT.probabilityPct);
+  const [defMonths, setDefMonths] = useState<number>(DEFAULT_TENANT_DEFAULT.downtimeMonths);
   const [mc, setMc] = useState<MonteCarloResult | null>(null);
   const [running, setRunning] = useState(false);
   const [rerun, setRerun] = useState(0);
   const [primerOpen, setPrimerOpen] = useState(false);
 
   const asset = normalizeAsset(String(deal.asset_class));
+  // Keyed by the deal's facts, not the object: a re-render that hands over an identical deal must not re-run the simulation
+  const expiryVersion = useSyncExternalStore(subscribeExpiryDefaults, getExpiryDefaultsVersion);
+  const dealKey = JSON.stringify([deal.inputs, deal.purchase_price, deal.asset_class]);
   const merged = useMemo(() => {
     const m: Record<string, any> = prepareEngineInputs(deal);
     if (!m.targetCapRate) m.targetCapRate = m.targetExitCapRate || m.exitCapRate || m.appreciationRate || 6.5;
     return m;
-  }, [deal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealKey, expiryVersion]);
 
   // ---- 2D heatmap: ranges centered on the current inputs ----
   const grid = useMemo(() => {
@@ -66,24 +73,49 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
     }
   }, [merged, asset, rowParam, colParam]);
 
-  // ---- Monte Carlo: runs in the browser (about 16 ms per 1,000 engine runs), debounced like the legacy page ----
+  // ---- Monte Carlo: runs in the browser when this tab opens, in slices (about 0.2-0.4 s for 1,000 runs on lease-based deals) so the
+  // page never freezes, and a run that is superseded by a newer input is cancelled ----
   const isZeroRent =
     (parseFloat(merged.grossRentAnnual) || 0) <= 0 && (parseFloat(merged.grossRentPerMonth) || 0) <= 0 && (parseFloat(merged.monthlyRent) || 0) <= 0 &&
     (!Array.isArray(merged.leases) || merged.leases.length === 0 || !merged.leases.some((l: any) => (parseFloat(l.monthlyRent) || 0) > 0));
 
   useEffect(() => {
+    let cancelled = false;
+    let handle = 0;
     setRunning(true);
-    const t = window.setTimeout(() => {
+    const start = window.setTimeout(() => {
       try {
-        setMc(runMonteCarlo(asset, merged, { runs: 1000, rentGrowthVolPct: volRent, vacancyVolPct: volVacancy, exitCapSpreadBps: volCap }));
+        // Seeded from the deal (plus the re-run count): the same deal shows the same chart until it changes or you re-run
+        const runner = createMonteCarloRunner(asset, merged, {
+          runs: 1000, rentGrowthVolPct: volRent, vacancyVolPct: volVacancy, exitCapSpreadBps: volCap,
+          tenantDefaultProbPct: defProb, tenantDefaultDowntimeMonths: defMonths, seed: seedFromText(`${dealKey}|${rerun}`),
+        });
+        const tick = () => {
+          if (cancelled) return;
+          try {
+            runner.step(100);
+            if (runner.completed < runner.total) {
+              handle = window.setTimeout(tick, 0);
+              return;
+            }
+            setMc(runner.finish());
+          } catch (e) {
+            console.warn('[Monte Carlo] failed', e);
+          }
+          setRunning(false);
+        };
+        tick();
       } catch (e) {
         console.warn('[Monte Carlo] failed', e);
-      } finally {
         setRunning(false);
       }
     }, 250);
-    return () => window.clearTimeout(t);
-  }, [merged, asset, volRent, volVacancy, volCap, rerun]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+      window.clearTimeout(handle);
+    };
+  }, [merged, asset, volRent, volVacancy, volCap, defProb, defMonths, rerun]);
 
   const dealName = resolveDealDisplayName(deal);
   const telem = mc?.telemetry;
@@ -202,7 +234,7 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
             </button>
             <button type="button" disabled={running} onClick={() => setRerun((n) => n + 1)}
               className={`px-3 py-1.5 rounded-lg border border-accent-violet/40 bg-accent-violet/20 hover:bg-accent-violet/30 text-xs font-bold text-accent-violet transition flex items-center space-x-1.5 shadow-sm ${running ? 'opacity-75 cursor-not-allowed' : ''}`}>
-              <span>{running ? 'Computing...' : '🎲 Re-Run 1,000 Runs'}</span>
+              <span>{running ? 'Computing...' : '🎲 Re-Run (new random sample)'}</span>
             </button>
           </div>
         </div>
@@ -214,6 +246,26 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
           <div className={statCard}><p className={statLabel}>Upside Potential (P95)</p><p className={`text-sm font-extrabold text-accent-emerald mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{(mc?.p95Irr ?? 0).toFixed(2)}%</p></div>
           <div className={statCard}><p className={statLabel}>Prob. Neg Cash Flow</p><p className={`text-sm font-extrabold text-amber-400 mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{probNeg.toFixed(1)}%</p></div>
         </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+          <div className={statCard}><p className={statLabel}>Mean Net Profit</p><p className={`text-sm font-extrabold text-white mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{formatCurrency(mc?.profit.mean ?? 0)}</p></div>
+          <div className={statCard}><p className={statLabel}>Median Profit (P50)</p><p className={`text-sm font-extrabold text-accent-violet mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{formatCurrency(mc?.profit.median ?? 0)}</p></div>
+          <div className={statCard}><p className={statLabel}>Downside Profit (P5)</p><p className={`text-sm font-extrabold text-accent-rose mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{formatCurrency(mc?.profit.p5 ?? 0)}</p></div>
+          <div className={statCard}><p className={statLabel}>Upside Profit (P95)</p><p className={`text-sm font-extrabold text-accent-emerald mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{formatCurrency(mc?.profit.p95 ?? 0)}</p></div>
+          <div className={statCard}><p className={statLabel}>Chance of a Loss</p><p className={`text-sm font-extrabold text-amber-400 mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{(mc?.profit.probLoss ?? 0).toFixed(1)}%</p></div>
+          <div className={statCard}><p className={statLabel}>Chance of Clearing {(mc?.hurdleRate ?? 0).toFixed(1)}% Hurdle</p><p className={`text-sm font-extrabold text-white mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{(mc?.probAboveHurdle ?? 0).toFixed(1)}%</p></div>
+        </div>
+
+        {mc?.equity.thin && (
+          <p className="text-[11px] text-amber-300/90 bg-amber-400/5 border border-amber-400/20 rounded-lg px-3 py-2">
+            Only {mc.equity.pctOfPrice.toFixed(1)}% of the price is your own cash, so IRR swings hard on early cash flow and is an unstable yardstick for this deal. The dollar-profit figures and chart are the steadier view.
+          </p>
+        )}
+        {mc?.tenantDefault.applies && (
+          <p className="text-[11px] text-slate-400 bg-slate-900/60 border border-slate-800 rounded-lg px-3 py-2">
+            Includes tenant-default risk: a {mc.tenantDefault.probabilityPct}% chance over the hold that a tenant stops paying for {mc.tenantDefault.downtimeMonths} months (it happened in {mc.tenantDefault.runsAffectedPct}% of these runs). Contractual rent and escalations are not varied; only rent after a lease ends moves with market growth.
+          </p>
+        )}
 
         <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/80 text-xs text-slate-300 flex items-start space-x-3 transition-all">
           <span className="text-lg leading-none">🛡️</span>
@@ -291,12 +343,32 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
               <p className="text-[10px] text-slate-500 mt-1">{isZeroRent ? 'Stochastic land value appreciation variance over the 10-year holding period.' : 'Capital markets expansion / liquidity uncertainty at terminal exit year.'}</p>
             </div>
           </div>
+          {!isZeroRent && (
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-900 bg-slate-950/30 text-xs">
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-slate-400 font-medium">Tenant Default Risk (chance over the hold)</label>
+                  <span className="font-mono text-white font-bold">{defProb}%</span>
+                </div>
+                <input type="range" min={0} max={40} step={5} value={defProb} onChange={(e) => setDefProb(parseInt(e.target.value, 10))} className="w-full accent-accent-violet bg-slate-900 cursor-pointer" />
+                <p className="text-[10px] text-slate-500 mt-1">Chance that a tenant stops paying at some point. Applies to commercial and storage deals; set 0 to remove it.</p>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-slate-400 font-medium">Downtime After a Default (months)</label>
+                  <span className="font-mono text-white font-bold">{defMonths}</span>
+                </div>
+                <input type="range" min={3} max={24} step={3} value={defMonths} onChange={(e) => setDefMonths(parseInt(e.target.value, 10))} className="w-full accent-accent-violet bg-slate-900 cursor-pointer" />
+                <p className="text-[10px] text-slate-500 mt-1">Months with no rent before the space is paying again. You carry taxes, insurance and upkeep meanwhile.</p>
+              </div>
+            </div>
+          )}
         </details>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-2 pb-0.5 text-xs">
           <div className="flex items-center gap-2">
             <span className="font-bold text-white uppercase text-[11px] tracking-wide">Hold Period Total IRR Distribution (%)</span>
-            <span className="text-slate-500 font-normal text-[11px]">| 10 Frequency Bins</span>
+            <span className="text-slate-500 font-normal text-[11px]">| 12 equal-width bins between the 1st and 99th percentile</span>
           </div>
           <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
             <span className="text-amber-400 font-bold uppercase text-[10px] tracking-wider bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">Metric Scope</span>
@@ -305,7 +377,15 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics }) => {
         </div>
 
         <div className="h-64 w-full relative pt-1">
-          {mc && <MonteCarloChart bins={mc.histogramBins} runs={mc.runs} />}
+          {mc && <MonteCarloChart bins={mc.histogramBins} runs={mc.runs} metric="irr" />}
+        </div>
+
+        <div className="flex items-center gap-2 pt-3 text-xs">
+          <span className="font-bold text-white uppercase text-[11px] tracking-wide">Net Profit Distribution ($)</span>
+          <span className="text-slate-500 font-normal text-[11px]">| every cash flow plus exit equity, minus the cash you put in</span>
+        </div>
+        <div className="h-64 w-full relative pt-1">
+          {mc && <MonteCarloChart bins={mc.profit.histogramBins} runs={mc.runs} metric="profit" />}
         </div>
       </div>
 
