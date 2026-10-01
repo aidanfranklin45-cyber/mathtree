@@ -56,15 +56,9 @@ export const ActionNeededList: React.FC<Props> = ({ views, dealTitle, handlers, 
                 <div className="text-xs font-bold text-white truncate">{who}</div>
                 <div className="text-[11px] truncate">{detail}</div>
               </div>
-              <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                {kind === 'recovery' ? (
-                  <button type="button" onClick={() => onSelect(row.id)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-amber-200 bg-amber-950/60 border border-amber-700 hover:bg-amber-700 transition">Review</button>
-                ) : kind === 'escalation' ? (
-                  <button type="button" disabled={view.derived} onClick={() => handlers.escalate(row)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-blue-200 bg-blue-950/70 border border-blue-700 hover:bg-blue-700 disabled:opacity-40 transition">Escalate</button>
-                ) : (
-                  <button type="button" disabled={view.derived} onClick={() => handlers.pay(row)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-emerald-200 bg-emerald-950/80 border border-emerald-600 hover:bg-emerald-600 hover:text-white disabled:opacity-40 transition">✓ Mark Paid</button>
-                )}
-              </div>
+              <span className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 bg-slate-800" aria-hidden="true">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+              </span>
             </li>
           );
         })}

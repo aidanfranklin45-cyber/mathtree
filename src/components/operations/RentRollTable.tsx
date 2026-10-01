@@ -1,5 +1,6 @@
 import React from 'react';
-import { RowActions } from './RowActions';
+import { isResidentialAsset } from '../../../supabase/functions/_shared/rentIncreaseRules';
+import type { LeaseRecoverySummary } from '../../lib/operations/recoveries';
 import { escalationNote, toneBadge, toneText, type RowHandlers, type RowView } from './rowStatus';
 import type { Row } from '../../lib/operations/rentRoll';
 
@@ -11,12 +12,24 @@ interface Props {
   handlers: RowHandlers;
   onSelect: (leaseId: string) => void;
   onAddFirstLease: () => void;
+  /** NNN roll-up per opted-in lease, for the small status line under the tenant name. */
+  recoverySummaries: Map<string, LeaseRecoverySummary>;
   filtered: boolean;
 }
 
 const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, filtered }) => (
+/** One arrow per row: opens the lease details (or, for a vacant unit, the add-tenant form). */
+const RowArrow: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
+  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+    <button type="button" onClick={onClick} aria-label={label} title={label}
+      className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+    </button>
+  </div>
+);
+
+export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, recoverySummaries, filtered }) => (
   <table className="w-full text-left border-collapse">
     <thead>
       <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
@@ -61,7 +74,7 @@ export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf,
               <td className="py-3 px-4 text-right font-mono text-slate-600">—</td>
               <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${toneBadge.muted}`}>Vacant</span></td>
               <td className="py-3 px-4 text-slate-600">—</td>
-              <td className="py-3 px-4"><RowActions view={view} dealId={deal.id} handlers={handlers} /></td>
+              <td className="py-3 px-4"><RowArrow label="Add a tenant to this property" onClick={() => handlers.addTenant(deal.id)} /></td>
             </tr>
           );
         }
@@ -80,6 +93,19 @@ export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf,
               <span className={`block text-[10px] ${row.lease_end_date ? 'text-slate-500' : 'text-amber-400/80'}`}>
                 {row.lease_end_date ? `Lease ends ${row.lease_end_date}` : 'Month-to-month'}
               </span>
+              {(() => {
+                const rec = recoverySummaries.get(row.id);
+                if (rec?.tracked) {
+                  const late = rec.overdue > 0;
+                  return <span className={`block text-[10px] font-semibold ${late ? 'text-rose-400' : rec.dueSoon > 0 ? 'text-amber-300' : 'text-emerald-400'}`}>
+                    NNN costs: {late ? `${rec.overdue} overdue` : rec.dueSoon > 0 ? `${rec.dueSoon} due soon` : 'up to date'}
+                  </span>;
+                }
+                // Real commercial leases that aren't tracking yet get a quiet pointer to where the feature lives
+                return !view.derived && !isResidentialAsset(deal.asset_type)
+                  ? <span className="block text-[10px] text-slate-500">Track NNN costs →</span>
+                  : null;
+              })()}
             </td>
             <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">${rent}</td>
             <td className="py-3 px-4">
@@ -89,7 +115,7 @@ export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf,
               <span className="block font-mono text-[11px] text-slate-300">{view.due ? `Due ${shortDate(view.due.nextDue)}` : '—'}</span>
               {note && <span className={`block text-[10px] ${toneText[note.tone]}`}>{note.text}</span>}
             </td>
-            <td className="py-3 px-4"><RowActions view={view} dealId={deal.id} handlers={handlers} /></td>
+            <td className="py-3 px-4"><RowArrow label="Open lease details" onClick={() => onSelect(row.id)} /></td>
           </tr>
         );
       })}
