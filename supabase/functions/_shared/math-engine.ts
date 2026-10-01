@@ -618,6 +618,10 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   const appreciationRate = parseFloat(inputs.appreciationRate) || 0;
   const rentGrowth = parseFloat(inputs.rentGrowth) || parseFloat(inputs.rentGrowthPercent) || parseFloat(inputs.annualRentGrowth) || 0;
   const expenseRatio = parseFloat(inputs.expenseRatio) || parseFloat(inputs.operatingExpenseRatio) || 0;
+  const rawExpenseGrowth = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent ?? inputs.holdingInflation;
+  const expenseGrowth = (rawExpenseGrowth !== undefined && rawExpenseGrowth !== null && rawExpenseGrowth !== '')
+    ? (parseFloat(rawExpenseGrowth) || 0)
+    : undefined;
 
   const rawHoldingPeriod = parseInt(inputs.holdingPeriod || inputs.exitYear || inputs.holdYears || 10, 10);
   const holdingPeriod = Math.max(1, Math.min(30, isNaN(rawHoldingPeriod) ? 10 : rawHoldingPeriod));
@@ -865,12 +869,18 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     const vacancyLoss = currentGrossIncome * (vacancyRate / 100);
     const effectiveGrossIncome = currentGrossIncome - vacancyLoss;
 
+    const baselineGrossForOpex = year1GrossIncome > 0 ? year1GrossIncome : currentGrossIncome;
+    const inflationMultiplier = expenseGrowth !== undefined ? Math.pow(1 + expenseGrowth / 100, year - 1) : null;
+    const baseOpex = inflationMultiplier !== null
+      ? (baselineGrossForOpex * (expenseRatio / 100)) * inflationMultiplier
+      : (currentGrossIncome * (expenseRatio / 100));
+
     let operatingExpenses = 0;
     let capexReserve = 0;
 
     if (assetType === 'single-family') {
       const managementFee = inputs.manageProperty ? currentGrossIncome * 0.10 : 0;
-      operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee;
+      operatingExpenses = baseOpex + managementFee;
       capexReserve = 0;
     } else if (assetType === 'multi-unit') {
       let pmRate = 0.03;
@@ -878,7 +888,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
         pmRate = (unitCount && unitCount <= 4) ? 0.09 : 0.05;
       }
       const managementFee = effectiveGrossIncome * pmRate;
-      operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee;
+      operatingExpenses = baseOpex + managementFee;
       capexReserve = (unitCount || 1) * 350;
     } else if (assetType === 'commercial') {
       const isVacantOrRawLand = currentGrossIncome <= 0 ||
@@ -895,14 +905,14 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
         const annualInsurance = parseFloat(inputs.annualInsurance) || parseFloat(inputs.insurance) || 600;
         // 3. Routine Site Maintenance / Mowing / Municipal Compliance
         const annualMaint = parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600;
-        operatingExpenses = annualTaxes + annualInsurance + annualMaint;
+        operatingExpenses = (annualTaxes + annualInsurance + annualMaint) * (inflationMultiplier ?? 1);
         capexReserve = 0; // No building structural capex on raw dirt / empty lot
       } else {
         if (inputs.leaseType === 'NNN') {
-          operatingExpenses = currentGrossIncome * (expenseRatio / 100);
+          operatingExpenses = baseOpex;
         } else {
           const managementFee = inputs.manageProperty ? currentGrossIncome * 0.035 : 0;
-          operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee;
+          operatingExpenses = baseOpex + managementFee;
         }
         const isRawLand = /vacant|land|dirt|lot/i.test(inputs.facilityType || '') || /vacant|land/i.test(inputs.useCode || '');
         const gla = isRawLand ? 0 : (parseFloat(inputs.gla) || 15000);
@@ -911,7 +921,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     } else if (assetType === 'storage') {
       const managementFee = inputs.manageProperty ? currentGrossIncome * 0.06 : 0;
       const payrollMarketingRatio = inputs.isAutomated ? 0.04 : 0.13;
-      operatingExpenses = (currentGrossIncome * (expenseRatio / 100)) + managementFee + (currentGrossIncome * payrollMarketingRatio);
+      operatingExpenses = baseOpex + managementFee + (currentGrossIncome * payrollMarketingRatio);
       capexReserve = effectiveGrossIncome * 0.03;
     }
 
@@ -919,9 +929,9 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       // While a unit awaits a replacement tenant the owner carries taxes, insurance and upkeep (same basis as a vacant property)
       if (vacantLeaseMonths > 0 && (currentGrossIncome > 0 || assetType !== 'commercial')) {
         const assessedBasis = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || purchasePrice;
-        const annualHolding = (parseFloat(inputs.annualTaxes) || parseFloat(inputs.propertyTaxes) || (assessedBasis * 0.011))
+        const annualHolding = ((parseFloat(inputs.annualTaxes) || parseFloat(inputs.propertyTaxes) || (assessedBasis * 0.011))
           + (parseFloat(inputs.annualInsurance) || parseFloat(inputs.insurance) || 600)
-          + (parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600);
+          + (parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600)) * (inflationMultiplier ?? 1);
         const vacantShare = vacantLeaseMonths / Math.max(1, (inputs.leases as any[]).length);
         operatingExpenses += annualHolding * (vacantShare / 12);
       }
@@ -1212,6 +1222,11 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
   const requiredYears = Math.min(30, Math.max(10, Math.ceil(monthsCount / 12)));
   const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears, prorateFirstYear: false });
   const purchasePrice = annualBase.purchasePrice;
+  const rawExpenseGrowth = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent ?? inputs.holdingInflation;
+  const expenseGrowth = (rawExpenseGrowth !== undefined && rawExpenseGrowth !== null && rawExpenseGrowth !== '')
+    ? (parseFloat(rawExpenseGrowth) || 0)
+    : undefined;
+  const baseGrossMonthly = (annualBase.projections[0]?.grossPotentialRent ?? annualBase.projections[0]?.grossPotentialIncome ?? (annualBase.purchasePrice * 0.09)) / 12;
   const downPct = numOr(inputs.downPaymentPercent, 25);
   const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (downPct / 100)));
   const interestRate = parseFloat(inputs.interestRate) || 6.5;
@@ -1253,13 +1268,16 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
     const vacPct = numOr(inputs.vacancyRate ?? inputs.vacancyRatePercent, 5);
     const monthlyVacancy = monthlyGross * (vacPct / 100);
     const monthlyEGI = monthlyGross - monthlyVacancy;
+    const monthlyInflation = expenseGrowth !== undefined ? Math.pow(1 + expenseGrowth / 100, Math.max(0, opYear - 1)) : 1;
     let monthlyOpex = 0;
     if (monthlyGross > 0) {
       const expPct = numOr(inputs.expenseRatio ?? inputs.operatingExpenseRatio, 25);
-      monthlyOpex = monthlyGross * (expPct / 100);
+      monthlyOpex = expenseGrowth !== undefined
+        ? (baseGrossMonthly * (expPct / 100)) * monthlyInflation
+        : monthlyGross * (expPct / 100);
     } else {
       const assessedBasis = parseFloat(inputs.totalAssessedValue || inputs.combinedAssessedValue || purchasePrice);
-      monthlyOpex = ((assessedBasis * 0.011) / 12) + 100;
+      monthlyOpex = (((assessedBasis * 0.011) / 12) + 100) * monthlyInflation;
     }
     const monthlyNOI = monthlyEGI - monthlyOpex;
 

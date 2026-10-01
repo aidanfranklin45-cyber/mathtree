@@ -315,6 +315,7 @@ export function createMonteCarloRunner(
     num(inputs.targetExitCapRate) ??
     num(inputs.exitCapRate) ??
     (isCommercialOrStorage ? 6.5 : 0);
+  const baseHoldingInflation = num(inputs.expenseGrowth) ?? num(inputs.expenseInflation) ?? num(inputs.expenseGrowthRate) ?? num(inputs.expenseGrowthPercent) ?? 2.5;
 
   const growthStdDev = options.rentGrowthVolPct ?? 1.5;
   const vacancyStdDev = options.vacancyVolPct ?? 2.5;
@@ -393,7 +394,7 @@ export function createMonteCarloRunner(
     const sampledGrowth = gaussian(baseGrowth, growthStdDev);
     const sampledApprec = gaussian(baseApprec, apprecStdDev);
     const sampledExitCap = baseExitCap > 0 ? Math.max(3.0, gaussian(baseExitCap, exitCapSpreadPct)) : baseExitCap;
-    const sampledHoldingInflation = gaussian(2.5, 1.0);
+    const sampledHoldingInflation = gaussian(baseHoldingInflation, 1.0);
 
     // Asset-specific stochastic vacancy mechanics
     let sampledVacancy = baseVacancy;
@@ -425,6 +426,8 @@ export function createMonteCarloRunner(
       appreciationRate: sampledApprec,
       targetCapRate: sampledExitCap,
       targetExitCapRate: sampledExitCap,
+      expenseGrowth: sampledHoldingInflation,
+      expenseInflation: sampledHoldingInflation,
       holdingInflation: sampledHoldingInflation,
     };
     // With leases, contractual rent is fixed; only what the contract does not fix (rent after a lease ends) drifts with the sample
@@ -581,7 +584,7 @@ export function createMonteCarloRunner(
           exitMetricStdDev: usesCap ? exitCapSpreadPct : apprecStdDev,
           appreciationStdDev: apprecStdDev,
           baselineAppreciation: baseApprec,
-          costInflationMean: 2.5,
+          costInflationMean: round1(baseHoldingInflation),
           costInflationStdDev: 1.0,
         },
       },

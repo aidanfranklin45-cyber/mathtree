@@ -34,6 +34,8 @@ export interface DealInputs {
   // Operating Expenses
   operatingExpensesAnnual?: number | string;
   expenseGrowthPercent?: number | string;
+  expenseGrowth?: number | string;
+  expenseInflation?: number | string;
   propertyTaxAnnual?: number | string;
   insuranceAnnual?: number | string;
   managementFeePercent?: number | string;

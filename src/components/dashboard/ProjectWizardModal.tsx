@@ -372,6 +372,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         arv: asset === 'single-family' ? arv : undefined,
         vacancyRate: num(w.vacancy, 5),
         expenseRatio: num(w.opexRatio, 35), operatingExpenseRatio: num(w.opexRatio, 35),
+        expenseGrowth: num(w.expenseGrowth, 2.5), expenseInflation: num(w.expenseGrowth, 2.5),
         rentGrowth: num(w.rentGrowth, 3), annualRentGrowth: num(w.rentGrowth, 3),
         targetCapRate: num(w.exitCap, 6.5),
         marketTier: w.marketTier, propertyClass: w.propertyClass, facilityType: w.facilityType,

@@ -314,16 +314,19 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Operating Expenses &amp; Underwriting Assumptions</span>
               <span className="text-[10px] text-slate-500 italic">OER, management &amp; hold parameters</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
               <div className="space-y-1">
                 <label className={label}>Expense Ratio (%)</label>
                 <input type="number" min="0" max="100" step="any" value={form.opexRatio} onChange={(e) => set('opexRatio', e.target.value)} className={inp2} />
               </div>
               <div className="space-y-1">
-                <label className={label}>Property Management</label>
-                <label className="flex items-center space-x-2.5 cursor-pointer bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 hover:border-slate-700 transition h-[34px]" title="Include professional property management fees">
+                <label className={label}>Expense Inflation (%)</label>
+                <input type="number" min="0" max="30" step="0.1" placeholder="2.5" value={form.expenseGrowth} onChange={(e) => set('expenseGrowth', e.target.value)} className={inp2} />
+              </div>
+              <div className="space-y-1 sm:pt-4">
+                <label className="flex items-center space-x-2.5 cursor-pointer bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 hover:border-slate-700 transition h-[38px]" title="Include professional property management fees">
                   <input type="checkbox" checked={form.manageProperty === 'true'} onChange={(e) => set('manageProperty', String(e.target.checked))} className="w-4 h-4 rounded text-brand-500 bg-slate-950 border-slate-800 focus:ring-brand-500 cursor-pointer" />
-                  <span className="text-xs font-semibold text-slate-200">Hire Property Management Company</span>
+                  <span className="text-xs font-semibold text-slate-200">Property Management</span>
                 </label>
               </div>
             </div>

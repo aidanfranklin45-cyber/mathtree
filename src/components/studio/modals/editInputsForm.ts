@@ -20,11 +20,11 @@ export function seedForm(deal: DealRecord): Form {
     preAnnual = preMonthly ? preMonthly * 12 : 0;
   } else if (a === 'multi-unit') {
     const u = i.unitCount || i.numUnits || 4;
-    preMonthly = i.monthlyRentPerUnit ?? i.rentPerUnit ?? (i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : 0);
+    preMonthly = i.monthlyRentPerUnit ?? i.rentPerUnit ?? (i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (i.monthlyRent ? Math.round(i.monthlyRent / u) : 0));
     preAnnual = i.grossRentAnnual ?? (preMonthly ? preMonthly * u * 12 : 0);
   } else if (a === 'storage') {
     const u = i.storageUnitCount || i.unitCount || 20;
-    preMonthly = i.storageRentPerUnit ?? i.monthlyRentPerUnit ?? (i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : 0);
+    preMonthly = i.storageRentPerUnit ?? i.monthlyRentPerUnit ?? (i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (i.monthlyRent ? Math.round(i.monthlyRent / u) : 0));
     preAnnual = i.grossRentAnnual ?? (preMonthly ? preMonthly * u * 12 : 0);
   }
   const appRate = a === 'commercial' || a === 'storage'
@@ -46,6 +46,7 @@ export function seedForm(deal: DealRecord): Form {
     rentGrowth: str(i.rentGrowth ?? i.annualRentGrowth, 3),
     appreciation: str(appRate),
     opexRatio: str(i.expenseRatio ?? i.operatingExpenseRatio, 35),
+    expenseGrowth: str(i.expenseGrowth ?? i.expenseInflation ?? i.expenseGrowthRate ?? i.expenseGrowthPercent ?? (i.rentGrowth !== undefined ? i.rentGrowth : 2.5)),
     // Reflect what the engine assumes: an unset flag means no management fee, so never pre-tick it.
     manageProperty: i.manageProperty ? 'true' : 'false',
     rehabCosts: str(i.rehabCosts ?? i.rehabBudget, 0),
@@ -104,6 +105,8 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
     loanTerm: int(f.loanTerm, 30),
     expenseRatio: num(f.opexRatio, 35),
     operatingExpenseRatio: num(f.opexRatio, 35),
+    expenseGrowth: num(f.expenseGrowth, 2.5),
+    expenseInflation: num(f.expenseGrowth, 2.5),
     vacancyRate: num(f.vacancyRate, 5),
     rentGrowth: num(f.rentGrowth, 3),
     annualRentGrowth: num(f.rentGrowth, 3),
