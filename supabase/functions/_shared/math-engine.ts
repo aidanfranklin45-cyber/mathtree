@@ -1349,6 +1349,157 @@ export function calculateSensitivityMatrix(
 }
 
 // ---------------------------------------------------------------------------
+// 9b. Down Payment & Leverage Sensitivity Matrix
+// ---------------------------------------------------------------------------
+export interface DownPaymentMatrixRow {
+  downPaymentPercent: number;
+  downPaymentAmount: number;
+  loanAmount: number;
+  ltv: number;
+  initialCashInvested: number;
+  monthlyDebtService: number;
+  annualDebtService: number;
+  netOperatingIncome: number;
+  netCashFlow: number;
+  cashOnCash: number;
+  dscr: number | null;
+  capRate: number;
+  isBaseline: boolean;
+}
+
+export interface DownPaymentMatrixResult {
+  baselinePercent: number;
+  purchasePrice: number;
+  goingInCapRate: number;
+  loanConstant: number | null;
+  leverageType: 'positive' | 'negative' | 'neutral';
+  debtServicePer5PctDown: number;
+  rows: DownPaymentMatrixRow[];
+}
+
+export function calculateDownPaymentMatrix(
+  rawAssetType: string,
+  baseInputs: Record<string, any> = {},
+  customPercentages?: number[]
+): DownPaymentMatrixResult {
+  const assetType = normalizeAssetClass(rawAssetType);
+  const baselinePercent = numOr(baseInputs.downPaymentPercent, 25);
+
+  const rawList = Array.isArray(customPercentages) && customPercentages.length > 0
+    ? [...customPercentages]
+    : [10, 15, 20, 25, 30, 35, 40];
+
+  if (!rawList.some((p) => Math.abs(Number(p) - baselinePercent) < 0.001)) {
+    rawList.push(baselinePercent);
+  }
+
+  // Deduplicate and sort numerically
+  const percentages = Array.from(
+    new Set(
+      rawList
+        .filter((p) => p !== null && p !== undefined && !isNaN(Number(p)))
+        .map((p) => Math.max(0, Math.min(100, Math.round(Number(p) * 100) / 100)))
+    )
+  ).sort((a, b) => a - b);
+
+  const rows: DownPaymentMatrixRow[] = [];
+
+  for (const p of percentages) {
+    const scenarioInputs = {
+      ...baseInputs,
+      downPaymentPercent: p,
+    };
+    const res = calculateProjections(assetType, scenarioInputs);
+    const proj = res.projections || [];
+    const y1 = firstFullYear(proj) || proj[0] || {};
+
+    const downPaymentAmount = Number(res.downPaymentAmount ?? 0);
+    const loanAmount = Number(res.loanAmount ?? 0);
+    const ltv = Number(res.ltv ?? (100 - p));
+    const initialCashInvested = Number(res.initialCashInvested ?? 0);
+    const monthlyDebtService = Number(res.monthlyMortgagePayment ?? 0);
+    const annualDebtService = Number(y1.debtService ?? (monthlyDebtService * 12));
+    const netOperatingIncome = Number(y1.netOperatingIncome ?? 0);
+    const netCashFlow = Number(y1.cashFlow ?? y1.netCashFlow ?? (netOperatingIncome - annualDebtService));
+    const cashOnCash = Number(y1.cashOnCash ?? 0);
+    const dscr = (loanAmount <= 0 || annualDebtService <= 0)
+      ? null
+      : (y1.dscr !== null && y1.dscr !== undefined && !isNaN(Number(y1.dscr)))
+        ? Number(y1.dscr)
+        : (netOperatingIncome / annualDebtService);
+    const capRate = Number(y1.capRate ?? res.capRate ?? 0);
+    const isBaseline = Math.abs(p - baselinePercent) < 0.001;
+
+    rows.push({
+      downPaymentPercent: p,
+      downPaymentAmount,
+      loanAmount,
+      ltv,
+      initialCashInvested,
+      monthlyDebtService,
+      annualDebtService,
+      netOperatingIncome,
+      netCashFlow,
+      cashOnCash,
+      dscr,
+      capRate,
+      isBaseline,
+    });
+  }
+
+  const baselineRow = rows.find((r) => r.isBaseline) || rows[0];
+  const purchasePrice = Number(baseInputs.purchasePrice || 0);
+  const goingInCapRate = baselineRow ? baselineRow.capRate : 0;
+
+  // Loan constant = Annual Debt Service / Loan Amount (%)
+  let loanConstant: number | null = null;
+  if (baselineRow && baselineRow.loanAmount > 0 && baselineRow.annualDebtService > 0) {
+    loanConstant = (baselineRow.annualDebtService / baselineRow.loanAmount) * 100;
+  } else {
+    const rowWithLoan = rows.find((r) => r.loanAmount > 0 && r.annualDebtService > 0);
+    if (rowWithLoan) {
+      loanConstant = (rowWithLoan.annualDebtService / rowWithLoan.loanAmount) * 100;
+    }
+  }
+
+  // Financial leverage classification: Going-in Cap Rate vs Loan Constant
+  let leverageType: 'positive' | 'negative' | 'neutral' = 'neutral';
+  if (loanConstant !== null && goingInCapRate > 0) {
+    const spread = goingInCapRate - loanConstant;
+    if (spread > 0.05) {
+      leverageType = 'positive';
+    } else if (spread < -0.05) {
+      leverageType = 'negative';
+    } else {
+      leverageType = 'neutral';
+    }
+  }
+
+  // Calculate annual debt service savings per 5% incremental down payment
+  let debtServicePer5PctDown = 0;
+  const rowsWithDebt = rows.filter((r) => r.annualDebtService > 0 && r.loanAmount > 0);
+  if (rowsWithDebt.length >= 2) {
+    const first = rowsWithDebt[0];
+    const last = rowsWithDebt[rowsWithDebt.length - 1];
+    const pctDelta = last.downPaymentPercent - first.downPaymentPercent;
+    if (pctDelta > 0) {
+      const dsDelta = first.annualDebtService - last.annualDebtService;
+      debtServicePer5PctDown = Math.round((dsDelta / pctDelta) * 5);
+    }
+  }
+
+  return {
+    baselinePercent,
+    purchasePrice,
+    goingInCapRate,
+    loanConstant,
+    leverageType,
+    debtServicePer5PctDown,
+    rows,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 10. Monte Carlo Simulation Engine
 // ---------------------------------------------------------------------------
 function gaussianRandom(mean = 0, stdDev = 1): number {
