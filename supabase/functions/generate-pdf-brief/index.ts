@@ -8,7 +8,9 @@ import {
   calculateProjections,
   calculateTaxMetrics,
   calculateSensitivityMatrix,
-  getAnnualAmortization
+  getAnnualAmortization,
+  firstFullYear,
+  numOr
 } from '../_shared/math-engine.ts';
 import { getCaller, canAccessDeal } from '../_shared/auth.ts';
 import { applyLeaseExpiryDefaults, normalizeExpiryDefaults, DEFAULT_EXPIRY } from '../_shared/leaseExpiry.ts';
@@ -281,10 +283,10 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   const rehabMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
   const totalFinancedBasis = rehabMode === 'roll_into_loan' ? (price + rehabCosts + closingCosts) : price;
 
-  const downPaymentPercent = parseFloat(inputs.downPaymentPercent || 25);
-  const downPaymentAmt = parseFloat(deal.metrics?.downPaymentAmount || mathResults.downPaymentAmount || (totalFinancedBasis * (downPaymentPercent / 100)));
-  const loanAmt = parseFloat(deal.metrics?.loanAmount || mathResults.loanAmount || deal.loan_amount || metrics.loanAmount || Math.max(0, totalFinancedBasis - downPaymentAmt));
-  const equity = parseFloat(deal.metrics?.initialCashInvested || mathResults.initialCashInvested || deal.total_equity || (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehabCosts + closingCosts)));
+  const downPaymentPercent = numOr(inputs.downPaymentPercent, 25);
+  const downPaymentAmt = Number(mathResults.downPaymentAmount ?? deal.metrics?.downPaymentAmount ?? (totalFinancedBasis * (downPaymentPercent / 100)));
+  const loanAmt = Number(mathResults.loanAmount ?? deal.metrics?.loanAmount ?? deal.loan_amount ?? metrics.loanAmount ?? Math.max(0, totalFinancedBasis - downPaymentAmt));
+  const equity = Number(mathResults.initialCashInvested ?? deal.metrics?.initialCashInvested ?? deal.total_equity ?? (rehabMode === 'roll_into_loan' ? downPaymentAmt : (downPaymentAmt + rehabCosts + closingCosts)));
   const rawLtv = totalFinancedBasis > 0 ? (loanAmt / totalFinancedBasis) * 100 : (100 - downPaymentPercent);
   const ltv = (Math.abs(rawLtv - Math.round(rawLtv)) < 0.01) ? rawLtv.toFixed(0) : rawLtv.toFixed(1);
   const intRate = parseFloat(inputs.interestRate || inputs.rate || 6.5);
@@ -293,14 +295,21 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   const discountRate = parseFloat(inputs.discountRate || 8.0);
 
   const p0 = proj[0] || {};
+  const firstFull = firstFullYear(proj) || p0;
+  const isProrated = Boolean(
+    inputs.prorateFirstYear === true ||
+    inputs.isStubYear === true ||
+    (p0.operatingMonths !== undefined && p0.operatingMonths < 12)
+  );
+
   const noi = parseFloat(p0.netOperatingIncome ?? metrics.noi ?? 0);
   const debtService = parseFloat(p0.debtService || metrics.annualDebtService || (metrics.monthlyMortgagePayment ? metrics.monthlyMortgagePayment * 12 : 0));
-  const monthlyDebtService = debtService / 12;
-  const year1PrincipalMo = parseFloat(p0.principalPayment || (debtService * 0.25)) / 12;
+  const monthlyDebtService = Number(metrics.monthlyMortgagePayment) || (debtService / (p0.operatingMonths || 12));
+  const year1PrincipalMo = parseFloat(p0.principalPayment || (debtService * 0.25)) / (p0.operatingMonths || 12);
   const year1InterestMo = Math.max(0, monthlyDebtService - year1PrincipalMo);
 
   const cashFlow = parseFloat(p0.cashFlow ?? p0.netCashFlow ?? metrics.year1CashFlow ?? (noi - debtService));
-  const monthlyCashFlow = cashFlow / 12;
+  const monthlyCashFlow = cashFlow / (p0.operatingMonths || 12);
   const coc = parseFloat(p0.cashOnCash ?? metrics.cash_on_cash ?? metrics.year1CoC ?? (equity > 0 ? (cashFlow / equity) * 100 : 0));
   const irr = parseFloat(metrics.irr ?? deal.irr ?? 0);
   const em = parseFloat(metrics.equityMultiple ?? metrics.equityMultiplier ?? deal.equity_multiple ?? 1.0);
@@ -309,16 +318,16 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
 
   // Dynamic DSCR & Covenant reconciliation (NO hardcoded conflict)
   // Headline DSCR is the first full operating year (a mid-year closing makes year 1 a short stub)
-  const dscrNum = (metrics.dscr !== null && metrics.dscr !== undefined && !isNaN(Number(metrics.dscr))) ? Number(metrics.dscr) : ((p0.dscr !== null && p0.dscr !== undefined) ? Number(p0.dscr) : (debtService > 0 ? (noi / debtService) : 0));
+  const dscrNum = (metrics.dscr !== null && metrics.dscr !== undefined && !isNaN(Number(metrics.dscr))) ? Number(metrics.dscr) : ((firstFull.dscr !== null && firstFull.dscr !== undefined) ? Number(firstFull.dscr) : (debtService > 0 ? (noi / debtService) : 0));
   const dscrFormatted = debtService > 0 ? `${dscrNum.toFixed(2)}x` : 'N/A';
 
   let dscrEvaluation = '';
   if (dscrNum >= 1.25 && cashFlow > 0) {
-    dscrEvaluation = `Calibrated to lending terms. Debt service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${fmtCurr(cashFlow)}/yr) comfortably exceeding institutional 1.25x covenant floor.`;
+    dscrEvaluation = `Calibrated to lending terms. ${isProrated ? 'Stabilized debt' : 'Debt'} service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${fmtCurr(isProrated ? (firstFull.cashFlow ?? cashFlow) : cashFlow)}/yr) comfortably exceeding institutional 1.25x covenant floor.${isProrated && p0.dscr ? ` Note: Year 1 partial stub coverage is ${Number(p0.dscr).toFixed(2)}x (${p0.operatingMonths || 6} mos) before full-year stabilization.` : ''}`;
   } else if (dscrNum >= 1.0 && cashFlow > 0) {
-    dscrEvaluation = `Moderate coverage. Projected Year 1 DSCR of ${dscrNum.toFixed(2)}x yields positive cash flow (${fmtCurr(cashFlow)}/yr) but sits below preferred 1.25x bank covenant buffer; sensitive to vacancy spikes or debt rate increases.`;
+    dscrEvaluation = `Moderate coverage. Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x yields positive cash flow (${fmtCurr(cashFlow)}/yr) but sits below preferred 1.25x bank covenant buffer; sensitive to vacancy spikes or debt rate increases.`;
   } else {
-    dscrEvaluation = `Underwriting Deficit Flag: Projected Year 1 operating cash flow is negative (${fmtCurr(cashFlow)}/yr, DSCR: ${dscrNum > 0 ? dscrNum.toFixed(2) + 'x' : 'N/A'}). Requires operating interest reserve or debt restructuring to service senior debt until stabilization.`;
+    dscrEvaluation = `Underwriting Deficit Flag: Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}operating cash flow is negative (${fmtCurr(cashFlow)}/yr, DSCR: ${dscrNum > 0 ? dscrNum.toFixed(2) + 'x' : 'N/A'}). Requires operating interest reserve or debt restructuring to service senior debt until stabilization.`;
   }
 
   // Debt Structure & Leverage Provenance
@@ -335,11 +344,6 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
     const parsed = new Date(inputs.closingDate).getFullYear();
     if (!isNaN(parsed) && parsed > 2000 && parsed < 2100) startYear = parsed;
   }
-  const isProrated = Boolean(
-    inputs.prorateFirstYear === true ||
-    inputs.isStubYear === true ||
-    (p0.operatingMonths !== undefined && p0.operatingMonths < 12)
-  );
 
   // County Assessor & Multi-Parcel Package variables
   const pkgParcels: any[] = (parcelPackage && Array.isArray(parcelPackage.parcels) && parcelPackage.parcels.length > 0)
@@ -385,19 +389,13 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   const nextEscDate = primaryLease.nextEscalationDate || inputs.nextEscalationDate || '2026-11-01';
 
   // Vacancy resolution (Explicit check - never treat 0% as falsy)
-  const vacRate = (inputs.vacancyRate !== undefined && inputs.vacancyRate !== null && inputs.vacancyRate !== '')
-    ? Number(inputs.vacancyRate)
-    : (p0.vacancyLoss !== undefined && annualRent > 0 ? Math.round((p0.vacancyLoss / annualRent) * 100) : 5);
+  const vacRate = numOr(inputs.vacancyRate, (p0.vacancyLoss !== undefined && annualRent > 0 ? Math.round((p0.vacancyLoss / annualRent) * 100) : 5));
   const vacLossAnnual = vacRate <= 0.001
     ? 0
     : (p0.vacancyLoss && parseFloat(p0.vacancyLoss) > 0 ? parseFloat(p0.vacancyLoss) : (annualRent * (vacRate / 100)));
 
   // Operating Expenses resolution (Check expenseRatio and operatingExpenseRatio)
-  const expRatio = (inputs.expenseRatio !== undefined && inputs.expenseRatio !== null && inputs.expenseRatio !== '')
-    ? Number(inputs.expenseRatio)
-    : ((inputs.operatingExpenseRatio !== undefined && inputs.operatingExpenseRatio !== null && inputs.operatingExpenseRatio !== '')
-      ? Number(inputs.operatingExpenseRatio)
-      : (p0.operatingExpenses !== undefined && annualRent > 0 ? Math.round((p0.operatingExpenses / annualRent) * 100) : 25));
+  const expRatio = numOr(inputs.expenseRatio ?? inputs.operatingExpenseRatio, (p0.operatingExpenses !== undefined && annualRent > 0 ? Math.round((p0.operatingExpenses / annualRent) * 100) : 25));
   const annualOpEx = p0.operatingExpenses !== undefined ? parseFloat(p0.operatingExpenses) : (annualRent * (expRatio / 100));
   const monthlyOpEx = annualOpEx / 12;
 
@@ -432,13 +430,16 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   // Warnings / Risk flags
   const warnings: any[] = deal.warnings || [];
   if (cashFlow < 0) {
-    warnings.push({ title: 'Negative Operating Cash Flow', description: `Year 1 underwritten cash flow is ${fmtCurr(cashFlow)} (CoC: ${fmtPct(coc)}). Operating deficit requires debt restructuring or cash reserve.` });
+    warnings.push({ title: 'Negative Operating Cash Flow', description: `${isProrated ? 'Stub ' : 'Year 1 '}underwritten cash flow is ${fmtCurr(cashFlow)} (CoC: ${fmtPct(coc)}). Operating deficit requires debt restructuring or cash reserve.` });
   }
   if (apn === 'Pending Link') {
     warnings.push({ title: 'Unlinked Assessor Parcel', description: 'Property is not tied to an active county parcel number; official assessment and boundary lines unverified.' });
   }
   if (dscrFormatted !== 'N/A' && dscrNum < 1.25) {
-    warnings.push({ title: 'DSCR Below 1.25x Covenant Floor', description: `Projected Year 1 DSCR of ${dscrNum.toFixed(2)}x is below the institutional underwriting threshold of 1.25x.` });
+    warnings.push({ title: `${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR Below 1.25x Covenant Floor`, description: `Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x is below the institutional underwriting threshold of 1.25x.` });
+  }
+  if (isProrated && p0 && Number(p0.operatingMonths) < 12 && p0.dscr !== null && p0.dscr !== undefined && Number(p0.dscr) < 1.25) {
+    warnings.push({ title: 'Partial Stub-Year Coverage Note', description: `Initial ${p0.operatingMonths}-month stub period carries ${Number(p0.dscr).toFixed(2)}x debt coverage prior to full-year stabilization (${dscrFormatted} stabilized DSCR).` });
   }
 
   // Run On-Demand Monte Carlo Simulation (500 trials, zero database footprint)
@@ -574,7 +575,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
       <p class="tile-val">${fmtPct(capRate)}</p>
     </div>
     <div class="scorecard-tile">
-      <p class="tile-lbl">Senior DSCR</p>
+      <p class="tile-lbl">${isProrated ? 'Stabilized DSCR' : 'Senior DSCR'}</p>
       <p class="tile-val" style="color: ${dscrNum >= 1.25 ? '#0284c7' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted}</p>
     </div>
   </div>
@@ -704,7 +705,9 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
               <span style="font-size: 11px; font-weight: 800; color: #0284c7;">${fmtCurr(monthlyDebtService)}/mo P&amp;I</span>
             </div>
             <div style="font-size: 8px; color: #334155; margin-top: 2px;">
-              ${fmtCurr(debtService)}/yr Annual Debt (${fmtCurr(year1PrincipalMo)}/mo Prin • ${fmtCurr(year1InterestMo)}/mo Int) • DSCR: <strong style="color: ${dscrNum >= 1.25 ? '#059669' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted}</strong>
+              ${isProrated
+                ? `${fmtCurr(debtService)} Stub Yr 1 Debt (${p0.operatingMonths || 6} mos) • ${fmtCurr(metrics.annualDebtService || (monthlyDebtService * 12))}/yr Full`
+                : `${fmtCurr(debtService)}/yr Annual Debt`} (${fmtCurr(year1PrincipalMo)}/mo Prin • ${fmtCurr(year1InterestMo)}/mo Int) • DSCR: <strong style="color: ${dscrNum >= 1.25 ? '#059669' : (dscrNum >= 1.0 ? '#d97706' : '#e11d48')};">${dscrFormatted}</strong>${isProrated ? ' <span style="font-size: 7.5px; color: #64748b;">(Stabilized)</span>' : ''}
             </div>
           </td>
           <td style="color: #334155; vertical-align: middle; font-size: 8px; line-height: 1.35; padding: 5px 6px;">
@@ -861,7 +864,7 @@ function buildSingleDealBriefHtml(dealIn: any, parcelPackage?: any): string {
   <!-- Footer -->
   <div class="footer">
     <span>MathTree Real Estate Underwriting Platform • Direct Postgres Engine</span>
-    <span>Confidential Institutional Investment Memo • Senior DSCR: ${dscrFormatted} • Generated ${dateStr}</span>
+    <span>Confidential Institutional Investment Memo • ${isProrated ? 'Stabilized DSCR' : 'Senior DSCR'}: ${dscrFormatted} • Generated ${dateStr}</span>
   </div>
 
   <script>
@@ -1373,7 +1376,7 @@ function aggregateDealsToPortfolio(deals: any[], meta: any = {}) {
 
   const pipelineDeals = pipeline.map(d => {
     const price = parseFloat(d.purchase_price || d.inputs?.purchasePrice || 0);
-    const eq = parseFloat(d.total_equity || d.metrics?.initialCashInvested || (price * 0.25));
+    const eq = Number(d.metrics?.initialCashInvested ?? d.total_equity ?? (price * 0.25));
     const debt = Math.max(0, price - eq);
     const cf = parseFloat(d.year1_cashflow || d.metrics?.projections?.[0]?.cashFlow || 0);
     const irr = parseFloat(d.irr || d.metrics?.irr || 0);

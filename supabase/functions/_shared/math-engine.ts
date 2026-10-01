@@ -563,6 +563,28 @@ export function calculateIRR(initialCashOrFlows: any, optionalFlows?: number[]):
 // ---------------------------------------------------------------------------
 // 7. Core Pro-Forma Engine: calculateProjections
 // ---------------------------------------------------------------------------
+/**
+ * Safely parses a numeric input, returning fallback if undefined, null, empty string, or NaN.
+ * Never treats 0 as falsy.
+ */
+export function numOr(v: any, fallback: number): number {
+  return (v !== undefined && v !== null && v !== '' && !isNaN(Number(v))) ? Number(v) : fallback;
+}
+
+/**
+ * Resolves the first full operating year from a projections array.
+ * When closing mid-year, year 1 is a partial stub (operatingMonths < 12);
+ * coverage and annualised performance ratios use the first full operating year (year 2).
+ */
+export function firstFullYear<T extends { operatingMonths?: number }>(projections?: T[] | null): T | undefined {
+  if (!projections || projections.length === 0) return undefined;
+  const p0 = projections[0];
+  if (p0 && Number(p0.operatingMonths) < 12 && projections[1]) {
+    return projections[1];
+  }
+  return p0;
+}
+
 export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}): any {
   const assetType = normalizeAssetClass(rawAssetType);
 
@@ -1058,13 +1080,13 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     irr: Math.round(irr * 100) / 100,
     equityMultiplier: Math.round(equityMultiplier * 100) / 100,
     equity_multiple: Math.round(equityMultiplier * 100) / 100,
-    noi: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].netOperatingIncome : (projections[0]?.netOperatingIncome ?? 0)) * 100) / 100,
-    capRate: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].capRate : (projections[0]?.capRate ?? entryCapRate)) * 100) / 100,
-    dscr: (projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].dscr : (projections[0]?.dscr ?? null),
-    cashOnCash: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashOnCash : (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
-    cash_on_cash: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashOnCash : (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
-    year1_cashflow: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashFlow : (projections[0]?.cashFlow ?? 0)) * 100) / 100,
-    year1Cashflow: Math.round(((projections[0]?.operatingMonths < 12 && projections[1]) ? projections[1].cashFlow : (projections[0]?.cashFlow ?? 0)) * 100) / 100,
+    noi: Math.round(((firstFullYear(projections)?.netOperatingIncome) ?? (projections[0]?.netOperatingIncome ?? 0)) * 100) / 100,
+    capRate: Math.round(((firstFullYear(projections)?.capRate) ?? (projections[0]?.capRate ?? entryCapRate)) * 100) / 100,
+    dscr: firstFullYear(projections)?.dscr ?? (projections[0]?.dscr ?? null),
+    cashOnCash: Math.round(((firstFullYear(projections)?.cashOnCash) ?? (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
+    cash_on_cash: Math.round(((firstFullYear(projections)?.cashOnCash) ?? (projections[0]?.cashOnCash ?? 0)) * 100) / 100,
+    year1_cashflow: Math.round(((firstFullYear(projections)?.cashFlow) ?? (projections[0]?.cashFlow ?? 0)) * 100) / 100,
+    year1Cashflow: Math.round(((firstFullYear(projections)?.cashFlow) ?? (projections[0]?.cashFlow ?? 0)) * 100) / 100,
     total_equity: Math.round(initialCashInvested * 100) / 100,
     breakEvenYear,
     ltv: Math.round(acquisitionLtv * 100) / 100,
@@ -1134,7 +1156,8 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
   const requiredYears = Math.min(30, Math.max(10, Math.ceil(monthsCount / 12)));
   const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears, prorateFirstYear: false });
   const purchasePrice = annualBase.purchasePrice;
-  const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (parseFloat(inputs.downPaymentPercent || 25) / 100)));
+  const downPct = numOr(inputs.downPaymentPercent, 25);
+  const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (downPct / 100)));
   const interestRate = parseFloat(inputs.interestRate) || 6.5;
   const loanTerm = parseInt(inputs.loanTerm) || 30;
 
@@ -1171,11 +1194,13 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
       monthlyGross = leaseGross;
     }
 
-    const monthlyVacancy = monthlyGross * (parseFloat(inputs.vacancyRate || 5) / 100);
+    const vacPct = numOr(inputs.vacancyRate ?? inputs.vacancyRatePercent, 5);
+    const monthlyVacancy = monthlyGross * (vacPct / 100);
     const monthlyEGI = monthlyGross - monthlyVacancy;
     let monthlyOpex = 0;
     if (monthlyGross > 0) {
-      monthlyOpex = monthlyGross * (parseFloat(inputs.expenseRatio || 25) / 100);
+      const expPct = numOr(inputs.expenseRatio ?? inputs.operatingExpenseRatio, 25);
+      monthlyOpex = monthlyGross * (expPct / 100);
     } else {
       const assessedBasis = parseFloat(inputs.totalAssessedValue || inputs.combinedAssessedValue || purchasePrice);
       monthlyOpex = ((assessedBasis * 0.011) / 12) + 100;
@@ -1961,19 +1986,32 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
     return warnings;
   }
 
-  const validDscrs = results.projections.filter((p: any) => p.dscr !== null).map((p: any) => p.dscr);
+  const fullYearProjs = results.projections.filter((p: any) => (p.operatingMonths ?? 12) >= 12);
+  const covenantProjs = fullYearProjs.length > 0 ? fullYearProjs : results.projections;
+  const validDscrs = covenantProjs.filter((p: any) => p.dscr !== null).map((p: any) => p.dscr);
   const minDscr = validDscrs.length > 0 ? Math.min(...validDscrs) : 1.5;
+
   if (minDscr < 1.0) {
     warnings.push({
       level: 'danger',
       title: 'Critical Debt Service Risk (DSCR < 1.0x)',
-      description: `Property NOI falls below annual mortgage payments (min DSCR is ${minDscr.toFixed(2)}x), causing negative leverage.`
+      description: `Property NOI falls below annual mortgage payments (min stabilized DSCR is ${minDscr.toFixed(2)}x), causing negative leverage.`
     });
   } else if (minDscr < 1.25) {
     warnings.push({
       level: 'warning',
       title: 'Tight Lenders Coverage (DSCR < 1.25x)',
-      description: `Minimum DSCR is ${minDscr.toFixed(2)}x, which may fail traditional commercial underwriting standards (1.25x minimum).`
+      description: `Minimum stabilized DSCR is ${minDscr.toFixed(2)}x, which may fail traditional commercial underwriting standards (1.25x minimum).`
+    });
+  }
+
+  // Preserve stub-year signal: if Year 1 is a partial stub and its coverage is below 1.25x, emit low-severity info note
+  const p0 = results.projections[0];
+  if (p0 && Number(p0.operatingMonths) < 12 && p0.dscr !== null && p0.dscr < 1.25) {
+    warnings.push({
+      level: 'info',
+      title: 'Partial Stub-Year Coverage Note',
+      description: `Initial ${p0.operatingMonths}-month stub period carries ${Number(p0.dscr).toFixed(2)}x debt coverage prior to full-year stabilization (${minDscr.toFixed(2)}x stabilized DSCR).`
     });
   }
 

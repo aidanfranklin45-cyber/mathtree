@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { formatCurrency } from '../../../lib/format';
+import { firstFullYear } from '../../../lib/engine';
 
 interface DiligenceTabProps {
   deal: DealRecord;
@@ -42,9 +43,13 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
     const totalAssessed = raw.totalAssessedValue || inputs.totalAssessedValue || inputs.assessedValue || 0;
     const sqft = raw.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || 0;
     const holdYrs = inputs.exitYear || 10;
-    const p1: Record<string, any> = (metrics.projections?.[0] as any) || {};
-    const gpi = p1.grossPotentialIncome || inputs.grossRentAnnual || 0;
-    const opex = p1.operatingExpenses || 0;
+    const projections = (metrics.projections ?? []) as Array<Record<string, any>>;
+    const p0: Record<string, any> = projections[0] || {};
+    const isStub = Boolean(p0 && Number(p0.operatingMonths) < 12);
+    const fullYear: Record<string, any> = firstFullYear(projections) || p0;
+
+    const gpi = isStub ? (fullYear.grossPotentialIncome || p0.grossPotentialIncome || 0) : (p0.grossPotentialIncome || inputs.grossRentAnnual || 0);
+    const opex = isStub ? (fullYear.operatingExpenses || p0.operatingExpenses || 0) : (p0.operatingExpenses || 0);
     const monthly = Number(metrics.monthlyMortgagePayment) || 0;
     const annualDebt = monthly * 12;
     const breakevenOcc = gpi > 0 ? ((opex + annualDebt) / gpi) * 100 : 0;
@@ -69,10 +74,14 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
     const closing = parseFloat(inputs.closingCosts || 0) || 0;
     const rolled = (inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket')) === 'roll_into_loan';
     const downAmt = parseFloat(String((metrics as any).downPaymentAmount || 0)) || 0;
-    const outlay = parseFloat(String(metrics.initialCashInvested || (rolled ? downAmt : downAmt + rehab + closing))) || 0;
-    const dscr = p1.dscr !== null && p1.dscr !== undefined && !isNaN(Number(p1.dscr)) ? `${Number(p1.dscr).toFixed(2)}x` : 'N/A';
+    const outlay = parseFloat(String(metrics.initialCashInvested ?? (rolled ? downAmt : downAmt + rehab + closing))) || 0;
+    const dscrVal = metrics.dscr ?? fullYear.dscr ?? p0.dscr;
+    const dscr = dscrVal !== null && dscrVal !== undefined && !isNaN(Number(dscrVal))
+      ? `${Number(dscrVal).toFixed(2)}x${isStub ? ' (Stabilized)' : ''}`
+      : 'N/A';
     const leaseType = inputs.leaseType || (asset === 'single-family' ? 'Gross' : 'NNN');
-    const cushion = Math.max(0, (p1.netOperatingIncome || 0) - annualDebt);
+    const fullNoi = Number(isStub ? (fullYear.netOperatingIncome || 0) : (p0.netOperatingIncome || 0));
+    const cushion = Math.max(0, fullNoi - annualDebt);
 
     return [
       {
@@ -85,11 +94,11 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
         value: rolled
           ? `${formatCurrency(outlay)} Total Outlay • (${formatCurrency(downAmt)} Down • ${formatCurrency(rehab)} Rehab + ${formatCurrency(closing)} Closing Rolled into Loan)`
           : `${formatCurrency(outlay)} Total Outlay • (${formatCurrency(downAmt)} Down + ${formatCurrency(rehab)} Rehab + ${formatCurrency(closing)} Closing • Funded Out-of-Pocket)`,
-        provenance: `Represents total Day 1 sponsor equity required to capitalize the acquisition (${formatCurrency(downAmt)} down payment), fund estimated closing costs (${formatCurrency(closing)}), and execute renovation scope (${formatCurrency(rehab)}) to capture After-Repair Value. ${rolled ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and closing settlements are funded 100% upfront out of sponsor equity.'} Ongoing replacement reserve: ${inputs.capexReserve ?? 0}%/yr (${formatCurrency(p1.capexReserve || 0)}/yr).`,
+        provenance: `Represents total Day 1 sponsor equity required to capitalize the acquisition (${formatCurrency(downAmt)} down payment), fund estimated closing costs (${formatCurrency(closing)}), and execute renovation scope (${formatCurrency(rehab)}) to capture After-Repair Value. ${rolled ? 'Rehab and closing costs are rolled directly into the senior loan facility.' : 'Rehab and closing settlements are funded 100% upfront out of sponsor equity.'} Ongoing replacement reserve: ${inputs.capexReserve ?? 0}%/yr (${formatCurrency(fullYear.capexReserve || p0.capexReserve || 0)}/yr).`,
       },
       {
         id: 'vacancy', icon: '🛡️', name: '3. Economic Vacancy & Credit Loss', category: 'operations' as const,
-        value: `${vacancy}% of GPI (${formatCurrency(p1.vacancyLoss || 0)}/yr reserve)`,
+        value: `${vacancy}% of GPI (${formatCurrency(fullYear.vacancyLoss || p0.vacancyLoss || 0)}/yr reserve)`,
         provenance: `Enforces a ${vacancy}% underwriting allowance for tenant rollover downtime, collection friction, and lease turnover. Asset maintains operational cash flow solvency up to ${maxVacancy.toFixed(1)}% vacancy tolerance.`,
       },
       {
@@ -100,7 +109,7 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
       {
         id: 'terms', icon: '📑', name: '5. Financing Terms & Debt Service', category: 'financing' as const,
         value: `${rate}% Fixed • ${term} Yrs • ${formatCurrency(monthly)}/mo P&I • DSCR: ${dscr}`,
-        provenance: `Fixed mortgage amortization over ${term} years (${formatCurrency(annualDebt)}/yr total annual debt). Net Operating Income of ${formatCurrency(p1.netOperatingIncome || 0)} provides a cash flow cushion of ${formatCurrency(cushion)}/yr above debt service.`,
+        provenance: `Fixed mortgage amortization over ${term} years (${formatCurrency(annualDebt)}/yr total annual debt). Net Operating Income of ${formatCurrency(fullNoi)}/yr provides a cash flow cushion of ${formatCurrency(cushion)}/yr above debt service.${isStub && p0.dscr !== null ? ` Initial ${p0.operatingMonths}-month stub period carries ${Number(p0.dscr).toFixed(2)}x coverage.` : ''}`,
       },
       {
         id: 'revenue', icon: '📈', name: '6. Gross Revenue & Rental Income', category: 'revenue' as const,
@@ -109,7 +118,7 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
       },
       {
         id: 'opex', icon: '⚙️', name: '7. Operating Expense Ratio (OER) & Management', category: 'operations' as const,
-        value: `${opexRatio}% of GPI (${formatCurrency(p1.operatingExpenses || 0)}/yr) • ${inputs.manageProperty ? 'Professional Management' : 'Self-Managed'}`,
+        value: `${opexRatio}% of GPI (${formatCurrency(fullYear.operatingExpenses || p0.operatingExpenses || 0)}/yr) • ${inputs.manageProperty ? 'Professional Management' : 'Self-Managed'}`,
         provenance: `Underwritten under ${leaseType} structure covering county real estate taxes, hazard/property insurance, property management fees (${inputs.manageProperty ? '3.5-10%' : 'self-managed'}), and operational reserves.`,
       },
       {

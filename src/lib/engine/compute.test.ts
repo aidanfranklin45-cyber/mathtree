@@ -59,6 +59,18 @@ describe('compute layer', () => {
     expect(computeTaxMetrics(deal).depYears).toBe(27.5);
     expect(computeTaxMetrics({ ...deal, asset_class: 'commercial' }).depYears).toBe(39);
   });
+
+  it('correctly handles 0% down payment (100% debt financing)', () => {
+    const zeroDownDeal = {
+      ...deal,
+      inputs: { ...deal.inputs, downPaymentPercent: 0, closingCosts: 12000, rehabCosts: 0 },
+    };
+    const m: any = computeDealMetrics(zeroDownDeal);
+    expect(m.loanAmount).toBe(300000);
+    expect(m.downPaymentAmount).toBe(0);
+    expect(m.initialCashInvested).toBe(12000);
+    expect(m.ltv).toBe(100);
+  });
 });
 
 describe('runMonteCarlo (shared engine)', () => {
