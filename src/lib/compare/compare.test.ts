@@ -8,6 +8,8 @@ import {
   filterDealsByScope,
   countDealsByScope,
   resolveInitialScope,
+  mergeIdenticalColumns,
+  describeMergedNote,
 } from './compareTypes';
 import { BENCHMARK_DEAL } from '../supabase/client';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
@@ -125,6 +127,48 @@ describe('Project Comparison Logic & Metrics', () => {
     expect(winners.maxDscrId).toBe('col-3');
     expect(winners.maxNoiId).toBe('col-3');
     expect(winners.minPriceId).toBe('col-2');
+  });
+});
+
+describe('Identical scenarios collapse into one column', () => {
+  const mkDeal = (inputs: Record<string, any>): any => ({ id: 'dirt', title: 'Dirt Pit', asset_class: 'commercial', status: 'prospect', purchase_price: 94500, inputs: { purchasePrice: 94500, downPaymentPercent: 8.5, interestRate: 6.5, loanTerm: 25, closingCosts: 3000, exitYear: 10, ...inputs } });
+  const col = (deal: any, type: any): ComparisonColumn => {
+    const overrides = getPresetOverrides(type, deal.inputs);
+    const { metrics, summary } = extractComparisonSummary(deal, overrides);
+    return { id: type, dealId: deal.id, dealTitle: 'Dirt Pit', assetClass: 'commercial', status: 'prospect', location: '', scenarioName: type, scenarioType: type, overrides, deal, metrics, summary, isBenchmark: type === 'live' };
+  };
+
+  it('folds Live, Acquisition Baseline and Bull into one column on a deal with no rent', () => {
+    const deal = mkDeal({ vacancyRate: 5, expenseRatio: 20 }); // no rent at all
+    const cols = ['live', 'baseline', 'bull', 'bear'].map((t) => col(deal, t));
+    const { columns, notes } = mergeIdenticalColumns(cols);
+    expect(columns.map((c) => c.id)).toEqual(['live', 'bear']);
+    expect(columns[0].scenarioName).toBe('Live Model = Acquisition Baseline = Bull Case');
+    expect(columns[0].isBenchmark).toBe(true);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].noRent).toBe(true);
+    expect(describeMergedNote(notes[0])).toContain('no rental income');
+  });
+
+  it('on a deal with rent, only the baseline (which is the live model) merges; bull and bear stay', () => {
+    const deal = mkDeal({ monthlyRent: 2500, grossRentAnnual: 30000, vacancyRate: 5, expenseRatio: 20 });
+    const cols = ['live', 'baseline', 'bull', 'bear'].map((t) => col(deal, t));
+    const { columns, notes } = mergeIdenticalColumns(cols);
+    expect(columns.map((c) => c.id)).toEqual(['live', 'bull', 'bear']);
+    expect(columns[0].scenarioName).toBe('Live Model = Acquisition Baseline');
+    expect(notes[0].noRent).toBe(false);
+  });
+
+  it('moves the benchmark flag onto the kept column and never merges across different deals', () => {
+    const a = col(mkDeal({}), 'live');
+    const b = col(mkDeal({}), 'baseline');
+    b.isBenchmark = true;
+    a.isBenchmark = false;
+    const merged = mergeIdenticalColumns([a, b]);
+    expect(merged.columns).toHaveLength(1);
+    expect(merged.columns[0].isBenchmark).toBe(true);
+    const other = { ...col(mkDeal({}), 'live'), id: 'other', dealId: 'someone-else' };
+    expect(mergeIdenticalColumns([col(mkDeal({}), 'live'), other]).columns).toHaveLength(2);
   });
 });
 

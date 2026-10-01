@@ -284,3 +284,77 @@ export function evaluateWinners(columns: ComparisonColumn[]): WinnerAnalysis {
     minPriceId,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Identical scenarios
+// ---------------------------------------------------------------------------
+
+/** Two columns of the same deal that produce the same figures tell the reader nothing the first one does not. */
+export function columnFingerprint(c: Pick<ComparisonColumn, 'dealId' | 'summary'>): string {
+  const s = c.summary;
+  const r = (v: number | null): string => (v === null || v === undefined ? 'na' : String(Math.round(Number(v) * 100) / 100));
+  // Results only, not the inputs that were nudged: a scenario that changes an input the deal does not use (e.g. vacancy on a deal
+  // with no rent) still produces the same answer, and that is what makes the column redundant.
+  const figures = [
+    s.purchasePrice, s.initialCash, s.loanAmount, s.grossRentAnnual, s.operatingExpenses, s.noi, s.dscr, s.cashFlowYear1,
+    s.capRateYear1, s.irr, s.equityMultiple, s.npv, s.tenYearCashFlow, s.tenYearTerminalValue, s.totalWealthCreated,
+  ].map((v) => r(v as number | null));
+  return [c.dealId, ...figures].join('|');
+}
+
+/** A short label for a column's scenario, for merged headings and notes. */
+export function scenarioShortLabel(c: Pick<ComparisonColumn, 'scenarioType' | 'scenarioName'>): string {
+  switch (c.scenarioType) {
+    case 'live': return 'Live Model';
+    case 'baseline': return 'Acquisition Baseline';
+    case 'bull': return 'Bull Case';
+    case 'bear': return 'Bear Case';
+    default: return c.scenarioName || 'Scenario';
+  }
+}
+
+export interface MergedColumnNote {
+  kept: string;
+  dropped: string[];
+  /** The deal has no rental income, so a rent scenario cannot change anything. */
+  noRent: boolean;
+}
+
+/**
+ * Within one deal, columns with identical results collapse into the first one (so Live = Baseline = Bull becomes a single column).
+ * The kept column's heading names everything it stands for, and the benchmark flag moves to it if a dropped column held it.
+ */
+export function mergeIdenticalColumns(columns: ComparisonColumn[]): { columns: ComparisonColumn[]; notes: MergedColumnNote[] } {
+  const keptByPrint = new Map<string, ComparisonColumn>();
+  const alsoByPrint = new Map<string, ComparisonColumn[]>();
+  const out: ComparisonColumn[] = [];
+  for (const col of columns) {
+    const print = columnFingerprint(col);
+    const first = keptByPrint.get(print);
+    if (!first) {
+      keptByPrint.set(print, col);
+      out.push(col);
+      continue;
+    }
+    alsoByPrint.set(print, [...(alsoByPrint.get(print) ?? []), col]);
+    if (col.isBenchmark) first.isBenchmark = true;
+  }
+  const notes: MergedColumnNote[] = [];
+  const merged = out.map((col) => {
+    const dropped = alsoByPrint.get(columnFingerprint(col));
+    if (!dropped || dropped.length === 0) return col;
+    notes.push({ kept: scenarioShortLabel(col), dropped: dropped.map(scenarioShortLabel), noRent: col.summary.grossRentAnnual <= 0 });
+    // Name what the single column stands for (a long list stays readable because only the first two are spelled out)
+    const labels = [scenarioShortLabel(col), ...dropped.map(scenarioShortLabel)];
+    const heading = labels.length > 3 ? `${labels[0]} = ${labels[1]} +${labels.length - 2}` : labels.join(' = ');
+    return { ...col, scenarioName: heading };
+  });
+  return { columns: merged, notes };
+}
+
+/** Plain-English line for each merge, shown above the table. */
+export function describeMergedNote(n: MergedColumnNote): string {
+  const list = n.dropped.join(' and ');
+  const why = n.noRent ? ' This deal has no rental income, so a rent scenario cannot change the results.' : '';
+  return `${list} give the same results as ${n.kept}, so they are shown as one column.${why}`;
+}

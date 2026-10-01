@@ -17,6 +17,11 @@ import {
   filterDealsByScope,
   countDealsByScope,
   resolveInitialScope,
+  mergeIdenticalColumns,
+  describeMergedNote,
+  columnFingerprint,
+  scenarioShortLabel,
+  MergedColumnNote,
   ScenarioPresetType,
   extractComparisonSummary,
   evaluateWinners,
@@ -24,9 +29,19 @@ import {
 } from '../lib/compare/compareTypes';
 import { exportComparisonCSV } from '../lib/compare/compareExport';
 import { listScenarioRuns, ScenarioRun } from '../lib/scenarios';
+import { getInitialBaseline, replaceBaseline } from '../lib/baselines/db';
+import { dealFromBaseline, baselineHeading, baselineEngineDriftNote, dealWithScenario } from '../lib/compare/baselineColumn';
+import { UpdateBaselineModal } from '../components/compare/UpdateBaselineModal';
 import { RefreshCw, SlidersHorizontal } from 'lucide-react';
 
-const DEAL_FIELDS = 'id, user_id, title, location, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
+/** What the page needs to know about the focus deal's recorded acquisition baseline. */
+interface BaselineInfo {
+  capturedAt: string;
+  fingerprint: string;
+  irr: number;
+}
+
+const DEAL_FIELDS ='id, user_id, title, location, asset_type, status, purchase_price, is_demo, inputs, created_at, updated_at, entity_id';
 
 export const ComparePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +58,15 @@ export const ComparePage: React.FC = () => {
 
   // Columns & custom overrides
   const [columns, setColumns] = useState<ComparisonColumn[]>([]);
+  // Scenarios that came out identical and were folded into one column (shown as a note above the table)
+  const [mergeNotes, setMergeNotes] = useState<MergedColumnNote[]>([]);
+  // Plain notes about the baseline (none recorded yet; engine has changed since it was captured)
+  const [infoNotes, setInfoNotes] = useState<string[]>([]);
+  // The owner's current acquisition baseline for the focus deal, and the Update Baseline dialog
+  const [baselineInfo, setBaselineInfo] = useState<BaselineInfo | null>(null);
+  const [isBaselineModalOpen, setIsBaselineModalOpen] = useState(false);
+  const [baselineBusy, setBaselineBusy] = useState(false);
+  const [baselineError, setBaselineError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Scope: prospective deals by default; Owned and All are one click away. Resolved once the deals have loaded.
@@ -170,6 +194,48 @@ export const ComparePage: React.FC = () => {
     [],
   );
 
+  // Scenario-mode columns for one deal: Live, the real Acquisition Baseline (owned deals with a recorded snapshot), Bull, Bear,
+  // and saved runs. Identical results fold into one column. A deal with no baseline simply has no baseline column.
+  const loadVersionColumns = useCallback(
+    async (deal: DealRecord): Promise<{ columns: ComparisonColumn[]; notes: MergedColumnNote[]; infos: string[]; baseline: BaselineInfo | null }> => {
+      const isOwned = deal.status === 'owned';
+      const [historyRuns, baselineRow] = await Promise.all([
+        listScenarioRuns(deal.id, 3),
+        isOwned ? getInitialBaseline(deal.id) : Promise.resolve(null),
+      ]);
+
+      const infos: string[] = [];
+      let baseline: BaselineInfo | null = null;
+      const cols: ComparisonColumn[] = [buildColumn(deal, 'live', 'Active Live Model', undefined, true)];
+
+      if (isOwned) {
+        if (baselineRow) {
+          const baseCol = buildColumn(dealFromBaseline(deal, baselineRow), 'baseline', baselineHeading(baselineRow), undefined, false);
+          cols.push(baseCol);
+          baseline = { capturedAt: baselineRow.captured_at, fingerprint: columnFingerprint(baseCol), irr: baseCol.summary.irr };
+          const drift = baselineEngineDriftNote(baselineRow, baseCol.summary.irr);
+          if (drift) infos.push(drift);
+        } else if (deal.is_demo || deal.is_shared) {
+          infos.push('Acquisition baselines are only recorded for deals you own (not sample or shared deals), so there is no baseline column here.');
+        } else {
+          infos.push('No acquisition baseline has been recorded for this property yet, so there is no baseline column. Open it in the Deal Studio to record one.');
+        }
+      }
+
+      cols.push(
+        buildColumn(deal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
+        buildColumn(deal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
+      );
+      (historyRuns ?? []).forEach((run) => {
+        cols.push(buildColumn(deal, 'history', run.name || 'Historical Run', run.inputs, false));
+      });
+
+      const merged = mergeIdenticalColumns(cols);
+      return { columns: merged.columns, notes: merged.notes, infos, baseline };
+    },
+    [buildColumn],
+  );
+
   // Initialize columns when deals load or mode changes
   useEffect(() => {
     if (!scopeReady) return;
@@ -186,6 +252,8 @@ export const ComparePage: React.FC = () => {
         buildColumn(d, 'live', 'Live Active Model', undefined, idx === 0),
       );
       setColumns(cols);
+      setMergeNotes([]);
+      setInfoNotes([]);
     } else if (mode === 'versions') {
       // Pick focus deal
       const focusId = selectedSingleDealId || searchParams.get('dealId') || scopedDeals[0]?.id;
@@ -198,42 +266,22 @@ export const ComparePage: React.FC = () => {
       // Also corrects a focus deal that the current scope no longer includes
       if (selectedSingleDealId !== targetDeal.id) setSelectedSingleDealId(targetDeal.id);
 
-      // Load scenario runs from DB for this deal, plus standard presets
+      // Load the real baseline (owned deals) and saved runs from the database, plus the standard presets
       let isLive = true;
       (async () => {
-        const historyRuns = await listScenarioRuns(targetDeal.id, 3);
+        const built = await loadVersionColumns(targetDeal);
         if (!isLive) return;
-
-        const defaultCols: ComparisonColumn[] = [
-          buildColumn(targetDeal, 'live', 'Active Live Model', undefined, true),
-          buildColumn(targetDeal, 'baseline', 'Acquisition Baseline', undefined, false),
-          buildColumn(targetDeal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
-          buildColumn(targetDeal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
-        ];
-
-        // Add history runs if available
-        if (historyRuns && historyRuns.length > 0) {
-          historyRuns.forEach((run) => {
-            defaultCols.push(
-              buildColumn(
-                targetDeal,
-                'history',
-                run.name || 'Historical Run',
-                run.inputs,
-                false,
-              ),
-            );
-          });
-        }
-
-        setColumns(defaultCols);
+        setColumns(built.columns);
+        setMergeNotes(built.notes);
+        setInfoNotes(built.infos);
+        setBaselineInfo(built.baseline);
       })();
 
       return () => {
         isLive = false;
       };
     }
-  }, [scopedDeals, scopeReady, mode, selectedSingleDealId, buildColumn]);
+  }, [scopedDeals, scopeReady, mode, selectedSingleDealId, buildColumn, loadVersionColumns]);
 
   // Mode change handler
   const handleSetMode = (nextMode: ComparisonMode) => {
@@ -288,18 +336,22 @@ export const ComparePage: React.FC = () => {
         buildColumn(d, 'live', 'Live Active Model', undefined, idx === 0),
       );
       setColumns(top);
+      setMergeNotes([]);
+      setInfoNotes([]);
     } else if (mode === 'versions' && selectedSingleDealId) {
       const deal = scopedDeals.find((d) => d.id === selectedSingleDealId) || scopedDeals[0];
       if (deal) {
-        setColumns([
-          buildColumn(deal, 'live', 'Active Live Model', undefined, true),
-          buildColumn(deal, 'baseline', 'Acquisition Baseline', undefined, false),
-          buildColumn(deal, 'bull', 'Bull Case (+8% Rent)', undefined, false),
-          buildColumn(deal, 'bear', 'Bear Case (-8% Rent, +3% Vac)', undefined, false),
-        ]);
+        void loadVersionColumns(deal).then((built) => {
+          setColumns(built.columns);
+          setMergeNotes(built.notes);
+          setInfoNotes(built.infos);
+          setBaselineInfo(built.baseline);
+        });
       }
     } else {
       setColumns([]);
+      setMergeNotes([]);
+      setInfoNotes([]);
     }
   };
 
@@ -307,9 +359,41 @@ export const ComparePage: React.FC = () => {
     return scopedDeals.find((d) => d.id === selectedSingleDealId) || scopedDeals[0];
   }, [scopedDeals, selectedSingleDealId]);
 
+  // Baselines are the owner's: owned, not a sample, not shared with them
+  const canManageBaseline =
+    mode === 'versions' && !!currentFocusDeal && currentFocusDeal.status === 'owned' && !currentFocusDeal.is_demo && !currentFocusDeal.is_shared;
+
+  // Make a scenario (today's live model, or any other column) the new baseline; the old one is kept in history
+  const handleConfirmBaseline = async (column: ComparisonColumn) => {
+    if (!currentFocusDeal) return;
+    setBaselineBusy(true);
+    setBaselineError(null);
+    const result = await replaceBaseline(dealWithScenario(currentFocusDeal, column.overrides));
+    if (result === 'created') {
+      const customs = columns.filter((c) => c.scenarioType === 'custom'); // keep the what-ifs the user built
+      const built = await loadVersionColumns(currentFocusDeal);
+      setColumns([...built.columns, ...customs]);
+      setMergeNotes(built.notes);
+      setInfoNotes(built.infos);
+      setBaselineInfo(built.baseline);
+      setIsBaselineModalOpen(false);
+    } else if (result === 'skipped') {
+      setBaselineError('Only the owner of an owned deal can change its baseline.');
+    } else {
+      setBaselineError('The baseline could not be saved, and nothing was changed. Try again.');
+    }
+    setBaselineBusy(false);
+  };
+
   const handleAddWhatIf = (overrides: Partial<DealInputs>, name: string) => {
     if (!currentFocusDeal) return;
     const newCol = buildColumn(currentFocusDeal, 'custom', name, overrides, false);
+    // A what-if that gives the same figures as a column already shown adds nothing: say so instead of repeating it
+    const twin = columns.find((c) => columnFingerprint(c) === columnFingerprint(newCol));
+    if (twin) {
+      setMergeNotes((prev) => [...prev, { kept: scenarioShortLabel(twin), dropped: [name], noRent: twin.summary.grossRentAnnual <= 0 }]);
+      return;
+    }
     setColumns((prev) => [...prev, newCol]);
   };
 
@@ -338,6 +422,34 @@ export const ComparePage: React.FC = () => {
           onSetScope={handleSetScope}
           scopeCounts={scopeCounts}
         />
+
+        {!loading && canManageBaseline && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-xs text-slate-300">
+            <span>
+              {baselineInfo
+                ? `Acquisition baseline recorded ${new Date(baselineInfo.capturedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}. Projections changed since? Update it.`
+                : 'No acquisition baseline is recorded for this property yet.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => { setBaselineError(null); setIsBaselineModalOpen(true); }}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-bold transition"
+            >
+              {baselineInfo ? 'Update baseline…' : 'Record baseline…'}
+            </button>
+          </div>
+        )}
+
+        {!loading && mode === 'versions' && (mergeNotes.length > 0 || infoNotes.length > 0) && (
+          <div className="rounded-2xl border border-cyan-900/60 bg-cyan-950/20 px-4 py-3 text-xs text-slate-300 space-y-1">
+            {infoNotes.map((t, i) => (
+              <p key={`i${i}`}>{t}</p>
+            ))}
+            {mergeNotes.map((n, i) => (
+              <p key={`m${i}`}>{describeMergedNote(n)}</p>
+            ))}
+          </div>
+        )}
 
         {!loading && deals.length > 0 && scopedDeals.length === 0 && (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-xs text-slate-300">
@@ -371,6 +483,22 @@ export const ComparePage: React.FC = () => {
           <CompareCharts columns={columns} />
         )}
       </main>
+
+      {/* Update / record the acquisition baseline (owned deals) */}
+      {canManageBaseline && currentFocusDeal && (
+        <UpdateBaselineModal
+          isOpen={isBaselineModalOpen}
+          onClose={() => setIsBaselineModalOpen(false)}
+          dealTitle={resolveDealDisplayName(currentFocusDeal)}
+          candidates={columns.filter((c) => c.dealId === currentFocusDeal.id && c.scenarioType !== 'baseline')}
+          baselineFingerprint={baselineInfo?.fingerprint ?? null}
+          baselineCapturedAt={baselineInfo?.capturedAt ?? null}
+          baselineIrr={baselineInfo?.irr ?? null}
+          busy={baselineBusy}
+          error={baselineError}
+          onConfirm={(c) => { void handleConfirmBaseline(c); }}
+        />
+      )}
 
       {/* Add Deal Modal */}
       <AddProjectModal

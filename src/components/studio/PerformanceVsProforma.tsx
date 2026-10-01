@@ -64,7 +64,7 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
 
   const canRebaseline = !deal.is_shared && !deal.is_demo;
   const onRebaseline = async () => {
-    if (!window.confirm('Replace the frozen baseline with today’s assumptions? The original expectation will be discarded.')) return;
+    if (!window.confirm('Replace the baseline with today’s assumptions? The current baseline is kept in history.')) return;
     setBusy(true);
     await rebaseline(deal);
     await load();
@@ -114,7 +114,7 @@ export const PerformanceVsProforma: React.FC<Props> = ({ deal, metrics }) => {
               onClick={onRebaseline}
               disabled={busy}
               className="px-2 py-0.5 rounded border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition disabled:opacity-50"
-              title="Discard the frozen baseline and capture today's assumptions"
+              title="Capture today's assumptions as the new baseline (the current one is kept in history)"
             >
               {busy ? 'Working…' : 'Re-baseline'}
             </button>
