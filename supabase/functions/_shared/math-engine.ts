@@ -600,10 +600,12 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   const lean = opts?.lean === true;
   // Scenario inputs used by the Monte Carlo (both optional; absent = no effect):
   //   marketRentDrift   percentage points a year added to market rent after a lease ends (contractual rent is never moved)
-  //   tenantInterruption {leaseIndex, months, startIdx (year*12+month) | startOffset (months after closing)}: that lease stops paying
-  //   for that window, then resumes
+  //   tenantInterruptions [{leaseIndex, months, makeReadyCost?, startIdx (year*12+month) | startOffset (months after closing)}]: each
+  //   entry is a tenant leaving (a default or an ordinary move-out): that lease pays nothing for the window, the owner carries the
+  //   space like any vacancy, then rent resumes (a new tenant at the same rent). makeReadyCost is a one-time cost the month they leave.
+  //   (tenantInterruption, a single entry, is still accepted.)
   const marketRentDrift = Number(inputs.marketRentDrift) || 0;
-  const interruption = inputs.tenantInterruption && Number(inputs.tenantInterruption.months) > 0 ? inputs.tenantInterruption : null;
+  const rawInterruptions: any[] = Array.isArray(inputs.tenantInterruptions) ? inputs.tenantInterruptions : inputs.tenantInterruption ? [inputs.tenantInterruption] : [];
   const assetType = normalizeAssetClass(rawAssetType);
 
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
@@ -757,6 +759,18 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   // Lease-driven year 1 is often a partial year (lease starts after closing); its NOI over the full price is not a cap rate
   let entryCapPending = false;
 
+  // Vacancy windows by lease index: [start, end) as year*12+month, with the one-time make-ready cost charged the month the tenant leaves
+  const interruptionWindows = new Map<number, Array<{ start: number; end: number; cost: number }>>();
+  for (const it of rawInterruptions) {
+    const months = Number(it?.months) || 0;
+    const cost = Number(it?.makeReadyCost) || 0;
+    if (!(months > 0) && !(cost > 0)) continue;
+    const start = it.startIdx ?? (closeYear * 12 + closeMonth + (Number(it.startOffset) || 0));
+    const list = interruptionWindows.get(it.leaseIndex) ?? [];
+    list.push({ start, end: start + Math.max(0, months), cost });
+    interruptionWindows.set(it.leaseIndex, list);
+  }
+
   for (let year = 1; year <= holdingPeriod; year++) {
     const calYear = closeYear + (year - 1);
     const isStubYear = (year === 1 && isProrateFirstYear);
@@ -781,13 +795,18 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
         for (let li = 0; li < leaseList.length; li++) {
           const lease = leaseList[li];
           let leaseRes = resolveLeaseMonthlyRent(lease, calYear, mo, { lean, drift: marketRentDrift });
-          if (interruption && li === interruption.leaseIndex && leaseRes.isActive) {
+          const windows = interruptionWindows.size > 0 && leaseRes.isActive ? interruptionWindows.get(li) : undefined;
+          if (windows) {
             const idx = calYear * 12 + mo;
-            const winStart = interruption.startIdx ?? (closeYear * 12 + closeMonth + (Number(interruption.startOffset) || 0));
-            if (idx >= winStart && idx < winStart + interruption.months) {
-              // The tenant defaulted: no rent during the downtime, and the owner carries the property like any vacancy
+            let vacantNow = false;
+            for (const w of windows) {
+              if (idx === w.start && w.cost > 0) expiryOneTimeCosts += w.cost; // make-ready, the month the tenant leaves
+              if (idx >= w.start && idx < w.end) vacantNow = true;
+            }
+            if (vacantNow) {
+              // The tenant left (or defaulted): no rent during the downtime, and the owner carries the space like any vacancy
               vacantLeaseMonths += 1;
-              leaseRes = { ...leaseRes, monthlyRent: 0, isActive: false, status: 'tenant_default', provenance: lean ? '' : 'Tenant default: downtime' };
+              leaseRes = { ...leaseRes, monthlyRent: 0, isActive: false, status: 'tenant_default', provenance: lean ? '' : 'Tenant left: vacant until re-let' };
             }
           }
           if (leaseRes.status === 'vacant_relet') vacantLeaseMonths += 1;
