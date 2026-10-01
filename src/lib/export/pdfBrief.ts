@@ -1,4 +1,4 @@
-﻿import { supabase, SUPABASE_ANON_KEY } from '../supabase/client';
+import { supabase, SUPABASE_ANON_KEY } from '../supabase/client';
 
 export async function openPdfBrief(url: string): Promise<void> {
   const win = window.open('', '_blank');
@@ -69,8 +69,9 @@ export async function openPdfBrief(url: string): Promise<void> {
   }
 }
 
-export function exportDealBriefPDF(dealId: string): Promise<void> {
-  return openPdfBrief(`https://bgexwcepwbxvhxbpblhd.supabase.co/functions/v1/generate-pdf-brief?dealId=${encodeURIComponent(dealId)}`);
+/** Opens the React-rendered deal brief (computed in the browser from the app's own data) in a new tab. */
+export function openDealBrief(dealId: string): void {
+  window.open(`/brief?id=${encodeURIComponent(dealId)}`, '_blank');
 }
 
 export function exportPortfolioBriefPDF(): Promise<void> {

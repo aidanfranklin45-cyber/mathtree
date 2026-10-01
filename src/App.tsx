@@ -6,6 +6,7 @@ import { AuthGate } from './lib/auth/AuthGate';
 const DealStudioPage = lazy(() => import('./pages/DealStudioPage').then((m) => ({ default: m.DealStudioPage })));
 const OperationsPage = lazy(() => import('./pages/OperationsPage').then((m) => ({ default: m.OperationsPage })));
 const ReconcilePage = lazy(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
+const DealBriefPage = lazy(() => import('./pages/DealBriefPage').then((m) => ({ default: m.DealBriefPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 
 const PageSpinner: React.FC = () => (
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
           {TABS.flatMap((t) => [`/project-${t}`, `/project-${t}.html`].map((p) => (
             <Route key={p} path={p} element={<StudioTabRedirect tab={t} />} />
           )))}
+          <Route path="/brief" element={guard(<DealBriefPage />)} />
           {['/operations', '/operations.html'].map((p) => (
             <Route key={p} path={p} element={guard(<OperationsPage />)} />
           ))}

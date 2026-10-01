@@ -4,7 +4,7 @@ import { resolvePointInTimeDealMetrics } from '../../../lib/math/pointInTime';
 import { getBenchmarkCapRateRange } from '../../../lib/engine';
 import { formatCurrency } from '../../../lib/format';
 import { getDefaultTargetYear, getProjectionStartYear } from '../../../lib/studio/projectionYear';
-import { exportDealBriefPDF } from '../../../lib/export/pdfBrief';
+import { openDealBrief } from '../../../lib/export/pdfBrief';
 import { ProjectionsChart } from '../ProjectionsChart';
 import { PerformanceVsProforma } from '../PerformanceVsProforma';
 import { Link } from 'react-router-dom';
@@ -420,7 +420,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           <p className="text-xs text-slate-400">All 8 underwriting inputs mapped to verifiable economic provenance, gap analysis, and deliverables.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => { void exportDealBriefPDF(deal.id); }} className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shadow-sm flex items-center space-x-1.5">
+          <button type="button" onClick={() => { void openDealBrief(deal.id); }} className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shadow-sm flex items-center space-x-1.5">
             <svg className="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             <span>Export Brief (PDF)</span>
           </button>
