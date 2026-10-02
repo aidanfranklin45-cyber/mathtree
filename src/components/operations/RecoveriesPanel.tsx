@@ -5,6 +5,7 @@ import {
   type RecoveryCategory, type RecoveryFrequency, type RecoveryMode, type RecoveryStatus,
 } from '../../lib/operations/recoveries';
 import { setItemDone, syncRecoveryItems } from '../../lib/operations/recoveryDb';
+import { formatDateInput, parseDateInput, parsePercentInput } from '../../lib/operations/recoveryInput';
 import { CamReconciliation } from './CamReconciliation';
 import { money } from './money';
 import { MeterBilling } from './MeterBilling';
@@ -52,7 +53,7 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
   const [mode, setMode] = useState<RecoveryMode>('direct_pay');
   const [basis, setBasis] = useState<'pro_rata_share' | 'fixed_amount' | 'actual_metered'>('fixed_amount');
   const [frequency, setFrequency] = useState<RecoveryFrequency>('semiannual');
-  const [firstDue, setFirstDue] = useState(today());
+  const [firstDue, setFirstDue] = useState(formatDateInput(today()));
   const [amount, setAmount] = useState('');
   const [sharePct, setSharePct] = useState('');
   const [label, setLabel] = useState('');
@@ -77,12 +78,13 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) throw new Error('Sign in again to save.');
-    if (!firstDue) throw new Error('Pick the next due date.');
-    const share = sharePct.trim() === '' ? null : Number(sharePct);
-    if (share != null && !(share >= 0 && share <= 100)) throw new Error('Share must be between 0 and 100.');
+    const dueIso = parseDateInput(firstDue);
+    if (!dueIso) throw new Error('Type the next due date like 10/15/2026.');
+    const share = parsePercentInput(sharePct);
+    if (Number.isNaN(share)) throw new Error('Tenant share must be a number from 0 to 100, like 25.');
     const { data, error } = await supabase.from('lease_recovery_terms').insert({
       user_id: uid, lease_id: lease.id, deal_id: lease.deal_id, category, mode, basis, frequency,
-      first_due_date: firstDue, expected_amount: amount.trim() === '' ? null : Number(amount), share_pct: share, label: label.trim(),
+      first_due_date: dueIso, expected_amount: amount.trim() === '' ? null : Number(amount), share_pct: share, label: label.trim(),
     }).select().single();
     if (error) {
       throw new Error(error.code === '23505' ? `This lease already has a ${RECOVERY_CATEGORY_LABELS[category]} entry. Add a label to tell them apart.` : error.message);
@@ -170,12 +172,12 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
                     {(Object.keys(FREQ_LABEL) as RecoveryFrequency[]).map((f) => <option key={f} value={f}>{FREQ_LABEL[f]}</option>)}
                   </select></div>
                 <div><label className={lbl}>Next due date</label>
-                  <input type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} className={field} /></div>
+                  <input type="text" inputMode="numeric" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} placeholder="MM/DD/YYYY" className={field} /></div>
                 <div><label className={lbl}>Amount each time (optional)</label>
                   <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 1250" className={field} /></div>
                 <div><label className={lbl}>Tenant share % (optional)</label>
-                  <input type="number" min="0" max="100" step="0.01" value={sharePct} onChange={(e) => setSharePct(e.target.value)} placeholder={suggestedShare != null ? `${suggestedShare} from sqft` : 'e.g. 25'} className={field} />
-                  {suggestedShare != null && sharePct === '' && <button type="button" onClick={() => setSharePct(String(suggestedShare))} className="mt-1 text-[10px] text-emerald-400 hover:underline">Use {suggestedShare}% (suite sqft ÷ property sqft)</button>}
+                  <input type="text" inputMode="decimal" value={sharePct} onChange={(e) => setSharePct(e.target.value)} placeholder="e.g. 25" className={field} />
+                  {suggestedShare != null && <p className="mt-1 text-[10px] text-slate-500">This suite is {suggestedShare}% of the building by square footage. {sharePct.trim() !== String(suggestedShare) && <button type="button" onClick={() => setSharePct(String(suggestedShare))} className="text-emerald-400 hover:underline">Use {suggestedShare}%</button>}</p>}
                 </div>
                 <div className="col-span-2"><label className={lbl}>Label (optional, to tell two of the same apart)</label>
                   <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Parcel 2" className={field} /></div>
