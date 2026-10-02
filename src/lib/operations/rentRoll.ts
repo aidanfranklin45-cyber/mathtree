@@ -147,7 +147,10 @@ function deriveLeasesFromInputs(deal: Row): Row[] {
 
 /** Escalation / review status for one lease (drives the "Last Escalation" column). */
 export function escalationInfo(lease: Row, increases: Row[], now: Date): EscalationInfo {
-  const leaseScheduledSteps = increases.filter((inc) => inc.lease_id === lease.id && inc.is_applied !== true);
+  // Earliest first, so the "nearest" step is the next one due rather than whichever row the database returned first.
+  const leaseScheduledSteps = increases
+    .filter((inc) => inc.lease_id === lease.id && inc.is_applied !== true)
+    .sort((a, b) => String(a.effective_date).localeCompare(String(b.effective_date)));
   const hasDefinedSchedule = Boolean(
     (lease.escalation_type && lease.escalation_type !== 'none') ||
       num(lease.escalation_rate) > 0 ||

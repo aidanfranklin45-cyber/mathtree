@@ -333,12 +333,18 @@ export async function handleRequest(req: Request): Promise<Response> {
       const insertedIncreases: Record<string, unknown>[] = [];
 
       if (scheduledSteps.length > 0) {
-        const newIncreases = scheduledSteps.map((step) => {
+        // Each step builds on the rent produced by the step before it (in date order), not on the starting rent.
+        const orderedSteps = [...scheduledSteps].sort((a, b) =>
+          String(a.effective_date).localeCompare(String(b.effective_date)));
+        let runningRent = monthlyRent;
+        const newIncreases = orderedSteps.map((step) => {
           const stepAmount = parseFloat(String(step.scheduled_amount || 0));
           const stepType = step.increase_type || "percentage";
+          const priorRent = runningRent;
           const newRent = stepType === "percentage"
-            ? Math.round(monthlyRent * (1 + stepAmount / 100) * 100) / 100
-            : monthlyRent + stepAmount;
+            ? Math.round(priorRent * (1 + stepAmount / 100) * 100) / 100
+            : Math.round((priorRent + stepAmount) * 100) / 100;
+          runningRent = newRent;
 
           return {
             user_id: effectiveUserId,
@@ -347,7 +353,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             effective_date: step.effective_date,
             increase_type: stepType,
             scheduled_amount: stepAmount,
-            old_rent: monthlyRent,
+            old_rent: priorRent,
             new_rent: newRent,
             reason: step.reason || `Scheduled ${stepType} escalation`,
             is_applied: false,
