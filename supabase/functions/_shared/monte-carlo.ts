@@ -14,7 +14,7 @@
 //   * Exit cap rate, appreciation, vacancy and cost inflation are sampled as before.
 // Both profit in dollars and IRR are reported for every deal: IRR alone is unstable when equity is thin.
 
-import { calculateProjections, normalizeAssetClass } from './math-engine.ts';
+import { calculateProjections, createLeaseScheduleCache, normalizeAssetClass } from './math-engine.ts';
 
 export interface MonteCarloOptions {
   runs?: number;
@@ -369,6 +369,8 @@ export function createMonteCarloRunner(
     leaveFrom[i] = Math.max(0, endIdx !== null ? endIdx + 1 - closeIdx : 0, startIdx !== null ? startIdx - closeIdx : 0);
   }
   let moveOutsTotal = 0;
+  // Every run shares the rent roll, closing and hold: each lease's rent schedule is resolved once, on the first run
+  const leaseScheduleCache = createLeaseScheduleCache();
   const seedUsed = options.rng ? null : options.seed !== undefined ? (typeof options.seed === 'number' ? options.seed : seedFromText(String(options.seed))) : null;
 
   const irrResults: number[] = new Array(runs);
@@ -468,8 +470,8 @@ export function createMonteCarloRunner(
       }
     }
 
-    // lean: numbers only (no per-month text), about 8x faster with leases and identical results
-    const res = calculateProjections(assetType, scenario, { lean: true });
+    // lean: numbers only (no per-month text), about 8x faster with leases and identical results; the cache makes large rent rolls cheap
+    const res = calculateProjections(assetType, scenario, { lean: true, leaseScheduleCache });
 
     const runIrr = Number(res.irr) || 0;
     irrResults[r] = runIrr;

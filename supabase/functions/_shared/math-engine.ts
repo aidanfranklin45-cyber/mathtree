@@ -100,14 +100,17 @@ function leaseDates(lease: any): LeaseDates {
  *
  * `opts.drift` (percentage points a year) moves only what the contract does not fix: rent after the lease end (renewal, extension
  * or re-let) is market rent, so it drifts. Contractual rent before the end never changes. 0 / undefined = no drift.
+ * Such rent is always round(marketBase * (1 + drift / 100) ^ (marketMonths / 12)), which `opts.marketParts` exposes.
  */
 export function resolveLeaseMonthlyRent(
   lease: any,
   targetYear: number,
   targetMonth: number,
-  opts?: { lean?: boolean; drift?: number },
-): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string; oneTimeCost?: number } {
+  opts?: { lean?: boolean; drift?: number; marketParts?: boolean },
+): { monthlyRent: number; isActive: boolean; status: string; escalationCycles: number; provenance: string; oneTimeCost?: number; marketBase?: number; marketMonths?: number } {
   const lean = opts?.lean === true;
+  // marketParts: also return, for rent after the lease end, the rent before drift and the months of drift (see buildLeaseSchedule)
+  const parts = opts?.marketParts === true;
   const drift = Number(opts?.drift) || 0;
   const baseRent = parseFloat(lease.monthlyRent || 0);
   if (baseRent <= 0) {
@@ -167,13 +170,15 @@ export function resolveLeaseMonthlyRent(
     // Renewal on current terms for the rest of the hold: rent keeps escalating, optionally with a one-time reset.
     if (mode === 'renew') {
       const step = num(lease.extensionRentChangePct, 0);
-      const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * driftFactor(targetIdx) * 100) / 100;
+      const base = rentAtIdx(targetIdx) * (1 + step / 100);
+      const rent = Math.round(base * driftFactor(targetIdx) * 100) / 100;
       return {
         monthlyRent: rent,
         isActive: true,
         status: 'extended',
         escalationCycles: cyclesAt(targetIdx),
         provenance: lean ? '' : `${tenant}: ${fmtMo(rent)} (Assumed renewal on current terms after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+        ...(parts ? { marketBase: base, marketMonths: targetIdx - endIdx } : {}),
       };
     }
 
@@ -182,13 +187,15 @@ export function resolveLeaseMonthlyRent(
       const extMonths = Math.max(1, Math.round(num(lease.extensionYears, 5) * 12));
       if (targetIdx <= endIdx + extMonths) {
         const step = num(lease.extensionRentChangePct, 0);
-        const rent = Math.round(rentAtIdx(targetIdx) * (1 + step / 100) * driftFactor(targetIdx) * 100) / 100;
+        const base = rentAtIdx(targetIdx) * (1 + step / 100);
+        const rent = Math.round(base * driftFactor(targetIdx) * 100) / 100;
         return {
           monthlyRent: rent,
           isActive: true,
           status: 'extended',
           escalationCycles: cyclesAt(targetIdx),
           provenance: lean ? '' : `${tenant}: ${fmtMo(rent)} (Extension option after ${endLabel}${step ? `, ${step > 0 ? '+' : ''}${step}% rent reset` : ''})`,
+          ...(parts ? { marketBase: base, marketMonths: targetIdx - endIdx } : {}),
         };
       }
     }
@@ -209,7 +216,8 @@ export function resolveLeaseMonthlyRent(
       const step = num(lease.reletRentChangePct, 0);
       const startRent = rentAtIdx(endIdx) * (1 + step / 100);
       const newCycles = Math.floor((targetIdx - newStartIdx) / 12);
-      const rent = Math.round(startRent * Math.pow(1 + escRate / 100, newCycles) * driftFactor(targetIdx) * 100) / 100;
+      const base = startRent * Math.pow(1 + escRate / 100, newCycles);
+      const rent = Math.round(base * driftFactor(targetIdx) * 100) / 100;
       const reletCost = num(lease.reletCosts, 0);
       return {
         monthlyRent: rent,
@@ -218,6 +226,7 @@ export function resolveLeaseMonthlyRent(
         escalationCycles: newCycles,
         provenance: lean ? '' : `New tenant: ${fmtMo(rent)} (Re-let after ${vacancyMonths}-mo vacancy${step ? `, ${step > 0 ? '+' : ''}${step}% vs expiring rent` : ''})`,
         oneTimeCost: targetIdx === newStartIdx && reletCost > 0 ? reletCost : 0,
+        ...(parts ? { marketBase: base, marketMonths: targetIdx - endIdx } : {}),
       };
     }
 
@@ -245,6 +254,59 @@ export function resolveLeaseMonthlyRent(
     escalationCycles: cycles,
     provenance,
   };
+}
+
+/**
+ * Every lease's rent for every month of the hold, resolved once with no drift. A simulation evaluates the same rent roll
+ * thousands of times and only what the contract does not fix changes between runs (market drift after a lease ends, a tenant
+ * leaving), so each run reads this table instead of re-resolving every lease. Cell k = slot * leaseCount + lease, where slot =
+ * (hold year - 1) * 12 + (calendar month - 1).
+ */
+type LeaseSchedule = {
+  leaseCount: number;
+  /** 0 not paying, 1 contractual rent (fixed), 2 market rent after the lease end (drifts), 3 vacant awaiting a re-let */
+  kind: Uint8Array;
+  /** kind 1: the rent; kind 2: the rent before drift */
+  rent: Float64Array;
+  /** kind 2: months since the lease end */
+  months: Int32Array;
+  oneTimeCost: Float64Array;
+  maxMonths: number;
+};
+
+/** One per simulation: pass it to every lean `calculateProjections` call of that simulation (same leases, closing and hold). */
+export type LeaseScheduleCache = { leases?: unknown; key?: string; schedule?: LeaseSchedule };
+export function createLeaseScheduleCache(): LeaseScheduleCache {
+  return {};
+}
+
+function buildLeaseSchedule(leases: any[], closeYear: number, closeMonth: number, holdingPeriod: number, startM1: number): LeaseSchedule {
+  const leaseCount = leases.length;
+  const size = holdingPeriod * 12 * leaseCount;
+  const s: LeaseSchedule = { leaseCount, kind: new Uint8Array(size), rent: new Float64Array(size), months: new Int32Array(size), oneTimeCost: new Float64Array(size), maxMonths: 0 };
+  for (let year = 1; year <= holdingPeriod; year++) {
+    const calYear = closeYear + (year - 1);
+    for (let mo = year === 1 ? startM1 : 1; mo <= 12; mo++) {
+      const base = ((year - 1) * 12 + (mo - 1)) * leaseCount;
+      for (let li = 0; li < leaseCount; li++) {
+        const res = resolveLeaseMonthlyRent(leases[li], calYear, mo, { lean: true, marketParts: true });
+        const k = base + li;
+        s.oneTimeCost[k] = res.oneTimeCost || 0;
+        if (res.status === 'vacant_relet') s.kind[k] = 3;
+        else if (!res.isActive) s.kind[k] = 0;
+        else if (res.marketBase !== undefined) {
+          s.kind[k] = 2;
+          s.rent[k] = res.marketBase;
+          s.months[k] = res.marketMonths as number;
+          if (s.months[k] > s.maxMonths) s.maxMonths = s.months[k];
+        } else {
+          s.kind[k] = 1;
+          s.rent[k] = res.monthlyRent;
+        }
+      }
+    }
+  }
+  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -600,10 +662,16 @@ export function firstFullYear<T extends { operatingMonths?: number }>(projection
 }
 
 /**
+ * `opts.leaseScheduleCache` (lean only) resolves the rent roll once and reuses it on later calls with the same leases, closing and
+ * hold: same numbers, and the cost of a run barely grows with the number of tenants. The Monte Carlo passes one per simulation.
  * `opts.lean` returns the same numbers without the explanatory text (per-month receipts, methodology footnotes). Use it when
  * evaluating many scenarios (Monte Carlo); the figures are identical to a full run.
  */
-export function calculateProjections(rawAssetType: string, inputs: Record<string, any> = {}, opts?: { lean?: boolean }): any {
+export function calculateProjections(
+  rawAssetType: string,
+  inputs: Record<string, any> = {},
+  opts?: { lean?: boolean; leaseScheduleCache?: LeaseScheduleCache },
+): any {
   const lean = opts?.lean === true;
   // Scenario inputs used by the Monte Carlo (both optional; absent = no effect):
   //   marketRentDrift   percentage points a year added to market rent after a lease ends (contractual rent is never moved)
@@ -789,6 +857,39 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     interruptionWindows.set(it.leaseIndex, list);
   }
 
+  // The rent roll resolved once per simulation (lean callers that pass a cache), and this run's drift factor by months since a lease end
+  let schedule: LeaseSchedule | undefined;
+  let driftByMonths: Float64Array | undefined;
+  let windowCells: Uint8Array | undefined;
+  const cache = lean && hasExplicitLeases ? opts?.leaseScheduleCache : undefined;
+  if (cache) {
+    const startM1 = isProrateFirstYear ? closeMonth : 1;
+    const key = `${closeYear}|${closeMonth}|${holdingPeriod}|${startM1}`;
+    if (!cache.schedule || cache.leases !== inputs.leases || cache.key !== key) {
+      cache.schedule = buildLeaseSchedule(inputs.leases, closeYear, closeMonth, holdingPeriod, startM1);
+      cache.leases = inputs.leases;
+      cache.key = key;
+    }
+    schedule = cache.schedule;
+    driftByMonths = new Float64Array(schedule.maxMonths + 1);
+    for (let m = 0; m <= schedule.maxMonths; m++) driftByMonths[m] = marketRentDrift ? Math.pow(1 + marketRentDrift / 100, m / 12) : 1;
+    // Mark the lease-months a vacancy window touches, so every other lease-month skips the window check
+    if (interruptionWindows.size > 0) {
+      const { leaseCount } = schedule;
+      const slots = holdingPeriod * 12;
+      const firstIdx = closeYear * 12 + 1; // slot 0
+      windowCells = new Uint8Array(slots * leaseCount);
+      for (const [li, list] of interruptionWindows) {
+        if (!Number.isInteger(li) || li < 0 || li >= leaseCount) continue;
+        for (const w of list) {
+          const from = Math.max(0, w.start - firstIdx);
+          const to = Math.min(slots, Math.max(w.end, w.start + 1) - firstIdx);
+          for (let slot = from; slot < to; slot++) windowCells[slot * leaseCount + li] = 1;
+        }
+      }
+    }
+  }
+
   for (let year = 1; year <= holdingPeriod; year++) {
     const calYear = closeYear + (year - 1);
     const isStubYear = (year === 1 && isProrateFirstYear);
@@ -802,7 +903,44 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     let expiryOneTimeCosts = 0;
     let incomeMonths = 0; // months this year in which any lease pays rent
 
-    if (hasExplicitLeases) {
+    if (schedule && driftByMonths) {
+      // Same arithmetic, in the same order, as the lease loop below, read from the precomputed rent roll
+      const { leaseCount, kind, rent, months, oneTimeCost } = schedule;
+      const startM = isStubYear ? closeMonth : 1;
+      let yearGross = 0;
+      for (let mo = startM; mo <= 12; mo++) {
+        let moGross = 0;
+        const base = ((year - 1) * 12 + (mo - 1)) * leaseCount;
+        const idx = calYear * 12 + mo;
+        for (let li = 0; li < leaseCount; li++) {
+          const k = base + li;
+          const kd = kind[k];
+          if (kd === 0) continue;
+          if (kd === 3) {
+            vacantLeaseMonths += 1;
+            continue;
+          }
+          let paying = true;
+          const windows = windowCells && windowCells[k] ? interruptionWindows.get(li) : undefined;
+          if (windows) {
+            let vacantNow = false;
+            for (const w of windows) {
+              if (idx === w.start && w.cost > 0) expiryOneTimeCosts += w.cost;
+              if (idx >= w.start && idx < w.end) vacantNow = true;
+            }
+            if (vacantNow) {
+              vacantLeaseMonths += 1;
+              paying = false;
+            }
+          }
+          if (oneTimeCost[k]) expiryOneTimeCosts += oneTimeCost[k];
+          if (paying) moGross += kd === 1 ? rent[k] : Math.round(rent[k] * driftByMonths[months[k]] * 100) / 100;
+        }
+        if (moGross > 0) incomeMonths += 1;
+        yearGross += moGross;
+      }
+      currentGrossIncome = yearGross;
+    } else if (hasExplicitLeases) {
       const startM = isStubYear ? closeMonth : 1;
       let yearGross = 0;
       const rateBuckets: Record<number, { count: number; total: number; label: string }> = {};
