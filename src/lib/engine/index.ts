@@ -28,12 +28,14 @@ export {
   auditDealRisks,
   normalizeAssetClass,
   resolveLeaseMonthlyRent,
+  createLeaseScheduleCache,
   firstFullYear,
   numOr,
 } from '@engine/math-engine.ts';
 export type {
   DownPaymentMatrixRow,
   DownPaymentMatrixResult,
+  LeaseScheduleCache,
 } from '@engine/math-engine.ts';
 export { runMonteCarlo, createMonteCarloRunner, buildFixedHistogram, seededRandom, seedFromText, DEFAULT_TENANT_DEFAULT, DEFAULT_TURNOVER } from '@engine/monte-carlo.ts';
 export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin, MonteCarloRunner, ProfitSummary } from '@engine/monte-carlo.ts';
