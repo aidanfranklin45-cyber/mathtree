@@ -14,6 +14,7 @@ import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import { ParameterHistoryModal } from '../components/studio/modals/ParameterHistoryModal';
 import { DealAuditorBanner } from '../components/studio/DealAuditorBanner';
 import { ScenarioSummaryCard } from '../components/studio/ScenarioSummaryCard';
+import { RemodelModal } from '../components/studio/modals/RemodelModal';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRun } from '../lib/scenarios';
 import { DealInputs, DealRecord } from '../lib/math/types';
@@ -37,6 +38,7 @@ export const DealStudioPage: React.FC = () => {
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isRemodelOpen, setIsRemodelOpen] = useState(false);
   const [rawRuns, setRawRuns] = useState<ScenarioRun[]>([]);
   const [runsVersion, setRunsVersion] = useState(0);
 
@@ -129,6 +131,7 @@ export const DealStudioPage: React.FC = () => {
         onOpenEditModal={() => setIsEditModalOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onOpenShare={() => setIsShareOpen(true)}
+        onOpenRemodel={() => setIsRemodelOpen(true)}
         scenarioCount={runs.length}
       />
 
@@ -161,6 +164,8 @@ export const DealStudioPage: React.FC = () => {
         onClose={() => setIsEditModalOpen(false)}
         onSave={patchAndRecord}
       />
+
+      <RemodelModal isOpen={isRemodelOpen} deal={deal} onClose={() => setIsRemodelOpen(false)} onSave={(patch) => patchDeal(patch)} />
 
       <ShareDealModal deal={isShareOpen ? deal : null} onClose={() => setIsShareOpen(false)} />
 

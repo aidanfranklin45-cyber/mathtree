@@ -4,7 +4,7 @@ import { firstFullYear } from '../engine';
 
 export type ComparisonMode = 'properties' | 'versions' | 'custom';
 
-export type ScenarioPresetType = 'live' | 'baseline' | 'bull' | 'bear' | 'history' | 'custom';
+export type ScenarioPresetType = 'live' | 'baseline' | 'bull' | 'bear' | 'history' | 'remodel' | 'custom';
 
 /** Which deals the studio works with: prospective deals (the default), the portfolio you own, or both. */
 export type CompareScope = 'pipeline' | 'owned' | 'all';
@@ -309,6 +309,7 @@ export function scenarioShortLabel(c: Pick<ComparisonColumn, 'scenarioType' | 's
     case 'baseline': return 'Acquisition Baseline';
     case 'bull': return 'Bull Case';
     case 'bear': return 'Bear Case';
+    case 'remodel': return c.scenarioName ? `Remodel: ${c.scenarioName}` : 'Remodel';
     default: return c.scenarioName || 'Scenario';
   }
 }

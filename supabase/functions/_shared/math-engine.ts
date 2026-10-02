@@ -11,6 +11,13 @@ import type {
   TaxMetrics,
   SensitivityMatrix,
 } from './types.ts';
+import {
+  resolveRemodel,
+  remodelMonthCounts,
+  remodelDoneByYearEnd,
+  remodelStartsInYear,
+  remodelLoanYear,
+} from './remodel.ts';
 
 // ---------------------------------------------------------------------------
 // Utility: safe numeric coercion
@@ -729,6 +736,12 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     }
   }
 
+  // Optional remodel of an owned property (inputs.remodel). Absent or unusable = every line below is skipped.
+  const remodel = resolveRemodel(inputs.remodel, closeYear * 12 + closeMonth, { interestRate });
+  const remodelPayment = remodel && remodel.loanAmount > 0
+    ? calculateMonthlyPayment(remodel.loanAmount, remodel.loanRatePct, remodel.loanTermYears)
+    : 0;
+
   const hasExplicitLeases = Array.isArray(inputs.leases) && inputs.leases.length > 0;
   const isProrateFirstYear = !!inputs.prorateFirstYear || (hasExplicitLeases && closeMonth > 1) || (inputs.closingDate && closeMonth > 1);
   let firstYearOperatingMonths = 12;
@@ -757,6 +770,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   const projections: any[] = [];
   let currentPropertyValue = initialPropertyValue;
   let currentGrossIncome = year1GrossIncome;
+  let organicGross = year1GrossIncome; // rent before any remodel adjustment (no-lease path)
   let cumulativePrincipalPaid = 0;
   let cumulativeCashInvested = initialCashInvested;
   let entryCapRate = 0;
@@ -862,8 +876,27 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       }
     } else {
       if (year > 1) {
-        currentGrossIncome = currentGrossIncome * (1 + rentGrowth / 100);
+        organicGross = organicGross * (1 + rentGrowth / 100);
       }
+      currentGrossIncome = organicGross;
+    }
+
+    // Remodel: rent drops while work is under way, then steps up. Worked in operating-period dollars, then folded into the
+    // year's gross rent so vacancy, management fees and the rest of the pipeline see the adjusted figure.
+    let remodelLostGross = 0;
+    let remodelGainedGross = 0;
+    let remodelMissedUplift = 0; // uplift the completion year did not collect: valuation uses the run-rate, not the partial year
+    let remodelMonths = { pre: 0, works: 0, post: 0, total: 0 };
+    if (remodel) {
+      remodelMonths = remodelMonthCounts(remodel, calYear, isStubYear ? closeMonth : 1);
+      const perMonth = hasExplicitLeases ? currentGrossIncome / Math.max(1, remodelMonths.total) : currentGrossIncome / 12;
+      const opBase = hasExplicitLeases ? currentGrossIncome : perMonth * remodelMonths.total;
+      const uplift = remodel.rentUpliftMonthly * Math.pow(1 + rentGrowth / 100, Math.max(0, calYear - remodel.completionYear));
+      remodelLostGross = perMonth * (1 - remodel.rentDuringWorks) * remodelMonths.works;
+      remodelGainedGross = uplift * remodelMonths.post;
+      if (remodelMonths.post > 0) remodelMissedUplift = uplift * (remodelMonths.total - remodelMonths.post);
+      const opGross = opBase - remodelLostGross + remodelGainedGross;
+      currentGrossIncome = (!hasExplicitLeases && isStubYear) ? opGross / yearFraction : opGross;
     }
 
     const vacancyLoss = currentGrossIncome * (vacancyRate / 100);
@@ -891,12 +924,13 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       operatingExpenses = baseOpex + managementFee;
       capexReserve = (unitCount || 1) * 350;
     } else if (assetType === 'commercial') {
-      const isVacantOrRawLand = currentGrossIncome <= 0 ||
+      const preRemodelGross = currentGrossIncome + remodelLostGross; // rent lost to a remodel does not make the building a vacant lot
+      const isVacantOrRawLand = preRemodelGross <= 0 ||
                                 !!inputs.isVacantLot ||
                                 !!inputs.isVacantLand ||
                                 /vacant|land|dirt|lot/i.test(inputs.facilityType || '') ||
                                 /vacant|land/i.test(inputs.useCode || '');
-      if (isVacantOrRawLand && currentGrossIncome <= 0) {
+      if (isVacantOrRawLand && preRemodelGross <= 0) {
         // Holding Costs for Empty Lot / Vacant Commercial without active tenant:
         // 1. Property Taxes (~1.1% of assessed or purchase value if not explicitly given)
         const assessedVal = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || purchasePrice;
@@ -938,6 +972,19 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       operatingExpenses += expiryOneTimeCosts;
     }
 
+    // Remodel opex: the building still costs money while rent is down (ratio-based expenses would otherwise shrink with rent),
+    // and the bigger building costs more to run once complete.
+    let remodelValueNoi = 0;
+    if (remodel) {
+      const toOpexUnits = (x: number) => (!hasExplicitLeases && isStubYear) ? x / yearFraction : x;
+      const carry = inflationMultiplier === null ? (expenseRatio / 100) * remodelLostGross : 0;
+      const extra = remodel.extraOpexAnnual * (inflationMultiplier ?? 1) * (remodelMonths.post / 12);
+      operatingExpenses += toOpexUnits(carry + extra);
+      const incomeFactor = (1 - vacancyRate / 100) - (inflationMultiplier === null ? expenseRatio / 100 : 0);
+      remodelValueNoi = remodelLostGross * (1 - vacancyRate / 100) + remodelMissedUplift * incomeFactor
+        - (remodelMonths.post > 0 ? remodel.extraOpexAnnual * (inflationMultiplier ?? 1) * (1 - remodelMonths.post / 12) : 0);
+    }
+
     const netOperatingIncome = effectiveGrossIncome - operatingExpenses;
 
     let appliedGross = currentGrossIncome;
@@ -972,18 +1019,21 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     }
     const capStillPending = entryCapPending; // still waiting for a full year of income: value stays at cost
 
-    const isIncomeProducing = (currentGrossIncome > 0 && netOperatingIncome > 0);
+    const valuationNoi = netOperatingIncome + remodelValueNoi; // run-rate income while a remodel distorts the year's actual NOI
+    const isIncomeProducing = ((currentGrossIncome + remodelLostGross) > 0 && valuationNoi > 0);
+    let valuedFromIncome = false;
     if ((assetType === 'commercial' || assetType === 'storage') && isIncomeProducing) {
+      valuedFromIncome = true;
       const exitCapTiming = inputs.exitCapTiming || 'amortized';
       if (year === 1 || capStillPending) {
         currentPropertyValue = initialPropertyValue;
       } else {
         if (exitCapTiming === 'day1' || exitCapTiming === 'immediate') {
-          currentPropertyValue = targetCapRate > 0 ? (netOperatingIncome / (targetCapRate / 100)) : initialPropertyValue;
+          currentPropertyValue = targetCapRate > 0 ? (valuationNoi / (targetCapRate / 100)) : initialPropertyValue;
         } else {
           const capRateStep = (targetCapRate - entryCapRate) / Math.max(1, (holdingPeriod - 1));
           const currentYearCapRate = entryCapRate + (capRateStep * (year - 1));
-          currentPropertyValue = currentYearCapRate > 0 ? (netOperatingIncome / (currentYearCapRate / 100)) : initialPropertyValue;
+          currentPropertyValue = currentYearCapRate > 0 ? (valuationNoi / (currentYearCapRate / 100)) : initialPropertyValue;
         }
       }
     } else {
@@ -1000,13 +1050,32 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       }
     }
 
+    // Remodel value: manual = the stated value from completion on (then appreciating); cap_rate on a property valued by
+    // appreciation = the added income capitalised once, in the completion year (the income-valued branch already follows NOI).
+    let remodelDebt = { debtService: 0, principal: 0, interest: 0, endBalance: 0 };
+    let remodelCashCost = 0;
+    if (remodel) {
+      if (remodelDoneByYearEnd(remodel, calYear)) {
+        if (remodel.valueMode === 'manual' && remodel.manualValue > 0) {
+          const appRate = !isNaN(appreciationRate) ? appreciationRate : 3.0;
+          currentPropertyValue = remodel.manualValue * Math.pow(1 + appRate / 100, Math.max(0, calYear - remodel.completionYear));
+        } else if (remodel.valueMode === 'cap_rate' && !valuedFromIncome && calYear === remodel.completionYear) {
+          const cap = remodel.capRatePct > 0 ? remodel.capRatePct : targetCapRate;
+          const stabilizedLift = remodel.rentUpliftMonthly * 12 * ((1 - vacancyRate / 100) - (inflationMultiplier === null ? expenseRatio / 100 : 0)) - remodel.extraOpexAnnual;
+          if (cap > 0 && stabilizedLift > 0) currentPropertyValue += stabilizedLift / (cap / 100);
+        }
+      }
+      if (remodelStartsInYear(remodel, calYear)) remodelCashCost = remodel.cashPortion;
+      if (remodel.loanAmount > 0) remodelDebt = remodelLoanYear(remodel, remodelPayment, calYear);
+    }
+
     const yearAmort = amortizationSchedule[year - 1] || {};
-    const currentDebtService = yearAmort.totalPayment !== undefined ? yearAmort.totalPayment : (isStubYear ? annualDebtService * yearFraction : annualDebtService);
-    const principalPaid = yearAmort.principalPaid !== undefined ? yearAmort.principalPaid : 0;
-    const interestPaid = yearAmort.interestPaid !== undefined ? yearAmort.interestPaid : currentDebtService;
+    const currentDebtService = (yearAmort.totalPayment !== undefined ? yearAmort.totalPayment : (isStubYear ? annualDebtService * yearFraction : annualDebtService)) + remodelDebt.debtService;
+    const principalPaid = (yearAmort.principalPaid !== undefined ? yearAmort.principalPaid : 0) + remodelDebt.principal;
+    const interestPaid = (yearAmort.interestPaid !== undefined ? yearAmort.interestPaid : currentDebtService - remodelDebt.debtService) + remodelDebt.interest;
     cumulativePrincipalPaid += principalPaid;
 
-    const cashFlow = (isStubYear ? appliedNOI : netOperatingIncome) - currentDebtService - (isStubYear ? appliedCapex : capexReserve);
+    const cashFlow = (isStubYear ? appliedNOI : netOperatingIncome) - currentDebtService - (isStubYear ? appliedCapex : capexReserve) - remodelCashCost;
 
     let cashInjection = 0;
     if (cashFlow < 0) {
@@ -1019,7 +1088,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     const cashOnCash = cumulativeCashInvested > 0 ? (cashFlow / cumulativeCashInvested) * 100 : 0;
     const cashOnCashDisplay = isCoCNotMeaningful ? "N/M" : (Math.round(cashOnCash * 100) / 100).toFixed(2) + "%";
     const capRate = currentPropertyValue > 0 ? (netOperatingIncome / currentPropertyValue) * 100 : 0;
-    const remainingLoanBalance = yearAmort.endingBalance !== undefined ? yearAmort.endingBalance : calculateRemainingBalance(loanAmount, interestRate, loanTerm, year);
+    const remainingLoanBalance = (yearAmort.endingBalance !== undefined ? yearAmort.endingBalance : calculateRemainingBalance(loanAmount, interestRate, loanTerm, year)) + remodelDebt.endBalance;
     const equity = currentPropertyValue - remainingLoanBalance;
     const activeNOI = isStubYear ? appliedNOI : netOperatingIncome;
     const dscr = currentDebtService > 0 ? (activeNOI / currentDebtService) : null;
@@ -1063,7 +1132,14 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
       debtYield: debtYield !== null ? Math.round(debtYield * 100) / 100 : null,
       ltv: Math.round(ltv * 100) / 100,
       isStubYear: isStubYear,
-      operatingMonths: operatingMonths
+      operatingMonths: operatingMonths,
+      ...(remodel ? {
+        remodelCost: Math.round(remodelCashCost * 100) / 100,
+        remodelRentLost: Math.round(remodelLostGross * 100) / 100,
+        remodelRentGained: Math.round(remodelGainedGross * 100) / 100,
+        remodelDebtService: Math.round(remodelDebt.debtService * 100) / 100,
+        remodelLoanBalance: Math.round(remodelDebt.endBalance * 100) / 100,
+      } : {}),
     });
   }
 
@@ -1158,6 +1234,7 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
     ltv: Math.round(acquisitionLtv * 100) / 100,
     monthlyMortgagePayment: Math.round(monthlyPayment * 100) / 100,
     amortizationSchedule,
+    ...(remodel ? { remodel: { startIdx: remodel.startIdx, completionIdx: remodel.completionIdx, cost: remodel.cost, loanAmount: remodel.loanAmount, cashPortion: remodel.cashPortion } } : {}),
     projections,
     isProratedFirstYear: isProrateFirstYear,
     firstYearOperatingMonths: isProrateFirstYear ? firstYearOperatingMonths : 12

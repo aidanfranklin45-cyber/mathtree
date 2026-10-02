@@ -13,6 +13,7 @@ interface StudioNavbarProps {
   onOpenEditModal: () => void;
   onOpenHistoryModal?: () => void;
   onOpenShare?: () => void;
+  onOpenRemodel?: () => void;
   scenarioCount?: number;
 }
 
@@ -43,7 +44,7 @@ const ASSET_LABEL: Record<string, string> = {
 };
 
 export const StudioNavbar: React.FC<StudioNavbarProps> = ({
-  deal, metrics, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, scenarioCount = 0,
+  deal, metrics, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
 }) => {
   const [moduleOpen, setModuleOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -231,6 +232,11 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                   <button type="button" onClick={onOpenHistoryModal} className={`${menuBtn} justify-between text-slate-200`}>
                     <div className="flex items-center space-x-2.5"><span className="text-sm">⚡</span><span>Scenario History &amp; Diff</span></div>
                     <span className="px-1.5 rounded-full bg-slate-950 text-[10px] font-mono font-bold text-slate-400">{scenarioCount}</span>
+                  </button>
+                )}
+                {onOpenRemodel && isOwned && !deal.is_shared && (
+                  <button type="button" onClick={onOpenRemodel} className={`${menuBtn} text-slate-200`}>
+                    <span className="text-sm">🏗️</span><span>Remodel scenarios</span>
                   </button>
                 )}
                 <div className="my-1 border-t border-slate-800" />
