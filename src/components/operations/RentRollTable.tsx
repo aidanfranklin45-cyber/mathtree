@@ -14,6 +14,8 @@ interface Props {
   onAddFirstLease: () => void;
   /** NNN roll-up per opted-in lease, for the small status line under the tenant name. */
   recoverySummaries: Map<string, LeaseRecoverySummary>;
+  /** Properties that have had at least one tenant, so a vacant unit only offers History when there is some. */
+  historyDealIds: Set<string>;
   filtered: boolean;
 }
 
@@ -29,7 +31,7 @@ const RowArrow: React.FC<{ label: string; onClick: () => void }> = ({ label, onC
   </div>
 );
 
-export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, recoverySummaries, filtered }) => (
+export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, recoverySummaries, historyDealIds, filtered }) => (
   <table className="w-full text-left border-collapse">
     <thead>
       <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
@@ -74,7 +76,14 @@ export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf,
               <td className="py-3 px-4 text-right font-mono text-slate-600">—</td>
               <td className="py-3 px-4"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${toneBadge.muted}`}>Vacant</span></td>
               <td className="py-3 px-4 text-slate-600">—</td>
-              <td className="py-3 px-4"><RowArrow label="Add a tenant to this property" onClick={() => handlers.addTenant(deal.id)} /></td>
+              <td className="py-3 px-4">
+                <div className="flex items-center justify-end gap-2">
+                  {historyDealIds.has(deal.id) && (
+                    <button type="button" onClick={() => handlers.history(row)} className="text-[11px] font-semibold text-slate-400 hover:text-white transition">History</button>
+                  )}
+                  <RowArrow label="Add a tenant to this property" onClick={() => handlers.addTenant(deal.id)} />
+                </div>
+              </td>
             </tr>
           );
         }

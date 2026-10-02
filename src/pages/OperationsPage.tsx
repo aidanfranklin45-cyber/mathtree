@@ -282,6 +282,9 @@ export const OperationsPage: React.FC = () => {
 
   // One computed view per row, shared by the action list, the table and the drawer
   // NNN recovery roll-up per opted-in lease (empty for everyone else)
+  // Any lease ever recorded (including ended ones) counts as history
+  const historyDealIds = useMemo(() => new Set<string>(leases.map((l) => l.deal_id)), [leases]);
+
   const recoverySummaries = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const out = new Map<string, LeaseRecoverySummary>();
@@ -487,6 +490,7 @@ export const OperationsPage: React.FC = () => {
               onSelect={setSelectedId}
               onAddFirstLease={() => { setAddLeaseDealId(null); setAddLeaseOpen(true); }}
               recoverySummaries={recoverySummaries}
+              historyDealIds={historyDealIds}
               filtered={statusFilter !== 'all'}
             />
           </div>
