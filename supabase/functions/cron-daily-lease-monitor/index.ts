@@ -9,7 +9,8 @@ import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/r
 import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
 import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
 import { missingItems } from "../_shared/recoveries.ts";
-import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, RECOVERY_ALERT_TYPES, type RecoveryPrefs } from "../_shared/recoveryAlerts.ts";
+import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, quietAlertKeys, withAutoCleared, RECOVERY_ALERT_TYPES, type RecoveryPrefs } from "../_shared/recoveryAlerts.ts";
+import { fetchAllRows } from "../_shared/paging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1166,14 +1167,15 @@ export async function handleRequest(req: Request): Promise<Response> {
       const { data: recLeases } = await leaseQ;
       const leaseIds = (recLeases || []).map((l: any) => l.id);
       if (leaseIds.length > 0) {
-        const [termsRes, itemsRes, reconRes, dealsRes] = await Promise.all([
+        // Items accumulate every period, so page through them: a plain select is capped at 1,000 rows and would hide late items.
+        const [termsRes, recItemsAll, reconRes, dealsRes] = await Promise.all([
           adminClient.from("lease_recovery_terms").select("*").in("lease_id", leaseIds),
-          adminClient.from("lease_recovery_items").select("*").in("lease_id", leaseIds),
+          fetchAllRows<any>((from, to) => adminClient.from("lease_recovery_items").select("*").in("lease_id", leaseIds).order("id").range(from, to)),
           adminClient.from("cam_reconciliations").select("lease_id, year, status").in("lease_id", leaseIds),
           adminClient.from("deals").select("id, title").in("id", [...new Set((recLeases || []).map((l: any) => l.deal_id))]),
         ]);
         const recTerms = (termsRes.data || []) as any[];
-        let recItems = (itemsRes.data || []) as any[];
+        let recItems = recItemsAll as any[];
 
         const leaseById = new Map((recLeases || []).map((l: any) => [l.id, l]));
         // Each owner chooses how far ahead to hear about each kind of item; schedule far enough for the longest of them.
@@ -1194,13 +1196,13 @@ export async function handleRequest(req: Request): Promise<Response> {
         }
 
         const sinceIso = new Date(now.getTime() - 7 * 86400000).toISOString();
-        const { data: notifs } = await adminClient.from("app_notifications")
+        const notifs = await fetchAllRows<any>((from, to) => adminClient.from("app_notifications")
           .select("id, type, action_payload, is_dismissed, updated_at")
-          .in("type", [...RECOVERY_ALERT_TYPES]).in("user_id", [...new Set((recLeases || []).map((l: any) => l.user_id))]);
+          .in("type", [...RECOVERY_ALERT_TYPES]).in("user_id", [...new Set((recLeases || []).map((l: any) => l.user_id))]).order("id").range(from, to));
         const leaseOf = (n: any) => (n.action_payload?.lease_id as string | undefined) ?? null;
         const open = (notifs || []).filter((n: any) => !n.is_dismissed);
-        // A notification dismissed within the last week stays quiet even though its condition still holds.
-        const quiet = new Set((notifs || []).filter((n: any) => n.is_dismissed && n.updated_at >= sinceIso).map((n: any) => `${n.type}|${leaseOf(n)}`));
+        // An alert the owner dismissed within the last week stays quiet even though its condition still holds (ones we auto-cleared don't count).
+        const quiet = quietAlertKeys(notifs, sinceIso);
 
         const plan = planRecoveryAlerts({
           leases: (recLeases || []) as any[], deals: (dealsRes.data || []) as any[], terms: recTerms, items: recItems, prefsByUser,
@@ -1211,7 +1213,10 @@ export async function handleRequest(req: Request): Promise<Response> {
         const fresh = plan.insert.filter((a) => !quiet.has(`${a.type}|${a.action_payload.lease_id}`));
         if (fresh.length > 0) await adminClient.from("app_notifications").insert(fresh);
         for (const u of plan.update) await adminClient.from("app_notifications").update({ title: u.title, message: u.message, updated_at: now.toISOString() }).eq("id", u.id);
-        if (plan.dismissIds.length > 0) await adminClient.from("app_notifications").update({ is_dismissed: true, is_read: true, updated_at: now.toISOString() }).in("id", plan.dismissIds);
+        for (const id of plan.dismissIds) {
+          const payload = notifs.find((n: any) => n.id === id)?.action_payload;
+          await adminClient.from("app_notifications").update({ is_dismissed: true, is_read: true, action_payload: withAutoCleared(payload), updated_at: now.toISOString() }).eq("id", id);
+        }
         recoveryAlerts = { ...recoveryAlerts, inserted: fresh.length, updated: plan.update.length, dismissed: plan.dismissIds.length };
 
         // One email per owner for the alerts raised in this run (never for refreshed ones, so a long-overdue item doesn't email daily).
