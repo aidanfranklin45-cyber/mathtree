@@ -486,6 +486,7 @@ export const OperationsPage: React.FC = () => {
               handlers={handlers}
               onSelect={setSelectedId}
               onAddFirstLease={() => { setAddLeaseDealId(null); setAddLeaseOpen(true); }}
+              recoverySummaries={recoverySummaries}
               filtered={statusFilter !== 'all'}
             />
           </div>

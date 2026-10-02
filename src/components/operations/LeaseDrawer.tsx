@@ -81,6 +81,8 @@ export const LeaseDrawer: React.FC<Props> = ({ view, dealTitle, unit, payments, 
           </dl>
         </Section>
 
+        {recoveries && <Section title="Tenant-paid costs (NNN)">{recoveries}</Section>}
+
         <Section title="Tenant contact">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
             <Field label="Email">{row.tenant_email || <span className="text-slate-500">None on file</span>}</Field>
@@ -88,7 +90,6 @@ export const LeaseDrawer: React.FC<Props> = ({ view, dealTitle, unit, payments, 
           </dl>
         </Section>
 
-        {recoveries && <Section title="Tenant-paid costs (NNN)">{recoveries}</Section>}
         <Section title="Escalation">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 mb-3">
             <Field label="Last change">{row.last_rent_increase_date || row.lease_start_date || '—'}</Field>
