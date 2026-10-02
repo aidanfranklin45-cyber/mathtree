@@ -17,6 +17,7 @@ import { ActionNeededList } from '../components/operations/ActionNeededList';
 import { RentRollTable } from '../components/operations/RentRollTable';
 import { LeaseDrawer } from '../components/operations/LeaseDrawer';
 import { ProjectedVsActual } from '../components/operations/ProjectedVsActual';
+import { LeaseExpiryLadder } from '../components/operations/LeaseExpiryLadder';
 import { MenuItem, Popover, triggerBtn } from '../components/operations/Popover';
 import { RecoveriesPanel } from '../components/operations/RecoveriesPanel';
 import { summarizeLeaseRecoveries, normalizeRecoveryPrefs, maxLeadDays, DEFAULT_RECOVERY_PREFS, type LeaseRecoverySummary, type RecoveryPrefs, RECOVERY_CATEGORY_LABELS } from '../lib/operations/recoveries';
@@ -170,6 +171,12 @@ export const OperationsPage: React.FC = () => {
       unit_type: row.derived_unit_type || 'Commercial Suite',
       sqft: row.derived_sqft || 0,
     };
+
+  // Stable so the expiry ladder only recomputes when the leases or units change
+  const sqftOf = useCallback(
+    (l: Row) => parseFloat(units.find((u) => u.id === l.unit_id)?.sqft) || parseFloat(l.derived_sqft) || 0,
+    [units],
+  );
 
   /** Shape a rent-roll row for the existing Log Payment / Escalate modals. */
   const toItem = (row: RentRollRow): MonthlyRentReconciliationView => {
@@ -495,6 +502,8 @@ export const OperationsPage: React.FC = () => {
             />
           </div>
         </div>
+
+        <LeaseExpiryLadder leases={ops.scopedLeases} sqftOf={sqftOf} dealTitle={dealTitleOf} onSelect={setSelectedId} />
 
         <ProjectedVsActual deals={scopedDeals} leases={leases} baselines={baselines} />
 
