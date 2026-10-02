@@ -1226,28 +1226,75 @@
     <div class="text-center space-y-3 max-w-2xl mx-auto">
       <h2 class="text-3xl sm:text-4xl font-semibold text-white tracking-tight">Pricing</h2>
       <p class="text-sm sm:text-base text-slate-400">
-        One plan, and it's free.
+        MathTree is free today, with no limit on deals. Paid plans are coming.
       </p>
     </div>
 
-    <div class="max-w-md mx-auto">
-      <div class="bg-[#0D111A] border border-[#1E2230] p-6 sm:p-8 rounded-3xl space-y-6">
-        <div class="space-y-1">
-          <h3 class="text-xl font-semibold text-white">Free</h3>
-          <p class="text-xs text-slate-400">Everything you need to underwrite and share a deal.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+
+      <!-- Free -->
+      <div class="bg-[#0D111A] border border-emerald-500/30 p-6 sm:p-8 rounded-3xl flex flex-col justify-between space-y-6">
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <h3 class="text-xl font-semibold text-white">Free</h3>
+            <p class="text-xs text-slate-400">Everything you need to underwrite and share a deal.</p>
+          </div>
+          <div class="text-3xl font-semibold text-white font-mono-numbers">$0</div>
+          <ul class="text-xs text-slate-300 space-y-2.5 pt-4 border-t border-[#1E2230]">
+            <li class="flex items-start space-x-2"><span class="text-emerald-400 font-bold">✓</span><span><span class="line-through text-slate-500">Up to 10 properties</span><br><span class="text-emerald-400">Unlimited deals until other plans are rolled out</span></span></li>
+            <li class="flex items-start space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Single-family, multifamily, commercial and self-storage models</span></li>
+            <li class="flex items-start space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>10-year pro-formas and DSCR</span></li>
+            <li class="flex items-start space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Scenario comparison</span></li>
+            <li class="flex items-start space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Deal sharing and collaboration</span></li>
+          </ul>
         </div>
-        <div class="text-3xl font-semibold text-white font-mono-numbers">$0</div>
-        <ul class="text-xs text-slate-300 space-y-2.5 pt-4 border-t border-[#1E2230]">
-          <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Single-family, multifamily, commercial and self-storage models</span></li>
-          <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>10-year pro-forma cash flows and DSCR</span></li>
-          <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Scenario comparison</span></li>
-          <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Deal sharing and collaboration</span></li>
-          <li class="flex items-center space-x-2"><span class="text-emerald-400 font-bold">✓</span><span>Sign in with Google</span></li>
-        </ul>
-        <button onclick="doGoogleSignIn()" class="w-full py-3 rounded-xl text-xs font-extrabold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition flex items-center justify-center cursor-pointer">
+        <button onclick="doGoogleSignIn()" class="w-full py-3 rounded-xl text-xs font-extrabold text-slate-950 bg-emerald-400 hover:bg-emerald-300 transition cursor-pointer">
           Sign in with Google
         </button>
       </div>
+
+      <!-- Advanced -->
+      <div class="bg-[#0D111A] border border-[#1E2230] p-6 sm:p-8 rounded-3xl flex flex-col justify-between space-y-6">
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xl font-semibold text-white">Advanced</h3>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/[0.06] text-slate-300 border border-white/[0.12]">Coming soon</span>
+            </div>
+            <p class="text-xs text-slate-400">For investors with larger portfolios.</p>
+          </div>
+          <div class="text-3xl font-semibold text-slate-500 font-mono-numbers">TBD</div>
+          <ul class="text-xs text-slate-300 space-y-2.5 pt-4 border-t border-[#1E2230]">
+            <li class="flex items-start space-x-2"><span class="text-slate-500 font-bold">✓</span><span>More than 10 properties</span></li>
+            <li class="flex items-start space-x-2"><span class="text-slate-500 font-bold">✓</span><span>Everything in Free</span></li>
+          </ul>
+        </div>
+        <button type="button" disabled class="w-full py-3 rounded-xl text-xs font-bold text-slate-500 bg-[#131824] border border-[#1E2230] cursor-not-allowed">
+          Coming soon
+        </button>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="bg-[#0D111A] border border-[#1E2230] p-6 sm:p-8 rounded-3xl flex flex-col justify-between space-y-6">
+        <div class="space-y-4">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xl font-semibold text-white">Enterprise</h3>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/[0.06] text-slate-300 border border-white/[0.12]">Coming soon</span>
+            </div>
+            <p class="text-xs text-slate-400">For teams that underwrite together.</p>
+          </div>
+          <div class="text-3xl font-semibold text-slate-500 font-mono-numbers">Per seat</div>
+          <ul class="text-xs text-slate-300 space-y-2.5 pt-4 border-t border-[#1E2230]">
+            <li class="flex items-start space-x-2"><span class="text-slate-500 font-bold">✓</span><span>Priced per team member</span></li>
+            <li class="flex items-start space-x-2"><span class="text-slate-500 font-bold">✓</span><span>Everything in Advanced</span></li>
+          </ul>
+        </div>
+        <button type="button" disabled class="w-full py-3 rounded-xl text-xs font-bold text-slate-500 bg-[#131824] border border-[#1E2230] cursor-not-allowed">
+          Coming soon
+        </button>
+      </div>
+
     </div>
 
   </section>
