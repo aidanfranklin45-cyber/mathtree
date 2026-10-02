@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import {
   RECOVERY_CATEGORY_LABELS, defaultTrackRecoveries, itemStatus, proRataSharePct,
@@ -54,6 +54,7 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
   const [basis, setBasis] = useState<'pro_rata_share' | 'fixed_amount' | 'actual_metered'>('fixed_amount');
   const [frequency, setFrequency] = useState<RecoveryFrequency>('semiannual');
   const [firstDue, setFirstDue] = useState(formatDateInput(today()));
+  const pickerRef = useRef<HTMLInputElement>(null);
   const [amount, setAmount] = useState('');
   const [sharePct, setSharePct] = useState('');
   const [label, setLabel] = useState('');
@@ -172,7 +173,13 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
                     {(Object.keys(FREQ_LABEL) as RecoveryFrequency[]).map((f) => <option key={f} value={f}>{FREQ_LABEL[f]}</option>)}
                   </select></div>
                 <div><label className={lbl}>Next due date</label>
-                  <input type="text" inputMode="numeric" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} placeholder="MM/DD/YYYY" className={field} /></div>
+                  <div className="relative">
+                    <input type="text" inputMode="numeric" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} placeholder="MM/DD/YYYY" className={`${field} pr-8`} />
+                    <button type="button" aria-label="Pick a date from the calendar" title="Pick from calendar" onClick={() => pickerRef.current?.showPicker?.()} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-emerald-400 transition">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                    </button>
+                    <input ref={pickerRef} type="date" tabIndex={-1} aria-hidden="true" value={parseDateInput(firstDue) ?? ''} onChange={(e) => { if (e.target.value) setFirstDue(formatDateInput(e.target.value)); }} className="absolute right-0 bottom-0 w-0 h-0 opacity-0 pointer-events-none" />
+                  </div></div>
                 <div><label className={lbl}>Amount each time (optional)</label>
                   <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 1250" className={field} /></div>
                 <div><label className={lbl}>Tenant share % (optional)</label>
