@@ -1,6 +1,10 @@
 // supabase/functions/_shared/types.ts
 // Canonical shared types for Supabase Edge Functions.
 
+import type { RemodelInput } from './remodel.ts';
+
+export type { RemodelInput };
+
 export type AssetClass = 'commercial' | 'multi_family' | 'residential' | 'storage';
 
 export interface LeaseTerm {
@@ -30,6 +34,9 @@ export interface DealInputs {
   rentGrowthPercent?: number | string;
   otherIncomeAnnual?: number | string;
   leases?: LeaseTerm[];
+
+  // Optional remodel or expansion of an owned property (see remodel.ts)
+  remodel?: RemodelInput;
 
   // Operating Expenses
   operatingExpensesAnnual?: number | string;

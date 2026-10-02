@@ -1,3 +1,5 @@
+import type { RemodelInput } from '../../../supabase/functions/_shared/remodel';
+
 export type AssetClass = 'commercial' | 'multi_family' | 'multi-unit' | 'residential' | 'single-family' | 'storage';
 export type DealStatus = 'owned' | 'pipeline' | 'prospect' | 'archived';
 
@@ -51,6 +53,8 @@ export interface DealInputs {
   rentGrowth?: number;
   otherIncomeAnnual?: number;
   leases?: LeaseTerm[];
+  /** Optional remodel or expansion of an owned property; absent means no effect on the numbers. */
+  remodel?: RemodelInput;
 
   // Operating Expenses
   /** Operating expenses as % of gross income. Case by case per lease type; there is no default. */
