@@ -5,6 +5,7 @@ import {
   commitRemodelPatch, evaluateRemodel, getCommittedRemodel, getRemodelPlans, uncommitRemodelPatch,
   type RemodelPlan,
 } from '../../../lib/remodel';
+import { blankPlan, missingForPlan, numToText, parseNumInput, plansAfterDelete, plansAfterSave } from '../../../lib/remodel/form';
 
 interface Props {
   isOpen: boolean;
@@ -19,23 +20,27 @@ const pct = (n: number | null) => (n === null ? 'n/a' : `${n.toFixed(1)}%`);
 
 const newId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `p_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
 
-function blankPlan(): RemodelPlan {
-  const d = new Date();
-  d.setMonth(d.getMonth() + 1);
-  return {
-    id: newId(), name: 'New remodel', startDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-    durationMonths: 6, cost: 0, financing: 'cash', rentDuringWorksPct: 0, rentAfter: { mode: 'monthly', value: 0 }, valueMode: 'cap_rate',
-  };
-}
-
 const field = 'w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500/60';
 const label = 'block text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-1';
 
-/** Number input that lets the field be emptied while typing. */
-const NumField: React.FC<{ value: number | undefined; onChange: (v: number) => void; step?: string; placeholder?: string }> = ({ value, onChange, step, placeholder }) => (
-  <input type="number" inputMode="decimal" step={step} placeholder={placeholder} className={field} value={value === undefined || value === 0 ? '' : value}
-    onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))} />
-);
+/** Number input that keeps what is typed ("0.", "6.") while the stored value is the parsed number. */
+const NumField: React.FC<{ value: number | undefined; onChange: (v: number) => void; step?: string; placeholder?: string }> = ({ value, onChange, step, placeholder }) => {
+  const [text, setText] = useState(numToText(value));
+  useEffect(() => {
+    if (parseNumInput(text) !== (value ?? 0)) setText(numToText(value));
+    // re-sync only when the value changes from outside (switching plans), not on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <input type="text" inputMode="decimal" placeholder={placeholder} data-step={step} className={field} value={text}
+      onChange={(e) => {
+        const t = e.target.value;
+        if (!/^-?\d*\.?\d*$/.test(t)) return;
+        setText(t);
+        onChange(parseNumInput(t));
+      }} />
+  );
+};
 
 export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave }) => {
   const plans = useMemo(() => getRemodelPlans(deal), [deal]);
@@ -71,13 +76,13 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
   };
 
   const savePlan = () => draft && run(async () => {
-    const next = isSaved ? plans.map((p) => (p.id === draft.id ? draft : p)) : [...plans, draft];
-    return onSave({ remodelPlans: next });
+    return onSave({ remodelPlans: plansAfterSave(plans, draft) });
   }, 'Could not save the plan.');
 
   const deletePlan = () => draft && run(async () => {
-    const ok = await onSave({ remodelPlans: plans.filter((p) => p.id !== draft.id) });
-    if (ok) setDraft(plans.find((p) => p.id !== draft.id) ?? null);
+    const after = plansAfterDelete(plans, draft.id);
+    const ok = await onSave({ remodelPlans: after.plans });
+    if (ok) setDraft(after.next ? { ...after.next } : null);
     return ok;
   }, 'Could not delete the plan.');
 
@@ -98,6 +103,7 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
   }, 'Could not move the remodel back.');
 
   const ev = evaluation && evaluation.ok ? evaluation : null;
+  const missing = draft ? missingForPlan(draft) : [];
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}>
@@ -126,7 +132,7 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
               </button>
             ))}
             {!committed && (
-              <button onClick={() => setDraft(blankPlan())} className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-300 border border-dashed border-emerald-500/40 hover:bg-emerald-500/10">+ New</button>
+              <button onClick={() => setDraft(blankPlan(newId()))} className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-300 border border-dashed border-emerald-500/40 hover:bg-emerald-500/10">+ New</button>
             )}
           </div>
 
@@ -227,6 +233,7 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
               {plans.length > 0 && <Link to={`/compare?mode=versions&scope=owned&dealId=${deal.id}`} className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-cyan-300 hover:bg-cyan-500/10">Compare side by side</Link>}
             </div>
             <div className="flex items-center gap-2">
+              {missing.length > 0 && <span className="text-[10px] text-slate-500 max-w-[11rem] text-right">Needs {missing.join(', ')} to commit</span>}
               <button disabled={busy || !ev} onClick={commit} title="Put this remodel into the live numbers"
                 className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-40">Commit to live</button>
               <button disabled={busy || !draft.name.trim()} onClick={savePlan}
