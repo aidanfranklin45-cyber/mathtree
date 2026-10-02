@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
+import { operationsPrefetchProps, prefetchOperations } from '../../lib/prefetchRoutes';
 
 interface AppHeaderProps {
   active: 'portfolio' | 'operations' | 'compare';
@@ -44,6 +45,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const totalNotifications = (alertCount > 0 ? alertCount : 0) + (collaboratorInviteCount > 0 ? collaboratorInviteCount : 0);
 
   // Close dropdown on outside click or Escape key
+  // Fetch the Operations chunk once the browser is idle so the first click is instant
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    const id = w.requestIdleCallback ? w.requestIdleCallback(prefetchOperations) : window.setTimeout(prefetchOperations, 1500);
+    return () => { if (!w.requestIdleCallback) window.clearTimeout(id); };
+  }, []);
+
   useEffect(() => {
     if (!isAccountMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -108,6 +116,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </Link>
           <Link
             to="/operations"
+            {...operationsPrefetchProps}
             className={active === 'operations'
               ? `${navBase} font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm flex items-center space-x-1.5`
               : `${navBase} font-semibold text-slate-400 hover:text-white flex items-center space-x-1.5`}
@@ -131,6 +140,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {/* Mobile switcher pills: Property Management followed by Compare */}
           <Link
             to="/operations"
+            {...operationsPrefetchProps}
             className={active === 'operations'
               ? "md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 transition"
               : "md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition"}

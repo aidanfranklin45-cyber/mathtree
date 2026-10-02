@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { DealRecord, DealMetrics } from '../../lib/math/types';
 import { openDealBrief } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
+import { operationsPrefetchProps } from '../../lib/prefetchRoutes';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
 
 interface StudioNavbarProps {
@@ -240,7 +241,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                   </button>
                 )}
                 <div className="my-1 border-t border-slate-800" />
-                <Link to="/operations" className={`${menuBtn} text-emerald-300`} title="Property Management">
+                <Link to="/operations" {...operationsPrefetchProps} className={`${menuBtn} text-emerald-300`} title="Property Management">
                   <span className="text-emerald-400 shrink-0">🍀</span>
                   <span>Property Management</span>
                 </Link>

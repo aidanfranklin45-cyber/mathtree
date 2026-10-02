@@ -2,9 +2,10 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { DashboardPage } from './pages/DashboardPage';
 import { AuthGate } from './lib/auth/AuthGate';
+import { importOperationsPage } from './lib/prefetchRoutes';
 
 const DealStudioPage = lazy(() => import('./pages/DealStudioPage').then((m) => ({ default: m.DealStudioPage })));
-const OperationsPage = lazy(() => import('./pages/OperationsPage').then((m) => ({ default: m.OperationsPage })));
+const OperationsPage = lazy(() => importOperationsPage().then((m) => ({ default: m.OperationsPage })));
 const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })));
 const ReconcilePage = lazy(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
 const DealBriefPage = lazy(() => import('./pages/DealBriefPage').then((m) => ({ default: m.DealBriefPage })));
