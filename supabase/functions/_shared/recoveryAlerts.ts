@@ -134,6 +134,27 @@ export function planRecoveryAlerts(args: {
   return plan;
 }
 
+/** Set on the action payload when the monitor (not the owner) dismisses a notification because its condition cleared. */
+export const AUTO_CLEARED_FLAG = "auto_cleared";
+
+export const withAutoCleared = (payload: Record<string, unknown> | null | undefined): Record<string, unknown> => ({ ...(payload ?? {}), [AUTO_CLEARED_FLAG]: true });
+
+/**
+ * Alerts the owner dismissed within the quiet window (keyed `type|leaseId`); the monitor won't re-raise those. Notifications the
+ * monitor itself cleared don't count, otherwise a fresh problem of the same kind would be hidden for a week.
+ */
+export function quietAlertKeys(
+  notifs: Array<{ type: string; action_payload?: Record<string, unknown> | null; is_dismissed: boolean; updated_at: string }>,
+  sinceIso: string,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const n of notifs) {
+    if (!n.is_dismissed || n.updated_at < sinceIso || n.action_payload?.[AUTO_CLEARED_FLAG] === true) continue;
+    keys.add(`${n.type}|${(n.action_payload?.lease_id as string | undefined) ?? null}`);
+  }
+  return keys;
+}
+
 /** One email per owner per run, listing every newly raised NNN alert with a link to Operations. Pure so the wording can be tested. */
 export function buildRecoveryEmail(alerts: PlannedAlert[], operationsUrl: string): { subject: string; html: string } {
   const lateCount = alerts.filter((a) => a.type === "recovery_overdue" || a.type === "recovery_reconciliation").length;

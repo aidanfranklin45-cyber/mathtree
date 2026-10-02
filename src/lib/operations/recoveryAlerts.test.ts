@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, DEFAULT_RECOVERY_LEAD_DAYS, type AlertLease } from '../../../supabase/functions/_shared/recoveryAlerts';
+import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, quietAlertKeys, withAutoCleared, DEFAULT_RECOVERY_LEAD_DAYS, type AlertLease } from '../../../supabase/functions/_shared/recoveryAlerts';
 import { reconcileCam, meterCharge, estimatesPaidInYear } from '../../../supabase/functions/_shared/recoveryReconcile';
 import type { RecoveryItem, RecoveryTerm } from '../../../supabase/functions/_shared/recoveries';
 
@@ -155,5 +155,24 @@ describe('buildRecoveryEmail', () => {
   });
   it('uses softer wording when nothing is overdue', () => {
     expect(buildRecoveryEmail([{ ...alert, type: 'recovery_due_soon', severity: 'info' }], 'x').subject).toContain('coming due');
+  });
+});
+
+describe('quietAlertKeys', () => {
+  const since = '2026-09-24T00:00:00Z';
+  const n = (over: Record<string, unknown> = {}) => ({ type: 'recovery_overdue', action_payload: { lease_id: 'l1' }, is_dismissed: true, updated_at: '2026-09-30T00:00:00Z', ...over }) as Parameters<typeof quietAlertKeys>[0][number];
+
+  it('keeps an alert the owner dismissed this week quiet', () => {
+    expect(quietAlertKeys([n()], since).has('recovery_overdue|l1')).toBe(true);
+  });
+  it('does not treat an alert the monitor auto-cleared as dismissed by the owner', () => {
+    expect(quietAlertKeys([n({ action_payload: withAutoCleared({ lease_id: 'l1' }) })], since).size).toBe(0);
+  });
+  it('ignores owner dismissals older than the window and notifications still open', () => {
+    expect(quietAlertKeys([n({ updated_at: '2026-09-01T00:00:00Z' }), n({ is_dismissed: false })], since).size).toBe(0);
+  });
+  it('withAutoCleared keeps the existing payload fields', () => {
+    expect(withAutoCleared({ lease_id: 'l1' })).toEqual({ lease_id: 'l1', auto_cleared: true });
+    expect(withAutoCleared(null)).toEqual({ auto_cleared: true });
   });
 });
