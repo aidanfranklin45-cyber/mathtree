@@ -69,8 +69,10 @@ describe('tenant default risk (a labelled probability with downtime)', () => {
 
 describe('profit in dollars and IRR for every deal', () => {
   it('net profit is every cash flow plus the exit equity minus the cash put in', () => {
-    const r = runMonteCarlo('commercial', inputs, { runs: 300, seed: 5, tenantDefaultProbPct: 0, rentGrowthVolPct: 0, vacancyVolPct: 0, exitCapSpreadBps: 0, apprecVolPct: 0 });
-    const base = calculateProjections('commercial', inputs);
+    // The simulation always inflates costs (default 2.5%/yr, sampled), so pin it on the deterministic run too
+    const pinned = { ...inputs, expenseGrowth: 2.5 };
+    const r = runMonteCarlo('commercial', pinned, { runs: 300, seed: 5, tenantDefaultProbPct: 0, rentGrowthVolPct: 0, vacancyVolPct: 0, exitCapSpreadBps: 0, apprecVolPct: 0 });
+    const base = calculateProjections('commercial', pinned);
     const expected = base.projections.reduce((s: number, p: any) => s + p.cashFlow, 0) + base.projections[base.projections.length - 1].equity - base.initialCashInvested;
     expect(Math.abs(r.profit.mean - expected) / Math.abs(expected)).toBeLessThan(0.02);
   });

@@ -6,8 +6,9 @@ import { calculateProjections } from './index';
 /**
  * Real prospect deals from production (inputs trimmed to the fields the engine reads).
  * `storedIrr` is what the old edge function saved on 9/25 (engine 7a6ba9e reproduces it exactly).
- * The 9/28 engine commits (multi-timeline calendar, stub-year proration) intentionally moved the
- * results, so `currentIrr` pins today's engine. Regression covered: the mapper used to inject
+ * The 9/28 engine commits (multi-timeline calendar, stub-year proration) and the 9/30 lease-expiry default
+ * (engine 2026-09-30.3: a lease with no stated expiry assumption renews on current terms instead of its income
+ * stopping) intentionally moved the results, so `currentIrr` pins today's engine. Regression covered: the mapper used to inject
  * defaults (vacancyRatePercent 5, rentGrowthPercent 3) that shadowed legitimate zeros.
  */
 const rows = [
@@ -38,7 +39,7 @@ const rows = [
   {
     name: '411 S 3rd St (rentGrowth 0, all-cash)',
     storedIrr: 6.69,
-    currentIrr: 4.92,
+    currentIrr: 6.85, // 4.92 before 2026-09-30.3: its 2029-05-31 lease expiry now renews instead of stopping income
     row: {
       id: '0c1f74b8', asset_type: 'single-family', status: 'prospect', purchase_price: '596200',
       inputs: {
@@ -69,7 +70,7 @@ describe('DB row -> mapSupabaseDeal -> engine', () => {
       expect(viaMapper).toBe(direct);
     });
 
-    it(`${c.name}: current-engine IRR is pinned (stored IRR ${c.storedIrr} predates the 9/28 engine changes)`, () => {
+    it(`${c.name}: current-engine IRR is pinned (stored IRR ${c.storedIrr} predates the 9/28 and 9/30 engine changes)`, () => {
       expect(computeDealMetrics(mapSupabaseDeal(c.row)).irr).toBeCloseTo(c.currentIrr, 1);
     });
   }
