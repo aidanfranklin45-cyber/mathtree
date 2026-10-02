@@ -40,6 +40,7 @@ const dscrOf = (p: any): number | null => (p?.dscr === null || p?.dscr === undef
 
 /** Run a plan against doing nothing, through the same engine as everything else. Pure: nothing is stored or changed. */
 export function evaluateRemodel(deal: EvalDeal, plan: RemodelPlan): RemodelEvaluationResult {
+  if ((deal.inputs as any)?.remodel) return { ok: false, reason: 'A remodel is already committed on this property. Move it back to the plans to compare another.' };
   if (!(num(plan.cost) > 0)) return { ok: false, reason: 'Enter what the remodel will cost.' };
   const startYear = planStartYear(plan);
   if (startYear === null) return { ok: false, reason: 'Enter a start month.' };

@@ -35,7 +35,7 @@ interface RemodelPlan {
   cost: number;                                // total capex
   financing: 'cash' | 'new_loan';              // new_loan uses loanRatePct, loanTermYears, ltcPct
   rentDuringWorksPct: number;                  // % of current rent still collected (0 = fully down)
-  rentAfter: { mode: 'monthly' | 'pct_increase' | 'per_sf'; value: number; addedSf?: number; addedUnits?: number };
+  rentAfter: { mode: 'monthly' | 'pct_increase' | 'per_sf'; value: number; addedSf?: number };
   extraOpexAnnual?: number;                    // added tax/insurance/mgmt from bigger building
   valueMode: 'cap_rate' | 'manual';            // value = new NOI / cap rate, or typed ARV
 }
@@ -74,10 +74,12 @@ through the engine and returns the incremental view:
 - "Compare" in the modal deep-links here (`/compare?deal=<id>&scope=owned`).
 - **Test:** extend `src/lib/compare/compare.test.ts`.
 
-### Phase 5: Execute it (when we actually do the remodel)
-- "Mark as done" in the modal: writes the real changes into the live deal (rent or leases, capex, loan) via `patchDeal`, offers
-  `rebaseline`, and retires the plan. Until then the live deal is untouched.
-- **Test:** pure function that turns a plan into the patch; single-file vitest.
+### Phase 5: Commit it (when we actually do the remodel) [built]
+- "Commit to live" in the modal sets the live deal's `inputs.remodel` (the same block the engine already understands, placed by
+  its own dates), records `remodelCommitted`, and removes the plan from the list. Every page then includes the remodel.
+- The Acquisition Baseline is untouched, so Compare shows exactly what the remodel changed. "Move back to plans" undoes it.
+- One remodel can be committed at a time; evaluating another is disabled until it is moved back.
+- **Test:** `src/lib/remodel/commit.test.ts`.
 
 ## Out of scope for now
 Permit and entitlement timelines, multi-phase draw schedules, cost-overrun Monte Carlo (can reuse `runMonteCarloSimulation`

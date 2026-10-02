@@ -27,6 +27,7 @@ import {
   evaluateWinners,
   getPresetOverrides,
 } from '../lib/compare/compareTypes';
+import { applyRemodel, getRemodelPlans } from '../lib/remodel';
 import { exportComparisonCSV } from '../lib/compare/compareExport';
 import { listScenarioRuns, ScenarioRun } from '../lib/scenarios';
 import { getInitialBaseline, replaceBaseline } from '../lib/baselines/db';
@@ -167,6 +168,9 @@ export const ComparePage: React.FC = () => {
           case 'bear':
             name = 'Bear (-8% Rent, +3% Vac)';
             break;
+          case 'remodel':
+            name = 'Remodel';
+            break;
           case 'history':
             name = 'Saved Run';
             break;
@@ -220,6 +224,17 @@ export const ComparePage: React.FC = () => {
         } else {
           infos.push('No acquisition baseline has been recorded for this property yet, so there is no baseline column. Open it in the Deal Studio to record one.');
         }
+      }
+
+      // Remodel plans on an owned property: each is an extra column (the live model with the plan applied)
+      if (isOwned && !deal.inputs?.remodel) {
+        getRemodelPlans(deal).forEach((plan) => {
+          try {
+            cols.push(buildColumn(deal, 'remodel', plan.name || 'Remodel', applyRemodel(deal, plan), false));
+          } catch (err) {
+            console.warn('[compare] could not model remodel plan', plan.id, err);
+          }
+        });
       }
 
       cols.push(
@@ -490,7 +505,7 @@ export const ComparePage: React.FC = () => {
           isOpen={isBaselineModalOpen}
           onClose={() => setIsBaselineModalOpen(false)}
           dealTitle={resolveDealDisplayName(currentFocusDeal)}
-          candidates={columns.filter((c) => c.dealId === currentFocusDeal.id && c.scenarioType !== 'baseline')}
+          candidates={columns.filter((c) => c.dealId === currentFocusDeal.id && c.scenarioType !== 'baseline' && c.scenarioType !== 'remodel')}
           baselineFingerprint={baselineInfo?.fingerprint ?? null}
           baselineCapturedAt={baselineInfo?.capturedAt ?? null}
           baselineIrr={baselineInfo?.irr ?? null}
