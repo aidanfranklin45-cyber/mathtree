@@ -36,7 +36,7 @@ export const LeaseExpiryLadder: React.FC<Props> = ({ leases, sqftOf, dealTitle, 
 
   return (
     <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl overflow-hidden">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-slate-800/30 transition">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-slate-800/30 transition">
         <div>
           <h3 className="text-sm font-extrabold text-white">Lease expiries</h3>
           <p className="text-[11px] text-slate-400 mt-0.5">
@@ -65,8 +65,8 @@ export const LeaseExpiryLadder: React.FC<Props> = ({ leases, sqftOf, dealTitle, 
                 <th className="py-3 px-4 text-right">Leases</th>
                 <th className="py-3 px-4 text-right">Rent /mo</th>
                 {showSqft && <th className="py-3 px-4 text-right">Sq ft</th>}
-                <th className="py-3 px-4 w-1/3">Share of rent</th>
-                <th className="py-3 px-4 text-right">Cumulative</th>
+                <th className="hidden sm:table-cell py-3 px-4 w-1/3">Share of rent</th>
+                <th className="hidden sm:table-cell py-3 px-4 text-right">Cumulative</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -88,7 +88,7 @@ export const LeaseExpiryLadder: React.FC<Props> = ({ leases, sqftOf, dealTitle, 
                       <td className="py-2.5 px-4 text-right font-mono">{empty ? '—' : b.leases.length}</td>
                       <td className={`py-2.5 px-4 text-right font-mono ${empty ? '' : 'font-bold text-white'}`}>{empty ? '—' : usd(b.monthlyRent)}</td>
                       {showSqft && <td className="py-2.5 px-4 text-right font-mono">{b.sqft > 0 ? Math.round(b.sqft).toLocaleString() : '—'}</td>}
-                      <td className="py-2.5 px-4">
+                      <td className="hidden sm:table-cell py-2.5 px-4">
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
                             <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${(b.rentPct / maxPct) * 100}%` }} />
@@ -96,7 +96,7 @@ export const LeaseExpiryLadder: React.FC<Props> = ({ leases, sqftOf, dealTitle, 
                           <span className="w-10 text-right font-mono text-slate-300">{empty ? '' : pct(b.rentPct)}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-4 text-right font-mono text-slate-400">{pct(b.cumulativeRentPct)}</td>
+                      <td className="hidden sm:table-cell py-2.5 px-4 text-right font-mono text-slate-400">{pct(b.cumulativeRentPct)}</td>
                     </tr>
                     {isOpen && b.leases.map((l) => (
                       <tr key={l.id} onClick={() => onSelect(l.id)} className="bg-slate-950/40 hover:bg-slate-800/40 transition cursor-pointer">
@@ -106,7 +106,7 @@ export const LeaseExpiryLadder: React.FC<Props> = ({ leases, sqftOf, dealTitle, 
                         </td>
                         <td className="py-2 px-4 text-right font-mono text-slate-300">{usd(l.monthlyRent)}</td>
                         {showSqft && <td className="py-2 px-4 text-right font-mono text-slate-400">{l.sqft > 0 ? Math.round(l.sqft).toLocaleString() : '—'}</td>}
-                        <td className="py-2 px-4 text-[11px] text-slate-400" colSpan={2}>
+                        <td className="py-2 px-4 text-[11px] text-slate-400" colSpan={showSqft ? 3 : 2}>
                           {l.endDate ? `${b.key === 'holdover' ? 'Ended' : 'Ends'} ${longDate(l.endDate)}${b.key === 'holdover' ? ' (still active)' : ` · ${yrs(l.yearsRemaining)} left`}` : 'No end date'}
                         </td>
                       </tr>

@@ -391,10 +391,10 @@ export const OperationsPage: React.FC = () => {
           <>
             <button
               onClick={() => { setAddLeaseDealId(null); setAddLeaseOpen(true); }}
-              className="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30 transition"
+              aria-label="Add lease" className="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30 transition"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-              <span>Add Lease</span>
+              <span className="hidden sm:inline">Add Lease</span>
             </button>
             <Popover trigger={<span>More ▾</span>} triggerClassName={triggerBtn} triggerTitle="Rent roll, alert emails and sync" panelClassName="w-56">
               {(close) => (

@@ -203,7 +203,7 @@ export const WhatIfScrubberBar: React.FC<WhatIfScrubberBarProps> = ({ deal, onAd
               />
             </div>
 
-            <div className="flex items-center space-x-2 self-end sm:self-auto">
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={resetToBaseline}
@@ -215,10 +215,10 @@ export const WhatIfScrubberBar: React.FC<WhatIfScrubberBarProps> = ({ deal, onAd
               <button
                 type="button"
                 onClick={handleApply}
-                className="px-4 py-1.5 rounded-xl text-xs font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 transition flex items-center space-x-1.5 shadow-md shadow-emerald-500/20"
+                className="flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl text-xs font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 transition flex items-center space-x-1.5 shadow-md shadow-emerald-500/20"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add as Comparison Column</span>
+                <span><span className="sm:hidden">Add Column</span><span className="hidden sm:inline">Add as Comparison Column</span></span>
               </button>
             </div>
           </div>

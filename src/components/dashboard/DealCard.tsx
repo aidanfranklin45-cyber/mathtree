@@ -189,8 +189,8 @@ const DealCardComponent: React.FC<DealCardProps> = ({
     >
       <div className="space-y-4">
         {/* Top Meta Row: Icon, Asset Type, Status & Menu */}
-        <div className="flex items-center justify-between gap-3 border-b border-slate-900/80 pb-3">
-          <div className="flex items-center space-x-2 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-900/80 pb-3">
+          <div className="flex items-center space-x-2 min-w-0 max-w-full">
             <div className="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner shrink-0 group-hover:border-brand-500/30 transition">
               <AssetIcon assetClass={aClass} />
             </div>
@@ -267,7 +267,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
             <span className="text-slate-500 group-hover:text-emerald-400 transition font-bold shrink-0 ml-2">→</span>
           </h4>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
-            <span className="flex items-center space-x-1 truncate max-w-[210px]">
+            <span className="flex items-center space-x-1 truncate max-w-full sm:max-w-[210px]">
               <svg className="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               <span className="truncate">{locStr}</span>
             </span>
@@ -284,7 +284,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               </span>
             )}
           </div>
-          {tenancyRow}
+          {tenancyRow && <div className="hidden sm:block">{tenancyRow}</div>}
         </div>
 
         {/* Deal Metrics Grid */}
@@ -310,8 +310,8 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       </div>
 
       {/* Card Footer: Modeler Link + Edit Inputs */}
-      <div className="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-between text-[11px]">
-        <div className="flex items-center space-x-1 text-slate-500 group-hover:text-emerald-400 transition">
+      <div className="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-end sm:justify-between text-[11px]">
+        <div className="hidden sm:flex items-center space-x-1 text-slate-500 group-hover:text-emerald-400 transition">
           <span>View Modeler</span>
           <span className="font-bold">→</span>
         </div>
