@@ -611,6 +611,9 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
   const leaseLine = m.underwritingLeases.length > 0
     ? m.underwritingLeases.map((l) => `${l.tenant ?? 'Tenant'} ${cur(l.monthlyRent)}/mo${l.start ? ` (${l.start}${l.end ? ` to ${l.end}` : ''})` : ''}`).join(' • ')
     : 'Underwritten from deal rent inputs (no underwriting lease schedule)';
+  // The headline is the rent the user entered; the model's annual figure is a first-full-year average that includes escalations
+  const enteredRent = m.underwritingLeases.reduce((s, l) => s + l.monthlyRent, 0);
+  const showEnteredRent = enteredRent > 0 && Math.abs(enteredRent - m.monthlyRent) >= 0.5;
 
   // Methodology and diligence provenance are disclosures: they close the document in fine print
   const disclosures: Array<{ title: string; text: string }> = [
@@ -793,8 +796,9 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
           </div>
           <div className="card">
             <div className="lab">6. Gross In-Place Revenue &amp; Tenancy</div>
-            <div><span className="big" style={{ color: '#059669' }}>{cur(m.monthlyRent)}/mo</span> <span className="meta">({cur(m.annualRent)}/yr)</span></div>
+            <div><span className="big" style={{ color: '#059669' }}>{cur(showEnteredRent ? enteredRent : m.monthlyRent)}/mo</span> <span className="meta">({cur((showEnteredRent ? enteredRent : m.monthlyRent) * 12)}/yr)</span></div>
             <div className="meta">{leaseLine}</div>
+            {showEnteredRent && <div className="meta">Model average for first full year ({cur(m.monthlyRent)}/mo, {cur(m.annualRent)}/yr) differs from the entered rent because of lease escalations.</div>}
           </div>
           <div className="card">
             <div className="lab">7. Operating Expenses &amp; Management</div>
