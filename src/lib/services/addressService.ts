@@ -1196,8 +1196,9 @@ const factory = function () {
       const mktLand = Number(a.MKT_LAND) || 0;
       const mktImp = Number(a.MKT_IMPVT) || 0;
       const totalVal = mktLand + mktImp;
-      const ownerParts = [a.ORG_NAME, [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ')].filter(Boolean);
-      const owner = ownerParts[0] || 'Owner of Record';
+      const person = [a.FIRST_NAME, a.LAST_NAME].map(x => x ? String(x).trim() : '').filter(Boolean).join(' ');
+      const org = a.ORG_NAME ? String(a.ORG_NAME).trim() : '';
+      const owner = person ? (person + (org ? ' / ' + org : '')) : (org || 'Owner of Record');
 
       return {
         apn: apn,
@@ -1262,62 +1263,50 @@ const factory = function () {
     }).filter(p => p.apn);
   }
 
+  const OWNER_STOPWORDS = new Set(['LLC', 'INC', 'INCORPORATED', 'CORP', 'CORPORATION', 'CO', 'COMPANY', 'LP', 'LLP', 'LTD', 'THE', 'AND', 'OF', 'ETAL', 'ET', 'AL', 'TRUST', 'TRUSTEE', 'TR']);
+  const PLACEHOLDER_OWNER = /^(owner of record|same owner of record|spokane county parcel of record|unknown)?$/i;
+
+  /** Normalize an owner string to a sorted token key so "SMITH JOHN LLC" == "John Smith". */
+  function ownerKey(name) {
+    const tokens = String(name || '').toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/)
+      .filter(t => t && !OWNER_STOPWORDS.has(t));
+    return tokens.sort().join(' ');
+  }
+
+  /** Candidate owner names for a record: each ' / ' separated part (org and person forms). */
+  function ownerCandidates(name) {
+    if (!name || PLACEHOLDER_OWNER.test(String(name).trim())) return [];
+    return String(name).split('/').map(ownerKey).filter(k => k.length > 0);
+  }
+
+  /** True only when both owners are real names and at least one normalized form is identical. */
+  function ownersMatch(a, b) {
+    const ka = ownerCandidates(a);
+    const kb = ownerCandidates(b);
+    return ka.some(k => kb.includes(k));
+  }
+
   /**
    * 6. Detect Nearby Parcels Owned by the Same Entity (Multi-Parcel Package Detection)
-   * Issue #12: Fetches primary parcel bounding geometry/envelope from county GIS (returnGeometry=true),
-   * and queries adjacent parcels using ESRI spatial envelope intersection (geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects),
-   * while falling back to owner matching within the section/block if spatial queries return empty.
+   * A companion must BOTH touch the primary parcel (spatial envelope intersection against the county
+   * GIS geometry) AND have an owner that matches the primary owner exactly after normalization.
+   * Returns [] when either cannot be verified (no geometry, placeholder owner, county without owner data)
+   * rather than guessing, so unrelated neighbors or same-section parcels are never attached.
    */
   async function detectNearbySameOwnerParcels(primaryApn, ownerName, parcelContext) {
     if (!primaryApn) return [];
+    if (ownerCandidates(ownerName).length === 0) return [];
     const isSpokane = parcelContext?.isSpokaneCounty || (parcelContext?.county && /spokane/i.test(parcelContext.county));
 
-    // Handle Spokane County
-    if (isSpokane) {
-      const cleanApn = String(primaryApn).trim();
-      const dotIndex = cleanApn.indexOf('.');
-      const prefix = dotIndex > 0 ? cleanApn.slice(0, dotIndex) : cleanApn.slice(0, 5);
-      if (prefix.length >= 3) {
-        try {
-          const spokaneParams = new URLSearchParams({
-            where: "parcel LIKE '" + prefix + ".%' AND parcel <> '" + cleanApn + "'",
-            outFields: 'parcel,PID_NUM,site_address,site_city,acreage,assessed_amt,land_value,prop_use_desc,prop_use_code,tax_year',
-            f: 'json',
-            resultRecordCount: '10'
-          });
-          const res = await fetch(SPOKANE_PARCELS_URL + '?' + spokaneParams.toString());
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data?.features) && data.features.length > 0) {
-              return mapSpokaneCompanionFeatures(data.features);
-            }
-          }
-        } catch (e) {
-          console.warn('Spokane companion parcel search failed:', e);
-        }
-      }
-      return [];
-    }
+    // Spokane's parcel layer exposes no owner name (mapSpokaneFeature uses a placeholder), so the
+    // same-owner rule cannot be verified there. Do not attach by APN prefix, which is not adjacency.
+    if (isSpokane) return [];
 
-    // Default to Yakima County ArcGIS Taxlots
     const cleanApn = String(primaryApn).trim().replace(/[^0-9]/g, '');
     if (cleanApn.length < 6) return [];
 
-    const prefix = cleanApn.slice(0, 6);
     const outFields = 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ACRES,MKT_LAND,MKT_IMPVT,USE_CODE,ORG_NAME,FIRST_NAME,LAST_NAME,LEGAL';
 
-    // Parse owner name filter if available
-    let ownerFilter = '';
-    if (ownerName && typeof ownerName === 'string' && ownerName.trim().length > 2) {
-      const cleanOwner = ownerName.trim().toUpperCase().replace(/'/g, "''").replace(/[^A-Z0-9\s]/g, '');
-      const ownerTerms = cleanOwner.split(/\s+/).filter(w => w.length > 2 && !['LLC', 'INC', 'CORP', 'CO', 'THE', 'AND', 'OF'].includes(w));
-      const term = ownerTerms[0] || cleanOwner.split(/\s+/)[0];
-      if (term) {
-        ownerFilter = "(UPPER(ORG_NAME) LIKE '%" + term + "%' OR UPPER(LAST_NAME) LIKE '%" + term + "%')";
-      }
-    }
-
-    // Strategy 1: Spatial Envelope Intersection via Yakima GIS
     try {
       const primaryGeomParams = new URLSearchParams({
         where: "ASSESSOR_N = '" + cleanApn + "'",
@@ -1326,88 +1315,59 @@ const factory = function () {
         f: 'json'
       });
       const primaryRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + primaryGeomParams.toString());
-      if (primaryRes.ok) {
-        const primaryData = await primaryRes.json();
-        const primaryFeature = primaryData?.features?.[0];
-        const rings = primaryFeature?.geometry?.rings;
+      if (!primaryRes.ok) return [];
+      const primaryData = await primaryRes.json();
+      const primaryFeature = primaryData?.features?.[0];
+      const rings = primaryFeature?.geometry?.rings;
+      if (!Array.isArray(rings) || rings.length === 0) return [];
 
-        if (Array.isArray(rings) && rings.length > 0) {
-          let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
-          for (const ring of rings) {
-            for (const [x, y] of ring) {
-              if (x < xmin) xmin = x;
-              if (x > xmax) xmax = x;
-              if (y < ymin) ymin = y;
-              if (y > ymax) ymax = y;
-            }
-          }
-
-          if (xmin !== Infinity && ymin !== Infinity) {
-            // Buffer envelope by 50 feet (State Plane South WKID 2286 / 102749) to capture adjacent/touching parcels
-            const buffer = 50;
-            const envelope = {
-              xmin: xmin - buffer,
-              ymin: ymin - buffer,
-              xmax: xmax + buffer,
-              ymax: ymax + buffer,
-              spatialReference: primaryFeature.geometry.spatialReference || primaryData.spatialReference || { wkid: 102749, latestWkid: 2286 }
-            };
-
-            let spatialWhere = "ASSESSOR_N <> '" + cleanApn + "'";
-            if (ownerFilter) {
-              spatialWhere += " AND " + ownerFilter;
-            }
-
-            const spatialParams = new URLSearchParams({
-              geometry: JSON.stringify(envelope),
-              geometryType: 'esriGeometryEnvelope',
-              spatialRel: 'esriSpatialRelIntersects',
-              where: spatialWhere,
-              outFields: outFields,
-              f: 'json',
-              resultRecordCount: '15'
-            });
-
-            const spatialRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + spatialParams.toString());
-            if (spatialRes.ok) {
-              const spatialData = await spatialRes.json();
-              if (Array.isArray(spatialData?.features) && spatialData.features.length > 0) {
-                return mapYakimaCompanionFeatures(spatialData.features);
-              }
-            }
-          }
+      let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+      for (const ring of rings) {
+        for (const [x, y] of ring) {
+          if (x < xmin) xmin = x;
+          if (x > xmax) xmax = x;
+          if (y < ymin) ymin = y;
+          if (y > ymax) ymax = y;
         }
       }
-    } catch (spatialErr) {
-      console.warn('Spatial envelope query failed, falling back to owner matching:', spatialErr);
-    }
+      if (xmin === Infinity || ymin === Infinity) return [];
 
-    // Strategy 2: Fallback to owner matching within section/block (RTS prefix)
-    try {
-      let fallbackWhere = "ASSESSOR_N LIKE '" + prefix + "%' AND ASSESSOR_N <> '" + cleanApn + "'";
-      if (ownerFilter) {
-        fallbackWhere += " AND " + ownerFilter;
-      }
+      // Buffer envelope by 50 feet (State Plane South WKID 2286 / 102749) to capture adjacent/touching parcels
+      const buffer = 50;
+      const envelope = {
+        xmin: xmin - buffer,
+        ymin: ymin - buffer,
+        xmax: xmax + buffer,
+        ymax: ymax + buffer,
+        spatialReference: primaryFeature.geometry.spatialReference || primaryData.spatialReference || { wkid: 102749, latestWkid: 2286 }
+      };
 
-      const fallbackParams = new URLSearchParams({
-        where: fallbackWhere,
+      const spatialParams = new URLSearchParams({
+        geometry: JSON.stringify(envelope),
+        geometryType: 'esriGeometryEnvelope',
+        spatialRel: 'esriSpatialRelIntersects',
+        where: "ASSESSOR_N <> '" + cleanApn + "'",
         outFields: outFields,
         f: 'json',
-        resultRecordCount: '15'
+        resultRecordCount: '100'
       });
+      const spatialRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + spatialParams.toString());
+      if (!spatialRes.ok) return [];
+      const spatialData = await spatialRes.json();
+      if (!Array.isArray(spatialData?.features)) return [];
 
-      const fallbackRes = await fetch(YAKIMA_TAXLOTS_URL + '?' + fallbackParams.toString());
-      if (fallbackRes.ok) {
-        const fallbackData = await fallbackRes.json();
-        if (Array.isArray(fallbackData?.features) && fallbackData.features.length > 0) {
-          return mapYakimaCompanionFeatures(fallbackData.features);
-        }
-      }
-    } catch (fallbackErr) {
-      console.warn('Fallback owner matching query failed:', fallbackErr);
+      // Owner check happens here, on exact normalized names, not as a loose server-side LIKE.
+      const sameOwner = spatialData.features.filter(f => {
+        const a = f.attributes || {};
+        const person = [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ');
+        const org = a.ORG_NAME ? String(a.ORG_NAME) : '';
+        return ownersMatch(ownerName, org) || ownersMatch(ownerName, person) || ownersMatch(ownerName, person && org ? person + ' / ' + org : '');
+      });
+      return mapYakimaCompanionFeatures(sameOwner);
+    } catch (err) {
+      console.warn('Same-owner adjacent parcel query failed:', err);
+      return [];
     }
-
-    return [];
   }
 
   /**
@@ -1494,6 +1454,7 @@ const factory = function () {
     getYakimaAssessorPortalUrl,
     getAssessorPortalUrl,
     detectNearbySameOwnerParcels,
+    ownersMatch,
     aggregateParcelPackage,
     isGisDataStale
   };
