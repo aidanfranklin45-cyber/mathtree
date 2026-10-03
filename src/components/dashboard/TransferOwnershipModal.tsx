@@ -9,19 +9,21 @@ interface Props {
   onClose: () => void;
   /** Called after a successful transfer so the dashboard can reload (the deal is no longer the caller's). */
   onTransferred: () => void;
+  /** Pre-fills the recipient (e.g. an existing collaborator) and starts on the confirmation step. */
+  initialEmail?: string;
 }
 
-export const TransferOwnershipModal: React.FC<Props> = ({ deal, onClose, onTransferred }) => {
+export const TransferOwnershipModal: React.FC<Props> = ({ deal, onClose, onTransferred, initialEmail }) => {
   const [email, setEmail] = useState('');
   const [step, setStep] = useState<'enter' | 'confirm'>('enter');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setEmail('');
-    setStep('enter');
+    setEmail(initialEmail || '');
+    setStep(initialEmail ? 'confirm' : 'enter');
     setError(null);
-  }, [deal]);
+  }, [deal, initialEmail]);
 
   if (!deal) return null;
   const name = resolveDealDisplayName(deal);
@@ -42,7 +44,7 @@ export const TransferOwnershipModal: React.FC<Props> = ({ deal, onClose, onTrans
   };
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
         <div className="flex items-start justify-between">
           <div>

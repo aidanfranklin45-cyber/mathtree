@@ -365,6 +365,25 @@ export async function handleRequest(req: Request): Promise<Response> {
         return jsonResponse({ success: true, message: "Deal access revoked" });
       }
 
+      // 6b. CHANGE A COLLABORATOR'S PERMISSION LEVEL (owner only)
+      case "update_share": {
+        const shareId = (body.share_id as string) || (body.shareId as string);
+        const permission = body.permission as string;
+        if (!shareId || (permission !== "viewer" && permission !== "editor")) {
+          return jsonResponse({ error: "share_id and permission (viewer | editor) are required" }, 400);
+        }
+        const { data: updated, error: updErr } = await dbClient
+          .from("deal_shares")
+          .update({ permission, updated_at: new Date().toISOString() })
+          .eq("id", shareId)
+          .eq("owner_id", userId)
+          .select()
+          .maybeSingle();
+        if (updErr) throw updErr;
+        if (!updated) return jsonResponse({ error: "Share not found" }, 404);
+        return jsonResponse({ success: true, share: updated });
+      }
+
       // 7. GET SHARES FOR A SPECIFIC DEAL
       case "get_deal_shares": {
         const dealId = (body.deal_id as string) || (body.dealId as string) || url.searchParams.get("deal_id");
