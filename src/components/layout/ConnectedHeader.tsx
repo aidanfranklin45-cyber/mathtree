@@ -5,47 +5,41 @@ import { useNotifications } from '../../lib/useNotifications';
 import { AppHeader } from './AppHeader';
 import { InvestorProfileModal } from './InvestorProfileModal';
 import { NotificationHub } from './NotificationHub';
-import { CollaboratorsHubModal } from '../collaboration/CollaboratorsHubModal';
 import { EntityManagerModal, type EntityTarget } from './EntityManagerModal';
 import { openPortfolioBrief } from '../../lib/export/pdfBrief';
 
 interface Props {
   active: 'portfolio' | 'operations' | 'compare';
-  /** Deals the page has loaded (owned + shared with me); used by the Collaborators hub. */
+  /** Deals the page has loaded (owned + shared with me); used by the Investor Profile. */
   deals?: DealRecord[];
   onProfileSaved?: (profile: InvestorProfile) => void;
   /** Called when shares change or a pro-forma sync rewrites deal inputs, so the page can reload. */
   onDealsChanged?: () => void;
   extraActions?: React.ReactNode;
-  /** Hide the account dropdown (Investor Profile, Collaborators, Alerts, Export) on pages that don't need it. */
+  /** Hide the account dropdown (Investor Profile, Alerts, Export) on pages that don't need it. */
   hideAccountMenu?: boolean;
 }
 
 /**
- * The shared page header plus everything it opens: Action Center (alerts), Collaborators hub and
- * Investor Profile. Pages render this once instead of wiring three modals each.
+ * The shared page header plus everything it opens: Action Center (alerts), and Investor Profile.
+ * Pages render this once instead of wiring the modals each.
  */
 export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfileSaved, onDealsChanged, extraActions, hideAccountMenu }) => {
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const [collabOpen, setCollabOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [entitiesOpen, setEntitiesOpen] = useState(false);
   const [entityTarget, setEntityTarget] = useState<EntityTarget | null>(null);
   const [returnToProfile, setReturnToProfile] = useState(false);
   const { notifications, refresh, dismiss } = useNotifications();
 
-  const sharedWithMe = deals.filter((d) => d.is_shared).length;
-
   return (
     <>
       <AppHeader
         active={active}
         onOpenAlerts={() => { setAlertsOpen(true); void refresh(); }}
-        onOpenCollaborators={() => setCollabOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
         onExportPortfolio={openPortfolioBrief}
         alertCount={notifications.length > 9 ? 9 : notifications.length}
-        collaboratorInviteCount={sharedWithMe}
         extraActions={extraActions}
         hideAccountMenu={hideAccountMenu}
       />
@@ -57,7 +51,6 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
         onDismiss={dismiss}
         onAssignEntity={(dealId, dealTitle) => { setEntityTarget({ dealId, dealTitle }); setReturnToProfile(false); setEntitiesOpen(true); }}
       />
-      <CollaboratorsHubModal isOpen={collabOpen} onClose={() => setCollabOpen(false)} deals={deals} onChanged={onDealsChanged} />
       <InvestorProfileModal
         isOpen={profileOpen}
         deals={deals}
