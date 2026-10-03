@@ -17,4 +17,12 @@ describe('AddressService (ported legacy module)', () => {
     expect(AddressService.isGisDataStale(null)).toBe(true);
     expect(AddressService.isGisDataStale(new Date().toISOString())).toBe(false);
   });
+  it('only treats parcels as companions when the owner is known and matches', () => {
+    expect(AddressService.ownersMatch('ACME HOLDINGS LLC', 'Acme Holdings, Inc.')).toBe(true);
+    expect(AddressService.ownersMatch('JOHN SMITH / SMITH FAMILY LLC', 'JOHN SMITH')).toBe(true);
+    expect(AddressService.ownersMatch('JOHN SMITH', 'JANE SMITH')).toBe(false);
+    expect(AddressService.ownersMatch('Owner of Record', 'Owner of Record')).toBe(false);
+    expect(AddressService.ownersMatch('Spokane County Parcel of Record', 'ACME HOLDINGS LLC')).toBe(false);
+    expect(AddressService.ownersMatch('', 'JOHN SMITH')).toBe(false);
+  });
 });

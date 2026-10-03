@@ -357,7 +357,7 @@ export const CompareMatrixTable: React.FC<CompareMatrixTableProps> = ({
                   <span className="text-[11px] text-slate-300 font-semibold truncate block">
                     {winCol.dealTitle}
                   </span>
-                  <span className="text-[10px] text-brand-400/80 font-mono">
+                  <span className="hidden sm:block text-[10px] text-brand-400/80 font-mono">
                     {winCol.scenarioName}
                   </span>
                 </div>
@@ -384,7 +384,7 @@ export const CompareMatrixTable: React.FC<CompareMatrixTableProps> = ({
                   <span className="text-[11px] text-slate-300 font-semibold truncate block">
                     {winCol.dealTitle}
                   </span>
-                  <span className="text-[10px] text-emerald-400/80 font-mono">
+                  <span className="hidden sm:block text-[10px] text-emerald-400/80 font-mono">
                     {winCol.scenarioName}
                   </span>
                 </div>
@@ -411,7 +411,7 @@ export const CompareMatrixTable: React.FC<CompareMatrixTableProps> = ({
                   <span className="text-[11px] text-slate-300 font-semibold truncate block">
                     {winCol.dealTitle}
                   </span>
-                  <span className="text-[10px] text-cyan-400/80 font-mono">
+                  <span className="hidden sm:block text-[10px] text-cyan-400/80 font-mono">
                     {winCol.scenarioName}
                   </span>
                 </div>
@@ -438,7 +438,7 @@ export const CompareMatrixTable: React.FC<CompareMatrixTableProps> = ({
                   <span className="text-[11px] text-slate-300 font-semibold truncate block">
                     {winCol.dealTitle}
                   </span>
-                  <span className="text-[10px] text-violet-400/80 font-mono">
+                  <span className="hidden sm:block text-[10px] text-violet-400/80 font-mono">
                     {winCol.scenarioName}
                   </span>
                 </div>
@@ -465,7 +465,7 @@ export const CompareMatrixTable: React.FC<CompareMatrixTableProps> = ({
                   <span className="text-[11px] text-slate-300 font-semibold truncate block">
                     {winCol.dealTitle}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
+                  <span className="hidden sm:block text-[10px] text-slate-400 font-mono">
                     {winCol.scenarioName}
                   </span>
                 </div>
