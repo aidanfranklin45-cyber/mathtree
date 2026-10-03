@@ -1,4 +1,4 @@
-import { supabase } from './supabase/client';
+import { invokeCollaboration } from './collaborationEdge';
 
 /** Error codes raised by `rpc_transfer_deal_ownership` (supabase/migrations_draft/10_transfer_deal_ownership.sql). */
 export type TransferErrorCode =
@@ -38,16 +38,16 @@ export function parseTransferError(err: { message?: string; code?: string } | nu
 
 export type TransferResult = { ok: true; newOwnerId: string } | { ok: false; code: TransferErrorCode; message: string };
 
-/** Hands a deal to another existing user by email. The database function enforces owner-only and recipient rules. */
+/** Hands a deal to another existing user by email, through the manage-collaboration edge function. */
 export async function transferDealOwnership(dealId: string, recipientEmail: string): Promise<TransferResult> {
-  const { data, error } = await supabase.rpc('rpc_transfer_deal_ownership' as never, {
-    p_deal_id: dealId,
-    p_recipient_email: recipientEmail.trim(),
-  } as never);
-  if (error) {
-    const code = parseTransferError(error);
-    return { ok: false, code, message: transferErrorMessage(code) };
-  }
-  const newOwnerId = String((data as { new_owner_id?: string } | null)?.new_owner_id || '');
-  return { ok: true, newOwnerId };
+  const res = await invokeCollaboration<{ success?: boolean; new_owner_id?: string; error?: string; code?: string }>(
+    'transfer_ownership',
+    { deal_id: dealId, recipient_email: recipientEmail.trim() },
+  );
+  if (res?.success) return { ok: true, newOwnerId: String(res.new_owner_id || '') };
+  // No response at all, or the function is not deployed yet (unknown action): report unavailable, not a transfer failure.
+  const code: TransferErrorCode = !res || /Unknown action/i.test(res.error || '')
+    ? 'unavailable'
+    : parseTransferError({ message: res.error, code: res.code });
+  return { ok: false, code, message: transferErrorMessage(code) };
 }

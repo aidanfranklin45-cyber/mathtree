@@ -365,6 +365,47 @@ export async function handleRequest(req: Request): Promise<Response> {
         return jsonResponse({ success: true, message: "Deal access revoked" });
       }
 
+      // 6b. CHANGE A COLLABORATOR'S PERMISSION LEVEL (owner only)
+      case "update_share": {
+        const shareId = (body.share_id as string) || (body.shareId as string);
+        const permission = body.permission as string;
+        if (!shareId || (permission !== "viewer" && permission !== "editor")) {
+          return jsonResponse({ error: "share_id and permission (viewer | editor) are required" }, 400);
+        }
+        const { data: updated, error: updErr } = await dbClient
+          .from("deal_shares")
+          .update({ permission, updated_at: new Date().toISOString() })
+          .eq("id", shareId)
+          .eq("owner_id", userId)
+          .select()
+          .maybeSingle();
+        if (updErr) throw updErr;
+        if (!updated) return jsonResponse({ error: "Share not found" }, 404);
+        return jsonResponse({ success: true, share: updated });
+      }
+
+      // 6c. TRANSFER DEAL OWNERSHIP (current owner only). Runs rpc_transfer_deal_ownership as the caller (their JWT, not the
+      // service role), so the database function sees auth.uid() and enforces owner-only, recipient-exists, etc. atomically.
+      case "transfer_ownership": {
+        const dealId = (body.deal_id as string) || (body.dealId as string);
+        const recipientEmail = ((body.recipient_email as string) || (body.target_id as string) || "").trim();
+        if (!dealId || !recipientEmail) {
+          return jsonResponse({ error: "deal_id and recipient_email are required" }, 400);
+        }
+        const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader || "" } },
+        });
+        const { data: result, error: rpcErr } = await userClient.rpc("rpc_transfer_deal_ownership", {
+          p_deal_id: dealId,
+          p_recipient_email: recipientEmail,
+        });
+        if (rpcErr) {
+          // The database function raises a short code as the message (e.g. recipient_not_found).
+          return jsonResponse({ success: false, error: rpcErr.message, code: rpcErr.code }, 400);
+        }
+        return jsonResponse({ success: true, ...(result as Record<string, unknown>) });
+      }
+
       // 7. GET SHARES FOR A SPECIFIC DEAL
       case "get_deal_shares": {
         const dealId = (body.deal_id as string) || (body.dealId as string) || url.searchParams.get("deal_id");
