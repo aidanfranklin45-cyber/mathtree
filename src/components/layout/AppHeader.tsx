@@ -94,7 +94,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <path d="M11.5 5h1M12 4.5v1" strokeWidth="1.2" />
             </svg>
           </div>
-          <div>
+          <div className="hidden sm:block">
             <span className="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
             <span className="text-[10px] sm:text-xs block text-emerald-500 font-semibold uppercase tracking-wider">Portfolio &amp; Pipeline</span>
           </div>
@@ -132,7 +132,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </nav>
 
         {/* Actions & Consolidated Dropdown Menu */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+        <div className="flex items-center space-x-1.5 sm:space-x-2.5 min-w-0">
           {/* Mobile switcher pills: Property Management followed by Compare */}
           <Link
             to="/operations"

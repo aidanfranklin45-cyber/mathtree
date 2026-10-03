@@ -54,13 +54,13 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
               <Scale className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center space-x-2">
+              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight flex items-center space-x-2">
                 <span>Underwriting Comparison Studio</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   On-The-Fly Math
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="hidden sm:block text-xs text-slate-400">
                 Underwrite prospective deals side-by-side, or compare the properties you own.
               </p>
             </div>
@@ -129,51 +129,51 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
 
       {/* Mode Switcher Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
-        <div className="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 self-start">
+        <div className="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800 sm:self-start">
           <button
             onClick={() => onSetMode('properties')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+            className={`flex-1 sm:flex-none justify-center px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
               mode === 'properties'
                 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <span>Compare Properties</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] text-slate-300 font-mono">
+            <span><span className="sm:hidden">Properties</span><span className="hidden sm:inline">Compare Properties</span></span>
+            <span className="hidden sm:inline px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] text-slate-300 font-mono">
               Multi-Asset
             </span>
           </button>
 
           <button
             onClick={() => onSetMode('versions')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+            className={`flex-1 sm:flex-none justify-center px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
               mode === 'versions'
                 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <span>Compare Property Versions</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] text-cyan-300 font-mono">
+            <span><span className="sm:hidden">Versions</span><span className="hidden sm:inline">Compare Property Versions</span></span>
+            <span className="hidden sm:inline px-1.5 py-0.2 rounded-full bg-slate-800 text-[10px] text-cyan-300 font-mono">
               Scenarios
             </span>
           </button>
 
           <button
             onClick={() => onSetMode('custom')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+            className={`flex-1 sm:flex-none justify-center px-2 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
               mode === 'custom'
                 ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <span>Custom Matrix</span>
+            <span><span className="sm:hidden">Custom</span><span className="hidden sm:inline">Custom Matrix</span></span>
           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
         {/* Portfolio scope: which deals this studio works with */}
         <div className="flex items-center space-x-2" title={SCOPE_HINT[scope]}>
-          <span className="text-xs font-bold text-slate-400 shrink-0">Show:</span>
+          <span className="hidden sm:inline text-xs font-bold text-slate-400 shrink-0">Show:</span>
           <div className="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800" role="group" aria-label="Deal scope">
             {(['pipeline', 'owned', 'all'] as CompareScope[]).map((s) => (
               <button
@@ -213,7 +213,7 @@ export const CompareHeader: React.FC<CompareHeaderProps> = ({
         )}
         </div>
       </div>
-      <p className="text-[11px] text-slate-500">{SCOPE_HINT[scope]}</p>
+      <p className="hidden sm:block text-[11px] text-slate-500">{SCOPE_HINT[scope]}</p>
     </div>
   );
 };
