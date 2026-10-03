@@ -5,6 +5,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { buildShareEmail, pickRecipients, sendShareEmails } from "../_shared/shareNotification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,32 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Emails newly added recipients that a property was shared with them. Best effort: any failure is logged and never reaches the caller.
+async function notifyNewShare(
+  dbClient: any,
+  opts: { dealId: string; ownerId: string; ownerEmail: string | null; recipients: Array<string | null | undefined>; permission: "viewer" | "editor"; groupName?: string | null },
+): Promise<void> {
+  try {
+    const apiKey = getEnv("RESEND_API_KEY");
+    if (!apiKey) return;
+    const to = pickRecipients(opts.recipients, opts.ownerEmail);
+    if (to.length === 0) return;
+    const { data: deal } = await dbClient.from("deals").select("title").eq("id", opts.dealId).maybeSingle();
+    const { data: owner } = await dbClient.from("profiles").select("full_name").eq("id", opts.ownerId).maybeSingle();
+    const { subject, html } = buildShareEmail({
+      dealTitle: deal?.title || "",
+      sharerName: owner?.full_name || opts.ownerEmail || "A MathTree user",
+      permission: opts.permission,
+      appUrl: getEnv("APP_URL") || "https://mathtree-app.web.app",
+      groupName: opts.groupName,
+    });
+    const from = getEnv("RESEND_FROM_EMAIL") || "MathTree <onboarding@resend.dev>";
+    await sendShareEmails(apiKey, from, to, { subject, html });
+  } catch (e) {
+    console.warn("[manage-collaboration] share notification failed:", e);
+  }
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
@@ -240,6 +267,13 @@ export async function handleRequest(req: Request): Promise<Response> {
 
           if (!grp) return jsonResponse({ error: "Collaborator group not found" }, 404);
 
+          const { data: priorGroupShare } = await dbClient
+            .from("deal_shares")
+            .select("id")
+            .eq("deal_id", dealId)
+            .eq("group_id", targetId)
+            .maybeSingle();
+
           // Insert or update group deal share
           const { data: shareRow, error: sErr } = await dbClient
             .from("deal_shares")
@@ -255,6 +289,16 @@ export async function handleRequest(req: Request): Promise<Response> {
             .single();
 
           if (sErr) throw sErr;
+          if (!priorGroupShare) {
+            const { data: members } = await dbClient
+              .from("collaborator_group_members")
+              .select("member_email")
+              .eq("group_id", targetId);
+            await notifyNewShare(dbClient, {
+              dealId, ownerId: userId, ownerEmail: userEmail, permission,
+              recipients: (members || []).map((m: any) => m.member_email), groupName: grp.name,
+            });
+          }
           return jsonResponse({ success: true, share: shareRow, message: `Deal shared with group "${grp.name}"` });
         } else {
           // Direct email share
@@ -272,6 +316,13 @@ export async function handleRequest(req: Request): Promise<Response> {
             if (profile) matchedUserId = profile.id;
           } catch {}
 
+          const { data: priorEmailShare } = await dbClient
+            .from("deal_shares")
+            .select("id")
+            .eq("deal_id", dealId)
+            .eq("shared_with_email", cleanEmail)
+            .maybeSingle();
+
           const { data: shareRow, error: sErr } = await dbClient
             .from("deal_shares")
             .upsert({
@@ -287,6 +338,9 @@ export async function handleRequest(req: Request): Promise<Response> {
             .single();
 
           if (sErr) throw sErr;
+          if (!priorEmailShare) {
+            await notifyNewShare(dbClient, { dealId, ownerId: userId, ownerEmail: userEmail, permission, recipients: [cleanEmail] });
+          }
           return jsonResponse({ success: true, share: shareRow, message: `Deal shared with ${cleanEmail}` });
         }
       }
