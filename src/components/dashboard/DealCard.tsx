@@ -16,6 +16,8 @@ interface DealCardProps {
   onToggleStatus: (deal: DealRecord) => void;
   /** Optional until the collaborators hub exists; the menu entry only shows when provided. */
   onShare?: (deal: DealRecord) => void;
+  /** Owner-only; the menu entry only shows when provided. */
+  onTransfer?: (deal: DealRecord) => void;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
@@ -67,6 +69,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   onDelete,
   onToggleStatus,
   onShare,
+  onTransfer,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -226,6 +229,12 @@ const DealCardComponent: React.FC<DealCardProps> = ({
                     <button onClick={closeThen(() => onShare(deal))} className={menuItem}>
                       <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                       <span>Share with Collaborators</span>
+                    </button>
+                  )}
+                  {onTransfer && (
+                    <button onClick={closeThen(() => onTransfer(deal))} className={menuItem}>
+                      <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                      <span>Transfer Ownership</span>
                     </button>
                   )}
                   <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>

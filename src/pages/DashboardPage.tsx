@@ -10,6 +10,7 @@ import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { fetchProfile, getProfile } from '../lib/profile';
 import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
+import { TransferOwnershipModal } from '../components/dashboard/TransferOwnershipModal';
 import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
 import { EntityManagerModal } from '../components/layout/EntityManagerModal';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
@@ -72,6 +73,7 @@ export const DashboardPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'newest' | 'price-desc' | 'price-asc' | 'irr-desc' | 'coc-desc'>('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
+  const [transferringDeal, setTransferringDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
   // Modals state
@@ -825,6 +827,7 @@ export const DashboardPage: React.FC = () => {
                     onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
                     onShare={deal.is_shared ? undefined : handleShareDeal}
+                    onTransfer={deal.is_shared || deal.is_demo ? undefined : setTransferringDeal}
                   />
                 ))}
               </div>
@@ -834,6 +837,7 @@ export const DashboardPage: React.FC = () => {
       </main>
 
       {/* Creation Wizard Modal */}
+      <TransferOwnershipModal deal={transferringDeal} onClose={() => setTransferringDeal(null)} onTransferred={() => { void loadData(); }} />
       <ShareDealModal deal={sharingDeal} onClose={() => setSharingDeal(null)} onChanged={() => { void loadData(); }} />
 
       {isWizardOpen && (
