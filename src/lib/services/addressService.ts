@@ -1225,37 +1225,6 @@ const factory = function () {
     }).filter(p => p.apn);
   }
 
-  const OWNER_PLACEHOLDERS = /^(owner of record|same owner of record|spokane county parcel of record|unknown|n\/a)?$/i;
-  const OWNER_NOISE = new Set(['LLC', 'INC', 'CORP', 'CO', 'LP', 'LLP', 'TRUST', 'THE', 'AND', 'OF', 'ETAL', 'ET', 'AL']);
-
-  function ownerTokens(name) {
-    if (!name || OWNER_PLACEHOLDERS.test(String(name).trim())) return [];
-    return String(name).toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/)
-      .filter(t => t.length > 1 && !OWNER_NOISE.has(t));
-  }
-
-  /** True only when both owners are known and one name's words are fully contained in the other's. */
-  function ownersMatch(a, b) {
-    const ta = ownerTokens(a);
-    const tb = ownerTokens(b);
-    if (!ta.length || !tb.length) return false;
-    const sa = new Set(ta);
-    const sb = new Set(tb);
-    return ta.every(t => sb.has(t)) || tb.every(t => sa.has(t));
-  }
-
-  /** Pulls an owner name out of a county GIS feature, whichever owner fields that layer happens to expose. */
-  function extractOwnerFromAttributes(a) {
-    if (!a) return '';
-    const direct = a.OWN_NAME || a.OWNER || a.OWNER_NAME || a.owner_name || a.owner || a.taxpayer_name || a.TAXPAYER || a.ORG_NAME;
-    if (direct) return String(direct).trim();
-    return [a.FIRST_NAME, a.LAST_NAME].filter(Boolean).join(' ').trim();
-  }
-
-  function keepSameOwner(parcels, ownerName) {
-    return (parcels || []).filter(p => ownersMatch(ownerName, p.owner));
-  }
-
   function mapSpokaneCompanionFeatures(features) {
     if (!Array.isArray(features)) return [];
     return features.map(f => {
@@ -1285,7 +1254,7 @@ const factory = function () {
         taxYear: a.tax_year || 2026,
         zoning: (a.prop_use_desc || 'Commercial') + (a.prop_use_code ? ' (' + a.prop_use_code + ')' : ''),
         useCode: a.prop_use_desc || '',
-        owner: extractOwnerFromAttributes(a) || 'Spokane County Parcel of Record',
+        owner: 'Spokane County Parcel of Record',
         source: 'spokane_county_gis',
         isSpokaneCounty: true,
         assessorPortalUrl: getAssessorPortalUrl(apn, 'Spokane')
@@ -1310,31 +1279,17 @@ const factory = function () {
       const prefix = dotIndex > 0 ? cleanApn.slice(0, dotIndex) : cleanApn.slice(0, 5);
       if (prefix.length >= 3) {
         try {
-          // Parcels sharing an APN prefix are only candidates; they are attached only when the county layer
-          // names the same owner as the primary parcel. No owner on record means nothing is attached.
-          let primaryOwner = ownerName;
-          if (ownerTokens(primaryOwner).length === 0) {
-            const primaryRes = await fetch(SPOKANE_PARCELS_URL + '?' + new URLSearchParams({
-              where: "parcel = '" + cleanApn + "'", outFields: '*', f: 'json', resultRecordCount: '1'
-            }).toString());
-            if (primaryRes.ok) {
-              const primaryData = await primaryRes.json();
-              primaryOwner = extractOwnerFromAttributes(primaryData?.features?.[0]?.attributes);
-            }
-          }
-          if (ownerTokens(primaryOwner).length === 0) return [];
-
           const spokaneParams = new URLSearchParams({
             where: "parcel LIKE '" + prefix + ".%' AND parcel <> '" + cleanApn + "'",
-            outFields: '*',
+            outFields: 'parcel,PID_NUM,site_address,site_city,acreage,assessed_amt,land_value,prop_use_desc,prop_use_code,tax_year',
             f: 'json',
-            resultRecordCount: '25'
+            resultRecordCount: '10'
           });
           const res = await fetch(SPOKANE_PARCELS_URL + '?' + spokaneParams.toString());
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data?.features) && data.features.length > 0) {
-              return keepSameOwner(mapSpokaneCompanionFeatures(data.features), primaryOwner);
+              return mapSpokaneCompanionFeatures(data.features);
             }
           }
         } catch (e) {
@@ -1347,9 +1302,6 @@ const factory = function () {
     // Default to Yakima County ArcGIS Taxlots
     const cleanApn = String(primaryApn).trim().replace(/[^0-9]/g, '');
     if (cleanApn.length < 6) return [];
-
-    // Without a known owner there is no way to tell a companion parcel from a neighbour, so attach nothing
-    if (ownerTokens(ownerName).length === 0) return [];
 
     const prefix = cleanApn.slice(0, 6);
     const outFields = 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ACRES,MKT_LAND,MKT_IMPVT,USE_CODE,ORG_NAME,FIRST_NAME,LAST_NAME,LEGAL';
@@ -1420,8 +1372,7 @@ const factory = function () {
             if (spatialRes.ok) {
               const spatialData = await spatialRes.json();
               if (Array.isArray(spatialData?.features) && spatialData.features.length > 0) {
-                const sameOwner = keepSameOwner(mapYakimaCompanionFeatures(spatialData.features), ownerName);
-                if (sameOwner.length > 0) return sameOwner;
+                return mapYakimaCompanionFeatures(spatialData.features);
               }
             }
           }
@@ -1449,7 +1400,7 @@ const factory = function () {
       if (fallbackRes.ok) {
         const fallbackData = await fallbackRes.json();
         if (Array.isArray(fallbackData?.features) && fallbackData.features.length > 0) {
-          return keepSameOwner(mapYakimaCompanionFeatures(fallbackData.features), ownerName);
+          return mapYakimaCompanionFeatures(fallbackData.features);
         }
       }
     } catch (fallbackErr) {
@@ -1543,7 +1494,6 @@ const factory = function () {
     getYakimaAssessorPortalUrl,
     getAssessorPortalUrl,
     detectNearbySameOwnerParcels,
-    ownersMatch,
     aggregateParcelPackage,
     isGisDataStale
   };
