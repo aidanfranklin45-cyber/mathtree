@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase, SUPABASE_URL } from '../../lib/supabase/client';
 import { authJsonHeaders } from '../../lib/supabase/authHeaders';
 import { MonthlyRentReconciliationView } from '../../lib/supabase/types';
@@ -14,13 +14,14 @@ import { EditLeaseModal } from './EditLeaseModal';
 import { OpsSummaryStrip, type RollFilter } from './OpsSummaryStrip';
 import { AttentionInbox } from './AttentionInbox';
 import { buildInboxItems } from '../../lib/operations/attention';
+import { leaseRecoverySummaries, recoveryNoteFor } from '../../lib/operations/portfolioInbox';
 import { RentRollTable } from './RentRollTable';
 import { LeaseDrawer } from './LeaseDrawer';
 import { ProjectedVsActual } from './ProjectedVsActual';
 import { LeaseExpiryLadder } from './LeaseExpiryLadder';
 import { MenuItem, Popover, triggerBtn } from './Popover';
 import { RecoveriesPanel } from './RecoveriesPanel';
-import { summarizeLeaseRecoveries, normalizeRecoveryPrefs, maxLeadDays, DEFAULT_RECOVERY_PREFS, type LeaseRecoverySummary, type RecoveryPrefs, RECOVERY_CATEGORY_LABELS } from '../../lib/operations/recoveries';
+import { normalizeRecoveryPrefs, maxLeadDays, DEFAULT_RECOVERY_PREFS, type RecoveryPrefs } from '../../lib/operations/recoveries';
 import { syncRecoveryItems } from '../../lib/operations/recoveryDb';
 import { isResidentialAsset } from '../../../supabase/functions/_shared/rentIncreaseRules';
 import { buildRowView, type RowHandlers } from './rowStatus';
@@ -46,7 +47,6 @@ export interface OperationsWorkspaceProps {
 
 export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ lockedDealId, renderHeader }) => {
   const locked = !!lockedDealId;
-  const [searchParams, setSearchParams] = useSearchParams();
 
   // Raw database facts (everything below is derived from these on render)
   const [entities, setEntities] = useState<Row[]>(opsCache?.entities ?? []);
@@ -154,23 +154,6 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
   }, []);
 
   useEffect(() => { void load(); }, [load]);
-
-  // Deep link from the Action Center: /operations?action=add-lease&deal_id=...
-  useEffect(() => {
-    if (loading || locked) return; // embedded in a deal screen: its URL belongs to that page
-    // Deep link from a recovery notification: /operations?lease_id=... opens that lease's drawer
-    const linkedLease = searchParams.get('lease_id');
-    if (linkedLease && !searchParams.get('action')) {
-      setSelectedId(linkedLease);
-      setSearchParams({}, { replace: true });
-      return;
-    }
-    if (searchParams.get('action') === 'add-lease') {
-      setAddLeaseDealId(searchParams.get('deal_id'));
-      setAddLeaseOpen(true);
-      setSearchParams({}, { replace: true });
-    }
-  }, [loading, locked, searchParams, setSearchParams]);
 
   const ops = useMemo(
     () => buildOperations({ deals, leases, units, payments, increases, scope, entityId, dealId, activeDate }),
@@ -320,15 +303,10 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
   // Any lease ever recorded (including ended ones) counts as history
   const historyDealIds = useMemo(() => new Set<string>(leases.map((l) => l.deal_id)), [leases]);
 
-  const recoverySummaries = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const out = new Map<string, LeaseRecoverySummary>();
-    for (const l of leases) {
-      if (!l.track_recoveries) continue;
-      out.set(l.id, summarizeLeaseRecoveries(l, recTerms.filter((t) => t.lease_id === l.id) as any, recItems.filter((i) => i.lease_id === l.id) as any, today, { leadDays: recPrefs.leadDays }));
-    }
-    return out;
-  }, [leases, recTerms, recItems, recPrefs]);
+  const recoverySummaries = useMemo(
+    () => leaseRecoverySummaries({ leases, recTerms, recItems, recPrefs }),
+    [leases, recTerms, recItems, recPrefs],
+  );
 
   const views = useMemo(
     () => rows.map((r) => {
@@ -346,11 +324,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
     [rows, payments, increases, period, currentMonthPeriod, isCurrentPeriod, recoverySummaries],
   );
 
-  const recoveryNote = (leaseId: string) => {
-    const s = recoverySummaries.get(leaseId);
-    if (!s || s.overdue === 0) return '';
-    return `${s.overdue} NNN ${s.overdue === 1 ? 'item' : 'items'} overdue${s.next ? ` · ${RECOVERY_CATEGORY_LABELS[s.next.category]} due ${s.next.due_date}` : ''}`;
-  };
+  const recoveryNote = recoveryNoteFor(recoverySummaries);
 
   // One inbox for the portfolio page and each property's Operate tab; the tab is the same list for just its deal
   const inboxItems = useMemo(

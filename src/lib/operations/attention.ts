@@ -162,6 +162,8 @@ export function buildInboxItems(input: InboxInput): InboxItem[] {
     if (noRent > 0) gap('rent', `${plural(noRent, 'lease')} with no rent stated`, 'Rent for these leases is blank, so monthly rent and collections cannot be computed.');
     const noEnd = inForce.filter((l) => !isoDay(String(l.lease_end_date ?? '')) && String(l.term_type ?? '').toLowerCase() !== 'month_to_month').length;
     if (noEnd > 0) gap('end', `${plural(noEnd, 'lease')} with no end date`, 'Without an end date a lease cannot appear on the expiry ladder. Set one, or mark it month-to-month.');
+    const noStart = inForce.filter((l) => !isoDay(String(l.lease_start_date ?? ''))).length;
+    if (noStart > 0) gap('start', `${plural(noStart, 'lease')} with no start date`, 'Without a start date, rent escalations and rent-due dates cannot be scheduled.');
     if (state.collected === null) gap('payments', 'No rent payments recorded', 'Collected rent and actual NOI stay blank until payments are logged.');
     else if (state.collected.annualised === null) gap('payments', `Only ${plural(state.collected.months, 'month')} of rent recorded`, `Collected-rent figures need ${MIN_COLLECTED_MONTHS} months of payments.`);
   }
