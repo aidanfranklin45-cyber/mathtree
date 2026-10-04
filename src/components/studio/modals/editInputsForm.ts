@@ -29,7 +29,7 @@ export function seedForm(deal: DealRecord): Form {
   }
   const appRate = a === 'commercial' || a === 'storage'
     ? (i.targetCapRate ?? i.targetExitCapRate ?? i.appreciationRate ?? 6.5)
-    : (i.appreciationRate ?? 3.5);
+    : (i.appreciationRate ?? 2);
 
   return {
     name: deal.title || '',
@@ -96,7 +96,7 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
   const optional = (v: string) => { const n = parseFloat(v); return v.trim() !== '' && !isNaN(n) ? Math.max(0, n) : null; };
   const annual = optional(f.grossRentAnnual);
   const monthly = optional(f.grossRentMonthly);
-  const app = num(f.appreciation, 3.5);
+  const app = num(f.appreciation, 2);
 
   const o: Record<string, any> = {
     purchasePrice: num(f.price, 0),
