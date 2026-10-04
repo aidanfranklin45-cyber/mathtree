@@ -6,12 +6,14 @@
  * deal's underwriting stays frozen in its baseline. Pure (no database, no UI) so it can be tested.
  */
 
+import { isLeaseInForce, leaseStatusOn } from '@engine/leaseInForce';
+
 type Rec = Record<string, any>;
 
 export interface RentRollSummary {
   tenants: number;
   vacantUnits: number;
-  /** Fixed-term leases already past their end date: not in force, so not underwritten. */
+  /** Fixed-term leases already past their end date: not in force, so not underwritten. (Leases not yet started are left out too.) */
   expiredLeases: number;
   monthlyRent: number;
   annualRent: number;
@@ -42,13 +44,9 @@ export function rentRollToInputs(args: { leases: Rec[]; units: Rec[]; today: str
   const warnings: string[] = [];
 
   const active = args.leases.filter((l) => l && l.is_active !== false);
-  const inForce: Rec[] = [];
-  let expired = 0;
-  for (const l of active) {
-    const end = l.term_type === 'month_to_month' ? '' : day(l.lease_end_date);
-    if (end && end < today) { expired += 1; continue; }
-    inForce.push(l);
-  }
+  const inForce = active.filter((l) => isLeaseInForce(l, today));
+  const expired = active.filter((l) => leaseStatusOn(l, today) === 'ended').length;
+  const notStarted = active.filter((l) => leaseStatusOn(l, today) === 'not_started').length;
 
   inForce.sort((a, b) => natural(String(unitById.get(a.unit_id)?.unit_number ?? a.tenant_name ?? ''), String(unitById.get(b.unit_id)?.unit_number ?? b.tenant_name ?? '')));
 
@@ -97,6 +95,7 @@ export function rentRollToInputs(args: { leases: Rec[]; units: Rec[]; today: str
   if (leases.length === 0) warnings.push('There are no tenants in force in this rent roll yet. Add them in Operations, then come back.');
   if (vacantUnits > 0) warnings.push(`${vacantUnits} vacant ${vacantUnits === 1 ? 'unit earns' : 'units earn'} nothing in the projection. The deal's vacancy setting still applies on top, as general vacancy and credit loss.`);
   if (expired > 0) warnings.push(`${expired} fixed-term ${expired === 1 ? 'lease has' : 'leases have'} already ended and ${expired === 1 ? 'is' : 'are'} left out. Renew or mark ${expired === 1 ? 'it' : 'them'} month to month in the rent roll if the tenant stayed.`);
+  if (notStarted > 0) warnings.push(`${notStarted} ${notStarted === 1 ? 'lease has' : 'leases have'} not started yet and ${notStarted === 1 ? 'is' : 'are'} left out until the start date.`);
   if (monthToMonth > 0) warnings.push(`${monthToMonth} month-to-month ${monthToMonth === 1 ? 'tenant has' : 'tenants have'} no end date, so no lease-expiry assumption applies to ${monthToMonth === 1 ? 'it' : 'them'}.`);
   if (leases.length > 30) warnings.push('This is a large rent roll. The analysis and Monte Carlo will run more slowly than for a small one.');
 

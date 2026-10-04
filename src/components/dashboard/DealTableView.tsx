@@ -206,7 +206,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
               // Cash Flow & Collected vs. Estimated distinction
               const collectedMonthly = collectedMonthlyMap?.get(deal.id);
-              const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
+              const hasCollections = isOwned && collectedMonthly !== undefined;
               const monthlyCashFlowVal = hasCollections
                 ? collectedMonthly
                 : pit.currentCashFlow !== 0

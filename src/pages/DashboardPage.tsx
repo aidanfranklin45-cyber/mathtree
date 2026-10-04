@@ -5,6 +5,7 @@ import { tryComputeDealMetrics } from '../lib/engine/compute';
 import { computePortfolioKpis } from '../lib/portfolio/kpis';
 import { loadPortfolioDeals } from '../lib/portfolio/loadDeals';
 import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
+import { attachPropertyFacts } from '../lib/property/loadFacts';
 import { DealCard } from '../components/dashboard/DealCard';
 import { DealTableView, SortField } from '../components/dashboard/DealTableView';
 import { DealSidePreview } from '../components/dashboard/DealSidePreview';
@@ -69,9 +70,19 @@ const resolveInitialGreeting = (): string => {
 
 export const DashboardPage: React.FC = () => {
   const [deals, setDeals] = useState<DealRecord[]>([]);
+  // Monthly cash flow for owned deals whose figure rests on collected rent; absent (so shown as Estimated) otherwise
+  const collectedMonthlyMap = useMemo(() => {
+    const m = new Map<string, number>();
+    const today = new Date();
+    deals.forEach((d) => {
+      if (d.status !== 'owned') return;
+      const { state } = resolvePointInTimeDealMetrics(d, today);
+      if (state.cashFlow.basis !== 'estimated' && state.cashFlow.value !== null) m.set(d.id, state.cashFlow.value / 12);
+    });
+    return m;
+  }, [deals]);
   const [entities, setEntities] = useState<LegalEntity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collectedMonthlyMap, setCollectedMonthlyMap] = useState<Map<string, number>>(new Map());
 
   // View Mode: Cards Grid vs Table View
   const [viewMode, setViewMode] = useState<'grid' | 'table'>(() => {
@@ -180,41 +191,8 @@ export const DashboardPage: React.FC = () => {
         return d.user_id === user.id || d.is_shared === true;
       });
 
-      setDeals(liveDeals);
-
-      // Load paid payments for owned deals to distinguish Collected vs Estimated
-      const ownedIds = liveDeals.filter((d) => d.status === 'owned').map((d) => d.id);
-      if (ownedIds.length > 0) {
-        try {
-          const { data: payData } = await supabase
-            .from('rent_payments')
-            .select('deal_id, amount_paid, period_month, status')
-            .in('deal_id', ownedIds)
-            .eq('status', 'paid');
-
-          if (payData && payData.length > 0) {
-            const dealPeriods = new Map<string, { latestPeriod: string; amount: number }>();
-            payData.forEach((p: any) => {
-              const cur = dealPeriods.get(p.deal_id);
-              const amt = Number(p.amount_paid) || 0;
-              const period = String(p.period_month || '');
-              if (!cur || period > cur.latestPeriod) {
-                dealPeriods.set(p.deal_id, { latestPeriod: period, amount: amt });
-              } else if (period === cur.latestPeriod) {
-                cur.amount += amt;
-              }
-            });
-
-            const pMap = new Map<string, number>();
-            dealPeriods.forEach((val, dId) => {
-              if (val.amount > 0) pMap.set(dId, val.amount);
-            });
-            setCollectedMonthlyMap(pMap);
-          }
-        } catch (e) {
-          console.warn('[dashboard] could not fetch payments:', e);
-        }
-      }
+      // Owned deals carry their rent roll, payments and expenses so every figure comes from the one property-state calculator
+      setDeals(await attachPropertyFacts(liveDeals));
     } catch (err) {
       console.error('Failed to load portfolio deals:', err);
     } finally {
@@ -605,7 +583,7 @@ export const DashboardPage: React.FC = () => {
       const eng = tryComputeDealMetrics(d);
       const isOwned = d.status === 'owned';
       const colMonthly = collectedMonthlyMap.get(d.id);
-      const hasColl = isOwned && colMonthly !== undefined && colMonthly > 0;
+      const hasColl = isOwned && colMonthly !== undefined;
       const mCf = hasColl
         ? colMonthly
         : pit.currentCashFlow
@@ -736,7 +714,7 @@ export const DashboardPage: React.FC = () => {
               {/* Tile 3: Owned Annual Cash Flow */}
               <div className="bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/90 p-4 rounded-xl transition flex flex-col justify-between">
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Annual Cash Flow</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Annual Cash Flow{portfolioKPIs.ownedCashflowBasis && <span className="ml-1.5 normal-case tracking-normal font-semibold text-slate-500">{portfolioKPIs.ownedCashflowBasis === 'collected' ? 'collected' : portfolioKPIs.ownedCashflowBasis === 'mixed' ? 'collected + estimated' : 'estimated'}</span>}</span>
                   <span className={`text-2xl sm:text-3xl font-black mt-1.5 block tabular-nums font-mono tracking-tight ${
                     portfolioKPIs.ownedCashflow < 0 ? 'text-red-400' : portfolioKPIs.ownedCashflow > 0 ? 'text-emerald-400' : 'text-white'
                   }`}>

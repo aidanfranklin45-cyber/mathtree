@@ -172,7 +172,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   const irrStr = isZeroEq ? 'N/M' : hasIrr ? `${rawIrr.toFixed(1)}%` : '—';
 
   // Cash flow & Collected vs Estimated distinction
-  const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
+  const hasCollections = isOwned && collectedMonthly !== undefined;
   const monthlyCfVal = hasCollections
     ? collectedMonthly
     : pit.currentCashFlow !== 0
