@@ -17,7 +17,6 @@ import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
 import { TransferOwnershipModal } from '../components/dashboard/TransferOwnershipModal';
 import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
-import { EntityManagerModal } from '../components/layout/EntityManagerModal';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import type { DealTopPatch } from '../stores/useDealStore';
 import { recordScenarioRun } from '../lib/scenarios';
@@ -130,7 +129,6 @@ export const DashboardPage: React.FC = () => {
 
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [entitiesOpen, setEntitiesOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
 
@@ -1257,7 +1255,7 @@ export const DashboardPage: React.FC = () => {
         <ProjectWizardModal
           isOpen={isWizardOpen}
           onClose={() => setIsWizardOpen(false)}
-          onManageEntities={() => setEntitiesOpen(true)}
+          onManageEntities={() => window.dispatchEvent(new CustomEvent('mathtree:open-profile'))}
           onProjectCreated={(newProject) => {
             setDeals((prev) => [newProject, ...prev]);
           }}
@@ -1273,14 +1271,6 @@ export const DashboardPage: React.FC = () => {
           onSave={handleSaveEdit}
         />
       )}
-
-      <EntityManagerModal
-        isOpen={entitiesOpen}
-        onClose={() => setEntitiesOpen(false)}
-        onChanged={() => {
-          void loadData();
-        }}
-      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
