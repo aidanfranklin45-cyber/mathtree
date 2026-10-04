@@ -143,12 +143,12 @@ React 18 + Vite + TypeScript + Tailwind, react-router, Chart.js. Pages are lazy 
 | `/`, `/dashboard` | `DashboardPage` | `components/dashboard` (deal cards, `ProjectWizardModal`), portfolio KPIs (`lib/portfolio`) |
 | `/project?id=…&tab=…` | `DealStudioPage` | `components/studio`: `StudioNavbar`, tabs (Overview, ProForma, Property, Debt, Diligence, Sensitivity, Tax), modals (`EditInputsModal`, `RemodelModal`, `ParameterHistoryModal`) |
 | `/compare` | `ComparePage` | `components/compare` (starter, builder strip, Add / Metrics / Filters / Saved panels, matrix, phone cards, charts, what-if scrubber, baseline column). Board settings live in `lib/compare/config.ts` (metrics in `metrics.ts`, saved boards in `savedViews.ts`); a plain visit opens blank |
-| `/operations` | `OperationsPage` | `components/operations` (rent roll, leases, payments, recoveries, CAM, meters) |
+| `/operations` | `OperationsPage` | `components/operations/OperationsWorkspace` (rent roll, leases, payments, recoveries, CAM, meters) across all properties. The same workspace, locked to one deal, is the **Operate** tab of an owned deal on `/project`, so each figure has one code path |
 | `/brief`, `/demo-brief`, `/portfolio-brief` | `DealBriefPage`, `PortfolioBriefPage` | `components/brief`, models built in `lib/export` |
 | `/reconcile` | `ReconcilePage` | Public, token-based |
 | `/login` | `LoginPage` | |
 
-Old `project-<tab>.html` URLs redirect to `/project?tab=<tab>`. Components get numbers from `computeDealMetrics` /
+The deal screen shows a **stage lens** (`src/lib/studio/stageLens.ts`, stage from `status` and `inputs.dealStage`): prospect stages (screening, LOI, due diligence, closing, exited) show the underwriting tabs and no operations; owned deals open on Performance, add Operate, drop Diligence, and keep the analysis tabs. A `?tab=` the stage does not show falls back to the stage's first tab. Old `project-<tab>.html` URLs redirect to `/project?tab=<tab>`. Components get numbers from `computeDealMetrics` /
 `useComputedMetrics` and memoise with `useMemo`; they never read stored metrics.
 
 ## 6. Build, deploy, verify
