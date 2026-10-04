@@ -303,8 +303,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 <input type="number" min="-10" max="30" step="any" placeholder="3" value={form.rentGrowth} onChange={(e) => set('rentGrowth', e.target.value)} className={inp2} />
               </div>
               <div className="space-y-1">
-                <label className={label}>Appreciation / Exit Cap (%)</label>
-                <input type="number" min="0" max="30" step="any" placeholder="2" value={form.appreciation} onChange={(e) => set('appreciation', e.target.value)} className={inp2} />
+                <label className={label}>{asset === 'commercial' || asset === 'storage' ? 'Exit Cap Rate (%)' : 'Annual Appreciation (%)'}</label>
+                <input type="number" min="0" max="30" step="any" placeholder={asset === 'commercial' || asset === 'storage' ? '6.5' : '2'} value={form.appreciation} onChange={(e) => set('appreciation', e.target.value)} className={inp2} />
               </div>
             </div>
           </div>

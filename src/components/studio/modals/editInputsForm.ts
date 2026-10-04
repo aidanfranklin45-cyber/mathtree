@@ -28,7 +28,7 @@ export function seedForm(deal: DealRecord): Form {
     preAnnual = i.grossRentAnnual ?? (preMonthly ? preMonthly * u * 12 : 0);
   }
   const appRate = a === 'commercial' || a === 'storage'
-    ? (i.targetCapRate ?? i.targetExitCapRate ?? i.appreciationRate ?? 6.5)
+    ? (i.targetCapRate ?? i.targetExitCapRate ?? 6.5)
     : (i.appreciationRate ?? 2);
 
   return {
@@ -96,7 +96,8 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
   const optional = (v: string) => { const n = parseFloat(v); return v.trim() !== '' && !isNaN(n) ? Math.max(0, n) : null; };
   const annual = optional(f.grossRentAnnual);
   const monthly = optional(f.grossRentMonthly);
-  const app = num(f.appreciation, 2);
+  const isIncomeValued = a === 'commercial' || a === 'storage';
+  const app = num(f.appreciation, isIncomeValued ? 6.5 : 2);
 
   const o: Record<string, any> = {
     purchasePrice: num(f.price, 0),
@@ -110,9 +111,11 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
     vacancyRate: num(f.vacancyRate, 5),
     rentGrowth: num(f.rentGrowth, 3),
     annualRentGrowth: num(f.rentGrowth, 3),
-    appreciationRate: app,
-    targetCapRate: app,
-    targetExitCapRate: app,
+    // Commercial/storage are valued off NOI and an exit cap rate; residential is valued by appreciation. One form
+    // field feeds only the key its asset class uses, and the other key is left as saved.
+    ...(isIncomeValued
+      ? { targetCapRate: app, targetExitCapRate: app }
+      : { appreciationRate: app }),
     rehabCosts: num(f.rehabCosts, 0),
     rehabBudget: num(f.rehabCosts, 0),
     rehabFinancingMode: f.rehabMode || 'out_of_pocket',

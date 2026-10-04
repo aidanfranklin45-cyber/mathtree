@@ -29,4 +29,14 @@ describe('appreciation default', () => {
     expect(buildInputs({ ...form, appreciation: '0' }, deal).appreciationRate).toBe(0);
     expect(buildInputs({ ...form, appreciation: '' }, deal).appreciationRate).toBe(2);
   });
+  it('residential saves appreciation only; commercial saves exit cap only', () => {
+    const res: any = { asset_class: 'multi-unit', inputs: { targetCapRate: 6.5 } };
+    const r = buildInputs({ ...seedForm(res), appreciation: '2.5' } as any, res);
+    expect(r.appreciationRate).toBe(2.5);
+    expect(r.targetCapRate).toBeUndefined();
+    const com: any = { asset_class: 'commercial', inputs: { targetCapRate: 6.5 } };
+    const c = buildInputs({ ...seedForm(com), appreciation: '7' } as any, com);
+    expect(c.targetCapRate).toBe(7);
+    expect(c.appreciationRate).toBeUndefined();
+  });
 });
