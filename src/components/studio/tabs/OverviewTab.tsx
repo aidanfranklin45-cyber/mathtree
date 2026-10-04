@@ -10,6 +10,7 @@ import { DealCharts } from '../DealCharts';
 import { Link } from 'react-router-dom';
 import { currentLeases } from '../../../lib/leases';
 import { attachPropertyFacts } from '../../../lib/property/loadFacts';
+import { MarketContext } from '../MarketContext';
 
 interface OverviewTabProps {
   deal: DealRecord;
@@ -134,6 +135,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
 
   return (
     <div className="space-y-6">
+      <MarketContext deal={deal} />
       {pit && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 bg-slate-900/40 border border-slate-900 rounded-xl px-3.5 py-2">
           <span className="font-bold uppercase tracking-wider text-slate-500">In-place now</span>
