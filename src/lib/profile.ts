@@ -236,7 +236,7 @@ export async function saveProfile(
   // Fallback: If edge function wasn't reached, update public.profiles directly
   if (!savedSuccessfully && supabaseClient && currentUser && currentUser.id) {
     try {
-      await supabaseClient.from('profiles').upsert({
+      const { error: upsertError } = await supabaseClient.from('profiles').upsert({
         id: currentUser.id,
         full_name: merged.fullName,
         company_name: merged.companyName,
@@ -257,9 +257,16 @@ export async function saveProfile(
         },
         updated_at: new Date().toISOString(),
       });
+      if (upsertError) throw upsertError;
+      savedSuccessfully = true;
     } catch (dbErr) {
       console.error('[profile] Direct database fallback save failed:', dbErr);
     }
+  }
+
+  // Signed-in users must hear about a save that reached neither path (demo visits have no user and stay in memory).
+  if (!savedSuccessfully && currentUser && currentUser.id) {
+    throw new Error('Could not save profile. Check your connection or sign in again.');
   }
 
   return { ...cachedProfile };

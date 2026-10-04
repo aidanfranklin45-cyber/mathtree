@@ -5,6 +5,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
+import { buildShareEmail, pickRecipients, sendShareEmails } from "../_shared/shareNotification.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,56 @@ function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Emails newly added recipients that a property was shared with them. Best effort: any failure is logged and never reaches the caller.
+async function notifyNewShare(
+  dbClient: any,
+  opts: { dealId: string; ownerId: string; ownerEmail: string | null; recipients: Array<string | null | undefined>; permission: "viewer" | "editor"; groupName?: string | null },
+): Promise<void> {
+  try {
+    const apiKey = getEnv("RESEND_API_KEY");
+    if (!apiKey) return;
+    const to = pickRecipients(opts.recipients, opts.ownerEmail);
+    if (to.length === 0) return;
+    const { data: deal } = await dbClient.from("deals").select("title").eq("id", opts.dealId).maybeSingle();
+    const { data: owner } = await dbClient.from("profiles").select("full_name").eq("id", opts.ownerId).maybeSingle();
+    const { subject, html } = buildShareEmail({
+      dealTitle: deal?.title || "",
+      sharerName: owner?.full_name || opts.ownerEmail || "A MathTree user",
+      permission: opts.permission,
+      appUrl: getEnv("APP_URL") || "https://mathtree-app.web.app",
+      groupName: opts.groupName,
+    });
+    const from = getEnv("RESEND_FROM_EMAIL") || "MathTree <onboarding@resend.dev>";
+    await sendShareEmails(apiKey, from, to, { subject, html });
+  } catch (e) {
+    console.warn("[manage-collaboration] share notification failed:", e);
+  }
+}
+
+// The service-role client bypasses RLS, so every deal-scoped action must check ownership itself.
+async function ownsDeal(dbClient: any, dealId: string, userId: string): Promise<boolean> {
+  const { data } = await dbClient.from("deals").select("id").eq("id", dealId).eq("user_id", userId).maybeSingle();
+  return !!data;
+}
+
+function cleanEmails(list: unknown[]): string[] {
+  const out = new Set<string>();
+  for (const e of list) {
+    const v = typeof e === "string" ? e.trim().toLowerCase() : "";
+    if (v && v.includes("@")) out.add(v);
+  }
+  return Array.from(out);
+}
+
+// Updates the existing share row when there is one, else inserts. A plain upsert with no conflict target always inserts, which
+// piles up duplicates for email shares and fails the (deal_id, shared_with_user_id) constraint when a registered user is re-shared.
+async function saveShare(dbClient: any, existingId: string | null | undefined, row: Record<string, unknown>) {
+  if (existingId) {
+    return await dbClient.from("deal_shares").update({ ...row, updated_at: new Date().toISOString() }).eq("id", existingId).select().single();
+  }
+  return await dbClient.from("deal_shares").insert(row).select().single();
 }
 
 export async function handleRequest(req: Request): Promise<Response> {
@@ -143,17 +194,13 @@ export async function handleRequest(req: Request): Promise<Response> {
 
         if (grpError) throw grpError;
 
-        if (members.length > 0) {
-          const rows = members
-            .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-            .filter((e) => e && e.includes("@"))
-            .map((email) => ({
-              group_id: newGroup.id,
-              member_email: email,
-            }));
-
-          if (rows.length > 0) {
-            await dbClient.from("collaborator_group_members").insert(rows);
+        const rows = cleanEmails(members).map((email) => ({ group_id: newGroup.id, member_email: email }));
+        if (rows.length > 0) {
+          const { error: memErr } = await dbClient.from("collaborator_group_members").insert(rows);
+          if (memErr) {
+            // Do not leave a half-built group behind.
+            await dbClient.from("collaborator_groups").delete().eq("id", newGroup.id).eq("user_id", userId);
+            throw memErr;
           }
         }
 
@@ -184,18 +231,24 @@ export async function handleRequest(req: Request): Promise<Response> {
         if (updErr) throw updErr;
 
         if (Array.isArray(members)) {
-          // Replace members
-          await dbClient.from("collaborator_group_members").delete().eq("group_id", groupId);
-          const rows = members
-            .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-            .filter((e) => e && e.includes("@"))
-            .map((email) => ({
-              group_id: groupId,
-              member_email: email,
-            }));
-
-          if (rows.length > 0) {
-            await dbClient.from("collaborator_group_members").insert(rows);
+          // Add the new members first and only then drop the ones that were removed, so a failed insert never empties the group.
+          const emails = cleanEmails(members);
+          if (emails.length > 0) {
+            const { error: addErr } = await dbClient
+              .from("collaborator_group_members")
+              .upsert(emails.map((email) => ({ group_id: groupId, member_email: email })), { onConflict: "group_id,member_email" });
+            if (addErr) throw addErr;
+          }
+          const { data: current, error: curErr } = await dbClient
+            .from("collaborator_group_members")
+            .select("id, member_email")
+            .eq("group_id", groupId);
+          if (curErr) throw curErr;
+          const keep = new Set(emails);
+          const dropIds = (current || []).filter((m: any) => !keep.has(String(m.member_email || "").toLowerCase())).map((m: any) => m.id);
+          if (dropIds.length > 0) {
+            const { error: delErr } = await dbClient.from("collaborator_group_members").delete().in("id", dropIds);
+            if (delErr) throw delErr;
           }
         }
 
@@ -228,6 +281,9 @@ export async function handleRequest(req: Request): Promise<Response> {
         if (!dealId || !targetId) {
           return jsonResponse({ error: "Deal ID and target (group or email) are required" }, 400);
         }
+        if (!(await ownsDeal(dbClient, dealId, userId))) {
+          return jsonResponse({ error: "Only the owner can share this property" }, 403);
+        }
 
         if (shareType === "group") {
           // Verify group ownership
@@ -240,26 +296,42 @@ export async function handleRequest(req: Request): Promise<Response> {
 
           if (!grp) return jsonResponse({ error: "Collaborator group not found" }, 404);
 
-          // Insert or update group deal share
-          const { data: shareRow, error: sErr } = await dbClient
+          const { data: priorGroupShare } = await dbClient
             .from("deal_shares")
-            .upsert({
-              deal_id: dealId,
-              owner_id: userId,
-              group_id: targetId,
-              shared_with_email: null,
-              permission,
-              can_view_scenarios: canViewScenarios,
-            })
-            .select()
-            .single();
+            .select("id")
+            .eq("deal_id", dealId)
+            .eq("group_id", targetId)
+            .maybeSingle();
+
+          // Insert or update group deal share
+          const { data: shareRow, error: sErr } = await saveShare(dbClient, priorGroupShare?.id, {
+            deal_id: dealId,
+            owner_id: userId,
+            group_id: targetId,
+            shared_with_email: null,
+            permission,
+            can_view_scenarios: canViewScenarios,
+          });
 
           if (sErr) throw sErr;
+          if (!priorGroupShare) {
+            const { data: members } = await dbClient
+              .from("collaborator_group_members")
+              .select("member_email")
+              .eq("group_id", targetId);
+            await notifyNewShare(dbClient, {
+              dealId, ownerId: userId, ownerEmail: userEmail, permission,
+              recipients: (members || []).map((m: any) => m.member_email), groupName: grp.name,
+            });
+          }
           return jsonResponse({ success: true, share: shareRow, message: `Deal shared with group "${grp.name}"` });
         } else {
           // Direct email share
           const cleanEmail = targetId.trim().toLowerCase();
           if (!cleanEmail.includes("@")) return jsonResponse({ error: "Valid email required" }, 400);
+          if (cleanEmail === (userEmail || "").trim().toLowerCase()) {
+            return jsonResponse({ error: "You already own this property" }, 400);
+          }
 
           // Look up user_id if already registered
           let matchedUserId: string | null = null;
@@ -272,21 +344,36 @@ export async function handleRequest(req: Request): Promise<Response> {
             if (profile) matchedUserId = profile.id;
           } catch {}
 
-          const { data: shareRow, error: sErr } = await dbClient
+          let { data: priorEmailShare } = await dbClient
             .from("deal_shares")
-            .upsert({
-              deal_id: dealId,
-              owner_id: userId,
-              group_id: null,
-              shared_with_email: cleanEmail,
-              shared_with_user_id: matchedUserId,
-              permission,
-              can_view_scenarios: canViewScenarios,
-            })
-            .select()
-            .single();
+            .select("id")
+            .eq("deal_id", dealId)
+            .eq("shared_with_email", cleanEmail)
+            .maybeSingle();
+          if (!priorEmailShare && matchedUserId) {
+            // Older shares may carry only the user id.
+            ({ data: priorEmailShare } = await dbClient
+              .from("deal_shares")
+              .select("id")
+              .eq("deal_id", dealId)
+              .eq("shared_with_user_id", matchedUserId)
+              .maybeSingle());
+          }
+
+          const { data: shareRow, error: sErr } = await saveShare(dbClient, priorEmailShare?.id, {
+            deal_id: dealId,
+            owner_id: userId,
+            group_id: null,
+            shared_with_email: cleanEmail,
+            shared_with_user_id: matchedUserId,
+            permission,
+            can_view_scenarios: canViewScenarios,
+          });
 
           if (sErr) throw sErr;
+          if (!priorEmailShare) {
+            await notifyNewShare(dbClient, { dealId, ownerId: userId, ownerEmail: userEmail, permission, recipients: [cleanEmail] });
+          }
           return jsonResponse({ success: true, share: shareRow, message: `Deal shared with ${cleanEmail}` });
         }
       }
@@ -301,7 +388,9 @@ export async function handleRequest(req: Request): Promise<Response> {
         if (shareId) {
           query = query.eq("id", shareId);
         } else if (dealId && targetId) {
-          query = query.eq("deal_id", dealId).or(`group_id.eq.${targetId},shared_with_email.eq.${targetId}`);
+          // targetId is a group uuid or an email; reject anything else so it cannot add filter clauses to the .or() string.
+          if (!/^[A-Za-z0-9@._+-]+$/.test(targetId)) return jsonResponse({ error: "Invalid target" }, 400);
+          query = query.eq("deal_id", dealId).or(`group_id.eq.${targetId},shared_with_email.eq.${targetId.toLowerCase()}`);
         } else {
           return jsonResponse({ error: "Share ID or Deal & Target ID required" }, 400);
         }
@@ -311,10 +400,54 @@ export async function handleRequest(req: Request): Promise<Response> {
         return jsonResponse({ success: true, message: "Deal access revoked" });
       }
 
+      // 6b. CHANGE A COLLABORATOR'S PERMISSION LEVEL (owner only)
+      case "update_share": {
+        const shareId = (body.share_id as string) || (body.shareId as string);
+        const permission = body.permission as string;
+        if (!shareId || (permission !== "viewer" && permission !== "editor")) {
+          return jsonResponse({ error: "share_id and permission (viewer | editor) are required" }, 400);
+        }
+        const { data: updated, error: updErr } = await dbClient
+          .from("deal_shares")
+          .update({ permission, updated_at: new Date().toISOString() })
+          .eq("id", shareId)
+          .eq("owner_id", userId)
+          .select()
+          .maybeSingle();
+        if (updErr) throw updErr;
+        if (!updated) return jsonResponse({ error: "Share not found" }, 404);
+        return jsonResponse({ success: true, share: updated });
+      }
+
+      // 6c. TRANSFER DEAL OWNERSHIP (current owner only). Runs rpc_transfer_deal_ownership as the caller (their JWT, not the
+      // service role), so the database function sees auth.uid() and enforces owner-only, recipient-exists, etc. atomically.
+      case "transfer_ownership": {
+        const dealId = (body.deal_id as string) || (body.dealId as string);
+        const recipientEmail = ((body.recipient_email as string) || (body.target_id as string) || "").trim();
+        if (!dealId || !recipientEmail) {
+          return jsonResponse({ error: "deal_id and recipient_email are required" }, 400);
+        }
+        const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader || "" } },
+        });
+        const { data: result, error: rpcErr } = await userClient.rpc("rpc_transfer_deal_ownership", {
+          p_deal_id: dealId,
+          p_recipient_email: recipientEmail,
+        });
+        if (rpcErr) {
+          // The database function raises a short code as the message (e.g. recipient_not_found).
+          return jsonResponse({ success: false, error: rpcErr.message, code: rpcErr.code }, 400);
+        }
+        return jsonResponse({ success: true, ...(result as Record<string, unknown>) });
+      }
+
       // 7. GET SHARES FOR A SPECIFIC DEAL
       case "get_deal_shares": {
         const dealId = (body.deal_id as string) || (body.dealId as string) || url.searchParams.get("deal_id");
         if (!dealId) return jsonResponse({ error: "deal_id parameter required" }, 400);
+        if (!(await ownsDeal(dbClient, dealId, userId))) {
+          return jsonResponse({ error: "Only the owner can view this property's shares" }, 403);
+        }
 
         const { data: shares, error: shErr } = await dbClient
           .from("deal_shares")

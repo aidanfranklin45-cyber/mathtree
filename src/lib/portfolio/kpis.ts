@@ -11,6 +11,8 @@ export interface PortfolioKpis {
   ownedDebt: number;
   ownedEquity: number;
   ownedCashflow: number;
+  /** Whether the owned cash flow rests on collected rent (`collected`), the forecast (`estimated`), or a mix of owned deals. Null with none. */
+  ownedCashflowBasis: 'collected' | 'estimated' | 'mixed' | null;
   ownedLtv: number;
   avgCoc: number;
   pipelineVal: number;
@@ -25,6 +27,7 @@ export function computePortfolioKpis(deals: DealRecord[], today: Date = new Date
   let ownedDebt = 0;
   let ownedEquity = 0;
   let ownedCashflow = 0;
+  const bases = new Set<string>();
   let weightedCocSum = 0;
 
   ownedDeals.forEach((d) => {
@@ -33,6 +36,7 @@ export function computePortfolioKpis(deals: DealRecord[], today: Date = new Date
     ownedDebt += pit.currentDebt;
     ownedEquity += pit.currentEquity;
     ownedCashflow += pit.currentCashFlow;
+    bases.add(pit.state.cashFlow.basis === 'estimated' ? 'estimated' : 'collected');
     if (pit.currentEquity > 0) {
       weightedCocSum += (pit.currentCashFlow / pit.currentEquity) * pit.currentEquity;
     }
@@ -64,6 +68,7 @@ export function computePortfolioKpis(deals: DealRecord[], today: Date = new Date
     ownedDebt: Math.round(ownedDebt),
     ownedEquity: Math.round(ownedEquity),
     ownedCashflow: Math.round(ownedCashflow),
+    ownedCashflowBasis: bases.size === 0 ? null : bases.size > 1 ? 'mixed' : (bases.has('collected') ? 'collected' : 'estimated'),
     ownedLtv: Math.round(ownedLtv * 10) / 10,
     avgCoc: Math.round(avgCoc * 10) / 10,
     pipelineVal: Math.round(pipelineVal),

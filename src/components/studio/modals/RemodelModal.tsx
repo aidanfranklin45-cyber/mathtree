@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { DealInputs, DealRecord } from '../../../lib/math/types';
 import {
@@ -49,6 +49,7 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const downOnBackdrop = useRef(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -106,7 +107,10 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
   const missing = draft ? missingForPlan(draft) : [];
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}>
+    // Close only when the press began on the backdrop too: selecting text in a field and releasing outside the card must not close it
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-sm"
+      onMouseDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={(e) => { if (downOnBackdrop.current && e.target === e.currentTarget) onClose(); downOnBackdrop.current = false; }}>
       <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between p-4 border-b border-slate-800">
           <div>

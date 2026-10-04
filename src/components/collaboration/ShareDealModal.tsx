@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import type { DealRecord } from '../../lib/math/types';
+import { TransferOwnershipModal } from '../dashboard/TransferOwnershipModal';
 import { fetchDealShares, invokeCollaboration, type DealShareRow } from '../../lib/collaborationEdge';
 
 interface Props {
@@ -18,6 +19,7 @@ export const ShareDealModal: React.FC<Props> = ({ deal, onClose, onChanged }) =>
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transferTo, setTransferTo] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (deal) setShares(await fetchDealShares(deal.id));
@@ -54,6 +56,19 @@ export const ShareDealModal: React.FC<Props> = ({ deal, onClose, onChanged }) =>
   const remove = async (shareId: string) => {
     if (!window.confirm("Remove this collaborator's access to the deal?")) return;
     await invokeCollaboration('revoke_share', { share_id: shareId });
+    await load();
+    onChanged?.();
+  };
+
+  const changeLevel = async (sh: DealShareRow, level: string) => {
+    if (level === 'transfer') {
+      if (sh.shared_with_email) setTransferTo(sh.shared_with_email);
+      return;
+    }
+    if (level === sh.permission) return;
+    setError(null);
+    const res = await invokeCollaboration<{ success?: boolean; error?: string }>('update_share', { share_id: sh.id, permission: level });
+    if (!res || res.success === false || res.error) setError(`Could not change permission: ${res?.error ?? 'no response from server'}`);
     await load();
     onChanged?.();
   };
@@ -132,10 +147,13 @@ export const ShareDealModal: React.FC<Props> = ({ deal, onClose, onChanged }) =>
                     <span className="font-bold text-white">
                       {sh.collaborator_groups?.name || sh.group_name ? `👥 ${sh.collaborator_groups?.name || sh.group_name}` : `✉️ ${sh.shared_with_email || 'Direct Collaborator'}`}
                     </span>
-                    {sh.permission === 'editor'
-                      ? <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">Editor</span>
-                      : <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">Viewer</span>}
                   </div>
+                  <select value={sh.permission} onChange={(e) => { void changeLevel(sh, e.target.value); }} aria-label="Permission level"
+                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-[11px] text-white font-semibold focus:outline-none focus:border-cyan-500">
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                    {sh.shared_with_email && <option value="transfer">Transfer ownership…</option>}
+                  </select>
                   <div className="text-[10px] text-slate-400 font-mono">Access granted: {new Date(sh.created_at).toLocaleDateString()}</div>
                 </div>
                 <button type="button" onClick={() => remove(sh.id)}
@@ -154,6 +172,8 @@ export const ShareDealModal: React.FC<Props> = ({ deal, onClose, onChanged }) =>
           <button type="button" onClick={onClose} className="px-4 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition">Done</button>
         </div>
       </div>
+      <TransferOwnershipModal deal={transferTo ? deal : null} initialEmail={transferTo || undefined}
+        onClose={() => setTransferTo(null)} onTransferred={() => { setTransferTo(null); onChanged?.(); onClose(); }} />
     </div>
   );
 };

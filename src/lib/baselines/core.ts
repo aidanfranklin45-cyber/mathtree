@@ -238,6 +238,19 @@ function expectedForMonth(baseline: Pick<BaselineRow, 'metrics_snapshot'>, year:
   return income / months;
 }
 
+/** Billed and received rent per month (YYYY-MM). Only paid and part-paid rows count as received. */
+export function paymentsByMonth(payments: PaymentLite[]): Map<string, { due: number; paid: number }> {
+  const byMonth = new Map<string, { due: number; paid: number }>();
+  for (const p of payments) {
+    const key = String(p.period_month).slice(0, 7);
+    const cur = byMonth.get(key) ?? { due: 0, paid: 0 };
+    cur.due += n(p.amount_due);
+    if (p.status === 'paid' || p.status === 'partial') cur.paid += n(p.amount_paid);
+    byMonth.set(key, cur);
+  }
+  return byMonth;
+}
+
 export function compareToBaseline(args: {
   baseline: BaselineRow;
   live: DealMetrics;
@@ -293,14 +306,7 @@ export function compareToBaseline(args: {
   ].map((r) => (replay && (r.key === 'irr' || r.key === 'em') ? { ...r, replayed: true } : r)).filter((r) => r.expected !== null || r.current !== null);
 
   const contractualNow = leases.filter((l) => l.is_active).reduce((s, l) => s + n(l.monthly_rent), 0);
-  const byMonth = new Map<string, { due: number; paid: number }>();
-  for (const p of payments) {
-    const key = String(p.period_month).slice(0, 7);
-    const cur = byMonth.get(key) ?? { due: 0, paid: 0 };
-    cur.due += n(p.amount_due);
-    if (p.status === 'paid' || p.status === 'partial') cur.paid += n(p.amount_paid);
-    byMonth.set(key, cur);
-  }
+  const byMonth = paymentsByMonth(payments);
 
   const ym = (y: number, m1: number) => `${y}-${String(m1).padStart(2, '0')}`;
   const monthRow = (y: number, m1: number): MonthRow => {

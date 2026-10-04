@@ -206,6 +206,8 @@ export interface DealRecord {
   primary_apn?: string;
   closing_date?: string;
   inputs: DealInputs;
+  /** Rent roll, payments and expense rows for an owned deal (loaded facts, never stored); read by resolvePointInTimeDealMetrics. */
+  property_facts?: import('../property/types').PropertyFacts;
   metrics?: DealMetrics;
   created_at?: string;
   updated_at?: string;

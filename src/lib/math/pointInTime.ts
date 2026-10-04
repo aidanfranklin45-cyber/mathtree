@@ -1,6 +1,8 @@
 import type { DealRecord, DealMetrics } from './types';
 import { computeDealMetrics } from '../engine/compute';
 import { getMonthlyAmortization } from '../engine';
+import { resolvePropertyState } from '../property/state';
+import type { PropertyFacts, PropertyState } from '../property/types';
 
 /** Engine-derived metrics for a deal (never stored). Null only if the engine cannot evaluate the inputs. */
 function engineMetrics(deal: DealRecord | Record<string, any>): Record<string, any> | null {
@@ -26,6 +28,9 @@ export interface PointInTimeMetrics {
   monthlyPayment: number;
   accumulatedPrincipal: number;
   holdYear: number;
+  /** What each headline figure rests on (estimated forecast, or collected rent); read it before presenting a number as actual. */
+  state: PropertyState;
+  initialCashInvested?: number;
 }
 
 export interface MonthlyAmortizationEntry {
@@ -48,10 +53,15 @@ export interface MonthlyAmortizationEntry {
  *
  * Dynamically computes loan amortization, principal paydown, continuous property appreciation,
  * and built equity in-memory based on elapsed time between the deal's closingDate and targetDate.
+ *
+ * Income figures come from `resolvePropertyState`. Pass the deal's `facts` (leases, units, rent payments and expense rows; defaults to the deal's `property_facts`) and an owned deal's
+ * NOI and cash flow use the rent actually collected; without them (or without enough history) they stay the underwriting forecast,
+ * and `state` says which.
  */
 export function resolvePointInTimeDealMetrics(
   deal: DealRecord | Record<string, any>,
   targetDate: Date = new Date(),
+  facts: PropertyFacts | null = (deal as any).property_facts ?? null,
 ): PointInTimeMetrics {
   const isOwned = deal.status === 'owned';
   const inp = deal.inputs || {};
@@ -59,17 +69,27 @@ export function resolvePointInTimeDealMetrics(
 
   if (!isOwned) {
     const em = engineMetrics(deal);
-    const eq = Number(em?.initialCashInvested ?? (price * 0.25)) || 0;
-    const debt = Number(em?.loanAmount ?? Math.max(0, price - eq)) || 0;
+    const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+    const baseLoanAmount =
+      em && em.loanAmount !== undefined && em.loanAmount !== null
+        ? Number(em.loanAmount) || 0
+        : downPct === 0
+        ? price
+        : Math.max(0, price * (1 - downPct / 100));
+    const debt = Number(em?.loanAmount ?? baseLoanAmount) || 0;
+    // Property equity is asset value minus outstanding debt; closing costs / fees are transaction expenses
+    const eq = Math.max(0, price - debt);
     const cf = Number(em?.year1Cashflow ?? 0) || 0;
     const irr = Number(em?.irr ?? 0) || 0;
     const noi = Number(em?.noi ?? 0) || 0;
     const debtService = Number(em?.annualDebtService ?? 0) || 0;
+    const initialCash = Number(em?.initialCashInvested ?? eq) || eq;
 
     return {
       currentVal: price,
       currentDebt: debt,
       currentEquity: eq,
+      initialCashInvested: initialCash,
       currentCashFlow: cf,
       currentNoi: noi,
       currentDebtService: debtService,
@@ -81,6 +101,12 @@ export function resolvePointInTimeDealMetrics(
       monthlyPayment: debtService > 0 ? debtService / 12 : 0,
       accumulatedPrincipal: 0,
       holdYear: 0,
+      state: resolvePropertyState({
+        deal,
+        facts: null,
+        asOf: targetDate,
+        estimate: { value: price, noi, operatingExpenses: null, debtService, cashFlow: cf },
+      }),
     };
   }
 
@@ -136,7 +162,7 @@ export function resolvePointInTimeDealMetrics(
 
   // Exact Month-by-Month Appreciation
   const appRate = parseFloat(
-    inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0),
+    inp.appreciationRate !== undefined && inp.appreciationRate !== '' ? inp.appreciationRate : 2.0,
   );
   const currentVal = price > 0 ? price * Math.pow(1 + appRate / 100, monthsElapsed / 12) : price;
   const currentEquity = Math.max(0, currentVal - currentDebt);
@@ -156,12 +182,25 @@ export function resolvePointInTimeDealMetrics(
   const currentDebtService = monthlyPayment * 12;
   const irr = Number(em?.irr ?? 0) || 0;
 
+  const state = resolvePropertyState({
+    deal,
+    facts,
+    asOf: targetDate,
+    estimate: {
+      value: currentVal,
+      noi: currentNoi,
+      operatingExpenses: Number.isFinite(Number(currentProj.operatingExpenses)) && currentProj.operatingExpenses != null ? Number(currentProj.operatingExpenses) : null,
+      debtService: currentDebtService,
+      cashFlow: currentCashFlow,
+    },
+  });
+
   return {
     currentVal,
     currentDebt,
     currentEquity,
-    currentCashFlow,
-    currentNoi,
+    currentCashFlow: state.cashFlow.value ?? currentCashFlow,
+    currentNoi: state.noi.value ?? currentNoi,
     currentDebtService,
     irr,
     ltv,
@@ -171,6 +210,7 @@ export function resolvePointInTimeDealMetrics(
     monthlyPayment,
     accumulatedPrincipal,
     holdYear: yearOffset + 1,
+    state,
   };
 }
 
@@ -190,7 +230,7 @@ export function generateMonthlyAmortizationSchedule(
 
   const price = Number(em.purchasePrice) || parseFloat(deal.purchase_price || inp.purchasePrice || 0) || 0;
   const termYears = parseFloat(inp.loanTerm || inp.loanTermYears || inp.amortizationYears || 30);
-  const appRate = parseFloat(inp.appreciationRate !== undefined ? inp.appreciationRate : 3.0);
+  const appRate = parseFloat(inp.appreciationRate !== undefined && inp.appreciationRate !== '' ? inp.appreciationRate : 2.0);
 
   let baseDate = new Date();
   const closeVal = inp.closingDate || inp.loiDate || deal.closing_date;

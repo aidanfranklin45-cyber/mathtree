@@ -115,7 +115,7 @@ export const PropertyTab: React.FC<PropertyTabProps> = ({ deal, onPatchDeal }) =
     if (companionsChecked.current === key) return;
     companionsChecked.current = key;
     let live = true;
-    (AddressService as any).detectNearbySameOwnerParcels(propApn, owner).then((companions: any[]) => {
+    (AddressService as any).detectNearbySameOwnerParcels(propApn, owner, raw).then((companions: any[]) => {
       if (!live || !companions || companions.length === 0) return;
       const primary = {
         ...raw, apn: propApn, formattedApn, address: propAddress, owner,
