@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { DealRecord } from '../../lib/math/types';
-import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { resolvePointInTimeDealMetrics } from '../../lib/math/pointInTime';
+import { getMonthlyAmortization } from '../../lib/engine';
 import { formatCurrency } from '../../lib/format';
-import { TrendingUp, Landmark, DollarSign, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { TrendingUp, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 Chart.register(...registerables);
 
@@ -18,30 +18,77 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
-  // Focus on owned deals for the equity story, falling back to all deals if no owned deals
+  // Focus on owned deals for the wealth trajectory, falling back to all deals if no owned deals
   const targetDeals = useMemo(() => {
     const owned = deals.filter((d) => d.status === 'owned');
     return owned.length > 0 ? owned : deals;
   }, [deals]);
 
-  // Aggregate 10-year trajectory across all target deals
+  // Aggregate continuous forward 10-year trajectory starting strictly from TODAY
   const trajectory = useMemo(() => {
-    const currentYear = new Date().getFullYear();
     const today = new Date();
+    const currentYear = today.getFullYear();
 
-    // Year 0 (today) point-in-time facts
+    // 1. Calculate Point-in-Time facts for each deal TODAY
+    const dealStates = targetDeals.map((deal) => {
+      const pit = resolvePointInTimeDealMetrics(deal, today);
+      const inp = (deal.inputs || {}) as Record<string, any>;
+
+      const price = Number(deal.purchase_price || inp.purchasePrice || inp.price || 0);
+      const appRate = Number(
+        inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0),
+      );
+      const termYears = Number(inp.loanTerm || inp.loanTermYears || inp.amortizationYears || 30);
+      const rate = Number(inp.interestRate ?? 6.5);
+      const baseLoan = pit.baseLoanAmount || 0;
+      const monthsElapsed = pit.monthsElapsed || 0;
+
+      // Pre-generate extended 10-year forward amortization schedule (monthsElapsed + 120 months)
+      let amortRows: any[] = [];
+      if (baseLoan > 0 && termYears > 0) {
+        try {
+          amortRows = getMonthlyAmortization(baseLoan, rate, termYears, {
+            totalMonths: monthsElapsed + 121,
+            financingType: inp.financingType,
+            interestOnlyYears: inp.interestOnlyYears,
+            armInitialYears: inp.armInitialYears,
+            armAdjustmentRate: inp.armAdjustmentRate,
+            armRateCap: inp.armRateCap,
+          });
+        } catch {
+          amortRows = [];
+        }
+      }
+
+      return {
+        deal,
+        pit,
+        price,
+        appRate,
+        monthsElapsed,
+        amortRows,
+        currentVal: pit.currentVal,
+        currentDebt: pit.currentDebt,
+        currentNoi: pit.currentNoi,
+        currentDebtService: pit.currentDebtService,
+        currentCashFlow: pit.currentCashFlow,
+      };
+    });
+
+    // 2. Year 0 (Today) exact roll-up
     let y0Val = 0;
     let y0Debt = 0;
-    let y0Eq = 0;
     let y0Cf = 0;
+    let y0Noi = 0;
 
-    targetDeals.forEach((d) => {
-      const pit = resolvePointInTimeDealMetrics(d, today);
-      y0Val += pit.currentVal;
-      y0Debt += pit.currentDebt;
-      y0Eq += pit.currentEquity;
-      y0Cf += pit.currentCashFlow;
+    dealStates.forEach((ds) => {
+      y0Val += ds.currentVal;
+      y0Debt += ds.currentDebt;
+      y0Cf += ds.currentCashFlow;
+      y0Noi += ds.currentNoi;
     });
+
+    const y0Eq = Math.max(0, y0Val - y0Debt);
 
     const years = [
       {
@@ -52,39 +99,41 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
         debtBalance: Math.round(y0Debt),
         netEquity: Math.round(y0Eq),
         cashFlow: Math.round(y0Cf),
-        noi: 0,
+        noi: Math.round(y0Noi),
       },
     ];
 
-    // Compute years 1 to 10 from engine projections
-    const dealsMetrics = targetDeals.map((d) => tryComputeDealMetrics(d));
-
+    // 3. Forward Years 1 to 10 strictly progressing from Today
     for (let yr = 1; yr <= 10; yr++) {
       let yrVal = 0;
       let yrDebt = 0;
-      let yrCf = 0;
       let yrNoi = 0;
+      let yrDebtService = 0;
 
-      dealsMetrics.forEach((m, idx) => {
-        const deal = targetDeals[idx];
-        const proj = m?.projections?.[yr - 1];
+      dealStates.forEach((ds) => {
+        // Continuous appreciation: Current Value compounded forward annually
+        const futureVal = ds.currentVal * Math.pow(1 + ds.appRate / 100, yr);
+        yrVal += futureVal;
 
-        if (proj) {
-          yrVal += Number(proj.propertyValue) || 0;
-          yrDebt += Number(proj.endingLoanBalance ?? proj.loanBalanceRemaining) || 0;
-          yrCf += Number(proj.cashFlow ?? proj.netCashFlow) || 0;
-          yrNoi += Number(proj.netOperatingIncome) || 0;
-        } else {
-          // If no projections, carry forward baseline with 3% appreciation and steady debt
-          const pit = resolvePointInTimeDealMetrics(deal, today);
-          const compounded = pit.currentVal * Math.pow(1.03, yr);
-          yrVal += compounded;
-          yrDebt += pit.currentDebt;
-          yrCf += pit.currentCashFlow;
+        // Amortization: Debt balance at (monthsElapsed + yr * 12)
+        const targetMonthIdx = ds.monthsElapsed + yr * 12 - 1;
+        let futureDebt = ds.currentDebt;
+        if (ds.amortRows.length > targetMonthIdx && targetMonthIdx >= 0) {
+          futureDebt = Number(ds.amortRows[targetMonthIdx]?.endingBalance ?? 0);
+        } else if (ds.currentDebt > 0) {
+          // Standard principal paydown fallback
+          futureDebt = Math.max(0, ds.currentDebt - (ds.currentDebt * 0.025 * yr));
         }
+        yrDebt += futureDebt;
+
+        // Operational cash flow forward run-rate
+        const futureNoi = ds.currentNoi * Math.pow(1.025, yr);
+        yrNoi += futureNoi;
+        yrDebtService += ds.currentDebtService;
       });
 
       const yrEq = Math.max(0, yrVal - yrDebt);
+      const yrCf = yrNoi - yrDebtService;
 
       years.push({
         yearIndex: yr,
@@ -129,8 +178,8 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
     if (!ctx) return;
 
     // Gradient for Net Equity fill
-    const equityGradient = ctx.createLinearGradient(0, 0, 0, 260);
-    equityGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+    const equityGradient = ctx.createLinearGradient(0, 0, 0, 180);
+    equityGradient.addColorStop(0, 'rgba(16, 185, 129, 0.30)');
     equityGradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.08)');
     equityGradient.addColorStop(1, 'rgba(16, 185, 129, 0.00)');
 
@@ -144,14 +193,14 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
               data: trajectory.map((t) => t.netEquity),
               borderColor: '#10b981',
               backgroundColor: equityGradient,
-              borderWidth: 3,
+              borderWidth: 2.5,
               tension: 0.35,
               fill: true,
               pointBackgroundColor: '#10b981',
               pointBorderColor: '#0f172a',
               pointBorderWidth: 2,
-              pointRadius: 4,
-              pointHoverRadius: 6,
+              pointRadius: 3,
+              pointHoverRadius: 5,
             },
             {
               label: 'Gross Asset Value',
@@ -172,15 +221,15 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
               data: trajectory.map((t) => t.debtBalance),
               borderColor: '#94a3b8',
               backgroundColor: 'transparent',
-              borderWidth: 2,
-              borderDash: [5, 5],
+              borderWidth: 1.5,
+              borderDash: [4, 4],
               tension: 0.35,
               fill: false,
               pointBackgroundColor: '#94a3b8',
               pointBorderColor: '#0f172a',
               pointBorderWidth: 2,
-              pointRadius: 3,
-              pointHoverRadius: 5,
+              pointRadius: 2.5,
+              pointHoverRadius: 4,
             },
           ]
         : [
@@ -199,10 +248,10 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
               data: trajectory.map((t) => t.cashFlow),
               borderColor: '#10b981',
               backgroundColor: 'rgba(16, 185, 129, 0.25)',
-              borderWidth: 3,
+              borderWidth: 2.5,
               tension: 0.3,
               fill: true,
-              pointRadius: 4,
+              pointRadius: 3,
             },
           ];
 
@@ -222,22 +271,22 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
             align: 'end',
             labels: {
               color: '#94a3b8',
-              font: { family: 'Plus Jakarta Sans', weight: 600, size: 11 },
-              boxWidth: 12,
-              boxHeight: 12,
+              font: { family: 'Plus Jakarta Sans', weight: 600, size: 10 },
+              boxWidth: 10,
+              boxHeight: 10,
               usePointStyle: true,
               pointStyle: 'circle',
             },
           },
           tooltip: {
-            padding: 12,
+            padding: 10,
             backgroundColor: '#0f172a',
             borderColor: '#334155',
             borderWidth: 1,
             titleColor: '#f8fafc',
             bodyColor: '#cbd5e1',
-            titleFont: { family: 'Plus Jakarta Sans', weight: 'bold', size: 12 },
-            bodyFont: { family: 'Plus Jakarta Sans', size: 11 },
+            titleFont: { family: 'Plus Jakarta Sans', weight: 'bold', size: 11 },
+            bodyFont: { family: 'Plus Jakarta Sans', size: 10 },
             callbacks: {
               label: (ctx) => {
                 const val = ctx.parsed.y;
@@ -248,7 +297,7 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
         },
         scales: {
           x: {
-            grid: { color: 'rgba(51, 65, 85, 0.2)' },
+            grid: { color: 'rgba(51, 65, 85, 0.15)' },
             ticks: {
               color: '#64748b',
               font: { family: 'Plus Jakarta Sans', weight: 500, size: 10 },
@@ -256,7 +305,7 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
             },
           },
           y: {
-            grid: { color: 'rgba(51, 65, 85, 0.2)' },
+            grid: { color: 'rgba(51, 65, 85, 0.15)' },
             ticks: {
               color: '#64748b',
               font: { family: 'Plus Jakarta Sans', weight: 500, size: 10 },
@@ -284,54 +333,54 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
 
   return (
     <div className="bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-emerald-950/20 border border-slate-800/80 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm transition-all duration-200">
-      {/* Top Banner & Story Metrics */}
-      <div className="p-4 sm:p-5 border-b border-slate-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-1">
+      {/* Top Banner & Story Metrics - Compact Height */}
+      <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-slate-800/80 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="space-y-0.5">
           <div className="flex items-center space-x-2">
             <span className="p-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="w-3.5 h-3.5" />
             </span>
-            <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center space-x-2">
+            <h3 className="text-xs sm:text-sm font-extrabold text-white tracking-tight flex items-center space-x-1.5">
               <span>Portfolio Wealth Creation & Equity Trajectory</span>
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <Sparkles className="w-3 h-3 text-emerald-400" />
             </h3>
           </div>
-          <p className="text-xs text-slate-400">
-            10-year outlook showing how contractual loan paydown and property appreciation expand net equity over time.
+          <p className="text-[11px] text-slate-400">
+            10-year projection of contractual debt amortization and compound asset appreciation.
           </p>
         </div>
 
         {/* Milestone Story Badges */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl">
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">Current Net Equity</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg">
+            <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">Today's Equity</span>
             <span className="text-xs font-black text-white font-mono tabular-nums">
               {formatCurrency(y0.netEquity)}
             </span>
           </div>
 
-          <div className="bg-slate-950/80 border border-emerald-900/40 px-3 py-1.5 rounded-xl">
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">5-Yr Projected Equity</span>
-            <div className="flex items-center space-x-1.5">
+          <div className="bg-slate-950/80 border border-emerald-900/40 px-2.5 py-1 rounded-lg">
+            <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">5-Yr Equity</span>
+            <div className="flex items-center space-x-1">
               <span className="text-xs font-black text-emerald-400 font-mono tabular-nums">
                 {formatCurrency(y5.netEquity)}
               </span>
               {eq5GrowthPct > 0 && (
-                <span className="text-[10px] font-bold text-emerald-400 font-mono">
+                <span className="text-[9px] font-bold text-emerald-400 font-mono">
                   (+{eq5GrowthPct.toFixed(0)}%)
                 </span>
               )}
             </div>
           </div>
 
-          <div className="bg-slate-950/80 border border-emerald-800/50 px-3 py-1.5 rounded-xl hidden md:block">
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">10-Yr Projected Equity</span>
-            <div className="flex items-center space-x-1.5">
+          <div className="bg-slate-950/80 border border-emerald-800/50 px-2.5 py-1 rounded-lg hidden md:block">
+            <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">10-Yr Equity</span>
+            <div className="flex items-center space-x-1">
               <span className="text-xs font-black text-emerald-300 font-mono tabular-nums">
                 {formatCurrency(y10.netEquity)}
               </span>
               {eq10GrowthPct > 0 && (
-                <span className="text-[10px] font-bold text-emerald-400 font-mono">
+                <span className="text-[9px] font-bold text-emerald-400 font-mono">
                   (+{eq10GrowthPct.toFixed(0)}%)
                 </span>
               )}
@@ -339,8 +388,8 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
           </div>
 
           {monthlyPaydownVelocity > 0 && (
-            <div className="bg-slate-950/80 border border-cyan-900/40 px-3 py-1.5 rounded-xl hidden xl:block">
-              <span className="text-[9px] uppercase font-bold text-slate-500 block">Paydown Velocity</span>
+            <div className="bg-slate-950/80 border border-cyan-900/40 px-2.5 py-1 rounded-lg hidden xl:block">
+              <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">Paydown Rate</span>
               <span className="text-xs font-black text-cyan-400 font-mono tabular-nums">
                 +{formatCurrency(monthlyPaydownVelocity)}/mo
               </span>
@@ -348,23 +397,23 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
           )}
 
           {/* Controls: Mode Switch & Collapse Toggle */}
-          <div className="flex items-center space-x-1.5 pl-1 sm:pl-2">
-            <div className="inline-flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <div className="flex items-center space-x-1.5 pl-1">
+            <div className="inline-flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px]">
               <button
                 type="button"
                 onClick={() => setChartMode('equity')}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition ${
+                className={`px-2 py-0.5 rounded-md font-bold transition ${
                   chartMode === 'equity'
                     ? 'bg-slate-800 text-emerald-400 shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Equity & Debt
+                Equity
               </button>
               <button
                 type="button"
                 onClick={() => setChartMode('cashflow')}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition ${
+                className={`px-2 py-0.5 rounded-md font-bold transition ${
                   chartMode === 'cashflow'
                     ? 'bg-slate-800 text-emerald-400 shadow-sm'
                     : 'text-slate-400 hover:text-white'
@@ -377,19 +426,19 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
             <button
               type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
+              className="p-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
               title={isCollapsed ? 'Expand chart' : 'Collapse chart'}
             >
-              {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Chart Canvas Area */}
+      {/* Chart Canvas Area - Compact Height */}
       {!isCollapsed && (
-        <div className="p-4 sm:p-5">
-          <div className="w-full h-64 sm:h-72">
+        <div className="p-3 sm:p-4">
+          <div className="w-full h-44 sm:h-48">
             <canvas ref={canvasRef} />
           </div>
         </div>

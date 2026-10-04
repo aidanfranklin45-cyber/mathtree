@@ -698,87 +698,88 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Executive KPI Tiles - Wider Desktop Stat Strip */}
+        {/* 4 Executive KPI Tiles - Vanguard-Style Bold Wealth Scorecard */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Tile 1: Gross Asset Value */}
-          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-emerald-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
               <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Gross Asset Value</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Gross Asset Value</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
               </div>
-              <span className="text-2xl font-black text-emerald-400 mt-1 block tabular-nums font-mono">
+              <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black text-white mt-2 block tabular-nums font-mono tracking-tight">
                 {portfolioKPIs.ownedVal > 0 ? formatCurrency(portfolioKPIs.ownedVal) : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400">
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400 font-semibold">
                 {counts.owned} {counts.owned === 1 ? 'Owned Asset' : 'Owned Assets'}
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-400 font-mono text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[10px] font-bold">
                 {portfolioKPIs.ownedLtv}% LTV
               </span>
             </div>
           </div>
 
           {/* Tile 2: Total Net Equity (NAV) */}
-          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-emerald-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/40 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
             <div>
               <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Net Equity</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">Total Net Equity</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
               </div>
-              <span className="text-2xl font-black text-emerald-300 mt-1 block tabular-nums font-mono">
+              <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black text-emerald-400 mt-2 block tabular-nums font-mono tracking-tight">
                 {portfolioKPIs.ownedEquity > 0 ? formatCurrency(portfolioKPIs.ownedEquity) : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400">
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400 font-semibold">
                 Debt: <strong className="text-slate-200 font-mono font-bold">{formatCurrency(portfolioKPIs.ownedDebt)}</strong>
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
-                Unleveraged Net
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 font-bold uppercase tracking-wider font-mono">
+                NAV Stake
               </span>
             </div>
           </div>
 
           {/* Tile 3: Owned Annual Cash Flow */}
-          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-emerald-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
               <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Owned Annual Cash Flow</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Annual Cash Flow</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
               </div>
-              <span className={`text-2xl font-black mt-1 block tabular-nums font-mono ${portfolioKPIs.ownedCashflow < 0 ? 'text-amber-400' : 'text-white'}`}>
+              <span className={`text-2xl sm:text-3xl font-black mt-2 block tabular-nums font-mono tracking-tight ${portfolioKPIs.ownedCashflow < 0 ? 'text-amber-400' : 'text-white'}`}>
                 {portfolioKPIs.ownedCashflow !== 0 ? formatCurrency(portfolioKPIs.ownedCashflow) : '—'}<span className="text-slate-400 font-sans text-xs">/yr</span>
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
-              <span className={`text-[11px] font-semibold truncate ${portfolioKPIs.avgCoc < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className={`text-xs font-semibold truncate ${portfolioKPIs.avgCoc < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                 {portfolioKPIs.ownedEquity <= 0 && portfolioKPIs.ownedCashflow > 0
                   ? '100% Financed'
-                  : `${portfolioKPIs.avgCoc.toFixed(1)}% Blended CoC`}
+                  : `${portfolioKPIs.avgCoc.toFixed(1)}% CoC Yield`}
               </span>
-              <span className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 {collectedMonthlyMap.size > 0 ? 'Live Actuals' : 'Pro-Forma'}
               </span>
             </div>
           </div>
 
           {/* Tile 4: Principal Paydown Velocity */}
-          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-cyan-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-cyan-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
               <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Paydown Velocity</span>
-                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Paydown Velocity</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
               </div>
-              <span className="text-2xl font-black text-cyan-400 mt-1 block tabular-nums font-mono">
+              <span className="text-2xl sm:text-3xl font-black text-cyan-400 mt-2 block tabular-nums font-mono tracking-tight">
                 {monthlyPaydownVelocity > 0 ? `+${formatCurrency(monthlyPaydownVelocity)}/mo` : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400">Debt Amortization</span>
-              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[9px] text-cyan-400 font-bold uppercase tracking-wider">
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400 font-semibold">Debt Amortization</span>
+              <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-[10px] text-cyan-400 font-bold uppercase tracking-wider font-mono">
                 Built Equity
               </span>
             </div>
