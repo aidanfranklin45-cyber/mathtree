@@ -682,10 +682,15 @@ export const DashboardPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Master Portfolio Overview: Vanguard-Style Metrics on one half, Forward Trajectory Chart on the other half */}
+        {/* Master Portfolio Overview: Forward Trajectory Chart on Left, Vanguard-Style Metrics on Right */}
         <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-xl backdrop-blur-sm">
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
-            {/* Left side: 4 Key Wealth Metrics (2x2 grid) */}
+            {/* Left side: Trajectory Chart (Embedded, non-stretched) */}
+            <div className="xl:col-span-7 flex flex-col justify-between min-h-[220px]">
+              <PortfolioEquityChart deals={deals} embedded />
+            </div>
+
+            {/* Right side: 4 Key Wealth Metrics (2x2 grid) */}
             <div className="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {/* Tile 1: Gross Asset Value */}
               <div className="bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/90 p-4 rounded-xl transition flex flex-col justify-between">
@@ -762,11 +767,6 @@ export const DashboardPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-            </div>
-
-            {/* Right side: Trajectory Chart (Embedded, non-stretched) */}
-            <div className="xl:col-span-7 flex flex-col justify-between min-h-[220px]">
-              <PortfolioEquityChart deals={deals} embedded />
             </div>
           </div>
         </div>
