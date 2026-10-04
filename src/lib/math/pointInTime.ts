@@ -1,6 +1,8 @@
 import type { DealRecord, DealMetrics } from './types';
 import { computeDealMetrics } from '../engine/compute';
 import { getMonthlyAmortization } from '../engine';
+import { resolvePropertyState } from '../property/state';
+import type { PropertyFacts, PropertyState } from '../property/types';
 
 /** Engine-derived metrics for a deal (never stored). Null only if the engine cannot evaluate the inputs. */
 function engineMetrics(deal: DealRecord | Record<string, any>): Record<string, any> | null {
@@ -26,6 +28,8 @@ export interface PointInTimeMetrics {
   monthlyPayment: number;
   accumulatedPrincipal: number;
   holdYear: number;
+  /** What each headline figure rests on (estimated forecast, or collected rent); read it before presenting a number as actual. */
+  state: PropertyState;
 }
 
 export interface MonthlyAmortizationEntry {
@@ -48,10 +52,15 @@ export interface MonthlyAmortizationEntry {
  *
  * Dynamically computes loan amortization, principal paydown, continuous property appreciation,
  * and built equity in-memory based on elapsed time between the deal's closingDate and targetDate.
+ *
+ * Income figures come from `resolvePropertyState`. Pass the deal's `facts` (leases, units and rent payments rows) and an owned deal's
+ * NOI and cash flow use the rent actually collected; without them (or without enough history) they stay the underwriting forecast,
+ * and `state` says which.
  */
 export function resolvePointInTimeDealMetrics(
   deal: DealRecord | Record<string, any>,
   targetDate: Date = new Date(),
+  facts: PropertyFacts | null = null,
 ): PointInTimeMetrics {
   const isOwned = deal.status === 'owned';
   const inp = deal.inputs || {};
@@ -81,6 +90,12 @@ export function resolvePointInTimeDealMetrics(
       monthlyPayment: debtService > 0 ? debtService / 12 : 0,
       accumulatedPrincipal: 0,
       holdYear: 0,
+      state: resolvePropertyState({
+        deal,
+        facts: null,
+        asOf: targetDate,
+        estimate: { value: price, noi, operatingExpenses: null, debtService, cashFlow: cf },
+      }),
     };
   }
 
@@ -156,12 +171,25 @@ export function resolvePointInTimeDealMetrics(
   const currentDebtService = monthlyPayment * 12;
   const irr = Number(em?.irr ?? 0) || 0;
 
+  const state = resolvePropertyState({
+    deal,
+    facts,
+    asOf: targetDate,
+    estimate: {
+      value: currentVal,
+      noi: currentNoi,
+      operatingExpenses: Number.isFinite(Number(currentProj.operatingExpenses)) && currentProj.operatingExpenses != null ? Number(currentProj.operatingExpenses) : null,
+      debtService: currentDebtService,
+      cashFlow: currentCashFlow,
+    },
+  });
+
   return {
     currentVal,
     currentDebt,
     currentEquity,
-    currentCashFlow,
-    currentNoi,
+    currentCashFlow: state.cashFlow.value ?? currentCashFlow,
+    currentNoi: state.noi.value ?? currentNoi,
     currentDebtService,
     irr,
     ltv,
@@ -171,6 +199,7 @@ export function resolvePointInTimeDealMetrics(
     monthlyPayment,
     accumulatedPrincipal,
     holdYear: yearOffset + 1,
+    state,
   };
 }
 
