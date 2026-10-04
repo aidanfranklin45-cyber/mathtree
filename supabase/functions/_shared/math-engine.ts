@@ -622,7 +622,9 @@ export function calculateProjections(rawAssetType: string, inputs: Record<string
   const rehabCosts = parseFloat(inputs.rehabCosts) || parseFloat(inputs.rehabBudget) || 0;
   const closingCosts = parseFloat(inputs.closingCosts) || 0;
   const vacancyRate = parseFloat(inputs.vacancyRate) || parseFloat(inputs.vacancyRatePercent) || 0;
-  const appreciationRate = parseFloat(inputs.appreciationRate) || 0;
+  // Unset/blank appreciation defaults to 3.5% (matches the Edit Inputs form); an explicit 0 is respected.
+  const parsedAppreciation = parseFloat(inputs.appreciationRate);
+  const appreciationRate = Number.isFinite(parsedAppreciation) ? parsedAppreciation : 3.5;
   const rentGrowth = parseFloat(inputs.rentGrowth) || parseFloat(inputs.rentGrowthPercent) || parseFloat(inputs.annualRentGrowth) || 0;
   const expenseRatio = parseFloat(inputs.expenseRatio) || parseFloat(inputs.operatingExpenseRatio) || 0;
   const rawExpenseGrowth = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent ?? inputs.holdingInflation;
