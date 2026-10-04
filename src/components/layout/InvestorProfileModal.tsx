@@ -111,7 +111,6 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const createCompany = async (setAsPrimary = true) => {
     const name = newName.trim();
     if (!name || !form) return;
-    setSaving(true);
     setError(null);
     try {
       const { data: u } = await supabase.auth.getUser();
@@ -138,8 +137,6 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create entity');
-    } finally {
-      setSaving(false);
     }
   };
 
