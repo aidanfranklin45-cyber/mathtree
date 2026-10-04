@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
 import {
@@ -50,6 +51,7 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen || !deal) return null;
+  if (typeof document === 'undefined') return null;
 
   const isOwned = deal.status === 'owned';
   const displayName = resolveDealDisplayName(deal);
@@ -106,11 +108,11 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
     </button>
   );
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -233,7 +235,8 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -258,6 +261,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   }, [isOpen, deal]);
 
   if (!isOpen || !deal) return null;
+  if (typeof document === 'undefined') return null;
 
   const expectedName = resolveDealDisplayName(deal);
   const isMatch = confirmInput.trim().toLowerCase() === expectedName.trim().toLowerCase();
@@ -275,8 +279,8 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     }
   };
 
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+  return createPortal(
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl relative">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
@@ -331,6 +335,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
