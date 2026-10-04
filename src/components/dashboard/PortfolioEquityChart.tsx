@@ -4,17 +4,16 @@ import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics } from '../../lib/math/pointInTime';
 import { getMonthlyAmortization } from '../../lib/engine';
 import { formatCurrency } from '../../lib/format';
-import { TrendingUp, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 Chart.register(...registerables);
 
 interface PortfolioEquityChartProps {
   deals: DealRecord[];
+  embedded?: boolean;
 }
 
-export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deals }) => {
+export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deals, embedded = false }) => {
   const [chartMode, setChartMode] = useState<'equity' | 'cashflow'>('equity');
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
 
@@ -167,7 +166,7 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
   // Render Chart.js
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || isCollapsed) return;
+    if (!canvas) return;
 
     if (chartInstanceRef.current) {
       chartInstanceRef.current.destroy();
@@ -327,24 +326,42 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
       chart.destroy();
       chartInstanceRef.current = null;
     };
-  }, [trajectory, chartMode, isCollapsed]);
+  }, [trajectory, chartMode]);
 
   if (targetDeals.length === 0) return null;
 
-  return (
-    <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm transition-all duration-200">
-      {/* Top Banner & Forward Projections - Compact Height */}
-      <div className="px-4 py-2.5 sm:px-5 sm:py-3 border-b border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex items-center space-x-2">
-          <TrendingUp className="w-4 h-4 text-slate-400" />
-          <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-            Portfolio Wealth Trajectory
-          </h3>
+  const content = (
+    <div className="h-full flex flex-col justify-between">
+      {/* Controls Bar: Mode Switcher on left, Milestone Badges on right */}
+      <div className="flex items-center justify-between gap-2.5 pb-2.5 border-b border-slate-800/70">
+        <div className="inline-flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs">
+          <button
+            type="button"
+            onClick={() => setChartMode('equity')}
+            className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+              chartMode === 'equity'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Equity
+          </button>
+          <button
+            type="button"
+            onClick={() => setChartMode('cashflow')}
+            className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+              chartMode === 'cashflow'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Cash Flow
+          </button>
         </div>
 
-        {/* Milestone Badges & Controls */}
+        {/* Milestone Badges */}
         <div className="flex items-center space-x-2">
-          <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg">
+          <div className="bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg">
             <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">5-Yr Equity</span>
             <div className="flex items-center space-x-1">
               <span className="text-xs font-black text-white font-mono tabular-nums">
@@ -358,7 +375,7 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
             </div>
           </div>
 
-          <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg hidden md:block">
+          <div className="bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg hidden sm:block">
             <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">10-Yr Equity</span>
             <div className="flex items-center space-x-1">
               <span className="text-xs font-black text-white font-mono tabular-nums">
@@ -371,54 +388,23 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
               )}
             </div>
           </div>
-
-          {/* Controls: Mode Switch & Collapse Toggle */}
-          <div className="flex items-center space-x-1.5 pl-1">
-            <div className="inline-flex items-center bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px]">
-              <button
-                type="button"
-                onClick={() => setChartMode('equity')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition ${
-                  chartMode === 'equity'
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Equity
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartMode('cashflow')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition ${
-                  chartMode === 'cashflow'
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Cash Flow
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
-              title={isCollapsed ? 'Expand chart' : 'Collapse chart'}
-            >
-              {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Chart Canvas Area - Compact Height */}
-      {!isCollapsed && (
-        <div className="p-3 sm:p-3.5">
-          <div className="w-full h-36 sm:h-40">
-            <canvas ref={canvasRef} />
-          </div>
-        </div>
-      )}
+      {/* Chart Canvas Area */}
+      <div className="w-full flex-1 min-h-[190px] pt-2">
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm transition-all duration-200 p-4">
+      {content}
     </div>
   );
 };
