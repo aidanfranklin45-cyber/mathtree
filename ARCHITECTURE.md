@@ -34,6 +34,8 @@ src/
     math/                   UI types (DealRecord, DealInputs, DealMetrics) and pointInTime.ts (today's value/debt/equity
                             from engine output; not a separate calculator)
     supabase/               client.ts (anon client, BENCHMARK_DEAL demo), types.ts (generated DB types), authHeaders.ts
+    benchmarks/             Dated, sourced public market facts shown beside a property's own numbers. Never defaults,
+                            never read by the engine. Pure lookup + plausibility checks the future CSV/OM parser can call
     baselines/ compare/ remodel/ operations/ underwriting/ portfolio/ export/ services/ auth/
 supabase/
   functions/_shared/        THE engine and shared rules (Deno + browser). Imported in the app as `@engine/*`
