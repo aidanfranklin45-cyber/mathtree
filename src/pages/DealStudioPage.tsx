@@ -9,7 +9,6 @@ import { PropertyTab } from '../components/studio/tabs/PropertyTab';
 import { DebtTab } from '../components/studio/tabs/DebtTab';
 import { DiligenceTab } from '../components/studio/tabs/DiligenceTab';
 import { SensitivityTab } from '../components/studio/tabs/SensitivityTab';
-import { TaxTab } from '../components/studio/tabs/TaxTab';
 import { PerformanceTab } from '../components/studio/tabs/PerformanceTab';
 import { OperateTab } from '../components/studio/tabs/OperateTab';
 import { getStageLens, resolveTab } from '../lib/studio/stageLens';
@@ -46,7 +45,7 @@ export const DealStudioPage: React.FC = () => {
   const [runsVersion, setRunsVersion] = useState(0);
 
   // All financial math is derived on the fly from the deal's inputs; nothing is stored or fetched.
-  const { metrics, tax, error: engineError } = useComputedMetrics(deal);
+  const { metrics, error: engineError } = useComputedMetrics(deal);
 
   // JIT 30-Day GIS Cache check: evaluates cache freshness once per active session per day
   React.useEffect(() => {
@@ -160,12 +159,6 @@ export const DealStudioPage: React.FC = () => {
         {tab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
         {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
         {tab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
-        {tab === 'tax' && tax && <TaxTab deal={deal} metrics={metrics} tax={tax} />}
-        {tab === 'tax' && !tax && (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
-          </div>
-        )}
       </main>
 
       <EditInputsModal

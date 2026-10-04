@@ -31,7 +31,6 @@ export const MODULE_TABS = [
   { key: 'property', icon: '🏛️', title: 'Property & County Records', mobile: 'Property', subtitle: 'Assessor roll valuations, companion parcels & GIS data' },
   { key: 'debt', icon: '🏦', title: 'Debt & Financing', mobile: 'Debt', subtitle: 'Mortgage amortization, DSCR coverage & refinance stress' },
   { key: 'sensitivity', icon: '🎲', title: 'Risk & Sensitivity', mobile: 'Risk', subtitle: 'Monte Carlo probability simulation & 2D stress matrices' },
-  { key: 'tax', icon: '📑', title: 'Tax & Wealth Strategy', mobile: 'Tax', subtitle: 'Cost segregation, accelerated depreciation & exit tax liability' },
 ] as const;
 
 const STATUS_PILL: Record<string, string> = {

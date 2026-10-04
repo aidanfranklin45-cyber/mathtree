@@ -1,11 +1,10 @@
 import { useMemo, useSyncExternalStore } from 'react';
-import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix, TaxMetrics } from '../math/types';
-import { computeDealMetrics, computeSensitivity, computeTaxMetrics } from './compute';
+import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix } from '../math/types';
+import { computeDealMetrics, computeSensitivity } from './compute';
 import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from './expiryDefaults';
 
 export interface ComputedMetricsState {
   metrics: DealMetrics | null;
-  tax: TaxMetrics | null;
   sensitivity: SensitivityMatrix | null;
   error: string | null;
 }
@@ -27,17 +26,16 @@ export function useComputedMetrics(
   const purchasePrice = deal?.purchase_price;
 
   return useMemo<ComputedMetricsState>(() => {
-    if (!deal) return { metrics: null, tax: null, sensitivity: null, error: null };
+    if (!deal) return { metrics: null, sensitivity: null, error: null };
     try {
       return {
         metrics: computeDealMetrics(deal, opts.overrides),
-        tax: computeTaxMetrics(deal, opts.overrides),
         sensitivity: opts.computeSensitivity ? computeSensitivity(deal, opts.overrides) : null,
         error: null,
       };
     } catch (err) {
       console.error('[useComputedMetrics] engine error:', err);
-      return { metrics: null, tax: null, sensitivity: null, error: err instanceof Error ? err.message : String(err) };
+      return { metrics: null, sensitivity: null, error: err instanceof Error ? err.message : String(err) };
     }
     // deal is intentionally keyed by its facts, not object identity
     // eslint-disable-next-line react-hooks/exhaustive-deps

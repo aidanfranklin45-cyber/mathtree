@@ -4,11 +4,11 @@ import type { DealRecord } from '../math/types';
  * Stage lenses: which deal-screen tabs belong to which stage of a property's life.
  *
  * A prospect has no tenants, rent collection or performance history, so it only shows the underwriting tabs. An owned
- * property leads with Performance and Operate and keeps the analysis tabs (hold, refinance, remodel, sell). Pure (no UI,
+ * property opens on the Overview, adds Operate, keeps the analysis tabs (hold, refinance, remodel, sell) and ends with Performance. Pure (no UI,
  * no database) so it can be tested. The stage itself is read from the existing `status` and `inputs.dealStage`.
  */
 export type DealStage = 'screening' | 'loi' | 'due_diligence' | 'closing' | 'owned' | 'disposition';
-export type StudioTabKey = 'performance' | 'operate' | 'overview' | 'diligence' | 'proforma' | 'property' | 'debt' | 'sensitivity' | 'tax';
+export type StudioTabKey = 'performance' | 'operate' | 'overview' | 'diligence' | 'proforma' | 'property' | 'debt' | 'sensitivity';
 export type StageLensKind = 'underwriting' | 'owned';
 
 export const STAGE_LABEL: Record<DealStage, string> = {
@@ -29,8 +29,8 @@ export function getDealStage(deal: Pick<DealRecord, 'status' | 'inputs'>): DealS
   return (PROSPECT_STAGES as string[]).includes(saved) ? (saved as DealStage) : 'screening';
 }
 
-const UNDERWRITING_TABS: StudioTabKey[] = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'];
-const OWNED_TABS: StudioTabKey[] = ['performance', 'operate', 'overview', 'proforma', 'property', 'debt', 'sensitivity', 'tax'];
+const UNDERWRITING_TABS: StudioTabKey[] = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity'];
+const OWNED_TABS: StudioTabKey[] = ['overview', 'operate', 'proforma', 'property', 'debt', 'sensitivity', 'performance'];
 
 export interface StageLens {
   stage: DealStage;
@@ -44,7 +44,7 @@ export interface StageLens {
 
 export function getStageLens(deal: Pick<DealRecord, 'status' | 'inputs'>): StageLens {
   const stage = getDealStage(deal);
-  if (stage === 'owned') return { stage, kind: 'owned', tabs: OWNED_TABS, defaultTab: 'performance', showOperations: true };
+  if (stage === 'owned') return { stage, kind: 'owned', tabs: OWNED_TABS, defaultTab: 'overview', showOperations: true };
   return { stage, kind: 'underwriting', tabs: UNDERWRITING_TABS, defaultTab: 'overview', showOperations: false };
 }
 
