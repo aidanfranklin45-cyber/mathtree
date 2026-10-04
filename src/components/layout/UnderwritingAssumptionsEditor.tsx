@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ASSET_KEYS, FIELD_SPECS, type AssetKey, type AssetAssumptions, type AssumptionField, type CapexBasis, type UnderwritingAssumptions,
+  ASSET_KEYS, FIELD_SPECS, suggestedStartingPoints, type AssetKey, type AssetAssumptions, type AssumptionField, type CapexBasis, type UnderwritingAssumptions,
 } from '../../../supabase/functions/_shared/underwritingAssumptions';
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 }
 
 const ASSET_LABEL: Record<AssetKey, string> = { 'single-family': 'Single-family', 'multi-unit': 'Multi-unit', commercial: 'Commercial', storage: 'Storage' };
-const CAPEX_LABEL: Record<CapexBasis, string> = { perUnit: '$ per unit a year', perSqFt: '$ per sq ft a year', percentOfIncome: '% of income' };
+const CAPEX_LABEL: Record<CapexBasis, string> = { perUnit: '$ per unit a year', perSqFt: '$ per sq ft a year', percentOfIncome: '% of income', percentOfValue: '% of value' };
 
 const inputCls = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500';
 const labelCls = 'text-[11px] font-bold text-slate-400';
@@ -53,6 +53,15 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
           These seed every new deal and are copied onto it with your reason, so each number can be defended to a lender. Leave a field
           blank if you have no assumption: the deal will ask for it rather than guess.
         </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          Not sure where to start? Fill the blank carrying costs and reserves with common underwriting conventions. They are starting points, labelled as such, for you to replace with your own quotes and levy rates.
+        </p>
+        <button type="button" onClick={() => onChange(suggestedStartingPoints(value))} className="shrink-0 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          Use starting points
+        </button>
       </div>
 
       <div className="space-y-1">

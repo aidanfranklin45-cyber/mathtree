@@ -175,13 +175,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       squareFeet: sqft > 0 ? sqft : null,
       discountRate: profile.discountRate,
       exitYear: profile.exitYear,
-      assessedValue: Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
+      assessedValue: Number(assessor?.taxableValue) || Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
     });
     const target: Record<string, string> = {
       vacancyRate: 'vacancy', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
       discountRate: 'discountRate', targetCapRate: 'exitCap', appreciationRate: 'apprec', sellingCostPercent: 'sellingCost',
       closingCosts: 'closing', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
-      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes',
+      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance',
     };
     const patch: W = {};
     const basis: Record<string, InputBasis> = {};
@@ -402,6 +402,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         stories: a?.stories || null, constructionType: a?.constructionType || null, condition: a?.condition || null, hvac: a?.hvac || null,
         zoning: a?.zoning || null, useCode: a?.useCode || null, owner: a?.owner || null, legalDescription: a?.legalDescription || null,
         assessorPortalUrl: a?.assessorPortalUrl || null, taxYear: a?.taxYear || null,
+        taxableValue: a?.taxableValue || null, taxCodeArea: a?.taxCodeArea || null,
         assessorData: a || null,
         parcels: parcels.length ? parcels : a ? [a] : [],
         gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a?.source || 'county_arcgis', status: 'active' },

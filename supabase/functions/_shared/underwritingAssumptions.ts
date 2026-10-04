@@ -10,7 +10,7 @@
 export type AssetKey = 'single-family' | 'multi-unit' | 'commercial' | 'storage';
 export const ASSET_KEYS: AssetKey[] = ['single-family', 'multi-unit', 'commercial', 'storage'];
 
-export type CapexBasis = 'perUnit' | 'perSqFt' | 'percentOfIncome';
+export type CapexBasis = 'perUnit' | 'perSqFt' | 'percentOfIncome' | 'percentOfValue';
 
 /** Every assumption the owner can set for an asset class. All optional; none has a built-in value. */
 export interface AssetAssumptions {
@@ -30,7 +30,11 @@ export interface AssetAssumptions {
   closingCostPercent?: number; // % of purchase price
   managementFeePercent?: number; // % of collected income, applied when the owner has a manager
   capexBasis?: CapexBasis;
-  capexValue?: number; // $ per unit a year, $ per sq ft a year, or % of income, per capexBasis
+  capexValue?: number; // $ per unit a year, $ per sq ft a year, % of income, or % of value, per capexBasis
+  /** What the building costs to insure, as a % of its value (the purchase price, else the county assessed value) a year. */
+  insuranceRatePercent?: number;
+  /** What it costs to keep up, as a % of its value a year. This is also what you carry while it is vacant. */
+  maintenanceRatePercent?: number;
   payrollMarketingPercent?: number; // storage only, % of gross income
   /** The owner's reason for each figure, shown with it on every deal it seeds. */
   rationale?: Partial<Record<AssumptionField, string>>;
@@ -76,6 +80,8 @@ export const FIELD_SPECS: FieldSpec[] = [
   { key: 'sellingCostPercent', label: 'Selling costs', unit: '%', min: 0, max: 20, assets: ALL, hint: 'Brokerage and closing costs at sale, as a share of the sale price.' },
   { key: 'closingCostPercent', label: 'Buyer closing costs', unit: '%', min: 0, max: 20, assets: ALL, hint: 'As a share of the purchase price, until a lender quote or settlement statement replaces it.' },
   { key: 'managementFeePercent', label: 'Management fee', unit: '%', min: 0, max: 30, assets: ALL, hint: 'Share of collected income, charged only on deals where you use a manager.' },
+  { key: 'insuranceRatePercent', label: 'Insurance', unit: '%', min: 0, max: 5, assets: ALL, hint: 'A share of value a year (purchase price, else assessed value), until a quote replaces it.' },
+  { key: 'maintenanceRatePercent', label: 'Maintenance and upkeep', unit: '%', min: 0, max: 10, assets: ALL, hint: 'A share of value a year. It is what you carry on a vacant property or one where tenants pay the costs.' },
   { key: 'capexValue', label: 'Replacement reserve', unit: '$', min: 0, max: 1_000_000, assets: ALL, hint: 'Amount per the basis chosen beside it.' },
   { key: 'payrollMarketingPercent', label: 'Payroll and marketing', unit: '%', min: 0, max: 60, assets: ['storage'], hint: 'On-site payroll and marketing as a share of gross income.' },
 ];
@@ -116,7 +122,7 @@ export function sanitizeAssumptions(raw: unknown): UnderwritingAssumptions {
       const n = finite(a[spec.key]);
       if (n !== undefined && n >= spec.min && n <= spec.max) (clean as Record<string, unknown>)[spec.key] = n;
     }
-    if (a.capexBasis === 'perUnit' || a.capexBasis === 'perSqFt' || a.capexBasis === 'percentOfIncome') clean.capexBasis = a.capexBasis;
+    if (a.capexBasis === 'perUnit' || a.capexBasis === 'perSqFt' || a.capexBasis === 'percentOfIncome' || a.capexBasis === 'percentOfValue') clean.capexBasis = a.capexBasis;
     if (clean.capexValue !== undefined && !clean.capexBasis) delete clean.capexValue; // an amount with no basis means nothing
     const why: Partial<Record<AssumptionField, string>> = {};
     const rawWhy = (a.rationale && typeof a.rationale === 'object' ? a.rationale : {}) as Record<string, unknown>;
@@ -188,6 +194,9 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
     }
   };
   const why = (f: AssumptionField) => a.rationale?.[f];
+  // The value a rate is applied to: what is being paid, else the county's assessed value
+  const valueBase = ctx.purchasePrice && ctx.purchasePrice > 0 ? ctx.purchasePrice : (ctx.assessedValue && ctx.assessedValue > 0 ? ctx.assessedValue : undefined);
+  const valueLabel = ctx.purchasePrice && ctx.purchasePrice > 0 ? 'purchase price' : 'county assessed value';
 
   put('vacancyRate', a.vacancyRate, 'Vacancy', why('vacancyRate'));
   const nnn = String(ctx.leaseType ?? '') === 'NNN';
@@ -212,18 +221,60 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
     if (a.capexBasis === 'percentOfIncome') put('capexReservePercent', a.capexValue, `Reserve (${a.capexValue}% of income)`, why('capexValue'));
     else if (a.capexBasis === 'perUnit' && ctx.unitCount && ctx.unitCount > 0) put('capexReserveAnnual', Math.round(a.capexValue * ctx.unitCount * 100) / 100, `Reserve ($${a.capexValue} a unit x ${ctx.unitCount} units)`, why('capexValue'));
     else if (a.capexBasis === 'perSqFt' && ctx.squareFeet && ctx.squareFeet > 0) put('capexReserveAnnual', Math.round(a.capexValue * ctx.squareFeet * 100) / 100, `Reserve ($${a.capexValue} a sq ft x ${Math.round(ctx.squareFeet).toLocaleString()} sq ft)`, why('capexValue'));
+    else if (a.capexBasis === 'percentOfValue' && valueBase) put('capexReserveAnnual', Math.round(valueBase * a.capexValue) / 100, `Reserve (${a.capexValue}% of value $${Math.round(valueBase).toLocaleString()})`, why('capexValue'));
     else unfilled.push('capexReserveAnnual');
   } else unfilled.push('capexReserveAnnual');
+
+  // What it costs to carry: insurance and upkeep as rates on value
+  if (a.insuranceRatePercent !== undefined && valueBase) put('annualInsurance', Math.round(valueBase * a.insuranceRatePercent) / 100, `Insurance (${a.insuranceRatePercent}% of ${valueLabel} $${Math.round(valueBase).toLocaleString()})`, why('insuranceRatePercent'));
+  else unfilled.push('annualInsurance');
+  if (a.maintenanceRatePercent !== undefined && valueBase) put('annualMaintenance', Math.round(valueBase * a.maintenanceRatePercent) / 100, `Maintenance (${a.maintenanceRatePercent}% of ${valueLabel} $${Math.round(valueBase).toLocaleString()})`, why('maintenanceRatePercent'));
+  else unfilled.push('annualMaintenance');
 
   // Property tax: the county's assessed value times the owner's own rate for that tax code area. Neither alone is a tax bill.
   const rate = assumptions?.propertyTaxRatePercent;
   if (rate !== undefined && ctx.assessedValue && ctx.assessedValue > 0) {
-    put('annualTaxes', Math.round((ctx.assessedValue * rate) / 100), `Property tax (${rate}% of county assessed value ${Math.round(ctx.assessedValue).toLocaleString()})`, assumptions?.propertyTaxRateRationale, [], 'county_record');
+    put('annualTaxes', Math.round((ctx.assessedValue * rate) / 100), `Property tax (${rate}% of county assessed value $${Math.round(ctx.assessedValue).toLocaleString()})`, assumptions?.propertyTaxRateRationale, [], 'county_record');
+  } else if (rate !== undefined && ctx.purchasePrice && ctx.purchasePrice > 0) {
+    // No county value yet: taxes follow market value, so the price is the best available stand-in, and the basis says so
+    put('annualTaxes', Math.round((ctx.purchasePrice * rate) / 100), `Property tax (${rate}% of purchase price $${Math.round(ctx.purchasePrice).toLocaleString()}; no county assessed value)`, assumptions?.propertyTaxRateRationale);
   } else unfilled.push('annualTaxes');
 
   if (assumptions?.taxRate !== undefined) put('taxRate', assumptions.taxRate, 'Marginal tax rate', assumptions.taxRateRationale);
 
   return { inputs, basis, unfilled };
+}
+
+/**
+ * Conventional starting points for the carrying costs and reserves, offered so a new profile is not blank. They are the engine's NOT: they
+ * only enter a profile when the owner chooses to use them, each with a plain statement that it is a starting convention and not a sourced
+ * market figure, and the owner is expected to replace them with their own quotes and levy rates.
+ */
+export function suggestedStartingPoints(current: UnderwritingAssumptions | null | undefined): UnderwritingAssumptions {
+  const base = sanitizeAssumptions(current);
+  const out: UnderwritingAssumptions = { ...base, assets: { ...base.assets } };
+  if (out.propertyTaxRatePercent === undefined) {
+    out.propertyTaxRatePercent = 1;
+    out.propertyTaxRateRationale = 'Starting point. Washington effective property tax rates generally run about 0.8% to 1.1% of assessed value (third-party county estimates: Spokane about 0.83% to 1.05%, Yakima about 0.82%). Replace with your tax code area\'s levy rate.';
+  }
+  const insuranceWhy = 'Starting point: a common underwriting convention of roughly 0.3% to 0.5% of value a year. Not a quote; replace with one.';
+  const upkeepWhy = 'Starting point: a common convention of about 0.5% of value a year for the upkeep you carry when a property is vacant or tenants pay the costs. Replace with your own record.';
+  const reserve: Record<AssetKey, { basis: CapexBasis; value: number; why: string }> = {
+    'single-family': { basis: 'perUnit', value: 300, why: 'Starting point: a common convention of about $250 to $350 a unit a year for replacement reserves. Replace with your capital plan.' },
+    'multi-unit': { basis: 'perUnit', value: 300, why: 'Starting point: lenders commonly underwrite about $250 to $350 a unit a year for replacement reserves. Replace with your capital plan.' },
+    commercial: { basis: 'perSqFt', value: 0.25, why: 'Starting point: a common convention of about $0.15 to $0.30 a square foot a year for replacement reserves. Replace with your capital plan.' },
+    storage: { basis: 'percentOfIncome', value: 3, why: 'Starting point: a common convention of about 3% of income for replacement reserves. Replace with your capital plan.' },
+  };
+  for (const asset of ASSET_KEYS) {
+    const a: AssetAssumptions = { ...(out.assets[asset] ?? {}) };
+    const why: Partial<Record<AssumptionField, string>> = { ...(a.rationale ?? {}) };
+    if (a.insuranceRatePercent === undefined) { a.insuranceRatePercent = 0.35; why.insuranceRatePercent = insuranceWhy; }
+    if (a.maintenanceRatePercent === undefined) { a.maintenanceRatePercent = 0.5; why.maintenanceRatePercent = upkeepWhy; }
+    if (a.capexValue === undefined) { a.capexBasis = reserve[asset].basis; a.capexValue = reserve[asset].value; why.capexValue = reserve[asset].why; }
+    a.rationale = why;
+    out.assets[asset] = a;
+  }
+  return out;
 }
 
 /** The inputs whose origin a lender may ask about, and what to call each. */
