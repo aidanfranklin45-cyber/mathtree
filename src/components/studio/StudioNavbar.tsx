@@ -59,7 +59,8 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
   const addrRef = useRef<HTMLDivElement>(null);
 
   const isOwned = deal.status === 'owned';
-  const pages = MODULE_TABS.filter((t) => (lens.tabs as readonly string[]).includes(t.key));
+  // The menu lists tabs in the stage's own order (lens.tabs), not the order of MODULE_TABS
+  const pages = lens.tabs.map((k) => MODULE_TABS.find((t) => t.key === k)).filter((t): t is (typeof MODULE_TABS)[number] => !!t);
   const current = MODULE_TABS.find((t) => t.key === activeTab) || MODULE_TABS[0];
 
   // Wrapping prev/next like the legacy arrows (which step in this order, not the dropdown's)

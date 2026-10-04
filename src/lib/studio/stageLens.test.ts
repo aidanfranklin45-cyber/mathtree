@@ -26,7 +26,7 @@ describe('stage lenses', () => {
   it('owned deals open on overview, end with performance and drop diligence', () => {
     const lens = getStageLens(deal('owned'));
     expect(lens.showOperations).toBe(true);
-    expect(lens.tabs.slice(0, 2)).toEqual(['overview', 'operate']);
+    expect(lens.tabs.slice(0, 3)).toEqual(['overview', 'proforma', 'operate']);
     expect(lens.tabs[lens.tabs.length - 1]).toBe('performance');
     expect(lens.tabs).not.toContain('diligence');
     expect(lens.tabs).toEqual(expect.arrayContaining(['debt', 'sensitivity', 'proforma']));

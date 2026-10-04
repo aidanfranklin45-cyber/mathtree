@@ -30,7 +30,7 @@ export function getDealStage(deal: Pick<DealRecord, 'status' | 'inputs'>): DealS
 }
 
 const UNDERWRITING_TABS: StudioTabKey[] = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity'];
-const OWNED_TABS: StudioTabKey[] = ['overview', 'operate', 'proforma', 'property', 'debt', 'sensitivity', 'performance'];
+const OWNED_TABS: StudioTabKey[] = ['overview', 'proforma', 'operate', 'property', 'debt', 'sensitivity', 'performance'];
 
 export interface StageLens {
   stage: DealStage;
