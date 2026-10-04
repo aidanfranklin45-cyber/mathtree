@@ -7,6 +7,8 @@ import type { DealRecord } from '../../lib/math/types';
 import { formatCurrency } from '../../lib/format';
 import { fetchProfile, saveProfile, type InvestorProfile } from '../../lib/profile';
 import { Trash2 } from 'lucide-react';
+import { UnderwritingAssumptionsEditor } from './UnderwritingAssumptionsEditor';
+import { sanitizeAssumptions } from '../../../supabase/functions/_shared/underwritingAssumptions';
 
 interface Props {
   isOpen: boolean;
@@ -35,6 +37,7 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
     exitCapTiming: f.exitCapTiming,
     leaseExpiryMode: f.leaseExpiryMode,
     leaseExpiryVacancyMonths: Math.min(60, Math.max(0, parseInt(String(f.leaseExpiryVacancyMonths), 10) || 0)),
+    underwritingAssumptions: sanitizeAssumptions(f.underwritingAssumptions),
     primaryEntityId: f.primaryEntityId || null,
     companyName: f.companyName,
   };
@@ -538,6 +541,11 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               <p className="text-[10px] text-slate-500 leading-relaxed">Applies to every property unless you choose differently for it in Edit Inputs (At Lease Expiration).</p>
             </div>
           </div>
+
+          <UnderwritingAssumptionsEditor
+            value={form.underwritingAssumptions ?? { assets: {} }}
+            onChange={(v) => set('underwritingAssumptions', v)}
+          />
 
           {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
 

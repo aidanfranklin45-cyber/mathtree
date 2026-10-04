@@ -22,6 +22,7 @@ import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRu
 import { DealInputs, DealRecord } from '../lib/math/types';
 import { ensureBaseline } from '../lib/baselines/db';
 import { Loader2 } from 'lucide-react';
+import { InputsNeeded } from '../components/studio/InputsNeeded';
 
 export const DealStudioPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -47,7 +48,7 @@ export const DealStudioPage: React.FC = () => {
   const [runsVersion, setRunsVersion] = useState(0);
 
   // All financial math is derived on the fly from the deal's inputs; nothing is stored or fetched.
-  const { metrics, error: engineError } = useComputedMetrics(deal);
+  const { metrics, error: engineError, missing } = useComputedMetrics(deal);
 
   // JIT 30-Day GIS Cache check: evaluates cache freshness once per active session per day
   React.useEffect(() => {
@@ -105,6 +106,16 @@ export const DealStudioPage: React.FC = () => {
         <h2 className="text-base font-black text-white">Opening Deal Studio...</h2>
         <p className="text-xs text-slate-400 mt-1">Loading deal</p>
       </div>
+    );
+  }
+
+  // The deal exists but does not state everything the engine needs: say what is missing and let the owner enter it
+  if (!dealError && deal && !metrics && missing.length > 0) {
+    return (
+      <>
+        <InputsNeeded title={deal.title || 'This property'} missing={missing} onEdit={() => setIsEditModalOpen(true)} />
+        <EditInputsModal isOpen={isEditModalOpen} deal={deal} onClose={() => setIsEditModalOpen(false)} onSave={patchAndRecord} />
+      </>
     );
   }
 

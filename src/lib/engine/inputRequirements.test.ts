@@ -9,7 +9,7 @@ const complete = (over: Record<string, any> = {}): Record<string, any> => ({
   purchasePrice: 1000000, closingDate: '2026-01-01', holdingPeriod: 10, discountRate: 8,
   downPaymentPercent: 25, interestRate: 6.5, amortizationYears: 25, loanMaturityYears: 10,
   grossRentAnnual: 120000, vacancyRate: 5, rentGrowth: 3, expenseRatio: 30,
-  capexReserveAnnual: 2000, appreciationRate: 2, targetCapRate: 7, sellingCostPercent: 3,
+  capexReserveAnnual: 2000, appreciationRate: 2, targetCapRate: 7, sellingCostPercent: 3, closingCosts: 20000,
   ...over,
 });
 const without = (inputs: Record<string, any>, ...keys: string[]) => {
@@ -46,6 +46,7 @@ describe('the engine never invents an input', () => {
     ['capexReserveAnnual', 'capexReserveAnnual'],
     ['appreciationRate', 'appreciationRate'],
     ['sellingCostPercent', 'sellingCostPercent'],
+    ['closingCosts', 'closingCosts'],
   ])('removing %s names it as missing', (removed, reported) => {
     expect(missingKeys('multi-unit', without(complete(), removed))).toContain(reported);
   });

@@ -45,6 +45,7 @@ export const BENCHMARK_DEAL = {
     loanMaturityYears: 30,
     capexReserveAnnual: 6300, // $0.15 a square foot on 42,000 sq ft
     sellingCostPercent: 3,
+    closingCosts: 77000, // 2% of the purchase price
     annualTaxes: 38500,
     annualInsurance: 12000,
     annualMaintenance: 8000,

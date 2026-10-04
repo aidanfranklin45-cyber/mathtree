@@ -5,6 +5,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeExpiryDefaults } from "../_shared/leaseExpiry.ts";
+import { sanitizeAssumptions } from "../_shared/underwritingAssumptions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -158,6 +159,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         propertyClass: row?.property_class || prefs.propertyClass || DEFAULT_PROFILE.propertyClass,
         leaseExpiryMode: expiry.mode,
         leaseExpiryVacancyMonths: expiry.vacancyMonths,
+        underwritingAssumptions: sanitizeAssumptions((prefs as Record<string, unknown>).underwritingAssumptions),
         notification_email: row?.notification_email || null,
         alert_preferences: row?.alert_preferences || null,
       };
@@ -268,8 +270,17 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
     }
 
+    // The owner's underwriting assumptions are replaced only when the request carries them; a partial update keeps what is stored.
+    let underwritingAssumptions = sanitizeAssumptions(payload.underwritingAssumptions);
+    if (payload.underwritingAssumptions === undefined) {
+      const { data: existing } = await dbClient.from("profiles").select("preferences").eq("id", userId).maybeSingle();
+      const stored = existing?.preferences && typeof existing.preferences === "object" ? (existing.preferences as Record<string, unknown>).underwritingAssumptions : undefined;
+      underwritingAssumptions = sanitizeAssumptions(stored);
+    }
+
     const expiry = normalizeExpiryDefaults(payload as Record<string, unknown>);
     const preferencesUpdate = {
+      underwritingAssumptions,
       leaseExpiryMode: expiry.mode,
       leaseExpiryVacancyMonths: expiry.vacancyMonths,
       discountRate,

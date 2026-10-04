@@ -36,6 +36,7 @@ export function withLegacyDefaults(assetClass: string, inputs: Record<string, an
   set('holdingPeriod', 10, 'exitYear', 'holdYears');
   set('discountRate', 8);
   set('sellingCostPercent', 0);
+  set('closingCosts', 0);
   set('vacancyRate', 0, 'vacancyRatePercent');
   set('expenseRatio', 0, 'operatingExpenseRatio');
   if (!hasLeases) set('rentGrowth', 0, 'rentGrowthPercent', 'annualRentGrowth');

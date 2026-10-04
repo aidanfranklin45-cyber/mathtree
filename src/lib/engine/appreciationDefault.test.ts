@@ -6,7 +6,7 @@ import { buildInputs, seedForm } from '../../components/studio/modals/editInputs
 const base = {
   purchasePrice: 750000, downPaymentPercent: 100, monthlyRent: 3750, vacancyRate: 1, expenseRatio: 30, rentGrowth: 3.5,
   holdingPeriod: 10, exitYear: 10, interestRate: 6.25, amortizationYears: 30, loanMaturityYears: 30, closingDate: '2026-01-01',
-  capexReserveAnnual: 0, sellingCostPercent: 0, discountRate: 8,
+  capexReserveAnnual: 0, sellingCostPercent: 0, closingCosts: 0, discountRate: 8,
 };
 const valueAt = (inputs: Record<string, any>, i: number) =>
   calculateProjections('multi-unit', inputs).projections[i].propertyValue;
