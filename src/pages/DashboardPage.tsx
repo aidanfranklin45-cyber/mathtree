@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase/client';
 import { DealRecord } from '../lib/math/types';
 import { tryComputeDealMetrics } from '../lib/engine/compute';
+import { checkEngineInputs } from '../lib/engine';
 import { computePortfolioKpis } from '../lib/portfolio/kpis';
 import { loadPortfolioDeals } from '../lib/portfolio/loadDeals';
 import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
@@ -498,12 +499,27 @@ export const DashboardPage: React.FC = () => {
     collectedMonthlyMap,
   ]);
 
+  // Partition deals: exclude deals missing strict engine inputs from portfolio calculations
+  const { completeDeals, inputsNeededCount } = useMemo(() => {
+    let needed = 0;
+    const complete: DealRecord[] = [];
+    deals.forEach((d) => {
+      const aClass = String(d.asset_class || d.assetType || 'single-family');
+      if (checkEngineInputs(aClass, d.inputs || {}).length > 0) {
+        needed++;
+      } else {
+        complete.push(d);
+      }
+    });
+    return { completeDeals: complete, inputsNeededCount: needed };
+  }, [deals]);
+
   // Executive KPI tiles
-  const portfolioKPIs = useMemo(() => computePortfolioKpis(deals, new Date()), [deals]);
+  const portfolioKPIs = useMemo(() => computePortfolioKpis(completeDeals, new Date()), [completeDeals]);
 
   // Contractual monthly principal paydown across owned portfolio
   const monthlyPaydownVelocity = useMemo(() => {
-    const owned = deals.filter((d) => d.status === 'owned');
+    const owned = completeDeals.filter((d) => d.status === 'owned');
     const today = new Date();
     let annualPaydown = 0;
     owned.forEach((d) => {
@@ -520,7 +536,7 @@ export const DashboardPage: React.FC = () => {
       }
     });
     return Math.round(annualPaydown / 12);
-  }, [deals]);
+  }, [completeDeals]);
 
   // Multi-select handlers
   const handleToggleSelect = useCallback((dealId: string) => {
@@ -671,7 +687,7 @@ export const DashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch">
             {/* Left side: Trajectory Chart (Embedded, non-stretched) */}
             <div className="xl:col-span-7 flex flex-col justify-between min-h-[220px]">
-              <PortfolioEquityChart deals={deals} embedded />
+              <PortfolioEquityChart deals={completeDeals} embedded />
             </div>
 
             {/* Right side: Key Wealth Metrics */}
@@ -703,6 +719,11 @@ export const DashboardPage: React.FC = () => {
                     </>
                   ) : (
                     <span>No owned properties in active portfolio</span>
+                  )}
+                  {inputsNeededCount > 0 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 ml-auto">
+                      {inputsNeededCount} {inputsNeededCount === 1 ? 'property needs inputs' : 'properties need inputs'}
+                    </span>
                   )}
                 </div>
               </div>

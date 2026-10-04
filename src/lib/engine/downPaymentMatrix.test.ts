@@ -17,7 +17,7 @@ describe('calculateDownPaymentMatrix', () => {
 
   it('matches calculateProjections headline figures for the baseline row', () => {
     const matrixRes = calculateDownPaymentMatrix('commercial', baseCommercial);
-    const baselineRow = matrixRes.rows.find((r) => r.isBaseline);
+    const baselineRow = matrixRes.rows.find((r: any) => r.isBaseline);
 
     expect(baselineRow).toBeDefined();
     expect(baselineRow?.downPaymentPercent).toBe(25);
@@ -41,7 +41,7 @@ describe('calculateDownPaymentMatrix', () => {
       ...baseCommercial,
       rehabFinancingMode: 'out_of_pocket',
     });
-    const oop20 = outOfPocketRes.rows.find((r) => r.downPaymentPercent === 20)!;
+    const oop20 = outOfPocketRes.rows.find((r: any) => r.downPaymentPercent === 20)!;
     // Price = 1,000,000. 20% down = 200,000. Cash invested = 200,000 + 20,000 closing + 30,000 rehab = 250,000
     expect(oop20.downPaymentAmount).toBe(200000);
     expect(oop20.loanAmount).toBe(800000);
@@ -52,13 +52,13 @@ describe('calculateDownPaymentMatrix', () => {
       ...baseCommercial,
       rehabFinancingMode: 'roll_into_loan',
     });
-    const roll20 = rollInRes.rows.find((r) => r.downPaymentPercent === 20)!;
+    const roll20 = rollInRes.rows.find((r: any) => r.downPaymentPercent === 20)!;
     // Basis = 1,000,000 + 20,000 + 30,000 = 1,050,000. 20% down = 210,000. Cash invested = 210,000
     expect(roll20.downPaymentAmount).toBe(210000);
     expect(roll20.loanAmount).toBe(840000);
     expect(roll20.initialCashInvested).toBe(210000);
 
-    const roll40 = rollInRes.rows.find((r) => r.downPaymentPercent === 40)!;
+    const roll40 = rollInRes.rows.find((r: any) => r.downPaymentPercent === 40)!;
     // 40% of 1,050,000 = 420,000. Initial cash invested scales to 420,000
     expect(roll40.downPaymentAmount).toBe(420000);
     expect(roll40.initialCashInvested).toBe(420000);
@@ -67,13 +67,13 @@ describe('calculateDownPaymentMatrix', () => {
   it('handles edge cases: 0% down, 100% all-cash, and interest-only loans without divide-by-zero', () => {
     const edgeRes = calculateDownPaymentMatrix('commercial', baseCommercial, [0, 25, 100]);
 
-    const zeroRow = edgeRes.rows.find((r) => r.downPaymentPercent === 0)!;
+    const zeroRow = edgeRes.rows.find((r: any) => r.downPaymentPercent === 0)!;
     expect(zeroRow.downPaymentAmount).toBe(0);
     expect(zeroRow.loanAmount).toBe(1000000);
     expect(zeroRow.ltv).toBe(100);
     expect(zeroRow.annualDebtService).toBeGreaterThan(0);
 
-    const fullRow = edgeRes.rows.find((r) => r.downPaymentPercent === 100)!;
+    const fullRow = edgeRes.rows.find((r: any) => r.downPaymentPercent === 100)!;
     expect(fullRow.loanAmount).toBe(0);
     expect(fullRow.ltv).toBe(0);
     expect(fullRow.annualDebtService).toBe(0);
@@ -88,7 +88,7 @@ describe('calculateDownPaymentMatrix', () => {
       financingType: 'interest_only',
       interestOnlyYears: 5,
     });
-    const io25 = ioRes.rows.find((r) => r.downPaymentPercent === 25)!;
+    const io25 = ioRes.rows.find((r: any) => r.downPaymentPercent === 25)!;
     const expectedIoAnnualPayment = 750000 * (6.5 / 100);
     expect(Math.round(io25.annualDebtService)).toBe(Math.round(expectedIoAnnualPayment));
   });
@@ -96,10 +96,10 @@ describe('calculateDownPaymentMatrix', () => {
   it('deduplicates presets with baseline and sorts percentages ascending', () => {
     // Presets with duplicate baseline and unordered list
     const res = calculateDownPaymentMatrix('commercial', { ...baseCommercial, downPaymentPercent: 20 }, [35, 20, 15, 35, 10]);
-    const percentages = res.rows.map((r) => r.downPaymentPercent);
+    const percentages = res.rows.map((r: any) => r.downPaymentPercent);
 
     expect(percentages).toEqual([10, 15, 20, 35]);
-    const baselineRow = res.rows.find((r) => r.isBaseline);
+    const baselineRow = res.rows.find((r: any) => r.isBaseline);
     expect(baselineRow?.downPaymentPercent).toBe(20);
   });
 
