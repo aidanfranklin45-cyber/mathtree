@@ -196,12 +196,13 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
               const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
               const monthlyCashFlowVal = hasCollections
                 ? collectedMonthly
-                : pit.currentCashFlow > 0
+                : pit.currentCashFlow !== 0
                 ? pit.currentCashFlow / 12
-                : Number(engine?.year1Cashflow) > 0
+                : Number(engine?.year1Cashflow || 0) !== 0
                 ? Number(engine?.year1Cashflow) / 12
                 : 0;
-              const cashFlowFormatted = monthlyCashFlowVal > 0 ? formatCurrency(monthlyCashFlowVal) : '—';
+              const hasCashFlow = hasCollections || monthlyCashFlowVal !== 0;
+              const cashFlowFormatted = hasCashFlow ? formatCurrency(monthlyCashFlowVal) : '—';
 
               // DSCR: blank when not applicable or unleveraged
               const rawDscr = engine?.dscr;
@@ -216,14 +217,21 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
               // Return (IRR for pipeline / CoC for owned)
               const isZeroEq = !!engine?.isZeroEquity && pit.currentVal > 0;
               let returnFormatted = '—';
+              let isReturnNegative = false;
               if (isZeroEq) {
                 returnFormatted = 'N/M';
               } else if (isOwned) {
-                const coc = Number(engine?.cashOnCash) || (pit.currentCashFlow && pit.currentEquity > 0 ? (pit.currentCashFlow / pit.currentEquity) * 100 : 0);
-                returnFormatted = coc > 0 ? `${coc.toFixed(1)}% CoC` : '—';
+                const cocRaw = engine?.cashOnCash !== undefined ? Number(engine.cashOnCash) : (pit.currentCashFlow && pit.currentEquity > 0 ? (pit.currentCashFlow / pit.currentEquity) * 100 : undefined);
+                if (cocRaw !== undefined && !isNaN(cocRaw)) {
+                  returnFormatted = `${cocRaw.toFixed(1)}% CoC`;
+                  isReturnNegative = cocRaw < 0;
+                }
               } else {
-                const irr = Number(engine?.irr || pit.irr || 0);
-                returnFormatted = irr > 0 ? `${irr.toFixed(1)}% IRR` : '—';
+                const irrRaw = engine?.irr !== undefined ? Number(engine.irr) : pit.irr !== undefined ? Number(pit.irr) : undefined;
+                if (irrRaw !== undefined && !isNaN(irrRaw)) {
+                  returnFormatted = `${irrRaw.toFixed(1)}% IRR`;
+                  isReturnNegative = irrRaw < 0;
+                }
               }
 
               return (
@@ -305,13 +313,15 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                       <span className="font-mono text-slate-500">—</span>
                     ) : (
                       <div className="inline-flex flex-col items-end">
-                        <span className="font-mono font-bold text-white tabular-nums">
+                        <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-amber-400' : 'text-white'}`}>
                           {cashFlowFormatted}<span className="text-slate-400 font-sans text-[10px]">/mo</span>
                         </span>
                         <span
                           className={`text-[9px] font-extrabold uppercase tracking-wider px-1 rounded ${
                             hasCollections
                               ? 'bg-emerald-500/20 text-emerald-400'
+                              : monthlyCashFlowVal < 0
+                              ? 'bg-amber-500/10 text-amber-400'
                               : 'bg-slate-800 text-slate-400'
                           }`}
                         >
@@ -327,7 +337,9 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   </td>
 
                   {/* Target Return (IRR / CoC) */}
-                  <td className="py-3 px-3 text-right font-mono font-bold text-cyan-400 tabular-nums whitespace-nowrap">
+                  <td className={`py-3 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap ${
+                    returnFormatted === '—' || returnFormatted === 'N/M' ? 'text-slate-400' : isReturnNegative ? 'text-amber-400' : 'text-cyan-400'
+                  }`}>
                     {returnFormatted}
                   </td>
 

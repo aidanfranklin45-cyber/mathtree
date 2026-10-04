@@ -112,17 +112,20 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   const purchasePrice = Number(deal.purchase_price || inputs.purchasePrice || 0);
   const currentVal = pit.currentVal > 0 ? pit.currentVal : purchasePrice;
   const isZeroEq = !!engine?.isZeroEquity && purchasePrice > 0;
-  const irrStr = isZeroEq ? 'N/M' : pit.irr > 0 ? `${pit.irr.toFixed(1)}%` : '—';
+  const rawIrr = engine?.irr !== undefined ? Number(engine.irr) : pit.irr !== undefined ? Number(pit.irr) : undefined;
+  const hasIrr = rawIrr !== undefined && !isNaN(rawIrr);
+  const irrStr = isZeroEq ? 'N/M' : hasIrr ? `${rawIrr.toFixed(1)}%` : '—';
 
   // Cash flow & Collected vs Estimated distinction
   const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
   const monthlyCfVal = hasCollections
     ? collectedMonthly
-    : pit.currentCashFlow > 0
+    : pit.currentCashFlow !== 0
     ? pit.currentCashFlow / 12
-    : Number(engine?.year1Cashflow) > 0
+    : Number(engine?.year1Cashflow || 0) !== 0
     ? Number(engine?.year1Cashflow) / 12
     : 0;
+  const hasCashFlow = hasCollections || monthlyCfVal !== 0;
 
   const currentStage = isOwned ? 'owned' : inputs.dealStage && inputs.dealStage !== 'owned' ? inputs.dealStage : 'screening';
   const stInfo = stageMap[currentStage] || (isOwned ? stageMap.owned : stageMap.screening);
@@ -306,7 +309,9 @@ const DealCardComponent: React.FC<DealCardProps> = ({
 
           <div>
             <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">Target IRR</span>
-            <span className="text-xs font-black text-brand-400 mt-0.5 block tabular-nums">
+            <span className={`text-xs font-black mt-0.5 block tabular-nums ${
+              !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-amber-400' : 'text-brand-400'
+            }`}>
               {irrStr}
             </span>
           </div>
@@ -315,13 +320,15 @@ const DealCardComponent: React.FC<DealCardProps> = ({
             <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
               {hasCollections ? 'Monthly Rent' : 'Est. Cash Flow'}
             </span>
-            <span className="text-xs font-black text-emerald-400 mt-0.5 block tabular-nums">
-              {monthlyCfVal > 0 ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
+            <span className={`text-xs font-black mt-0.5 block tabular-nums ${
+              monthlyCfVal < 0 ? 'text-amber-400' : 'text-emerald-400'
+            }`}>
+              {hasCashFlow ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
             </span>
-            {monthlyCfVal > 0 ? (
+            {hasCashFlow ? (
               <span
                 className={`text-[8px] font-bold block uppercase tracking-wider font-sans leading-none mt-0.5 ${
-                  hasCollections ? 'text-emerald-400' : 'text-slate-400'
+                  hasCollections ? 'text-emerald-400' : monthlyCfVal < 0 ? 'text-amber-400' : 'text-slate-400'
                 }`}
               >
                 {hasCollections ? 'Collected' : 'Estimated'}

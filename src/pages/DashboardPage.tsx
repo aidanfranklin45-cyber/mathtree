@@ -667,38 +667,25 @@ export const DashboardPage: React.FC = () => {
 
       {/* Main Content Area - Full Desktop Width */}
       <main className="flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-5 sm:py-6 space-y-5">
-        {/* Compact Institutional Top Header */}
-        <div className="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 backdrop-blur-sm">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-3">
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                Hey, <span className="text-brand-400">{greetingName}</span>
-              </h2>
-              <span className="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>{counts.owned} Owned</span>
-                <span className="text-slate-600">•</span>
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span>{counts.prospect} Pipeline</span>
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">
-              Active real estate investment and operational performance overview.
-            </p>
-          </div>
+        {/* Minimalist Greeting & Action Bar */}
+        <div className="flex items-center justify-between pb-1">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Hey, <span className="text-brand-400">{greetingName}</span>
+          </h2>
 
-          <div className="flex items-center space-x-2.5 w-full md:w-auto">
-            <button
-              onClick={() => setIsWizardOpen(true)}
-              className="px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-950 bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-1.5 w-full md:w-auto"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Create Project</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-950 bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition flex items-center space-x-1.5 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Create Project</span>
+          </button>
         </div>
 
-        {/* 4 Executive KPI Tiles - Vanguard-Style Bold Wealth Scorecard */}
+        {/* 1. Portfolio Trajectory Graph */}
+        <PortfolioEquityChart deals={deals} />
+
+        {/* 2. Directly Underneath: 4 Vanguard-Style KPI Tiles */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Tile 1: Gross Asset Value */}
           <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
@@ -785,9 +772,6 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Portfolio Equity & Asset Wealth Creation Chart */}
-        <PortfolioEquityChart deals={deals} />
 
         {/* Main Section: Pinned Refine Sidebar + Results Grid/Table */}
         <div className="flex flex-col lg:flex-row items-start gap-6 pt-1">

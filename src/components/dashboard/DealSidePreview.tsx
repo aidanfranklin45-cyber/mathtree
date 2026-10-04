@@ -67,9 +67,9 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
   const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
   const monthlyCf = hasCollections
     ? collectedMonthly
-    : pit.currentCashFlow > 0
+    : pit.currentCashFlow !== 0
     ? pit.currentCashFlow / 12
-    : Number(engine?.year1Cashflow) > 0
+    : Number(engine?.year1Cashflow || 0) !== 0
     ? Number(engine?.year1Cashflow) / 12
     : 0;
 
@@ -86,9 +86,14 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
 
   // Returns
   const isZeroEq = !!engine?.isZeroEquity && currentVal > 0;
-  const irrStr = isZeroEq ? 'N/M' : Number(engine?.irr || pit.irr || 0) > 0 ? `${Number(engine?.irr || pit.irr).toFixed(1)}%` : '—';
-  const cocVal = Number(engine?.cashOnCash) || (pit.currentCashFlow && pit.currentEquity > 0 ? (pit.currentCashFlow / pit.currentEquity) * 100 : 0);
-  const cocStr = isZeroEq ? 'N/M' : cocVal > 0 ? `${cocVal.toFixed(1)}%` : '—';
+  const rawIrr = engine?.irr !== undefined ? Number(engine.irr) : pit.irr !== undefined ? Number(pit.irr) : undefined;
+  const hasIrr = rawIrr !== undefined && !isNaN(rawIrr);
+  const irrStr = isZeroEq ? 'N/M' : hasIrr ? `${rawIrr.toFixed(1)}%` : '—';
+
+  const rawCoc = engine?.cashOnCash !== undefined ? Number(engine.cashOnCash) : (pit.currentCashFlow && currentEquity > 0 ? (pit.currentCashFlow / currentEquity) * 100 : undefined);
+  const hasCoc = rawCoc !== undefined && !isNaN(rawCoc);
+  const cocStr = isZeroEq ? 'N/M' : hasCoc ? `${rawCoc.toFixed(1)}%` : '—';
+
   const equityMult = Number(engine?.equityMultiplier);
   const eqMultStr = equityMult > 0 ? `${equityMult.toFixed(2)}x` : '—';
 
@@ -254,22 +259,22 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">Monthly Cash Flow</span>
-                <span className="text-base font-black text-white font-mono tabular-nums">
-                  {monthlyCf > 0 ? `${formatCurrency(monthlyCf)}/mo` : '—'}
+                <span className={`text-base font-black font-mono tabular-nums ${monthlyCf < 0 ? 'text-amber-400' : 'text-white'}`}>
+                  {monthlyCf !== 0 ? `${formatCurrency(monthlyCf)}/mo` : '—'}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">Annual Cash Flow</span>
-                <span className="text-base font-black text-emerald-400 font-mono tabular-nums">
-                  {annualCf > 0 ? `${formatCurrency(annualCf)}/yr` : '—'}
+                <span className={`text-base font-black font-mono tabular-nums ${annualCf < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {annualCf !== 0 ? `${formatCurrency(annualCf)}/yr` : '—'}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">Net Operating Income</span>
                 <span className="text-sm font-bold text-slate-200 font-mono tabular-nums">
-                  {pit.currentNoi > 0
+                  {pit.currentNoi !== 0
                     ? formatCurrency(pit.currentNoi)
-                    : Number(engine?.noi) > 0
+                    : Number(engine?.noi) !== 0
                     ? formatCurrency(Number(engine?.noi))
                     : '—'}
                 </span>
@@ -295,13 +300,17 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
             <div className="grid grid-cols-3 gap-2 pt-1 text-center">
               <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-[9px] uppercase font-bold text-slate-500 block">10-Yr IRR</span>
-                <span className="text-sm font-black text-brand-400 font-mono tabular-nums block mt-0.5">
+                <span className={`text-sm font-black font-mono tabular-nums block mt-0.5 ${
+                  !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-amber-400' : 'text-brand-400'
+                }`}>
                   {irrStr}
                 </span>
               </div>
               <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-[9px] uppercase font-bold text-slate-500 block">CoC Yield</span>
-                <span className="text-sm font-black text-cyan-400 font-mono tabular-nums block mt-0.5">
+                <span className={`text-sm font-black font-mono tabular-nums block mt-0.5 ${
+                  !hasCoc || isZeroEq ? 'text-slate-400' : (rawCoc ?? 0) < 0 ? 'text-amber-400' : 'text-cyan-400'
+                }`}>
                   {cocStr}
                 </span>
               </div>
