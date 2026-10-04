@@ -258,7 +258,7 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdat
                   {PRESETS.map(([m, label]) => (
                     <button key={m} type="button" onClick={() => setHorizon(m)} className={effectiveMonths === m ? presetOn : presetOff}>{label}</button>
                   ))}
-                  <button type="button" onClick={() => setHorizon(parseInt(String(inputs.exitYear || inputs.holdingPeriod || 10), 10) * 12)}
+                  <button type="button" onClick={() => setHorizon(parseInt(String(inputs.holdingPeriod ?? inputs.exitYear), 10) * 12)}
                     className="btn-monthly-preset px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-300 transition" title="Match underwriting exit hold period">🎯 Match Exit Hold</button>
                 </div>
                 <div className="flex items-center space-x-2 w-full sm:w-64">

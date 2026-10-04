@@ -57,7 +57,6 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
   const dealKey = JSON.stringify([deal.inputs, deal.purchase_price, deal.asset_class]);
   const merged = useMemo(() => {
     const m: Record<string, any> = prepareEngineInputs(deal);
-    if (!m.targetCapRate) m.targetCapRate = m.targetExitCapRate || m.exitCapRate || m.appreciationRate || 6.5;
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealKey, expiryVersion]);

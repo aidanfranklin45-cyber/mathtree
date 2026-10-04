@@ -42,7 +42,7 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
   const assumptions = useMemo(() => {
     const totalAssessed = raw.totalAssessedValue || inputs.totalAssessedValue || inputs.assessedValue || 0;
     const sqft = raw.buildingSqFt || inputs.buildingSqFt || inputs.gla || inputs.totalSqFt || 0;
-    const holdYrs = inputs.exitYear || 10;
+    const holdYrs = inputs.holdingPeriod ?? inputs.exitYear;
     const projections = (metrics.projections ?? []) as Array<Record<string, any>>;
     const p0: Record<string, any> = projections[0] || {};
     const isStub = Boolean(p0 && Number(p0.operatingMonths) < 12);
@@ -59,7 +59,7 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
     const opexRatio = inputs.expenseRatio ?? inputs.operatingExpenseRatio ?? 0;
     const down = inputs.downPaymentPercent ?? 0;
     const rate = inputs.interestRate ?? 0;
-    const term = inputs.loanTerm ?? inputs.loanTermYears ?? 30;
+    const term = inputs.amortizationYears ?? inputs.loanTerm;
     const growth = inputs.rentGrowth ?? 0;
 
     let revenue = '';

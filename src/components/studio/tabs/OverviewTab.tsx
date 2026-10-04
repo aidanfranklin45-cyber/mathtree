@@ -54,7 +54,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
 
   const cf = Number(proj.cashFlow) || 0;
   const cfMo = cf / 12;
-  const exitYear = inputs.exitYear || 10;
+  const exitYear = Number(inputs.holdingPeriod ?? inputs.exitYear);
 
   // Cap-rate benchmark description (same tiers/classes the legacy card showed)
   const capDesc = useMemo(() => {
@@ -121,7 +121,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
     return () => { live = false; };
   }, [deal.id, isOwned]);
   const pit = isOwned ? resolvePointInTimeDealMetrics(dealWithFacts ?? deal, new Date()) : null;
-  const rate = inputs.interestRate || 6.5;
+  const rate = Number(inputs.interestRate);
   const monthlyPayment = Number(metrics.monthlyMortgagePayment) || 0;
   const dscrIdx = startYr <= sysYear ? Math.min(projections.length - 1, Math.max(0, sysYear - startYr)) : 0;
   const dscrProj = projections[dscrIdx] || projections[0] || {};

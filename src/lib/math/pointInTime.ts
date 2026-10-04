@@ -69,13 +69,13 @@ export function resolvePointInTimeDealMetrics(
 
   if (!isOwned) {
     const em = engineMetrics(deal);
-    const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+    const downPct = parseFloat(inp.downPaymentPercent);
     const baseLoanAmount =
       em && em.loanAmount !== undefined && em.loanAmount !== null
         ? Number(em.loanAmount) || 0
-        : downPct === 0
-        ? price
-        : Math.max(0, price * (1 - downPct / 100));
+        : Number.isFinite(downPct)
+        ? Math.max(0, price * (1 - downPct / 100))
+        : 0;
     const debt = Number(em?.loanAmount ?? baseLoanAmount) || 0;
     // Property equity is asset value minus outstanding debt; closing costs / fees are transaction expenses
     const eq = Math.max(0, price - debt);
@@ -134,14 +134,14 @@ export function resolvePointInTimeDealMetrics(
   const monthsElapsed = Math.max(0, (targetYear - closeYear) * 12 + (targetMonth - closeMonth));
 
   // Financing: balance and payment come from the engine's monthly schedule (one amortization implementation)
-  const termYears = parseFloat(inp.loanTerm || inp.loanTermYears || inp.amortizationYears || 30);
-  const rate = parseFloat(inp.interestRate || 6.5);
+  const termYears = parseFloat(inp.amortizationYears ?? inp.loanTerm ?? inp.loanTermYears) || 0;
+  const rate = parseFloat(inp.interestRate) || 0;
   const em = engineMetrics(deal);
   // Engine loan already includes any rehab/closing costs rolled into the loan
-  const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+  const downPct = parseFloat(inp.downPaymentPercent);
   const baseLoanAmount: number = em && em.loanAmount !== undefined && em.loanAmount !== null
     ? Number(em.loanAmount) || 0
-    : (downPct === 0 ? price : Math.max(0, price * (1 - downPct / 100)));
+    : (Number.isFinite(downPct) ? Math.max(0, price * (1 - downPct / 100)) : 0);
 
   let currentDebt = baseLoanAmount;
   let monthlyPayment = 0;
@@ -161,8 +161,9 @@ export function resolvePointInTimeDealMetrics(
   const accumulatedPrincipal = Math.max(0, baseLoanAmount - currentDebt);
 
   // Exact Month-by-Month Appreciation
+  // With no stated appreciation the value is held at cost; it is never grown by a guess
   const appRate = parseFloat(
-    inp.appreciationRate !== undefined && inp.appreciationRate !== '' ? inp.appreciationRate : 2.0,
+    inp.appreciationRate !== undefined && inp.appreciationRate !== '' ? inp.appreciationRate : 0,
   );
   const currentVal = price > 0 ? price * Math.pow(1 + appRate / 100, monthsElapsed / 12) : price;
   const currentEquity = Math.max(0, currentVal - currentDebt);
@@ -239,7 +240,7 @@ export function generateMonthlyAmortizationSchedule(
     if (!isNaN(dt.getTime())) baseDate = dt;
   }
 
-  const rows = getMonthlyAmortization(loan, parseFloat(inp.interestRate || 6.5), termYears, {
+  const rows = getMonthlyAmortization(loan, parseFloat(inp.interestRate) || 0, termYears, {
     totalMonths: Math.min(maxMonths, Math.round(termYears * 12)),
     financingType: em.financingType ?? inp.financingType,
     interestOnlyYears: em.interestOnlyYears ?? inp.interestOnlyYears,
