@@ -125,7 +125,8 @@ const factory = function () {
     text = text.replace(/[,#.]/g, ' ').replace(/\s+/g, ' ').trim();
 
     // 6. Tokenize words
-    const rawTokens = text.toUpperCase().split(/\s+/).filter(Boolean);
+    // Tokens end up inside single-quoted ArcGIS SQL strings, so double any apostrophe (O'Brien -> O''BRIEN).
+    const rawTokens = text.toUpperCase().replace(/'/g, "''").split(/\s+/).filter(Boolean);
 
     // Locate house number (the first pure-digit token or digit with letter, e.g. 411 or 411A)
     let houseNumber = '';

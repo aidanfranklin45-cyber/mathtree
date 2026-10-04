@@ -60,6 +60,24 @@ async function ownsDeal(dbClient: any, dealId: string, userId: string): Promise<
   return !!data;
 }
 
+function cleanEmails(list: unknown[]): string[] {
+  const out = new Set<string>();
+  for (const e of list) {
+    const v = typeof e === "string" ? e.trim().toLowerCase() : "";
+    if (v && v.includes("@")) out.add(v);
+  }
+  return Array.from(out);
+}
+
+// Updates the existing share row when there is one, else inserts. A plain upsert with no conflict target always inserts, which
+// piles up duplicates for email shares and fails the (deal_id, shared_with_user_id) constraint when a registered user is re-shared.
+async function saveShare(dbClient: any, existingId: string | null | undefined, row: Record<string, unknown>) {
+  if (existingId) {
+    return await dbClient.from("deal_shares").update({ ...row, updated_at: new Date().toISOString() }).eq("id", existingId).select().single();
+  }
+  return await dbClient.from("deal_shares").insert(row).select().single();
+}
+
 export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -176,17 +194,13 @@ export async function handleRequest(req: Request): Promise<Response> {
 
         if (grpError) throw grpError;
 
-        if (members.length > 0) {
-          const rows = members
-            .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-            .filter((e) => e && e.includes("@"))
-            .map((email) => ({
-              group_id: newGroup.id,
-              member_email: email,
-            }));
-
-          if (rows.length > 0) {
-            await dbClient.from("collaborator_group_members").insert(rows);
+        const rows = cleanEmails(members).map((email) => ({ group_id: newGroup.id, member_email: email }));
+        if (rows.length > 0) {
+          const { error: memErr } = await dbClient.from("collaborator_group_members").insert(rows);
+          if (memErr) {
+            // Do not leave a half-built group behind.
+            await dbClient.from("collaborator_groups").delete().eq("id", newGroup.id).eq("user_id", userId);
+            throw memErr;
           }
         }
 
@@ -217,18 +231,24 @@ export async function handleRequest(req: Request): Promise<Response> {
         if (updErr) throw updErr;
 
         if (Array.isArray(members)) {
-          // Replace members
-          await dbClient.from("collaborator_group_members").delete().eq("group_id", groupId);
-          const rows = members
-            .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
-            .filter((e) => e && e.includes("@"))
-            .map((email) => ({
-              group_id: groupId,
-              member_email: email,
-            }));
-
-          if (rows.length > 0) {
-            await dbClient.from("collaborator_group_members").insert(rows);
+          // Add the new members first and only then drop the ones that were removed, so a failed insert never empties the group.
+          const emails = cleanEmails(members);
+          if (emails.length > 0) {
+            const { error: addErr } = await dbClient
+              .from("collaborator_group_members")
+              .upsert(emails.map((email) => ({ group_id: groupId, member_email: email })), { onConflict: "group_id,member_email" });
+            if (addErr) throw addErr;
+          }
+          const { data: current, error: curErr } = await dbClient
+            .from("collaborator_group_members")
+            .select("id, member_email")
+            .eq("group_id", groupId);
+          if (curErr) throw curErr;
+          const keep = new Set(emails);
+          const dropIds = (current || []).filter((m: any) => !keep.has(String(m.member_email || "").toLowerCase())).map((m: any) => m.id);
+          if (dropIds.length > 0) {
+            const { error: delErr } = await dbClient.from("collaborator_group_members").delete().in("id", dropIds);
+            if (delErr) throw delErr;
           }
         }
 
@@ -284,18 +304,14 @@ export async function handleRequest(req: Request): Promise<Response> {
             .maybeSingle();
 
           // Insert or update group deal share
-          const { data: shareRow, error: sErr } = await dbClient
-            .from("deal_shares")
-            .upsert({
-              deal_id: dealId,
-              owner_id: userId,
-              group_id: targetId,
-              shared_with_email: null,
-              permission,
-              can_view_scenarios: canViewScenarios,
-            })
-            .select()
-            .single();
+          const { data: shareRow, error: sErr } = await saveShare(dbClient, priorGroupShare?.id, {
+            deal_id: dealId,
+            owner_id: userId,
+            group_id: targetId,
+            shared_with_email: null,
+            permission,
+            can_view_scenarios: canViewScenarios,
+          });
 
           if (sErr) throw sErr;
           if (!priorGroupShare) {
@@ -328,26 +344,31 @@ export async function handleRequest(req: Request): Promise<Response> {
             if (profile) matchedUserId = profile.id;
           } catch {}
 
-          const { data: priorEmailShare } = await dbClient
+          let { data: priorEmailShare } = await dbClient
             .from("deal_shares")
             .select("id")
             .eq("deal_id", dealId)
             .eq("shared_with_email", cleanEmail)
             .maybeSingle();
+          if (!priorEmailShare && matchedUserId) {
+            // Older shares may carry only the user id.
+            ({ data: priorEmailShare } = await dbClient
+              .from("deal_shares")
+              .select("id")
+              .eq("deal_id", dealId)
+              .eq("shared_with_user_id", matchedUserId)
+              .maybeSingle());
+          }
 
-          const { data: shareRow, error: sErr } = await dbClient
-            .from("deal_shares")
-            .upsert({
-              deal_id: dealId,
-              owner_id: userId,
-              group_id: null,
-              shared_with_email: cleanEmail,
-              shared_with_user_id: matchedUserId,
-              permission,
-              can_view_scenarios: canViewScenarios,
-            })
-            .select()
-            .single();
+          const { data: shareRow, error: sErr } = await saveShare(dbClient, priorEmailShare?.id, {
+            deal_id: dealId,
+            owner_id: userId,
+            group_id: null,
+            shared_with_email: cleanEmail,
+            shared_with_user_id: matchedUserId,
+            permission,
+            can_view_scenarios: canViewScenarios,
+          });
 
           if (sErr) throw sErr;
           if (!priorEmailShare) {
