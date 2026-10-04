@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  defaultTrackRecoveries, proRataSharePct, expectedDueDates, itemStatus, missingItems, summarizeLeaseRecoveries,
+  defaultTrackRecoveries, proRataSharePct, expectedDueDates, itemStatus, missingItems, backfillSinceIso, summarizeLeaseRecoveries,
   type RecoveryTerm, type RecoveryItem,
 } from '../../../supabase/functions/_shared/recoveries';
 
@@ -91,5 +91,26 @@ describe('summarizeLeaseRecoveries', () => {
     const s = summarizeLeaseRecoveries({ track_recoveries: true }, terms, items, '2026-10-05');
     expect(s).toMatchObject({ tracked: true, overdue: 1, dueSoon: 1, complete: 2 });
     expect(s.next).toMatchObject({ term_id: 't2', due_date: '2026-09-01', category: 'cam', status: 'overdue' });
+  });
+});
+
+describe('unpaid yearly charges this year (2026-10-04)', () => {
+  const today = '2026-10-04';
+  const terms = [
+    term({ id: 'tax', frequency: 'semiannual', first_due_date: '2026-04-30' }),
+    term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-03-15' }),
+    term({ id: 'oth', category: 'other', frequency: 'annual', first_due_date: '2026-05-01' }),
+  ];
+  const have: RecoveryItem[] = [{ term_id: 'tax', due_date: '2026-10-30', verified: true }];
+
+  it('starts the backfill at the start of the year, or 60 days back if that is earlier', () => {
+    expect(backfillSinceIso(today)).toBe('2026-01-01');
+    expect(backfillSinceIso('2026-02-10')).toBe('2025-12-12');
+  });
+  it('creates this year\'s missed items and reports them overdue', () => {
+    const created = missingItems(terms, have, '2026-10-18', backfillSinceIso(today));
+    expect(created.map((m) => `${m.term_id}|${m.due_date}`).sort()).toEqual(['ins|2026-03-15', 'oth|2026-05-01', 'tax|2026-04-30']);
+    const s = summarizeLeaseRecoveries({ track_recoveries: true }, terms, [...have, ...created], today);
+    expect(s.overdue).toBe(3);
   });
 });

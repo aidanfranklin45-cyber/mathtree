@@ -110,6 +110,17 @@ export const itemStatus = (
   return 'upcoming';
 };
 
+/**
+ * How far back scheduling reaches for unpaid items: the later of 60 days or the start of the current year. The year floor
+ * is what makes a yearly or twice-a-year charge (insurance, tax) show overdue when this year's payment was never marked,
+ * instead of silently falling outside a short window and reading "up to date".
+ */
+export const backfillSinceIso = (today: string): string => {
+  const sixty = fmt(new Date(parse(today).getTime() - 60 * DAY_MS));
+  const jan1 = `${today.slice(0, 4)}-01-01`;
+  return jan1 < sixty ? jan1 : sixty;
+};
+
 /** Items that should exist (due from `since`, if given, through `through`) but have not been created yet. */
 export const missingItems = (terms: RecoveryTerm[], items: RecoveryItem[], through: string, since?: string): RecoveryItem[] => {
   const have = new Set(items.map((i) => `${i.term_id}|${i.due_date}`));
