@@ -54,6 +54,10 @@ const parse = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / DAY_MS);
 
+/** Today as YYYY-MM-DD on the caller's calendar (toISOString would already be tomorrow on a US evening). */
+export const localTodayIso = (now: Date = new Date()): string =>
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
 /** Adds whole months, clamping to month end (Jan 31 + 1 month = Feb 28). */
 const addMonths = (iso: string, months: number): string => {
   const d = parse(iso);

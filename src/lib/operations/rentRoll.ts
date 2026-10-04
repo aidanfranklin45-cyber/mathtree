@@ -161,11 +161,11 @@ export function escalationInfo(lease: Row, increases: Row[], now: Date): Escalat
   let nearestScheduled: Row | null = leaseScheduledSteps.length > 0 ? leaseScheduledSteps[0] : null;
   if (!nearestScheduled && lease.next_escalation_date) nearestScheduled = stepFromLease(lease);
 
-  const nextEscDate = nearestScheduled ? new Date(nearestScheduled.effective_date) : null;
+  const nextEscDate = nearestScheduled ? localDay(nearestScheduled.effective_date) : null;
   const isScheduledDue = Boolean(nextEscDate && nextEscDate <= now);
   const isAdvanceScheduled = Boolean(nextEscDate && nextEscDate > now);
 
-  const refDate = lease.last_rent_increase_date ? new Date(lease.last_rent_increase_date) : new Date(lease.lease_start_date);
+  const refDate = lease.last_rent_increase_date ? localDay(lease.last_rent_increase_date) : localDay(lease.lease_start_date);
   const monthsSince = (now.getFullYear() - refDate.getFullYear()) * 12 + (now.getMonth() - refDate.getMonth());
   const isUnscheduledReviewDue = !hasDefinedSchedule && monthsSince >= 12;
 
@@ -255,7 +255,7 @@ export function buildOperations(input: RentRollInput): OperationsResult {
   let scheduledCount = 0;
   let earliestUpcomingStep: Row | null = null;
   const earliest = (candidate: Row) => {
-    if (!earliestUpcomingStep || new Date(candidate.effective_date) < new Date(earliestUpcomingStep.effective_date)) earliestUpcomingStep = candidate;
+    if (!earliestUpcomingStep || localDay(candidate.effective_date) < localDay(earliestUpcomingStep.effective_date)) earliestUpcomingStep = candidate;
   };
 
   scopedLeases.forEach((lease) => {
@@ -271,15 +271,15 @@ export function buildOperations(input: RentRollInput): OperationsResult {
 
     if (isAnnual) {
       if (leaseIncreases.length > 0) {
-        const sorted = [...leaseIncreases].sort((a, b) => +new Date(a.effective_date) - +new Date(b.effective_date));
-        if (sorted.find((inc) => inc.effective_date && new Date(inc.effective_date) <= now)) hasDueStep = true;
-        const nextFuture = sorted.find((inc) => inc.effective_date && new Date(inc.effective_date) > now);
+        const sorted = [...leaseIncreases].sort((a, b) => +localDay(a.effective_date) - +localDay(b.effective_date));
+        if (sorted.find((inc) => inc.effective_date && localDay(inc.effective_date) <= now)) hasDueStep = true;
+        const nextFuture = sorted.find((inc) => inc.effective_date && localDay(inc.effective_date) > now);
         if (nextFuture) {
           hasUpcoming = true;
           earliest(nextFuture);
         }
       }
-      const nextEsc = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+      const nextEsc = lease.next_escalation_date ? localDay(lease.next_escalation_date) : null;
       if (nextEsc) {
         if (nextEsc <= now) hasDueStep = true;
         else {
@@ -293,18 +293,18 @@ export function buildOperations(input: RentRollInput): OperationsResult {
       else if (!hasDefinedSchedule) {
         const ref = lease.last_rent_increase_date || lease.lease_start_date;
         if (ref) {
-          const r = new Date(ref);
+          const r = localDay(ref);
           if ((now.getFullYear() - r.getFullYear()) * 12 + (now.getMonth() - r.getMonth()) >= 12) escalationsDueCount++;
         }
       }
     } else {
       leaseIncreases.forEach((inc) => {
         scheduledCount++;
-        const eff = new Date(inc.effective_date);
+        const eff = localDay(inc.effective_date);
         if (eff <= now) hasDueStep = true;
         else earliest(inc);
       });
-      const nextEsc = lease.next_escalation_date ? new Date(lease.next_escalation_date) : null;
+      const nextEsc = lease.next_escalation_date ? localDay(lease.next_escalation_date) : null;
       if (nextEsc) {
         if (nextEsc <= now) hasDueStep = true;
         else earliest(stepFromLease(lease));
@@ -313,7 +313,7 @@ export function buildOperations(input: RentRollInput): OperationsResult {
       else if (!hasDefinedSchedule) {
         const ref = lease.last_rent_increase_date || lease.lease_start_date;
         if (ref) {
-          const r = new Date(ref);
+          const r = localDay(ref);
           if ((now.getFullYear() - r.getFullYear()) * 12 + (now.getMonth() - r.getMonth()) >= 12) escalationsDueCount++;
         }
       }
@@ -366,7 +366,7 @@ const DAY_MS = 86400000;
 /** A date-only string ('2026-10-05') is that local calendar day; new Date() would read it as UTC and shift it back a day west of UTC. */
 const localDay = (v: unknown): Date => {
   const m = String(v ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : startOfDay(new Date(v as any));
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(v as any);
 };
 const daysBetween = (a: Date, b: Date) => Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY_MS);
 const monthShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
@@ -392,7 +392,7 @@ export function getDueInfo(lease: Row, payment: Row | undefined, today: Date = n
 
   const rent = num(lease.monthly_rent);
   const paid = !!payment && (payment.status === 'paid' || (rent > 0 && num(payment.amount_paid) >= rent));
-  const snoozed = !paid && !!payment?.snooze_until && localDay(payment.snooze_until) >= day;
+  const snoozed = !paid && !!payment?.snooze_until && startOfDay(localDay(payment.snooze_until)) >= day;
   const month = monthShort(currentDue);
 
   if (paid) {

@@ -1,11 +1,11 @@
 /** Supabase writes for NNN recovery tracking. The pure rules live in recoveries.ts; this file only talks to the database. */
 
 import { supabase } from '../supabase/client';
-import { missingItems, isItemComplete, type RecoveryItem, type RecoveryTerm } from './recoveries';
+import { missingItems, localTodayIso, isItemComplete, type RecoveryItem, type RecoveryTerm } from './recoveries';
 
 type Row = Record<string, any>;
 
-const todayIso = () => new Date().toISOString().split('T')[0];
+const todayIso = () => localTodayIso();
 const shiftDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);

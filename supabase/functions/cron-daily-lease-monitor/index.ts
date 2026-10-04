@@ -5,7 +5,7 @@ import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
-import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
+import { isAdvanceNoticeDay, isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
 import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
 import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
 import { missingItems } from "../_shared/recoveries.ts";
@@ -842,7 +842,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         let isAdvanceNotice = false;
 
         // Check A: Advance Notice trigger
-        if (advanceDays > 0 && todayDay === (dueDay - advanceDays)) {
+        if (isAdvanceNoticeDay(now, Number(lease.payment_due_day) || 1, advanceDays)) {
           shouldSend = true;
           isAdvanceNotice = true;
         }
