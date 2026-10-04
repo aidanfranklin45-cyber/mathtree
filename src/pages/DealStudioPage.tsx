@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useDealStore } from '../stores/useDealStore';
 import { useComputedMetrics } from '../lib/engine/useComputedMetrics';
 import { StudioNavbar } from '../components/studio/StudioNavbar';
@@ -24,6 +24,8 @@ import { ensureBaseline } from '../lib/baselines/db';
 import { Loader2 } from 'lucide-react';
 
 export const DealStudioPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const dealIdFromUrl = searchParams.get('id') || undefined;
   const {
     deal,
     loading: dealLoading,
@@ -36,7 +38,7 @@ export const DealStudioPage: React.FC = () => {
     saveDeal,
     patchDeal,
     loadDeal,
-  } = useDealStore();
+  } = useDealStore(dealIdFromUrl);
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);

@@ -8,7 +8,6 @@ import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
 import { attachPropertyFacts } from '../lib/property/loadFacts';
 import { DealCard } from '../components/dashboard/DealCard';
 import { DealTableView, SortField } from '../components/dashboard/DealTableView';
-import { DealSidePreview } from '../components/dashboard/DealSidePreview';
 import { BulkActionsBar } from '../components/dashboard/BulkActionsBar';
 import { PortfolioEquityChart } from '../components/dashboard/PortfolioEquityChart';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
@@ -109,9 +108,6 @@ export const DashboardPage: React.FC = () => {
 
   // Multi-Select State
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
-
-  // Side-Panel Preview State
-  const [previewDeal, setPreviewDeal] = useState<DealRecord | null>(null);
 
   // Search input ref for keyboard focus
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -316,7 +312,6 @@ export const DashboardPage: React.FC = () => {
         next.delete(dealId);
         return next;
       });
-      if (previewDeal?.id === dealId) setPreviewDeal(null);
     } catch (err) {
       console.error('Failed to delete deal:', err);
     }
@@ -1157,7 +1152,6 @@ export const DashboardPage: React.FC = () => {
                 onEdit={handleEditDeal}
                 onDelete={handleDeleteDeal}
                 onToggleStatus={handleToggleStatus}
-                onPreview={(deal) => setPreviewDeal(deal)}
                 onShare={handleShareDeal}
                 entities={entities}
                 collectedMonthlyMap={collectedMonthlyMap}
@@ -1178,7 +1172,6 @@ export const DashboardPage: React.FC = () => {
                     onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
                     onShare={deal.is_shared ? undefined : handleShareDeal}
-                    onPreview={(d) => setPreviewDeal(d)}
                     isSelected={selectedDealIds.has(deal.id)}
                     onToggleSelect={handleToggleSelect}
                     collectedMonthly={collectedMonthlyMap.get(deal.id)}
@@ -1203,17 +1196,6 @@ export const DashboardPage: React.FC = () => {
         onBulkMovePipeline={handleBulkMovePipeline}
         onBulkExportCsv={handleBulkExportCsv}
       />
-
-      {/* Side-Panel Deal Inspection Drawer */}
-      {previewDeal && (
-        <DealSidePreview
-          deal={previewDeal}
-          onClose={() => setPreviewDeal(null)}
-          onEdit={handleEditDeal}
-          onToggleStatus={handleToggleStatus}
-          collectedMonthly={collectedMonthlyMap.get(previewDeal.id)}
-        />
-      )}
 
       {/* Creation Wizard Modal */}
       <TransferOwnershipModal
