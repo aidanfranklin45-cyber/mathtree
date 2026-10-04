@@ -3,7 +3,7 @@ import path from 'path';
 
 // The authenticated app is the React build (dist/app.html). Only these static files ship beside it:
 // the marketing/login page, legal pages, the shared session (inactivity logout) script and icons.
-// The pre-React pages live in legacy/ and are intentionally not deployed.
+// The pre-React pages were removed; they remain in git history.
 const RUNTIME_FILES = [
   'index.html',
   'terms.html',

@@ -40,7 +40,6 @@ supabase/
   functions/<name>/         Deno edge functions (see §4)
   migrations/               Historical SQL. The live schema was NOT built from this folder; treat it as reference
   migrations_draft/         Reviewed SQL applied by hand to production (all applied; README.md records order). Never re-run
-legacy/                     Pre-React static pages, kept for reference only. Not deployed
 ```
 
 Path aliases (`vite.config.ts`, `tsconfig.json`): `@/*` → `src/*`, `@engine/*` → `supabase/functions/_shared/*`.
