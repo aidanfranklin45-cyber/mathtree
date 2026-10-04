@@ -1,10 +1,8 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
-import { openDealBrief } from '../../lib/export/pdfBrief';
-import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import { formatCurrency } from '../../lib/format';
 import { currentLeases } from '../../lib/leases';
 import {
@@ -16,12 +14,6 @@ import {
   Boxes,
   MapPin,
   MoreVertical,
-  Edit2,
-  Share2,
-  FileText,
-  Download,
-  Trash2,
-  ArrowRightLeft,
 } from 'lucide-react';
 
 export type DealCardTheme = 'emerald' | 'blue' | 'slate';
@@ -74,9 +66,10 @@ const themeStyles: Record<
 interface DealCardProps {
   deal: DealRecord;
   entities?: Array<{ id: string; name: string }>;
-  onEdit: (deal: DealRecord) => void;
-  onDelete: (deal: DealRecord) => void;
-  onToggleStatus: (deal: DealRecord) => void;
+  onOpenActions?: (deal: DealRecord) => void;
+  onEdit?: (deal: DealRecord) => void;
+  onDelete?: (deal: DealRecord) => void;
+  onToggleStatus?: (deal: DealRecord) => void;
   onShare?: (deal: DealRecord) => void;
   onPreview?: (deal: DealRecord) => void;
   isSelected?: boolean;
@@ -120,12 +113,10 @@ const AssetIcon: React.FC<{ assetClass: string }> = ({ assetClass }) => {
   }
 };
 
-const menuItem =
-  'w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition';
-
 const DealCardComponent: React.FC<DealCardProps> = ({
   deal,
   entities = [],
+  onOpenActions,
   onEdit,
   onDelete,
   onToggleStatus,
@@ -138,29 +129,10 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   onTransfer,
   colorTheme,
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const isOwned = deal.status === 'owned';
   const activeTheme: DealCardTheme = colorTheme || (isOwned ? 'emerald' : 'blue');
   const theme = themeStyles[activeTheme];
-
-  // Close the dropdown on outside click or Escape
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [menuOpen]);
 
   // Derived metrics from engine
   const pit = useMemo(() => resolvePointInTimeDealMetrics(deal, new Date()), [deal]);
@@ -209,17 +181,6 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       /* storage unavailable */
     }
     navigate(studioUrl);
-  };
-
-  const closeThen = (fn: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    fn();
-  };
-
-  const downloadCsv = () => {
-    const m = tryComputeDealMetrics(deal);
-    if (m) exportDealProformaCSV(deal, m);
   };
 
   return (
@@ -283,68 +244,21 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               </span>
             )}
 
-            <div className={`relative ${menuOpen ? 'z-50' : ''}`} ref={menuRef} data-no-nav>
+            {onOpenActions && (
               <button
                 type="button"
+                data-no-nav
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuOpen((o) => !o);
+                  onOpenActions(deal);
                 }}
                 aria-label="Deal Actions"
+                title="Manage Actions"
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
-              {menuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40 cursor-default"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                    }}
-                  />
-                  <div className="absolute right-0 top-7 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left">
-                    <button onClick={closeThen(() => onToggleStatus(deal))} className={menuItem}>
-                      <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>{isOwned ? 'Move to Pipeline' : 'Mark as Acquired'}</span>
-                    </button>
-                    <button onClick={closeThen(() => onEdit(deal))} className={menuItem}>
-                      <Edit2 className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-                      <span>Edit Inputs</span>
-                    </button>
-                    {onShare && (
-                      <button onClick={closeThen(() => onShare(deal))} className={menuItem}>
-                        <Share2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                        <span>Share Deal</span>
-                      </button>
-                    )}
-                    {onTransfer && (
-                      <button onClick={closeThen(() => onTransfer(deal))} className={menuItem}>
-                        <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span>Transfer Ownership</span>
-                      </button>
-                    )}
-                    <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
-                      <FileText className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                      <span>Executive Brief</span>
-                    </button>
-                    <button onClick={closeThen(downloadCsv)} className={menuItem}>
-                      <Download className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Export CSV</span>
-                    </button>
-                    <div className="my-1 border-t border-slate-800" />
-                    <button
-                      onClick={closeThen(() => onDelete(deal))}
-                      className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 transition"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span>Delete Project</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
