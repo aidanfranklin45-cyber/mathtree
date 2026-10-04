@@ -7,6 +7,70 @@ import { openDealBrief } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import { formatCurrency } from '../../lib/format';
 import { currentLeases } from '../../lib/leases';
+import {
+  CheckSquare,
+  Square,
+  Building,
+  Home,
+  Warehouse,
+  Boxes,
+  MapPin,
+  ExternalLink,
+  MoreVertical,
+  Edit2,
+  Share2,
+  FileText,
+  Download,
+  Trash2,
+  ArrowRightLeft,
+} from 'lucide-react';
+
+export type DealCardTheme = 'emerald' | 'blue' | 'slate';
+
+const themeStyles: Record<
+  DealCardTheme,
+  {
+    hoverBorder: string;
+    selectedBorder: string;
+    focusRing: string;
+    textHover: string;
+    arrowHover: string;
+    checkText: string;
+    editHoverBorder: string;
+    hoverShadow: string;
+  }
+> = {
+  emerald: {
+    hoverBorder: 'hover:border-emerald-500/40',
+    selectedBorder: 'border-emerald-500',
+    focusRing: 'focus-visible:ring-emerald-500/60',
+    textHover: 'group-hover:text-emerald-400',
+    arrowHover: 'group-hover:text-emerald-400',
+    checkText: 'text-emerald-400',
+    editHoverBorder: 'hover:border-emerald-500/40',
+    hoverShadow: 'hover:shadow-brand-500/10',
+  },
+  blue: {
+    hoverBorder: 'hover:border-blue-500/40',
+    selectedBorder: 'border-blue-500',
+    focusRing: 'focus-visible:ring-blue-500/60',
+    textHover: 'group-hover:text-blue-400',
+    arrowHover: 'group-hover:text-blue-400',
+    checkText: 'text-blue-400',
+    editHoverBorder: 'hover:border-blue-500/40',
+    hoverShadow: 'hover:shadow-blue-500/10',
+  },
+  slate: {
+    hoverBorder: 'hover:border-slate-600/80',
+    selectedBorder: 'border-slate-500',
+    focusRing: 'focus-visible:ring-slate-400/60',
+    textHover: 'group-hover:text-slate-200',
+    arrowHover: 'group-hover:text-slate-200',
+    checkText: 'text-slate-300',
+    editHoverBorder: 'hover:border-slate-600',
+    hoverShadow: 'hover:shadow-slate-500/10',
+  },
+};
 
 interface DealCardProps {
   deal: DealRecord;
@@ -14,19 +78,24 @@ interface DealCardProps {
   onEdit: (deal: DealRecord) => void;
   onDelete: (deal: DealRecord) => void;
   onToggleStatus: (deal: DealRecord) => void;
-  /** Optional until the collaborators hub exists; the menu entry only shows when provided. */
   onShare?: (deal: DealRecord) => void;
+  onPreview?: (deal: DealRecord) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (dealId: string) => void;
+  collectedMonthly?: number;
+  hideStatusBadge?: boolean;
   /** Owner-only; the menu entry only shows when provided. */
   onTransfer?: (deal: DealRecord) => void;
+  colorTheme?: DealCardTheme;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
-  screening: { label: 'Underwriting', className: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
-  loi: { label: 'LOI Submitted', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  due_diligence: { label: 'Due Diligence', className: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
-  closing: { label: 'Closing', className: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  owned: { label: 'Owned Asset', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  disposition: { label: 'Exited', className: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+  screening: { label: 'Underwriting', className: 'bg-slate-900 text-slate-400 border-slate-800' },
+  loi: { label: 'LOI Submitted', className: 'bg-blue-950/40 text-blue-300 border-blue-800/40' },
+  due_diligence: { label: 'Due Diligence', className: 'bg-indigo-950/40 text-indigo-300 border-indigo-800/40' },
+  closing: { label: 'Closing', className: 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50' },
+  owned: { label: 'Owned Asset', className: 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60' },
+  disposition: { label: 'Exited', className: 'bg-slate-900 text-slate-400 border-slate-800' },
 };
 
 const assetDisplayMap: Record<string, string> = {
@@ -42,25 +111,18 @@ const AssetIcon: React.FC<{ assetClass: string }> = ({ assetClass }) => {
   switch (assetClass) {
     case 'multi-unit':
     case 'multi_family':
-      return (
-        <svg className="w-5 h-5 text-accent-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-      );
+      return <Building className="w-4 h-4 text-slate-400" />;
     case 'commercial':
-      return (
-        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-      );
+      return <Warehouse className="w-4 h-4 text-slate-400" />;
     case 'storage':
-      return (
-        <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-      );
+      return <Boxes className="w-4 h-4 text-slate-400" />;
     default:
-      return (
-        <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-      );
+      return <Home className="w-4 h-4 text-slate-400" />;
   }
 };
 
-const menuItem = 'w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition';
+const menuItem =
+  'w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 transition';
 
 const DealCardComponent: React.FC<DealCardProps> = ({
   deal,
@@ -69,12 +131,20 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   onDelete,
   onToggleStatus,
   onShare,
+  onPreview,
+  isSelected = false,
+  onToggleSelect,
+  collectedMonthly,
+  hideStatusBadge = false,
   onTransfer,
+  colorTheme,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const isOwned = deal.status === 'owned';
+  const activeTheme: DealCardTheme = colorTheme || (isOwned ? 'emerald' : 'blue');
+  const theme = themeStyles[activeTheme];
 
   // Close the dropdown on any outside click
   useEffect(() => {
@@ -86,75 +156,38 @@ const DealCardComponent: React.FC<DealCardProps> = ({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  // Everything below is computed on demand from the deal's inputs; memoized on deal identity
+  // Derived metrics from engine
   const pit = useMemo(() => resolvePointInTimeDealMetrics(deal, new Date()), [deal]);
   const engine = useMemo(() => tryComputeDealMetrics(deal), [deal]);
   const inputs = deal.inputs || {};
   const aClass = String(deal.asset_class || deal.assetType || 'single-family');
   const dealTitle = resolveDealDisplayName(deal);
-  const locStr = deal.location || inputs.propertyAddress || deal.address || 'Yakima, WA';
+  const locStr = deal.location || inputs.propertyAddress || deal.address || '—';
 
   const purchasePrice = Number(deal.purchase_price || inputs.purchasePrice || 0);
+  const currentVal = pit.currentVal > 0 ? pit.currentVal : purchasePrice;
   const isZeroEq = !!engine?.isZeroEquity && purchasePrice > 0;
-  const irrStr = isZeroEq ? 'N/M' : `${(pit.irr || 0).toFixed(1)}%`;
-  const cfVal = pit.currentCashFlow;
-  const cocVal = Number(engine?.cashOnCash) || (cfVal && pit.currentEquity > 0 ? (cfVal / pit.currentEquity) * 100 : 0);
-  const cocStr = isZeroEq ? 'N/M' : `${cocVal.toFixed(1)}%`;
+  const rawIrr = engine?.irr !== undefined ? Number(engine.irr) : pit.irr !== undefined ? Number(pit.irr) : undefined;
+  const hasIrr = rawIrr !== undefined && !isNaN(rawIrr);
+  const irrStr = isZeroEq ? 'N/M' : hasIrr ? `${rawIrr.toFixed(1)}%` : '—';
 
-  const currentStage = isOwned ? 'owned' : (inputs.dealStage && inputs.dealStage !== 'owned' ? inputs.dealStage : 'screening');
+  // Cash flow & Collected vs Estimated distinction
+  const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
+  const monthlyCfVal = hasCollections
+    ? collectedMonthly
+    : pit.currentCashFlow !== 0
+    ? pit.currentCashFlow / 12
+    : Number(engine?.year1Cashflow || 0) !== 0
+    ? Number(engine?.year1Cashflow) / 12
+    : 0;
+  const hasCashFlow = hasCollections || monthlyCfVal !== 0;
+
+  const currentStage = isOwned ? 'owned' : inputs.dealStage && inputs.dealStage !== 'owned' ? inputs.dealStage : 'screening';
   const stInfo = stageMap[currentStage] || (isOwned ? stageMap.owned : stageMap.screening);
-
   const matchedEntity = entities.find((e) => e.id === deal.entity_id || e.id === inputs.entity_id);
-
-  const addressesList: string[] =
-    Array.isArray(inputs.addresses) && inputs.addresses.length > 1
-      ? inputs.addresses
-      : Array.isArray(inputs.adjacentParcels) && inputs.adjacentParcels.length > 0
-        ? [locStr, ...inputs.adjacentParcels.map((p: any) => p.address || `APN: ${p.apn || p.parcelNumber}`)]
-        : Array.isArray(inputs.parcels) && inputs.parcels.length > 1
-          ? inputs.parcels.map((p: any) => (typeof p === 'string' ? p : p.address || `APN: ${p.apn || p.parcelNumber}`))
-          : [];
-  const isMultiAddress = addressesList.length > 1;
 
   const leasesList: any[] = currentLeases(inputs);
   const unitCount = parseInt(String(inputs.unitCount || inputs.numUnits || inputs.storageUnitCount || 0), 10);
-
-  let tenancyRow: React.ReactNode = null;
-  if (leasesList.length > 1) {
-    const names = leasesList.map((l) => l.tenantName || 'Unit Lease');
-    const more = names.length > 2 ? ` (+${names.length - 2})` : '';
-    tenancyRow = (
-      <div className="flex items-center justify-between text-[11px] bg-slate-950/50 px-2.5 py-1.5 rounded-xl border border-slate-900/80 text-slate-300">
-        <span className="flex items-center space-x-1.5 truncate max-w-[210px]" title={names.join(', ')}>
-          <span className="text-xs">👥</span>
-          <span className="font-bold text-slate-200 whitespace-nowrap">{leasesList.length} Tenants</span>
-          <span className="text-slate-500 truncate">• {names.slice(0, 2).join(', ')}{more}</span>
-        </span>
-        <span className="text-emerald-400 font-semibold text-[10px] whitespace-nowrap">Active Leases</span>
-      </div>
-    );
-  } else if (unitCount > 1) {
-    tenancyRow = (
-      <div className="flex items-center justify-between text-[11px] bg-slate-950/50 px-2.5 py-1.5 rounded-xl border border-slate-900/80 text-slate-300">
-        <span className="flex items-center space-x-1.5 truncate max-w-[210px]">
-          <span className="text-xs">🏢</span>
-          <span className="font-bold text-slate-200 whitespace-nowrap">{unitCount} Units</span>
-          <span className="text-slate-500 truncate">• Multi-Unit Asset</span>
-        </span>
-        <span className="text-cyan-400 font-semibold text-[10px] whitespace-nowrap">Rent Roll</span>
-      </div>
-    );
-  } else if (leasesList.length === 1 && leasesList[0].tenantName) {
-    tenancyRow = (
-      <div className="flex items-center justify-between text-[11px] bg-slate-950/50 px-2.5 py-1.5 rounded-xl border border-slate-900/80 text-slate-300">
-        <span className="flex items-center space-x-1.5 truncate max-w-[210px]" title={leasesList[0].tenantName}>
-          <span className="text-xs">👤</span>
-          <span className="font-bold text-slate-200 truncate">{leasesList[0].tenantName}</span>
-        </span>
-        <span className="text-slate-400 text-[10px] whitespace-nowrap">{leasesList[0].leaseType || 'Single-Tenant'}</span>
-      </div>
-    );
-  }
 
   const studioUrl = `/project?id=${encodeURIComponent(deal.id)}`;
   const openStudio = (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -184,70 +217,109 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       role="link"
       tabIndex={0}
       onClick={openStudio}
-      onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) openStudio(e); }}
-      className="bg-slate-900/60 border border-slate-900 hover:border-emerald-500/40 hover:bg-slate-900/90 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && e.target === e.currentTarget) openStudio(e);
+      }}
+      className={`bg-slate-900/60 border rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col justify-between transition-all duration-200 group ${theme.hoverShadow} hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full focus:outline-none focus-visible:ring-2 ${theme.focusRing} ${
+        isSelected
+          ? `${theme.selectedBorder} bg-slate-900/90`
+          : `border-slate-800/80 ${theme.hoverBorder} hover:bg-slate-900/80`
+      }`}
     >
-      <div className="space-y-4">
-        {/* Top Meta Row: Icon, Asset Type, Status & Menu */}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-900/80 pb-3">
-          <div className="flex items-center space-x-2 min-w-0 max-w-full">
-            <div className="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner shrink-0 group-hover:border-brand-500/30 transition">
+      <div className="space-y-3.5">
+        {/* Top Meta Row: Checkbox, Asset Type, Status & Actions Menu */}
+        <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3" data-no-nav>
+          <div className="flex items-center space-x-2 min-w-0">
+            {onToggleSelect && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSelect(deal.id);
+                }}
+                className="text-slate-500 hover:text-white transition p-0.5 shrink-0"
+                aria-label={`Select ${dealTitle}`}
+              >
+                {isSelected ? (
+                  <CheckSquare className={`w-4 h-4 ${theme.checkText}`} />
+                ) : (
+                  <Square className="w-4 h-4 text-slate-600 group-hover:text-slate-400" />
+                )}
+              </button>
+            )}
+
+            <div className="w-7 h-7 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0">
               <AssetIcon assetClass={aClass} />
             </div>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 whitespace-nowrap">
+
+            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-950/80 px-2 py-0.5 rounded border border-slate-800 whitespace-nowrap">
               {assetDisplayMap[aClass] || aClass.replace('-', ' ')}
             </span>
+
             {deal.is_shared && (
-              <span className="text-[9px] uppercase font-black tracking-wider px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap shrink-0" title="Shared by collaborator">🤝 Shared</span>
+              <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap shrink-0">
+                Shared
+              </span>
             )}
           </div>
 
-          <div className="flex items-center space-x-2 shrink-0 ml-auto">
-            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md ${stInfo.className} border whitespace-nowrap shrink-0`}>
-              {stInfo.label}
-            </span>
+          <div className="flex items-center space-x-1.5 shrink-0 ml-auto">
+            {!hideStatusBadge && (
+              <span
+                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${stInfo.className} border whitespace-nowrap shrink-0`}
+              >
+                {stInfo.label}
+              </span>
+            )}
 
             <div className="relative" ref={menuRef}>
               <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((o) => !o);
+                }}
                 aria-label="Deal Actions"
                 className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+                <MoreVertical className="w-4 h-4" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 top-8 w-52 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl py-1.5 z-50">
+                <div className="absolute right-0 top-7 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left">
                   <button onClick={closeThen(() => onToggleStatus(deal))} className={menuItem}>
-                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                    <span>{isOwned ? 'Move to Pipeline (Prospect)' : 'Mark as Acquired (Owned)'}</span>
+                    <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{isOwned ? 'Move to Pipeline' : 'Mark as Acquired'}</span>
                   </button>
                   <button onClick={closeThen(() => onEdit(deal))} className={menuItem}>
-                    <svg className="w-3.5 h-3.5 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                    <span>Edit Project Inputs</span>
+                    <Edit2 className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                    <span>Edit Inputs</span>
                   </button>
                   {onShare && (
                     <button onClick={closeThen(() => onShare(deal))} className={menuItem}>
-                      <svg className="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-                      <span>Share with Collaborators</span>
+                      <Share2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <span>Share Deal</span>
                     </button>
                   )}
                   {onTransfer && (
                     <button onClick={closeThen(() => onTransfer(deal))} className={menuItem}>
-                      <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                       <span>Transfer Ownership</span>
                     </button>
                   )}
                   <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
-                    <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                    <span>Print Executive Brief (PDF)</span>
+                    <FileText className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                    <span>Executive Brief</span>
                   </button>
                   <button onClick={closeThen(downloadCsv)} className={menuItem}>
-                    <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    <span>Download Spreadsheet (CSV)</span>
+                    <Download className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Export CSV</span>
                   </button>
                   <div className="my-1 border-t border-slate-800" />
-                  <button onClick={closeThen(() => onDelete(deal))} className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 transition">
-                    <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <button
+                    onClick={closeThen(() => onDelete(deal))}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                     <span>Delete Project</span>
                   </button>
                 </div>
@@ -256,70 +328,101 @@ const DealCardComponent: React.FC<DealCardProps> = ({
           </div>
         </div>
 
-        {/* Deal Title & Location Row */}
-        <div className="space-y-1.5">
-          <h4 className="text-sm sm:text-base font-extrabold text-white group-hover:text-emerald-400 transition flex items-center justify-between">
-            <span className="line-clamp-1 leading-snug">{dealTitle}</span>
-            <span className="text-slate-500 group-hover:text-emerald-400 transition font-bold shrink-0 ml-2">→</span>
+        {/* Deal Title & Location */}
+        <div className="space-y-1">
+          <h4 className={`text-sm font-extrabold text-white ${theme.textHover} transition flex items-center justify-between`}>
+            <span className="truncate">{dealTitle}</span>
+            <span className={`text-slate-500 ${theme.arrowHover} transition font-bold shrink-0 ml-2`}>&rarr;</span>
           </h4>
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
-            <span className="flex items-center space-x-1 truncate max-w-full sm:max-w-[210px]">
-              <svg className="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              <span className="truncate">{locStr}</span>
-            </span>
-            {isMultiAddress && (
-              <span className="text-[10px] font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded-lg inline-flex items-center space-x-1 shrink-0 shadow-sm" title={addressesList.join(' • ')}>
-                <span>📍</span>
-                <span>{addressesList.length} Parcels / Addrs</span>
-              </span>
-            )}
+          <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 truncate">
+            <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+            <span className="truncate">{locStr}</span>
             {matchedEntity && (
-              <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/50 border border-emerald-800/50 px-2 py-0.5 rounded-lg inline-flex items-center space-x-1 shrink-0" title={`Owned by ${matchedEntity.name}`}>
-                <span>🏛️</span>
-                <span className="truncate max-w-[140px]">{matchedEntity.name}</span>
+              <span className="text-[10px] text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 shrink-0 truncate max-w-[120px]">
+                {matchedEntity.name}
               </span>
             )}
           </div>
-          {tenancyRow && <div className="hidden sm:block">{tenancyRow}</div>}
         </div>
 
-        {/* Deal Metrics Grid */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-950/60 p-3.5 rounded-2xl border border-slate-900 text-center">
+        {/* Dense Metrics Grid */}
+        <div className="grid grid-cols-3 gap-2 bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 text-center font-mono">
           <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">{pit.label}</span>
-            <span className="text-xs font-black text-white mt-0.5 block">{formatCurrency(pit.currentVal)}</span>
-          </div>
-          <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">{Math.max(1, parseInt(String(inputs.exitYear ?? ''), 10) || 10)}-Yr IRR</span>
-            <span className="text-xs font-black text-brand-400 mt-0.5 block">{irrStr}</span>
-          </div>
-          <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block">
-              {isOwned ? 'Annual Cash Flow' : isZeroEq ? 'Yr 1 Cash Flow' : 'Yr 1 CoC'}
+            <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
+              {isOwned ? 'Current Value' : 'Price'}
             </span>
-            <span className="text-xs font-black text-accent-cyan mt-0.5 block">
-              {isOwned || isZeroEq ? formatCurrency(cfVal) : cocStr}
+            <span className="text-xs font-black text-white mt-0.5 block tabular-nums">
+              {currentVal > 0 ? formatCurrency(currentVal) : '—'}
             </span>
-            {isZeroEq && <span className="text-[8px] text-emerald-400 font-bold block leading-none mt-0.5">100% Financed</span>}
+          </div>
+
+          <div>
+            <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">Target IRR</span>
+            <span className={`text-xs font-black mt-0.5 block tabular-nums ${
+              !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400'
+            }`}>
+              {irrStr}
+            </span>
+          </div>
+
+          <div>
+            <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
+              {hasCollections ? 'Monthly Rent' : 'Est. Cash Flow'}
+            </span>
+            <span className={`text-xs font-black mt-0.5 block tabular-nums ${
+              monthlyCfVal < 0 ? 'text-red-400' : 'text-emerald-400'
+            }`}>
+              {hasCashFlow ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
+            </span>
+            {hasCashFlow ? (
+              <span
+                className={`text-[8px] font-bold block uppercase tracking-wider font-sans leading-none mt-0.5 ${
+                  hasCollections ? 'text-emerald-400' : monthlyCfVal < 0 ? 'text-red-400' : 'text-slate-400'
+                }`}
+              >
+                {hasCollections ? 'Collected' : 'Estimated'}
+              </span>
+            ) : (
+              <span className="text-[8px] text-slate-500 block font-sans leading-none mt-0.5">
+                No Income
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Card Footer: Modeler Link + Edit Inputs */}
-      <div className="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-end sm:justify-between text-[11px]">
-        <div className="hidden sm:flex items-center space-x-1 text-slate-500 group-hover:text-emerald-400 transition">
-          <span>View Modeler</span>
-          <span className="font-bold">→</span>
+      {/* Card Footer */}
+      <div className="pt-3 mt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px]">
+        <div className={`flex items-center space-x-1 text-slate-400 ${theme.textHover} transition font-semibold`}>
+          <span>Open Studio</span>
+          <span>&rarr;</span>
         </div>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onEdit(deal); }}
-          className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-brand-500/50 transition flex items-center space-x-1 shadow-sm"
-          title="Edit Deal Inputs"
-        >
-          <span className="text-brand-400">✎</span>
-          <span>Edit Inputs</span>
-        </button>
+
+        <div className="flex items-center space-x-2" data-no-nav>
+          {onPreview && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview(deal);
+              }}
+              className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 transition"
+            >
+              Preview
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(deal);
+            }}
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 ${theme.editHoverBorder} transition`}
+          >
+            Edit
+          </button>
+        </div>
       </div>
     </div>
   );

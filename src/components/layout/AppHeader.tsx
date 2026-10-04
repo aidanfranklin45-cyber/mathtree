@@ -77,12 +77,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   return (
     <header className="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
         {/* Brand */}
-        <Link to="/dashboard" className="flex items-center space-x-2.5 sm:space-x-3 shrink-0">
-          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 relative group">
+        <Link to="/dashboard" className="flex items-center space-x-3 shrink-0">
+          <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-tr from-brand-700 to-brand-400 flex items-center justify-center shadow-lg shadow-brand-500/20 relative group">
             <div className="absolute inset-0 rounded-xl bg-brand-400 blur-sm opacity-50 group-hover:opacity-75 transition-opacity" />
-            <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white relative z-10 filter drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="h-6 w-6 sm:h-7 sm:w-7 text-white relative z-10 filter drop-shadow-[0_0_4px_rgba(255,255,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 21V12" strokeLinecap="round" />
               <path d="M12 15C12 15 9 12 7 12M12 13C12 13 15 10 17 10" strokeLinecap="round" />
               <path d="M7 12C7 12 5 10 5 8M7 12C7 12 9 10 9 8" strokeLinecap="round" />
@@ -94,9 +94,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <path d="M11.5 5h1M12 4.5v1" strokeWidth="1.2" />
             </svg>
           </div>
-          <div className="hidden sm:block">
-            <span className="text-base sm:text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
-            <span className="text-[10px] sm:text-xs block text-emerald-500 font-semibold uppercase tracking-wider">Portfolio &amp; Pipeline</span>
+          <div>
+            <span className="text-lg sm:text-xl font-black tracking-tight bg-gradient-to-r from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent">MathTree</span>
+            <span className="text-[11px] sm:text-xs block text-emerald-400 font-bold uppercase tracking-wider">Portfolio &amp; Pipeline</span>
           </div>
         </Link>
 
