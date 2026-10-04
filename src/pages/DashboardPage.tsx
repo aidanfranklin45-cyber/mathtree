@@ -121,6 +121,13 @@ export const DashboardPage: React.FC = () => {
   const [transferringDeal, setTransferringDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
+  const activeColorTheme: 'emerald' | 'blue' | 'slate' =
+    statusFilter === 'owned'
+      ? 'emerald'
+      : statusFilter === 'prospect'
+      ? 'blue'
+      : 'slate';
+
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [entitiesOpen, setEntitiesOpen] = useState(false);
@@ -857,7 +864,7 @@ export const DashboardPage: React.FC = () => {
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       statusFilter === 'owned'
                         ? 'bg-emerald-500/10 text-emerald-300 font-semibold border border-emerald-500/30 shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
+                        : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-500/20 border border-transparent'
                     }`}
                   >
                     <span>Owned Portfolio</span>
@@ -876,7 +883,7 @@ export const DashboardPage: React.FC = () => {
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       statusFilter === 'prospect'
                         ? 'bg-blue-500/10 text-blue-300 font-semibold border border-blue-500/30 shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
+                        : 'text-slate-400 hover:text-blue-300 hover:bg-blue-500/10 hover:border-blue-500/20 border border-transparent'
                     }`}
                   >
                     <span>Pipeline / Prospects</span>
@@ -895,7 +902,7 @@ export const DashboardPage: React.FC = () => {
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       statusFilter === 'all'
                         ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60 hover:border-slate-700/60 border border-transparent'
                     }`}
                   >
                     <span>All Deals</span>
@@ -1032,10 +1039,14 @@ export const DashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setStatusFilter('owned')}
-                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 hover:text-white text-[10px] font-semibold border border-emerald-500/30"
+                      className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition ${
+                        statusFilter === 'prospect'
+                          ? 'bg-blue-500/10 text-blue-300 hover:text-white border-blue-500/30'
+                          : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700'
+                      }`}
                     >
                       <span>Status: {statusFilter === 'all' ? 'All' : 'Pipeline'}</span>
-                      <X className="w-3 h-3 text-emerald-400" />
+                      <X className={`w-3 h-3 ${statusFilter === 'prospect' ? 'text-blue-400' : 'text-slate-400'}`} />
                     </button>
                   )}
                   {assetFilter !== 'all' && (
@@ -1176,6 +1187,7 @@ export const DashboardPage: React.FC = () => {
                 sortDirection={tableSortDirection}
                 onSort={handleTableSort}
                 hideStatusColumn={statusFilter === 'owned'}
+                colorTheme={activeColorTheme}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
@@ -1194,6 +1206,7 @@ export const DashboardPage: React.FC = () => {
                     collectedMonthly={collectedMonthlyMap.get(deal.id)}
                     hideStatusBadge={statusFilter === 'owned'}
                     onTransfer={deal.is_shared || deal.is_demo ? undefined : setTransferringDeal}
+                    colorTheme={activeColorTheme}
                   />
                 ))}
               </div>

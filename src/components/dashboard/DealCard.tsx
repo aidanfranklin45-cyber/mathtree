@@ -25,6 +25,53 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 
+export type DealCardTheme = 'emerald' | 'blue' | 'slate';
+
+const themeStyles: Record<
+  DealCardTheme,
+  {
+    hoverBorder: string;
+    selectedBorder: string;
+    focusRing: string;
+    textHover: string;
+    arrowHover: string;
+    checkText: string;
+    editHoverBorder: string;
+    hoverShadow: string;
+  }
+> = {
+  emerald: {
+    hoverBorder: 'hover:border-emerald-500/40',
+    selectedBorder: 'border-emerald-500',
+    focusRing: 'focus-visible:ring-emerald-500/60',
+    textHover: 'group-hover:text-emerald-400',
+    arrowHover: 'group-hover:text-emerald-400',
+    checkText: 'text-emerald-400',
+    editHoverBorder: 'hover:border-emerald-500/40',
+    hoverShadow: 'hover:shadow-brand-500/10',
+  },
+  blue: {
+    hoverBorder: 'hover:border-blue-500/40',
+    selectedBorder: 'border-blue-500',
+    focusRing: 'focus-visible:ring-blue-500/60',
+    textHover: 'group-hover:text-blue-400',
+    arrowHover: 'group-hover:text-blue-400',
+    checkText: 'text-blue-400',
+    editHoverBorder: 'hover:border-blue-500/40',
+    hoverShadow: 'hover:shadow-blue-500/10',
+  },
+  slate: {
+    hoverBorder: 'hover:border-slate-600/80',
+    selectedBorder: 'border-slate-500',
+    focusRing: 'focus-visible:ring-slate-400/60',
+    textHover: 'group-hover:text-slate-200',
+    arrowHover: 'group-hover:text-slate-200',
+    checkText: 'text-slate-300',
+    editHoverBorder: 'hover:border-slate-600',
+    hoverShadow: 'hover:shadow-slate-500/10',
+  },
+};
+
 interface DealCardProps {
   deal: DealRecord;
   entities?: Array<{ id: string; name: string }>;
@@ -39,6 +86,7 @@ interface DealCardProps {
   hideStatusBadge?: boolean;
   /** Owner-only; the menu entry only shows when provided. */
   onTransfer?: (deal: DealRecord) => void;
+  colorTheme?: DealCardTheme;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
@@ -89,11 +137,14 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   collectedMonthly,
   hideStatusBadge = false,
   onTransfer,
+  colorTheme,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const isOwned = deal.status === 'owned';
+  const activeTheme: DealCardTheme = colorTheme || (isOwned ? 'emerald' : 'blue');
+  const theme = themeStyles[activeTheme];
 
   // Close the dropdown on any outside click
   useEffect(() => {
@@ -169,10 +220,10 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       onKeyDown={(e) => {
         if (e.key === 'Enter' && e.target === e.currentTarget) openStudio(e);
       }}
-      className={`bg-slate-900/60 border rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col justify-between transition-all duration-200 group hover:shadow-brand-500/10 hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 ${
+      className={`bg-slate-900/60 border rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col justify-between transition-all duration-200 group ${theme.hoverShadow} hover:-translate-y-0.5 cursor-pointer relative overflow-visible w-full focus:outline-none focus-visible:ring-2 ${theme.focusRing} ${
         isSelected
-          ? 'border-emerald-500 bg-slate-900/90'
-          : 'border-slate-800/80 hover:border-emerald-500/40 hover:bg-slate-900/80'
+          ? `${theme.selectedBorder} bg-slate-900/90`
+          : `border-slate-800/80 ${theme.hoverBorder} hover:bg-slate-900/80`
       }`}
     >
       <div className="space-y-3.5">
@@ -190,7 +241,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
                 aria-label={`Select ${dealTitle}`}
               >
                 {isSelected ? (
-                  <CheckSquare className="w-4 h-4 text-emerald-400" />
+                  <CheckSquare className={`w-4 h-4 ${theme.checkText}`} />
                 ) : (
                   <Square className="w-4 h-4 text-slate-600 group-hover:text-slate-400" />
                 )}
@@ -279,9 +330,9 @@ const DealCardComponent: React.FC<DealCardProps> = ({
 
         {/* Deal Title & Location */}
         <div className="space-y-1">
-          <h4 className="text-sm font-extrabold text-white group-hover:text-emerald-400 transition flex items-center justify-between">
+          <h4 className={`text-sm font-extrabold text-white ${theme.textHover} transition flex items-center justify-between`}>
             <span className="truncate">{dealTitle}</span>
-            <span className="text-slate-500 group-hover:text-emerald-400 transition font-bold shrink-0 ml-2">→</span>
+            <span className={`text-slate-500 ${theme.arrowHover} transition font-bold shrink-0 ml-2`}>&rarr;</span>
           </h4>
           <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 truncate">
             <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
@@ -342,7 +393,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
 
       {/* Card Footer */}
       <div className="pt-3 mt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px]">
-        <div className="flex items-center space-x-1 text-slate-400 group-hover:text-emerald-400 transition font-semibold">
+        <div className={`flex items-center space-x-1 text-slate-400 ${theme.textHover} transition font-semibold`}>
           <span>Open Studio</span>
           <span>&rarr;</span>
         </div>
@@ -367,7 +418,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               e.stopPropagation();
               onEdit(deal);
             }}
-            className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 transition"
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 ${theme.editHoverBorder} transition`}
           >
             Edit
           </button>

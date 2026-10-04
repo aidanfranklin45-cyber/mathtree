@@ -49,6 +49,7 @@ interface DealTableViewProps {
   sortDirection: 'asc' | 'desc';
   onSort: (field: SortField) => void;
   hideStatusColumn?: boolean;
+  colorTheme?: 'emerald' | 'blue' | 'slate';
 }
 
 const AssetClassBadge: React.FC<{ assetClass: string }> = ({ assetClass }) => {
@@ -90,10 +91,32 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   sortDirection,
   onSort,
   hideStatusColumn = false,
+  colorTheme = 'emerald',
 }) => {
   const navigate = useNavigate();
   const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const textHoverClass =
+    colorTheme === 'blue'
+      ? 'group-hover:text-blue-400'
+      : colorTheme === 'slate'
+      ? 'group-hover:text-slate-200'
+      : 'group-hover:text-emerald-400';
+
+  const checkTextClass =
+    colorTheme === 'blue'
+      ? 'text-blue-400'
+      : colorTheme === 'slate'
+      ? 'text-slate-300'
+      : 'text-emerald-400';
+
+  const selectedBgClass =
+    colorTheme === 'blue'
+      ? 'bg-blue-950/20'
+      : colorTheme === 'slate'
+      ? 'bg-slate-800/40'
+      : 'bg-emerald-950/20';
 
   React.useEffect(() => {
     if (!activeMenuId) return;
@@ -228,7 +251,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                 <tr
                   key={deal.id}
                   className={`hover:bg-slate-800/40 transition group cursor-pointer ${
-                    isSelected ? 'bg-emerald-950/20' : ''
+                    isSelected ? selectedBgClass : ''
                   }`}
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
@@ -245,7 +268,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                       aria-label={`Select ${dealTitle}`}
                     >
                       {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-emerald-400" />
+                        <CheckSquare className={`w-4 h-4 ${checkTextClass}`} />
                       ) : (
                         <Square className="w-4 h-4 text-slate-600 group-hover:text-slate-400" />
                       )}
@@ -255,7 +278,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   {/* Title & Location */}
                   <td className="py-3 px-3">
                     <div className="flex flex-col min-w-[180px] max-w-[280px]">
-                      <span className="font-extrabold text-white text-xs truncate group-hover:text-emerald-400 transition">
+                      <span className={`font-extrabold text-white text-xs truncate ${textHoverClass} transition`}>
                         {dealTitle}
                       </span>
                       <span className="text-[11px] text-slate-400 truncate">{locStr}</span>
