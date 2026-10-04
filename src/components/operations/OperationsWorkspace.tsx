@@ -12,7 +12,8 @@ import { AlertSettingsModal } from './AlertSettingsModal';
 import { AuditTrailModal } from './AuditTrailModal';
 import { EditLeaseModal } from './EditLeaseModal';
 import { OpsSummaryStrip, type RollFilter } from './OpsSummaryStrip';
-import { ActionNeededList } from './ActionNeededList';
+import { AttentionInbox } from './AttentionInbox';
+import { buildInboxItems } from '../../lib/operations/attention';
 import { RentRollTable } from './RentRollTable';
 import { LeaseDrawer } from './LeaseDrawer';
 import { ProjectedVsActual } from './ProjectedVsActual';
@@ -351,6 +352,17 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
     return `${s.overdue} NNN ${s.overdue === 1 ? 'item' : 'items'} overdue${s.next ? ` · ${RECOVERY_CATEGORY_LABELS[s.next.category]} due ${s.next.due_date}` : ''}`;
   };
 
+  // One inbox for the portfolio page and each property's Operate tab; the tab is the same list for just its deal
+  const inboxItems = useMemo(
+    () => buildInboxItems({
+      deals: scopedDeals, leaseRows: leases, units, payments, views, rentRollLeases: ops.scopedLeases,
+      currentPeriod: isCurrentPeriod, now: new Date(), recoveryNote,
+    }),
+    // recoveryNote reads recoverySummaries, so it changes exactly when they do
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scopedDeals, leases, units, payments, views, ops.scopedLeases, isCurrentPeriod, recoverySummaries],
+  );
+
   const visibleViews = useMemo(() => views.filter((v) => {
     switch (statusFilter) {
       case 'attention': return v.attention.length > 0;
@@ -486,16 +498,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
 
         <OpsSummaryStrip kpis={kpis} active={statusFilter} onFilter={setStatusFilter} />
 
-        {isCurrentPeriod && (
-          <ActionNeededList
-            views={views}
-            dealTitle={dealTitleOf}
-            handlers={handlers}
-            onSelect={setSelectedId}
-            onShowAll={() => setStatusFilter('attention')}
-            recoveryNote={recoveryNote}
-          />
-        )}
+        <AttentionInbox items={inboxItems} portfolio={!locked} onSelectLease={setSelectedId} />
 
         {/* Rent roll */}
         <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl">
