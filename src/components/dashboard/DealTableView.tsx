@@ -4,8 +4,6 @@ import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { formatCurrency } from '../../lib/format';
-import { openDealBrief } from '../../lib/export/pdfBrief';
-import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import {
   ArrowUpDown,
   ArrowUp,
@@ -17,12 +15,6 @@ import {
   Home,
   Warehouse,
   Boxes,
-  ArrowRightLeft,
-  Edit2,
-  Share2,
-  FileText,
-  Download,
-  Trash2,
 } from 'lucide-react';
 
 export type SortField =
@@ -42,9 +34,10 @@ interface DealTableViewProps {
   onToggleSelect: (dealId: string) => void;
   onSelectAll: () => void;
   allSelected: boolean;
-  onEdit: (deal: DealRecord) => void;
-  onDelete: (deal: DealRecord) => void;
-  onToggleStatus: (deal: DealRecord) => void;
+  onOpenActions: (deal: DealRecord) => void;
+  onEdit?: (deal: DealRecord) => void;
+  onDelete?: (deal: DealRecord) => void;
+  onToggleStatus?: (deal: DealRecord) => void;
   onPreview?: (deal: DealRecord) => void;
   onShare?: (deal: DealRecord) => void;
   entities?: Array<{ id: string; name: string }>;
@@ -84,11 +77,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   onToggleSelect,
   onSelectAll,
   allSelected,
-  onEdit,
-  onDelete,
-  onToggleStatus,
-  onPreview,
-  onShare,
+  onOpenActions,
   entities = [],
   collectedMonthlyMap,
   sortField,
@@ -98,7 +87,6 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   colorTheme = 'emerald',
 }) => {
   const navigate = useNavigate();
-  const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null);
 
   const openStudio = (dealId: string) => {
     try {
@@ -131,15 +119,6 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
       ? 'bg-slate-800/40'
       : 'bg-emerald-950/20';
 
-  React.useEffect(() => {
-    if (!activeMenuId) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setActiveMenuId(null);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeMenuId]);
-
   const renderSortHeader = (label: string, field: SortField, align: 'left' | 'right' = 'left') => {
     const isSorted = sortField === field;
     return (
@@ -167,7 +146,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
   return (
     <div className="w-full bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm">
-      <div className="overflow-x-auto min-h-[320px]">
+      <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/80 sticky top-0 z-10">
@@ -371,116 +350,18 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
                   {/* Actions Column */}
                   <td className="py-3 px-3 text-center whitespace-nowrap" data-no-row-click>
-                    <div className={`relative inline-block ${activeMenuId === deal.id ? 'z-50' : ''}`}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuId((curr) => (curr === deal.id ? null : deal.id));
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                        title="Actions"
-                        aria-label="Deal Actions"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {activeMenuId === deal.id && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-40 cursor-default"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(null);
-                            }}
-                          />
-                          <div
-                            className={`absolute right-0 ${
-                              deals.length > 1 && idx >= Math.max(1, deals.length - 2)
-                                ? 'bottom-full mb-1'
-                                : 'top-full mt-1'
-                            } w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left`}
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                onToggleStatus(deal);
-                              }}
-                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
-                            >
-                              <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>{isOwned ? 'Move to Pipeline' : 'Mark as Acquired (Owned)'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                onEdit(deal);
-                              }}
-                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
-                            >
-                              <Edit2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                              <span>Edit Inputs</span>
-                            </button>
-                            {onShare && !deal.is_shared && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuId(null);
-                                  onShare(deal);
-                                }}
-                                className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
-                              >
-                                <Share2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                                <span>Share Deal</span>
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                void openDealBrief(deal.id);
-                              }}
-                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-                              <span>Print Executive Brief</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                const m = tryComputeDealMetrics(deal);
-                                if (m) exportDealProformaCSV(deal, m);
-                              }}
-                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
-                            >
-                              <Download className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Export CSV</span>
-                            </button>
-                            <div className="border-t border-slate-800/80 my-1" />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuId(null);
-                                onDelete(deal);
-                              }}
-                              className="w-full px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 text-left transition"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                              <span>Delete Project</span>
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenActions(deal);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                      title="Manage Actions"
+                      aria-label="Deal Actions"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               );

@@ -16,7 +16,9 @@ import { fetchProfile, getProfile } from '../lib/profile';
 import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
 import { TransferOwnershipModal } from '../components/dashboard/TransferOwnershipModal';
-import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
+import { DeleteConfirmModal, DealActionsModal } from '../components/dashboard/DealActionsModal';
+import { openDealBrief } from '../lib/export/pdfBrief';
+import { exportDealProformaCSV } from '../lib/export/csvExport';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import type { DealTopPatch } from '../stores/useDealStore';
 import { recordScenarioRun } from '../lib/scenarios';
@@ -125,6 +127,7 @@ export const DashboardPage: React.FC = () => {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
   const [transferringDeal, setTransferringDeal] = useState<DealRecord | null>(null);
+  const [actionsDeal, setActionsDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
   const activeColorTheme: 'emerald' | 'blue' | 'slate' =
@@ -1147,6 +1150,7 @@ export const DashboardPage: React.FC = () => {
                 allSelected={
                   filteredDeals.length > 0 && selectedDealIds.size === filteredDeals.length
                 }
+                onOpenActions={setActionsDeal}
                 onEdit={handleEditDeal}
                 onDelete={handleDeleteDeal}
                 onToggleStatus={handleToggleStatus}
@@ -1166,6 +1170,7 @@ export const DashboardPage: React.FC = () => {
                     key={deal.id}
                     deal={deal}
                     entities={entities}
+                    onOpenActions={setActionsDeal}
                     onEdit={handleEditDeal}
                     onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
@@ -1238,6 +1243,23 @@ export const DashboardPage: React.FC = () => {
         deal={deletingDeal}
         onClose={() => setDeletingDeal(null)}
         onConfirmDelete={handleConfirmDelete}
+      />
+
+      {/* Deal Actions Modal (Popup Dialog) */}
+      <DealActionsModal
+        isOpen={!!actionsDeal}
+        deal={actionsDeal}
+        onClose={() => setActionsDeal(null)}
+        onToggleStatus={handleToggleStatus}
+        onEdit={handleEditDeal}
+        onShare={handleShareDeal}
+        onTransfer={setTransferringDeal}
+        onOpenBrief={(deal) => void openDealBrief(deal.id)}
+        onExportCsv={(deal) => {
+          const m = tryComputeDealMetrics(deal);
+          if (m) exportDealProformaCSV(deal, m);
+        }}
+        onDelete={handleDeleteDeal}
       />
     </div>
   );
