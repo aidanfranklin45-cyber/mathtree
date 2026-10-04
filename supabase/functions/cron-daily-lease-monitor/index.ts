@@ -8,7 +8,7 @@ import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type Fo
 import { isAdvanceNoticeDay, isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
 import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
 import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
-import { missingItems } from "../_shared/recoveries.ts";
+import { missingItems, backfillSinceIso } from "../_shared/recoveries.ts";
 import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, quietAlertKeys, withAutoCleared, RECOVERY_ALERT_TYPES, type RecoveryPrefs } from "../_shared/recoveryAlerts.ts";
 import { fetchAllRows } from "../_shared/paging.ts";
 
@@ -1186,7 +1186,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         const prefsByUser: Record<string, RecoveryPrefs> = {};
         for (const id of ownerIds) prefsByUser[id as string] = normalizeRecoveryPrefs((profs || []).find((p: any) => p.id === id)?.alert_preferences);
         const horizon = maxLeadDays(Object.values(prefsByUser));
-        const created = missingItems(recTerms, recItems, addDays(todayIso, horizon), addDays(todayIso, -60)).map((m) => {
+        const created = missingItems(recTerms, recItems, addDays(todayIso, horizon), backfillSinceIso(todayIso)).map((m) => {
           const t = recTerms.find((x) => x.id === m.term_id);
           return { user_id: t.user_id, term_id: t.id, lease_id: t.lease_id, deal_id: t.deal_id, category: t.category, due_date: m.due_date, amount_expected: m.amount_expected ?? null };
         }).filter((r) => leaseById.has(r.lease_id));
