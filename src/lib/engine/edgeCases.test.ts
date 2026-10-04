@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calculateIRR, calculateNPV, calculateMonthlyPayment, calculateRemainingBalance, n, ni, normalizeAssetClass,
+  calculateIRR, calculateNPV, getAnnualAmortization, getMonthlyAmortization, calculateMonthlyPayment, calculateRemainingBalance, n, ni, normalizeAssetClass,
 } from '../../../supabase/functions/_shared/math-engine';
 
 describe('IRR edge cases', () => {
@@ -12,6 +12,9 @@ describe('IRR edge cases', () => {
   });
   it('handles negative IRR', () => {
     expect(calculateIRR([-100, 50, 25])).toBeCloseTo(-19.1, 0);
+  });
+  it('a zero return is +0, never -0', () => {
+    expect(Object.is(calculateIRR([-1000, 500, 500]), 0)).toBe(true);
   });
   it('treats a positive first flow as an outflow (documented abs)', () => {
     expect(calculateIRR([100, 0, 121])).toBeCloseTo(10, 1);
@@ -25,14 +28,16 @@ describe('IRR edge cases', () => {
 
 describe('NPV', () => {
   it('discounts t=0 undiscounted', () => {
-    expect(calculateNPV(10, [-100, 110]) + 0).toBe(0);
+    expect(calculateNPV(10, [-100, 110])).toBe(0);
   });
   it('empty flows = 0', () => {
     expect(calculateNPV(10, [])).toBe(0);
   });
-  // KNOWN BUG (suspected): a -100% rate divides by zero. it.fails flips to a failure once fixed, so remove .fails then.
-  it.fails('rate of -100% does not yield NaN', () => {
+  it('rate of -100% does not yield NaN', () => {
     expect(Number.isFinite(calculateNPV(-100, [-100, 50]))).toBe(true);
+  });
+  it('never returns negative zero', () => {
+    expect(Object.is(calculateNPV(10, [-100, 110]), 0)).toBe(true);
   });
 });
 
@@ -46,8 +51,7 @@ describe('debt primitives', () => {
   it('balance at t=0 equals loan', () => {
     expect(calculateRemainingBalance(100000, 6, 30, 0)).toBeCloseTo(100000, 4);
   });
-  // KNOWN GAP (low risk): negative elapsed years returns a balance above the original loan.
-  it.fails('balance never exceeds loan for negative elapsed years', () => {
+  it('balance never exceeds loan for negative elapsed years', () => {
     expect(calculateRemainingBalance(100000, 6, 30, -1)).toBeLessThanOrEqual(100000 + 1e-6);
   });
   it('fractional term: 0-year term does not divide by zero', () => {
@@ -63,11 +67,10 @@ describe('debt primitives', () => {
 });
 
 describe('coercion', () => {
-  // KNOWN GAP (suspected): n() stops at the first comma / $, so '1,250,000' -> 1 and '$500' -> 0.
-  it.fails('n parses currency strings with commas', () => {
+  it('n parses currency strings with commas', () => {
     expect(n('1,250,000')).toBe(1250000);
   });
-  it.fails('n parses $ prefix', () => {
+  it('n parses $ prefix', () => {
     expect(n('$500')).toBe(500);
   });
   it('n keeps 0', () => { expect(n(0, 5)).toBe(0); });
@@ -81,5 +84,16 @@ describe('coercion', () => {
   });
   it('normalizeAssetClass: "Multi-Family" not misread as single-family', () => {
     expect(normalizeAssetClass('Single Family')).toBe('single-family');
+  });
+});
+
+describe('amortization consistency', () => {
+  it('annual and monthly schedules agree through an interest-only period', () => {
+    const o: any = { financingType: 'interest_only', interestOnlyYears: 2, holdingPeriod: 5 };
+    const a = getAnnualAmortization(1000000, 6, 25, o);
+    const m = getMonthlyAmortization(1000000, 6, 25, o);
+    for (const yr of [1, 2, 3, 5]) {
+      expect(m[yr * 12 - 1].endingBalance).toBeCloseTo(a[yr - 1].endingBalance, -1);
+    }
   });
 });
