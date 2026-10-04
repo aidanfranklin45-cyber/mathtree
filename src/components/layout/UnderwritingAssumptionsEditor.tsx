@@ -76,6 +76,27 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
         </div>
       </div>
 
+      <div className="space-y-1">
+        <label className={labelCls} title="From the levy rates your county publishes for the tax code area. County records give the assessed value but not the bill.">Property tax rate (% of assessed value)</label>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            type="number" min={0} max={10} step="any" aria-label="Property tax rate"
+            value={value.propertyTaxRatePercent === undefined ? '' : String(value.propertyTaxRatePercent)}
+            onChange={(e) => {
+              const next = { ...value };
+              if (e.target.value.trim() === '') { delete next.propertyTaxRatePercent; delete next.propertyTaxRateRationale; } else next.propertyTaxRatePercent = e.target.value as unknown as number;
+              onChange(next);
+            }}
+            className={inputCls}
+          />
+          <input
+            type="text" placeholder="Reason (e.g. county levy, tax code area, year)" aria-label="Reason for property tax rate" maxLength={500}
+            value={value.propertyTaxRateRationale ?? ''} onChange={(e) => onChange({ ...value, propertyTaxRateRationale: e.target.value })}
+            className={`${inputCls} col-span-2`}
+          />
+        </div>
+      </div>
+
       <div role="tablist" className="grid grid-cols-4 gap-1.5">
         {ASSET_KEYS.map((k) => (
           <button

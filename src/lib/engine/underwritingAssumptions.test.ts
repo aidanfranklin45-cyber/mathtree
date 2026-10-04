@@ -93,6 +93,28 @@ describe('seedFromAssumptions', () => {
   });
 });
 
+describe('property tax from the county record', () => {
+  const withRate: UnderwritingAssumptions = { assets: {}, propertyTaxRatePercent: 1.1, propertyTaxRateRationale: 'Yakima County levy for tax code area 33, 2025' };
+
+  it("is the county's assessed value times the owner's rate, and says so", () => {
+    const r = seedFromAssumptions(withRate, { assetClass: 'commercial', assessedValue: 331000 });
+    expect(r.inputs.annualTaxes).toBe(3641);
+    expect(r.basis.annualTaxes.source).toBe('county_record');
+    expect(r.basis.annualTaxes.rationale).toMatch(/levy/);
+    expect(r.basis.annualTaxes.label).toMatch(/county assessed value/);
+  });
+
+  it('needs both the county value and the owner rate; neither alone is a tax bill', () => {
+    expect(seedFromAssumptions(withRate, { assetClass: 'commercial' }).unfilled).toContain('annualTaxes');
+    expect(seedFromAssumptions({ assets: {} }, { assetClass: 'commercial', assessedValue: 331000 }).unfilled).toContain('annualTaxes');
+  });
+
+  it('is cleaned like every other assumption', () => {
+    expect(sanitizeAssumptions({ propertyTaxRatePercent: 14 }).propertyTaxRatePercent).toBeUndefined();
+    expect(sanitizeAssumptions({ propertyTaxRatePercent: '1.25', propertyTaxRateRationale: ' levy ' })).toMatchObject({ propertyTaxRatePercent: 1.25, propertyTaxRateRationale: 'levy' });
+  });
+});
+
 describe('reconcileBasis', () => {
   const seeded = seedFromAssumptions(mine, { assetClass: 'multi-unit', purchasePrice: 1000000, unitCount: 10, discountRate: 8 });
 

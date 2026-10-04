@@ -41,6 +41,12 @@ export interface UnderwritingAssumptions {
   /** The owner's marginal income tax rate (%), used by the tax tab. */
   taxRate?: number;
   taxRateRationale?: string;
+  /**
+   * Property tax as a % of the county's assessed value, from the levy rates your county publishes for the tax code area. County GIS
+   * records give the assessed value but not the bill, so a vacant or net-leased property's tax is estimated as value x this rate.
+   */
+  propertyTaxRatePercent?: number;
+  propertyTaxRateRationale?: string;
 }
 
 export type AssumptionField = Exclude<keyof AssetAssumptions, 'rationale' | 'capexBasis'>;
@@ -95,6 +101,10 @@ export function sanitizeAssumptions(raw: unknown): UnderwritingAssumptions {
   if (taxRate !== undefined && taxRate >= 0 && taxRate <= 70) out.taxRate = taxRate;
   const taxWhy = text(r.taxRateRationale);
   if (taxWhy) out.taxRateRationale = taxWhy;
+  const propTax = finite(r.propertyTaxRatePercent);
+  if (propTax !== undefined && propTax >= 0 && propTax <= 10) out.propertyTaxRatePercent = propTax;
+  const propTaxWhy = text(r.propertyTaxRateRationale);
+  if (propTaxWhy && out.propertyTaxRatePercent !== undefined) out.propertyTaxRateRationale = propTaxWhy;
 
   const assets = (r.assets && typeof r.assets === 'object' ? r.assets : {}) as Record<string, any>;
   for (const asset of ASSET_KEYS) {
@@ -155,6 +165,8 @@ export interface SeedContext {
   discountRate?: number | null;
   /** Accepted: set on the deal as the hold period. */
   exitYear?: number | null;
+  /** The county's assessed (or taxable) value for the property, when the county record gives one. */
+  assessedValue?: number | null;
 }
 
 /**
@@ -168,11 +180,11 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
   const basis: Record<string, InputBasis> = {};
   const unfilled: string[] = [];
 
-  const put = (key: string, value: number | undefined, label: string, why?: string, extraKeys: string[] = []) => {
+  const put = (key: string, value: number | undefined, label: string, why?: string, extraKeys: string[] = [], source: InputBasis['source'] = 'profile') => {
     if (value === undefined) { unfilled.push(key); return; }
     for (const k of [key, ...extraKeys]) {
       inputs[k] = value;
-      basis[k] = { source: 'profile', label, value, ...(why ? { rationale: why } : {}) };
+      basis[k] = { source, label, value, ...(why ? { rationale: why } : {}) };
     }
   };
   const why = (f: AssumptionField) => a.rationale?.[f];
@@ -202,6 +214,12 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
     else if (a.capexBasis === 'perSqFt' && ctx.squareFeet && ctx.squareFeet > 0) put('capexReserveAnnual', Math.round(a.capexValue * ctx.squareFeet * 100) / 100, `Reserve ($${a.capexValue} a sq ft x ${Math.round(ctx.squareFeet).toLocaleString()} sq ft)`, why('capexValue'));
     else unfilled.push('capexReserveAnnual');
   } else unfilled.push('capexReserveAnnual');
+
+  // Property tax: the county's assessed value times the owner's own rate for that tax code area. Neither alone is a tax bill.
+  const rate = assumptions?.propertyTaxRatePercent;
+  if (rate !== undefined && ctx.assessedValue && ctx.assessedValue > 0) {
+    put('annualTaxes', Math.round((ctx.assessedValue * rate) / 100), `Property tax (${rate}% of county assessed value ${Math.round(ctx.assessedValue).toLocaleString()})`, assumptions?.propertyTaxRateRationale, [], 'county_record');
+  } else unfilled.push('annualTaxes');
 
   if (assumptions?.taxRate !== undefined) put('taxRate', assumptions.taxRate, 'Marginal tax rate', assumptions.taxRateRationale);
 

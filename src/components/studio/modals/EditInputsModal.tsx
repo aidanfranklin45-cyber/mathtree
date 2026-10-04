@@ -113,12 +113,13 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
       squareFeet: sqft > 0 ? sqft : null,
       discountRate: profile.discountRate,
       exitYear: profile.exitYear,
+      assessedValue: Number((deal.inputs as Record<string, any>)?.totalAssessedValue || (deal.inputs as Record<string, any>)?.combinedAssessedValue) || null,
     });
     const target: Record<string, string> = {
       vacancyRate: 'vacancyRate', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
       discountRate: 'discountRate', targetCapRate: 'appreciation', appreciationRate: 'appreciation', sellingCostPercent: 'sellingCost',
       closingCosts: 'closingCosts', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
-      payrollMarketingPercent: 'payroll',
+      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes',
     };
     const patch: Record<string, string> = {};
     const basis: Record<string, InputBasis> = {};

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { AddressService } from '../../lib/services/addressService';
-import { getBenchmarkCapRateRange, calculateProjections } from '../../lib/engine';
+
+import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
@@ -17,42 +18,31 @@ interface Props {
 
 type Asset = 'single-family' | 'multi-unit' | 'commercial' | 'storage';
 
-interface Defaults {
+/** The choices the wizard offers for each asset class. Choices only: no number here seeds a deal. */
+interface Classification {
   marketTier: string; propertyClass: string; facilityType: string; subTypes: string[];
-  gla: number; leaseType: string; price: number; down: number; closing: number; rehab: number; rent: number; other: number;
-  vacancy: number; rentGrowth: number; opexRatio: number; expenseGrowth: number; rate: number; amort: number; exitCap: number; apprec: number;
-  sfrArv?: number; sfrSqFt?: number; multiUnits?: number; multiSqFt?: number; rentPerUnit?: number; commSqFt?: number; annualRent?: number;
-  storageUnits?: number; storageSqFt?: number; isAutomated?: boolean;
 }
 
-const DEFAULTS: Record<Asset, Defaults> = {
+const DEFAULTS: Record<Asset, Classification> = {
   'single-family': {
     marketTier: 'Tier 2', propertyClass: 'Class B',
     facilityType: 'BRRRR Value-Add Single-Family',
     subTypes: ['Turnkey Single-Family Rental', 'BRRRR Value-Add Single-Family', 'New Construction Spec SFR', 'Single-Family Fix & Flip'],
-    gla: 2400, sfrSqFt: 2400, sfrArv: 450000, leaseType: 'Gross', price: 450000, down: 20, closing: 9000, rehab: 20000, rent: 3200, other: 0,
-    vacancy: 4.0, rentGrowth: 3.0, opexRatio: 30.0, expenseGrowth: 2.5, rate: 6.5, amort: 30, exitCap: 6.0, apprec: 2.0,
   },
   'multi-unit': {
     marketTier: 'Tier 2', propertyClass: 'Class B',
     facilityType: 'Garden-Style Community',
     subTypes: ['Garden-Style Community', 'Mid / High-Rise Apartments', 'Duplex / Triplex / Quadplex (2-4 Units)', 'Build-to-Rent (BTR) Community'],
-    multiUnits: 12, multiSqFt: 11000, gla: 11000, leaseType: 'Gross', rentPerUnit: 1500, price: 1850000, down: 25, closing: 37000, rehab: 75000,
-    rent: 18000, other: 800, vacancy: 6.0, rentGrowth: 3.5, opexRatio: 40.0, expenseGrowth: 2.5, rate: 6.25, amort: 30, exitCap: 6.5, apprec: 2.0,
   },
   commercial: {
     marketTier: 'Tier 1', propertyClass: 'Class A',
     facilityType: 'Industrial Logistics / Warehouse',
     subTypes: ['Industrial Logistics / Warehouse', 'Retail Strip / Center', 'Class-A Office / Medical', 'Flex / R&D Facility'],
-    gla: 15000, commSqFt: 15000, leaseType: 'NNN', annualRent: 150000, price: 1200000, down: 25, closing: 24000, rehab: 50000, rent: 12500, other: 500,
-    vacancy: 5.0, rentGrowth: 3.0, opexRatio: 35.0, expenseGrowth: 2.5, rate: 6.5, amort: 30, exitCap: 6.75, apprec: 2.0,
   },
   storage: {
     marketTier: 'Tier 1', propertyClass: 'Class A',
     facilityType: 'Drive-Up Standard (Single-Story)',
     subTypes: ['Climate-Controlled (Multi-Story)', 'Drive-Up Standard (Single-Story)', 'Outdoor / RV & Boat Parking', 'Hybrid Flex Facility'],
-    storageUnits: 20, storageSqFt: 2000, isAutomated: true, leaseType: 'Gross', rentPerUnit: 85, gla: 2000, price: 230000, down: 30, closing: 4600, rehab: 5000,
-    rent: 1700, other: 0, vacancy: 5.0, rentGrowth: 3.0, opexRatio: 30.0, expenseGrowth: 2.5, rate: 6.75, amort: 25, exitCap: 7.2, apprec: 2.0,
   },
 };
 
@@ -96,21 +86,21 @@ const LEASE_HINT: Record<string, string> = {
 
 type W = Record<string, string>;
 
+/** A new project starts blank. Nothing is assumed: every figure is entered, or filled from the owner's own assumptions on request. */
 const seed = (a: Asset): W => {
   const d = DEFAULTS[a];
-  const s = (n: unknown) => String(n ?? '');
   return {
-    name: '', location: '', entity: '', asset: a, gla: s(d.gla), leaseType: d.leaseType,
+    name: '', location: '', entity: '', asset: a, gla: '', leaseType: '',
     rehabMode: 'out_of_pocket', facilityType: d.facilityType, marketTier: d.marketTier, propertyClass: d.propertyClass,
-    price: s(d.price), down: s(d.down), closing: s(d.closing), rehab: s(d.rehab), grossRent: s(d.rent), other: s(d.other),
-    vacancy: s(d.vacancy), rentGrowth: s(d.rentGrowth), opexRatio: s(d.opexRatio), expenseGrowth: s(d.expenseGrowth),
-    rate: s(d.rate), amort: s(d.amort), exitCap: s(d.exitCap), apprec: s(d.apprec),
-    storageUnits: s(d.storageUnits ?? 20), storageSqft: s(d.storageSqFt ?? 2000), storageAutomated: String(d.isAutomated !== false),
-    storageRentPerUnit: s(d.rentPerUnit ?? 85), storageGrossRent: s(d.rent ?? 1700),
-    multiUnits: s(d.multiUnits ?? 12), multiSqft: s(d.multiSqFt ?? 11000), multiRentPerUnit: s(d.rentPerUnit ?? 1500), multiGrossRent: s(d.rent ?? 18000),
-    commSqft: s(d.commSqFt ?? 15000), commAnnualRent: s(d.annualRent ?? d.rent * 12), commGrossRent: s(d.rent),
-    sfrArv: s(d.sfrArv ?? 450000), sfrSqft: s(d.sfrSqFt ?? 2400), sfrGrossRent: s(d.rent),
-    financingType: 'fixed', armInitial: '5', armRate: '7.75', armCap: '9.5', ioYears: '3',
+    price: '', down: '', closing: '', rehab: '', grossRent: '', other: '',
+    vacancy: '', rentGrowth: '', opexRatio: '', expenseGrowth: '',
+    rate: '', amort: '', maturity: '', exitCap: '', apprec: '', exitYear: '', discountRate: '', sellingCost: '',
+    capexKind: 'annual', capexValue: '', managementFee: '', payroll: '', taxes: '', insurance: '', maintenance: '',
+    storageUnits: '', storageSqft: '', storageAutomated: 'false', storageRentPerUnit: '', storageGrossRent: '',
+    multiUnits: '', multiSqft: '', multiRentPerUnit: '', multiGrossRent: '',
+    commSqft: '', commAnnualRent: '', commGrossRent: '',
+    sfrArv: '', sfrSqft: '', sfrGrossRent: '',
+    financingType: 'fixed', armInitial: '', armRate: '', armCap: '', ioYears: '',
   };
 };
 
@@ -140,12 +130,15 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [assessor, setAssessor] = useState<any>(null);
   const [parcels, setParcels] = useState<any[]>([]);
   const [companions, setCompanions] = useState(0);
+  // Figures copied from the owner's profile assumptions, with their reasons; saved with the deal as its record of where numbers came from
+  const [seededBasis, setSeededBasis] = useState<Record<string, InputBasis>>({});
+  const [seedNote, setSeedNote] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!isOpen) return;
     setStep(1); setW(seed('commercial')); setIsNameTouched(false); setError(null); setSubmitting(false);
-    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false);
+    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null);
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
 
@@ -157,55 +150,57 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   }, [parcels]);
 
   const selectAsset = (a: Asset) => {
-    const d = DEFAULTS[a];
-    const s = (n: unknown) => String(n ?? '');
+    // Identity and location carry across a change of asset class; everything else starts blank for the new class
     setW((prev) => ({
-      ...prev,
-      asset: a,
-      // Strictly preserve user identity and location inputs across asset class switches
+      ...seed(a),
       name: prev.name,
       location: prev.location,
       entity: prev.entity,
-      gla: s(d.gla),
-      leaseType: d.leaseType,
-      facilityType: d.facilityType,
-      marketTier: prev.location ? prev.marketTier : d.marketTier,
-      propertyClass: d.propertyClass,
-      price: s(d.price),
-      down: s(d.down),
-      closing: s(d.closing),
-      rehab: s(d.rehab),
-      grossRent: s(d.rent),
-      other: s(d.other),
-      vacancy: s(d.vacancy),
-      rentGrowth: s(d.rentGrowth),
-      opexRatio: s(d.opexRatio),
-      expenseGrowth: s(d.expenseGrowth),
-      rate: s(d.rate),
-      amort: s(d.amort),
-      exitCap: s(d.exitCap),
-      apprec: s(d.apprec),
-      storageUnits: s(d.storageUnits ?? 20),
-      storageSqft: s(d.storageSqFt ?? 2000),
-      storageAutomated: String(d.isAutomated !== false),
-      storageRentPerUnit: s(d.rentPerUnit ?? 85),
-      storageGrossRent: s(d.rent ?? 1700),
-      multiUnits: s(d.multiUnits ?? 12),
-      multiSqft: s(d.multiSqFt ?? 11000),
-      multiRentPerUnit: s(d.rentPerUnit ?? 1500),
-      multiGrossRent: s(d.rent ?? 18000),
-      commSqft: s(d.commSqFt ?? 15000),
-      commAnnualRent: s(d.annualRent ?? d.rent * 12),
-      commGrossRent: s(d.rent),
-      sfrArv: s(d.sfrArv ?? 450000),
-      sfrSqft: s(d.sfrSqFt ?? 2400),
-      sfrGrossRent: s(d.rent),
+      marketTier: prev.location ? prev.marketTier : DEFAULTS[a].marketTier,
     }));
+    setSeededBasis({});
+    setSeedNote(null);
   };
 
-  const benchmark = useMemo(() => {
-    try { return getBenchmarkCapRateRange(asset, w.marketTier, w.propertyClass, w.facilityType) as any; } catch { return null; }
-  }, [asset, w.marketTier, w.propertyClass, w.facilityType]);
+  /** Copies the owner's profile assumptions into every blank field, with their reasons. Fields already filled are never overwritten. */
+  const fillFromAssumptions = () => {
+    const profile = getProfile();
+    const units = asset === 'storage' ? int(w.storageUnits) : asset === 'multi-unit' ? int(w.multiUnits) : asset === 'single-family' ? 1 : 0;
+    const sqft = num(asset === 'storage' ? w.storageSqft : asset === 'multi-unit' ? w.multiSqft : asset === 'commercial' ? (w.commSqft || w.gla) : w.sfrSqft);
+    const seeded = seedFromAssumptions(profile.underwritingAssumptions, {
+      assetClass: asset,
+      leaseType: w.leaseType,
+      purchasePrice: num(w.price) || null,
+      unitCount: units > 0 ? units : null,
+      squareFeet: sqft > 0 ? sqft : null,
+      discountRate: profile.discountRate,
+      exitYear: profile.exitYear,
+      assessedValue: Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
+    });
+    const target: Record<string, string> = {
+      vacancyRate: 'vacancy', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
+      discountRate: 'discountRate', targetCapRate: 'exitCap', appreciationRate: 'apprec', sellingCostPercent: 'sellingCost',
+      closingCosts: 'closing', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
+      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes',
+    };
+    const patch: W = {};
+    const basis: Record<string, InputBasis> = {};
+    for (const [key, value] of Object.entries(seeded.inputs)) {
+      const field = target[key];
+      if (!field || (w[field] ?? '').trim() !== '') continue;
+      patch[field] = String(value);
+      if (key === 'capexReserveAnnual') patch.capexKind = 'annual';
+      if (key === 'capexReservePercent') patch.capexKind = 'percent';
+      if (seeded.basis[key]) basis[key] = seeded.basis[key];
+    }
+    set(patch);
+    setSeededBasis((b) => ({ ...b, ...basis }));
+    const n = Object.keys(basis).length;
+    setSeedNote(n === 0
+      ? 'Nothing to fill: set your assumptions in your Investor Profile first, or every field you have an assumption for already has a value.'
+      : `Filled ${n} blank field${n === 1 ? '' : 's'} from your assumptions. Each keeps your reason on this property.`);
+  };
+
 
   const guidance = useMemo(() => {
     const tierDesc = w.marketTier.includes('1') ? 'Primary Gateway Metro (High Liquidity, Low Cap Rates)'
@@ -267,7 +262,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       setAssessor(data);
       setParcels([{ ...data, isPrimary: true, included: true }]);
       setCompanions(0);
-      if ((!w.gla || w.gla === '15000') && data.sqft > 0) set({ gla: String(Math.min(data.sqft, 25000)) });
+      // The building's area from the county card when it has one; blank otherwise (a lot size is not a building size)
+      if (!w.gla && Number((data as any).buildingSqFt) > 0) set({ gla: String(Math.round(Number((data as any).buildingSqFt))) });
       if (data.apn) {
         const found = (await AddressService.detectNearbySameOwnerParcels(data.apn, data.owner, data)) || [];
         if (found.length) {
@@ -317,68 +313,86 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     try {
       const name = deriveProjectName(w.name, w.location, asset);
       const location = w.location.trim() || 'United States';
-      const purchasePrice = num(w.price, 1000000);
-      const downPaymentPercent = num(w.down, 25);
-      const interestRate = num(w.rate, 6.5);
+      // Only what was entered is saved. A blank stays blank, and the property then asks for it: no price, rent, loan or cost is made up.
+      const opt = (v: string | undefined): number | undefined => {
+        if (v === undefined || v.trim() === '') return undefined;
+        const n = parseFloat(v);
+        return Number.isNaN(n) ? undefined : n;
+      };
+      const optInt = (v: string | undefined): number | undefined => { const n = opt(v); return n === undefined ? undefined : Math.round(n); };
+      const purchasePrice = opt(w.price);
 
-      let grossRent = num(w.grossRent);
-      let unitCount = 1; let storageUnitCount = 20; let storageSqFt = 2000; let isAutomated = false; let rentPerUnit = 0; let arv = 0;
-      let gla = num(w.gla);
+      let grossRent = opt(w.grossRent); // monthly, whole property
+      let unitCount: number | undefined = asset === 'single-family' ? 1 : undefined;
+      let storageUnitCount: number | undefined; let storageSqFt: number | undefined; let isAutomated = false;
+      let rentPerUnit: number | undefined; let arv: number | undefined;
+      let gla = opt(w.gla);
 
       if (asset === 'storage') {
-        storageUnitCount = int(w.storageUnits, 20) || 20; unitCount = storageUnitCount;
-        storageSqFt = num(w.storageSqft, 2000) || 2000; gla = storageSqFt;
+        storageUnitCount = optInt(w.storageUnits); unitCount = storageUnitCount;
+        storageSqFt = opt(w.storageSqft); gla = storageSqFt ?? gla;
         isAutomated = w.storageAutomated === 'true';
-        rentPerUnit = num(w.storageRentPerUnit);
-        const tot = num(w.storageGrossRent);
-        grossRent = tot > 0 ? tot : rentPerUnit > 0 ? rentPerUnit * storageUnitCount : 1700;
-        if (!rentPerUnit && grossRent > 0 && storageUnitCount > 0) rentPerUnit = Math.round(grossRent / storageUnitCount);
+        rentPerUnit = opt(w.storageRentPerUnit);
+        const tot = opt(w.storageGrossRent);
+        grossRent = tot ?? (rentPerUnit !== undefined && storageUnitCount ? rentPerUnit * storageUnitCount : undefined);
+        if (rentPerUnit === undefined && grossRent !== undefined && storageUnitCount) rentPerUnit = Math.round(grossRent / storageUnitCount);
       } else if (asset === 'multi-unit') {
-        unitCount = int(w.multiUnits, 12) || 12; gla = num(w.multiSqft, 11000) || 11000;
-        rentPerUnit = num(w.multiRentPerUnit);
-        const tot = num(w.multiGrossRent);
-        grossRent = tot > 0 ? tot : rentPerUnit > 0 ? rentPerUnit * unitCount : 18000;
-        if (!rentPerUnit && grossRent > 0 && unitCount > 0) rentPerUnit = Math.round(grossRent / unitCount);
+        unitCount = optInt(w.multiUnits); gla = opt(w.multiSqft) ?? gla;
+        rentPerUnit = opt(w.multiRentPerUnit);
+        const tot = opt(w.multiGrossRent);
+        grossRent = tot ?? (rentPerUnit !== undefined && unitCount ? rentPerUnit * unitCount : undefined);
+        if (rentPerUnit === undefined && grossRent !== undefined && unitCount) rentPerUnit = Math.round(grossRent / unitCount);
       } else if (asset === 'commercial') {
-        gla = num(w.commSqft) || gla || 15000;
-        const tot = num(w.commGrossRent); const ann = num(w.commAnnualRent);
-        grossRent = tot > 0 ? tot : ann > 0 ? Math.round(ann / 12) : 12500;
+        gla = opt(w.commSqft) ?? gla;
+        const tot = opt(w.commGrossRent); const ann = opt(w.commAnnualRent);
+        grossRent = tot ?? (ann !== undefined ? Math.round(ann / 12) : undefined);
       } else {
-        unitCount = 1; gla = num(w.sfrSqft, 2400) || 2400; arv = num(w.sfrArv);
-        const r = num(w.sfrGrossRent);
-        grossRent = r > 0 ? r : 3200;
+        gla = opt(w.sfrSqft) ?? gla; arv = opt(w.sfrArv);
+        grossRent = opt(w.sfrGrossRent);
       }
-      if (!grossRent || grossRent <= 0) grossRent = asset === 'storage' ? 1700 : asset === 'multi-unit' ? 18000 : 12500;
 
       const a: any = assessor;
       const profile = getProfile();
       const isStorage = asset === 'storage';
+      const isIncomeValued = asset === 'commercial' || asset === 'storage';
+      const amort = optInt(w.amort);
+      const hold = optInt(w.exitYear);
+      const capex = opt(w.capexValue);
       const inputs: Record<string, any> = {
-        purchasePrice, downPaymentPercent, interestRate,
-        loanTerm: int(w.amort, 25) || 25,
-        rehabCosts: num(w.rehab, 0), closingCosts: w.closing.trim() !== '' ? num(w.closing, 0) : purchasePrice * 0.02,
+        purchasePrice,
+        downPaymentPercent: opt(w.down),
+        interestRate: opt(w.rate),
+        // The wizard has always stored the amortization period as `loanTerm`; the engine reads either
+        amortizationYears: amort, loanTerm: amort,
+        loanMaturityYears: optInt(w.maturity),
+        rehabCosts: opt(w.rehab) ?? 0, closingCosts: opt(w.closing),
         rehabFinancingMode: w.rehabMode, financeRehabAndClosingCosts: w.rehabMode === 'roll_into_loan',
-        grossRentPerMonth: grossRent, grossRentAnnual: grossRent * 12, monthlyRent: grossRent,
+        grossRentPerMonth: grossRent, grossRentAnnual: grossRent !== undefined ? grossRent * 12 : undefined, monthlyRent: grossRent,
         unitCount, numUnits: unitCount,
         storageUnitCount: isStorage ? storageUnitCount : undefined,
         storageSqFt: isStorage ? storageSqFt : undefined,
-        totalSqFt: isStorage ? storageSqFt : gla || 0,
-        gla: gla || 0,
+        totalSqFt: isStorage ? storageSqFt : gla,
+        gla,
         isAutomated: isStorage ? isAutomated : undefined,
-        storageRentPerUnit: isStorage ? rentPerUnit || Math.round(grossRent / storageUnitCount) : undefined,
-        monthlyRentPerUnit: isStorage ? rentPerUnit || Math.round(grossRent / storageUnitCount)
-          : asset === 'multi-unit' ? rentPerUnit || Math.round(grossRent / unitCount) : undefined,
-        leaseType: w.leaseType || (asset === 'commercial' ? 'NNN' : 'Gross'),
+        storageRentPerUnit: isStorage ? rentPerUnit : undefined,
+        monthlyRentPerUnit: isStorage || asset === 'multi-unit' ? rentPerUnit : undefined,
+        leaseType: w.leaseType || undefined,
         arv: asset === 'single-family' ? arv : undefined,
-        vacancyRate: num(w.vacancy, 5),
-        expenseRatio: num(w.opexRatio, 35), operatingExpenseRatio: num(w.opexRatio, 35),
-        expenseGrowth: num(w.expenseGrowth, 2.5), expenseInflation: num(w.expenseGrowth, 2.5),
-        rentGrowth: num(w.rentGrowth, 3), annualRentGrowth: num(w.rentGrowth, 3),
-        targetCapRate: num(w.exitCap, 6.5),
-        appreciationRate: num(w.apprec, 2),
+        vacancyRate: opt(w.vacancy),
+        expenseRatio: opt(w.opexRatio), operatingExpenseRatio: opt(w.opexRatio),
+        expenseGrowth: opt(w.expenseGrowth), expenseInflation: opt(w.expenseGrowth),
+        rentGrowth: opt(w.rentGrowth), annualRentGrowth: opt(w.rentGrowth),
+        // Commercial and storage are valued by capitalising income at exit; the rest by appreciation
+        ...(isIncomeValued ? { targetCapRate: opt(w.exitCap), targetExitCapRate: opt(w.exitCap) } : { appreciationRate: opt(w.apprec) }),
+        sellingCostPercent: opt(w.sellingCost),
+        managementFeePercent: opt(w.managementFee),
+        payrollMarketingPercent: isStorage ? opt(w.payroll) : undefined,
+        capexReserveAnnual: w.capexKind === 'percent' ? undefined : capex,
+        capexReservePercent: w.capexKind === 'percent' ? capex : undefined,
+        annualTaxes: opt(w.taxes), annualInsurance: opt(w.insurance), annualMaintenance: opt(w.maintenance),
         marketTier: w.marketTier, propertyClass: w.propertyClass, facilityType: w.facilityType,
         commTier: w.marketTier, commClass: w.propertyClass, storageTier: w.marketTier, storageClass: w.propertyClass,
-        exitYear: profile.exitYear, discountRate: profile.discountRate, exitCapTiming: profile.exitCapTiming,
+        exitYear: hold, holdingPeriod: hold, discountRate: opt(w.discountRate), exitCapTiming: profile.exitCapTiming,
         propertyAddress: location, address: location,
         county: a?.county || null, primaryApn: a?.apn || null,
         totalAcreage: a?.packageAcres || pkg.totalAcres || a?.acres || null,
@@ -392,14 +406,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         parcels: parcels.length ? parcels : a ? [a] : [],
         gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a?.source || 'county_arcgis', status: 'active' },
         financingType: w.financingType,
-        armInitialYears: int(w.armInitial, 5), armAdjustmentRate: num(w.armRate, 7.75), armRateCap: num(w.armCap, 9.5),
-        interestOnlyYears: int(w.ioYears, 3),
+        armInitialYears: optInt(w.armInitial), armAdjustmentRate: opt(w.armRate), armRateCap: opt(w.armCap),
+        interestOnlyYears: optInt(w.ioYears),
         entity_id: w.entity || null,
       };
+      // Where each number came from: the owner's profile assumptions (with their reasons) or the owner's own entry
+      inputs.assumptionBasis = reconcileBasis(seededBasis, inputs);
       Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
 
-      // Sanity check the assumptions run through the engine before anything is saved (nothing from it is stored).
-      try { calculateProjections(asset, inputs); } catch (e) { console.warn('Engine check notice:', e); }
 
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes?.user;
@@ -426,6 +440,18 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   };
 
   if (!isOpen) return null;
+
+  const fillBar = (
+    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+      <p className="text-[11px] text-slate-400 leading-relaxed max-w-md">
+        Nothing is pre-filled. Enter each figure, or copy the ones you have set in your Investor Profile (they keep your reason on this property).
+      </p>
+      <button type="button" onClick={fillFromAssumptions} className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+        Fill blanks from my assumptions
+      </button>
+      {seedNote && <p role="status" className="basis-full text-[10px] text-emerald-300/90 leading-relaxed">{seedNote}</p>}
+    </div>
+  );
 
   const stepDivs = (
     <>
@@ -574,6 +600,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </div>
             <select id="wiz-lease-type" value={w.leaseType} onChange={(e) => set({ leaseType: e.target.value })}
               className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
+              <option value="">Choose the lease structure…</option>
               <option value="Gross">Full Service Gross • Landlord absorbs operating expenses</option>
               <option value="Modified Gross">Modified Gross • Landlord &amp; tenant share expenses</option>
               <option value="NNN">Triple Net (NNN) • Tenant reimburses taxes, insurance &amp; CAM</option>
@@ -701,9 +728,6 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <span className="text-brand-400 font-bold text-xs">🏛️</span>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Market &amp; Facility Classification</span>
             </div>
-            <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-              {benchmark ? `Market Cap: ${Number(benchmark.min).toFixed(2)}% - ${Number(benchmark.max).toFixed(2)}%` : 'Benchmark Cap: 4.75% - 5.50%'}
-            </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
@@ -738,6 +762,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
       {/* Step 2 */}
       <div className={`space-y-5 ${step === 2 ? '' : 'hidden'}`}>
+        {fillBar}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label htmlFor="wiz-purchase-price" className={lbl}>Purchase Price ($)</label>
@@ -795,6 +820,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
       {/* Step 3 */}
       <div className={`space-y-5 ${step === 3 ? '' : 'hidden'}`}>
+        {fillBar}
         {asset === 'storage' && (
           <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
@@ -804,11 +830,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Average Rent per Unit ($/mo)</label>
-                <input type="number" placeholder="85" value={w.storageRentPerUnit} onChange={(e) => syncStorage('rpu', e.target.value)} className={inputLg} />
+                <input type="number" value={w.storageRentPerUnit} onChange={(e) => syncStorage('rpu', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className={lbl}>Total Monthly Facility Rent ($)</label>
-                <input type="number" placeholder="1700" value={w.storageGrossRent} onChange={(e) => syncStorage('tot', e.target.value)} className={inputLg} />
+                <input type="number" value={w.storageGrossRent} onChange={(e) => syncStorage('tot', e.target.value)} className={inputLg} />
               </div>
             </div>
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -827,11 +853,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Average Rent per Unit ($/mo)</label>
-                <input type="number" placeholder="1500" value={w.multiRentPerUnit} onChange={(e) => syncMulti('rpu', e.target.value)} className={inputLg} />
+                <input type="number" value={w.multiRentPerUnit} onChange={(e) => syncMulti('rpu', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className={lbl}>Total Monthly Property Rent ($)</label>
-                <input type="number" placeholder="18000" value={w.multiGrossRent} onChange={(e) => syncMulti('tot', e.target.value)} className={inputLg} />
+                <input type="number" value={w.multiGrossRent} onChange={(e) => syncMulti('tot', e.target.value)} className={inputLg} />
               </div>
             </div>
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -850,11 +876,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Annual Gross Rent ($/yr)</label>
-                <input type="number" placeholder="150000" value={w.commAnnualRent} onChange={(e) => syncComm('ann', e.target.value)} className={inputLg} />
+                <input type="number" value={w.commAnnualRent} onChange={(e) => syncComm('ann', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className={lbl}>Monthly Rent Equivalent ($/mo)</label>
-                <input type="number" placeholder="12500" value={w.commGrossRent} onChange={(e) => syncComm('mo', e.target.value)} className={inputLg} />
+                <input type="number" value={w.commGrossRent} onChange={(e) => syncComm('mo', e.target.value)} className={inputLg} />
               </div>
             </div>
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -872,7 +898,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Monthly Rental Income ($/mo)</label>
-                <input type="number" placeholder="3200" value={w.sfrGrossRent} onChange={(e) => set({ sfrGrossRent: e.target.value, grossRent: e.target.value })} className={inputLg} />
+                <input type="number" value={w.sfrGrossRent} onChange={(e) => set({ sfrGrossRent: e.target.value, grossRent: e.target.value })} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Annual Gross Projection</label>
@@ -908,11 +934,51 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <input id="wiz-expense-growth" type="number" step="0.1" value={w.expenseGrowth} onChange={(e) => set({ expenseGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
+            <div className="space-y-1.5">
+              <label htmlFor="wiz-capex" className={lbl}>Replacement Reserve</label>
+              <div className="flex gap-2">
+                <input id="wiz-capex" type="number" min={0} step="any" value={w.capexValue} onChange={(e) => set({ capexValue: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                <select aria-label="Reserve basis" value={w.capexKind} onChange={(e) => set({ capexKind: e.target.value })} className="bg-slate-900 border border-slate-800 rounded-xl px-2 text-[11px] text-white">
+                  <option value="annual">$ a year</option>
+                  <option value="percent">% of income</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="wiz-mgmt" className={lbl}>Management Fee (%)</label>
+              <input id="wiz-mgmt" type="number" min={0} max={30} step="any" value={w.managementFee} onChange={(e) => set({ managementFee: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            </div>
+            {(asset === 'commercial' || w.leaseType === 'NNN' || !(num(w.grossRent) > 0)) && (
+              <div className="grid grid-cols-3 gap-3 sm:col-span-2">
+                <p className="col-span-3 text-[10px] text-slate-500 leading-relaxed">What it costs to carry: needed when there is no rent yet, or when tenants pay the building's costs. County records give the assessed value; set your tax rate in your Investor Profile to estimate taxes from it.</p>
+                <div className="space-y-1.5">
+                  <label htmlFor="wiz-taxes" className={lbl}>Property Taxes ($/yr)</label>
+                  <input id="wiz-taxes" type="number" min={0} step="any" value={w.taxes} onChange={(e) => set({ taxes: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="wiz-insurance" className={lbl}>Insurance ($/yr)</label>
+                  <input id="wiz-insurance" type="number" min={0} step="any" value={w.insurance} onChange={(e) => set({ insurance: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="wiz-maintenance" className={lbl}>Maintenance ($/yr)</label>
+                  <input id="wiz-maintenance" type="number" min={0} step="any" value={w.maintenance} onChange={(e) => set({ maintenance: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                </div>
+              </div>
+            )}
+            {asset === 'storage' && (
+              <div className="space-y-1.5">
+                <label htmlFor="wiz-payroll" className={lbl}>Payroll &amp; Marketing (%)</label>
+                <input id="wiz-payroll" type="number" min={0} max={60} step="any" value={w.payroll} onChange={(e) => set({ payroll: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Step 4 */}
       <div className={`space-y-5 ${step === 4 && !submitting ? '' : 'hidden'}`}>
+        {fillBar}
         <div className="space-y-1.5">
           <label htmlFor="wiz-financing-type" className={lbl}>Financing Structure / Loan Type</label>
           <select id="wiz-financing-type" value={w.financingType} onChange={(e) => set({ financingType: e.target.value })}
@@ -951,6 +1017,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <label htmlFor="wiz-amortization" className={lbl}>Amortization Period (Years)</label>
             <input id="wiz-amortization" type="number" value={w.amort} onChange={(e) => set({ amort: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
+          <div className="space-y-1.5">
+            <label htmlFor="wiz-maturity" className={lbl}>Loan Maturity (Years)</label>
+            <input id="wiz-maturity" type="number" min={1} value={w.maturity} onChange={(e) => set({ maturity: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+          </div>
+          <p className="sm:col-span-2 text-[10px] text-slate-500 leading-relaxed">Every loan is its own: take the rate, amortization and maturity from this loan's term sheet. The balance falls due at maturity, which cannot be before your hold ends.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -961,6 +1032,18 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-appreciation" className={lbl}>Annual Property Appreciation (%)</label>
             <input id="wiz-appreciation" type="number" step="0.1" value={w.apprec} onChange={(e) => set({ apprec: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="wiz-selling" className={lbl}>Selling Costs at Exit (%)</label>
+            <input id="wiz-selling" type="number" min={0} max={20} step="any" value={w.sellingCost} onChange={(e) => set({ sellingCost: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="wiz-hold" className={lbl}>Hold Period (Years)</label>
+            <input id="wiz-hold" type="number" min={1} max={30} value={w.exitYear} onChange={(e) => set({ exitYear: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="wiz-discount" className={lbl}>Discount Rate (%)</label>
+            <input id="wiz-discount" type="number" min={0} max={50} step="any" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
         </div>
 

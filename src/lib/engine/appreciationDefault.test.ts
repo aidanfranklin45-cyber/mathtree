@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections, IncompleteInputsError } from './index';
+import { calculateProjections, checkEngineInputs, IncompleteInputsError } from './index';
 import { buildInputs, seedForm } from '../../components/studio/modals/editInputsForm';
 
 // Every input the engine needs is stated, so the only thing under test is appreciation
@@ -33,12 +33,17 @@ describe('appreciation is stated, never defaulted', () => {
     expect(buildInputs({ ...form, appreciation: '' }, deal).appreciationRate).toBeUndefined();
   });
 
-  it('a blank form stays blank all the way through: no loan, date, rate or cost is made up', () => {
+  it('saving an empty form gives a deal the engine says is incomplete, not one with numbers made up for it', () => {
     const deal: any = { asset_class: 'commercial', inputs: {} };
     const built = buildInputs(seedForm(deal), deal);
-    for (const k of ['purchasePrice', 'downPaymentPercent', 'interestRate', 'amortizationYears', 'loanMaturityYears', 'closingDate', 'vacancyRate', 'expenseRatio', 'sellingCostPercent', 'closingCosts', 'exitYear', 'discountRate', 'capexReserveAnnual', 'leaseType']) {
-      expect(built[k], k).toBeUndefined();
-    }
+    const missing = checkEngineInputs('commercial', built).map((m) => m.key);
+    // The things only the owner can know are asked for
+    expect(missing).toEqual(expect.arrayContaining(['purchasePrice', 'closingDate', 'downPaymentPercent', 'vacancyRate', 'expenseRatio']));
+    // and a complete, saved deal round-trips unchanged
+    const complete = { ...base, appreciationRate: 3 };
+    const again = buildInputs(seedForm({ asset_class: 'multi-unit', inputs: complete } as any), { asset_class: 'multi-unit', inputs: complete } as any);
+    expect(again.vacancyRate).toBe(complete.vacancyRate);
+    expect(again.sellingCostPercent).toBe(complete.sellingCostPercent);
   });
 
   it('reserves are saved under one key, as dollars or as a share of income', () => {
