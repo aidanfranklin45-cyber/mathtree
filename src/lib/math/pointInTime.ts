@@ -136,7 +136,7 @@ export function resolvePointInTimeDealMetrics(
 
   // Exact Month-by-Month Appreciation
   const appRate = parseFloat(
-    inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0),
+    inp.appreciationRate !== undefined && inp.appreciationRate !== '' ? inp.appreciationRate : 2.0,
   );
   const currentVal = price > 0 ? price * Math.pow(1 + appRate / 100, monthsElapsed / 12) : price;
   const currentEquity = Math.max(0, currentVal - currentDebt);
@@ -190,7 +190,7 @@ export function generateMonthlyAmortizationSchedule(
 
   const price = Number(em.purchasePrice) || parseFloat(deal.purchase_price || inp.purchasePrice || 0) || 0;
   const termYears = parseFloat(inp.loanTerm || inp.loanTermYears || inp.amortizationYears || 30);
-  const appRate = parseFloat(inp.appreciationRate !== undefined ? inp.appreciationRate : 3.0);
+  const appRate = parseFloat(inp.appreciationRate !== undefined && inp.appreciationRate !== '' ? inp.appreciationRate : 2.0);
 
   let baseDate = new Date();
   const closeVal = inp.closingDate || inp.loiDate || deal.closing_date;

@@ -695,7 +695,9 @@ export function calculateProjections(
   const rehabCosts = parseFloat(inputs.rehabCosts) || parseFloat(inputs.rehabBudget) || 0;
   const closingCosts = parseFloat(inputs.closingCosts) || 0;
   const vacancyRate = parseFloat(inputs.vacancyRate) || parseFloat(inputs.vacancyRatePercent) || 0;
-  const appreciationRate = parseFloat(inputs.appreciationRate) || 0;
+  // Unset/blank appreciation defaults to 2% (matches the Edit Inputs form and wizard); an explicit 0 is respected.
+  const parsedAppreciation = parseFloat(inputs.appreciationRate);
+  const appreciationRate = Number.isFinite(parsedAppreciation) ? parsedAppreciation : 2.0;
   const rentGrowth = parseFloat(inputs.rentGrowth) || parseFloat(inputs.rentGrowthPercent) || parseFloat(inputs.annualRentGrowth) || 0;
   const expenseRatio = parseFloat(inputs.expenseRatio) || parseFloat(inputs.operatingExpenseRatio) || 0;
   const rawExpenseGrowth = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent ?? inputs.holdingInflation;
@@ -1188,7 +1190,7 @@ export function calculateProjections(
           currentPropertyValue = initialPropertyValue;
         }
       } else {
-        const appRate = (appreciationRate !== undefined && !isNaN(appreciationRate)) ? appreciationRate : 3.0;
+        const appRate = (appreciationRate !== undefined && !isNaN(appreciationRate)) ? appreciationRate : 2.0;
         currentPropertyValue = currentPropertyValue * (1 + appRate / 100);
       }
     }
@@ -1200,7 +1202,7 @@ export function calculateProjections(
     if (remodel) {
       if (remodelDoneByYearEnd(remodel, calYear)) {
         if (remodel.valueMode === 'manual' && remodel.manualValue > 0) {
-          const appRate = !isNaN(appreciationRate) ? appreciationRate : 3.0;
+          const appRate = !isNaN(appreciationRate) ? appreciationRate : 2.0;
           currentPropertyValue = remodel.manualValue * Math.pow(1 + appRate / 100, Math.max(0, calYear - remodel.completionYear));
         } else if (remodel.valueMode === 'cap_rate' && !valuedFromIncome && calYear === remodel.completionYear) {
           const cap = remodel.capRatePct > 0 ? remodel.capRatePct : targetCapRate;
