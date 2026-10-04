@@ -1,5 +1,6 @@
 import React from 'react';
-import { InboxList } from '../operations/AttentionInbox';
+import { InboxList, MutedSection } from '../operations/AttentionInbox';
+import { useInboxMutes } from '../../lib/operations/inboxMutes';
 import type { InboxItem } from '../../lib/operations/attention';
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 
 /** The bell: a slide-over view of the one portfolio inbox (the same list the Operations page shows). */
 export const InboxPanel: React.FC<Props> = ({ isOpen, onClose, items, loading, onRefresh }) => {
+  const { mute } = useInboxMutes();
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[9999] flex justify-end">
@@ -42,8 +44,9 @@ export const InboxPanel: React.FC<Props> = ({ isOpen, onClose, items, loading, o
               {!loading && <p className="text-xs text-slate-400 leading-relaxed">Nothing needs your attention across your owned properties.</p>}
             </div>
           ) : (
-            <InboxList items={items} portfolio onNavigate={onClose} />
+            <InboxList items={items} portfolio onNavigate={onClose} onMute={mute} />
           )}
+          <MutedSection />
         </div>
       </div>
     </div>

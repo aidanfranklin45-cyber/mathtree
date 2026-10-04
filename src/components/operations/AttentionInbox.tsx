@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { INBOX_LABEL, type InboxBasis, type InboxItem, type InboxKind } from '../../lib/operations/attention';
+import { useInboxMutes } from '../../lib/operations/inboxMutes';
 
 interface Props {
   items: InboxItem[];
@@ -36,10 +37,38 @@ interface ListProps {
   onSelectLease?: (leaseId: string) => void;
   /** Called when a portfolio row is followed (the bell panel closes itself). */
   onNavigate?: () => void;
+  /** Adds a mute button to each row. */
+  onMute?: (item: InboxItem) => void;
 }
 
+const noTenantGap = (i: InboxItem) => i.kind === 'missing_data' && i.id.endsWith(':missing:leases');
+
+/** Muted items, always listed (even when nothing is firing) so nothing stays hidden for good. */
+export const MutedSection: React.FC = () => {
+  const { entries, unmute } = useInboxMutes();
+  const [open, setOpen] = useState(false);
+  if (entries.length === 0) return null;
+  return (
+    <div className="border-t border-slate-800">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full px-4 py-2 text-left text-[11px] font-semibold text-slate-500 hover:text-slate-300 transition">
+        Muted · {entries.length} {open ? '▾' : '▸'}
+      </button>
+      {open && (
+        <ul className="divide-y divide-slate-800/60">
+          {entries.map((m) => (
+            <li key={m.key} className="px-4 py-2 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-slate-400 truncate"><span className="font-semibold text-slate-300">{m.dealTitle}</span> · {m.label}</span>
+              <button type="button" onClick={() => unmute(m.key)} className="shrink-0 text-[10px] font-bold text-emerald-400 hover:text-emerald-300">Unmute</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
 /** The rows of the inbox, shared by the Operations page and the bell panel. */
-export const InboxList: React.FC<ListProps> = ({ items, portfolio, onSelectLease, onNavigate }) => (
+export const InboxList: React.FC<ListProps> = ({ items, portfolio, onSelectLease, onNavigate, onMute }) => (
   <ul className="divide-y divide-slate-800/60">
     {items.map((item) => {
       const body = (
@@ -64,15 +93,23 @@ export const InboxList: React.FC<ListProps> = ({ items, portfolio, onSelectLease
           </div>
         </>
       );
-      const row = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-800/40 transition';
+      const row = 'px-4 py-2.5 flex items-center justify-between gap-3';
       return (
-        <li key={item.id}>
+        <li key={item.id} className="flex items-center hover:bg-slate-800/40 transition">
+          <div className="flex-1 min-w-0">
           {portfolio ? (
             <Link to={item.link} onClick={onNavigate} className={row}>{body}</Link>
           ) : item.leaseId ? (
             <button type="button" onClick={() => onSelectLease?.(item.leaseId!)} className={`${row} w-full text-left cursor-pointer`}>{body}</button>
           ) : (
             <div className={row}>{body}</div>
+          )}
+          </div>
+          {onMute && (
+            <button type="button" onClick={() => onMute(item)} className="shrink-0 mr-3 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition"
+              title={noTenantGap(item) ? 'This property has no tenant: stop asking' : `Stop showing this for ${item.dealTitle}`}>
+              {noTenantGap(item) ? 'No tenant' : 'Mute'}
+            </button>
           )}
         </li>
       );
@@ -86,11 +123,13 @@ export const InboxList: React.FC<ListProps> = ({ items, portfolio, onSelectLease
  */
 export const AttentionInbox: React.FC<Props> = ({ items, portfolio, onSelectLease }) => {
   const [expanded, setExpanded] = useState(false);
+  const { mute } = useInboxMutes();
 
   if (items.length === 0) {
     return (
-      <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-3 text-xs font-semibold text-emerald-300">
-        ✓ All caught up — nothing needs your attention right now.
+      <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl overflow-hidden">
+        <div className="px-4 py-3 text-xs font-semibold text-emerald-300">✓ All caught up — nothing needs your attention right now.</div>
+        <MutedSection />
       </div>
     );
   }
@@ -106,7 +145,8 @@ export const AttentionInbox: React.FC<Props> = ({ items, portfolio, onSelectLeas
           </button>
         )}
       </div>
-      <InboxList items={shown} portfolio={portfolio} onSelectLease={onSelectLease} />
+      <InboxList items={shown} portfolio={portfolio} onSelectLease={onSelectLease} onMute={mute} />
+      <MutedSection />
     </div>
   );
 };

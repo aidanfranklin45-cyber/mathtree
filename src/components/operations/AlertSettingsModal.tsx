@@ -119,9 +119,12 @@ export const AlertSettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
       recovery_lead_days: normalizeRecoveryPrefs({ recovery_lead_days: recLead }).leadDays,
       recovery_email: recEmail,
     };
+    // Keep other keys stored beside the timing prefs (e.g. the inbox's muted items)
+    const { data: cur } = await supabase.from('profiles').select('alert_preferences').eq('id', userId).maybeSingle();
+    const kept = (cur?.alert_preferences && typeof cur.alert_preferences === 'object' ? cur.alert_preferences : {}) as Record<string, unknown>;
     const { error } = await supabase
       .from('profiles')
-      .update({ alert_preferences: prefs, updated_at: new Date().toISOString() })
+      .update({ alert_preferences: { ...kept, ...prefs }, updated_at: new Date().toISOString() })
       .eq('id', userId);
     if (error) return setTimingMsg({ kind: 'err', text: `Error: ${error.message}` });
     // Mirror to auth metadata so the cron function can read it from either place

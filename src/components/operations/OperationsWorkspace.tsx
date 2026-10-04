@@ -13,7 +13,8 @@ import { AuditTrailModal } from './AuditTrailModal';
 import { EditLeaseModal } from './EditLeaseModal';
 import { OpsSummaryStrip, type RollFilter } from './OpsSummaryStrip';
 import { AttentionInbox } from './AttentionInbox';
-import { buildInboxItems } from '../../lib/operations/attention';
+import { applyMutes, buildInboxItems } from '../../lib/operations/attention';
+import { useInboxMutes } from '../../lib/operations/inboxMutes';
 import { leaseRecoverySummaries, recoveryNoteFor } from '../../lib/operations/portfolioInbox';
 import { RentRollTable } from './RentRollTable';
 import { LeaseDrawer } from './LeaseDrawer';
@@ -327,14 +328,15 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
   const recoveryNote = recoveryNoteFor(recoverySummaries);
 
   // One inbox for the portfolio page and each property's Operate tab; the tab is the same list for just its deal
+  const { keys: mutedKeys } = useInboxMutes();
   const inboxItems = useMemo(
-    () => buildInboxItems({
+    () => applyMutes(buildInboxItems({
       deals: scopedDeals, leaseRows: leases, units, payments, views, rentRollLeases: ops.scopedLeases,
       currentPeriod: isCurrentPeriod, now: new Date(), recoveryNote,
-    }),
+    }), mutedKeys),
     // recoveryNote reads recoverySummaries, so it changes exactly when they do
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scopedDeals, leases, units, payments, views, ops.scopedLeases, isCurrentPeriod, recoverySummaries],
+    [scopedDeals, leases, units, payments, views, ops.scopedLeases, isCurrentPeriod, recoverySummaries, mutedKeys],
   );
 
   const visibleViews = useMemo(() => views.filter((v) => {
