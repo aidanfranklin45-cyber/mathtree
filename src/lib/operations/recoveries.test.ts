@@ -3,6 +3,7 @@ import {
   defaultTrackRecoveries, proRataSharePct, expectedDueDates, itemStatus, missingItems, backfillSinceIso, summarizeLeaseRecoveries,
   type RecoveryTerm, type RecoveryItem,
 } from '../../../supabase/functions/_shared/recoveries';
+import { planRecoveryAlerts } from '../../../supabase/functions/_shared/recoveryAlerts';
 
 const term = (over: Partial<RecoveryTerm> = {}): RecoveryTerm => ({
   id: 't1', lease_id: 'l1', category: 'property_tax', mode: 'direct_pay', frequency: 'semiannual', first_due_date: '2026-04-30', ...over,
@@ -94,23 +95,116 @@ describe('summarizeLeaseRecoveries', () => {
   });
 });
 
-describe('unpaid yearly charges this year (2026-10-04)', () => {
-  const today = '2026-10-04';
-  const terms = [
-    term({ id: 'tax', frequency: 'semiannual', first_due_date: '2026-04-30' }),
-    term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-03-15' }),
-    term({ id: 'oth', category: 'other', frequency: 'annual', first_due_date: '2026-05-01' }),
-  ];
-  const have: RecoveryItem[] = [{ term_id: 'tax', due_date: '2026-10-30', verified: true }];
-
-  it('starts the backfill at the start of the year, or 60 days back if that is earlier', () => {
-    expect(backfillSinceIso(today)).toBe('2026-01-01');
-    expect(backfillSinceIso('2026-02-10')).toBe('2025-12-12');
+describe('backfillSinceIso', () => {
+  it.each([
+    ['2026-10-04', '2026-01-01'], // late in the year: the start of the year is the earlier floor
+    ['2026-03-01', '2025-12-31'], // 60 days back is already last year
+    ['2026-02-10', '2025-12-12'],
+    ['2026-01-01', '2025-11-02'],
+    ['2028-12-31', '2028-01-01'], // leap year
+  ])('today %s -> since %s', (today, since) => {
+    expect(backfillSinceIso(today)).toBe(since);
   });
-  it('creates this year\'s missed items and reports them overdue', () => {
-    const created = missingItems(terms, have, '2026-10-18', backfillSinceIso(today));
-    expect(created.map((m) => `${m.term_id}|${m.due_date}`).sort()).toEqual(['ins|2026-03-15', 'oth|2026-05-01', 'tax|2026-04-30']);
-    const s = summarizeLeaseRecoveries({ track_recoveries: true }, terms, [...have, ...created], today);
-    expect(s.overdue).toBe(3);
+});
+
+describe('overdue detection through the real scheduling path', () => {
+  const TODAY = '2026-10-04';
+  const HORIZON = '2026-10-18';
+  const run = (terms: RecoveryTerm[], items: RecoveryItem[], today = TODAY, horizon = HORIZON) => {
+    const created = missingItems(terms, items, horizon, backfillSinceIso(today));
+    const all = [...items, ...created];
+    return { created, all, summary: summarizeLeaseRecoveries({ track_recoveries: true }, terms, all, today) };
+  };
+
+  it.each([
+    ['annual', '2026-03-15', ['2026-03-15']],
+    ['semiannual', '2026-04-30', ['2026-04-30']],
+    ['quarterly', '2026-01-10', ['2026-01-10', '2026-04-10', '2026-07-10']],
+    ['monthly', '2026-06-01', ['2026-06-01', '2026-07-01', '2026-08-01', '2026-09-01', '2026-10-01']],
+  ] as const)('%s term starting %s: every unpaid due date this year is overdue', (frequency, first, overdueDates) => {
+    const t = term({ id: 'x', frequency, first_due_date: first });
+    const { all, summary } = run([t], []);
+    const overdue = all.filter((i) => itemStatus(i, t.mode, TODAY) === 'overdue').map((i) => i.due_date);
+    expect(overdue).toEqual(overdueDates);
+    expect(summary.overdue).toBe(overdueDates.length);
+    expect(summary.complete).toBe(0);
+  });
+
+  it('does not report overdue for a payment that was marked done', () => {
+    const t = term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-03-15' });
+    const { summary, created } = run([t], [{ term_id: 'ins', due_date: '2026-03-15', verified: true }]);
+    expect(created).toEqual([]);
+    expect(summary).toMatchObject({ overdue: 0, complete: 1 });
+  });
+
+  it('handles reimbursement terms by paid date, not verification', () => {
+    const t = term({ id: 'cam', category: 'cam', mode: 'reimburse', frequency: 'annual', first_due_date: '2026-02-01' });
+    expect(run([t], []).summary.overdue).toBe(1);
+    expect(run([t], [{ term_id: 'cam', due_date: '2026-02-01', paid_date: '2026-02-20' }]).summary.overdue).toBe(0);
+  });
+
+  it('is idempotent: items already created are not created again', () => {
+    const t = term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-03-15' });
+    const first = run([t], []);
+    expect(first.created).toHaveLength(1);
+    expect(run([t], first.all).created).toEqual([]);
+  });
+
+  it('never backfills earlier years, even for a very old start date', () => {
+    const t = term({ id: 'x', frequency: 'annual', first_due_date: '2019-03-15' });
+    const { created } = run([t], []);
+    expect(created.map((c) => c.due_date)).toEqual(['2026-03-15']);
+  });
+
+  it('ignores inactive terms', () => {
+    const t = term({ id: 'x', frequency: 'annual', first_due_date: '2026-03-15', is_active: false });
+    expect(run([t], []).created).toEqual([]);
+  });
+
+  it('keeps future and not-yet-late items out of overdue', () => {
+    const t = term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-11-15' });
+    const { summary } = run([t], []);
+    expect(summary.overdue).toBe(0);
+  });
+
+  it('treats the due date itself as not yet overdue and the next day as overdue', () => {
+    const t = term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-10-04' });
+    expect(run([t], [], '2026-10-04').summary.overdue).toBe(0);
+    expect(run([t], [], '2026-10-05', '2026-10-19').summary.overdue).toBe(1);
+  });
+
+  it('works early in the year, when last year\'s late items are still inside the 60 day window', () => {
+    const t = term({ id: 'x', frequency: 'semiannual', first_due_date: '2025-06-01' });
+    const { created, summary } = run([t], [], '2026-01-20', '2026-02-03');
+    expect(created.map((c) => c.due_date)).toEqual(['2025-12-01']);
+    expect(summary.overdue).toBe(1);
+  });
+
+  it('the screenshot case: twice-a-year tax with one entry done, yearly insurance and yearly other untouched', () => {
+    const terms = [
+      term({ id: 'tax', frequency: 'semiannual', first_due_date: '2026-04-30' }),
+      term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-03-15' }),
+      term({ id: 'oth', category: 'other', frequency: 'annual', first_due_date: '2026-05-01' }),
+    ];
+    const { all, summary } = run(terms, [{ term_id: 'tax', due_date: '2026-10-30', verified: true }]);
+    expect(all.map((i) => `${i.term_id}|${i.due_date}`).sort()).toEqual(['ins|2026-03-15', 'oth|2026-05-01', 'tax|2026-04-30', 'tax|2026-10-30']);
+    expect(summary).toMatchObject({ overdue: 3, complete: 1 });
+    expect(summary.next).toMatchObject({ term_id: 'ins', due_date: '2026-03-15', status: 'overdue' });
+  });
+
+  it('feeds the daily alert: the lease gets an overdue notification listing the categories', () => {
+    const terms = [
+      term({ id: 'ins', category: 'insurance', frequency: 'annual', first_due_date: '2026-03-15' }),
+      term({ id: 'oth', category: 'other', frequency: 'annual', first_due_date: '2026-05-01' }),
+    ];
+    const { all } = run(terms, []);
+    const plan = planRecoveryAlerts({
+      leases: [{ id: 'l1', deal_id: 'd1', user_id: 'u1', tenant_name: 'Acme', track_recoveries: true }],
+      deals: [{ id: 'd1', title: 'Warehouse' }], terms, items: all, reconciliations: [], existing: [], today: TODAY,
+    });
+    const overdue = plan.insert.find((a) => a.type === 'recovery_overdue');
+    expect(overdue?.message).toContain('2 items past due');
+    expect(overdue?.message).toContain('Insurance');
+    expect(overdue?.message).toContain('Other');
   });
 });
