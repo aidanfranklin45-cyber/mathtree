@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { DealRecord } from '../../lib/math/types';
 import type { InvestorProfile } from '../../lib/profile';
 import { useNotifications } from '../../lib/useNotifications';
 import { AppHeader } from './AppHeader';
 import { InvestorProfileModal } from './InvestorProfileModal';
 import { NotificationHub } from './NotificationHub';
-import { EntityManagerModal, type EntityTarget } from './EntityManagerModal';
 import { openPortfolioBrief } from '../../lib/export/pdfBrief';
 
 interface Props {
@@ -27,10 +26,13 @@ interface Props {
 export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfileSaved, onDealsChanged, extraActions, hideAccountMenu }) => {
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [entitiesOpen, setEntitiesOpen] = useState(false);
-  const [entityTarget, setEntityTarget] = useState<EntityTarget | null>(null);
-  const [returnToProfile, setReturnToProfile] = useState(false);
   const { notifications, refresh, dismiss } = useNotifications();
+
+  useEffect(() => {
+    const handleOpenProfile = () => setProfileOpen(true);
+    window.addEventListener('mathtree:open-profile', handleOpenProfile);
+    return () => window.removeEventListener('mathtree:open-profile', handleOpenProfile);
+  }, []);
 
   return (
     <>
@@ -49,22 +51,13 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
         notifications={notifications}
         onRefresh={refresh}
         onDismiss={dismiss}
-        onAssignEntity={(dealId, dealTitle) => { setEntityTarget({ dealId, dealTitle }); setReturnToProfile(false); setEntitiesOpen(true); }}
+        onAssignEntity={() => { setProfileOpen(true); }}
       />
       <InvestorProfileModal
         isOpen={profileOpen}
         deals={deals}
         onClose={() => setProfileOpen(false)}
         onSaved={(p) => { onProfileSaved?.(p); onDealsChanged?.(); }}
-        onOpenEntities={() => { setProfileOpen(false); setEntityTarget(null); setReturnToProfile(true); setEntitiesOpen(true); }}
-      />
-      <EntityManagerModal
-        isOpen={entitiesOpen}
-        onClose={() => { setEntitiesOpen(false); setReturnToProfile(false); setEntityTarget(null); }}
-        target={entityTarget}
-        onClearTarget={() => setEntityTarget(null)}
-        onBack={() => { setEntitiesOpen(false); setEntityTarget(null); if (returnToProfile) { setReturnToProfile(false); setProfileOpen(true); } }}
-        onChanged={onDealsChanged}
       />
     </>
   );
