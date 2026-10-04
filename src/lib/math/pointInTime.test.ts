@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { resolvePointInTimeDealMetrics } from './pointInTime';
-import { computeDealMetrics } from '../engine/compute';
 
 // Facts only: no metrics, irr, total_equity, year1_cashflow or any other stored analysis.
 const facts = (over: Record<string, any> = {}): any => ({
@@ -8,11 +7,11 @@ const facts = (over: Record<string, any> = {}): any => ({
   asset_class: 'commercial',
   status: 'owned',
   purchase_price: 1000000,
-  inputs: {
+  inputs: withLegacyDefaults('commercial', {
     purchasePrice: 1000000, downPaymentPercent: 25, interestRate: 6, loanTerm: 30,
     grossRentAnnual: 120000, vacancyRate: 5, expenseRatio: 20, rentGrowth: 3, appreciationRate: 3,
     closingCosts: 10000, closingDate: '2024-01-15',
-  },
+  }),
   ...over,
 });
 
@@ -57,11 +56,11 @@ describe('resolvePointInTimeDealMetrics without stored analysis', () => {
     const d = facts({
       status: 'prospect',
       purchase_price: 785300,
-      inputs: {
+      inputs: withLegacyDefaults('commercial', {
         purchasePrice: 785300,
         downPaymentPercent: 100,
         closingCosts: 35000,
-      },
+      }),
     });
     const pit = resolvePointInTimeDealMetrics(d);
     expect(pit.currentVal).toBe(785300);
@@ -73,6 +72,8 @@ describe('resolvePointInTimeDealMetrics without stored analysis', () => {
 });
 
 import { generateMonthlyAmortizationSchedule, resolveCalendarProjections } from './pointInTime';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 describe('single-calculator consolidation', () => {
   it('monthly schedule ties to the engine annual amortization and the loan term is untouched', () => {

@@ -5,6 +5,7 @@ import { UpdateBaselineModal } from '../../components/compare/UpdateBaselineModa
 import { buildBaselineDraft } from '../baselines/core';
 import { extractComparisonSummary, mergeIdenticalColumns, getPresetOverrides, columnFingerprint, ComparisonColumn } from './compareTypes';
 import { dealFromBaseline, baselineHeading, baselineEngineDriftNote, dealWithScenario } from './baselineColumn';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const acquisitionInputs = {
   purchasePrice: 400000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, closingCosts: 5000,
@@ -12,7 +13,7 @@ const acquisitionInputs = {
   assessorData: { owner: 'Someone' }, parcels: [{ apn: '1' }],
 };
 const owned = (inputs: Record<string, any>): any => ({
-  id: 'own1', title: 'Rental', asset_class: 'commercial', status: 'owned', purchase_price: 400000, inputs,
+  id: 'own1', title: 'Rental', asset_class: 'commercial', status: 'owned', purchase_price: 400000, inputs: withLegacyDefaults('commercial', inputs),
 });
 const col = (deal: any, type: any): ComparisonColumn => {
   const { metrics, summary } = extractComparisonSummary(deal, {});

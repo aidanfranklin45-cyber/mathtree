@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
-import { computeDealMetrics } from './compute';
-import { calculateProjections } from './index';
+import { computeDealMetrics, calculateProjections } from './testEngine';
 
 /**
  * Real prospect deals from production (inputs trimmed to the fields the engine reads).

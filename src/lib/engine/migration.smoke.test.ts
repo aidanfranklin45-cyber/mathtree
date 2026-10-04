@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeDealMetrics } from './compute';
 import { auditDealRisks } from './index';
-import { calculateTaxAndDepreciation, calculateHoldingPeriodWealth, calculateRefinanceEvent } from './index';
 import { seedForm, buildInputs } from '../../components/studio/modals/editInputsForm';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { diffInputs } from '../scenarios';
+import { computeDealMetrics, calculateTaxAndDepreciation, calculateHoldingPeriodWealth, calculateRefinanceEvent } from './testEngine';
 
 /**
  * Migration smoke test: pure in-memory fixtures only. No Supabase client, no edge functions, no
@@ -65,7 +64,7 @@ describe.each(Object.entries(FIXTURES))('core analysis: %s', (_name: string, dea
     expect(w.totalNetEquity).toBeCloseTo(Math.max(0, last.propertyValue - last.loanBalanceRemaining), 0);
     expect(w.totalNetWealth).toBeCloseTo(w.totalNetEquity + w.cumulativeCashFlow, 0);
 
-    const refi = calculateRefinanceEvent(deal.asset_class, inputs, 5, 75, 6.5, 30);
+    const refi = calculateRefinanceEvent(deal.asset_class, inputs, 5, 75, 6.5, 30, 2);
     expect(refi.netCashOut).toBeCloseTo(refi.newLoanAmount - refi.oldLoanBalance - refi.newLoanAmount * 0.02, 0);
   });
 

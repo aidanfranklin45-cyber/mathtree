@@ -1,12 +1,15 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix } from '../math/types';
 import { computeDealMetrics, computeSensitivity } from './compute';
+import { IncompleteInputsError, type MissingInput } from './index';
 import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from './expiryDefaults';
 
 export interface ComputedMetricsState {
   metrics: DealMetrics | null;
   sensitivity: SensitivityMatrix | null;
   error: string | null;
+  /** Set when the deal does not state everything the engine needs: what to ask the owner for. Never a number made up in its place. */
+  missing: MissingInput[];
 }
 
 /**
@@ -26,16 +29,18 @@ export function useComputedMetrics(
   const purchasePrice = deal?.purchase_price;
 
   return useMemo<ComputedMetricsState>(() => {
-    if (!deal) return { metrics: null, sensitivity: null, error: null };
+    if (!deal) return { metrics: null, sensitivity: null, error: null, missing: [] };
     try {
       return {
         metrics: computeDealMetrics(deal, opts.overrides),
         sensitivity: opts.computeSensitivity ? computeSensitivity(deal, opts.overrides) : null,
         error: null,
+        missing: [],
       };
     } catch (err) {
+      if (err instanceof IncompleteInputsError) return { metrics: null, sensitivity: null, error: err.message, missing: err.missing };
       console.error('[useComputedMetrics] engine error:', err);
-      return { metrics: null, sensitivity: null, error: err instanceof Error ? err.message : String(err) };
+      return { metrics: null, sensitivity: null, error: err instanceof Error ? err.message : String(err), missing: [] };
     }
     // deal is intentionally keyed by its facts, not object identity
     // eslint-disable-next-line react-hooks/exhaustive-deps

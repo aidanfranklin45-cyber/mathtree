@@ -37,6 +37,17 @@ export const BENCHMARK_DEAL = {
     rentGrowth: 3.0,
     targetCapRate: 6.75,
     targetExitCapRate: 6.75,
+    // Demonstration figures. The engine states nothing for you, so even this sample deal carries every input it needs.
+    closingDate: '2023-06-01',
+    holdingPeriod: 10,
+    discountRate: 8,
+    amortizationYears: 30,
+    loanMaturityYears: 30,
+    capexReserveAnnual: 6300, // $0.15 a square foot on 42,000 sq ft
+    sellingCostPercent: 3,
+    annualTaxes: 38500,
+    annualInsurance: 12000,
+    annualMaintenance: 8000,
     primaryApn: '181216-13002',
     county: 'Yakima County, WA',
     squareFeet: 42000,

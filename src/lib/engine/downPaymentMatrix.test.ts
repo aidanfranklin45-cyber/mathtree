@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateDownPaymentMatrix, calculateProjections, firstFullYear } from './index';
+import { firstFullYear } from './index';
+import { calculateDownPaymentMatrix, calculateProjections } from './testEngine';
 
 describe('calculateDownPaymentMatrix', () => {
   const baseCommercial = {

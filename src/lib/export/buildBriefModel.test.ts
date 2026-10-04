@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildBriefModel, type LeaseRow, type ParcelRow } from './buildBriefModel';
-import { computeDealMetrics } from '../engine/compute';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const baseInputs = {
   purchasePrice: 1_000_000, downPaymentPercent: 30, interestRate: 6.5, loanTerm: 25,
@@ -10,7 +11,7 @@ const baseInputs = {
 
 const mkDeal = (inputs: Record<string, any>): any => ({
   id: 'fixture', title: 'Fixture Deal', asset_class: 'commercial', status: 'owned',
-  purchase_price: 1_000_000, inputs,
+  purchase_price: 1_000_000, inputs: withLegacyDefaults('commercial', inputs),
 });
 
 const parcels: ParcelRow[] = [

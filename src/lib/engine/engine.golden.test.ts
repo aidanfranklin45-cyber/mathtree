@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections, calculateMonthlyPayment, aggregatePortfolio } from './index';
+import { calculateProjections as engineProjections, calculateMonthlyPayment, aggregatePortfolio } from './index';
+import { withLegacyDefaults } from './testInputs';
+
+const calculateProjections = (asset: string, inputs: Record<string, any>) => engineProjections(asset, withLegacyDefaults(asset, inputs));
 
 /**
  * Golden test for the shared math engine. If a later phase changes any of these headline

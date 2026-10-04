@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { rentRollToInputs } from './rentRollInputs';
-import { computeDealMetrics } from '../engine/compute';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const units = [
   { id: 'u1', unit_number: '1A', status: 'occupied' },
@@ -79,7 +80,7 @@ describe('turning a rent roll into underwriting inputs', () => {
     ]);
     const deal: any = {
       id: 'd', asset_class: 'multi-unit', purchase_price: 500000,
-      inputs: { purchasePrice: 500000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, exitYear: 5, closingDate: '2026-01-01', vacancyRate: 0, expenseRatio: 10, targetCapRate: 7, discountRate: 8, unitCount: 2, ...r.patch },
+      inputs: withLegacyDefaults('multi-unit', { purchasePrice: 500000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, exitYear: 5, closingDate: '2026-01-01', vacancyRate: 0, expenseRatio: 10, targetCapRate: 7, discountRate: 8, unitCount: 2, ...r.patch }),
     };
     const m: any = computeDealMetrics(deal);
     const year2 = m.projections[1];

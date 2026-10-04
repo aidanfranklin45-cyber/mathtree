@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { blankPlan, missingForPlan, nextMonth, numToText, parseNumInput, plansAfterDelete, plansAfterSave } from './form';
 import { evaluateRemodel, commitRemodelPatch } from './index';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const good = () => ({ ...blankPlan('a'), name: 'Bar', cost: 100000, rentAfter: { mode: 'monthly' as const, value: 30000 } });
 
@@ -65,8 +66,8 @@ describe('saving and deleting', () => {
 describe('the form agrees with the evaluator and committer', () => {
   const owned: any = {
     id: 'd', status: 'owned', asset_class: 'commercial', purchase_price: 2400000,
-    inputs: { purchasePrice: 2400000, downPaymentPercent: 30, interestRate: 6, loanTerm: 25, exitYear: 10, holdingPeriod: 10, closingDate: '2022-01-01',
-      vacancyRate: 5, expenseRatio: 30, expenseGrowth: 0, targetCapRate: 7, discountRate: 8, rentGrowth: 0, grossRentAnnual: 240000 },
+    inputs: withLegacyDefaults('commercial', { purchasePrice: 2400000, downPaymentPercent: 30, interestRate: 6, loanTerm: 25, exitYear: 10, holdingPeriod: 10, closingDate: '2022-01-01',
+      vacancyRate: 5, expenseRatio: 30, expenseGrowth: 0, targetCapRate: 7, discountRate: 8, rentGrowth: 0, grossRentAnnual: 240000 }),
   };
   it('a plan with nothing missing can be evaluated and committed (the buttons would be live)', () => {
     const p = good();

@@ -13,6 +13,7 @@ import {
 } from './compareTypes';
 import { BENCHMARK_DEAL } from '../supabase/client';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 describe('Project Comparison Logic & Metrics', () => {
   const benchmarkDeal = mapSupabaseDeal(BENCHMARK_DEAL);
@@ -131,7 +132,7 @@ describe('Project Comparison Logic & Metrics', () => {
 });
 
 describe('Identical scenarios collapse into one column', () => {
-  const mkDeal = (inputs: Record<string, any>): any => ({ id: 'dirt', title: 'Dirt Pit', asset_class: 'commercial', status: 'prospect', purchase_price: 94500, inputs: { purchasePrice: 94500, downPaymentPercent: 8.5, interestRate: 6.5, loanTerm: 25, closingCosts: 3000, exitYear: 10, ...inputs } });
+  const mkDeal = (inputs: Record<string, any>): any => ({ id: 'dirt', title: 'Dirt Pit', asset_class: 'commercial', status: 'prospect', purchase_price: 94500, inputs: withLegacyDefaults('commercial', { purchasePrice: 94500, downPaymentPercent: 8.5, interestRate: 6.5, loanTerm: 25, closingCosts: 3000, exitYear: 10, ...inputs }) });
   const col = (deal: any, type: any): ComparisonColumn => {
     const overrides = getPresetOverrides(type, deal.inputs);
     const { metrics, summary } = extractComparisonSummary(deal, overrides);

@@ -38,24 +38,37 @@ export interface DealInputs {
   // Optional remodel or expansion of an owned property (see remodel.ts)
   remodel?: RemodelInput;
 
-  // Operating Expenses
-  operatingExpensesAnnual?: number | string;
-  expenseGrowthPercent?: number | string;
+  // Operating expenses. The engine reads exactly these (see inputRequirements.ts); it assumes none of them.
+  /** Operating expenses as a % of gross rent, before vacancy. Required (0 is an answer). */
+  expenseRatio?: number | string;
+  /** Annual growth of operating expenses (%). Optional: without it expenses follow income at the ratio. */
   expenseGrowth?: number | string;
+  expenseGrowthPercent?: number | string;
   expenseInflation?: number | string;
-  propertyTaxAnnual?: number | string;
-  insuranceAnnual?: number | string;
+  /** Charged only when manageProperty is true; then required. % of collected (effective gross) income. */
+  manageProperty?: boolean;
   managementFeePercent?: number | string;
-  maintenanceReserveAnnual?: number | string;
-  utilitiesAnnual?: number | string;
+  /** Storage only, required: on-site payroll and marketing as a % of gross income. */
+  payrollMarketingPercent?: number | string;
+  /** Replacement reserves, required (0 is an answer): dollars a year, or a % of effective gross income. */
+  capexReserveAnnual?: number | string;
+  capexReservePercent?: number | string;
+  /** What the property costs to carry with no income; required for land, or when tenants pay the building's costs (NNN). */
+  annualTaxes?: number | string;
+  annualInsurance?: number | string;
+  annualMaintenance?: number | string;
 
   // Financing / Debt
+  /** One of downPaymentPercent or loanAmount is required; the percent wins when both are given. */
   downPaymentPercent?: number | string;
-  initialEquity?: number | string;
   loanAmount?: number | string;
   interestRate?: number | string;
-  loanTermYears?: number | string;
+  /** The period the payment is calculated over (the loan's own). Required. Legacy deals call it loanTerm. */
   amortizationYears?: number | string;
+  /** When the balance falls due. Required, and not before the hold ends. (loanTermYears is the legacy name.) */
+  loanMaturityYears?: number | string;
+  loanTermYears?: number | string;
+  loanTerm?: number | string;
   financingType?: 'fixed' | 'arm' | 'interest_only' | 'seller_financing';
   interestOnlyYears?: number | string;
   armInitialYears?: number | string;
@@ -68,9 +81,14 @@ export interface DealInputs {
   financeRehabAndClosingCosts?: boolean;
   leaseType?: 'NNN' | 'Gross' | 'Modified Gross' | 'Full Service' | string;
 
-  // Valuation & Exit
-  exitCapRatePercent?: number | string;
+  // Valuation & Exit (all stated by the owner; none assumed)
+  /** Required for commercial and storage. */
+  targetCapRate?: number | string;
+  /** Required for the other asset classes. */
+  appreciationRate?: number | string;
+  /** Brokerage and closing costs at sale, as a % of the sale price. Required (0 is an answer). */
   sellingCostPercent?: number | string;
+  discountRate?: number | string;
   discountRatePercent?: number | string;
 
   // Property Details
@@ -80,9 +98,9 @@ export interface DealInputs {
   county?: string;
   primaryApn?: string;
 
-  // Tax overrides (optional)
-  landAllocationPercent?: number | string;
-  effectiveTaxRatePercent?: number | string;
+  // Tax module: both vary by deal and owner, so both are required there
+  landPercent?: number | string;
+  taxRate?: number | string;
 
   // Pass-through for legacy keys
   [key: string]: unknown;

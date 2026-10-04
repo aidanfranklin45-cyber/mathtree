@@ -21,7 +21,6 @@ export function prepareEngineInputs(deal: AnyDeal, overrides?: Partial<DealInput
   const assessed = Number(inputs.totalAssessedValue || inputs.combinedAssessedValue || 0);
   if (inputs.arv && Number(inputs.arv) === assessed) delete inputs.arv;
 
-  if (inputs.discountRate === undefined || inputs.discountRate === null) inputs.discountRate = 8.0;
   // Leases with no expiry assumption of their own get the investor default from their profile
   return applyLeaseExpiryDefaults(inputs, getExpiryDefaults());
 }

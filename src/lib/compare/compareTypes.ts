@@ -178,7 +178,7 @@ export function extractComparisonSummary(deal: DealRecord, overrides?: Partial<D
 
   const pLast: any = metrics.projections?.[metrics.projections.length - 1] || {};
   const tenYearTerminalValue = Number(pLast.propertyValue ?? (pLast.noi && exitCapRate > 0 ? (pLast.noi / (exitCapRate / 100)) : 0));
-  const totalNetEquityExit = Number(pLast.equity ?? (tenYearTerminalValue - (pLast.endingLoanBalance ?? 0)));
+  const totalNetEquityExit = Number(pLast.exitProceedsNet ?? pLast.equity ?? (tenYearTerminalValue - (pLast.endingLoanBalance ?? 0)));
   const totalWealthCreated = Math.round(tenYearCashFlow + totalNetEquityExit - initialCash);
 
   const blendedCoC = initialCash > 0 && metrics.projections?.length

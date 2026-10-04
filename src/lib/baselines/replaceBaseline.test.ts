@@ -32,11 +32,12 @@ vi.mock('../supabase/client', () => ({ supabase: h.supabase, BENCHMARK_DEAL: {},
 
 import { replaceBaseline, rebaseline, SUPERSEDED_PREFIX } from './db';
 import { BASELINE_TYPE } from './core';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const DEAL_ID = '11111111-1111-1111-1111-111111111111';
 const mkDeal = (over: Record<string, any> = {}): any => ({
   id: DEAL_ID, user_id: 'u1', status: 'owned', asset_class: 'commercial', purchase_price: 400000,
-  inputs: { purchasePrice: 400000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, monthlyRent: 2600, grossRentAnnual: 31200, vacancyRate: 5, expenseRatio: 20, exitYear: 10 },
+  inputs: withLegacyDefaults('commercial', { purchasePrice: 400000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, monthlyRent: 2600, grossRentAnnual: 31200, vacancyRate: 5, expenseRatio: 20, exitYear: 10 }),
   ...over,
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections, runMonteCarlo } from './index';
+import { calculateProjections, runMonteCarlo } from './testEngine';
 
 /** Pure fixtures, no database. A 12-unit apartment building, tenant by tenant. */
 const tenants = (n: number, over: (i: number) => Record<string, any> = () => ({})) =>
@@ -58,11 +58,14 @@ describe('the vacant stretch is anchored to the deal\'s own vacancy setting', ()
     expect(run(building({ vacancyRate: 0 })).turnover.downtimeDays).toBe(0);
   });
 
-  it('on average it lands close to the plain vacancy-rate result (the move-outs are the vacancy, not extra)', () => {
-    const withTurnover = run(building(), {}).profit.mean;
+  it('on average it lands at the plain vacancy-rate result less the make-ready charges (the move-outs are the vacancy, not extra)', () => {
+    const turnover = run(building(), {});
+    const withTurnover = turnover.profit.mean;
     const plain = run(building(), { turnoverPct: 0 }).profit.mean;
-    expect(Math.abs(withTurnover - plain) / plain).toBeLessThan(0.07);
-    expect(withTurnover).toBeLessThan(plain * 1.02); // make-ready cost keeps it from being higher
+    const makeReady = turnover.turnover.avgMoveOutsPerRun * turnover.turnover.makeReadyCost;
+    // Costs that do not fall while a space is vacant are carried, so the only difference is the make-ready charge on each move-out
+    expect(Math.abs((plain - withTurnover) - makeReady) / plain).toBeLessThan(0.03);
+    expect(withTurnover).toBeLessThan(plain * 1.02);
   });
 });
 

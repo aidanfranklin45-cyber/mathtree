@@ -1,18 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { buildBaselineDraft, compareToBaseline, firstFullYear, type BaselineRow } from './core';
-import { computeDealMetrics } from '../engine/compute';
 import { ENGINE_VERSION } from '../engine/version';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 /** Pure tests: in-memory fixtures only, no database access. */
 const deal: any = {
   id: 'deal-1',
   asset_class: 'commercial',
   purchase_price: 300000,
-  inputs: {
-    purchasePrice: 300000, downPaymentPercent: 0, interestRate: 4.53, loanTerm: 20, exitYear: 15, closingDate: '2025-07-15',
+  inputs: withLegacyDefaults('commercial', {
+    purchasePrice: 300000, downPaymentPercent: 0, interestRate: 4.53, loanTerm: 20, loanMaturityYears: 25, exitYear: 15, closingDate: '2025-07-15',
     closingCosts: 12000, grossRentAnnual: 31200, monthlyRent: 2600, vacancyRate: 1, expenseRatio: 1, targetCapRate: 7.5,
     leaseType: 'NNN', discountRate: 6, assessorData: { big: 'blob' }, parcels: [{ apn: '1' }],
-  },
+  }),
 };
 
 const asRow = (d: ReturnType<typeof buildBaselineDraft>): BaselineRow => ({ ...d, id: 'b1', captured_at: '2025-07-20T00:00:00Z' });

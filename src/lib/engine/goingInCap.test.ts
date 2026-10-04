@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeDealMetrics } from './compute';
+import { computeDealMetrics } from './testEngine';
 
 /** A lease that starts after closing makes year 1 a partial year; the going-in cap rate must use a full year of income. */
 const deal = (over: Record<string, unknown> = {}): any => ({

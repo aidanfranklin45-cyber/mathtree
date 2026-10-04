@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { commitRemodelPatch, uncommitRemodelPatch, getCommittedRemodel, getRemodelPlans, evaluateRemodel, type RemodelPlan } from './index';
-import { computeDealMetrics } from '../engine/compute';
 import { scenarioShortLabel } from '../compare/compareTypes';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const deal = (inputs: Record<string, any> = {}): any => ({
   id: 'd1', status: 'owned', asset_class: 'commercial', purchase_price: 2400000,
-  inputs: {
+  inputs: withLegacyDefaults('commercial', {
     purchasePrice: 2400000, downPaymentPercent: 30, interestRate: 6, loanTerm: 25, exitYear: 10, holdingPeriod: 10, closingDate: '2022-01-01',
     closingCosts: 0, vacancyRate: 5, expenseRatio: 30, expenseGrowth: 0, targetCapRate: 7, discountRate: 8, rentGrowth: 0, grossRentAnnual: 240000, ...inputs,
-  },
+  }),
 });
 const plan = (over: Partial<RemodelPlan> = {}): RemodelPlan => ({
   id: 'p1', name: 'Rear expansion', startDate: '2026-01', durationMonths: 12, cost: 400000, financing: 'cash', rentDuringWorksPct: 0,

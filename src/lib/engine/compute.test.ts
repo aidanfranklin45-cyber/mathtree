@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeDealMetrics, computeSensitivity, computeTaxMetrics } from './compute';
-import { runMonteCarlo } from './index';
+import { computeDealMetrics, computeSensitivity, computeTaxMetrics, runMonteCarlo } from './testEngine';
 
 const deal: any = {
   id: 'd1',

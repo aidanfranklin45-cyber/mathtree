@@ -6,5 +6,8 @@
  *  2026-09-30.2  lease expiry assumptions (extension option, vacancy then re-let)
  *  2026-09-30.3  a lease with no stated expiry assumption renews on current terms (was: income stops); investor default in Profile
  *  2026-09-30.4  going-in cap rate uses the first full year when year 1 is a partial lease year (was partial NOI / price, ~4%)
+ *  2026-10-04.1  no hidden defaults: the engine refuses a deal that does not state its inputs; selling costs come off exit proceeds;
+ *                loan amortization and maturity are separate; closing date, escalation, reserves, management, payroll and carrying
+ *                costs are stated, not assumed
  */
-export const ENGINE_VERSION = '2026-09-30.4';
+export const ENGINE_VERSION = '2026-10-04.1';

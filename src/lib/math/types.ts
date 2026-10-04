@@ -63,19 +63,30 @@ export interface DealInputs {
   /** Annual operating expense inflation rate (%) */
   expenseGrowth?: number;
   expenseInflation?: number;
-  propertyTaxAnnual?: number;
-  insuranceAnnual?: number;
+  /** Charged only when manageProperty is true; then required. % of collected income. */
+  manageProperty?: boolean;
   managementFeePercent?: number;
-  maintenanceReserveAnnual?: number;
-  utilitiesAnnual?: number;
+  /** Storage only, required. */
+  payrollMarketingPercent?: number;
+  /** Replacement reserves, required (0 is an answer): dollars a year, or a % of effective gross income. */
+  capexReserveAnnual?: number;
+  capexReservePercent?: number;
+  /** Carrying costs: required for land, or when tenants pay the building's costs (NNN). */
+  annualTaxes?: number;
+  annualInsurance?: number;
+  annualMaintenance?: number;
 
   // Financing / Debt
   downPaymentPercent?: number;
-  initialEquity?: number;
+  /** One of downPaymentPercent or loanAmount is required; the percent wins when both are given. */
   loanAmount?: number;
   interestRate?: number;
+  /** Legacy name for the amortization period (what the wizard has always stored). */
   loanTerm?: number;
+  /** The period the payment is calculated over (the loan's own). Required. */
   amortizationYears?: number;
+  /** When the balance falls due. Required, and not before the hold ends. */
+  loanMaturityYears?: number;
   financingType?: 'fixed' | 'arm' | 'interest_only' | 'seller_financing';
   interestOnlyYears?: number;
   sellerFinanceBalloon?: number;
@@ -89,7 +100,13 @@ export interface DealInputs {
   financeRehabAndClosingCosts?: boolean;
   leaseType?: string;
 
-  // Valuation & Exit
+  // Valuation & Exit (all stated by the owner; none assumed)
+  /** Brokerage and closing costs at sale, as a % of the sale price. Required (0 is an answer). */
+  sellingCostPercent?: number;
+  appreciationRate?: number;
+  /** Tax module, both required there: land share of the price and the owner's marginal rate (%). */
+  landPercent?: number;
+  taxRate?: number;
   targetCapRate?: number;
   targetExitCapRate?: number;
   discountRate?: number;
