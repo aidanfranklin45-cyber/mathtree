@@ -26,6 +26,7 @@ export interface PointInTimeMetrics {
   monthlyPayment: number;
   accumulatedPrincipal: number;
   holdYear: number;
+  initialCashInvested?: number;
 }
 
 export interface MonthlyAmortizationEntry {
@@ -59,17 +60,27 @@ export function resolvePointInTimeDealMetrics(
 
   if (!isOwned) {
     const em = engineMetrics(deal);
-    const eq = Number(em?.initialCashInvested ?? (price * 0.25)) || 0;
-    const debt = Number(em?.loanAmount ?? Math.max(0, price - eq)) || 0;
+    const downPct = parseFloat(inp.downPaymentPercent !== undefined ? inp.downPaymentPercent : 25);
+    const baseLoanAmount =
+      em && em.loanAmount !== undefined && em.loanAmount !== null
+        ? Number(em.loanAmount) || 0
+        : downPct === 0
+        ? price
+        : Math.max(0, price * (1 - downPct / 100));
+    const debt = Number(em?.loanAmount ?? baseLoanAmount) || 0;
+    // Property equity is asset value minus outstanding debt; closing costs / fees are transaction expenses
+    const eq = Math.max(0, price - debt);
     const cf = Number(em?.year1Cashflow ?? 0) || 0;
     const irr = Number(em?.irr ?? 0) || 0;
     const noi = Number(em?.noi ?? 0) || 0;
     const debtService = Number(em?.annualDebtService ?? 0) || 0;
+    const initialCash = Number(em?.initialCashInvested ?? eq) || eq;
 
     return {
       currentVal: price,
       currentDebt: debt,
       currentEquity: eq,
+      initialCashInvested: initialCash,
       currentCashFlow: cf,
       currentNoi: noi,
       currentDebtService: debtService,
