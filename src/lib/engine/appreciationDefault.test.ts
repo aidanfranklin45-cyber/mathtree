@@ -25,12 +25,33 @@ describe('appreciation is stated, never defaulted', () => {
   it('uses the stated rate', () => {
     expect(valueAt({ ...base, appreciationRate: 4 }, 9)).toBeCloseTo(750000 * 1.04 ** 9, 0);
   });
-  it('Edit Inputs saves 0% as 0 and a blank field as the 2% default', () => {
+  it('Edit Inputs saves 0% as 0 and leaves a blank field blank (no default)', () => {
     const deal: any = { asset_class: 'multi-unit', inputs: {} };
     const form: any = seedForm(deal);
-    expect(form.appreciation).toBe('2');
+    expect(form.appreciation).toBe('');
     expect(buildInputs({ ...form, appreciation: '0' }, deal).appreciationRate).toBe(0);
-    expect(buildInputs({ ...form, appreciation: '' }, deal).appreciationRate).toBe(2);
+    expect(buildInputs({ ...form, appreciation: '' }, deal).appreciationRate).toBeUndefined();
+  });
+
+  it('a blank form stays blank all the way through: no loan, date, rate or cost is made up', () => {
+    const deal: any = { asset_class: 'commercial', inputs: {} };
+    const built = buildInputs(seedForm(deal), deal);
+    for (const k of ['purchasePrice', 'downPaymentPercent', 'interestRate', 'amortizationYears', 'loanMaturityYears', 'closingDate', 'vacancyRate', 'expenseRatio', 'sellingCostPercent', 'closingCosts', 'exitYear', 'discountRate', 'capexReserveAnnual', 'leaseType']) {
+      expect(built[k], k).toBeUndefined();
+    }
+  });
+
+  it('reserves are saved under one key, as dollars or as a share of income', () => {
+    const deal: any = { asset_class: 'multi-unit', inputs: { capexReserve: 900 } };
+    const form: any = seedForm(deal);
+    expect(form.capexValue).toBe('900');
+    const dollars = buildInputs({ ...form, capexKind: 'annual' }, deal);
+    expect(dollars.capexReserveAnnual).toBe(900);
+    expect(dollars.capexReservePercent).toBeUndefined();
+    expect(dollars.capexReserve).toBeUndefined();
+    const share = buildInputs({ ...form, capexKind: 'percent', capexValue: '3' }, deal);
+    expect(share.capexReservePercent).toBe(3);
+    expect(share.capexReserveAnnual).toBeUndefined();
   });
   it('residential saves appreciation only; commercial saves exit cap only', () => {
     const res: any = { asset_class: 'multi-unit', inputs: { targetCapRate: 6.5 } };
