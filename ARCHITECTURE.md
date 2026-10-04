@@ -107,6 +107,7 @@ Column lists are in `src/lib/supabase/types.ts` (regenerate it rather than hand-
 | `rent_payments` | One row per lease per period: due/paid amounts and dates, status, snooze |
 | `rent_increases` | Scheduled or applied rent changes (old/new rent, effective date, notice sent date) |
 | `lease_recovery_terms` / `lease_recovery_items` | NNN recoveries (tax, insurance, CAM): terms and expected vs actual items |
+| `compare_views` | Saved Compare studio boards (private): deals, scenarios, metrics and view as JSON settings, never computed numbers |
 | `cam_reconciliations` | Annual CAM true-ups |
 | `utility_meters` / `meter_readings` | Sub-metered utility billing |
 | `parcels` | County GIS parcels attached to a deal (APN, assessed values, acres, zoning) |
