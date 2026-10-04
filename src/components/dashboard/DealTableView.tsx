@@ -4,13 +4,10 @@ import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { formatCurrency } from '../../lib/format';
-import { openDealBrief } from '../../lib/export/pdfBrief';
-import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  ExternalLink,
   MoreVertical,
   CheckSquare,
   Square,
@@ -37,9 +34,10 @@ interface DealTableViewProps {
   onToggleSelect: (dealId: string) => void;
   onSelectAll: () => void;
   allSelected: boolean;
-  onEdit: (deal: DealRecord) => void;
-  onDelete: (deal: DealRecord) => void;
-  onToggleStatus: (deal: DealRecord) => void;
+  onOpenActions: (deal: DealRecord) => void;
+  onEdit?: (deal: DealRecord) => void;
+  onDelete?: (deal: DealRecord) => void;
+  onToggleStatus?: (deal: DealRecord) => void;
   onPreview?: (deal: DealRecord) => void;
   onShare?: (deal: DealRecord) => void;
   entities?: Array<{ id: string; name: string }>;
@@ -79,11 +77,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   onToggleSelect,
   onSelectAll,
   allSelected,
-  onEdit,
-  onDelete,
-  onToggleStatus,
-  onPreview,
-  onShare,
+  onOpenActions,
   entities = [],
   collectedMonthlyMap,
   sortField,
@@ -93,8 +87,6 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   colorTheme = 'emerald',
 }) => {
   const navigate = useNavigate();
-  const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null);
-  const menuRef = React.useRef<HTMLDivElement>(null);
 
   const openStudio = (dealId: string) => {
     try {
@@ -126,17 +118,6 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
       : colorTheme === 'slate'
       ? 'bg-slate-800/40'
       : 'bg-emerald-950/20';
-
-  React.useEffect(() => {
-    if (!activeMenuId) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [activeMenuId]);
 
   const renderSortHeader = (label: string, field: SortField, align: 'left' | 'right' = 'left') => {
     const isSorted = sortField === field;
@@ -198,7 +179,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 font-sans">
-            {deals.map((deal) => {
+            {deals.map((deal, idx) => {
               const isSelected = selectedDealIds.has(deal.id);
               const isOwned = deal.status === 'owned';
               const pit = resolvePointInTimeDealMetrics(deal, new Date());
@@ -369,111 +350,18 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
                   {/* Actions Column */}
                   <td className="py-3 px-3 text-center whitespace-nowrap" data-no-row-click>
-                    <div className="inline-flex items-center space-x-1">
-                      <button
-                        type="button"
-                        onClick={() => openStudio(deal.id)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition"
-                        title="Open in Studio"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
-
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setActiveMenuId(activeMenuId === deal.id ? null : deal.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                          title="More actions"
-                        >
-                          <MoreVertical className="w-3.5 h-3.5" />
-                        </button>
-
-                        {activeMenuId === deal.id && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-0 top-7 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                openStudio(deal.id);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-emerald-400 hover:bg-slate-800 block text-left font-semibold flex items-center space-x-1.5"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Open in Studio</span>
-                            </button>
-                            <div className="border-t border-slate-800/80 my-1" />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                onToggleStatus(deal);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-white block text-left"
-                            >
-                              {isOwned ? 'Move to Pipeline' : 'Mark as Acquired (Owned)'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                onEdit(deal);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-white block text-left"
-                            >
-                              Edit Inputs
-                            </button>
-                            {onShare && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveMenuId(null);
-                                  onShare(deal);
-                                }}
-                                className="w-full px-3 py-1.5 text-xs text-cyan-400 hover:bg-slate-800 block text-left"
-                              >
-                                Share Deal
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                void openDealBrief(deal.id);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-violet-400 hover:bg-slate-800 block text-left"
-                            >
-                              Print Executive Brief
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                const m = tryComputeDealMetrics(deal);
-                                if (m) exportDealProformaCSV(deal, m);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-emerald-400 hover:bg-slate-800 block text-left"
-                            >
-                              Export CSV
-                            </button>
-                            <div className="border-t border-slate-800 my-1" />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                onDelete(deal);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/40 block text-left"
-                            >
-                              Delete Project
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenActions(deal);
+                      }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                      title="Manage Actions"
+                      aria-label="Deal Actions"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               );

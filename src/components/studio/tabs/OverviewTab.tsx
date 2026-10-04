@@ -10,7 +10,6 @@ import { DealCharts } from '../DealCharts';
 import { Link } from 'react-router-dom';
 import { currentLeases } from '../../../lib/leases';
 import { attachPropertyFacts } from '../../../lib/property/loadFacts';
-import { MarketContext } from '../MarketContext';
 
 interface OverviewTabProps {
   deal: DealRecord;
@@ -135,16 +134,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
 
   return (
     <div className="space-y-6">
-      <MarketContext deal={deal} />
-      {pit && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 bg-slate-900/40 border border-slate-900 rounded-xl px-3.5 py-2">
-          <span className="font-bold uppercase tracking-wider text-slate-500">In-place now</span>
-          <span>NOI <strong className="text-slate-200 font-mono">{pit.state.noi.value !== null ? formatCurrency(pit.state.noi.value) : '—'}</strong> <span className="text-slate-500">{pit.state.noi.basis === 'estimated' ? 'estimated' : pit.state.noi.basis}</span></span>
-          <span>Cash flow <strong className="text-slate-200 font-mono">{pit.state.cashFlow.value !== null ? formatCurrency(pit.state.cashFlow.value) : '—'}</strong> <span className="text-slate-500">{pit.state.cashFlow.basis}</span></span>
-          <span>Occupancy <strong className="text-slate-200 font-mono">{pit.state.occupancy.value !== null ? `${pit.state.occupancy.value}%` : '—'}</strong></span>
-          <span className="text-slate-500 truncate" title={pit.state.noi.note}>{pit.state.noi.note}</span>
-        </div>
-      )}
       {/* Live-updating metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-slate-900/40 border border-slate-900 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">

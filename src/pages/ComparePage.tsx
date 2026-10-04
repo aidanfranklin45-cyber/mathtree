@@ -426,7 +426,18 @@ export const ComparePage: React.FC = () => {
 
   const metricSet = matchingMetricSet(metrics);
   const metricsLabel = metricSet ? metricSet.label : `${metrics.length} selected`;
-  const draftSummary = draft ? `${draft.entries.length} ${draft.entries.length === 1 ? 'column' : 'columns'}, ${new Set(draft.entries.map((e) => e.dealId)).size} ${new Set(draft.entries.map((e) => e.dealId)).size === 1 ? 'property' : 'properties'}` : null;
+  const draftSummary = (() => {
+    if (!draft) return null;
+    const ids = Array.from(new Set(draft.entries.map((e) => e.dealId)));
+    const names = ids.map((id) => {
+      const d = deals.find((x) => x.id === id);
+      return d ? (d.title || d.address || '').trim() : '';
+    }).filter(Boolean);
+    const cols = `${draft.entries.length} ${draft.entries.length === 1 ? 'column' : 'columns'}`;
+    if (names.length === 0) return `${cols}, ${ids.length} ${ids.length === 1 ? 'property' : 'properties'}`;
+    const label = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1} more`;
+    return `${label} (${cols})`;
+  })();
   const showStarter = columns.length === 0;
 
   return (
