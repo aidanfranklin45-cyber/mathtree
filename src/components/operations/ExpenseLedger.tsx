@@ -1,5 +1,5 @@
 /**
- * Mounted in the "Expenses" card on the deal screen Operate tab and on the Operations page (once a single property is picked). The parent passes the
+ * Mounted in the "Expenses" card on the property's own page (deal screen Operate tab), its single home. The parent passes the
  * deal id and the signed-in user's id. Needs draft migration 12 (public.expense_entries) applied; until then it shows a setup message.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
