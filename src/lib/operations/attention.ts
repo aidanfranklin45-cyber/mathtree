@@ -51,6 +51,23 @@ export const INBOX_LABEL: Record<InboxKind, string> = {
   missing_data: 'Missing data', needs_review: 'Needs review', due_soon: 'Rent due soon',
 };
 
+/** Fixed names for the "missing data" types, so a muted entry reads the same whatever the count in the headline. */
+export const MISSING_LABEL: Record<string, string> = {
+  leases: 'No lease records', rent: 'Lease with no rent stated', end: 'Lease with no end date',
+  start: 'Lease with no start date', payments: 'Rent payments not recorded',
+};
+
+/** What a mute applies to: one property and one type of item (all of a property's overdue rent, or one kind of missing data). */
+export const inboxMuteKey = (i: Pick<InboxItem, 'id' | 'kind' | 'dealId'>): string =>
+  `${i.dealId}|${i.kind === 'missing_data' ? `missing:${i.id.split(':missing:')[1] ?? ''}` : i.kind}`;
+
+export const inboxMuteLabel = (i: Pick<InboxItem, 'id' | 'kind' | 'headline'>): string =>
+  i.kind === 'missing_data' ? MISSING_LABEL[i.id.split(':missing:')[1] ?? ''] ?? i.headline : INBOX_LABEL[i.kind];
+
+/** Drop the items the owner has muted. */
+export const applyMutes = (items: InboxItem[], mutedKeys: ReadonlySet<string>): InboxItem[] =>
+  mutedKeys.size === 0 ? items : items.filter((i) => !mutedKeys.has(inboxMuteKey(i)));
+
 export const operateLink = (dealId: string): string => `/project?id=${encodeURIComponent(dealId)}&tab=operate`;
 
 /** A lease ending within this many days is "expiring soon". */

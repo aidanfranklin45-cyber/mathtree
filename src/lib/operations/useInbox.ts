@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabase/client';
 import { normalizeRecoveryPrefs, type RecoveryPrefs } from './recoveries';
 import { buildPortfolioInbox } from './portfolioInbox';
+import { applyMutes } from './attention';
+import { useInboxMutes } from './inboxMutes';
 import type { InboxItem } from './attention';
 import type { Row } from './rentRoll';
 
@@ -10,7 +12,8 @@ import type { Row } from './rentRoll';
  * Operations page uses. Nothing is stored, so the list can only ever say what the data says right now.
  */
 export function useInbox() {
-  const [items, setItems] = useState<InboxItem[]>([]);
+  const [all, setAll] = useState<InboxItem[]>([]);
+  const { keys } = useInboxMutes();
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -27,7 +30,7 @@ export function useInbox() {
       ]);
       const rows = (r: { data: unknown }): Row[] => (Array.isArray(r.data) ? (r.data as Row[]) : []);
       const recPrefs: RecoveryPrefs = normalizeRecoveryPrefs(prof.data?.alert_preferences as Record<string, unknown> | null);
-      setItems(buildPortfolioInbox({
+      setAll(buildPortfolioInbox({
         deals: rows(deals), leases: rows(leases), units: rows(units), payments: rows(payments), increases: rows(increases),
         recTerms: rows(terms), recItems: rows(recItems), recPrefs,
       }));
@@ -40,5 +43,6 @@ export function useInbox() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  const items = useMemo(() => applyMutes(all, keys), [all, keys]);
   return { items, loading, refresh };
 }

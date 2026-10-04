@@ -77,3 +77,16 @@ describe('buildInboxItems', () => {
     expect(items.map((i) => i.kind)).toEqual(['missing_data', 'missing_data', 'needs_review']);
   });
 });
+
+describe('muting', () => {
+  it('mutes one item type for one property and leaves the rest', async () => {
+    const { applyMutes, inboxMuteKey } = await import('./attention');
+    const items = run([]);
+    const noLease = items.filter((i) => i.id.endsWith(':missing:leases'));
+    expect(noLease.length).toBeGreaterThan(1);
+    const first = noLease[0];
+    const left = applyMutes(items, new Set([inboxMuteKey(first)]));
+    expect(left.some((i) => i.id === first.id)).toBe(false);
+    expect(left.length).toBe(items.length - 1);
+  });
+});
