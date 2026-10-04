@@ -10,7 +10,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  ExternalLink,
   MoreVertical,
   CheckSquare,
   Square,
@@ -18,6 +17,12 @@ import {
   Home,
   Warehouse,
   Boxes,
+  ArrowRightLeft,
+  Edit2,
+  Share2,
+  FileText,
+  Download,
+  Trash2,
 } from 'lucide-react';
 
 export type SortField =
@@ -94,7 +99,6 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null);
-  const menuRef = React.useRef<HTMLDivElement>(null);
 
   const openStudio = (dealId: string) => {
     try {
@@ -129,13 +133,11 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
   React.useEffect(() => {
     if (!activeMenuId) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuId(null);
-      }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveMenuId(null);
     };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeMenuId]);
 
   const renderSortHeader = (label: string, field: SortField, align: 'left' | 'right' = 'left') => {
@@ -165,7 +167,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
   return (
     <div className="w-full bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto min-h-[320px]">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/80 sticky top-0 z-10">
@@ -198,7 +200,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 font-sans">
-            {deals.map((deal) => {
+            {deals.map((deal, idx) => {
               const isSelected = selectedDealIds.has(deal.id);
               const isOwned = deal.status === 'owned';
               const pit = resolvePointInTimeDealMetrics(deal, new Date());
@@ -369,110 +371,115 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
                   {/* Actions Column */}
                   <td className="py-3 px-3 text-center whitespace-nowrap" data-no-row-click>
-                    <div className="inline-flex items-center space-x-1">
+                    <div className={`relative inline-block ${activeMenuId === deal.id ? 'z-50' : ''}`}>
                       <button
                         type="button"
-                        onClick={() => openStudio(deal.id)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition"
-                        title="Open in Studio"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId((curr) => (curr === deal.id ? null : deal.id));
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                        title="Actions"
+                        aria-label="Deal Actions"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
 
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setActiveMenuId(activeMenuId === deal.id ? null : deal.id)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                          title="More actions"
-                        >
-                          <MoreVertical className="w-3.5 h-3.5" />
-                        </button>
-
-                        {activeMenuId === deal.id && (
+                      {activeMenuId === deal.id && (
+                        <>
                           <div
-                            ref={menuRef}
-                            className="absolute right-0 top-7 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left"
+                            className="fixed inset-0 z-40 cursor-default"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(null);
+                            }}
+                          />
+                          <div
+                            className={`absolute right-0 ${
+                              deals.length > 1 && idx >= Math.max(1, deals.length - 2)
+                                ? 'bottom-full mb-1'
+                                : 'top-full mt-1'
+                            } w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left`}
                           >
                             <button
                               type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                openStudio(deal.id);
-                              }}
-                              className="w-full px-3 py-1.5 text-xs text-emerald-400 hover:bg-slate-800 block text-left font-semibold flex items-center space-x-1.5"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Open in Studio</span>
-                            </button>
-                            <div className="border-t border-slate-800/80 my-1" />
-                            <button
-                              type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 onToggleStatus(deal);
                               }}
-                              className="w-full px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-white block text-left"
+                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
                             >
-                              {isOwned ? 'Move to Pipeline' : 'Mark as Acquired (Owned)'}
+                              <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>{isOwned ? 'Move to Pipeline' : 'Mark as Acquired (Owned)'}</span>
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 onEdit(deal);
                               }}
-                              className="w-full px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-white block text-left"
+                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
                             >
-                              Edit Inputs
+                              <Edit2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <span>Edit Inputs</span>
                             </button>
-                            {onShare && (
+                            {onShare && !deal.is_shared && (
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setActiveMenuId(null);
                                   onShare(deal);
                                 }}
-                                className="w-full px-3 py-1.5 text-xs text-cyan-400 hover:bg-slate-800 block text-left"
+                                className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
                               >
-                                Share Deal
+                                <Share2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                                <span>Share Deal</span>
                               </button>
                             )}
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 void openDealBrief(deal.id);
                               }}
-                              className="w-full px-3 py-1.5 text-xs text-violet-400 hover:bg-slate-800 block text-left"
+                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
                             >
-                              Print Executive Brief
+                              <FileText className="w-3.5 h-3.5 text-violet-400 shrink-0" />
+                              <span>Print Executive Brief</span>
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 const m = tryComputeDealMetrics(deal);
                                 if (m) exportDealProformaCSV(deal, m);
                               }}
-                              className="w-full px-3 py-1.5 text-xs text-emerald-400 hover:bg-slate-800 block text-left"
+                              className="w-full px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white flex items-center space-x-2 text-left font-medium transition"
                             >
-                              Export CSV
+                              <Download className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>Export CSV</span>
                             </button>
-                            <div className="border-t border-slate-800 my-1" />
+                            <div className="border-t border-slate-800/80 my-1" />
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 onDelete(deal);
                               }}
-                              className="w-full px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/40 block text-left"
+                              className="w-full px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 flex items-center space-x-2 text-left transition"
                             >
-                              Delete Project
+                              <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                              <span>Delete Project</span>
                             </button>
                           </div>
-                        )}
-                      </div>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
