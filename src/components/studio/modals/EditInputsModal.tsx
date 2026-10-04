@@ -292,6 +292,18 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 <label className={label}>Monthly Rent / Unit ($) <span className="text-slate-600 font-normal">(SFR · Multi · Storage)</span></label>
                 <input type="number" min="0" step="any" value={form.grossRentMonthly} onChange={(e) => set('grossRentMonthly', e.target.value)} disabled={rollMode} className={`${inp2} ${rollMode ? 'opacity-50' : ''}`} />
               </div>
+              {asset === 'multi-unit' && (
+                <div className="space-y-1">
+                  <label className={label}>Total Apartment Units</label>
+                  <input type="number" min="1" placeholder="4" value={form.unitCount} onChange={(e) => set('unitCount', e.target.value)} className={inp2} />
+                </div>
+              )}
+              {asset === 'storage' && (
+                <div className="space-y-1">
+                  <label className={label}>Total Storage Units</label>
+                  <input type="number" min="1" placeholder="100" value={form.storageUnits} onChange={(e) => set('storageUnits', e.target.value)} className={inp2} />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-3 pt-1 border-t border-slate-900">
               <div className="space-y-1">
@@ -595,20 +607,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 </div>
               </div>
             )}
-            {asset === 'multi-unit' && (
-              <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
-                <div className="space-y-1 max-w-xs">
-                  <label className={label}>Total Apartment Units</label>
-                  <input type="number" min="1" placeholder="4" value={form.unitCount} onChange={(e) => set('unitCount', e.target.value)} className={inp2} />
-                </div>
-              </div>
-            )}
             {asset === 'storage' && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
-                <div className="space-y-1">
-                  <label className={label}>Total Storage Units</label>
-                  <input type="number" min="1" placeholder="100" value={form.storageUnits} onChange={(e) => set('storageUnits', e.target.value)} className={inp2} />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/40 rounded-xl border border-slate-800/80">
                 <div className="space-y-1">
                   <label className={label}>Facility Sq Ft</label>
                   <input type="number" placeholder="12000" value={form.storageSqft} onChange={(e) => set('storageSqft', e.target.value)} className={inp2} />
