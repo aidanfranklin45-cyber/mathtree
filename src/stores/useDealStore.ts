@@ -201,9 +201,16 @@ export function useDealStore(initialDealId?: string): DealStoreState {
   }, []);
 
   // Realtime Supabase Channel Subscription for rent_payments and deals
+  // The channel is created once; handlers read the latest entity from this ref so an entity switch never rebuilds it.
+  const selectedEntityIdRef = useRef<string | null>(selectedEntityId);
+  selectedEntityIdRef.current = selectedEntityId;
+
+  // Refetch when the selected entity changes.
   useEffect(() => {
     loadPortfolioEquityAndAmortization(selectedEntityId);
+  }, [loadPortfolioEquityAndAmortization, selectedEntityId]);
 
+  useEffect(() => {
     const channelName = `mathtree_realtime_equity_${Date.now()}`;
     const channel = supabase
       .channel(channelName)
@@ -212,7 +219,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
         { event: '*', schema: 'public', table: 'rent_payments' },
         (payload) => {
           console.log('[Store Realtime] rent_payments changed:', payload.eventType);
-          loadPortfolioEquityAndAmortization(selectedEntityId);
+          loadPortfolioEquityAndAmortization(selectedEntityIdRef.current);
         }
       )
       .on(
@@ -220,7 +227,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
         { event: '*', schema: 'public', table: 'deals' },
         (payload) => {
           console.log('[Store Realtime] deals changed:', payload.eventType);
-          loadPortfolioEquityAndAmortization(selectedEntityId);
+          loadPortfolioEquityAndAmortization(selectedEntityIdRef.current);
         }
       )
       .subscribe((status) => {
@@ -230,7 +237,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadPortfolioEquityAndAmortization, selectedEntityId]);
+  }, [loadPortfolioEquityAndAmortization]);
 
   // Reactive cross-tab and cross-component synchronization
   useEffect(() => {
