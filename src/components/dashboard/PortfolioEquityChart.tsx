@@ -340,8 +340,8 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
             onClick={() => setChartMode('equity')}
             className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
               chartMode === 'equity'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm'
+                : 'text-slate-400 hover:text-white border border-transparent'
             }`}
           >
             Equity
@@ -351,8 +351,8 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
             onClick={() => setChartMode('cashflow')}
             className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
               chartMode === 'cashflow'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm'
+                : 'text-slate-400 hover:text-white border border-transparent'
             }`}
           >
             Cash Flow
@@ -361,7 +361,7 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
 
         {/* Milestone Badges */}
         <div className="flex items-center space-x-2">
-          <div className="bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg">
+          <div className="bg-slate-950 border border-slate-800 hover:border-emerald-500/30 px-2.5 py-1 rounded-lg transition">
             <span className="text-[8px] uppercase font-bold text-slate-500 block leading-tight">5-Yr Equity</span>
             <div className="flex items-center space-x-1">
               <span className="text-xs font-black text-white font-mono tabular-nums">

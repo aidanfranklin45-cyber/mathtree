@@ -268,11 +268,11 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   {/* Status / Stage */}
                   <td className="py-3 px-3 whitespace-nowrap">
                     {isOwned ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-800 text-slate-200 border border-slate-700 text-[10px] font-semibold uppercase tracking-wider">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 text-[10px] font-semibold uppercase tracking-wider">
                         <span>Owned</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-semibold uppercase tracking-wider">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-950/40 text-blue-400 border border-blue-800/50 text-[10px] font-semibold uppercase tracking-wider">
                         <span>Pipeline</span>
                       </span>
                     )}
@@ -299,13 +299,13 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                       <span className="font-mono text-slate-500">—</span>
                     ) : (
                       <div className="inline-flex flex-col items-end">
-                        <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-red-400' : 'text-white'}`}>
+                        <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                           {cashFlowFormatted}<span className="text-slate-400 font-sans text-[10px]">/mo</span>
                         </span>
                         <span
                           className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded ${
                             hasCollections
-                              ? 'bg-slate-800 text-slate-300'
+                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
                               : monthlyCashFlowVal < 0
                               ? 'bg-red-500/10 text-red-400'
                               : 'bg-slate-800 text-slate-400'

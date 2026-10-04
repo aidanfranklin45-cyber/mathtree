@@ -41,10 +41,10 @@ interface DealCardProps {
 
 const stageMap: Record<string, { label: string; className: string }> = {
   screening: { label: 'Underwriting', className: 'bg-slate-900 text-slate-400 border-slate-800' },
-  loi: { label: 'LOI Submitted', className: 'bg-slate-900 text-slate-300 border-slate-800' },
-  due_diligence: { label: 'Due Diligence', className: 'bg-slate-900 text-slate-300 border-slate-800' },
-  closing: { label: 'Closing', className: 'bg-slate-900 text-slate-300 border-slate-800' },
-  owned: { label: 'Owned Asset', className: 'bg-slate-800 text-slate-200 border-slate-700' },
+  loi: { label: 'LOI Submitted', className: 'bg-blue-950/40 text-blue-300 border-blue-800/40' },
+  due_diligence: { label: 'Due Diligence', className: 'bg-indigo-950/40 text-indigo-300 border-indigo-800/40' },
+  closing: { label: 'Closing', className: 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50' },
+  owned: { label: 'Owned Asset', className: 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60' },
   disposition: { label: 'Exited', className: 'bg-slate-900 text-slate-400 border-slate-800' },
 };
 
