@@ -88,7 +88,7 @@ export function useDealStore(initialDealId?: string): DealStoreState {
     // Deep links such as /project?id=...&tab=debt (the legacy project-<tab>.html pages redirect here)
     const t = new URLSearchParams(window.location.search).get('tab');
     // Empty means "no explicit choice": the deal screen then opens the tab its stage leads with (see lib/studio/stageLens.ts)
-    return t && ['performance', 'operate', 'overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'].includes(t) ? t : '';
+    return t && ['performance', 'operate', 'overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity'].includes(t) ? t : '';
   });
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 

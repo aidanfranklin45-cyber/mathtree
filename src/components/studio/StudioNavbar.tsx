@@ -31,7 +31,6 @@ export const MODULE_TABS = [
   { key: 'property', icon: '🏛️', title: 'Property & County Records', mobile: 'Property', subtitle: 'Assessor roll valuations, companion parcels & GIS data' },
   { key: 'debt', icon: '🏦', title: 'Debt & Financing', mobile: 'Debt', subtitle: 'Mortgage amortization, DSCR coverage & refinance stress' },
   { key: 'sensitivity', icon: '🎲', title: 'Risk & Sensitivity', mobile: 'Risk', subtitle: 'Monte Carlo probability simulation & 2D stress matrices' },
-  { key: 'tax', icon: '📑', title: 'Tax & Wealth Strategy', mobile: 'Tax', subtitle: 'Cost segregation, accelerated depreciation & exit tax liability' },
 ] as const;
 
 const STATUS_PILL: Record<string, string> = {
@@ -60,7 +59,8 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
   const addrRef = useRef<HTMLDivElement>(null);
 
   const isOwned = deal.status === 'owned';
-  const pages = MODULE_TABS.filter((t) => (lens.tabs as readonly string[]).includes(t.key));
+  // The menu lists tabs in the stage's own order (lens.tabs), not the order of MODULE_TABS
+  const pages = lens.tabs.map((k) => MODULE_TABS.find((t) => t.key === k)).filter((t): t is (typeof MODULE_TABS)[number] => !!t);
   const current = MODULE_TABS.find((t) => t.key === activeTab) || MODULE_TABS[0];
 
   // Wrapping prev/next like the legacy arrows (which step in this order, not the dropdown's)

@@ -26,7 +26,7 @@ const StudioTabRedirect: React.FC<{ tab: string }> = ({ tab }) => {
   return <Navigate to={`/project?${next.toString()}`} replace />;
 };
 
-const TABS = ['proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'] as const;
+const TABS = ['proforma', 'property', 'debt', 'diligence', 'sensitivity'] as const;
 
 const guard = (el: React.ReactElement) => <AuthGate>{el}</AuthGate>;
 

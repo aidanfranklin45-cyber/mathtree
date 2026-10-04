@@ -141,7 +141,7 @@ React 18 + Vite + TypeScript + Tailwind, react-router, Chart.js. Pages are lazy 
 | Route | Page | Main components |
 |---|---|---|
 | `/`, `/dashboard` | `DashboardPage` | `components/dashboard` (deal cards, `ProjectWizardModal`), portfolio KPIs (`lib/portfolio`) |
-| `/project?id=…&tab=…` | `DealStudioPage` | `components/studio`: `StudioNavbar`, tabs (Overview, ProForma, Property, Debt, Diligence, Sensitivity, Tax), modals (`EditInputsModal`, `RemodelModal`, `ParameterHistoryModal`) |
+| `/project?id=…&tab=…` | `DealStudioPage` | `components/studio`: `StudioNavbar`, tabs (Overview, ProForma, Property, Debt, Diligence, Sensitivity), modals (`EditInputsModal`, `RemodelModal`, `ParameterHistoryModal`) |
 | `/compare` | `ComparePage` | `components/compare` (starter, builder strip, Add / Metrics / Filters / Saved panels, matrix, phone cards, charts, what-if scrubber, baseline column). Board settings live in `lib/compare/config.ts` (metrics in `metrics.ts`, saved boards in `savedViews.ts`); a plain visit opens blank |
 | `/operations` | `OperationsPage` | `components/operations/OperationsWorkspace` (rent roll, leases, payments, recoveries, CAM, meters) across all properties. The same workspace, locked to one deal, is the **Operate** tab of an owned deal on `/project`, so each figure has one code path |
 | `/brief`, `/demo-brief`, `/portfolio-brief` | `DealBriefPage`, `PortfolioBriefPage` | `components/brief`, models built in `lib/export` |
