@@ -10,6 +10,8 @@ export interface EligibilityInput {
   /** YYYY-MM-DD (a time part is ignored) */
   leaseStartDate?: string | null;
   leaseEndDate?: string | null;
+  /** 'month_to_month' leases have no real end: a stale end date must not stop reminders */
+  termType?: string | null;
   today?: Date;
 }
 
@@ -42,7 +44,7 @@ export function reminderEligibility(i: EligibilityInput): { eligible: boolean; r
   const today = i.today ?? new Date();
   const t = isoToday(today);
   const s = day(i.leaseStartDate);
-  const e = day(i.leaseEndDate);
+  const e = i.termType === "month_to_month" ? null : day(i.leaseEndDate);
   if (s && s > t) return { eligible: false, reason: "not_started" };
   if (e && e < t) return { eligible: false, reason: "ended" };
   return { eligible: true, reason: "ok" };

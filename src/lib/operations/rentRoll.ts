@@ -363,6 +363,11 @@ export interface DueInfo {
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const DAY_MS = 86400000;
+/** A date-only string ('2026-10-05') is that local calendar day; new Date() would read it as UTC and shift it back a day west of UTC. */
+const localDay = (v: unknown): Date => {
+  const m = String(v ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : startOfDay(new Date(v as any));
+};
 const daysBetween = (a: Date, b: Date) => Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / DAY_MS);
 const monthShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
 
@@ -387,7 +392,7 @@ export function getDueInfo(lease: Row, payment: Row | undefined, today: Date = n
 
   const rent = num(lease.monthly_rent);
   const paid = !!payment && (payment.status === 'paid' || (rent > 0 && num(payment.amount_paid) >= rent));
-  const snoozed = !paid && !!payment?.snooze_until && startOfDay(new Date(payment.snooze_until)) >= day;
+  const snoozed = !paid && !!payment?.snooze_until && localDay(payment.snooze_until) >= day;
   const month = monthShort(currentDue);
 
   if (paid) {
