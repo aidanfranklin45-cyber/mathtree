@@ -23,7 +23,9 @@ import {
 // Utility: safe numeric coercion
 // ---------------------------------------------------------------------------
 export function n(v: unknown, fallback = 0): number {
-  const parsed = parseFloat(String(v ?? fallback));
+  const raw = String(v ?? fallback);
+  // Pasted/imported money strings ("$1,250,000") must not stop at the first separator.
+  const parsed = parseFloat(typeof v === 'string' ? raw.replace(/[$,\s]/g, '') : raw);
   return isNaN(parsed) ? fallback : parsed;
 }
 
@@ -67,6 +69,7 @@ export function calculateRemainingBalance(
 ): number {
   if (loanAmount <= 0) return 0;
   if (elapsedYears >= termYears) return 0;
+  if (elapsedYears <= 0) return loanAmount;
   const r = annualRate / 100 / 12;
   const numPayments = termYears * 12;
   const p = elapsedYears * 12;
@@ -542,11 +545,13 @@ export function getMonthlyAmortization(
 // ---------------------------------------------------------------------------
 export function calculateNPV(rate: number, cashFlows: number[]): number {
   const r = rate / 100;
+  // A rate at or below -100% has no meaningful discount factor; return 0 instead of NaN/Infinity.
+  if (r <= -1) return 0;
   let npv = 0;
   for (let t = 0; t < cashFlows.length; t++) {
     npv += cashFlows[t] / Math.pow(1 + r, t);
   }
-  return Math.round(npv);
+  return Math.round(npv) + 0; // + 0 normalises -0
 }
 
 // ---------------------------------------------------------------------------
@@ -607,7 +612,7 @@ export function calculateIRR(initialCashOrFlows: any, optionalFlows?: number[]):
   }
 
   if (converged) {
-    return Math.round(r * 10000) / 100;
+    return Math.round(r * 10000) / 100 + 0;
   }
 
   // 2. Safe bounded bisection (capped at 10.0 = 1000%)
@@ -625,7 +630,7 @@ export function calculateIRR(initialCashOrFlows: any, optionalFlows?: number[]):
     const mid = (low + high) / 2;
     const npvVal = getNPV(mid);
     if (Math.abs(npvVal) < 1e-4) {
-      return Math.round(mid * 10000) / 100;
+      return Math.round(mid * 10000) / 100 + 0;
     }
     if (npvVal > 0) {
       low = mid;
@@ -633,7 +638,7 @@ export function calculateIRR(initialCashOrFlows: any, optionalFlows?: number[]):
       high = mid;
     }
   }
-  return Math.round(((low + high) / 2) * 10000) / 100;
+  return Math.round(((low + high) / 2) * 10000) / 100 + 0;
 }
 
 // ---------------------------------------------------------------------------
