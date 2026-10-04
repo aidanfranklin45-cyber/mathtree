@@ -16,6 +16,8 @@ interface DealCardProps {
   onToggleStatus: (deal: DealRecord) => void;
   /** Optional until the collaborators hub exists; the menu entry only shows when provided. */
   onShare?: (deal: DealRecord) => void;
+  /** Owner-only; the menu entry only shows when provided. */
+  onTransfer?: (deal: DealRecord) => void;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
@@ -67,6 +69,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   onDelete,
   onToggleStatus,
   onShare,
+  onTransfer,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -186,8 +189,8 @@ const DealCardComponent: React.FC<DealCardProps> = ({
     >
       <div className="space-y-4">
         {/* Top Meta Row: Icon, Asset Type, Status & Menu */}
-        <div className="flex items-center justify-between gap-3 border-b border-slate-900/80 pb-3">
-          <div className="flex items-center space-x-2 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-900/80 pb-3">
+          <div className="flex items-center space-x-2 min-w-0 max-w-full">
             <div className="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner shrink-0 group-hover:border-brand-500/30 transition">
               <AssetIcon assetClass={aClass} />
             </div>
@@ -228,10 +231,12 @@ const DealCardComponent: React.FC<DealCardProps> = ({
                       <span>Share with Collaborators</span>
                     </button>
                   )}
-                  <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
-                    <svg className="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    <span>View Pitch Deck</span>
-                  </button>
+                  {onTransfer && (
+                    <button onClick={closeThen(() => onTransfer(deal))} className={menuItem}>
+                      <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                      <span>Transfer Ownership</span>
+                    </button>
+                  )}
                   <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
                     <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                     <span>Print Executive Brief (PDF)</span>
@@ -258,7 +263,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
             <span className="text-slate-500 group-hover:text-emerald-400 transition font-bold shrink-0 ml-2">→</span>
           </h4>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
-            <span className="flex items-center space-x-1 truncate max-w-[210px]">
+            <span className="flex items-center space-x-1 truncate max-w-full sm:max-w-[210px]">
               <svg className="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               <span className="truncate">{locStr}</span>
             </span>
@@ -275,7 +280,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               </span>
             )}
           </div>
-          {tenancyRow}
+          {tenancyRow && <div className="hidden sm:block">{tenancyRow}</div>}
         </div>
 
         {/* Deal Metrics Grid */}
@@ -301,8 +306,8 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       </div>
 
       {/* Card Footer: Modeler Link + Edit Inputs */}
-      <div className="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-between text-[11px]">
-        <div className="flex items-center space-x-1 text-slate-500 group-hover:text-emerald-400 transition">
+      <div className="pt-3 mt-1 border-t border-slate-900/60 flex items-center justify-end sm:justify-between text-[11px]">
+        <div className="hidden sm:flex items-center space-x-1 text-slate-500 group-hover:text-emerald-400 transition">
           <span>View Modeler</span>
           <span className="font-bold">→</span>
         </div>

@@ -31,7 +31,7 @@ const RowArrow: React.FC<{ label: string; onClick: () => void }> = ({ label, onC
   </div>
 );
 
-export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, recoverySummaries, historyDealIds, filtered }) => (
+const RentRollDesktop: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, recoverySummaries, historyDealIds, filtered }) => (
   <table className="w-full text-left border-collapse">
     <thead>
       <tr className="border-b border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-950/50">
@@ -130,4 +130,72 @@ export const RentRollTable: React.FC<Props> = ({ views, loading, dealOf, unitOf,
       })}
     </tbody>
   </table>
+);
+
+/** Phone layout: one compact card per row (property, tenant, rent, status, next due) instead of a six-column table. */
+const RentRollCards: React.FC<Props> = ({ views, loading, dealOf, unitOf, handlers, onSelect, onAddFirstLease, historyDealIds, filtered }) => {
+  if (loading && views.length === 0) return <div className="py-10 text-center text-xs text-slate-400 animate-pulse">Loading rent roll…</div>;
+  if (views.length === 0) {
+    return filtered ? (
+      <p className="py-8 text-center text-xs text-slate-500">Nothing matches this filter.</p>
+    ) : (
+      <div className="py-8 px-4 text-center space-y-3">
+        <p className="font-bold text-white text-sm">No properties or leases in this view</p>
+        <button onClick={onAddFirstLease} className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">+ Add First Lease</button>
+      </div>
+    );
+  }
+  return (
+    <ul className="divide-y divide-slate-800/60">
+      {views.map((view) => {
+        const { row, vacant } = view;
+        const deal = dealOf(row.deal_id) || { id: row.deal_id, title: 'Unknown Asset' };
+        const dealTitle = deal.title || deal.name;
+        if (vacant) {
+          return (
+            <li key={row.id} className="px-4 py-3 flex items-center justify-between gap-3 bg-slate-950/20">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">{dealTitle}</p>
+                <p className="text-[11px] text-slate-500 truncate">{row.unit_number} · Vacant</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {historyDealIds.has(deal.id) && (
+                  <button type="button" onClick={() => handlers.history(row)} className="text-[11px] font-semibold text-slate-400">History</button>
+                )}
+                <RowArrow label="Add a tenant to this property" onClick={() => handlers.addTenant(deal.id)} />
+              </div>
+            </li>
+          );
+        }
+        const unit = unitOf(row);
+        const note = escalationNote(view);
+        const rent = (parseFloat(row.monthly_rent) || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        return (
+          <li key={row.id} onClick={() => onSelect(row.id)} className="px-4 py-3 space-y-1.5 cursor-pointer active:bg-slate-800/40">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">{row.tenant_name}</p>
+                <p className="text-[11px] text-slate-400 truncate">{dealTitle} · <span className="text-emerald-400">{unit.unit_number}</span></p>
+              </div>
+              <span className="font-mono font-bold text-emerald-400 text-sm shrink-0">${rent}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${toneBadge[view.tone]}`}>{view.statusLabel}</span>
+              <span className="text-[11px] text-slate-400 truncate">
+                {view.due ? `Due ${shortDate(view.due.nextDue)}` : ''}
+                {note && <span className={`ml-1.5 ${toneText[note.tone]}`}>{note.text}</span>}
+              </span>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
+
+export const RentRollTable: React.FC<Props> = (props) => (
+  <>
+    <div className="md:hidden"><RentRollCards {...props} /></div>
+    <div className="hidden md:block"><RentRollDesktop {...props} /></div>
+  </>
 );

@@ -17,6 +17,7 @@ import { ActionNeededList } from '../components/operations/ActionNeededList';
 import { RentRollTable } from '../components/operations/RentRollTable';
 import { LeaseDrawer } from '../components/operations/LeaseDrawer';
 import { ProjectedVsActual } from '../components/operations/ProjectedVsActual';
+import { LeaseExpiryLadder } from '../components/operations/LeaseExpiryLadder';
 import { MenuItem, Popover, triggerBtn } from '../components/operations/Popover';
 import { RecoveriesPanel } from '../components/operations/RecoveriesPanel';
 import { summarizeLeaseRecoveries, normalizeRecoveryPrefs, maxLeadDays, DEFAULT_RECOVERY_PREFS, type LeaseRecoverySummary, type RecoveryPrefs, RECOVERY_CATEGORY_LABELS } from '../lib/operations/recoveries';
@@ -24,24 +25,34 @@ import { syncRecoveryItems } from '../lib/operations/recoveryDb';
 import { isResidentialAsset } from '../../supabase/functions/_shared/rentIncreaseRules';
 import { buildRowView, type RowHandlers } from '../components/operations/rowStatus';
 
+type OpsSnapshot = {
+  entities: Row[]; deals: Row[]; leases: Row[]; units: Row[]; payments: Row[]; increases: Row[]; baselines: Row[];
+  recTerms: Row[]; recItems: Row[]; recons: Row[]; meters: Row[]; readings: Row[]; recPrefs: RecoveryPrefs;
+};
+
+// Last loaded data, kept for the session so revisiting the page paints instantly while a fresh load runs in the background.
+let opsCache: OpsSnapshot | null = null;
+supabase.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') opsCache = null; });
+
 export const OperationsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Raw database facts (everything below is derived from these on render)
-  const [entities, setEntities] = useState<Row[]>([]);
-  const [deals, setDeals] = useState<Row[]>([]);
-  const [leases, setLeases] = useState<Row[]>([]);
-  const [units, setUnits] = useState<Row[]>([]);
-  const [payments, setPayments] = useState<Row[]>([]);
-  const [increases, setIncreases] = useState<Row[]>([]);
-  const [baselines, setBaselines] = useState<Row[]>([]);
-  const [recTerms, setRecTerms] = useState<Row[]>([]);
-  const [recItems, setRecItems] = useState<Row[]>([]);
-  const [recons, setRecons] = useState<Row[]>([]);
-  const [meters, setMeters] = useState<Row[]>([]);
-  const [readings, setReadings] = useState<Row[]>([]);
-  const [recPrefs, setRecPrefs] = useState<RecoveryPrefs>(DEFAULT_RECOVERY_PREFS);
-  const [loading, setLoading] = useState(true);
+  const [entities, setEntities] = useState<Row[]>(opsCache?.entities ?? []);
+  const [deals, setDeals] = useState<Row[]>(opsCache?.deals ?? []);
+  const [leases, setLeases] = useState<Row[]>(opsCache?.leases ?? []);
+  const [units, setUnits] = useState<Row[]>(opsCache?.units ?? []);
+  const [payments, setPayments] = useState<Row[]>(opsCache?.payments ?? []);
+  const [increases, setIncreases] = useState<Row[]>(opsCache?.increases ?? []);
+  const [baselines, setBaselines] = useState<Row[]>(opsCache?.baselines ?? []);
+  const [recTerms, setRecTerms] = useState<Row[]>(opsCache?.recTerms ?? []);
+  const [recItems, setRecItems] = useState<Row[]>(opsCache?.recItems ?? []);
+  const [recons, setRecons] = useState<Row[]>(opsCache?.recons ?? []);
+  const [meters, setMeters] = useState<Row[]>(opsCache?.meters ?? []);
+  const [readings, setReadings] = useState<Row[]>(opsCache?.readings ?? []);
+  const [recPrefs, setRecPrefs] = useState<RecoveryPrefs>(opsCache?.recPrefs ?? DEFAULT_RECOVERY_PREFS);
+  // Only show the blocking loading state when there is nothing cached to display
+  const [loading, setLoading] = useState(!opsCache);
 
   // Filters
   const [entityId, setEntityId] = useState('all');
@@ -69,10 +80,11 @@ export const OperationsPage: React.FC = () => {
   };
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!opsCache) setLoading(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
+      // Local session read: avoids a network round trip to /auth/v1/user before any data can load
+      const { data: auth } = await supabase.auth.getSession();
+      const uid = auth?.session?.user?.id;
       const scoped = (q: any) => (uid ? q.eq('user_id', uid) : q);
       const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase, rTerms, rItems, rRecons, rMeters, rReads] = await Promise.allSettled([
         scoped(supabase.from('deals').select('*')).order('title', { ascending: true }),
@@ -92,10 +104,11 @@ export const OperationsPage: React.FC = () => {
       // Recovery tables may not exist yet on an older database; that just means nothing is tracked.
       const termRows = rows(rTerms);
       let itemRows = rows(rItems);
+      let prefs = DEFAULT_RECOVERY_PREFS;
       const trackedIds = new Set(rows(rLeases).filter((l) => l.track_recoveries && l.is_active !== false).map((l) => l.id));
       try {
         const { data: prof } = uid ? await supabase.from('profiles').select('alert_preferences').eq('id', uid).maybeSingle() : { data: null };
-        const prefs = normalizeRecoveryPrefs(prof?.alert_preferences as Record<string, unknown> | null);
+        prefs = normalizeRecoveryPrefs(prof?.alert_preferences as Record<string, unknown> | null);
         setRecPrefs(prefs);
         const created = await syncRecoveryItems(termRows.filter((t) => trackedIds.has(t.lease_id)), itemRows, maxLeadDays([prefs]));
         if (created > 0) {
@@ -117,6 +130,11 @@ export const OperationsPage: React.FC = () => {
       setIncreases(rows(rInc));
       setEntities(rows(rEnt));
       setBaselines(rows(rBase));
+      opsCache = {
+        entities: rows(rEnt), deals: rows(rDeals), leases: rows(rLeases), units: rows(rUnits), payments: rows(rPay),
+        increases: rows(rInc), baselines: rows(rBase), recTerms: termRows, recItems: itemRows, recons: rows(rRecons),
+        meters: rows(rMeters), readings: rows(rReads), recPrefs: prefs,
+      };
     } catch (err) {
       console.error('Operations load error:', err);
     } finally {
@@ -170,6 +188,12 @@ export const OperationsPage: React.FC = () => {
       unit_type: row.derived_unit_type || 'Commercial Suite',
       sqft: row.derived_sqft || 0,
     };
+
+  // Stable so the expiry ladder only recomputes when the leases or units change
+  const sqftOf = useCallback(
+    (l: Row) => parseFloat(units.find((u) => u.id === l.unit_id)?.sqft) || parseFloat(l.derived_sqft) || 0,
+    [units],
+  );
 
   /** Shape a rent-roll row for the existing Log Payment / Escalate modals. */
   const toItem = (row: RentRollRow): MonthlyRentReconciliationView => {
@@ -367,10 +391,10 @@ export const OperationsPage: React.FC = () => {
           <>
             <button
               onClick={() => { setAddLeaseDealId(null); setAddLeaseOpen(true); }}
-              className="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30 transition"
+              aria-label="Add lease" className="flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-900/30 transition"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-              <span>Add Lease</span>
+              <span className="hidden sm:inline">Add Lease</span>
             </button>
             <Popover trigger={<span>More ▾</span>} triggerClassName={triggerBtn} triggerTitle="Rent roll, alert emails and sync" panelClassName="w-56">
               {(close) => (
@@ -495,6 +519,8 @@ export const OperationsPage: React.FC = () => {
             />
           </div>
         </div>
+
+        <LeaseExpiryLadder leases={ops.scopedLeases} sqftOf={sqftOf} dealTitle={dealTitleOf} onSelect={setSelectedId} />
 
         <ProjectedVsActual deals={scopedDeals} leases={leases} baselines={baselines} />
 

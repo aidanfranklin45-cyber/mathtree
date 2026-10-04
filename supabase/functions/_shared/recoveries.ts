@@ -54,6 +54,10 @@ const parse = (iso: string) => new Date(`${iso}T00:00:00Z`);
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / DAY_MS);
 
+/** Today as YYYY-MM-DD on the caller's calendar (toISOString would already be tomorrow on a US evening). */
+export const localTodayIso = (now: Date = new Date()): string =>
+  `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
 /** Adds whole months, clamping to month end (Jan 31 + 1 month = Feb 28). */
 const addMonths = (iso: string, months: number): string => {
   const d = parse(iso);
@@ -104,6 +108,17 @@ export const itemStatus = (
   if (late > graceDays) return 'overdue';
   if (late >= -dueSoonDays) return 'due_soon';
   return 'upcoming';
+};
+
+/**
+ * How far back scheduling reaches for unpaid items: the later of 60 days or the start of the current year. The year floor
+ * is what makes a yearly or twice-a-year charge (insurance, tax) show overdue when this year's payment was never marked,
+ * instead of silently falling outside a short window and reading "up to date".
+ */
+export const backfillSinceIso = (today: string): string => {
+  const sixty = fmt(new Date(parse(today).getTime() - 60 * DAY_MS));
+  const jan1 = `${today.slice(0, 4)}-01-01`;
+  return jan1 < sixty ? jan1 : sixty;
 };
 
 /** Items that should exist (due from `since`, if given, through `through`) but have not been created yet. */

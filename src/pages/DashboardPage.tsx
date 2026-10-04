@@ -10,6 +10,7 @@ import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { fetchProfile, getProfile } from '../lib/profile';
 import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
+import { TransferOwnershipModal } from '../components/dashboard/TransferOwnershipModal';
 import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
 import { EntityManagerModal } from '../components/layout/EntityManagerModal';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
@@ -72,6 +73,7 @@ export const DashboardPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'newest' | 'price-desc' | 'price-asc' | 'irr-desc' | 'coc-desc'>('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
+  const [transferringDeal, setTransferringDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
   // Modals state
@@ -524,7 +526,7 @@ export const DashboardPage: React.FC = () => {
                 <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                   Deal Status
                 </label>
-                <div className="space-y-1 text-xs">
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setStatusFilter('owned')}
@@ -580,7 +582,7 @@ export const DashboardPage: React.FC = () => {
                 <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                   Property Type
                 </label>
-                <div className="space-y-1 text-xs">
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setAssetFilter('all')}
@@ -765,12 +767,12 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Quick Sort Selector */}
-              <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+              <div className="flex items-center space-x-2 shrink-0 w-full sm:w-auto">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sort:</span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-sm"
+                  className="flex-1 sm:flex-none min-w-0 bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-sm"
                 >
                   <option value="newest">Newest First</option>
                   <option value="price-desc">Price: High to Low</option>
@@ -825,6 +827,7 @@ export const DashboardPage: React.FC = () => {
                     onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
                     onShare={deal.is_shared ? undefined : handleShareDeal}
+                    onTransfer={deal.is_shared || deal.is_demo ? undefined : setTransferringDeal}
                   />
                 ))}
               </div>
@@ -834,6 +837,7 @@ export const DashboardPage: React.FC = () => {
       </main>
 
       {/* Creation Wizard Modal */}
+      <TransferOwnershipModal deal={transferringDeal} onClose={() => setTransferringDeal(null)} onTransferred={() => { void loadData(); }} />
       <ShareDealModal deal={sharingDeal} onClose={() => setSharingDeal(null)} onChanged={() => { void loadData(); }} />
 
       {isWizardOpen && (
