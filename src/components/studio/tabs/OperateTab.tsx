@@ -6,6 +6,8 @@ import type { LeaseLite, PaymentLite } from '../../../lib/baselines/core';
 import { summarizeOperate } from '../../../lib/studio/stageLens';
 import { formatCurrency } from '../../../lib/format';
 import { operationsPrefetchProps } from '../../../lib/prefetchRoutes';
+import { supabase } from '../../../lib/supabase/client';
+import { ExpenseLedger } from '../../operations/ExpenseLedger';
 
 interface Props {
   deal: DealRecord;
@@ -21,6 +23,11 @@ export const OperateTab: React.FC<Props> = ({ deal }) => {
   const [leases, setLeases] = useState<LeaseLite[]>([]);
   const [payments, setPayments] = useState<PaymentLite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setUserId(data?.session?.user?.id ?? null));
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -79,6 +86,14 @@ export const OperateTab: React.FC<Props> = ({ deal }) => {
             </div>
           </>
         )}
+      </div>
+
+      <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-3">
+        <div>
+          <h3 className="text-sm font-extrabold text-white">Expenses</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Record what this property actually costs to run (tax, insurance, repairs, utilities).</p>
+        </div>
+        {userId ? <ExpenseLedger dealId={deal.id} userId={userId} /> : <p className="text-xs text-slate-500">Sign in to record expenses.</p>}
       </div>
 
       <div className="flex flex-wrap gap-2">
