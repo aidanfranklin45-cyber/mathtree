@@ -78,6 +78,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('llc');
   const [newState, setNewState] = useState('');
+  const [creatingEntity, setCreatingEntity] = useState(false);
 
   const loadEntities = async () => {
     const { data } = await supabase.from('entities').select('id,name,entity_type,formation_state').order('created_at', { ascending: true });
@@ -111,7 +112,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   const createCompany = async (setAsPrimary = true) => {
     const name = newName.trim();
     if (!name || !form) return;
-    setSaving(true);
+    setCreatingEntity(true);
     setError(null);
     try {
       const { data: u } = await supabase.auth.getUser();
@@ -139,7 +140,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create entity');
     } finally {
-      setSaving(false);
+      setCreatingEntity(false);
     }
   };
 
@@ -358,10 +359,10 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   <button
                     type="button"
                     onClick={() => createCompany(true)}
-                    disabled={!newName.trim()}
+                    disabled={!newName.trim() || creatingEntity}
                     className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition"
                   >
-                    Save &amp; Set as Primary
+                    {creatingEntity ? 'Saving...' : 'Save & Set as Primary'}
                   </button>
                 </div>
               </div>

@@ -190,14 +190,18 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   const unitCount = parseInt(String(inputs.unitCount || inputs.numUnits || inputs.storageUnitCount || 0), 10);
 
   const studioUrl = `/project?id=${encodeURIComponent(deal.id)}`;
-  const openStudio = (e: React.MouseEvent | React.KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('button, a, input, select, textarea, [data-no-nav]')) return;
-    if (typeof window !== 'undefined' && String(window.getSelection?.() ?? '').length > 0) return;
+  const openStudio = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      const target = e.target as HTMLElement;
+      if (target.closest('button, a, input, select, textarea, [data-no-nav]')) return;
+      if (typeof window !== 'undefined' && String(window.getSelection?.() ?? '').length > 0) return;
+    }
     try {
       sessionStorage.setItem('mathtree_active_deal_id', deal.id);
       localStorage.setItem('mathtree_active_deal_id', deal.id);
-    } catch { /* storage unavailable */ }
+    } catch {
+      /* storage unavailable */
+    }
     navigate(studioUrl);
   };
 
@@ -228,11 +232,12 @@ const DealCardComponent: React.FC<DealCardProps> = ({
     >
       <div className="space-y-3.5">
         {/* Top Meta Row: Checkbox, Asset Type, Status & Actions Menu */}
-        <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3" data-no-nav>
+        <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
           <div className="flex items-center space-x-2 min-w-0">
             {onToggleSelect && (
               <button
                 type="button"
+                data-no-nav
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleSelect(deal.id);
@@ -272,7 +277,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               </span>
             )}
 
-            <div className="relative" ref={menuRef}>
+            <div className="relative" ref={menuRef} data-no-nav>
               <button
                 type="button"
                 onClick={(e) => {
@@ -286,6 +291,11 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 top-7 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left">
+                  <button onClick={closeThen(() => openStudio())} className={menuItem}>
+                    <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Open in Studio</span>
+                  </button>
+                  <div className="border-t border-slate-800/80 my-1" />
                   <button onClick={closeThen(() => onToggleStatus(deal))} className={menuItem}>
                     <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                     <span>{isOwned ? 'Move to Pipeline' : 'Mark as Acquired'}</span>
@@ -399,19 +409,6 @@ const DealCardComponent: React.FC<DealCardProps> = ({
         </div>
 
         <div className="flex items-center space-x-2" data-no-nav>
-          {onPreview && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPreview(deal);
-              }}
-              className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-400 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 transition"
-            >
-              Preview
-            </button>
-          )}
-
           <button
             type="button"
             onClick={(e) => {

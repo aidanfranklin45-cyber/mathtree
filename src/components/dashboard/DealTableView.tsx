@@ -10,7 +10,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Eye,
   ExternalLink,
   MoreVertical,
   CheckSquare,
@@ -41,7 +40,7 @@ interface DealTableViewProps {
   onEdit: (deal: DealRecord) => void;
   onDelete: (deal: DealRecord) => void;
   onToggleStatus: (deal: DealRecord) => void;
-  onPreview: (deal: DealRecord) => void;
+  onPreview?: (deal: DealRecord) => void;
   onShare?: (deal: DealRecord) => void;
   entities?: Array<{ id: string; name: string }>;
   collectedMonthlyMap?: Map<string, number>;
@@ -96,6 +95,16 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   const navigate = useNavigate();
   const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const openStudio = (dealId: string) => {
+    try {
+      sessionStorage.setItem('mathtree_active_deal_id', dealId);
+      localStorage.setItem('mathtree_active_deal_id', dealId);
+    } catch {
+      /* storage unavailable */
+    }
+    navigate(`/project?id=${encodeURIComponent(dealId)}`);
+  };
 
   const textHoverClass =
     colorTheme === 'blue'
@@ -255,9 +264,11 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   }`}
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
-                    if (target.closest('button, a, input, [data-no-row-click]')) return;
-                    onPreview(deal);
+                    if (target.closest('button, a, input, select, textarea, [data-no-row-click]')) return;
+                    if (typeof window !== 'undefined' && String(window.getSelection?.() ?? '').length > 0) return;
+                    openStudio(deal.id);
                   }}
+                  title={`Open ${dealTitle} in Deal Studio`}
                 >
                   {/* Multi-select Checkbox */}
                   <td className="py-3 px-3 text-center" data-no-row-click>
@@ -361,16 +372,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                     <div className="inline-flex items-center space-x-1">
                       <button
                         type="button"
-                        onClick={() => onPreview(deal)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                        title="Quick Preview"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/project?id=${encodeURIComponent(deal.id)}`)}
+                        onClick={() => openStudio(deal.id)}
                         className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition"
                         title="Open in Studio"
                       >
@@ -392,6 +394,18 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                             ref={menuRef}
                             className="absolute right-0 top-7 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left"
                           >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                openStudio(deal.id);
+                              }}
+                              className="w-full px-3 py-1.5 text-xs text-emerald-400 hover:bg-slate-800 block text-left font-semibold flex items-center space-x-1.5"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>Open in Studio</span>
+                            </button>
+                            <div className="border-t border-slate-800/80 my-1" />
                             <button
                               type="button"
                               onClick={() => {
