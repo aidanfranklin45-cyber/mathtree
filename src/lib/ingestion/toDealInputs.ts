@@ -14,6 +14,8 @@ import type { IntakeDocument, LeaseIntake, LoanTermsIntake, OperatingStatementIn
 import { val } from './intake';
 import { DOCUMENT_PROFILES } from './documentTypes';
 import { leaseMonthlyRent, rentRollTotals, rowMonthlyRent, statementTotals } from './normalize';
+import { checkEngineInputs, type MissingInput } from '../../../supabase/functions/_shared/inputRequirements';
+import { TRACKED_INPUTS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 
 export interface FieldProvenance {
   documentType: IntakeDocument['documentType'];
@@ -28,14 +30,22 @@ export interface DealPatch {
   provenance: Record<string, FieldProvenance>;
   /** Figures a document asserts that must not become inputs: shown beside the engine's own result. */
   claims: Record<string, { value: number; documentType: IntakeDocument['documentType']; how: string }>;
-  /** Inputs the engine needs that no document supplied. Feeds the readiness check. */
+  /** What the engine would still refuse the deal for once this patch is applied: its own check, so the two can never disagree. */
   missing: string[];
+  /** The same list, structured, for the review screen and the readiness check. */
+  missingInputs: MissingInput[];
+  /** Where each parsed number came from, in the form a deal stores it (`assumptionBasis`), so a lender can be shown the document. */
+  basis: Record<string, InputBasis>;
   notes: string[];
 }
 
 export interface PatchContext {
   /** The deal's purchase price if already known (typed by the owner), used to turn a loan amount into a down payment percent. */
   purchasePrice?: number | null;
+  /** The deal's asset class, when the documents do not say (an offering memorandum does). */
+  assetClass?: string;
+  /** What the deal already states, so only what is genuinely still missing is reported. */
+  existingInputs?: Record<string, unknown>;
 }
 
 const RANK: Record<Reliability, number> = { projected: 0, reported: 1, executed: 2 };
@@ -179,7 +189,7 @@ function applyOperatingStatement(b: Builder, doc: OperatingStatementIntake, leas
     if (leasesEmitted) {
       b.notes.push(`The statement shows ${vacancy}% vacancy and credit loss. Vacancy is not applied: rent comes from the occupied leases, and applying it again would double-count.`);
     } else {
-      b.set('vacancyRatePercent', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)');
+      b.set('vacancyRate', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)');
     }
   }
   b.claim('reportedNoi', val(doc.reportedNoi), doc, 'NOI printed on the statement (seller figure)');
@@ -290,14 +300,24 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
     }
   }
 
-  // What the engine needs before a number is worth trusting. A missing one is reported, never filled in.
-  const has = (k: string) => b.patch[k] !== undefined;
-  if (!has('purchasePrice')) missing.push('purchasePrice');
-  if (!has('leases') && !has('grossRentAnnual')) missing.push('rent (a lease, a rent roll, or a gross rent figure)');
-  if (!has('expenseRatio')) missing.push('expenseRatio (no operating statement; set an expense assumption)');
-  if (!has('interestRate')) missing.push('interestRate');
-  if (!has('downPaymentPercent') && !missing.some((m) => m.startsWith('downPaymentPercent'))) missing.push('downPaymentPercent');
-  if (!has('loanTermYears') && !has('amortizationYears')) missing.push('loan term or amortization');
+  // What is still missing is exactly what the engine itself would refuse the deal for: the same check, run on the deal as it would be
+  // once this patch is applied. A missing figure is reported, never filled in.
+  const omDoc = ordered.find((d) => d.documentType === 'offering_memorandum');
+  const omClass = omDoc && omDoc.documentType === 'offering_memorandum' ? omDoc.assetClass.value : null;
+  const assetClass = ctx.assetClass ?? omClass ?? 'commercial';
+  const merged: Record<string, unknown> = { ...(ctx.existingInputs ?? {}), ...b.patch };
+  const missingInputs = checkEngineInputs(assetClass, merged);
+  const missingText = [...missing, ...missingInputs.map((m) => `${m.key} (${m.label})`)];
 
-  return { patch: b.patch, provenance: b.provenance, claims: b.claims, missing, notes: b.notes };
+  // A parsed figure is recorded with the document it came from, in the same form every other number on a deal is
+  const basis: Record<string, InputBasis> = {};
+  for (const [key, label] of Object.entries(TRACKED_INPUTS)) {
+    const v = b.patch[key];
+    const p = b.provenance[key];
+    if (typeof v === 'number' && p) {
+      basis[key] = { source: 'document', label, value: v, rationale: `${p.how} (${p.documentType.replace('_', ' ')}, ${p.reliability})` };
+    }
+  }
+
+  return { patch: b.patch, provenance: b.provenance, claims: b.claims, missing: missingText, missingInputs, basis, notes: b.notes };
 }

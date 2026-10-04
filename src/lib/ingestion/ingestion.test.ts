@@ -161,12 +161,12 @@ describe('buildDealPatch', () => {
 
   it('does not apply vacancy on top of an occupied-tenants lease list (it would double-count)', () => {
     const r = buildDealPatch([rentRoll([row(), row({ unit: f('2'), status: f('vacant'), monthlyRent: missing(), tenantName: missing() })]), t12()]);
-    expect(r.patch.vacancyRatePercent).toBeUndefined();
+    expect(r.patch.vacancyRate).toBeUndefined();
     expect(r.notes.join(' ')).toMatch(/double-count/);
   });
 
   it('applies the statement\'s vacancy when there is no lease list', () => {
-    expect(buildDealPatch([t12()]).patch.vacancyRatePercent).toBe(5);
+    expect(buildDealPatch([t12()]).patch.vacancyRate).toBe(5);
   });
 
   it('turns a loan amount into a down payment only when a price is known, and keeps term and amortization apart', () => {
@@ -203,7 +203,9 @@ describe('buildDealPatch', () => {
 
   it('produces inputs the engine accepts: only engine-read keys, and a positive expense line', () => {
     const r = buildDealPatch([psa(1000000), lease({ baseRent: f(10000) }), t12(), loan()]);
-    const m = computeDealMetrics({ asset_class: 'commercial', inputs: { ...r.patch, holdingPeriod: 5 } as any });
+    // The documents supply facts; the owner's own assumptions (here stated explicitly) supply the rest. The engine accepts the result.
+    const owner = { holdingPeriod: 5, discountRate: 8, targetCapRate: 7, sellingCostPercent: 3, capexReserveAnnual: 0, annualTaxes: 3000, annualInsurance: 1000, annualMaintenance: 1000, vacancyRate: 5 };
+    const m = computeDealMetrics({ asset_class: 'commercial', inputs: { ...owner, ...r.patch } as any });
     expect(m.projections[0].operatingExpenses).toBeGreaterThan(0);
     expect(m.loanAmount).toBe(750000);
     expect(val(found(1))).toBe(1);
