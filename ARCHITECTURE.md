@@ -2,14 +2,14 @@
 
 Real-estate underwriting (pro-forma, debt, tax, sensitivity, Monte Carlo) plus property operations (leases, rent,
 recoveries) for owned and prospect deals. Read this before guessing at schemas, formulas or where a component lives.
-Decision history and status for specific areas live in the `*_PLAN.md` files at the repo root.
+Decisions that still shape the code are recorded in section 7. Plans and status are not committed (see `AGENTS.md`).
 
 ## 1. The one rule: the database stores facts, never results
 
 - The database holds **facts**: deals and their `inputs`, leases, units, payments, rent increases, parcels, recoveries.
 - Everything **derived** (projections, amortization, IRR, NPV, LTV, DSCR, cap rate, equity, tax shield, sensitivity,
   Monte Carlo) is computed on demand from those facts by **one shared engine**. No stored metrics columns, no SQL
-  calculators, no second calculator in the UI. (Background: `MIGRATION_PLAN.md`; stored analysis was dropped by
+  calculators, no second calculator in the UI. (Stored analysis was dropped by
   `supabase/migrations_draft/02_drop_stored_analysis.sql`.)
 - **One deliberate exception: baselines.** `deal_baselines` is a frozen snapshot of what the engine said when a deal was
   underwritten/bought (`src/lib/baselines/`). It is captured once, stamped with `ENGINE_VERSION`, and never recomputed.
@@ -80,10 +80,10 @@ Year 1 can be a partial year (`operatingMonths`), which is why headline ratios u
 `src/lib/engine/version.ts` with a one-line changelog entry, and update the golden snapshot
 (`src/lib/engine/engine.golden.test.ts`) deliberately. Never add a second calculator anywhere (UI, SQL, edge function).
 
-**Monte Carlo** (`monte-carlo.ts`, see `MONTE_CARLO_PLAN.md`): seeded, runs in the browser in time slices via
+**Monte Carlo** (`monte-carlo.ts`, rules in section 7): seeded, runs in the browser in time slices via
 `createMonteCarloRunner` so the page stays responsive and cancels when inputs change. Used by `SensitivityTab` and the brief.
 
-**Remodel** (`remodel.ts`, `src/lib/remodel/`, see `REMODEL_PLAN.md`): an optional `remodel` block in inputs (capex,
+**Remodel** (`remodel.ts`, `src/lib/remodel/`): an optional `remodel` block in inputs (capex,
 downtime, rent step, value step, optional financing). The plan is stored as inputs; Live numbers change only when it is
 committed.
 
@@ -158,3 +158,40 @@ Old `project-<tab>.html` URLs redirect to `/project?tab=<tab>`. Components get n
   (preview channel) and deploy live on merge to `main`. CI does not run tests.
 - Edge functions and SQL are deployed to Supabase separately (not by CI).
 - Verification follows `AGENTS.md`: `npx tsc --noEmit` and single-file `npx vitest run <file> --reporter=dot` only.
+
+## 7. Decisions that still shape the code
+
+Owner decisions carried over from the retired plan docs (still in git history). Change them only deliberately.
+
+- **Single user, compute on the fly.** Marketing pages (`index.html`, `terms`, `privacy`) stay static for SEO; the
+  authenticated app is React. There is no global expense-ratio default: it is set per lease type with explicit inputs.
+- **Monte Carlo model.** Contract rent never varies (fixed dollar or percentage escalators stay fixed). Only what the
+  contract does not fix varies: market rent after a lease ends drifts with the sampled rent growth. Tenant default is an
+  explicit, adjustable probability with downtime (default 10% over the hold, 12 months; commercial and storage with
+  income only), not a hidden vacancy shock. Report net profit in dollars beside IRR, with a plain-language note when equity
+  is under about 10% of price; never hide IRR for high leverage. 1,000 runs, seeded from the deal (repeatable; Re-Run draws
+  a new sample). Runs when the view is opened or on a deliberate change, not on every render. The PDF brief uses the same
+  `runMonteCarlo`. Histogram is fixed-width between the 1st and 99th percentile.
+- **Residential turnover (Monte Carlo and engine).** Each tenant has a yearly chance of moving out (fixed-term only after
+  the lease ends), the space sits vacant, costs a make-ready charge, then a new tenant pays the same rent. Vacancy is
+  calibrated to the deal's own vacancy setting: apartments 45% a year, make-ready $1,500; houses 30%, $2,000 (editable per
+  deal, no global setting). The normal projection still uses the vacancy rate. The rent roll's lease schedules are resolved
+  once per simulation (`createLeaseScheduleCache`); results are identical, large rent rolls stay fast.
+- **Rent roll.** Each tenant is its own lease row (unit, rent, move-in date, term, due day). "Underwrite from this rent
+  roll" copies tenants into a prospect's inputs only when pressed; owned deals keep their frozen baseline.
+- **Digest emails.** One email per property per day when the owner's threshold (default 3) tenants are due, with one
+  "Manage rent payments" checklist link: no sign-in, long random token stored as a hash, expires after 14 days, touches
+  only the leases it was issued for. Ticked tenants are recorded paid; unticked are snoozed and followed up as if
+  "Missing rent" was pressed. A single tenant gets the one-tenant email with Confirm and Snooze.
+- **Washington residential rent increases** (RCW 59.18.140 and 59.18.700; a helper, not legal advice; applies to
+  residential deals in WA). Enforced: 90 days' written notice (30 if subsidized); no increase before a fixed term ends or
+  in the first 12 months; new rent at most the lesser of 7% + CPI or 10% (2026: 9.683%, 2027: 10%; other years use 10%
+  with a warning); exempt properties skip the cap and first-year rule, not the notice. Warned only: a second increase
+  within 12 months, mailing time. The nightly escalation job skips WA residential leases unless an explicit scheduled
+  increase has a recorded notice date far enough ahead, so there is no automatic yearly increase. The owner (not the app)
+  delivers the notice and records the date; reminders go to the owner 14 and 3 days before the last notice date and the
+  day after it passes. Leases are *Fixed term* or *Month to month* (no end date, no auto-increase).
+- **Remodel.** Plans are stored in the deal's `inputs` (no migration), not as results; Live numbers change only when a
+  plan is committed. The engine supports capex plus a rent step mid-hold, optional new-loan financing, downtime rent
+  percentage, extra opex, and value by cap rate or a typed ARV.
+- **PDF brief.** Computed from facts with the shared engine; no stored metrics.
