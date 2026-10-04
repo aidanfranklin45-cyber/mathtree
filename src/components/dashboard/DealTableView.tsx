@@ -48,6 +48,7 @@ interface DealTableViewProps {
   sortField: SortField;
   sortDirection: 'asc' | 'desc';
   onSort: (field: SortField) => void;
+  hideStatusColumn?: boolean;
 }
 
 const AssetClassBadge: React.FC<{ assetClass: string }> = ({ assetClass }) => {
@@ -88,6 +89,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
   sortField,
   sortDirection,
   onSort,
+  hideStatusColumn = false,
 }) => {
   const navigate = useNavigate();
   const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null);
@@ -151,7 +153,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
               </th>
               {renderSortHeader('Property / Asset', 'title')}
               {renderSortHeader('Type', 'asset_class')}
-              {renderSortHeader('Status', 'status')}
+              {!hideStatusColumn && renderSortHeader('Status', 'status')}
               {renderSortHeader('Current Value', 'value', 'right')}
               {renderSortHeader('Debt', 'debt', 'right')}
               {renderSortHeader('Equity', 'equity', 'right')}
@@ -266,17 +268,19 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   </td>
 
                   {/* Status / Stage */}
-                  <td className="py-3 px-3 whitespace-nowrap">
-                    {isOwned ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 text-[10px] font-semibold uppercase tracking-wider">
-                        <span>Owned</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-950/40 text-blue-400 border border-blue-800/50 text-[10px] font-semibold uppercase tracking-wider">
-                        <span>Pipeline</span>
-                      </span>
-                    )}
-                  </td>
+                  {!hideStatusColumn && (
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      {isOwned ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 text-[10px] font-semibold uppercase tracking-wider">
+                          <span>Owned</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-blue-950/40 text-blue-400 border border-blue-800/50 text-[10px] font-semibold uppercase tracking-wider">
+                          <span>Pipeline</span>
+                        </span>
+                      )}
+                    </td>
+                  )}
 
                   {/* Current Value */}
                   <td className="py-3 px-3 text-right font-mono font-bold text-white tabular-nums">

@@ -10,7 +10,6 @@ import { currentLeases } from '../../lib/leases';
 import {
   CheckSquare,
   Square,
-  Eye,
   Building,
   Home,
   Warehouse,
@@ -37,6 +36,7 @@ interface DealCardProps {
   isSelected?: boolean;
   onToggleSelect?: (dealId: string) => void;
   collectedMonthly?: number;
+  hideStatusBadge?: boolean;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
@@ -85,6 +85,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   isSelected = false,
   onToggleSelect,
   collectedMonthly,
+  hideStatusBadge = false,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -209,24 +210,12 @@ const DealCardComponent: React.FC<DealCardProps> = ({
           </div>
 
           <div className="flex items-center space-x-1.5 shrink-0 ml-auto">
-            <span
-              className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${stInfo.className} border whitespace-nowrap shrink-0`}
-            >
-              {stInfo.label}
-            </span>
-
-            {onPreview && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPreview(deal);
-                }}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                title="Quick Preview"
+            {!hideStatusBadge && (
+              <span
+                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${stInfo.className} border whitespace-nowrap shrink-0`}
               >
-                <Eye className="w-3.5 h-3.5" />
-              </button>
+                {stInfo.label}
+              </span>
             )}
 
             <div className="relative" ref={menuRef}>

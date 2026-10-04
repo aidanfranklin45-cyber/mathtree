@@ -703,7 +703,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
                   <span className="text-[11px] text-slate-400 font-medium">
-                    {counts.owned} {counts.owned === 1 ? 'Owned Asset' : 'Owned Assets'}
+                    {counts.owned} {counts.owned === 1 ? 'Asset' : 'Assets'}
                   </span>
                   <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-mono text-[10px] font-semibold">
                     {portfolioKPIs.ownedLtv}% LTV
@@ -722,9 +722,6 @@ export const DashboardPage: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
                   <span className="text-[11px] text-slate-400 font-medium">
                     Debt: <strong className="text-slate-200 font-mono font-bold">{formatCurrency(portfolioKPIs.ownedDebt)}</strong>
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-950/50 border border-emerald-800/60 text-emerald-400 text-[10px] font-semibold uppercase font-mono">
-                    NAV Stake
                   </span>
                 </div>
               </div>
@@ -747,13 +744,6 @@ export const DashboardPage: React.FC = () => {
                       ? '100% Financed'
                       : `${portfolioKPIs.avgCoc.toFixed(1)}% CoC Yield`}
                   </span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                    collectedMonthlyMap.size > 0
-                      ? 'bg-emerald-950/50 border border-emerald-800/60 text-emerald-400'
-                      : 'bg-slate-900 border border-slate-800 text-slate-400'
-                  }`}>
-                    {collectedMonthlyMap.size > 0 ? 'Live Actuals' : 'Pro-Forma'}
-                  </span>
                 </div>
               </div>
 
@@ -769,9 +759,6 @@ export const DashboardPage: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
                   <span className="text-[11px] text-slate-400 font-medium">Debt Amortization</span>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-950/50 border border-emerald-800/60 text-emerald-400 text-[10px] font-semibold uppercase font-mono">
-                    Contractual
-                  </span>
                 </div>
               </div>
             </div>
@@ -1188,6 +1175,7 @@ export const DashboardPage: React.FC = () => {
                 sortField={tableSortField}
                 sortDirection={tableSortDirection}
                 onSort={handleTableSort}
+                hideStatusColumn={statusFilter === 'owned'}
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
@@ -1204,6 +1192,7 @@ export const DashboardPage: React.FC = () => {
                     isSelected={selectedDealIds.has(deal.id)}
                     onToggleSelect={handleToggleSelect}
                     collectedMonthly={collectedMonthlyMap.get(deal.id)}
+                    hideStatusBadge={statusFilter === 'owned'}
                   />
                 ))}
               </div>
