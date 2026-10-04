@@ -670,7 +670,7 @@ export const DashboardPage: React.FC = () => {
         {/* Minimalist Greeting & Action Bar */}
         <div className="flex items-center justify-between pb-1">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
-            Hey, {greetingName}
+            Hey, <span className="text-emerald-400">{greetingName}</span>
           </h2>
 
           <button
@@ -691,38 +691,47 @@ export const DashboardPage: React.FC = () => {
               <PortfolioEquityChart deals={deals} embedded />
             </div>
 
-            {/* Right side: 4 Key Wealth Metrics (2x2 grid) */}
+            {/* Right side: Key Wealth Metrics */}
             <div className="xl:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Tile 1: Gross Asset Value */}
-              <div className="bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/90 p-4 rounded-xl transition flex flex-col justify-between">
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Gross Asset Value</span>
-                  <span className="text-2xl sm:text-3xl font-black text-white mt-1.5 block tabular-nums font-mono tracking-tight">
-                    {portfolioKPIs.ownedVal > 0 ? formatCurrency(portfolioKPIs.ownedVal) : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    {counts.owned} {counts.owned === 1 ? 'Asset' : 'Assets'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-mono text-[10px] font-semibold">
-                    {portfolioKPIs.ownedLtv}% LTV
-                  </span>
-                </div>
-              </div>
+              {/* Double-Wide Container: Gross Asset Value & Total Net Equity */}
+              <div className="sm:col-span-2 bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/90 p-4 sm:p-5 rounded-xl transition flex flex-col justify-between">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/70">
+                  {/* Left: Gross Asset Value */}
+                  <div className="flex flex-col justify-between sm:pr-4">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Gross Asset Value
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-black text-white mt-1.5 block tabular-nums font-mono tracking-tight">
+                        {portfolioKPIs.ownedVal > 0 ? formatCurrency(portfolioKPIs.ownedVal) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {counts.owned} {counts.owned === 1 ? 'Asset' : 'Assets'}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300 font-mono text-[10px] font-semibold">
+                        {portfolioKPIs.ownedLtv}% LTV
+                      </span>
+                    </div>
+                  </div>
 
-              {/* Tile 2: Total Net Equity */}
-              <div className="bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/90 p-4 rounded-xl transition flex flex-col justify-between">
-                <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Net Equity</span>
-                  <span className="text-2xl sm:text-3xl font-black text-white mt-1.5 block tabular-nums font-mono tracking-tight">
-                    {portfolioKPIs.ownedEquity > 0 ? formatCurrency(portfolioKPIs.ownedEquity) : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Debt: <strong className="text-slate-200 font-mono font-bold">{formatCurrency(portfolioKPIs.ownedDebt)}</strong>
-                  </span>
+                  {/* Right: Total Net Equity */}
+                  <div className="flex flex-col justify-between pt-3 sm:pt-0 sm:pl-4">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Total Net Equity
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-black text-white mt-1.5 block tabular-nums font-mono tracking-tight">
+                        {portfolioKPIs.ownedEquity > 0 ? formatCurrency(portfolioKPIs.ownedEquity) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2 border-t border-slate-800/70">
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        Debt: <strong className="text-slate-200 font-mono font-bold">{formatCurrency(portfolioKPIs.ownedDebt)}</strong>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
