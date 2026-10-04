@@ -5,10 +5,13 @@ import { openDealBrief } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
 import { operationsPrefetchProps } from '../../lib/prefetchRoutes';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
+import { STAGE_LABEL, type StageLens } from '../../lib/studio/stageLens';
 
 interface StudioNavbarProps {
   deal: DealRecord;
   metrics: DealMetrics;
+  /** Which tabs this deal's stage shows (see lib/studio/stageLens.ts). */
+  lens: StageLens;
   activeTab: string;
   onSelectTab: (tab: string) => void;
   onOpenEditModal: () => void;
@@ -20,6 +23,8 @@ interface StudioNavbarProps {
 
 /** Same modules, order, icons and descriptions as the legacy analysis-module dropdown. */
 export const MODULE_TABS = [
+  { key: 'performance', icon: '📈', title: 'Performance', mobile: 'Performance', subtitle: 'Expected at purchase vs today’s outlook vs what is actually collected' },
+  { key: 'operate', icon: '🍀', title: 'Operate', mobile: 'Operate', subtitle: 'Rent roll, recent payments & links into Operations' },
   { key: 'overview', icon: '📌', title: 'Deal Overview', mobile: 'Overview', subtitle: 'Executive summary, headline returns & capital structure' },
   { key: 'diligence', icon: '📋', title: 'Assumptions & Diligence', mobile: 'Diligence', subtitle: 'Purchase basis, capex & closing outlay, LTV & debt terms' },
   { key: 'proforma', icon: '📊', title: 'Pro-Forma & Cash Flows', mobile: 'Pro-Forma', subtitle: '10-year operating cash flows, stub period & monthly schedule' },
@@ -45,7 +50,7 @@ const ASSET_LABEL: Record<string, string> = {
 };
 
 export const StudioNavbar: React.FC<StudioNavbarProps> = ({
-  deal, metrics, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
+  deal, metrics, lens, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
 }) => {
   const [moduleOpen, setModuleOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,11 +60,11 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
   const addrRef = useRef<HTMLDivElement>(null);
 
   const isOwned = deal.status === 'owned';
-  const pages = isOwned ? MODULE_TABS.filter((t) => t.key !== 'diligence') : MODULE_TABS;
+  const pages = MODULE_TABS.filter((t) => (lens.tabs as readonly string[]).includes(t.key));
   const current = MODULE_TABS.find((t) => t.key === activeTab) || MODULE_TABS[0];
 
   // Wrapping prev/next like the legacy arrows (which step in this order, not the dropdown's)
-  const arrowOrder = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'].filter((k) => pages.some((p) => p.key === k));
+  const arrowOrder: string[] = [...lens.tabs];
   const navigateRelative = (delta: number) => {
     const idx = arrowOrder.indexOf(activeTab);
     if (idx === -1) return;
@@ -83,7 +88,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, deal.status]);
+  }, [activeTab, deal.status, lens.stage]);
 
   const inputs = deal.inputs || {};
   const title = resolveDealDisplayName(deal);
@@ -117,7 +122,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
             <div className="flex items-center space-x-2">
               <h1 className="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[55vw] sm:max-w-xs md:max-w-md" title={title}>{title}</h1>
               <span className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md border shrink-0 ${STATUS_PILL[statusKey]}`}>
-                {isOwned ? 'Owned' : 'Prospect'}
+                {isOwned ? 'Owned' : STAGE_LABEL[lens.stage]}
               </span>
               <span className="hidden xs:inline-block text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 shrink-0">
                 {ASSET_LABEL[assetKey] || assetKey.replace('-', ' ')}
@@ -241,10 +246,16 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                   </button>
                 )}
                 <div className="my-1 border-t border-slate-800" />
-                <Link to="/operations" {...operationsPrefetchProps} className={`${menuBtn} text-emerald-300`} title="Property Management">
-                  <span className="text-emerald-400 shrink-0">🍀</span>
-                  <span>Property Management</span>
+                <Link to={`/compare?dealId=${encodeURIComponent(deal.id)}`} className={`${menuBtn} text-slate-200`} title="Compare this property">
+                  <span className="text-sm">⚖️</span>
+                  <span>Compare</span>
                 </Link>
+                {lens.showOperations && (
+                  <Link to="/operations" {...operationsPrefetchProps} className={`${menuBtn} text-emerald-300`} title="Property Management">
+                    <span className="text-emerald-400 shrink-0">🍀</span>
+                    <span>Property Management</span>
+                  </Link>
+                )}
                 <div className="my-1 border-t border-slate-800" />
                 <button onClick={() => { void openDealBrief(deal.id); }} className={`${menuBtn} text-slate-200`}>
                   <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>

@@ -10,6 +10,9 @@ import { DebtTab } from '../components/studio/tabs/DebtTab';
 import { DiligenceTab } from '../components/studio/tabs/DiligenceTab';
 import { SensitivityTab } from '../components/studio/tabs/SensitivityTab';
 import { TaxTab } from '../components/studio/tabs/TaxTab';
+import { PerformanceTab } from '../components/studio/tabs/PerformanceTab';
+import { OperateTab } from '../components/studio/tabs/OperateTab';
+import { getStageLens, resolveTab } from '../lib/studio/stageLens';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import { ParameterHistoryModal } from '../components/studio/modals/ParameterHistoryModal';
 import { DealAuditorBanner } from '../components/studio/DealAuditorBanner';
@@ -121,12 +124,17 @@ export const DealStudioPage: React.FC = () => {
     );
   }
 
+  // The stage decides which tabs exist and which one opens first; a stored or linked tab this stage does not show falls back to its default
+  const lens = getStageLens(deal);
+  const tab = resolveTab(lens, activeTab);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative">
       <StudioNavbar
         deal={deal}
         metrics={metrics}
-        activeTab={activeTab}
+        lens={lens}
+        activeTab={tab}
         onSelectTab={setActiveTab}
         onOpenEditModal={() => setIsEditModalOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
@@ -144,14 +152,16 @@ export const DealStudioPage: React.FC = () => {
         />
         <DealAuditorBanner deal={deal} metrics={metrics} />
 
-        {activeTab === 'overview' && <OverviewTab deal={deal} metrics={metrics} onSelectTab={setActiveTab} onOpenEdit={() => setIsEditModalOpen(true)} />}
-        {activeTab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
-        {activeTab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
-        {activeTab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
-        {activeTab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
-        {activeTab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
-        {activeTab === 'tax' && tax && <TaxTab deal={deal} metrics={metrics} tax={tax} />}
-        {activeTab === 'tax' && !tax && (
+        {tab === 'performance' && <PerformanceTab deal={deal} metrics={metrics} />}
+        {tab === 'operate' && <OperateTab deal={deal} />}
+        {tab === 'overview' && <OverviewTab deal={deal} metrics={metrics} onSelectTab={setActiveTab} onOpenEdit={() => setIsEditModalOpen(true)} />}
+        {tab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
+        {tab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
+        {tab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
+        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
+        {tab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
+        {tab === 'tax' && tax && <TaxTab deal={deal} metrics={metrics} tax={tax} />}
+        {tab === 'tax' && !tax && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
           </div>
