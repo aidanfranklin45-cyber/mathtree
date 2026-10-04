@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { DealRecord } from '../lib/math/types';
 import { tryComputeDealMetrics } from '../lib/engine/compute';
 import { computePortfolioKpis } from '../lib/portfolio/kpis';
 import { loadPortfolioDeals } from '../lib/portfolio/loadDeals';
+import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
 import { DealCard } from '../components/dashboard/DealCard';
+import { DealTableView, SortField } from '../components/dashboard/DealTableView';
+import { DealSidePreview } from '../components/dashboard/DealSidePreview';
+import { BulkActionsBar } from '../components/dashboard/BulkActionsBar';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { fetchProfile, getProfile } from '../lib/profile';
@@ -19,15 +23,13 @@ import { ensureBaseline } from '../lib/baselines/db';
 import {
   Building,
   Plus,
-  FileDown,
   Search,
   Filter,
   X,
   RefreshCw,
-  Landmark,
-  TrendingUp,
-  Layers,
   ChevronDown,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 
 interface LegalEntity {
@@ -41,12 +43,15 @@ const resolveInitialGreeting = (): string => {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (key && (key.startsWith('sb-') && key.endsWith('-auth-token'))) {
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
         const raw = localStorage.getItem(key);
         if (raw) {
           const parsed = JSON.parse(raw);
           const user = parsed?.user;
-          const metaName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.user_metadata?.first_name;
+          const metaName =
+            user?.user_metadata?.full_name ||
+            user?.user_metadata?.name ||
+            user?.user_metadata?.first_name;
           if (metaName) {
             const first = metaName.trim().split(/\s+/)[0];
             if (first) return first;
@@ -54,7 +59,9 @@ const resolveInitialGreeting = (): string => {
         }
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return 'Investor';
 };
 
@@ -62,38 +69,91 @@ export const DashboardPage: React.FC = () => {
   const [deals, setDeals] = useState<DealRecord[]>([]);
   const [entities, setEntities] = useState<LegalEntity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collectedMonthlyMap, setCollectedMonthlyMap] = useState<Map<string, number>>(new Map());
 
-  // Filter States (Matching dashboard.html Amazon Shopping-Style Refine Sidebar)
+  // View Mode: Cards Grid vs Table View
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>(() => {
+    try {
+      const stored = localStorage.getItem('mathtree_dashboard_view_mode');
+      return stored === 'table' ? 'table' : 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+
+  const handleSetViewMode = (mode: 'grid' | 'table') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('mathtree_dashboard_view_mode', mode);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Table Sort State
+  const [tableSortField, setTableSortField] = useState<SortField>('value');
+  const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Multi-Select State
+  const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
+
+  // Side-Panel Preview State
+  const [previewDeal, setPreviewDeal] = useState<DealRecord | null>(null);
+
+  // Search input ref for keyboard focus
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter States
   const [statusFilter, setStatusFilter] = useState<'owned' | 'prospect' | 'all'>('owned');
-  const [assetFilter, setAssetFilter] = useState<'all' | 'single-family' | 'multi-unit' | 'commercial' | 'storage'>('all');
+  const [assetFilter, setAssetFilter] = useState<
+    'all' | 'single-family' | 'multi-unit' | 'commercial' | 'storage'
+  >('all');
   const [entityFilter, setEntityFilter] = useState<string>('all');
   const [sharedOnly, setSharedOnly] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<'newest' | 'price-desc' | 'price-asc' | 'irr-desc' | 'coc-desc'>('newest');
+  const [sortBy, setSortBy] = useState<
+    'newest' | 'price-desc' | 'price-asc' | 'irr-desc' | 'coc-desc'
+  >('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
   // Modals state
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [isSampleData, setIsSampleData] = useState(false);
   const [entitiesOpen, setEntitiesOpen] = useState(false);
-  const isDemoSandbox = (() => { try { return !!localStorage.getItem('mathtree_demo_mode'); } catch { return false; } })();
-  const exitDemoMode = () => {
-    window.MathTreeSession.clearSessionStorage();
-    try {
-      localStorage.removeItem('mathtree_entities_cache');
-      localStorage.removeItem('mathtree_selected_entity_id');
-    } catch { /* ignore */ }
-    window.location.replace(window.MathTreeSession.getLoginUrl());
-  };
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
+
+  // Keyboard shortcut listener: press "/" or "Cmd+K" / "Ctrl+K" to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' ||
+        ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))
+      ) {
+        const active = document.activeElement;
+        const isInputField =
+          active &&
+          (active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            active.tagName === 'SELECT');
+        if (!isInputField) {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // Entities and deals load in parallel; the deal set itself comes from the shared loader (also used by the portfolio brief)
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+
       const [entRes, loaded] = await Promise.all([
         supabase.from('entities').select('id, name'),
         loadPortfolioDeals(),
@@ -103,9 +163,48 @@ export const DashboardPage: React.FC = () => {
         setEntities(entRes.data as LegalEntity[]);
       }
 
-      const list = loaded.deals;
-      setIsSampleData(loaded.isSample);
-      setDeals(list);
+      // Read live data only: exclude demo or unowned rows
+      const liveDeals = (loaded.deals || []).filter((d) => {
+        if (d.is_demo) return false;
+        if (!user) return false;
+        return d.user_id === user.id || d.is_shared === true;
+      });
+
+      setDeals(liveDeals);
+
+      // Load paid payments for owned deals to distinguish Collected vs Estimated
+      const ownedIds = liveDeals.filter((d) => d.status === 'owned').map((d) => d.id);
+      if (ownedIds.length > 0) {
+        try {
+          const { data: payData } = await supabase
+            .from('rent_payments')
+            .select('deal_id, amount_paid, period_month, status')
+            .in('deal_id', ownedIds)
+            .eq('status', 'paid');
+
+          if (payData && payData.length > 0) {
+            const dealPeriods = new Map<string, { latestPeriod: string; amount: number }>();
+            payData.forEach((p: any) => {
+              const cur = dealPeriods.get(p.deal_id);
+              const amt = Number(p.amount_paid) || 0;
+              const period = String(p.period_month || '');
+              if (!cur || period > cur.latestPeriod) {
+                dealPeriods.set(p.deal_id, { latestPeriod: period, amount: amt });
+              } else if (period === cur.latestPeriod) {
+                cur.amount += amt;
+              }
+            });
+
+            const pMap = new Map<string, number>();
+            dealPeriods.forEach((val, dId) => {
+              if (val.amount > 0) pMap.set(dId, val.amount);
+            });
+            setCollectedMonthlyMap(pMap);
+          }
+        } catch (e) {
+          console.warn('[dashboard] could not fetch payments:', e);
+        }
+      }
     } catch (err) {
       console.error('Failed to load portfolio deals:', err);
     } finally {
@@ -117,7 +216,7 @@ export const DashboardPage: React.FC = () => {
     loadData();
   }, []);
 
-  // Greeting uses user session metadata or direct profile table (avoids edge function cold start)
+  // Greeting resolution
   useEffect(() => {
     let live = true;
     (async () => {
@@ -126,8 +225,10 @@ export const DashboardPage: React.FC = () => {
         const user = data?.user;
         if (!user || !live) return;
 
-        // 1. Instant check from user metadata / JWT
-        const metaName = user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.first_name;
+        const metaName =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.user_metadata?.first_name;
         if (metaName) {
           const first = metaName.trim().split(/\s+/)[0];
           if (first && live) {
@@ -136,7 +237,6 @@ export const DashboardPage: React.FC = () => {
           }
         }
 
-        // 2. Fast direct Postgres query (bypasses cold edge function)
         const { data: prof } = await supabase
           .from('profiles')
           .select('full_name')
@@ -151,13 +251,16 @@ export const DashboardPage: React.FC = () => {
           }
         }
 
-        // 3. Fallback to cached profile
         const p = getProfile(user);
         const first = (p.fullName || '').trim().split(/\s+/)[0];
         if (live && first && first !== 'Investor') setGreetingName(first);
-      } catch { /* keep default greeting */ }
+      } catch {
+        /* keep default greeting */
+      }
     })();
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, []);
 
   const handleEditDeal = useCallback((deal: DealRecord) => {
@@ -175,23 +278,21 @@ export const DashboardPage: React.FC = () => {
   const handleToggleStatus = useCallback(async (deal: DealRecord) => {
     const nextStatus = deal.status === 'owned' ? 'prospect' : 'owned';
     try {
-      await supabase
-        .from('deals')
-        .update({ status: nextStatus })
-        .eq('id', deal.id);
+      await supabase.from('deals').update({ status: nextStatus }).eq('id', deal.id);
 
       setDeals((prev) =>
         prev.map((d) => (d.id === deal.id ? { ...d, status: nextStatus } : d)),
       );
-      // Freeze what we expected at acquisition the moment a deal becomes Owned
       if (nextStatus === 'owned') void ensureBaseline({ ...deal, status: 'owned' });
     } catch (err) {
       console.error('Failed to toggle deal status:', err);
     }
   }, []);
 
-  /** Full Edit Project Inputs (same form as the Deal Studio): saves facts only and logs a scenario run. */
-  const handleSaveEdit = async (inputsPatch: Record<string, any>, top: DealTopPatch): Promise<boolean> => {
+  const handleSaveEdit = async (
+    inputsPatch: Record<string, any>,
+    top: DealTopPatch,
+  ): Promise<boolean> => {
     const target = editingDeal;
     if (!target) return false;
     const inputs = { ...target.inputs, ...inputsPatch };
@@ -206,7 +307,12 @@ export const DashboardPage: React.FC = () => {
       console.error('Failed to save deal edits:', error);
       return false;
     }
-    const merged = { ...target, ...top, purchase_price: payload.purchase_price, inputs } as DealRecord;
+    const merged = {
+      ...target,
+      ...top,
+      purchase_price: payload.purchase_price,
+      inputs,
+    } as DealRecord;
     setDeals((prev) => prev.map((d) => (d.id === target.id ? merged : d)));
     await recordScenarioRun(merged);
     if (merged.status === 'owned') void ensureBaseline(merged);
@@ -217,6 +323,12 @@ export const DashboardPage: React.FC = () => {
     try {
       await supabase.from('deals').delete().eq('id', dealId);
       setDeals((prev) => prev.filter((d) => d.id !== dealId));
+      setSelectedDealIds((prev) => {
+        const next = new Set(prev);
+        next.delete(dealId);
+        return next;
+      });
+      if (previewDeal?.id === dealId) setPreviewDeal(null);
     } catch (err) {
       console.error('Failed to delete deal:', err);
     }
@@ -242,7 +354,11 @@ export const DashboardPage: React.FC = () => {
   // Base list for dynamic counter badges
   const baseForCounts = useMemo(() => {
     return deals.filter((d) => {
-      if (entityFilter !== 'all' && d.entity_id !== entityFilter && d.inputs?.entity_id !== entityFilter) {
+      if (
+        entityFilter !== 'all' &&
+        d.entity_id !== entityFilter &&
+        d.inputs?.entity_id !== entityFilter
+      ) {
         return false;
       }
       if (sharedOnly && !d.is_shared) {
@@ -254,7 +370,8 @@ export const DashboardPage: React.FC = () => {
         const locMatch = (d.location || '').toLowerCase().includes(q);
         const cityMatch = (d.city || '').toLowerCase().includes(q);
         const apnMatch = (d.primary_apn || d.inputs?.apn || '').toLowerCase().includes(q);
-        const tenantMatch = Array.isArray(d.inputs?.leases) &&
+        const tenantMatch =
+          Array.isArray(d.inputs?.leases) &&
           d.inputs.leases.some((l: any) => (l.tenantName || '').toLowerCase().includes(q));
         if (!titleMatch && !locMatch && !cityMatch && !apnMatch && !tenantMatch) {
           return false;
@@ -290,14 +407,12 @@ export const DashboardPage: React.FC = () => {
     return { owned, prospect, all, sfr, multi, commercial, storage };
   }, [baseForCounts]);
 
-  // Filtered & Sorted deals for the Grid
+  // Filtered deals
   const filteredDeals = useMemo(() => {
     let result = baseForCounts.filter((d) => {
-      // Status filter
       if (statusFilter !== 'all' && (d.status || 'prospect') !== statusFilter) {
         return false;
       }
-      // Asset filter
       if (assetFilter !== 'all') {
         const ac = String(d.asset_class || d.assetType || '').toLowerCase();
         if (assetFilter === 'multi-unit') {
@@ -311,28 +426,208 @@ export const DashboardPage: React.FC = () => {
       return true;
     });
 
-    // Sorting with precomputed keys (avoids O(N log N) redundant financial projections)
-    if (sortBy === 'price-desc') {
-      result.sort((a, b) => (Number(b.purchase_price) || 0) - (Number(a.purchase_price) || 0));
-    } else if (sortBy === 'price-asc') {
-      result.sort((a, b) => (Number(a.purchase_price) || 0) - (Number(b.purchase_price) || 0));
-    } else if (sortBy === 'irr-desc') {
-      const irrMap = new Map<string, number>();
-      result.forEach((d) => irrMap.set(d.id, tryComputeDealMetrics(d)?.irr || 0));
-      result.sort((a, b) => (irrMap.get(b.id) || 0) - (irrMap.get(a.id) || 0));
-    } else if (sortBy === 'coc-desc') {
-      const cocMap = new Map<string, number>();
-      result.forEach((d) => cocMap.set(d.id, tryComputeDealMetrics(d)?.cashOnCash || 0));
-      result.sort((a, b) => (cocMap.get(b.id) || 0) - (cocMap.get(a.id) || 0));
+    // If in table mode, sort by table sort field
+    if (viewMode === 'table') {
+      result.sort((a, b) => {
+        const pitA = resolvePointInTimeDealMetrics(a, new Date());
+        const pitB = resolvePointInTimeDealMetrics(b, new Date());
+        const engA = tryComputeDealMetrics(a);
+        const engB = tryComputeDealMetrics(b);
+
+        let valA = 0;
+        let valB = 0;
+
+        switch (tableSortField) {
+          case 'title':
+            return tableSortDirection === 'asc'
+              ? a.title.localeCompare(b.title)
+              : b.title.localeCompare(a.title);
+          case 'asset_class':
+            return tableSortDirection === 'asc'
+              ? (a.asset_class || '').localeCompare(b.asset_class || '')
+              : (b.asset_class || '').localeCompare(a.asset_class || '');
+          case 'status':
+            return tableSortDirection === 'asc'
+              ? (a.status || '').localeCompare(b.status || '')
+              : (b.status || '').localeCompare(a.status || '');
+          case 'value':
+            valA = pitA.currentVal || 0;
+            valB = pitB.currentVal || 0;
+            break;
+          case 'debt':
+            valA = pitA.currentDebt || 0;
+            valB = pitB.currentDebt || 0;
+            break;
+          case 'equity':
+            valA = pitA.currentEquity || 0;
+            valB = pitB.currentEquity || 0;
+            break;
+          case 'cashflow':
+            valA = collectedMonthlyMap.get(a.id) || (pitA.currentCashFlow ? pitA.currentCashFlow / 12 : 0);
+            valB = collectedMonthlyMap.get(b.id) || (pitB.currentCashFlow ? pitB.currentCashFlow / 12 : 0);
+            break;
+          case 'dscr':
+            valA = Number(engA?.dscr) || 0;
+            valB = Number(engB?.dscr) || 0;
+            break;
+          case 'return':
+            valA = Number(engA?.irr || pitA.irr || engA?.cashOnCash || 0);
+            valB = Number(engB?.irr || pitB.irr || engB?.cashOnCash || 0);
+            break;
+          default:
+            valA = new Date(a.created_at || 0).getTime();
+            valB = new Date(b.created_at || 0).getTime();
+        }
+
+        return tableSortDirection === 'asc' ? valA - valB : valB - valA;
+      });
     } else {
-      result.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      // Standard grid sorting
+      if (sortBy === 'price-desc') {
+        result.sort((a, b) => (Number(b.purchase_price) || 0) - (Number(a.purchase_price) || 0));
+      } else if (sortBy === 'price-asc') {
+        result.sort((a, b) => (Number(a.purchase_price) || 0) - (Number(b.purchase_price) || 0));
+      } else if (sortBy === 'irr-desc') {
+        const irrMap = new Map<string, number>();
+        result.forEach((d) => irrMap.set(d.id, tryComputeDealMetrics(d)?.irr || 0));
+        result.sort((a, b) => (irrMap.get(b.id) || 0) - (irrMap.get(a.id) || 0));
+      } else if (sortBy === 'coc-desc') {
+        const cocMap = new Map<string, number>();
+        result.forEach((d) => cocMap.set(d.id, tryComputeDealMetrics(d)?.cashOnCash || 0));
+        result.sort((a, b) => (cocMap.get(b.id) || 0) - (cocMap.get(a.id) || 0));
+      } else {
+        result.sort(
+          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+        );
+      }
     }
 
     return result;
-  }, [baseForCounts, statusFilter, assetFilter, sortBy]);
+  }, [
+    baseForCounts,
+    statusFilter,
+    assetFilter,
+    sortBy,
+    viewMode,
+    tableSortField,
+    tableSortDirection,
+    collectedMonthlyMap,
+  ]);
 
-  // 4 executive KPI tiles: the same function the portfolio brief uses
+  // Executive KPI tiles
   const portfolioKPIs = useMemo(() => computePortfolioKpis(deals, new Date()), [deals]);
+
+  // Multi-select handlers
+  const handleToggleSelect = useCallback((dealId: string) => {
+    setSelectedDealIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(dealId)) next.delete(dealId);
+      else next.add(dealId);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedDealIds.size === filteredDeals.length) {
+      setSelectedDealIds(new Set());
+    } else {
+      setSelectedDealIds(new Set(filteredDeals.map((d) => d.id)));
+    }
+  }, [selectedDealIds.size, filteredDeals]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedDealIds(new Set());
+  }, []);
+
+  const handleBulkMarkOwned = async () => {
+    const ids = Array.from(selectedDealIds);
+    try {
+      await supabase.from('deals').update({ status: 'owned' }).in('id', ids);
+      setDeals((prev) =>
+        prev.map((d) => (selectedDealIds.has(d.id) ? { ...d, status: 'owned' } : d)),
+      );
+      setSelectedDealIds(new Set());
+    } catch (e) {
+      console.error('Bulk mark owned failed:', e);
+    }
+  };
+
+  const handleBulkMovePipeline = async () => {
+    const ids = Array.from(selectedDealIds);
+    try {
+      await supabase.from('deals').update({ status: 'prospect' }).in('id', ids);
+      setDeals((prev) =>
+        prev.map((d) => (selectedDealIds.has(d.id) ? { ...d, status: 'prospect' } : d)),
+      );
+      setSelectedDealIds(new Set());
+    } catch (e) {
+      console.error('Bulk move pipeline failed:', e);
+    }
+  };
+
+  const handleBulkExportCsv = () => {
+    const targetDeals = deals.filter((d) => selectedDealIds.has(d.id));
+    if (targetDeals.length === 0) return;
+
+    const rows = targetDeals.map((d) => {
+      const pit = resolvePointInTimeDealMetrics(d, new Date());
+      const eng = tryComputeDealMetrics(d);
+      const isOwned = d.status === 'owned';
+      const colMonthly = collectedMonthlyMap.get(d.id);
+      const hasColl = isOwned && colMonthly !== undefined && colMonthly > 0;
+      const mCf = hasColl
+        ? colMonthly
+        : pit.currentCashFlow
+        ? pit.currentCashFlow / 12
+        : Number(eng?.year1Cashflow)
+        ? Number(eng?.year1Cashflow) / 12
+        : 0;
+
+      return {
+        Title: d.title,
+        Location: d.location || d.address || '',
+        AssetClass: d.asset_class || d.assetType || '',
+        Status: d.status || 'prospect',
+        CurrentValue: Math.round(pit.currentVal || 0),
+        Debt: Math.round(pit.currentDebt || 0),
+        Equity: Math.round(pit.currentEquity || 0),
+        MonthlyCashFlow: Math.round(mCf),
+        CashFlowBasis: hasColl ? 'Collected' : 'Estimated',
+        DSCR: eng?.dscr || '',
+        IRR: eng?.irr || '',
+        CashOnCash: eng?.cashOnCash || '',
+      };
+    });
+
+    const headers = Object.keys(rows[0]).join(',');
+    const csvContent = [
+      headers,
+      ...rows.map((r) =>
+        Object.values(r)
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(','),
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mathtree_portfolio_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleTableSort = (field: SortField) => {
+    if (tableSortField === field) {
+      setTableSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setTableSortField(field);
+      setTableSortDirection('desc');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -343,115 +638,120 @@ export const DashboardPage: React.FC = () => {
           const first = (profile.fullName || '').trim().split(/\s+/)[0];
           if (first) setGreetingName(first);
         }}
-        onDealsChanged={() => { void loadData(); }}
+        onDealsChanged={() => {
+          void loadData();
+        }}
       />
 
-      {isDemoSandbox ? (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">🧪</span>
-            <span><strong>Interactive Demo Sandbox Active</strong> — You are viewing simulated portfolio data. All underwriting adjustments persist in your browser session.</span>
-          </div>
-          <button onClick={exitDemoMode} className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[11px] font-bold transition">Exit Demo Mode</button>
-        </div>
-      ) : isSampleData ? (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">🌱</span>
-            <span><strong>Welcome to MathTree</strong> — You don't have any custom properties yet. You are viewing sample prospects backed by real Yakima County Assessor data. Click <strong>"+ New Project"</strong> above to analyze your first property.</span>
-          </div>
-          <button onClick={() => setIsWizardOpen(true)} className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition">+ New Project</button>
-        </div>
-      ) : null}
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-6">
-        {/* Greeting & New Project Hero Banner */}
-        <div className="bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-emerald-950/20 border border-slate-900 p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6 backdrop-blur-sm">
-          <div className="space-y-1 sm:space-y-1.5">
-            <h2 className="text-xl sm:text-3xl font-black text-white tracking-tight">
-              Hey, <span className="text-brand-400">{greetingName}</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl">
-              Welcome to your Comprehensive Analysis and Administration Platform for Real Estate.
+      {/* Main Content Area - Full Desktop Width */}
+      <main className="flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-5 sm:py-6 space-y-5">
+        {/* Compact Institutional Top Header */}
+        <div className="bg-slate-900/60 border border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 backdrop-blur-sm">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                Hey, <span className="text-brand-400">{greetingName}</span>
+              </h2>
+              <span className="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{counts.owned} Owned</span>
+                <span className="text-slate-600">•</span>
+                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span>{counts.prospect} Pipeline</span>
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Active real estate investment and operational performance overview.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+
+          <div className="flex items-center space-x-2.5 w-full md:w-auto">
             <button
               onClick={() => setIsWizardOpen(true)}
-              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition flex items-center justify-center space-x-2"
+              className="px-4 py-2.5 rounded-xl text-xs font-extrabold text-slate-950 bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition flex items-center justify-center space-x-1.5 w-full md:w-auto"
             >
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Create New Project</span>
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>Create Project</span>
             </button>
           </div>
         </div>
 
-        {/* 4 Executive KPI Tiles (Matching dashboard.html) */}
+        {/* 4 Executive KPI Tiles - Wider Desktop Stat Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Tile 1: Gross Asset Value */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-5 rounded-2xl transition">
+          <div className="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Gross Asset Value</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
             </div>
-            <span className="text-lg sm:text-2xl font-black text-emerald-400 mt-1 sm:mt-2 block tabular-nums">
+            <span className="text-xl sm:text-2xl font-black text-emerald-400 mt-1 block tabular-nums font-mono">
               {formatCurrency(portfolioKPIs.ownedVal)}
             </span>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900">
-              <span>Net Equity: <strong className="text-slate-200 font-bold">{formatCurrency(portfolioKPIs.ownedEquity)}</strong></span>
-              <span className="text-slate-500 font-mono text-[9px] sm:text-[10px]">{portfolioKPIs.ownedLtv}% LTV • Debt: {formatCurrency(portfolioKPIs.ownedDebt)}</span>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
+              <span>
+                Net Equity: <strong className="text-slate-200 font-bold font-mono">{formatCurrency(portfolioKPIs.ownedEquity)}</strong>
+              </span>
+              <span className="text-slate-500 font-mono text-[10px]">
+                {portfolioKPIs.ownedLtv}% LTV
+              </span>
             </div>
           </div>
 
           {/* Tile 2: Owned Annual Cash Flow */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-5 rounded-2xl transition">
+          <div className="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Owned Annual Cash Flow</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
             </div>
-            <span className="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block tabular-nums">
-              {formatCurrency(portfolioKPIs.ownedCashflow)}/yr
+            <span className="text-xl sm:text-2xl font-black text-white mt-1 block tabular-nums font-mono">
+              {formatCurrency(portfolioKPIs.ownedCashflow)}<span className="text-slate-400 font-sans text-xs">/yr</span>
             </span>
-            <span className="text-[10px] sm:text-[11px] text-emerald-400 mt-0.5 block truncate">
-              {portfolioKPIs.ownedEquity <= 0 && portfolioKPIs.ownedCashflow > 0
-                ? 'N/M (100% Financed)'
-                : `${portfolioKPIs.avgCoc.toFixed(1)}% Blended CoC Yield`}
-            </span>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
+              <span className="text-emerald-400 font-semibold truncate">
+                {portfolioKPIs.ownedEquity <= 0 && portfolioKPIs.ownedCashflow > 0
+                  ? '100% Financed'
+                  : `${portfolioKPIs.avgCoc.toFixed(1)}% Blended CoC`}
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                {collectedMonthlyMap.size > 0 ? 'Live Actuals' : 'Pro-Forma'}
+              </span>
+            </div>
           </div>
 
           {/* Tile 3: Active Pipeline Volume */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-cyan-900/40 p-3.5 sm:p-5 rounded-2xl transition">
+          <div className="bg-slate-900/50 border border-slate-900 hover:border-cyan-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Pipeline Volume</span>
-              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
             </div>
-            <span className="text-lg sm:text-2xl font-black text-cyan-400 mt-1 sm:mt-2 block tabular-nums">
+            <span className="text-xl sm:text-2xl font-black text-cyan-400 mt-1 block tabular-nums font-mono">
               {formatCurrency(portfolioKPIs.pipelineVal)}
             </span>
-            <span className="text-[11px] text-slate-400 mt-0.5 block truncate">
-              {portfolioKPIs.pipelineCount} active prospective {portfolioKPIs.pipelineCount === 1 ? 'deal' : 'deals'}
-            </span>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
+              <span>
+                {portfolioKPIs.pipelineCount} active {portfolioKPIs.pipelineCount === 1 ? 'prospect' : 'prospects'}
+              </span>
+              <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">Underwriting</span>
+            </div>
           </div>
 
           {/* Tile 4: Pipeline Target IRR */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-cyan-900/40 p-3.5 sm:p-5 rounded-2xl transition">
+          <div className="bg-slate-900/50 border border-slate-900 hover:border-cyan-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
             <div className="flex items-center justify-between text-slate-400">
               <span className="text-[10px] font-extrabold uppercase tracking-wider">Pipeline Target IRR</span>
-              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
             </div>
-            <span className="text-lg sm:text-2xl font-black text-white mt-1 sm:mt-2 block tabular-nums">
-              {portfolioKPIs.blendedIrr.toFixed(1)}%
+            <span className="text-xl sm:text-2xl font-black text-white mt-1 block tabular-nums font-mono">
+              {portfolioKPIs.blendedIrr > 0 ? `${portfolioKPIs.blendedIrr.toFixed(1)}%` : '—'}
             </span>
-            <span className="text-[11px] text-cyan-400 mt-0.5 block truncate">
-              Blended target return
-            </span>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
+              <span className="text-cyan-400 font-semibold truncate">Blended Target Return</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">10-Yr Model</span>
+            </div>
           </div>
         </div>
 
-        {/* Main Explorer Section: Amazon-Style Refine Sidebar + Cards Grid */}
+        {/* Main Section: Pinned Refine Sidebar + Results Grid/Table */}
         <div className="flex flex-col lg:flex-row items-start gap-6 pt-1">
           {/* Mobile Refine Drawer Toggle */}
           <div className="lg:hidden w-full flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-3 shadow-md">
@@ -473,14 +773,20 @@ export const DashboardPage: React.FC = () => {
             </span>
           </div>
 
-          {/* Left Sidebar: Amazon Shopping-Style Refine Panel */}
-          <aside className={`w-full lg:w-72 shrink-0 space-y-4 ${isMobileFilterOpen ? 'block' : 'hidden lg:block'}`}>
+          {/* Left Sidebar: Pinned on Desktop (sticky top-20) */}
+          <aside
+            className={`w-full lg:w-72 xl:w-80 shrink-0 space-y-4 lg:sticky lg:top-20 z-20 ${
+              isMobileFilterOpen ? 'block' : 'hidden lg:block'
+            }`}
+          >
             <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 sm:p-5 backdrop-blur-sm space-y-5 shadow-xl">
               {/* Header & Reset Button */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
                 <div className="flex items-center space-x-2">
                   <Filter className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">Refine Deals</h3>
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
+                    Refine Deals
+                  </h3>
                 </div>
                 {isAnyFilterActive && (
                   <button
@@ -493,18 +799,24 @@ export const DashboardPage: React.FC = () => {
                 )}
               </div>
 
-              {/* 1. Search Box */}
+              {/* 1. Search Box with Keyboard Focus Hint */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                  Search Portfolio
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                    Search Portfolio
+                  </label>
+                  <kbd className="hidden sm:inline-block text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 font-mono">
+                    /
+                  </kbd>
+                </div>
                 <div className="relative">
                   <input
+                    ref={searchInputRef}
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search address, name, city..."
-                    className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-emerald-500 rounded-xl px-3 py-2 pl-8 pr-7 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition"
+                    placeholder="Search address, title, tenant..."
+                    className="w-full bg-slate-950/80 border border-slate-800 hover:border-slate-700 focus:border-emerald-500 rounded-xl px-3 py-2 pl-8 pr-7 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition font-sans"
                   />
                   <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
                   {searchQuery && (
@@ -519,7 +831,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 2. Portfolio Status (Owned is default resting state) */}
+              {/* 2. Portfolio Status */}
               <div className="space-y-2">
                 <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                   Deal Status
@@ -535,10 +847,10 @@ export const DashboardPage: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
                       <span>Owned Portfolio</span>
                     </div>
-                    <span className="text-[11px] opacity-90">{counts.owned}</span>
+                    <span className="text-[11px] opacity-90 font-mono">{counts.owned}</span>
                   </button>
 
                   <button
@@ -551,10 +863,10 @@ export const DashboardPage: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                      <span className="w-2 h-2 rounded-full bg-cyan-400" />
                       <span>Pipeline / Prospects</span>
                     </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{counts.prospect}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.prospect}</span>
                   </button>
 
                   <button
@@ -567,10 +879,10 @@ export const DashboardPage: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-white"></span>
+                      <span className="w-2 h-2 rounded-full bg-white" />
                       <span>All Deals</span>
                     </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{counts.all}</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.all}</span>
                   </button>
                 </div>
               </div>
@@ -591,7 +903,7 @@ export const DashboardPage: React.FC = () => {
                     }`}
                   >
                     <span>All Property Types</span>
-                    <span className="text-[11px] opacity-90">{counts.all}</span>
+                    <span className="text-[11px] opacity-90 font-mono">{counts.all}</span>
                   </button>
 
                   <button
@@ -603,11 +915,8 @@ export const DashboardPage: React.FC = () => {
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <div className="flex items-center space-x-2 truncate">
-                      <span>🏡</span>
-                      <span className="truncate">Single Family (SFR)</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{counts.sfr}</span>
+                    <span>Single Family (SFR)</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.sfr}</span>
                   </button>
 
                   <button
@@ -619,11 +928,8 @@ export const DashboardPage: React.FC = () => {
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <div className="flex items-center space-x-2 truncate">
-                      <span>🏢</span>
-                      <span className="truncate">Multi-Unit / Apartments</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{counts.multi}</span>
+                    <span>Multi-Unit / Residential</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.multi}</span>
                   </button>
 
                   <button
@@ -635,11 +941,8 @@ export const DashboardPage: React.FC = () => {
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <div className="flex items-center space-x-2 truncate">
-                      <span>🏬</span>
-                      <span className="truncate">Commercial / Retail</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{counts.commercial}</span>
+                    <span>Commercial / Retail</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.commercial}</span>
                   </button>
 
                   <button
@@ -651,16 +954,13 @@ export const DashboardPage: React.FC = () => {
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                     }`}
                   >
-                    <div className="flex items-center space-x-2 truncate">
-                      <span>📦</span>
-                      <span className="truncate">Self-Storage</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 shrink-0">{counts.storage}</span>
+                    <span>Self-Storage</span>
+                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.storage}</span>
                   </button>
                 </div>
               </div>
 
-              {/* 4. Holding Entity (LLC) Dropdown */}
+              {/* 4. Holding Entity Dropdown */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                   Holding Entity (LLC)
@@ -699,14 +999,14 @@ export const DashboardPage: React.FC = () => {
             </div>
           </aside>
 
-          {/* Right Column: Results Bar & Deal Cards Grid */}
-          <div className="flex-grow w-full min-w-0 space-y-4">
-            {/* Results Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/40 border border-slate-900 rounded-2xl px-4 py-3">
+          {/* Right Column: Results Bar & Deal Cards / Table */}
+          <div className="flex-1 w-full min-w-0 space-y-4">
+            {/* Results Bar with View Toggle & Sort */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/40 border border-slate-800/80 rounded-2xl px-4 py-2.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-slate-300">
-                  Showing <span className="text-emerald-400 font-black">{filteredDeals.length}</span> of{' '}
-                  <span className="text-slate-400">{deals.length}</span> deals
+                  Showing <span className="text-emerald-400 font-mono font-black">{filteredDeals.length}</span> of{' '}
+                  <span className="text-slate-400 font-mono">{deals.length}</span> deals
                 </span>
 
                 {/* Active Filter Pills */}
@@ -717,7 +1017,7 @@ export const DashboardPage: React.FC = () => {
                       onClick={() => setStatusFilter('owned')}
                       className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"
                     >
-                      <span>Status: {statusFilter === 'all' ? 'All Deals' : 'Pipeline Only'}</span>
+                      <span>Status: {statusFilter === 'all' ? 'All' : 'Pipeline'}</span>
                       <X className="w-3 h-3 text-slate-400" />
                     </button>
                   )}
@@ -741,16 +1041,6 @@ export const DashboardPage: React.FC = () => {
                       <X className="w-3 h-3 text-slate-400" />
                     </button>
                   )}
-                  {sharedOnly && (
-                    <button
-                      type="button"
-                      onClick={() => setSharedOnly(false)}
-                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700"
-                    >
-                      <span>Shared only</span>
-                      <X className="w-3 h-3 text-slate-400" />
-                    </button>
-                  )}
                   {searchQuery && (
                     <button
                       type="button"
@@ -764,28 +1054,63 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick Sort Selector */}
-              <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-sm"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="irr-desc">Target IRR: High to Low</option>
-                  <option value="coc-desc">CoC Yield: High to Low</option>
-                </select>
+              {/* View Toggle & Sort Controls */}
+              <div className="flex items-center space-x-3 shrink-0 self-end sm:self-auto">
+                {/* View Mode Toggle: Grid Cards vs Dense Table */}
+                <div className="inline-flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => handleSetViewMode('grid')}
+                    className={`p-1.5 rounded-lg transition ${
+                      viewMode === 'grid'
+                        ? 'bg-slate-800 text-emerald-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                    title="Grid Cards View"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetViewMode('table')}
+                    className={`p-1.5 rounded-lg transition ${
+                      viewMode === 'table'
+                        ? 'bg-slate-800 text-emerald-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                    title="Dense Table View"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Quick Sort Selector (Grid view) */}
+                {viewMode === 'grid' && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                      Sort:
+                    </span>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-sm"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="price-desc">Price: High to Low</option>
+                      <option value="price-asc">Price: Low to High</option>
+                      <option value="irr-desc">Target IRR: High to Low</option>
+                      <option value="coc-desc">CoC Yield: High to Low</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Projects Cards Grid */}
+            {/* Results Area */}
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <RefreshCw className="w-7 h-7 text-emerald-400 animate-spin mb-3" />
-                <p className="text-xs font-bold text-slate-300">Loading portfolio and loan schedules...</p>
+                <p className="text-xs font-bold text-slate-300">Loading portfolio assets...</p>
               </div>
             ) : filteredDeals.length === 0 ? (
               <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 space-y-3">
@@ -807,15 +1132,35 @@ export const DashboardPage: React.FC = () => {
                   )}
                   <button
                     onClick={() => setIsWizardOpen(true)}
-                    className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-slate-950 text-xs font-black hover:bg-emerald-500 transition"
+                    className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black hover:bg-emerald-400 transition"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Create Project</span>
                   </button>
                 </div>
               </div>
+            ) : viewMode === 'table' ? (
+              <DealTableView
+                deals={filteredDeals}
+                selectedDealIds={selectedDealIds}
+                onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                allSelected={
+                  filteredDeals.length > 0 && selectedDealIds.size === filteredDeals.length
+                }
+                onEdit={handleEditDeal}
+                onDelete={handleDeleteDeal}
+                onToggleStatus={handleToggleStatus}
+                onPreview={(deal) => setPreviewDeal(deal)}
+                onShare={handleShareDeal}
+                entities={entities}
+                collectedMonthlyMap={collectedMonthlyMap}
+                sortField={tableSortField}
+                sortDirection={tableSortDirection}
+                onSort={handleTableSort}
+              />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-5">
                 {filteredDeals.map((deal) => (
                   <DealCard
                     key={deal.id}
@@ -825,6 +1170,10 @@ export const DashboardPage: React.FC = () => {
                     onDelete={handleDeleteDeal}
                     onToggleStatus={handleToggleStatus}
                     onShare={deal.is_shared ? undefined : handleShareDeal}
+                    onPreview={(d) => setPreviewDeal(d)}
+                    isSelected={selectedDealIds.has(deal.id)}
+                    onToggleSelect={handleToggleSelect}
+                    collectedMonthly={collectedMonthlyMap.get(deal.id)}
                   />
                 ))}
               </div>
@@ -833,8 +1182,36 @@ export const DashboardPage: React.FC = () => {
         </div>
       </main>
 
+      {/* Bulk Actions Floating Bar */}
+      <BulkActionsBar
+        selectedCount={selectedDealIds.size}
+        totalFilteredCount={filteredDeals.length}
+        onSelectAllFiltered={() => setSelectedDealIds(new Set(filteredDeals.map((d) => d.id)))}
+        onClearSelection={handleClearSelection}
+        onBulkMarkOwned={handleBulkMarkOwned}
+        onBulkMovePipeline={handleBulkMovePipeline}
+        onBulkExportCsv={handleBulkExportCsv}
+      />
+
+      {/* Side-Panel Deal Inspection Drawer */}
+      {previewDeal && (
+        <DealSidePreview
+          deal={previewDeal}
+          onClose={() => setPreviewDeal(null)}
+          onEdit={handleEditDeal}
+          onToggleStatus={handleToggleStatus}
+          collectedMonthly={collectedMonthlyMap.get(previewDeal.id)}
+        />
+      )}
+
       {/* Creation Wizard Modal */}
-      <ShareDealModal deal={sharingDeal} onClose={() => setSharingDeal(null)} onChanged={() => { void loadData(); }} />
+      <ShareDealModal
+        deal={sharingDeal}
+        onClose={() => setSharingDeal(null)}
+        onChanged={() => {
+          void loadData();
+        }}
+      />
 
       {isWizardOpen && (
         <ProjectWizardModal
@@ -857,7 +1234,13 @@ export const DashboardPage: React.FC = () => {
         />
       )}
 
-      <EntityManagerModal isOpen={entitiesOpen} onClose={() => setEntitiesOpen(false)} onChanged={() => { void loadData(); }} />
+      <EntityManagerModal
+        isOpen={entitiesOpen}
+        onClose={() => setEntitiesOpen(false)}
+        onChanged={() => {
+          void loadData();
+        }}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
