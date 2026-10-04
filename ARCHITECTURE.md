@@ -115,7 +115,7 @@ Column lists are in `src/lib/supabase/types.ts` (regenerate it rather than hand-
 | `entities` | Owning legal entities (LLC etc). Names/structure only, never EIN or banking |
 | `profiles` | Investor profile and preferences (discount rate, exit assumptions, alert prefs, lease-expiry default) |
 | `deal_shares`, `collaborator_groups`, `collaborator_group_members` | Sharing deals with people or groups |
-| `app_notifications` | In-app notification hub |
+| `app_notifications` | Written by the daily monitor (NNN alerts, email de-duplication). The app no longer reads it: the bell shows the live inbox (`lib/operations/attention.ts`) |
 | `reconciliation_tokens`, `rent_batches` | One-click email links. Tokens stored **hashed** only; service role only |
 
 Views: `view_monthly_rent_reconciliation` (lease × current period payment status), `view_deal_parcel_packages`

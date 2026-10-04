@@ -30,6 +30,56 @@ const Chevron = () => (
   </span>
 );
 
+interface ListProps {
+  items: InboxItem[];
+  portfolio: boolean;
+  onSelectLease?: (leaseId: string) => void;
+  /** Called when a portfolio row is followed (the bell panel closes itself). */
+  onNavigate?: () => void;
+}
+
+/** The rows of the inbox, shared by the Operations page and the bell panel. */
+export const InboxList: React.FC<ListProps> = ({ items, portfolio, onSelectLease, onNavigate }) => (
+  <ul className="divide-y divide-slate-800/60">
+    {items.map((item) => {
+      const body = (
+        <>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[9px] font-extrabold uppercase tracking-wider ${kindTone[item.kind]}`}>{INBOX_LABEL[item.kind]}</span>
+              <span className="text-xs font-bold text-white truncate">{item.headline}</span>
+            </div>
+            <div className="text-[11px] text-slate-400 truncate mt-0.5">
+              {portfolio && <span className="font-semibold text-slate-300">{item.dealTitle} · </span>}{item.detail}
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-3">
+            {item.kind !== 'missing_data' && item.kind !== 'needs_review' && (
+              <div className="text-right">
+                <div className="text-xs font-mono font-bold text-white">{item.amount === null ? '—' : usd(item.amount)}</div>
+                {item.basis && <div className="text-[9px] uppercase tracking-wider text-slate-500">{item.kind === 'lease_expiring' ? `Annual rent · ${basisLabel[item.basis]}` : basisLabel[item.basis]}</div>}
+              </div>
+            )}
+            <Chevron />
+          </div>
+        </>
+      );
+      const row = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-800/40 transition';
+      return (
+        <li key={item.id}>
+          {portfolio ? (
+            <Link to={item.link} onClick={onNavigate} className={row}>{body}</Link>
+          ) : item.leaseId ? (
+            <button type="button" onClick={() => onSelectLease?.(item.leaseId!)} className={`${row} w-full text-left cursor-pointer`}>{body}</button>
+          ) : (
+            <div className={row}>{body}</div>
+          )}
+        </li>
+      );
+    })}
+  </ul>
+);
+
 /**
  * The attention inbox: everything that needs action, one line each, saying which property it is about and what its figure rests on.
  * The portfolio page and a property's Operate tab render the same items (the tab just has only that property's).
@@ -56,44 +106,7 @@ export const AttentionInbox: React.FC<Props> = ({ items, portfolio, onSelectLeas
           </button>
         )}
       </div>
-      <ul className="divide-y divide-slate-800/60">
-        {shown.map((item) => {
-          const body = (
-            <>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[9px] font-extrabold uppercase tracking-wider ${kindTone[item.kind]}`}>{INBOX_LABEL[item.kind]}</span>
-                  <span className="text-xs font-bold text-white truncate">{item.headline}</span>
-                </div>
-                <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                  {portfolio && <span className="font-semibold text-slate-300">{item.dealTitle} · </span>}{item.detail}
-                </div>
-              </div>
-              <div className="shrink-0 flex items-center gap-3">
-                {item.kind !== 'missing_data' && item.kind !== 'needs_review' && (
-                  <div className="text-right">
-                    <div className="text-xs font-mono font-bold text-white">{item.amount === null ? '—' : usd(item.amount)}</div>
-                    {item.basis && <div className="text-[9px] uppercase tracking-wider text-slate-500">{item.kind === 'lease_expiring' ? `Annual rent · ${basisLabel[item.basis]}` : basisLabel[item.basis]}</div>}
-                  </div>
-                )}
-                <Chevron />
-              </div>
-            </>
-          );
-          const row = 'px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-slate-800/40 transition';
-          return (
-            <li key={item.id}>
-              {portfolio ? (
-                <Link to={item.link} className={row}>{body}</Link>
-              ) : item.leaseId ? (
-                <button type="button" onClick={() => onSelectLease(item.leaseId!)} className={`${row} w-full text-left cursor-pointer`}>{body}</button>
-              ) : (
-                <div className={row}>{body}</div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <InboxList items={shown} portfolio={portfolio} onSelectLease={onSelectLease} />
     </div>
   );
 };

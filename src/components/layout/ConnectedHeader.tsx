@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import type { DealRecord } from '../../lib/math/types';
 import type { InvestorProfile } from '../../lib/profile';
-import { useNotifications } from '../../lib/useNotifications';
+import { useInbox } from '../../lib/operations/useInbox';
 import { AppHeader } from './AppHeader';
 import { InvestorProfileModal } from './InvestorProfileModal';
-import { NotificationHub } from './NotificationHub';
+import { InboxPanel } from './InboxPanel';
 import { openPortfolioBrief } from '../../lib/export/pdfBrief';
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
   /** Deals the page has loaded (owned + shared with me); used by the Investor Profile. */
   deals?: DealRecord[];
   onProfileSaved?: (profile: InvestorProfile) => void;
-  /** Called when shares change or a pro-forma sync rewrites deal inputs, so the page can reload. */
+  /** Called when shares change, so the page can reload. */
   onDealsChanged?: () => void;
   extraActions?: React.ReactNode;
   /** Hide the account dropdown (Investor Profile, Alerts, Export) on pages that don't need it. */
@@ -20,13 +20,13 @@ interface Props {
 }
 
 /**
- * The shared page header plus everything it opens: Action Center (alerts), and Investor Profile.
+ * The shared page header plus everything it opens: the needs-attention inbox (bell), and Investor Profile.
  * Pages render this once instead of wiring the modals each.
  */
 export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfileSaved, onDealsChanged, extraActions, hideAccountMenu }) => {
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { notifications, refresh, dismiss } = useNotifications();
+  const { items, loading, refresh } = useInbox();
 
   useEffect(() => {
     const handleOpenProfile = () => setProfileOpen(true);
@@ -41,17 +41,16 @@ export const ConnectedHeader: React.FC<Props> = ({ active, deals = [], onProfile
         onOpenAlerts={() => { setAlertsOpen(true); void refresh(); }}
         onOpenProfile={() => setProfileOpen(true)}
         onExportPortfolio={openPortfolioBrief}
-        alertCount={notifications.length > 9 ? 9 : notifications.length}
+        alertCount={items.length > 9 ? 9 : items.length}
         extraActions={extraActions}
         hideAccountMenu={hideAccountMenu}
       />
-      <NotificationHub
+      <InboxPanel
         isOpen={alertsOpen}
         onClose={() => setAlertsOpen(false)}
-        notifications={notifications}
+        items={items}
+        loading={loading}
         onRefresh={refresh}
-        onDismiss={dismiss}
-        onAssignEntity={() => { setProfileOpen(true); }}
       />
       <InvestorProfileModal
         isOpen={profileOpen}

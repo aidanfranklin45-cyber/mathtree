@@ -40,6 +40,13 @@ describe('buildInboxItems', () => {
     expect(items.some((i) => i.id === 'd1:missing:rent')).toBe(true);
   });
 
+  it('flags in-force leases with no start date', () => {
+    const items = run([lease({ id: 'l1', deal_id: 'd1', tenant_name: 'Stop', monthly_rent: 3000, lease_end_date: '2030-01-01' })]);
+    expect(items.find((i) => i.id === 'd1:missing:start')).toMatchObject({ kind: 'missing_data', headline: '1 lease with no start date' });
+    const ok = run([lease({ id: 'l1', deal_id: 'd1', tenant_name: 'Stop', monthly_rent: 3000, lease_start_date: '2025-01-01', lease_end_date: '2030-01-01' })]);
+    expect(ok.some((i) => i.id === 'd1:missing:start')).toBe(false);
+  });
+
   it('flags leases expiring soon and holding over, but not month-to-month or far-off ones', () => {
     const items = run([
       lease({ id: 'a', deal_id: 'd1', tenant_name: 'Soon', monthly_rent: 1000, lease_end_date: '2026-12-31' }),
