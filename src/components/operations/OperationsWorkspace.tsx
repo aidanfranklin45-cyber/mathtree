@@ -406,7 +406,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
     <>
       {renderHeader?.({ deals, reload: () => { void load(); }, actions })}
 
-      <div className={locked ? 'flex flex-col space-y-4' : 'flex-grow max-w-6xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 flex flex-col space-y-4'}>
+      <div className={locked ? 'flex flex-col space-y-4' : 'flex-grow max-w-7xl 2xl:max-w-[1600px] w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 flex flex-col space-y-4'}>
         {toast && (
           <div className={`px-4 py-3 rounded-xl border text-xs font-semibold ${toast.kind === 'ok' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/10 border-rose-500/30 text-rose-300'}`}>
             {toast.text}
@@ -474,49 +474,98 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
 
         <OpsSummaryStrip kpis={kpis} active={statusFilter} onFilter={setStatusFilter} />
 
-        <AttentionInbox items={inboxItems} portfolio={!locked} onSelectLease={setSelectedId} />
+        {/* Content Area: Responsive Desktop 2-Column Split for Portfolio Mode */}
+        {locked ? (
+          <>
+            <AttentionInbox items={inboxItems} portfolio={false} onSelectLease={setSelectedId} />
 
-        {/* Rent roll */}
-        <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl">
-          <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-900/90 rounded-t-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-extrabold text-white">Rent roll</h3>
-              <span className="text-[11px] text-slate-400">
-                {activeLeaseCount} active {activeLeaseCount === 1 ? 'lease' : 'leases'}{vacantCount > 0 ? ` · ${vacantCount} vacant` : ''}
-              </span>
-              {statusFilter !== 'all' && (
-                <button type="button" onClick={() => setStatusFilter('all')} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 transition">
-                  {filterLabels[statusFilter]} ✕
+            {/* Rent roll */}
+            <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl">
+              <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-900/90 rounded-t-2xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-extrabold text-white">Rent roll</h3>
+                  <span className="text-[11px] text-slate-400">
+                    {activeLeaseCount} active {activeLeaseCount === 1 ? 'lease' : 'leases'}{vacantCount > 0 ? ` · ${vacantCount} vacant` : ''}
+                  </span>
+                  {statusFilter !== 'all' && (
+                    <button type="button" onClick={() => setStatusFilter('all')} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 transition">
+                      {filterLabels[statusFilter]} ✕
+                    </button>
+                  )}
+                </div>
+                <button onClick={() => { void load(); }} className="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800 border border-slate-700 hover:border-slate-600 transition" title="Refresh" aria-label="Refresh">
+                  <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 </button>
-              )}
+              </div>
+              <div className="overflow-x-auto sm:overflow-visible">
+                <RentRollTable
+                  views={visibleViews}
+                  loading={loading}
+                  dealOf={dealOf}
+                  unitOf={unitOf}
+                  handlers={handlers}
+                  onSelect={setSelectedId}
+                  onAddFirstLease={() => { setAddLeaseDealId(defaultDealId); setAddLeaseOpen(true); }}
+                  recoverySummaries={recoverySummaries}
+                  historyDealIds={historyDealIds}
+                  filtered={statusFilter !== 'all'}
+                />
+              </div>
             </div>
-            <button onClick={() => { void load(); }} className="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800 border border-slate-700 hover:border-slate-600 transition" title="Refresh" aria-label="Refresh">
-              <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-            </button>
-          </div>
-          <div className="overflow-x-auto sm:overflow-visible">
-            <RentRollTable
-              views={visibleViews}
-              loading={loading}
-              dealOf={dealOf}
-              unitOf={unitOf}
-              handlers={handlers}
-              onSelect={setSelectedId}
-              onAddFirstLease={() => { setAddLeaseDealId(defaultDealId); setAddLeaseOpen(true); }}
-              recoverySummaries={recoverySummaries}
-              historyDealIds={historyDealIds}
-              filtered={statusFilter !== 'all'}
-            />
-          </div>
-        </div>
 
-        <LeaseExpiryLadder leases={ops.scopedLeases} sqftOf={sqftOf} dealTitle={dealTitleOf} onSelect={setSelectedId} />
+            <LeaseExpiryLadder leases={ops.scopedLeases} sqftOf={sqftOf} dealTitle={dealTitleOf} onSelect={setSelectedId} />
+          </>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Desktop Left Rail (4/12): Actionable Attention Inbox + Lease Expiration Ladder */}
+            <div className="lg:col-span-4 xl:col-span-4 space-y-4">
+              <AttentionInbox items={inboxItems} portfolio={true} onSelectLease={setSelectedId} />
+              <LeaseExpiryLadder leases={ops.scopedLeases} sqftOf={sqftOf} dealTitle={dealTitleOf} onSelect={setSelectedId} />
+            </div>
 
-        {!locked && <ProjectedVsActual deals={scopedDeals} leases={leases} baselines={baselines} />}
+            {/* Desktop Right Rail (8/12): Primary Rent Roll Table + Pro-Forma Comparison */}
+            <div className="lg:col-span-8 xl:col-span-8 space-y-4">
+              <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl shadow-xl">
+                <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between gap-3 bg-slate-900/90 rounded-t-2xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-extrabold text-white">Rent roll</h3>
+                    <span className="text-[11px] text-slate-400">
+                      {activeLeaseCount} active {activeLeaseCount === 1 ? 'lease' : 'leases'}{vacantCount > 0 ? ` · ${vacantCount} vacant` : ''}
+                    </span>
+                    {statusFilter !== 'all' && (
+                      <button type="button" onClick={() => setStatusFilter('all')} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 transition">
+                        {filterLabels[statusFilter]} ✕
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => { void load(); }} className="p-2 rounded-xl text-slate-300 hover:text-white bg-slate-800 border border-slate-700 hover:border-slate-600 transition" title="Refresh" aria-label="Refresh">
+                    <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
+                </div>
+                <div className="overflow-x-auto sm:overflow-visible">
+                  <RentRollTable
+                    views={visibleViews}
+                    loading={loading}
+                    dealOf={dealOf}
+                    unitOf={unitOf}
+                    handlers={handlers}
+                    onSelect={setSelectedId}
+                    onAddFirstLease={() => { setAddLeaseDealId(defaultDealId); setAddLeaseOpen(true); }}
+                    recoverySummaries={recoverySummaries}
+                    historyDealIds={historyDealIds}
+                    filtered={statusFilter !== 'all'}
+                  />
+                </div>
+              </div>
 
-        {!locked && (
-          <div className="text-center">
-            <Link to="/" className="text-[11px] text-slate-500 hover:text-emerald-400 transition">← Back to Portfolio &amp; Pipeline</Link>
+              <ProjectedVsActual deals={scopedDeals} leases={leases} baselines={baselines} />
+
+              <div className="text-center pt-2">
+                <Link to="/" className="text-[11px] text-slate-500 hover:text-emerald-400 transition font-medium">
+                  ← Back to Portfolio &amp; Pipeline Dashboard
+                </Link>
+              </div>
+            </div>
           </div>
         )}
       </div>
