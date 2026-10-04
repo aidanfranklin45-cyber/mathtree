@@ -5,10 +5,10 @@ import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getCaller, isCronAuthorized } from "../_shared/auth.ts";
 import { decideFollowup, normalizeFollowupPrefs, DEFAULT_FOLLOWUP_PREFS, type FollowupPrefs } from "../_shared/followups.ts";
-import { isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
+import { isAdvanceNoticeDay, isReminderEligible, reminderEligibility, unitLabel } from "../_shared/reminderEligibility.ts";
 import { planDispatch, buildDigestEmail, normalizeDigestMin, DEFAULT_DIGEST_MIN, escapeHtml, type ReminderItem } from "../_shared/digest.ts";
 import { isResidentialAsset, isWashingtonProperty, daysBetween, addDays, noticeReminderStage, WA_NOTICE_DAYS, WA_NOTICE_DAYS_SUBSIDIZED } from "../_shared/rentIncreaseRules.ts";
-import { missingItems } from "../_shared/recoveries.ts";
+import { missingItems, backfillSinceIso } from "../_shared/recoveries.ts";
 import { planRecoveryAlerts, buildRecoveryEmail, normalizeRecoveryPrefs, maxLeadDays, quietAlertKeys, withAutoCleared, RECOVERY_ALERT_TYPES, type RecoveryPrefs } from "../_shared/recoveryAlerts.ts";
 import { fetchAllRows } from "../_shared/paging.ts";
 
@@ -436,6 +436,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           is_active,
           lease_start_date,
           lease_end_date,
+        term_type,
           deals ( id, title, user_id, status, is_demo ),
           units ( unit_number, unit_type )
         `)
@@ -449,7 +450,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         );
       }
 
-      const manualVerdict = reminderEligibility({ dealStatus: (targetLease.deals as any)?.status, isDemo: (targetLease.deals as any)?.is_demo, leaseActive: (targetLease as any).is_active, leaseStartDate: (targetLease as any).lease_start_date, leaseEndDate: (targetLease as any).lease_end_date });
+      const manualVerdict = reminderEligibility({ dealStatus: (targetLease.deals as any)?.status, isDemo: (targetLease.deals as any)?.is_demo, leaseActive: (targetLease as any).is_active, leaseStartDate: (targetLease as any).lease_start_date, leaseEndDate: (targetLease as any).lease_end_date, termType: (targetLease as any).term_type });
       if (!manualVerdict.eligible) {
         const why: Record<string, string> = {
           not_owned: "this property is not marked Owned yet (rent reminders are only sent for owned properties)",
@@ -611,7 +612,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           scheduled_amount,
           increase_type,
           notice_sent_date,
-          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, is_active, is_subsidized, lease_start_date, lease_end_date, deals ( id, title, status, is_demo, asset_type, location, inputs ) )
+          leases ( id, tenant_name, monthly_rent, user_id, notification_email, deal_id, is_active, is_subsidized, lease_start_date, lease_end_date, term_type, deals ( id, title, status, is_demo, asset_type, location, inputs ) )
         `)
         .eq("is_applied", false);
 
@@ -621,7 +622,7 @@ export async function handleRequest(req: Request): Promise<Response> {
           if (!leaseObj) continue;
           if (scopeUserId && leaseObj.user_id !== scopeUserId) continue;
           // Tenants are only written to for properties that are owned and have the lease in force (never prospects or demo data)
-          if (!isReminderEligible({ dealStatus: leaseObj.deals?.status, isDemo: leaseObj.deals?.is_demo, leaseActive: leaseObj.is_active, leaseStartDate: leaseObj.lease_start_date, leaseEndDate: leaseObj.lease_end_date })) continue;
+          if (!isReminderEligible({ dealStatus: leaseObj.deals?.status, isDemo: leaseObj.deals?.is_demo, leaseActive: leaseObj.is_active, leaseStartDate: leaseObj.lease_start_date, leaseEndDate: leaseObj.lease_end_date, termType: leaseObj.term_type })) continue;
           // Washington residential: the tenant must be given written notice (RCW 59.18.140), so these increases never take effect by
           // themselves. Remind the OWNER to give the notice in time instead of sending the generic "no action required" heads-up.
           if (isResidentialAsset(leaseObj.deals?.asset_type) && isWashingtonProperty({ location: leaseObj.deals?.location, inputs: leaseObj.deals?.inputs })) {
@@ -804,6 +805,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         is_active,
         lease_start_date,
         lease_end_date,
+        term_type,
         deals ( id, title, user_id, status, is_demo ),
         units ( unit_number, unit_type )
       `)
@@ -814,7 +816,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     const skippedReasons: Record<string, number> = {};
     const activeLeases: any[] | null = Array.isArray(activeLeasesRaw)
       ? (activeLeasesRaw as any[]).filter((l) => {
-          const verdict = reminderEligibility({ dealStatus: l.deals?.status, isDemo: l.deals?.is_demo, leaseActive: l.is_active, leaseStartDate: l.lease_start_date, leaseEndDate: l.lease_end_date });
+          const verdict = reminderEligibility({ dealStatus: l.deals?.status, isDemo: l.deals?.is_demo, leaseActive: l.is_active, leaseStartDate: l.lease_start_date, leaseEndDate: l.lease_end_date, termType: l.term_type });
           if (!verdict.eligible) skippedReasons[verdict.reason] = (skippedReasons[verdict.reason] || 0) + 1;
           return verdict.eligible;
         })
@@ -840,7 +842,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         let isAdvanceNotice = false;
 
         // Check A: Advance Notice trigger
-        if (advanceDays > 0 && todayDay === (dueDay - advanceDays)) {
+        if (isAdvanceNoticeDay(now, Number(lease.payment_due_day) || 1, advanceDays)) {
           shouldSend = true;
           isAdvanceNotice = true;
         }
@@ -1184,7 +1186,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         const prefsByUser: Record<string, RecoveryPrefs> = {};
         for (const id of ownerIds) prefsByUser[id as string] = normalizeRecoveryPrefs((profs || []).find((p: any) => p.id === id)?.alert_preferences);
         const horizon = maxLeadDays(Object.values(prefsByUser));
-        const created = missingItems(recTerms, recItems, addDays(todayIso, horizon), addDays(todayIso, -60)).map((m) => {
+        const created = missingItems(recTerms, recItems, addDays(todayIso, horizon), backfillSinceIso(todayIso)).map((m) => {
           const t = recTerms.find((x) => x.id === m.term_id);
           return { user_id: t.user_id, term_id: t.id, lease_id: t.lease_id, deal_id: t.deal_id, category: t.category, due_date: m.due_date, amount_expected: m.amount_expected ?? null };
         }).filter((r) => leaseById.has(r.lease_id));

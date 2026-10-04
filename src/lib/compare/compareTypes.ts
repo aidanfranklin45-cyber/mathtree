@@ -86,6 +86,8 @@ export interface ComparisonColumn {
   scenarioName: string;
   scenarioType: ScenarioPresetType;
   overrides?: Partial<DealInputs>;
+  /** Which board entry this column is (see config.ts ScenarioKey), so a board can be saved and rebuilt. */
+  scenarioKey?: string;
   deal: DealRecord;
   metrics: DealMetrics;
   summary: ComparisonSummary;

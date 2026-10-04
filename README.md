@@ -5,7 +5,7 @@ See Demo Mode to see what happens behind the curtains
 
 ## Features
 - **Institutional Landing Page**: Comprehensive institutional introduction detailing MathTree's mission, mathematical precision, 4 asset class models, serverless edge engine, and pitch deck generation with live demo and sign-in triggers.
-- **Account Dashboard First Flow**: Investor dashboard greeting users by name (*"Hey, [Name] 👋"*), tracking portfolio KPIs (Total Value, Weighted IRR, Equity Deployed), and organizing previous underwriting projects with category filtering.
+- **Account Dashboard First Flow**: Investor dashboard
 - **Guided 4-Step Project Creation Wizard**: Intuitive step-by-step project setup (Asset Class & Identity, Capital & Valuation, Income & Operations, Debt & Exit Strategy) replacing 30 raw spreadsheet inputs with smart asset defaults and real-time upfront cash calculation.
 - **Serverless Supabase Edge Function (`create-project`)**: Deno-based backend engine executing 10-year pro-forma calculations, risk auditing, and automated presentation-ready Executive Pitch Deck synthesis.
 - **4 Real Estate Asset Classes**: Single-Family Residential (with ARV), Multi-Unit Residential, Commercial Real Estate (Gross & NNN Leases with Gradual Cap Rate Valuation), and Storage Facilities (Automated vs Manned).

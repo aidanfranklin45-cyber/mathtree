@@ -37,6 +37,8 @@ interface DealCardProps {
   onToggleSelect?: (dealId: string) => void;
   collectedMonthly?: number;
   hideStatusBadge?: boolean;
+  /** Owner-only; the menu entry only shows when provided. */
+  onTransfer?: (deal: DealRecord) => void;
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
@@ -86,6 +88,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   onToggleSelect,
   collectedMonthly,
   hideStatusBadge = false,
+  onTransfer,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -246,6 +249,12 @@ const DealCardComponent: React.FC<DealCardProps> = ({
                       <span>Share Deal</span>
                     </button>
                   )}
+                  {onTransfer && (
+                    <button onClick={closeThen(() => onTransfer(deal))} className={menuItem}>
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Transfer Ownership</span>
+                    </button>
+                  )}
                   <button onClick={closeThen(() => { void openDealBrief(deal.id); })} className={menuItem}>
                     <FileText className="w-3.5 h-3.5 text-violet-400 shrink-0" />
                     <span>Executive Brief</span>
@@ -335,7 +344,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       <div className="pt-3 mt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px]">
         <div className="flex items-center space-x-1 text-slate-400 group-hover:text-emerald-400 transition font-semibold">
           <span>Open Studio</span>
-          <span>→</span>
+          <span>&rarr;</span>
         </div>
 
         <div className="flex items-center space-x-2" data-no-nav>

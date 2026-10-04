@@ -20,14 +20,14 @@ export const OpsSummaryStrip: React.FC<Props> = ({ kpis, active, onFilter }) => 
       <span className="px-2.5 py-1 text-xs">
         <strong className="text-white font-mono text-sm">${Math.round(kpis.monthlyRent).toLocaleString()}</strong>
         <span className="text-slate-500"> /mo</span>
-        <span className="text-slate-600 font-mono"> · ${Math.round(kpis.annualRent).toLocaleString()}/yr</span>
+        <span className="hidden sm:inline text-slate-600 font-mono"> · ${Math.round(kpis.annualRent).toLocaleString()}/yr</span>
       </span>
-      <span className="text-slate-700">|</span>
+      <span className="hidden sm:inline text-slate-700">|</span>
       <button type="button" onClick={() => toggle('vacant')} className={chip(active === 'vacant')} title="Show vacant units">
         <strong className="text-white font-mono text-sm">{kpis.occupancyPct}%</strong>{' '}
         <span className="text-slate-400">occupied ({kpis.occupiedUnits}/{kpis.totalUnits})</span>
       </button>
-      <span className="text-slate-700">|</span>
+      <span className="hidden sm:inline text-slate-700">|</span>
       {kpis.overdueCount > 0 && (
         <button type="button" onClick={() => toggle('overdue')} className={chip(active === 'overdue')}>
           <strong className="text-rose-400 font-mono text-sm">{kpis.overdueCount}</strong> <span className="text-rose-300/80">overdue</span>
@@ -35,9 +35,9 @@ export const OpsSummaryStrip: React.FC<Props> = ({ kpis, active, onFilter }) => 
       )}
       <button type="button" onClick={() => toggle('unpaid')} className={chip(active === 'unpaid')}>
         <strong className="text-white font-mono text-sm">{kpis.pendingCount}</strong> <span className="text-slate-400">pending</span>
-        <span className="text-slate-600"> · {kpis.collectedPct}% collected</span>
+        <span className="hidden sm:inline text-slate-600"> · {kpis.collectedPct}% collected</span>
       </button>
-      <span className="text-slate-700">|</span>
+      <span className="hidden sm:inline text-slate-700">|</span>
       <button type="button" onClick={() => toggle('escalation')} className={chip(active === 'escalation')}>
         {kpis.escalationsDueCount > 0 ? (
           <>

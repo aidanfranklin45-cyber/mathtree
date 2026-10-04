@@ -1,16 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
+import { operationsPrefetchProps, prefetchOperations } from '../../lib/prefetchRoutes';
 
 interface AppHeaderProps {
   active: 'portfolio' | 'operations' | 'compare';
   /** Handlers for modal hubs and tools. */
   onOpenAlerts?: () => void;
-  onOpenCollaborators?: () => void;
   onOpenProfile?: () => void;
   onExportPortfolio?: () => void;
   alertCount?: number;
-  collaboratorInviteCount?: number;
   /** Page-specific buttons rendered before the account dropdown (e.g. Operations' Alert Emails / Add Lease). */
   extraActions?: React.ReactNode;
   /** Hide the account/portfolio dropdown on pages where those tools are not needed (they live on the Dashboard). */
@@ -29,11 +28,9 @@ const navBase = 'px-3 py-1.5 rounded-lg text-xs transition';
 export const AppHeader: React.FC<AppHeaderProps> = ({
   active,
   onOpenAlerts,
-  onOpenCollaborators,
   onOpenProfile,
   onExportPortfolio,
   alertCount = 0,
-  collaboratorInviteCount = 0,
   extraActions,
   hideAccountMenu = false,
 }) => {
@@ -41,9 +38,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const totalNotifications = (alertCount > 0 ? alertCount : 0) + (collaboratorInviteCount > 0 ? collaboratorInviteCount : 0);
+  const totalNotifications = alertCount > 0 ? alertCount : 0;
 
   // Close dropdown on outside click or Escape key
+  // Fetch the Operations chunk once the browser is idle so the first click is instant
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    const id = w.requestIdleCallback ? w.requestIdleCallback(prefetchOperations) : window.setTimeout(prefetchOperations, 1500);
+    return () => { if (!w.requestIdleCallback) window.clearTimeout(id); };
+  }, []);
+
   useEffect(() => {
     if (!isAccountMenuOpen) return;
     const handleClick = (e: MouseEvent) => {
@@ -108,6 +112,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </Link>
           <Link
             to="/operations"
+            {...operationsPrefetchProps}
             className={active === 'operations'
               ? `${navBase} font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 shadow-sm flex items-center space-x-1.5`
               : `${navBase} font-semibold text-slate-400 hover:text-white flex items-center space-x-1.5`}
@@ -127,10 +132,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </nav>
 
         {/* Actions & Consolidated Dropdown Menu */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+        <div className="flex items-center space-x-1.5 sm:space-x-2.5 min-w-0">
           {/* Mobile switcher pills: Property Management followed by Compare */}
           <Link
             to="/operations"
+            {...operationsPrefetchProps}
             className={active === 'operations'
               ? "md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 transition"
               : "md:hidden flex items-center space-x-1 py-1.5 px-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 transition"}
@@ -198,26 +204,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       <span>Investor Profile</span>
                     </div>
                     <span className="text-[10px] text-slate-500 font-mono">Hurdle</span>
-                  </button>
-                )}
-
-                {onOpenCollaborators && (
-                  <button
-                    role="menuitem"
-                    onClick={() => handleMenuAction(onOpenCollaborators)}
-                    className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center justify-between transition group"
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <svg className="w-4 h-4 text-cyan-400 shrink-0 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                      <span>Collaborators</span>
-                    </div>
-                    {collaboratorInviteCount > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full bg-cyan-500 text-[9px] font-extrabold text-slate-950 animate-pulse">
-                        {collaboratorInviteCount}
-                      </span>
-                    )}
                   </button>
                 )}
 

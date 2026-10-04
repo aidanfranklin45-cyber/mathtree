@@ -15,6 +15,7 @@ import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { fetchProfile, getProfile } from '../lib/profile';
 import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
+import { TransferOwnershipModal } from '../components/dashboard/TransferOwnershipModal';
 import { DeleteConfirmModal } from '../components/dashboard/DealActionsModal';
 import { EntityManagerModal } from '../components/layout/EntityManagerModal';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
@@ -117,6 +118,7 @@ export const DashboardPage: React.FC = () => {
   >('newest');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sharingDeal, setSharingDeal] = useState<DealRecord | null>(null);
+  const [transferringDeal, setTransferringDeal] = useState<DealRecord | null>(null);
   const [greetingName, setGreetingName] = useState<string>(resolveInitialGreeting);
 
   // Modals state
@@ -848,7 +850,7 @@ export const DashboardPage: React.FC = () => {
                 <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                   Deal Status
                 </label>
-                <div className="space-y-1 text-xs">
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setStatusFilter('owned')}
@@ -907,7 +909,7 @@ export const DashboardPage: React.FC = () => {
                 <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                   Property Type
                 </label>
-                <div className="space-y-1 text-xs">
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-1 text-xs">
                   <button
                     type="button"
                     onClick={() => setAssetFilter('all')}
@@ -1191,6 +1193,7 @@ export const DashboardPage: React.FC = () => {
                     onToggleSelect={handleToggleSelect}
                     collectedMonthly={collectedMonthlyMap.get(deal.id)}
                     hideStatusBadge={statusFilter === 'owned'}
+                    onTransfer={deal.is_shared || deal.is_demo ? undefined : setTransferringDeal}
                   />
                 ))}
               </div>
@@ -1222,6 +1225,13 @@ export const DashboardPage: React.FC = () => {
       )}
 
       {/* Creation Wizard Modal */}
+      <TransferOwnershipModal
+        deal={transferringDeal}
+        onClose={() => setTransferringDeal(null)}
+        onTransferred={() => {
+          void loadData();
+        }}
+      />
       <ShareDealModal
         deal={sharingDeal}
         onClose={() => setSharingDeal(null)}

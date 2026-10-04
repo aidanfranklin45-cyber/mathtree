@@ -10,6 +10,8 @@ export interface EligibilityInput {
   /** YYYY-MM-DD (a time part is ignored) */
   leaseStartDate?: string | null;
   leaseEndDate?: string | null;
+  /** 'month_to_month' leases have no real end: a stale end date must not stop reminders */
+  termType?: string | null;
   today?: Date;
 }
 
@@ -33,6 +35,22 @@ export function leaseInForce(
   return (!s || s <= t) && (!e || e >= t);
 }
 
+/**
+ * True when `today` is exactly `advanceDays` before this lease's next rent due date. A due day of 29-31 falls on the last day of
+ * shorter months, and an early due day (1st with a 3-day notice) is announced in the previous month.
+ */
+export function isAdvanceNoticeDay(today: Date, dueDay: number, advanceDays: number): boolean {
+  if (!(advanceDays > 0)) return false;
+  const want = Math.max(1, Math.floor(dueDay) || 1);
+  for (const offset of [0, 1]) {
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + offset + 1, 0).getDate();
+    const due = new Date(today.getFullYear(), today.getMonth() + offset, Math.min(want, lastDay));
+    const notice = new Date(due.getFullYear(), due.getMonth(), due.getDate() - advanceDays);
+    if (notice.getFullYear() === today.getFullYear() && notice.getMonth() === today.getMonth() && notice.getDate() === today.getDate()) return true;
+  }
+  return false;
+}
+
 export type EligibilityReason = "ok" | "not_owned" | "demo" | "inactive" | "not_started" | "ended";
 
 export function reminderEligibility(i: EligibilityInput): { eligible: boolean; reason: EligibilityReason } {
@@ -42,7 +60,7 @@ export function reminderEligibility(i: EligibilityInput): { eligible: boolean; r
   const today = i.today ?? new Date();
   const t = isoToday(today);
   const s = day(i.leaseStartDate);
-  const e = day(i.leaseEndDate);
+  const e = i.termType === "month_to_month" ? null : day(i.leaseEndDate);
   if (s && s > t) return { eligible: false, reason: "not_started" };
   if (e && e < t) return { eligible: false, reason: "ended" };
   return { eligible: true, reason: "ok" };

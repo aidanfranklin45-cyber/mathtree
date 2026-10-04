@@ -1,20 +1,19 @@
 /** Supabase writes for NNN recovery tracking. The pure rules live in recoveries.ts; this file only talks to the database. */
 
 import { supabase } from '../supabase/client';
-import { missingItems, isItemComplete, type RecoveryItem, type RecoveryTerm } from './recoveries';
+import { missingItems, backfillSinceIso, localTodayIso, isItemComplete, type RecoveryItem, type RecoveryTerm } from './recoveries';
 
 type Row = Record<string, any>;
 
-const todayIso = () => new Date().toISOString().split('T')[0];
+const todayIso = () => localTodayIso();
 const shiftDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().split('T')[0];
 };
 
-/** Items are scheduled this far ahead and never backfilled further back than this. */
+/** Items are scheduled this far ahead; how far back they are created is backfillSinceIso. */
 export const SCHEDULE_AHEAD_DAYS = 14;
-export const SCHEDULE_BACKFILL_DAYS = 60;
 
 /**
  * Creates any scheduled items that don't exist yet for the given terms. Idempotent (unique on term + due date), so the
@@ -22,7 +21,7 @@ export const SCHEDULE_BACKFILL_DAYS = 60;
  */
 export async function syncRecoveryItems(terms: Row[], items: Row[], aheadDays: number = SCHEDULE_AHEAD_DAYS): Promise<number> {
   const today = todayIso();
-  const missing = missingItems(terms as RecoveryTerm[], items as RecoveryItem[], shiftDays(today, aheadDays), shiftDays(today, -SCHEDULE_BACKFILL_DAYS));
+  const missing = missingItems(terms as RecoveryTerm[], items as RecoveryItem[], shiftDays(today, aheadDays), backfillSinceIso(today));
   if (missing.length === 0) return 0;
   const termById = new Map(terms.map((t) => [t.id, t]));
   const rows = missing.map((m) => {

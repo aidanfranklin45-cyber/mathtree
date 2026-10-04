@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom';
 import { DealRecord, DealMetrics } from '../../lib/math/types';
 import { openDealBrief } from '../../lib/export/pdfBrief';
 import { exportDealProformaCSV } from '../../lib/export/csvExport';
+import { operationsPrefetchProps } from '../../lib/prefetchRoutes';
 import { resolveDealDisplayName } from '../../lib/math/pointInTime';
+import { STAGE_LABEL, type StageLens } from '../../lib/studio/stageLens';
 
 interface StudioNavbarProps {
   deal: DealRecord;
   metrics: DealMetrics;
+  /** Which tabs this deal's stage shows (see lib/studio/stageLens.ts). */
+  lens: StageLens;
   activeTab: string;
   onSelectTab: (tab: string) => void;
   onOpenEditModal: () => void;
@@ -19,6 +23,8 @@ interface StudioNavbarProps {
 
 /** Same modules, order, icons and descriptions as the legacy analysis-module dropdown. */
 export const MODULE_TABS = [
+  { key: 'performance', icon: '📈', title: 'Performance', mobile: 'Performance', subtitle: 'Expected at purchase vs today’s outlook vs what is actually collected' },
+  { key: 'operate', icon: '🍀', title: 'Operate', mobile: 'Operate', subtitle: 'Rent roll, recent payments & links into Operations' },
   { key: 'overview', icon: '📌', title: 'Deal Overview', mobile: 'Overview', subtitle: 'Executive summary, headline returns & capital structure' },
   { key: 'diligence', icon: '📋', title: 'Assumptions & Diligence', mobile: 'Diligence', subtitle: 'Purchase basis, capex & closing outlay, LTV & debt terms' },
   { key: 'proforma', icon: '📊', title: 'Pro-Forma & Cash Flows', mobile: 'Pro-Forma', subtitle: '10-year operating cash flows, stub period & monthly schedule' },
@@ -44,7 +50,7 @@ const ASSET_LABEL: Record<string, string> = {
 };
 
 export const StudioNavbar: React.FC<StudioNavbarProps> = ({
-  deal, metrics, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
+  deal, metrics, lens, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
 }) => {
   const [moduleOpen, setModuleOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -54,11 +60,11 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
   const addrRef = useRef<HTMLDivElement>(null);
 
   const isOwned = deal.status === 'owned';
-  const pages = isOwned ? MODULE_TABS.filter((t) => t.key !== 'diligence') : MODULE_TABS;
+  const pages = MODULE_TABS.filter((t) => (lens.tabs as readonly string[]).includes(t.key));
   const current = MODULE_TABS.find((t) => t.key === activeTab) || MODULE_TABS[0];
 
   // Wrapping prev/next like the legacy arrows (which step in this order, not the dropdown's)
-  const arrowOrder = ['overview', 'proforma', 'property', 'debt', 'diligence', 'sensitivity', 'tax'].filter((k) => pages.some((p) => p.key === k));
+  const arrowOrder: string[] = [...lens.tabs];
   const navigateRelative = (delta: number) => {
     const idx = arrowOrder.indexOf(activeTab);
     if (idx === -1) return;
@@ -82,7 +88,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, deal.status]);
+  }, [activeTab, deal.status, lens.stage]);
 
   const inputs = deal.inputs || {};
   const title = resolveDealDisplayName(deal);
@@ -104,19 +110,19 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
 
   return (
     <header className="border-b border-emerald-950 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 h-auto py-2 sm:py-0 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-2 sm:gap-4">
         {/* Back to Dashboard & deal identity */}
-        <div className="flex items-center space-x-3 min-w-0">
+        <div className="flex items-center space-x-3 min-w-0 w-full sm:w-auto">
           <Link to="/" className="group flex items-center space-x-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition shrink-0">
             <svg className="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             <span>Dashboard</span>
           </Link>
           <div className="h-5 w-px bg-slate-800 hidden sm:block" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-2">
-              <h1 className="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[100px] xs:max-w-[160px] sm:max-w-xs md:max-w-md" title={title}>{title}</h1>
+              <h1 className="text-xs sm:text-base font-extrabold text-white tracking-tight truncate max-w-[55vw] sm:max-w-xs md:max-w-md" title={title}>{title}</h1>
               <span className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md border shrink-0 ${STATUS_PILL[statusKey]}`}>
-                {isOwned ? 'Owned' : 'Prospect'}
+                {isOwned ? 'Owned' : STAGE_LABEL[lens.stage]}
               </span>
               <span className="hidden xs:inline-block text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/20 shrink-0">
                 {ASSET_LABEL[assetKey] || assetKey.replace('-', ' ')}
@@ -125,7 +131,7 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5">
               <p className="flex items-center space-x-1">
                 <svg className="w-3 h-3 text-slate-500 inline mr-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                <span>{location}</span>
+                <span className="truncate max-w-[60vw] sm:max-w-none">{location}</span>
               </p>
 
               {addresses.length > 1 && (
@@ -155,21 +161,21 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
         </div>
 
         {/* Analysis module selector + quick arrows */}
-        <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+        <div className="flex items-center space-x-1 sm:space-x-1.5 min-w-0 flex-1 sm:flex-none">
           <button type="button" onClick={() => navigateRelative(-1)} title="Previous module (Alt + ←)"
             className="hidden sm:flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
           </button>
 
-          <div className="relative" ref={moduleRef}>
+          <div className="relative flex-1 sm:flex-none min-w-0" ref={moduleRef}>
             <button type="button" onClick={(e) => { e.stopPropagation(); setModuleOpen((o) => !o); }} aria-haspopup="true" aria-expanded={moduleOpen}
-              className="group flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition">
+              className="group w-full sm:w-auto flex items-center space-x-1.5 sm:space-x-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition">
               <span className="text-base shrink-0">{current.icon}</span>
               <div className="text-left hidden md:block">
                 <span className="block text-[8.5px] uppercase font-extrabold tracking-wider text-emerald-400 leading-none mb-0.5">Analysis Module</span>
                 <span className="block text-xs font-bold text-slate-100 group-hover:text-white leading-tight">{current.title}</span>
               </div>
-              <span className="block text-[11px] sm:text-xs font-bold text-slate-100 md:hidden truncate max-w-[65px] xs:max-w-[100px]">{current.mobile}</span>
+              <span className="block text-[11px] sm:text-xs font-bold text-slate-100 md:hidden truncate flex-1">{current.mobile}</span>
               <svg className={`w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-transform ml-0.5 ${moduleOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
             </button>
 
@@ -209,10 +215,10 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
         </div>
 
         {/* Actions: Edit Inputs + menu */}
-        <div className="flex items-center space-x-2">
-          <button onClick={onOpenEditModal} className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5">
+        <div className="flex items-center space-x-2 shrink-0">
+          <button onClick={onOpenEditModal} aria-label="Edit inputs" className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5">
             <svg className="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-            <span>Edit Inputs</span>
+            <span className="hidden sm:inline">Edit Inputs</span>
           </button>
 
           <div className="relative" ref={menuRef}>
@@ -240,10 +246,16 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
                   </button>
                 )}
                 <div className="my-1 border-t border-slate-800" />
-                <Link to="/operations" className={`${menuBtn} text-emerald-300`} title="Property Management">
-                  <span className="text-emerald-400 shrink-0">🍀</span>
-                  <span>Property Management</span>
+                <Link to={`/compare?dealId=${encodeURIComponent(deal.id)}`} className={`${menuBtn} text-slate-200`} title="Compare this property">
+                  <span className="text-sm">⚖️</span>
+                  <span>Compare</span>
                 </Link>
+                {lens.showOperations && (
+                  <Link to="/operations" {...operationsPrefetchProps} className={`${menuBtn} text-emerald-300`} title="Property Management">
+                    <span className="text-emerald-400 shrink-0">🍀</span>
+                    <span>Property Management</span>
+                  </Link>
+                )}
                 <div className="my-1 border-t border-slate-800" />
                 <button onClick={() => { void openDealBrief(deal.id); }} className={`${menuBtn} text-slate-200`}>
                   <svg className="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>

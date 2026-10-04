@@ -30,17 +30,6 @@ export async function invokeCollaboration<T = any>(action: string, params: Recor
   }
 }
 
-/** Deals the signed-in user has shared out, newest first. */
-export async function fetchOutgoingShares(ownerId: string): Promise<DealShareRow[]> {
-  const { data, error } = await supabase
-    .from('deal_shares')
-    .select('id, deal_id, permission, shared_with_email, created_at, deals(id, title, name)')
-    .eq('owner_id', ownerId)
-    .order('created_at', { ascending: false });
-  if (error || !data) return [];
-  return data as unknown as DealShareRow[];
-}
-
 /** Everyone a single deal is shared with. */
 export async function fetchDealShares(dealId: string): Promise<DealShareRow[]> {
   const { data } = await supabase

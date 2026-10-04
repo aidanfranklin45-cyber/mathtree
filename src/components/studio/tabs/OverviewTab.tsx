@@ -6,7 +6,7 @@ import { formatCurrency } from '../../../lib/format';
 import { getDefaultTargetYear, getProjectionStartYear } from '../../../lib/studio/projectionYear';
 import { openDealBrief } from '../../../lib/export/pdfBrief';
 import { ProjectionsChart } from '../ProjectionsChart';
-import { PerformanceVsProforma } from '../PerformanceVsProforma';
+import { DealCharts } from '../DealCharts';
 import { Link } from 'react-router-dom';
 import { currentLeases } from '../../../lib/leases';
 
@@ -17,8 +17,8 @@ interface OverviewTabProps {
   onOpenEdit?: () => void;
 }
 
-const yearPill = 'text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded';
-const analyticsCard = 'bg-slate-950/60 p-4 rounded-xl border border-slate-900 relative group';
+const yearPill = 'hidden sm:inline text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded';
+const analyticsCard = 'bg-slate-950/60 p-3 sm:p-4 rounded-xl border border-slate-900 relative group';
 const analyticsLabel = 'text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between';
 
 const BENCHMARK_SOURCE: Record<string, string> = {
@@ -134,7 +134,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
             <span className="text-lg sm:text-2xl font-extrabold text-white tracking-tight">{formatCurrency(proj.netOperatingIncome)}</span>
             <span className={yearPill}>{calYear}</span>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center text-[10px] sm:text-xs text-slate-500"><span className="truncate">Revenue minus OpEx</span></div>
+          <div className="hidden sm:flex mt-2 sm:mt-3 items-center text-[10px] sm:text-xs text-slate-500"><span className="truncate">Revenue minus OpEx</span></div>
         </div>
 
         <div className="bg-slate-900/40 border border-slate-900 p-3.5 sm:p-5 rounded-2xl relative overflow-hidden group hover:border-slate-800 transition duration-300">
@@ -144,7 +144,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
             <span className="text-lg sm:text-2xl font-extrabold text-accent-cyan tracking-tight">{(Number(proj.capRate) || 0).toFixed(2)}%</span>
             <span className={yearPill}>{calYear}</span>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center text-[10px] sm:text-xs text-slate-500">
+          <div className="hidden sm:flex mt-2 sm:mt-3 items-center text-[10px] sm:text-xs text-slate-500">
             <span className="truncate">
               {capDesc
                 ? <>{capDesc.text}<span className="text-brand-400 font-bold">{capDesc.range}</span> <span className="text-slate-500 text-[10px]">{capDesc.tail}</span></>
@@ -181,7 +181,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
             <span className="text-lg sm:text-2xl font-extrabold text-slate-200 tracking-tight">{zeroEq ? 'N/M' : `${(Number(proj.cashOnCash) || 0).toFixed(2)}%`}</span>
             <span className={yearPill}>{calYear}</span>
           </div>
-          <div className="mt-2 sm:mt-3 flex items-center text-[10px] sm:text-xs text-slate-500">
+          <div className="hidden sm:flex mt-2 sm:mt-3 items-center text-[10px] sm:text-xs text-slate-500">
             <span className="truncate">{zeroEq ? '100% financed (zero initial cash outlay)' : 'Annual cash flow / initial cash'}</span>
           </div>
         </div>
@@ -201,27 +201,27 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div className={analyticsCard}>
             <p className={analyticsLabel}><span>NPV</span><span className="text-slate-600 cursor-help" title="Net Present Value: Discounted cash flows + exit equity minus initial investment.">ⓘ</span></p>
-            <div className="mt-1 flex items-baseline justify-between"><span className="text-xl font-extrabold text-white tracking-tight">{formatCurrency(metrics.npv)}</span></div>
-            <p className="text-[10px] text-slate-500 mt-1">Today&apos;s cash value minus investment</p>
+            <div className="mt-1 flex items-baseline justify-between"><span className="text-lg sm:text-xl font-extrabold text-white tracking-tight">{formatCurrency(metrics.npv)}</span></div>
+            <p className="hidden sm:block text-[10px] text-slate-500 mt-1">Today&apos;s cash value minus investment</p>
           </div>
           <div className={analyticsCard}>
             <p className={analyticsLabel}><span>IRR</span><span className="text-slate-600 cursor-help" title="Internal Rate of Return: Annualized rate of return of the investment.">ⓘ</span></p>
             <div className="mt-1 flex items-baseline justify-between">
-              <span className="text-xl font-extrabold text-accent-violet tracking-tight">{metrics.irrDisplay || `${(Number(metrics.irr) || 0).toFixed(2)}%`}</span>
+              <span className="text-lg sm:text-xl font-extrabold text-accent-violet tracking-tight">{metrics.irrDisplay || `${(Number(metrics.irr) || 0).toFixed(2)}%`}</span>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1">Annualized rate of return</p>
+            <p className="hidden sm:block text-[10px] text-slate-500 mt-1">Annualized rate of return</p>
           </div>
           <div className={analyticsCard}>
             <p className={analyticsLabel}><span>Equity Multiplier</span><span className="text-slate-600 cursor-help" title="Equity Multiplier: Total returns divided by initial cash invested (also known as MOIC).">ⓘ</span></p>
             <div className="mt-1 flex items-baseline justify-between">
-              <span className="text-xl font-extrabold text-accent-cyan tracking-tight">{metrics.equityMultiplierDisplay || `${(Number(metrics.equityMultiplier) || 0).toFixed(2)}x`}</span>
+              <span className="text-lg sm:text-xl font-extrabold text-accent-cyan tracking-tight">{metrics.equityMultiplierDisplay || `${(Number(metrics.equityMultiplier) || 0).toFixed(2)}x`}</span>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1">Total returns / Initial cash</p>
+            <p className="hidden sm:block text-[10px] text-slate-500 mt-1">Total returns / Initial cash</p>
           </div>
           <div className={analyticsCard}>
             <p className={analyticsLabel}><span>Break-Even Year</span><span className="text-slate-600 cursor-help" title="Break-Even Year: The year when cumulative cash flow becomes positive.">ⓘ</span></p>
-            <div className="mt-1 flex items-baseline justify-between"><span className="text-xl font-extrabold text-accent-emerald tracking-tight">{breakEven}</span></div>
-            <p className="text-[10px] text-slate-500 mt-1">Year cumulative cash turns positive</p>
+            <div className="mt-1 flex items-baseline justify-between"><span className="text-lg sm:text-xl font-extrabold text-accent-emerald tracking-tight">{breakEven}</span></div>
+            <p className="hidden sm:block text-[10px] text-slate-500 mt-1">Year cumulative cash turns positive</p>
           </div>
         </div>
       </div>
@@ -340,9 +340,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
         </div>
       </div>
 
-      {/* Expected at purchase vs current outlook vs actual collections (owned assets only) */}
-      {isOwned && <PerformanceVsProforma deal={deal} metrics={metrics} />}
-
       {/* Projections visualizer */}
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">
         <div className="flex items-center justify-between mb-4">
@@ -359,6 +356,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           <ProjectionsChart projections={projections} startYear={startYr} type={chartType} />
         </div>
       </div>
+
+      {/* Where the money goes, value built, loan coverage */}
+      <DealCharts metrics={metrics} startYear={startYr} defaultYear={targetYear} />
 
       {/* Milestones */}
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
