@@ -174,9 +174,9 @@ export const RemodelModal: React.FC<Props> = ({ isOpen, deal, onClose, onSave })
                 )}
                 {draft.financing === 'new_loan' && (
                   <>
-                    <div><span className={label}>Borrowed (% of cost)</span><NumField value={draft.ltcPct ?? 80} onChange={(v) => set({ ltcPct: v })} /></div>
-                    <div><span className={label}>Loan rate (%)</span><NumField value={draft.loanRatePct ?? Number(deal.inputs?.interestRate ?? 0)} onChange={(v) => set({ loanRatePct: v })} step="any" /></div>
-                    <div><span className={label}>Loan term (yrs)</span><NumField value={draft.loanTermYears ?? 20} onChange={(v) => set({ loanTermYears: v })} /></div>
+                    <div><span className={label}>Borrowed (% of cost)</span><NumField value={draft.ltcPct} onChange={(v) => set({ ltcPct: v })} /></div>
+                    <div><span className={label}>Loan rate (%)</span><NumField value={draft.loanRatePct} onChange={(v) => set({ loanRatePct: v })} step="any" /></div>
+                    <div><span className={label}>Loan term (yrs)</span><NumField value={draft.loanTermYears} onChange={(v) => set({ loanTermYears: v })} /></div>
                   </>
                 )}
               </div>

@@ -45,7 +45,7 @@ describe('what is missing, by rent mode', () => {
     expect(missingForPlan({ ...p, manualValue: 3000000 })).toEqual([]);
   });
   it('rejects an impossible borrowed share', () => {
-    expect(missingForPlan({ ...good(), financing: 'new_loan', ltcPct: 150 })).toEqual(['a borrowed share between 0 and 100']);
+    expect(missingForPlan({ ...good(), financing: 'new_loan', ltcPct: 150, loanRatePct: 7, loanTermYears: 20 })).toEqual(['a borrowed share between 0 and 100']);
   });
 });
 

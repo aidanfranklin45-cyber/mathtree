@@ -14,9 +14,9 @@ export interface RemodelPlan {
   durationMonths: number;
   cost: number; // total capex
   financing: 'cash' | 'new_loan';
-  ltcPct?: number; // new_loan: share of the cost borrowed (engine default 80)
-  loanRatePct?: number; // default: the deal's own rate
-  loanTermYears?: number; // engine default 20
+  ltcPct?: number; // new_loan: share of the cost borrowed, stated by the owner
+  loanRatePct?: number; // new_loan: this loan's own rate, stated by the owner
+  loanTermYears?: number; // new_loan: this loan's own term, stated by the owner
   rentDuringWorksPct: number; // 0 = fully down while building, 100 = unaffected
   rentAfter: {
     mode: 'monthly' | 'pct_increase' | 'per_sf';

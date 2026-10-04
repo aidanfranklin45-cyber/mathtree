@@ -197,6 +197,15 @@ export function checkEngineInputs(rawAssetType: string, inputs: Record<string, a
     if (stated(inputs, ...KEYS.maintenance) === undefined) need('annualMaintenance', 'Annual maintenance ($)', 'assumption', 'A property with no income still needs upkeep.');
   }
 
+  // A remodel financed with a new loan is its own loan: its share borrowed, rate and term are stated, not assumed
+  const remodel = inputs.remodel;
+  if (remodel && typeof remodel === 'object' && !Array.isArray(remodel) && (remodel as Record<string, unknown>).financing === 'new_loan') {
+    const r = remodel as Record<string, any>;
+    if (stated(r, 'ltcPct') === undefined) need('remodel.ltcPct', 'Remodel loan: share of cost borrowed (%)', 'fact', 'Set by the remodel lender.');
+    if (stated(r, 'loanRatePct') === undefined) need('remodel.loanRatePct', 'Remodel loan: interest rate (%)', 'fact', 'Set by the remodel lender; it is not the purchase loan\'s rate.');
+    if (stated(r, 'loanTermYears') === undefined) need('remodel.loanTermYears', 'Remodel loan: term (years)', 'fact', 'Set by the remodel lender.');
+  }
+
   return out;
 }
 

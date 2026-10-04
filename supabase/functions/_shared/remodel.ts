@@ -12,7 +12,7 @@ export interface RemodelInput {
   /** Total remodel cost, spent at the start of work. */
   cost: number | string;
   financing?: 'cash' | 'new_loan';
-  /** new_loan: share of the cost borrowed (default 80) and the loan's rate (default: the deal's rate) and term (default 20). */
+  /** new_loan: share of the cost borrowed, the loan's own rate and its term. All three are stated by the owner; none has a default. */
   ltcPct?: number | string;
   loanRatePct?: number | string;
   loanTermYears?: number | string;
@@ -75,7 +75,7 @@ export function resolveRemodel(
   const completionIdx = startIdx + duration;
 
   const financing = r.financing === 'new_loan' ? 'new_loan' : 'cash';
-  const ltc = Math.min(100, Math.max(0, num(r.ltcPct, 80)));
+  const ltc = Math.min(100, Math.max(0, num(r.ltcPct)));
   const loanAmount = financing === 'new_loan' ? cost * (ltc / 100) : 0;
 
   return {
@@ -85,8 +85,8 @@ export function resolveRemodel(
     cost,
     loanAmount,
     cashPortion: cost - loanAmount,
-    loanRatePct: Math.max(0, num(r.loanRatePct, defaults.interestRate)),
-    loanTermYears: Math.max(1, Math.round(num(r.loanTermYears, 20))),
+    loanRatePct: Math.max(0, num(r.loanRatePct)),
+    loanTermYears: Math.max(1, Math.round(num(r.loanTermYears))),
     rentDuringWorks: Math.min(100, Math.max(0, num(r.rentDuringWorksPct, 0))) / 100,
     rentUpliftMonthly: uplift,
     extraOpexAnnual: Math.max(0, num(r.extraOpexAnnual)),

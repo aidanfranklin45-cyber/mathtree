@@ -77,7 +77,7 @@ describe('evaluating a plan', () => {
   });
 
   it('warns when work eats the coverage', () => {
-    const r = evaluateRemodel(deal(), plan({ financing: 'new_loan', ltcPct: 100, loanRatePct: 8 }));
+    const r = evaluateRemodel(deal(), plan({ financing: 'new_loan', ltcPct: 100, loanRatePct: 8, loanTermYears: 20 }));
     if (!r.ok) throw new Error('not ok');
     expect(r.warnings.join(' ')).toMatch(/does not cover/);
   });
