@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { BENCHMARK_DEAL } from '../../lib/supabase/client';
 import { calculateProjections } from '../../lib/engine';
@@ -19,13 +19,61 @@ interface Props {
 
 type Ent = { id: string; name: string; entity_type?: string; formation_state?: string | null };
 
+type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
+const AUTOSAVE_DELAY_MS = 800;
+const RETRY_DELAY_MS = 5000;
+/** Unsaved edits are mirrored here so a redirect, expired session or closed tab never loses typing. */
+const DRAFT_KEY = 'mathtree_profile_draft';
+
+function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
+  return {
+    fullName: f.fullName.trim() || 'Investor',
+    discountRate: parseFloat(String(f.discountRate)) || 8.0,
+    exitYear: parseInt(String(f.exitYear), 10) || 10,
+    marketTier: f.marketTier,
+    propertyClass: f.propertyClass,
+    exitCapTiming: f.exitCapTiming,
+    leaseExpiryMode: f.leaseExpiryMode,
+    leaseExpiryVacancyMonths: Math.min(60, Math.max(0, parseInt(String(f.leaseExpiryVacancyMonths), 10) || 0)),
+    primaryEntityId: f.primaryEntityId || null,
+    companyName: f.companyName,
+  };
+}
+
+/** A half-typed number (empty or NaN) must not be saved as its default. */
+function isSavable(f: InvestorProfile): boolean {
+  return !isNaN(parseFloat(String(f.discountRate))) && !isNaN(parseInt(String(f.exitYear), 10));
+}
+
+function readDraft(userId: string | undefined): InvestorProfile | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return d && d.userId === (userId ?? null) && d.form ? (d.form as InvestorProfile) : null;
+  } catch { return null; }
+}
+function writeDraft(userId: string | undefined, form: InvestorProfile) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ userId: userId ?? null, form })); } catch { /* storage unavailable */ }
+}
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* storage unavailable */ }
+}
+
 const inputCls = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500';
 const labelCls = 'text-[11px] font-bold text-slate-400';
 
 export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved, onOpenEntities, deals = [] }) => {
   const [form, setForm] = useState<InvestorProfile | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<InvestorProfile | null>(null);
+  const userIdRef = useRef<string | undefined>(undefined);
+  const lastSavedKey = useRef('');
+  const savingRef = useRef(false);
+  const savedAny = useRef<InvestorProfile | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [entities, setEntities] = useState<Ent[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -70,52 +118,104 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
     if (!isOpen) return;
     let live = true;
     setError(null);
+    setStatus('idle');
+    savedAny.current = null;
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      const p = await fetchProfile(supabase, data?.user);
-      if (live) setForm(p);
-      if (live) void loadEntities();
+      const { data } = await supabase.auth.getSession();
+      const user = data?.session?.user;
+      userIdRef.current = user?.id;
+      const p = await fetchProfile(supabase, user);
+      if (!live) return;
+      lastSavedKey.current = JSON.stringify(buildPayload(p));
+      // Restore edits that never reached the server (redirect, expired session, closed tab).
+      const draft = readDraft(user?.id);
+      setForm(draft && JSON.stringify(buildPayload(draft)) !== lastSavedKey.current ? { ...p, ...draft } : p);
+      void loadEntities();
     })();
     return () => { live = false; };
   }, [isOpen]);
 
+  const save = useCallback(async () => {
+    const f = formRef.current;
+    if (!f || savingRef.current || !isSavable(f)) return;
+    const payload = buildPayload(f);
+    const key = JSON.stringify(payload);
+    if (key === lastSavedKey.current) return;
+    savingRef.current = true;
+    setStatus('saving');
+    setError(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const user = data?.session?.user;
+      let demo = false;
+      try { demo = !!JSON.parse(localStorage.getItem('mathtree_demo_mode') || 'null')?.demo; } catch { /* not demo */ }
+      if (!user && !demo) throw new Error('Your session expired. Your changes are kept here: sign in again in another tab, then they will save.');
+      const saved = await saveProfile(payload, supabase, user);
+      lastSavedKey.current = key;
+      savedAny.current = saved;
+      if (JSON.stringify(buildPayload(formRef.current ?? f)) === key) clearDraft();
+      setStatus('saved');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save profile');
+      setStatus('error');
+    } finally {
+      savingRef.current = false;
+    }
+    // Edits made while this save was in flight, or a failure to retry, get another pass.
+    const latest = formRef.current;
+    if (latest && isSavable(latest) && JSON.stringify(buildPayload(latest)) !== lastSavedKey.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
+    }
+  }, []);
+
+  // Debounced autosave: every change is mirrored to a local draft immediately, then saved once typing pauses.
+  useEffect(() => {
+    formRef.current = form;
+    if (!form || !isOpen) return;
+    const key = JSON.stringify(buildPayload(form));
+    if (key === lastSavedKey.current) return;
+    writeDraft(userIdRef.current, form);
+    setStatus((s) => (s === 'saving' ? s : 'dirty'));
+    const t = setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [form, isOpen, save]);
+
+  // A failed save keeps retrying quietly while the modal stays open.
+  useEffect(() => {
+    if (status !== 'error' || !isOpen) return;
+    const t = setTimeout(() => void save(), RETRY_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [status, isOpen, save]);
+
+  useEffect(() => () => clearTimeout(retryTimer.current), []);
+
   if (!isOpen || !form) return null;
+
+  /** Saves anything pending, then closes. A failed save keeps the modal open so nothing typed is lost. */
+  const finish = async () => {
+    for (let i = 0; i < 3 && !savingRef.current; i++) {
+      const f = formRef.current;
+      if (!f || !isSavable(f) || JSON.stringify(buildPayload(f)) === lastSavedKey.current) break;
+      await save();
+    }
+    while (savingRef.current) await new Promise((r) => setTimeout(r, 50));
+    const f = formRef.current;
+    if (f && isSavable(f) && JSON.stringify(buildPayload(f)) !== lastSavedKey.current) return;
+    if (savedAny.current) onSaved(savedAny.current);
+    onClose();
+  };
 
   const set = <K extends keyof InvestorProfile>(k: K, v: InvestorProfile[K]) => setForm({ ...form, [k]: v });
   const hurdle = Number(form.discountRate) || 0;
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const { data } = await supabase.auth.getUser();
-      const saved = await saveProfile({
-        fullName: form.fullName.trim() || 'Investor',
-        discountRate: parseFloat(String(form.discountRate)) || 8.0,
-        exitYear: parseInt(String(form.exitYear), 10) || 10,
-        marketTier: form.marketTier,
-        propertyClass: form.propertyClass,
-        exitCapTiming: form.exitCapTiming,
-        leaseExpiryMode: form.leaseExpiryMode,
-        leaseExpiryVacancyMonths: Math.min(60, Math.max(0, parseInt(String(form.leaseExpiryVacancyMonths), 10) || 0)),
-        primaryEntityId: form.primaryEntityId || null,
-        companyName: form.companyName,
-      }, supabase, data?.user);
-      onSaved(saved);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save profile');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const submit = (e: React.FormEvent) => { e.preventDefault(); void finish(); };
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) void finish(); }}
       className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
     >
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full max-h-full overflow-y-auto p-6 space-y-5 shadow-2xl">
@@ -131,7 +231,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               <p className="text-xs text-slate-400">Global underwriting benchmarks &amp; opportunity cost parameters</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white p-1 rounded-lg" aria-label="Close">✕</button>
+          <button onClick={() => void finish()} className="text-slate-500 hover:text-white p-1 rounded-lg" aria-label="Close">✕</button>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
@@ -324,12 +424,18 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
           </div>
 
-          {error && <p className="text-xs text-rose-400">{error}</p>}
+          {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
 
-          <div className="flex items-center justify-end space-x-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">Cancel</button>
-            <button type="submit" disabled={saving} className="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-md shadow-emerald-500/20 transition disabled:opacity-60">
-              {saving ? 'Saving…' : 'Save Preferences'}
+          <div className="flex items-center justify-between pt-2">
+            <span aria-live="polite" className={`text-[11px] font-semibold ${status === 'error' ? 'text-rose-400' : status === 'saved' ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {status === 'saving' ? 'Saving…'
+                : status === 'saved' ? '✓ Saved'
+                : status === 'error' ? 'Not saved. Retrying…'
+                : status === 'dirty' ? 'Unsaved changes…'
+                : 'Changes save automatically'}
+            </span>
+            <button type="submit" className="px-5 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 shadow-md shadow-emerald-500/20 transition">
+              Done
             </button>
           </div>
         </form>
