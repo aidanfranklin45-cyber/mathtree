@@ -87,6 +87,8 @@ export const ComparePage: React.FC = () => {
 
   // Panels and filters
   const [panel, setPanel] = useState<PanelName>(null);
+  // Filters opened from the Add panel return to it when closed
+  const [filtersReturnTo, setFiltersReturnTo] = useState<PanelName>(null);
   const [filters, setFilters] = useState<CompareFilters>(NO_FILTERS);
 
   // Saved boards
@@ -190,23 +192,26 @@ export const ComparePage: React.FC = () => {
 
   useEffect(() => () => { if (undoTimer.current) window.clearTimeout(undoTimer.current); }, []);
 
+  // Latest board for handlers that run after an await (adding a scenario looks things up first)
+  const columnsRef = useRef<ComparisonColumn[]>([]);
+  columnsRef.current = columns;
+
   const addColumns = useCallback((incoming: ComparisonColumn[]) => {
-    setColumns((prev) => {
-      const next = [...prev];
-      const notes: MergedColumnNote[] = [];
-      for (const col of incoming) {
-        if (next.length >= MAX_BOARD_ENTRIES) break;
-        const twin = findTwin(next.filter((c) => c.dealId === col.dealId), col);
-        if (twin) {
-          // Same figures as a column already shown: say so instead of repeating it
-          notes.push({ kept: scenarioShortLabel(twin), dropped: [scenarioShortLabel(col)], noRent: twin.summary.grossRentAnnual <= 0 });
-          continue;
-        }
-        next.push({ ...col, isBenchmark: next.length === 0 });
+    const next = [...columnsRef.current];
+    const notes: MergedColumnNote[] = [];
+    for (const col of incoming) {
+      if (next.length >= MAX_BOARD_ENTRIES) break;
+      const twin = findTwin(next.filter((c) => c.dealId === col.dealId), col);
+      if (twin) {
+        // Same figures as a column already shown: say so instead of repeating it
+        notes.push({ kept: scenarioShortLabel(twin), dropped: [scenarioShortLabel(col)], noRent: twin.summary.grossRentAnnual <= 0 });
+        continue;
       }
-      if (notes.length > 0) setMergeNotes((m) => [...m, ...notes]);
-      return next;
-    });
+      next.push({ ...col, isBenchmark: next.length === 0 });
+    }
+    columnsRef.current = next;
+    setColumns(next);
+    if (notes.length > 0) setMergeNotes((m) => [...m, ...notes]);
   }, []);
 
   const showScenarioSet = useCallback(async (deal: DealRecord) => {
@@ -484,7 +489,7 @@ export const ComparePage: React.FC = () => {
               saveBusy={saveBusy}
               onOpenAdd={() => setPanel('add')}
               onOpenMetrics={() => setPanel('metrics')}
-              onOpenFilters={() => setPanel('filters')}
+              onOpenFilters={() => { setFiltersReturnTo(null); setPanel('filters'); }}
               onOpenSaved={() => setPanel('saved')}
               onSaveNew={(name) => { void handleSaveNew(name); }}
               onUpdateSaved={() => { void handleUpdateSaved(); }}
@@ -543,7 +548,7 @@ export const ComparePage: React.FC = () => {
         columns={columns}
         filters={filters}
         onFiltersChange={setFilters}
-        onOpenFilters={() => setPanel('filters')}
+        onOpenFilters={() => { setFiltersReturnTo('add'); setPanel('filters'); }}
         filterCount={filterCount}
         onToggleScenario={(d, s, l, on) => { void handleToggleScenario(d, s, l, on); }}
         onAddWhatIf={handleAddWhatIf}
@@ -552,7 +557,7 @@ export const ComparePage: React.FC = () => {
       <MetricsPanel open={panel === 'metrics'} onClose={() => setPanel(null)} selected={metrics} onChange={setMetrics} />
       <FiltersPanel
         open={panel === 'filters'}
-        onClose={() => setPanel(columns.length === 0 ? null : 'add')}
+        onClose={() => setPanel(filtersReturnTo)}
         deals={deals}
         filters={filters}
         onChange={setFilters}

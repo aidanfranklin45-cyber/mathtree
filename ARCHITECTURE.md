@@ -143,7 +143,7 @@ React 18 + Vite + TypeScript + Tailwind, react-router, Chart.js. Pages are lazy 
 |---|---|---|
 | `/`, `/dashboard` | `DashboardPage` | `components/dashboard` (deal cards, `ProjectWizardModal`), portfolio KPIs (`lib/portfolio`) |
 | `/project?id=…&tab=…` | `DealStudioPage` | `components/studio`: `StudioNavbar`, tabs (Overview, ProForma, Property, Debt, Diligence, Sensitivity, Tax), modals (`EditInputsModal`, `RemodelModal`, `ParameterHistoryModal`) |
-| `/compare` | `ComparePage` | `components/compare` (matrix, charts, what-if scrubber, baseline column) |
+| `/compare` | `ComparePage` | `components/compare` (starter, builder strip, Add / Metrics / Filters / Saved panels, matrix, phone cards, charts, what-if scrubber, baseline column). Board settings live in `lib/compare/config.ts` (metrics in `metrics.ts`, saved boards in `savedViews.ts`); a plain visit opens blank |
 | `/operations` | `OperationsPage` | `components/operations` (rent roll, leases, payments, recoveries, CAM, meters) |
 | `/brief`, `/demo-brief`, `/portfolio-brief` | `DealBriefPage`, `PortfolioBriefPage` | `components/brief`, models built in `lib/export` |
 | `/reconcile` | `ReconcilePage` | Public, token-based |

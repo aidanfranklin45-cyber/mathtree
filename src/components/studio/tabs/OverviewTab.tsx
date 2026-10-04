@@ -7,6 +7,7 @@ import { getDefaultTargetYear, getProjectionStartYear } from '../../../lib/studi
 import { openDealBrief } from '../../../lib/export/pdfBrief';
 import { ProjectionsChart } from '../ProjectionsChart';
 import { PerformanceVsProforma } from '../PerformanceVsProforma';
+import { DealCharts } from '../DealCharts';
 import { Link } from 'react-router-dom';
 import { currentLeases } from '../../../lib/leases';
 
@@ -359,6 +360,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           <ProjectionsChart projections={projections} startYear={startYr} type={chartType} />
         </div>
       </div>
+
+      {/* Where the money goes, value built, loan coverage */}
+      <DealCharts metrics={metrics} startYear={startYr} defaultYear={targetYear} />
 
       {/* Milestones */}
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
