@@ -17,6 +17,7 @@ import { ActionNeededList } from '../components/operations/ActionNeededList';
 import { RentRollTable } from '../components/operations/RentRollTable';
 import { LeaseDrawer } from '../components/operations/LeaseDrawer';
 import { ProjectedVsActual } from '../components/operations/ProjectedVsActual';
+import { ExpenseLedger } from '../components/operations/ExpenseLedger';
 import { LeaseExpiryLadder } from '../components/operations/LeaseExpiryLadder';
 import { MenuItem, Popover, triggerBtn } from '../components/operations/Popover';
 import { RecoveriesPanel } from '../components/operations/RecoveriesPanel';
@@ -58,6 +59,7 @@ export const OperationsPage: React.FC = () => {
   const [entityId, setEntityId] = useState('all');
   const [dealId, setDealId] = useState('all');
   const [scope, setScope] = useState<'owned' | 'all'>('owned');
+  const [userId, setUserId] = useState<string | null>(null);
   const [activeDate, setActiveDate] = useState<Date>(() => new Date());
 
   // Modals + feedback
@@ -85,6 +87,7 @@ export const OperationsPage: React.FC = () => {
       // Local session read: avoids a network round trip to /auth/v1/user before any data can load
       const { data: auth } = await supabase.auth.getSession();
       const uid = auth?.session?.user?.id;
+      setUserId(uid ?? null);
       const scoped = (q: any) => (uid ? q.eq('user_id', uid) : q);
       const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase, rTerms, rItems, rRecons, rMeters, rReads] = await Promise.allSettled([
         scoped(supabase.from('deals').select('*')).order('title', { ascending: true }),
@@ -523,6 +526,13 @@ export const OperationsPage: React.FC = () => {
         <LeaseExpiryLadder leases={ops.scopedLeases} sqftOf={sqftOf} dealTitle={dealTitleOf} onSelect={setSelectedId} />
 
         <ProjectedVsActual deals={scopedDeals} leases={leases} baselines={baselines} />
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h3 className="text-sm font-extrabold text-white">Expenses</h3>
+          {dealId !== 'all' && userId
+            ? <ExpenseLedger dealId={dealId} userId={userId} />
+            : <p className="text-xs text-slate-500">Pick a property in the filter above to record and review its operating expenses.</p>}
+        </div>
 
         <div className="text-center">
           <Link to="/" className="text-[11px] text-slate-500 hover:text-emerald-400 transition">← Back to Portfolio &amp; Pipeline</Link>

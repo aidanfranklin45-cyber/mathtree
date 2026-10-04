@@ -1,6 +1,6 @@
 /**
- * Where to mount: the owned-deal Operations tab of the deal screen, once that rework lands. The parent passes the deal id and the
- * signed-in user's id. Not wired in yet. Needs draft migration 12 (public.expense_entries) applied; until then it shows a setup message.
+ * Mounted in the "Expenses" card on the Operations page (visible once a single property is picked in the filter). The parent passes the
+ * deal id and the signed-in user's id. Needs draft migration 12 (public.expense_entries) applied; until then it shows a setup message.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
