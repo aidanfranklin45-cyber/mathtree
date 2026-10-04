@@ -702,7 +702,7 @@ export const DashboardPage: React.FC = () => {
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
                         Gross Asset Value
                       </span>
-                      <span className="text-2xl sm:text-3xl font-black text-white mt-1.5 block tabular-nums font-mono tracking-tight">
+                      <span className="text-xl sm:text-2xl 2xl:text-3xl font-black text-slate-200 mt-1.5 block tabular-nums font-mono tracking-tight">
                         {portfolioKPIs.ownedVal > 0 ? formatCurrency(portfolioKPIs.ownedVal) : '—'}
                       </span>
                     </div>
@@ -716,13 +716,13 @@ export const DashboardPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Right: Total Net Equity */}
+                  {/* Right: Total Net Equity (Highlighted Scorecard) */}
                   <div className="flex flex-col justify-between pt-3 sm:pt-0 sm:pl-4">
                     <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">
                         Total Net Equity
                       </span>
-                      <span className="text-2xl sm:text-3xl font-black text-white mt-1.5 block tabular-nums font-mono tracking-tight">
+                      <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black text-emerald-400 mt-1.5 block tabular-nums font-mono tracking-tight">
                         {portfolioKPIs.ownedEquity > 0 ? formatCurrency(portfolioKPIs.ownedEquity) : '—'}
                       </span>
                     </div>
