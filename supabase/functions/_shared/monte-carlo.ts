@@ -309,7 +309,7 @@ export function createMonteCarloRunner(
 
   const baseGrowth = num(inputs.rentGrowth) ?? 2.5;
   const baseVacancy = num(inputs.vacancyRate) ?? 5.0;
-  const baseApprec = num(inputs.appreciationRate) ?? 3.5;
+  const baseApprec = num(inputs.appreciationRate) ?? 2.0;
   const baseExitCap =
     num(inputs.targetCapRate) ??
     num(inputs.targetExitCapRate) ??
