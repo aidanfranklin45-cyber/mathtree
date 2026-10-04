@@ -53,14 +53,14 @@ export interface MonthlyAmortizationEntry {
  * Dynamically computes loan amortization, principal paydown, continuous property appreciation,
  * and built equity in-memory based on elapsed time between the deal's closingDate and targetDate.
  *
- * Income figures come from `resolvePropertyState`. Pass the deal's `facts` (leases, units and rent payments rows) and an owned deal's
+ * Income figures come from `resolvePropertyState`. Pass the deal's `facts` (leases, units, rent payments and expense rows; defaults to the deal's `property_facts`) and an owned deal's
  * NOI and cash flow use the rent actually collected; without them (or without enough history) they stay the underwriting forecast,
  * and `state` says which.
  */
 export function resolvePointInTimeDealMetrics(
   deal: DealRecord | Record<string, any>,
   targetDate: Date = new Date(),
-  facts: PropertyFacts | null = null,
+  facts: PropertyFacts | null = (deal as any).property_facts ?? null,
 ): PointInTimeMetrics {
   const isOwned = deal.status === 'owned';
   const inp = deal.inputs || {};

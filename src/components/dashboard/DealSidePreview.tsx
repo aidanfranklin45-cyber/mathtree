@@ -64,7 +64,7 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
   const ltv = pit.ltv;
 
   // Cash flow & Collected vs Estimated
-  const hasCollections = isOwned && collectedMonthly !== undefined && collectedMonthly > 0;
+  const hasCollections = isOwned && collectedMonthly !== undefined;
   const monthlyCf = hasCollections
     ? collectedMonthly
     : pit.currentCashFlow !== 0
