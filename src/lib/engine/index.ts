@@ -24,7 +24,6 @@ export {
   solveTargetPurchasePrice,
   generateScenarioVariants,
   aggregatePortfolio,
-  getBenchmarkCapRateRange,
   auditDealRisks,
   normalizeAssetClass,
   resolveLeaseMonthlyRent,

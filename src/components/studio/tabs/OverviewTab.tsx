@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { DealRecord, DealMetrics } from '../../../lib/math/types';
 import { resolvePointInTimeDealMetrics } from '../../../lib/math/pointInTime';
-import { getBenchmarkCapRateRange } from '../../../lib/engine';
 import { formatCurrency } from '../../../lib/format';
 import { getDefaultTargetYear, getProjectionStartYear } from '../../../lib/studio/projectionYear';
 import { openDealBrief } from '../../../lib/export/pdfBrief';
@@ -21,13 +20,6 @@ interface OverviewTabProps {
 const yearPill = 'hidden sm:inline text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-wider bg-slate-950 px-1.5 py-0.5 border border-slate-900 rounded';
 const analyticsCard = 'bg-slate-950/60 p-3 sm:p-4 rounded-xl border border-slate-900 relative group';
 const analyticsLabel = 'text-[10px] font-bold tracking-wider text-slate-500 uppercase flex items-center justify-between';
-
-const BENCHMARK_SOURCE: Record<string, string> = {
-  commercial: 'CBRE Market Benchmark',
-  storage: 'Self-Storage Industry Benchmark',
-  'multi-unit': 'Fannie Mae / Freddie Mac Benchmark',
-  'single-family': 'SFR Market Index Benchmark',
-};
 
 function normalizeAsset(ac: string): string {
   const s = String(ac || 'commercial').toLowerCase();
@@ -55,21 +47,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
   const cf = Number(proj.cashFlow) || 0;
   const cfMo = cf / 12;
   const exitYear = Number(inputs.holdingPeriod ?? inputs.exitYear);
-
-  // Cap-rate benchmark description (same tiers/classes the legacy card showed)
-  const capDesc = useMemo(() => {
-    const asset = normalizeAsset(String(deal.asset_class));
-    const tier = inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier 2';
-    const pClass = inputs.propertyClass || inputs.commClass || inputs.storageClass || 'Class B';
-    const facility = inputs.facilityType || '';
-    try {
-      const r = getBenchmarkCapRateRange(asset, tier, pClass, facility);
-      return { text: `${BENCHMARK_SOURCE[asset]}: `, range: `${r.min.toFixed(2)}% - ${r.max.toFixed(2)}%`, tail: ` (${tier} • ${pClass})` };
-    } catch {
-      return null;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deal.asset_class, inputs.marketTier, inputs.commTier, inputs.storageTier, inputs.propertyClass, inputs.commClass, inputs.storageClass, inputs.facilityType]);
 
   const breakEven = typeof metrics.breakEvenYear === 'number' && metrics.breakEvenYear > 0
     ? `${startYr + metrics.breakEvenYear - 1} (Year ${metrics.breakEvenYear})`
@@ -155,9 +132,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
           </div>
           <div className="hidden sm:flex mt-2 sm:mt-3 items-center text-[10px] sm:text-xs text-slate-500">
             <span className="truncate">
-              {capDesc
-                ? <>{capDesc.text}<span className="text-brand-400 font-bold">{capDesc.range}</span> <span className="text-slate-500 text-[10px]">{capDesc.tail}</span></>
-                : 'Annual NOI divided by property value'}
+              Annual NOI divided by property value
             </span>
           </div>
         </div>
