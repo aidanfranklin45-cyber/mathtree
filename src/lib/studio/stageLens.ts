@@ -52,36 +52,3 @@ export function getStageLens(deal: Pick<DealRecord, 'status' | 'inputs'>): Stage
 export function resolveTab(lens: Pick<StageLens, 'tabs' | 'defaultTab'>, requested: string | null | undefined): StudioTabKey {
   return (lens.tabs as string[]).includes(requested ?? '') ? (requested as StudioTabKey) : lens.defaultTab;
 }
-
-export interface OperateSummary {
-  activeLeases: number;
-  monthlyContractRent: number;
-  /** Most recent months that have payment records (newest first, at most `months`). */
-  recent: Array<{ month: string; due: number; paid: number }>;
-}
-
-/** A short rent summary for one property from the lease and payment facts, for the Operate tab. */
-export function summarizeOperate(
-  leases: Array<{ monthly_rent: number | null; is_active: boolean | null }>,
-  payments: Array<{ period_month: string; amount_due: number | null; amount_paid: number | null }>,
-  months = 3,
-): OperateSummary {
-  const active = leases.filter((l) => l.is_active !== false);
-  const byMonth = new Map<string, { due: number; paid: number }>();
-  for (const p of payments) {
-    const key = String(p.period_month).slice(0, 7);
-    const cur = byMonth.get(key) ?? { due: 0, paid: 0 };
-    cur.due += Number(p.amount_due) || 0;
-    cur.paid += Number(p.amount_paid) || 0;
-    byMonth.set(key, cur);
-  }
-  const recent = [...byMonth.entries()]
-    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-    .slice(0, months)
-    .map(([month, v]) => ({ month, ...v }));
-  return {
-    activeLeases: active.length,
-    monthlyContractRent: active.reduce((s, l) => s + (Number(l.monthly_rent) || 0), 0),
-    recent,
-  };
-}

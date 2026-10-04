@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDealStage, getStageLens, resolveTab, summarizeOperate } from './stageLens';
+import { getDealStage, getStageLens, resolveTab } from './stageLens';
 
 const deal = (status: string, dealStage?: string) => ({ status, inputs: dealStage ? { dealStage } : {} }) as any;
 
@@ -41,22 +41,5 @@ describe('stage lenses', () => {
     expect(resolveTab(prospect, 'operate')).toBe('overview');
     expect(resolveTab(prospect, 'performance')).toBe('overview');
     expect(resolveTab(prospect, 'tax')).toBe('tax');
-  });
-
-  it('summarizes leases and the latest recorded months', () => {
-    const s = summarizeOperate(
-      [{ monthly_rent: 1000, is_active: true }, { monthly_rent: 500, is_active: false }, { monthly_rent: 250, is_active: null }],
-      [
-        { period_month: '2026-07-01', amount_due: 1000, amount_paid: 1000 },
-        { period_month: '2026-09-01', amount_due: 1000, amount_paid: 0 },
-        { period_month: '2026-08-01', amount_due: 1000, amount_paid: 1000 },
-        { period_month: '2026-10-01', amount_due: 1000, amount_paid: null },
-        { period_month: '2026-10-01', amount_due: 200, amount_paid: 200 },
-      ],
-    );
-    expect(s.activeLeases).toBe(2);
-    expect(s.monthlyContractRent).toBe(1250);
-    expect(s.recent.map((r) => r.month)).toEqual(['2026-10', '2026-09', '2026-08']);
-    expect(s.recent[0]).toEqual({ month: '2026-10', due: 1200, paid: 200 });
   });
 });
