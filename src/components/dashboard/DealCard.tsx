@@ -313,14 +313,24 @@ const DealCardComponent: React.FC<DealCardProps> = ({
 
           <div>
             <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
-              {hasCollections ? 'Collected' : 'Estimated'}
+              {hasCollections ? 'Monthly Rent' : 'Est. Cash Flow'}
             </span>
             <span className="text-xs font-black text-emerald-400 mt-0.5 block tabular-nums">
               {monthlyCfVal > 0 ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
             </span>
-            <span className="text-[8px] text-slate-400 font-bold block uppercase tracking-wider font-sans leading-none mt-0.5">
-              {hasCollections ? 'Operations' : 'Pro-Forma'}
-            </span>
+            {monthlyCfVal > 0 ? (
+              <span
+                className={`text-[8px] font-bold block uppercase tracking-wider font-sans leading-none mt-0.5 ${
+                  hasCollections ? 'text-emerald-400' : 'text-slate-400'
+                }`}
+              >
+                {hasCollections ? 'Collected' : 'Estimated'}
+              </span>
+            ) : (
+              <span className="text-[8px] text-slate-500 block font-sans leading-none mt-0.5">
+                No Income
+              </span>
+            )}
           </div>
         </div>
       </div>

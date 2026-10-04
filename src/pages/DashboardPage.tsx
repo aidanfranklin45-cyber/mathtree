@@ -9,6 +9,7 @@ import { DealCard } from '../components/dashboard/DealCard';
 import { DealTableView, SortField } from '../components/dashboard/DealTableView';
 import { DealSidePreview } from '../components/dashboard/DealSidePreview';
 import { BulkActionsBar } from '../components/dashboard/BulkActionsBar';
+import { PortfolioEquityChart } from '../components/dashboard/PortfolioEquityChart';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { fetchProfile, getProfile } from '../lib/profile';
@@ -517,6 +518,27 @@ export const DashboardPage: React.FC = () => {
   // Executive KPI tiles
   const portfolioKPIs = useMemo(() => computePortfolioKpis(deals, new Date()), [deals]);
 
+  // Contractual monthly principal paydown across owned portfolio
+  const monthlyPaydownVelocity = useMemo(() => {
+    const owned = deals.filter((d) => d.status === 'owned');
+    const today = new Date();
+    let annualPaydown = 0;
+    owned.forEach((d) => {
+      const eng = tryComputeDealMetrics(d);
+      const p1 = eng?.projections?.[0];
+      const p2 = eng?.projections?.[1];
+      if (p1 && p2) {
+        const bal1 = Number(p1.endingLoanBalance ?? p1.loanBalanceRemaining) || 0;
+        const bal2 = Number(p2.endingLoanBalance ?? p2.loanBalanceRemaining) || 0;
+        annualPaydown += Math.max(0, bal1 - bal2);
+      } else {
+        const pit = resolvePointInTimeDealMetrics(d, today);
+        if (pit.baseLoanAmount > 0) annualPaydown += pit.baseLoanAmount * 0.02;
+      }
+    });
+    return Math.round(annualPaydown / 12);
+  }, [deals]);
+
   // Multi-select handlers
   const handleToggleSelect = useCallback((dealId: string) => {
     setSelectedDealIds((prev) => {
@@ -679,77 +701,92 @@ export const DashboardPage: React.FC = () => {
         {/* 4 Executive KPI Tiles - Wider Desktop Stat Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Tile 1: Gross Asset Value */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider">Gross Asset Value</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            </div>
-            <span className="text-xl sm:text-2xl font-black text-emerald-400 mt-1 block tabular-nums font-mono">
-              {formatCurrency(portfolioKPIs.ownedVal)}
-            </span>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
-              <span>
-                Net Equity: <strong className="text-slate-200 font-bold font-mono">{formatCurrency(portfolioKPIs.ownedEquity)}</strong>
+          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-emerald-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Gross Asset Value</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+              </div>
+              <span className="text-2xl font-black text-emerald-400 mt-1 block tabular-nums font-mono">
+                {portfolioKPIs.ownedVal > 0 ? formatCurrency(portfolioKPIs.ownedVal) : '—'}
               </span>
-              <span className="text-slate-500 font-mono text-[10px]">
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
+              <span className="text-[11px] text-slate-400">
+                {counts.owned} {counts.owned === 1 ? 'Owned Asset' : 'Owned Assets'}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-400 font-mono text-[10px] font-bold">
                 {portfolioKPIs.ownedLtv}% LTV
               </span>
             </div>
           </div>
 
-          {/* Tile 2: Owned Annual Cash Flow */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-emerald-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider">Owned Annual Cash Flow</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          {/* Tile 2: Total Net Equity (NAV) */}
+          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-emerald-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Net Equity</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+              </div>
+              <span className="text-2xl font-black text-emerald-300 mt-1 block tabular-nums font-mono">
+                {portfolioKPIs.ownedEquity > 0 ? formatCurrency(portfolioKPIs.ownedEquity) : '—'}
+              </span>
             </div>
-            <span className="text-xl sm:text-2xl font-black text-white mt-1 block tabular-nums font-mono">
-              {formatCurrency(portfolioKPIs.ownedCashflow)}<span className="text-slate-400 font-sans text-xs">/yr</span>
-            </span>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
-              <span className="text-emerald-400 font-semibold truncate">
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
+              <span className="text-[11px] text-slate-400">
+                Debt: <strong className="text-slate-200 font-mono font-bold">{formatCurrency(portfolioKPIs.ownedDebt)}</strong>
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-bold uppercase tracking-wider">
+                Unleveraged Net
+              </span>
+            </div>
+          </div>
+
+          {/* Tile 3: Owned Annual Cash Flow */}
+          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-emerald-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Owned Annual Cash Flow</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+              </div>
+              <span className={`text-2xl font-black mt-1 block tabular-nums font-mono ${portfolioKPIs.ownedCashflow < 0 ? 'text-amber-400' : 'text-white'}`}>
+                {portfolioKPIs.ownedCashflow !== 0 ? formatCurrency(portfolioKPIs.ownedCashflow) : '—'}<span className="text-slate-400 font-sans text-xs">/yr</span>
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
+              <span className={`text-[11px] font-semibold truncate ${portfolioKPIs.avgCoc < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                 {portfolioKPIs.ownedEquity <= 0 && portfolioKPIs.ownedCashflow > 0
                   ? '100% Financed'
                   : `${portfolioKPIs.avgCoc.toFixed(1)}% Blended CoC`}
               </span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <span className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
                 {collectedMonthlyMap.size > 0 ? 'Live Actuals' : 'Pro-Forma'}
               </span>
             </div>
           </div>
 
-          {/* Tile 3: Active Pipeline Volume */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-cyan-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider">Pipeline Volume</span>
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            </div>
-            <span className="text-xl sm:text-2xl font-black text-cyan-400 mt-1 block tabular-nums font-mono">
-              {formatCurrency(portfolioKPIs.pipelineVal)}
-            </span>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
-              <span>
-                {portfolioKPIs.pipelineCount} active {portfolioKPIs.pipelineCount === 1 ? 'prospect' : 'prospects'}
+          {/* Tile 4: Principal Paydown Velocity */}
+          <div className="bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800/80 hover:border-cyan-500/30 p-4 rounded-2xl transition shadow-lg flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Paydown Velocity</span>
+                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
+              </div>
+              <span className="text-2xl font-black text-cyan-400 mt-1 block tabular-nums font-mono">
+                {monthlyPaydownVelocity > 0 ? `+${formatCurrency(monthlyPaydownVelocity)}/mo` : '—'}
               </span>
-              <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">Underwriting</span>
             </div>
-          </div>
-
-          {/* Tile 4: Pipeline Target IRR */}
-          <div className="bg-slate-900/50 border border-slate-900 hover:border-cyan-900/40 p-3.5 sm:p-4 rounded-2xl transition shadow-md">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider">Pipeline Target IRR</span>
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            </div>
-            <span className="text-xl sm:text-2xl font-black text-white mt-1 block tabular-nums font-mono">
-              {portfolioKPIs.blendedIrr > 0 ? `${portfolioKPIs.blendedIrr.toFixed(1)}%` : '—'}
-            </span>
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 pt-1.5 border-t border-slate-900/80">
-              <span className="text-cyan-400 font-semibold truncate">Blended Target Return</span>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">10-Yr Model</span>
+            <div className="flex items-center justify-between text-xs text-slate-300 mt-2 pt-2 border-t border-slate-800/80">
+              <span className="text-[11px] text-slate-400">Debt Amortization</span>
+              <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[9px] text-cyan-400 font-bold uppercase tracking-wider">
+                Built Equity
+              </span>
             </div>
           </div>
         </div>
+
+        {/* Portfolio Equity & Asset Wealth Creation Chart */}
+        <PortfolioEquityChart deals={deals} />
 
         {/* Main Section: Pinned Refine Sidebar + Results Grid/Table */}
         <div className="flex flex-col lg:flex-row items-start gap-6 pt-1">
