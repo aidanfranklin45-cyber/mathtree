@@ -22,7 +22,9 @@ describe('resolvePointInTimeDealMetrics without stored analysis', () => {
     const pit = resolvePointInTimeDealMetrics(d, new Date('2026-06-01'));
     const m = computeDealMetrics(d);
     expect(pit.currentDebt).toBeCloseTo(m.loanAmount, 0);
-    expect(pit.currentEquity).toBeCloseTo(m.initialCashInvested as number, 0);
+    expect(pit.currentEquity).toBeCloseTo(d.purchase_price - m.loanAmount, 0);
+    expect(pit.initialCashInvested).toBeCloseTo(m.initialCashInvested as number, 0);
+    expect(pit.currentEquity).toBeLessThanOrEqual(pit.currentVal);
     expect(pit.irr).toBeCloseTo(m.irr, 5);
     expect(pit.currentCashFlow).toBeCloseTo(m.year1Cashflow, 0);
     expect(pit.currentDebt).toBeGreaterThan(0);
@@ -49,6 +51,24 @@ describe('resolvePointInTimeDealMetrics without stored analysis', () => {
   it('a deal with no usable inputs degrades to zeros instead of throwing', () => {
     const pit = resolvePointInTimeDealMetrics({ id: 'e', asset_class: 'commercial', status: 'prospect', purchase_price: 0, inputs: {} } as any);
     expect(Number.isFinite(pit.currentDebt)).toBe(true);
+  });
+
+  it('unleveraged prospect equity equals purchase price and never exceeds current value when closing costs exist', () => {
+    const d = facts({
+      status: 'prospect',
+      purchase_price: 785300,
+      inputs: {
+        purchasePrice: 785300,
+        downPaymentPercent: 100,
+        closingCosts: 35000,
+      },
+    });
+    const pit = resolvePointInTimeDealMetrics(d);
+    expect(pit.currentVal).toBe(785300);
+    expect(pit.currentDebt).toBe(0);
+    expect(pit.currentEquity).toBe(785300);
+    expect(pit.currentEquity).toBeLessThanOrEqual(pit.currentVal);
+    expect(pit.initialCashInvested).toBe(820300); // 785,300 + 35,000
   });
 });
 
