@@ -40,12 +40,12 @@ interface DealCardProps {
 }
 
 const stageMap: Record<string, { label: string; className: string }> = {
-  screening: { label: 'Underwriting', className: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
-  loi: { label: 'LOI Submitted', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  due_diligence: { label: 'Due Diligence', className: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
-  closing: { label: 'Closing', className: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  owned: { label: 'Owned Asset', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  disposition: { label: 'Exited', className: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+  screening: { label: 'Underwriting', className: 'bg-slate-900 text-slate-400 border-slate-800' },
+  loi: { label: 'LOI Submitted', className: 'bg-slate-900 text-slate-300 border-slate-800' },
+  due_diligence: { label: 'Due Diligence', className: 'bg-slate-900 text-slate-300 border-slate-800' },
+  closing: { label: 'Closing', className: 'bg-slate-900 text-slate-300 border-slate-800' },
+  owned: { label: 'Owned Asset', className: 'bg-slate-800 text-slate-200 border-slate-700' },
+  disposition: { label: 'Exited', className: 'bg-slate-900 text-slate-400 border-slate-800' },
 };
 
 const assetDisplayMap: Record<string, string> = {
@@ -61,13 +61,13 @@ const AssetIcon: React.FC<{ assetClass: string }> = ({ assetClass }) => {
   switch (assetClass) {
     case 'multi-unit':
     case 'multi_family':
-      return <Building className="w-4 h-4 text-cyan-400" />;
+      return <Building className="w-4 h-4 text-slate-400" />;
     case 'commercial':
-      return <Warehouse className="w-4 h-4 text-emerald-400" />;
+      return <Warehouse className="w-4 h-4 text-slate-400" />;
     case 'storage':
-      return <Boxes className="w-4 h-4 text-amber-400" />;
+      return <Boxes className="w-4 h-4 text-slate-400" />;
     default:
-      return <Home className="w-4 h-4 text-slate-300" />;
+      return <Home className="w-4 h-4 text-slate-400" />;
   }
 };
 
@@ -310,7 +310,7 @@ const DealCardComponent: React.FC<DealCardProps> = ({
           <div>
             <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">Target IRR</span>
             <span className={`text-xs font-black mt-0.5 block tabular-nums ${
-              !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-amber-400' : 'text-brand-400'
+              !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400'
             }`}>
               {irrStr}
             </span>
@@ -321,14 +321,14 @@ const DealCardComponent: React.FC<DealCardProps> = ({
               {hasCollections ? 'Monthly Rent' : 'Est. Cash Flow'}
             </span>
             <span className={`text-xs font-black mt-0.5 block tabular-nums ${
-              monthlyCfVal < 0 ? 'text-amber-400' : 'text-emerald-400'
+              monthlyCfVal < 0 ? 'text-red-400' : 'text-emerald-400'
             }`}>
               {hasCashFlow ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
             </span>
             {hasCashFlow ? (
               <span
                 className={`text-[8px] font-bold block uppercase tracking-wider font-sans leading-none mt-0.5 ${
-                  hasCollections ? 'text-emerald-400' : monthlyCfVal < 0 ? 'text-amber-400' : 'text-slate-400'
+                  hasCollections ? 'text-emerald-400' : monthlyCfVal < 0 ? 'text-red-400' : 'text-slate-400'
                 }`}
               >
                 {hasCollections ? 'Collected' : 'Estimated'}

@@ -52,34 +52,22 @@ interface DealTableViewProps {
 
 const AssetClassBadge: React.FC<{ assetClass: string }> = ({ assetClass }) => {
   const normalized = assetClass.toLowerCase();
+  let label = 'SFR';
+  let Icon = Home;
   if (normalized === 'multi-unit' || normalized === 'multi_family') {
-    return (
-      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[11px] font-bold">
-        <Building className="w-3 h-3" />
-        <span>Multi-Unit</span>
-      </span>
-    );
-  }
-  if (normalized === 'commercial') {
-    return (
-      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-bold">
-        <Warehouse className="w-3 h-3" />
-        <span>Commercial</span>
-      </span>
-    );
-  }
-  if (normalized === 'storage') {
-    return (
-      <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[11px] font-bold">
-        <Boxes className="w-3 h-3" />
-        <span>Storage</span>
-      </span>
-    );
+    label = 'Multi-Unit';
+    Icon = Building;
+  } else if (normalized === 'commercial') {
+    label = 'Commercial';
+    Icon = Warehouse;
+  } else if (normalized === 'storage') {
+    label = 'Storage';
+    Icon = Boxes;
   }
   return (
-    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-bold">
-      <Home className="w-3 h-3" />
-      <span>SFR</span>
+    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800 text-[11px] font-medium">
+      <Icon className="w-3 h-3 text-slate-400" />
+      <span>{label}</span>
     </span>
   );
 };
@@ -280,13 +268,11 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   {/* Status / Stage */}
                   <td className="py-3 px-3 whitespace-nowrap">
                     {isOwned ? (
-                      <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold uppercase tracking-wider">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-800 text-slate-200 border border-slate-700 text-[10px] font-semibold uppercase tracking-wider">
                         <span>Owned</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-extrabold uppercase tracking-wider">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-900 text-slate-400 border border-slate-800 text-[10px] font-semibold uppercase tracking-wider">
                         <span>Pipeline</span>
                       </span>
                     )}
@@ -303,7 +289,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   </td>
 
                   {/* Equity */}
-                  <td className="py-3 px-3 text-right font-mono text-emerald-400 font-bold tabular-nums">
+                  <td className="py-3 px-3 text-right font-mono text-white font-bold tabular-nums">
                     {equityFormatted}
                   </td>
 
@@ -313,15 +299,15 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                       <span className="font-mono text-slate-500">—</span>
                     ) : (
                       <div className="inline-flex flex-col items-end">
-                        <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-amber-400' : 'text-white'}`}>
+                        <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-red-400' : 'text-white'}`}>
                           {cashFlowFormatted}<span className="text-slate-400 font-sans text-[10px]">/mo</span>
                         </span>
                         <span
-                          className={`text-[9px] font-extrabold uppercase tracking-wider px-1 rounded ${
+                          className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded ${
                             hasCollections
-                              ? 'bg-emerald-500/20 text-emerald-400'
+                              ? 'bg-slate-800 text-slate-300'
                               : monthlyCashFlowVal < 0
-                              ? 'bg-amber-500/10 text-amber-400'
+                              ? 'bg-red-500/10 text-red-400'
                               : 'bg-slate-800 text-slate-400'
                           }`}
                         >
@@ -338,7 +324,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
                   {/* Target Return (IRR / CoC) */}
                   <td className={`py-3 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap ${
-                    returnFormatted === '—' || returnFormatted === 'N/M' ? 'text-slate-400' : isReturnNegative ? 'text-amber-400' : 'text-cyan-400'
+                    returnFormatted === '—' || returnFormatted === 'N/M' ? 'text-slate-400' : isReturnNegative ? 'text-red-400' : 'text-emerald-400'
                   }`}>
                     {returnFormatted}
                   </td>

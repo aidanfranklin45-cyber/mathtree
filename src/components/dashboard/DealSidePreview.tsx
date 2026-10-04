@@ -259,13 +259,13 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">Monthly Cash Flow</span>
-                <span className={`text-base font-black font-mono tabular-nums ${monthlyCf < 0 ? 'text-amber-400' : 'text-white'}`}>
+                <span className={`text-base font-black font-mono tabular-nums ${monthlyCf < 0 ? 'text-red-400' : 'text-white'}`}>
                   {monthlyCf !== 0 ? `${formatCurrency(monthlyCf)}/mo` : '—'}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">Annual Cash Flow</span>
-                <span className={`text-base font-black font-mono tabular-nums ${annualCf < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                <span className={`text-base font-black font-mono tabular-nums ${annualCf < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                   {annualCf !== 0 ? `${formatCurrency(annualCf)}/yr` : '—'}
                 </span>
               </div>
@@ -292,7 +292,7 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
           <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-400">
               <span className="flex items-center space-x-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-brand-400" />
+                <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
                 <span>Return Metrics</span>
               </span>
             </div>
@@ -301,7 +301,7 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
               <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-[9px] uppercase font-bold text-slate-500 block">10-Yr IRR</span>
                 <span className={`text-sm font-black font-mono tabular-nums block mt-0.5 ${
-                  !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-amber-400' : 'text-brand-400'
+                  !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400'
                 }`}>
                   {irrStr}
                 </span>
@@ -309,7 +309,7 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
               <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
                 <span className="text-[9px] uppercase font-bold text-slate-500 block">CoC Yield</span>
                 <span className={`text-sm font-black font-mono tabular-nums block mt-0.5 ${
-                  !hasCoc || isZeroEq ? 'text-slate-400' : (rawCoc ?? 0) < 0 ? 'text-amber-400' : 'text-cyan-400'
+                  !hasCoc || isZeroEq ? 'text-slate-400' : (rawCoc ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400'
                 }`}>
                   {cocStr}
                 </span>
@@ -327,7 +327,7 @@ export const DealSidePreview: React.FC<DealSidePreviewProps> = ({
           <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-400">
               <span className="flex items-center space-x-1.5">
-                <Users className="w-3.5 h-3.5 text-amber-400" />
+                <Users className="w-3.5 h-3.5 text-slate-400" />
                 <span>Rent Roll & Leases</span>
               </span>
               <span className="text-[10px] text-slate-400 font-bold">

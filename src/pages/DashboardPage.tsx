@@ -670,12 +670,12 @@ export const DashboardPage: React.FC = () => {
         {/* Minimalist Greeting & Action Bar */}
         <div className="flex items-center justify-between pb-1">
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Hey, <span className="text-brand-400">{greetingName}</span>
+            Hey, {greetingName}
           </h2>
 
           <button
             onClick={() => setIsWizardOpen(true)}
-            className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-950 bg-emerald-500 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20 transition flex items-center space-x-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-950 bg-white hover:bg-slate-200 shadow-sm transition flex items-center space-x-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Create Project</span>
@@ -688,85 +688,76 @@ export const DashboardPage: React.FC = () => {
         {/* 2. Directly Underneath: 4 Vanguard-Style KPI Tiles */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Tile 1: Gross Asset Value */}
-          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-slate-700 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Gross Asset Value</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Gross Asset Value</span>
               <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black text-white mt-2 block tabular-nums font-mono tracking-tight">
                 {portfolioKPIs.ownedVal > 0 ? formatCurrency(portfolioKPIs.ownedVal) : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
-              <span className="text-xs text-slate-400 font-semibold">
+            <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400 font-medium">
                 {counts.owned} {counts.owned === 1 ? 'Owned Asset' : 'Owned Assets'}
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[10px] font-semibold">
                 {portfolioKPIs.ownedLtv}% LTV
               </span>
             </div>
           </div>
 
           {/* Tile 2: Total Net Equity (NAV) */}
-          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/40 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-slate-700 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">Total Net Equity</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-              </div>
-              <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black text-emerald-400 mt-2 block tabular-nums font-mono tracking-tight">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Total Net Equity</span>
+              <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black text-white mt-2 block tabular-nums font-mono tracking-tight">
                 {portfolioKPIs.ownedEquity > 0 ? formatCurrency(portfolioKPIs.ownedEquity) : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
-              <span className="text-xs text-slate-400 font-semibold">
+            <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400 font-medium">
                 Debt: <strong className="text-slate-200 font-mono font-bold">{formatCurrency(portfolioKPIs.ownedDebt)}</strong>
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-300 font-bold uppercase tracking-wider font-mono">
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-400 text-[10px] font-semibold uppercase tracking-wider font-mono">
                 NAV Stake
               </span>
             </div>
           </div>
 
           {/* Tile 3: Owned Annual Cash Flow */}
-          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-emerald-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-slate-700 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Annual Cash Flow</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-              </div>
-              <span className={`text-2xl sm:text-3xl font-black mt-2 block tabular-nums font-mono tracking-tight ${portfolioKPIs.ownedCashflow < 0 ? 'text-amber-400' : 'text-white'}`}>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Annual Cash Flow</span>
+              <span className={`text-2xl sm:text-3xl font-black mt-2 block tabular-nums font-mono tracking-tight ${
+                portfolioKPIs.ownedCashflow < 0 ? 'text-red-400' : portfolioKPIs.ownedCashflow > 0 ? 'text-emerald-400' : 'text-white'
+              }`}>
                 {portfolioKPIs.ownedCashflow !== 0 ? formatCurrency(portfolioKPIs.ownedCashflow) : '—'}<span className="text-slate-400 font-sans text-xs">/yr</span>
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
-              <span className={`text-xs font-semibold truncate ${portfolioKPIs.avgCoc < 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+            <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className={`text-xs font-semibold truncate ${
+                portfolioKPIs.avgCoc < 0 ? 'text-red-400' : portfolioKPIs.avgCoc > 0 ? 'text-emerald-400' : 'text-slate-400'
+              }`}>
                 {portfolioKPIs.ownedEquity <= 0 && portfolioKPIs.ownedCashflow > 0
                   ? '100% Financed'
                   : `${portfolioKPIs.avgCoc.toFixed(1)}% CoC Yield`}
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
                 {collectedMonthlyMap.size > 0 ? 'Live Actuals' : 'Pro-Forma'}
               </span>
             </div>
           </div>
 
           {/* Tile 4: Principal Paydown Velocity */}
-          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-cyan-500/30 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
+          <div className="bg-slate-900/80 border border-slate-800/90 hover:border-slate-700 p-4 sm:p-5 rounded-2xl transition shadow-xl flex flex-col justify-between backdrop-blur-sm">
             <div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Paydown Velocity</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
-              </div>
-              <span className="text-2xl sm:text-3xl font-black text-cyan-400 mt-2 block tabular-nums font-mono tracking-tight">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Paydown Velocity</span>
+              <span className="text-2xl sm:text-3xl font-black text-white mt-2 block tabular-nums font-mono tracking-tight">
                 {monthlyPaydownVelocity > 0 ? `+${formatCurrency(monthlyPaydownVelocity)}/mo` : '—'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-slate-300 mt-3 pt-2.5 border-t border-slate-800/80">
-              <span className="text-xs text-slate-400 font-semibold">Debt Amortization</span>
-              <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-[10px] text-cyan-400 font-bold uppercase tracking-wider font-mono">
+            <div className="flex items-center justify-between text-xs text-slate-400 mt-3 pt-2.5 border-t border-slate-800/80">
+              <span className="text-xs text-slate-400 font-medium">Debt Amortization</span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-[10px] text-slate-400 font-semibold uppercase tracking-wider font-mono">
                 Built Equity
               </span>
             </div>
@@ -862,49 +853,40 @@ export const DashboardPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setStatusFilter('owned')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left shadow-sm ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       statusFilter === 'owned'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span>Owned Portfolio</span>
-                    </div>
-                    <span className="text-[11px] opacity-90 font-mono">{counts.owned}</span>
+                    <span>Owned Portfolio</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.owned}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setStatusFilter('prospect')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       statusFilter === 'prospect'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                      <span>Pipeline / Prospects</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.prospect}</span>
+                    <span>Pipeline / Prospects</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.prospect}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setStatusFilter('all')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       statusFilter === 'all'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="w-2 h-2 rounded-full bg-white" />
-                      <span>All Deals</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.all}</span>
+                    <span>All Deals</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.all}</span>
                   </button>
                 </div>
               </div>
@@ -918,66 +900,66 @@ export const DashboardPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setAssetFilter('all')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       assetFilter === 'all'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
                     <span>All Property Types</span>
-                    <span className="text-[11px] opacity-90 font-mono">{counts.all}</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.all}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setAssetFilter('single-family')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       assetFilter === 'single-family'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
                     <span>Single Family (SFR)</span>
-                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.sfr}</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.sfr}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setAssetFilter('multi-unit')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       assetFilter === 'multi-unit'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
                     <span>Multi-Unit / Residential</span>
-                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.multi}</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.multi}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setAssetFilter('commercial')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       assetFilter === 'commercial'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
                     <span>Commercial / Retail</span>
-                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.commercial}</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.commercial}</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setAssetFilter('storage')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition text-left ${
                       assetFilter === 'storage'
-                        ? 'bg-brand-600 text-white font-bold shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        ? 'bg-slate-800 text-white font-semibold border border-slate-700 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
                     }`}
                   >
                     <span>Self-Storage</span>
-                    <span className="text-[11px] text-slate-400 shrink-0 font-mono">{counts.storage}</span>
+                    <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">{counts.storage}</span>
                   </button>
                 </div>
               </div>
