@@ -332,18 +332,20 @@ const DealCardComponent: React.FC<DealCardProps> = ({
           <span>&rarr;</span>
         </div>
 
-        <div className="flex items-center space-x-2" data-no-nav>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(deal);
-            }}
-            className={`px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 ${theme.editHoverBorder} transition`}
-          >
-            Edit
-          </button>
-        </div>
+        {onEdit && (
+          <div className="flex items-center space-x-2" data-no-nav>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(deal);
+              }}
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-800 ${theme.editHoverBorder} transition`}
+            >
+              Edit
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
