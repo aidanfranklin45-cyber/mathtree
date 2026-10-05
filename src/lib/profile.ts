@@ -4,8 +4,9 @@
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase/client';
 import { setExpiryDefaults } from './engine/expiryDefaults';
+import { setAssumptionDefaults, isEmptyAssumptions } from './engine/assumptionDefaults';
 import { normalizeExpiryDefaults, type ExpiryMode } from '../../supabase/functions/_shared/leaseExpiry';
-import { sanitizeAssumptions, type UnderwritingAssumptions } from '../../supabase/functions/_shared/underwritingAssumptions';
+import { sanitizeAssumptions, suggestedStartingPoints, type UnderwritingAssumptions } from '../../supabase/functions/_shared/underwritingAssumptions';
 
 export interface AssociatedCompany {
   id: string;
@@ -71,6 +72,11 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   const expiry = normalizeExpiryDefaults(raw as Record<string, unknown>);
   setExpiryDefaults(raw as Record<string, unknown>);
 
+  // Nothing saved yet: the labelled starting points apply (and show in the profile) until the owner sets their own
+  const stored = sanitizeAssumptions(raw.underwritingAssumptions);
+  const underwritingAssumptions = isEmptyAssumptions(stored) ? suggestedStartingPoints(null) : stored;
+  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear });
+
   return {
     id: raw.id ?? null,
     email: raw.email ?? null,
@@ -88,7 +94,7 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     propertyClass: String(raw.propertyClass || DEFAULT_PROFILE.propertyClass).trim(),
     leaseExpiryMode: expiry.mode,
     leaseExpiryVacancyMonths: expiry.vacancyMonths,
-    underwritingAssumptions: sanitizeAssumptions(raw.underwritingAssumptions),
+    underwritingAssumptions,
     notification_email: raw.notification_email ?? null,
     alert_preferences: raw.alert_preferences ?? null,
   };

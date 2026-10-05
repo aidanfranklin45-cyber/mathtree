@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
-import { checkEngineInputs } from '../../lib/engine';
+import { missingInputsFor } from '../../lib/engine/compute';
+import { useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
 import { formatCurrency } from '../../lib/format';
 import { currentLeases } from '../../lib/leases';
 import {
@@ -136,11 +137,12 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   const theme = themeStyles[activeTheme];
 
   // Derived metrics from engine
-  const pit = useMemo(() => resolvePointInTimeDealMetrics(deal, new Date()), [deal]);
-  const engine = useMemo(() => tryComputeDealMetrics(deal), [deal]);
+  const assumptionVersion = useAssumptionVersion(); // re-run when the owner changes their assumptions
+  const pit = useMemo(() => resolvePointInTimeDealMetrics(deal, new Date()), [deal, assumptionVersion]);
+  const engine = useMemo(() => tryComputeDealMetrics(deal), [deal, assumptionVersion]);
   const inputs = deal.inputs || {};
   const aClass = String(deal.asset_class || deal.assetType || 'single-family');
-  const missingInputs = useMemo(() => checkEngineInputs(aClass, deal.inputs || {}), [aClass, deal.inputs]);
+  const missingInputs = useMemo(() => missingInputsFor(deal), [deal, assumptionVersion]);
   const needsInputs = missingInputs.length > 0;
   const dealTitle = resolveDealDisplayName(deal);
   const locStr = deal.location || inputs.propertyAddress || deal.address || '—';

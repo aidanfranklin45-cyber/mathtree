@@ -3,6 +3,7 @@ import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix } from '../
 import { computeDealMetrics, computeSensitivity } from './compute';
 import { IncompleteInputsError, type MissingInput } from './index';
 import { getExpiryDefaultsVersion, subscribeExpiryDefaults } from './expiryDefaults';
+import { useAssumptionVersion } from './assumptionDefaults';
 
 export interface ComputedMetricsState {
   metrics: DealMetrics | null;
@@ -23,6 +24,8 @@ export function useComputedMetrics(
 ): ComputedMetricsState {
   // Re-run when the investor changes their lease-expiry default in Profile
   const expiryVersion = useSyncExternalStore(subscribeExpiryDefaults, getExpiryDefaultsVersion);
+  // ...and when they change their underwriting assumptions
+  const assumptionVersion = useAssumptionVersion();
   const inputsKey = JSON.stringify(deal?.inputs ?? null);
   const overridesKey = JSON.stringify(opts.overrides ?? null);
   const assetClass = deal?.asset_class;
@@ -44,5 +47,5 @@ export function useComputedMetrics(
     }
     // deal is intentionally keyed by its facts, not object identity
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deal?.id, assetClass, purchasePrice, inputsKey, overridesKey, opts.computeSensitivity, expiryVersion]);
+  }, [deal?.id, assetClass, purchasePrice, inputsKey, overridesKey, opts.computeSensitivity, expiryVersion, assumptionVersion]);
 }

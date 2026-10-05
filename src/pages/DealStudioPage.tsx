@@ -24,7 +24,7 @@ import { ensureBaseline } from '../lib/baselines/db';
 import { Loader2 } from 'lucide-react';
 import { InputsNeeded } from '../components/studio/InputsNeeded';
 import { getProfile } from '../lib/profile';
-import { checkEngineInputs } from '../lib/engine';
+import { missingInputsFor } from '../lib/engine/compute';
 import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../supabase/functions/_shared/underwritingAssumptions';
 import { stated } from '../../supabase/functions/_shared/inputRequirements';
 
@@ -148,7 +148,7 @@ export const DealStudioPage: React.FC = () => {
     const merged = { ...inp, ...patch };
     const ok = await patchAndRecord({ ...patch, assumptionBasis: reconcileBasis({ ...(inp.assumptionBasis ?? {}), ...basis }, merged) } as Partial<DealInputs>, {});
     if (!ok) throw new Error('Could not save. Try again.');
-    const still = checkEngineInputs(asset, merged);
+    const still = missingInputsFor({ ...deal, inputs: merged } as typeof deal);
     return still.length === 0
       ? `Filled ${Object.keys(patch).length} figures from your assumptions.`
       : `Filled ${Object.keys(patch).length} figures from your assumptions. Still needed: ${still.map((m) => m.label).join(', ')}.`;

@@ -6,6 +6,8 @@ import {
 interface Props {
   value: UnderwritingAssumptions;
   onChange: (next: UnderwritingAssumptions) => void;
+  /** Settings that apply to every property (hold, exit method, lease end), shown first so every assumption is in one place. */
+  general?: React.ReactNode;
 }
 
 const ASSET_LABEL: Record<AssetKey, string> = { 'single-family': 'Single-family', 'multi-unit': 'Multi-unit', commercial: 'Commercial', storage: 'Storage' };
@@ -19,7 +21,7 @@ const labelCls = 'text-[11px] font-bold text-slate-400';
  * and each figure keeps the reason written here so it can be shown to a lender. A blank field means "no assumption": a deal then
  * asks for that figure instead of guessing.
  */
-export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange }) => {
+export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange, general }) => {
   const [asset, setAsset] = useState<AssetKey>('multi-unit');
   const current: AssetAssumptions = value.assets?.[asset] ?? {};
 
@@ -39,7 +41,8 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
 
   const setWhy = (field: AssumptionField, why: string) => writeAsset({ ...current, rationale: { ...current.rationale, [field]: why } });
 
-  const specs = FIELD_SPECS.filter((s) => s.assets.includes(asset));
+  // The hold is one setting for every property (above), not one per asset class
+  const specs = FIELD_SPECS.filter((s) => s.assets.includes(asset) && s.key !== 'holdingPeriod');
   const get = (f: AssumptionField): string => {
     const v = (current as Record<string, unknown>)[f];
     return v === undefined || v === null ? '' : String(v);
@@ -50,17 +53,24 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
       <div>
         <span className="text-[10px] uppercase font-bold text-slate-400 block">My Underwriting Assumptions</span>
         <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
-          These seed every new deal and are copied onto it with your reason, so each number can be defended to a lender. Leave a field
-          blank if you have no assumption: the deal will ask for it rather than guess.
+          These apply to every property that does not state its own figure, and follow you if you change them. Starting points are filled in
+          until you set your own: a short note on each is enough to explain it to a lender.
         </p>
       </div>
 
+      {general && (
+        <div className="space-y-3 pb-3 border-b border-slate-800">
+          <span className="text-[10px] uppercase font-bold text-slate-400 block">Every property</span>
+          {general}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800">
         <p className="text-[11px] text-slate-400 leading-relaxed">
-          Not sure where to start? Fill the blank carrying costs and reserves with common underwriting conventions. They are starting points, labelled as such, for you to replace with your own quotes and levy rates.
+          Blank something out? This refills any blank assumption with the common convention, labelled as a starting point.
         </p>
         <button type="button" onClick={() => onChange(suggestedStartingPoints(value))} className="shrink-0 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-          Use starting points
+          Refill blanks
         </button>
       </div>
 
@@ -83,6 +93,20 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
             className={`${inputCls} col-span-2`}
           />
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className={labelCls} title="A pipeline deal with no closing date is assumed to close this many weeks after the day you run the analysis, and its preliminary amortization schedule starts then.">Assumed closing: weeks after the analysis (for deals with no closing date)</label>
+        <input
+          type="number" min={0} max={52} step={1} aria-label="Assumed closing weeks"
+          value={value.assumedClosingWeeks === undefined ? '' : String(value.assumedClosingWeeks)}
+          onChange={(e) => {
+            const next = { ...value };
+            if (e.target.value.trim() === '') delete next.assumedClosingWeeks; else next.assumedClosingWeeks = e.target.value as unknown as number;
+            onChange(next);
+          }}
+          className={inputCls}
+        />
       </div>
 
       <div className="space-y-1">

@@ -498,8 +498,8 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             )}
           </div>
 
-          <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800 space-y-3">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Default Underwriting Assumptions</span>
+          <UnderwritingAssumptionsEditor
+            general={<>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className={labelCls}>Default Hold Period (Years)</label>
@@ -540,9 +540,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
               )}
               <p className="text-[10px] text-slate-500 leading-relaxed">Applies to every property unless you choose differently for it in Edit Inputs (At Lease Expiration).</p>
             </div>
-          </div>
-
-          <UnderwritingAssumptionsEditor
+            </>}
             value={form.underwritingAssumptions ?? { assets: {} }}
             onChange={(v) => set('underwritingAssumptions', v)}
           />
