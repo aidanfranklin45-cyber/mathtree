@@ -128,12 +128,17 @@ export function checkEngineInputs(rawAssetType: string, inputs: Record<string, a
     if (finType !== 'bridge' && stated(inputs, ...KEYS.amortization) === undefined) {
       need('amortizationYears', 'Amortization period (years)', 'fact', 'The payment is calculated over the loan\'s own amortization, which varies loan to loan.');
     }
+    // A loan states one term: it is paid over that term and falls due at its end, measured from the closing date. A balloon (due before
+    // the amortization ends) is the exception, stated on its own. A balloon that comes due before the exit is refused: how it is repaid
+    // or refinanced is not guessed.
+    const amortization = stated(inputs, ...KEYS.amortization);
     const maturity = stated(inputs, ...KEYS.maturity);
-    if (maturity === undefined) need('loanMaturityYears', 'Loan maturity (years)', 'fact', 'The balance falls due at maturity, which is often before the amortization ends.');
-    else {
+    if (finType === 'bridge' && maturity === undefined) need('loanMaturityYears', 'Loan term (years)', 'fact', 'A bridge loan is due at the end of its term.');
+    if (maturity !== undefined) {
       const hold = stated(inputs, ...KEYS.hold);
-      if (hold !== undefined && maturity < hold) {
-        need('loanMaturityYears', `Loan matures in year ${maturity}, before the ${hold}-year hold ends`, 'fact', 'Shorten the hold to the maturity, or extend the maturity: how a balloon is repaid or refinanced is not guessed.');
+      const balloon = amortization === undefined || maturity < amortization;
+      if (balloon && hold !== undefined && maturity < hold) {
+        need('loanMaturityYears', `The loan comes due in year ${maturity}, before the ${hold}-year hold ends`, 'fact', 'Shorten the hold to the due date, or lengthen the loan: how a balloon is repaid or refinanced is not guessed.');
       }
     }
     if (finType === 'arm') {

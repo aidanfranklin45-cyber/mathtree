@@ -1015,14 +1015,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <input id="wiz-interest-rate" type="number" step="0.125" value={w.rate} onChange={(e) => set({ rate: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="wiz-amortization" className={lbl}>Amortization Period (Years)</label>
+            <label htmlFor="wiz-amortization" className={lbl}>Loan Term (Years)</label>
             <input id="wiz-amortization" type="number" value={w.amort} onChange={(e) => set({ amort: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="wiz-maturity" className={lbl}>Loan Maturity (Years)</label>
+            <label htmlFor="wiz-maturity" className={lbl}>Balloon Due (Years, optional)</label>
             <input id="wiz-maturity" type="number" min={1} value={w.maturity} onChange={(e) => set({ maturity: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
-          <p className="sm:col-span-2 text-[10px] text-slate-500 leading-relaxed">Every loan is its own: take the rate, amortization and maturity from this loan's term sheet. The balance falls due at maturity, which cannot be before your hold ends.</p>
+          <p className="sm:col-span-2 text-[10px] text-slate-500 leading-relaxed">Every loan is its own: take the rate and term from this loan's term sheet. The loan is paid off at the end of its term, counted from the closing date. Only a loan with a balloon payment needs the optional due year, and it cannot come before your hold ends.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -21,7 +21,6 @@ begin;
 update deals
 set inputs = inputs
   || jsonb_build_object(
-       'loanMaturityYears', 20,          -- = the 20-year amortization the old engine implicitly treated as the whole loan. CONFIRM against the note.
        'capexReserveAnnual', 0,          -- the old rule for NNN commercial was an explicit capexReserve, defaulting to 0
        'annualTaxes', 3241,              -- 1.1% of the county assessed value $294,650 (the old engine's carrying-cost default). REPLACE with the tax bill.
        'annualInsurance', 600,           -- old engine default. REPLACE with the policy premium.
@@ -39,7 +38,6 @@ where id = 'f6280a80-f335-48c5-9f74-9837249f6981' and status = 'owned' and coale
 update deals
 set inputs = inputs
   || jsonb_build_object(
-       'loanMaturityYears', 15,          -- = the 15-year amortization. CONFIRM against the note.
        'capexReserveAnnual', 0,          -- vacant land carries no building reserve (the old engine took none)
        'annualTaxes', 668,               -- 1.1% of the county assessed value $60,750 (old engine default). REPLACE with the tax bill.
        'annualInsurance', 600,           -- old engine default. REPLACE.
@@ -54,5 +52,5 @@ set inputs = inputs
 where id = '96350ce4-4a2a-4435-9b27-7209093f8f11' and status = 'owned' and coalesce(is_demo, false) = false;
 
 -- Expect 2 rows updated in total. Inspect, then commit (or rollback).
--- select id, title, inputs->'loanMaturityYears', inputs->'annualTaxes' from deals where id in ('f6280a80-f335-48c5-9f74-9837249f6981','96350ce4-4a2a-4435-9b27-7209093f8f11');
+-- select id, title, inputs->'loanTerm', inputs->'annualTaxes' from deals where id in ('f6280a80-f335-48c5-9f74-9837249f6981','96350ce4-4a2a-4435-9b27-7209093f8f11');
 rollback;  -- change to `commit;` only on the owner's explicit go

@@ -39,7 +39,6 @@ describe('the engine never invents an input', () => {
     ['discountRate', 'discountRate'],
     ['interestRate', 'interestRate'],
     ['amortizationYears', 'amortizationYears'],
-    ['loanMaturityYears', 'loanMaturityYears'],
     ['vacancyRate', 'vacancyRate'],
     ['expenseRatio', 'expenseRatio'],
     ['rentGrowth', 'rentGrowth'],

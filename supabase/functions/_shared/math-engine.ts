@@ -701,7 +701,7 @@ export function calculateProjections(
   // (`allowMaturityBeforeHold` is for the monthly view, which stretches the horizon only to have enough months to show.)
   {
     const missing = checkEngineInputs(rawAssetType, inputs);
-    const blocking = opts?.allowMaturityBeforeHold ? missing.filter((m) => m.key !== 'loanMaturityYears' || !/matures in year/.test(m.label)) : missing;
+    const blocking = opts?.allowMaturityBeforeHold ? missing.filter((m) => m.key !== 'loanMaturityYears' || !/comes due in year/.test(m.label)) : missing;
     if (blocking.length > 0) throw new IncompleteInputsError(blocking);
   }
   // Scenario inputs used by the Monte Carlo (both optional; absent = no effect):

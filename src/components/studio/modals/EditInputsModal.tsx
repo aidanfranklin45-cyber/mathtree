@@ -573,15 +573,15 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 <input type="number" min="0" max="30" step="any" value={form.interestRate} onChange={(e) => set('interestRate', e.target.value)} className={inp2} />
               </div>
               <div className="space-y-1">
-                <label className={label} title="The period the monthly payment is calculated over. Set by this loan.">Amortization (Yrs)</label>
+                <label className={label} title="The loan's term. The payment is calculated over it, and the loan is paid off at its end, counted from the closing date.">Loan Term (Yrs)</label>
                 <input type="number" min="1" max="50" step="any" value={form.amortization} onChange={(e) => set('amortization', e.target.value)} className={inp2} />
               </div>
               <div className="space-y-1">
-                <label className={label} title="When the balance falls due. Often shorter than the amortization. It cannot be before the hold ends.">Maturity (Yrs)</label>
+                <label className={label} title="Only for a loan with a balloon payment: the year the remaining balance is due, if earlier than the loan term. Leave blank for a normal loan.">Balloon Due (Yrs, optional)</label>
                 <input type="number" min="1" max="50" step="any" value={form.maturity} onChange={(e) => set('maturity', e.target.value)} className={inp2} />
               </div>
             </div>
-            <p className="text-[10px] text-slate-500 leading-relaxed">Every loan is its own: enter this loan's rate, amortization and maturity from the term sheet. Nothing is assumed.</p>
+            <p className="text-[10px] text-slate-500 leading-relaxed">Every loan is its own: enter this loan's rate and term from the term sheet. The loan is paid off at the end of its term, counted from the closing date. Only a loan with a balloon payment needs the optional due year.</p>
           </div>
 
           <div className="p-3 bg-slate-950/60 rounded-xl border border-sky-900/40 space-y-2.5">
