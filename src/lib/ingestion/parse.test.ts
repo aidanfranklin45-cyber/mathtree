@@ -65,6 +65,10 @@ describe('both Cloudflare address forms', () => {
     expect(r.mode).toBe('gateway');
     expect(r.headers['cf-aig-authorization']).toBe('Bearer TOKEN');
     expect(r.url).toContain('/google-ai-studio/v1beta/models/gemini-3.8-flash:generateContent');
+    // the gateway name can come from AI_GATEWAY_ID instead of being typed into the address
+    const byId = buildRequest({ ...args, base: 'https://gateway.ai.cloudflare.com/v1/acct', gatewayId: 'lease-parser' });
+    expect(byId.url).toBe('https://gateway.ai.cloudflare.com/v1/acct/lease-parser/google-ai-studio/v1beta/models/gemini-3.8-flash:generateContent');
+    expect(buildRequest({ ...args, base: 'https://gateway.ai.cloudflare.com/v1/acct/{gateway}/google-ai-studio', gatewayId: 'lease-parser' }).url).toContain('/acct/lease-parser/google-ai-studio/');
     expect(replyText({ choices: [{ message: { content: '{"a":1}' } }] })).toBe('{"a":1}');
     expect(replyText({ result: { choices: [{ message: { content: 'x' } }] } })).toBe('x');
     expect(replyText({ candidates: [{ content: { parts: [{ text: 'y' }] } }] })).toBe('y');

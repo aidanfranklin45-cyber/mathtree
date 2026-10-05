@@ -31,9 +31,16 @@ export function gatewayMode(baseUrl: string): GatewayMode {
   }
 }
 
-/** The generateContent endpoint for an AI Gateway address. Accepts the gateway root or a URL already pointing at Google AI Studio. */
-export function gatewayEndpoint(baseUrl: string, model: string): string {
+/**
+ * The generateContent endpoint for an AI Gateway address. The address may stop at the account (`.../v1/{account}`), in which case the gateway
+ * name comes from AI_GATEWAY_ID; may contain `{gateway}` where the name goes; or may already name the gateway and point at Google AI Studio.
+ */
+export function gatewayEndpoint(baseUrl: string, model: string, gatewayId?: string): string {
   let url = baseUrl.trim().replace(/\/+$/, '');
+  if (gatewayId) {
+    url = url.replace('{gateway}', gatewayId);
+    if (/^https:\/\/gateway\.ai\.cloudflare\.com\/v1\/[^/]+$/.test(url)) url += `/${gatewayId}`;
+  }
   if (/:generateContent$/.test(url)) return url;
   if (!/google-ai-studio/.test(url)) url += '/google-ai-studio';
   if (!/\/v1beta\/models\//.test(url)) url += `/v1beta/models/${model.replace(/^(google-ai-studio|google)\//, '')}:generateContent`;
@@ -93,7 +100,7 @@ export function buildRequest(args: { base: string; token: string; model: string;
   if (args.providerKey) headers['x-goog-api-key'] = args.providerKey;
   return {
     mode,
-    url: gatewayEndpoint(args.base, args.model),
+    url: gatewayEndpoint(args.base, args.model, args.gatewayId),
     headers,
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: args.system }] },
@@ -116,7 +123,10 @@ export function replyText(data: any): string {
 function shapeOf(url: string): string {
   try {
     const u = new URL(url);
-    return `${u.host}${u.pathname.replace(/\/accounts\/[^/]+/, '/accounts/{account}').replace(/\/v1\/[^/]+\/[^/]+/, '/v1/{account}/{gateway}')}`;
+    const path = u.host === 'gateway.ai.cloudflare.com'
+      ? u.pathname.replace(/^\/v1\/[^/]+\/[^/]+/, '/v1/{account}/{gateway}')
+      : u.pathname.replace(/\/accounts\/[^/]+/, '/accounts/{account}');
+    return `${u.host}${path}`;
   } catch {
     return 'the address is not a valid URL';
   }
