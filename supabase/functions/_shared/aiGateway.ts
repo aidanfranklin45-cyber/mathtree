@@ -5,7 +5,7 @@
 //                                                                                       OpenAI-compatible chat endpoint beside it)
 //                     https://gateway.ai.cloudflare.com/v1/{account}/{gateway}[/google-ai-studio]   (an AI Gateway address)
 //   CF_AIG_TOKEN    the Cloudflare token. Sent as `Authorization: Bearer` to the account API, and as `cf-aig-authorization` to a gateway.
-// Optional: AI_GATEWAY_ID, the gateway's name (sent as `cf-aig-gateway-id` so the account API routes the call through that gateway for its
+// Optional: AI_BYOK_ALIAS, the name the Google key is stored under in the gateway when it is not "default". AI_GATEWAY_ID, the gateway's name (sent as `cf-aig-gateway-id` so the account API routes the call through that gateway for its
 // logging, caching and limits). AI_MODEL (default below). GEMINI_API_KEY is only sent to a gateway, if set, when the gateway does not store the provider key.
 
 // Deno's global, declared so the browser-side type-check (which imports this from tests) compiles
@@ -81,7 +81,7 @@ export interface ModelRequest {
 }
 
 /** The request for either form of address. Pure, so it can be tested without a network. */
-export function buildRequest(args: { base: string; token: string; model: string; system: string; user: string; providerKey?: string; gatewayId?: string }): ModelRequest {
+export function buildRequest(args: { base: string; token: string; model: string; system: string; user: string; providerKey?: string; gatewayId?: string; byokAlias?: string }): ModelRequest {
   const mode = gatewayMode(args.base);
   if (mode === 'account-api') {
     return {
@@ -98,6 +98,8 @@ export function buildRequest(args: { base: string; token: string; model: string;
   }
   const headers: Record<string, string> = { 'content-type': 'application/json', 'cf-aig-authorization': `Bearer ${args.token}` };
   if (args.providerKey) headers['x-goog-api-key'] = args.providerKey;
+  // A provider key stored in the gateway under a name other than "default" is chosen by that name
+  if (args.byokAlias) headers['cf-aig-byok-alias'] = args.byokAlias;
   return {
     mode,
     url: gatewayEndpoint(args.base, args.model, args.gatewayId),
@@ -140,7 +142,7 @@ export async function generateJson(args: { system: string; user: string; timeout
   const token = clean(env('CF_AIG_TOKEN'));
   if (!base || !token) throw new GatewayError('The AI gateway is not configured.', 503);
   const model = modelName();
-  const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey: clean(env('GEMINI_API_KEY')) || undefined, gatewayId: clean(env('AI_GATEWAY_ID')) || undefined });
+  const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey: clean(env('GEMINI_API_KEY')) || undefined, gatewayId: clean(env('AI_GATEWAY_ID')) || undefined, byokAlias: clean(env('AI_BYOK_ALIAS')) || undefined });
 
   let res: Response;
   try {
