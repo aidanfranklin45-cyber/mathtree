@@ -68,7 +68,7 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
         cutout: '68%',
         plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: {
           // A tooltip is drawn inside the chart's own box, so it must be short: the name on top, the dollars and share below
-          title: (items) => String(items[0]?.label ?? '').replace(/s*(.*)s*$/, ''),
+          title: (items) => String(items[0]?.label ?? '').split(' (')[0],
           label: (ctx) => `${formatCurrency(ctx.parsed)} (${breakdown.gross > 0 ? Math.round((ctx.parsed / breakdown.gross) * 100) : 0}% of rent)`,
         } } },
       },
