@@ -177,7 +177,7 @@ export function checkEngineInputs(rawAssetType: string, inputs: Record<string, a
   } else if (stated(inputs, 'appreciationRate') === undefined) {
     need('appreciationRate', 'Appreciation (% a year)', 'assumption', 'Residential property is valued by appreciation.');
   }
-  if (stated(inputs, ...KEYS.sellingCost) === undefined) need('sellingCostPercent', 'Selling costs at exit (%)', 'assumption', 'Brokerage and closing costs come out of the sale proceeds.');
+  // Selling costs are optional: they exist only if a sale is planned. With none stated the exit carries no sale costs (a hold or refinance).
 
   // ---- Costs the engine used to guess at ----
   if (inputs.manageProperty && stated(inputs, 'managementFeePercent') === undefined) {

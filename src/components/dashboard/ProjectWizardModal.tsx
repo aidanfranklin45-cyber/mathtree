@@ -92,7 +92,7 @@ const seed = (a: Asset): W => {
   return {
     name: '', location: '', entity: '', asset: a, gla: '', leaseType: '',
     rehabMode: 'out_of_pocket', facilityType: d.facilityType, marketTier: d.marketTier, propertyClass: d.propertyClass,
-    price: '', down: '', closing: '', rehab: '', grossRent: '', other: '',
+    price: '', down: '', closing: '', closingDate: '', rehab: '', grossRent: '', other: '',
     vacancy: '', rentGrowth: '', opexRatio: '', expenseGrowth: '',
     rate: '', amort: '', maturity: '', exitCap: '', apprec: '', exitYear: '', discountRate: '', sellingCost: '',
     capexKind: 'annual', capexValue: '', managementFee: '', payroll: '', taxes: '', insurance: '', maintenance: '',
@@ -358,7 +358,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const amort = optInt(w.amort);
       const hold = optInt(w.exitYear);
       const capex = opt(w.capexValue);
+      // The closing date is fixed now: the one entered, else today plus the owner's assumed weeks (set once, so it does not drift)
+      const weeks = getProfile().underwritingAssumptions?.assumedClosingWeeks;
+      const enteredClosing = w.closingDate.trim();
+      const closingDate = enteredClosing || (weeks !== undefined ? new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10) : undefined);
       const inputs: Record<string, any> = {
+        closingDate,
+        closingDateSource: closingDate ? (enteredClosing ? 'entered' : 'assumed') : undefined,
         purchasePrice,
         downPaymentPercent: opt(w.down),
         interestRate: opt(w.rate),
@@ -782,6 +788,12 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </div>
             <input id="wiz-down-payment" type="number" step="0.5" value={w.down} onChange={(e) => set({ down: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="wiz-closing-date" className={lbl}>Expected Closing Date (optional)</label>
+          <input id="wiz-closing-date" type="date" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? 6} weeks from today (your profile setting). The loan schedule starts then.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

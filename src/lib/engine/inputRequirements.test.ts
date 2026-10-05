@@ -27,7 +27,7 @@ describe('the engine never invents an input', () => {
 
   it('an empty deal is refused with every fact it lacks, not a number', () => {
     const keys = missingKeys('commercial', {});
-    for (const k of ['purchasePrice', 'closingDate', 'holdingPeriod', 'discountRate', 'downPaymentPercent', 'vacancyRate', 'expenseRatio', 'sellingCostPercent', 'capexReserveAnnual']) {
+    for (const k of ['purchasePrice', 'closingDate', 'holdingPeriod', 'discountRate', 'downPaymentPercent', 'vacancyRate', 'expenseRatio', 'capexReserveAnnual']) {
       expect(keys).toContain(k);
     }
     expect(() => calculateProjections('commercial', {})).toThrow(IncompleteInputsError);
@@ -44,7 +44,6 @@ describe('the engine never invents an input', () => {
     ['rentGrowth', 'rentGrowth'],
     ['capexReserveAnnual', 'capexReserveAnnual'],
     ['appreciationRate', 'appreciationRate'],
-    ['sellingCostPercent', 'sellingCostPercent'],
     ['closingCosts', 'closingCosts'],
   ])('removing %s names it as missing', (removed, reported) => {
     expect(missingKeys('multi-unit', without(complete(), removed))).toContain(reported);

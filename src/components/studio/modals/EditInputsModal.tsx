@@ -169,6 +169,9 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     e.preventDefault();
     setSaving(true);
     const patch: Record<string, any> = { ...built, entity_id: form.entity || null };
+    // A closing date stays "assumed" only while the owner has not touched it
+    const prevInputs = deal.inputs as Record<string, any>;
+    patch.closingDateSource = !form.closingDate ? undefined : (form.closingDate === prevInputs?.closingDate && prevInputs?.closingDateSource === 'assumed' ? 'assumed' : 'entered');
     const name = form.name.trim() || 'Underwriting Project';
 
     // In-place lease terms
