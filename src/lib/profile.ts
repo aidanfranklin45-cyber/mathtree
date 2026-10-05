@@ -4,7 +4,7 @@
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase/client';
 import { setExpiryDefaults } from './engine/expiryDefaults';
-import { setAssumptionDefaults, isEmptyAssumptions } from './engine/assumptionDefaults';
+import { setAssumptionDefaults } from './engine/assumptionDefaults';
 import { normalizeExpiryDefaults, type ExpiryMode } from '../../supabase/functions/_shared/leaseExpiry';
 import { sanitizeAssumptions, suggestedStartingPoints, type UnderwritingAssumptions } from '../../supabase/functions/_shared/underwritingAssumptions';
 
@@ -74,7 +74,9 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
 
   // Nothing saved yet: the labelled starting points apply (and show in the profile) until the owner sets their own
   const stored = sanitizeAssumptions(raw.underwritingAssumptions);
-  const underwritingAssumptions = isEmptyAssumptions(stored) ? suggestedStartingPoints(null) : stored;
+  // Blanks are filled with the labelled convention for them (the owner's own figures are never touched), so a standard added later
+  // never leaves a property asking for something the owner would expect to be assumed
+  const underwritingAssumptions = suggestedStartingPoints(stored);
   setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear });
 
   return {

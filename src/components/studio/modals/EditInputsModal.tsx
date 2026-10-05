@@ -6,7 +6,7 @@ import { AddressService } from '../../../lib/services/addressService';
 import { computeDealMetrics, resolveProfileAssumptions } from '../../../lib/engine/compute';
 import { IncompleteInputsError, type MissingInput } from '../../../lib/engine';
 import { getProfile } from '../../../lib/profile';
-import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, reconcileBasis, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../../supabase/functions/_shared/underwritingAssumptions';
 import { formatCurrency } from '../../../lib/format';
 import { rentRollToInputs } from '../../../lib/underwriting/rentRollInputs';
 
@@ -260,8 +260,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
         </div>
 
         <form noValidate onSubmit={submit} className="space-y-4">
-          {!form.closingDate && getProfile().underwritingAssumptions?.assumedClosingWeeks !== undefined && (
-            <p role="status" className="text-[11px] text-slate-400">No closing date entered: the numbers assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks} weeks after today (your profile setting).</p>
+          {!form.closingDate && (
+            <p role="status" className="text-[11px] text-slate-400">No closing date entered: the numbers assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after this project was created (the standard, or your profile setting).</p>
           )}
           {covered.length > 0 && (
             <div role="status" className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">

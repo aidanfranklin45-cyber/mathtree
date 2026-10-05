@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  ASSET_KEYS, FIELD_SPECS, suggestedStartingPoints, type AssetKey, type AssetAssumptions, type AssumptionField, type CapexBasis, type UnderwritingAssumptions,
+  ASSET_KEYS, DEFAULT_CLOSING_WEEKS, FIELD_SPECS, suggestedStartingPoints, type AssetKey, type AssetAssumptions, type AssumptionField, type CapexBasis, type UnderwritingAssumptions,
 } from '../../../supabase/functions/_shared/underwritingAssumptions';
 
 interface Props {
@@ -98,7 +98,7 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
       <div className="space-y-1">
         <label className={labelCls} title="A pipeline deal with no closing date is assumed to close this many weeks after the day you run the analysis, and its preliminary amortization schedule starts then.">Assumed closing: weeks after the analysis (for deals with no closing date)</label>
         <input
-          type="number" min={0} max={52} step={1} aria-label="Assumed closing weeks"
+          type="number" min={0} max={52} step={1} aria-label="Assumed closing weeks" placeholder={String(DEFAULT_CLOSING_WEEKS)}
           value={value.assumedClosingWeeks === undefined ? '' : String(value.assumedClosingWeeks)}
           onChange={(e) => {
             const next = { ...value };

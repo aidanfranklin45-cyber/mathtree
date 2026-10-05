@@ -10,6 +10,9 @@
 export type AssetKey = 'single-family' | 'multi-unit' | 'commercial' | 'storage';
 export const ASSET_KEYS: AssetKey[] = ['single-family', 'multi-unit', 'commercial', 'storage'];
 
+/** The standard underwriting convention for a pipeline deal with no closing date: it closes this many weeks after the project is created. The owner can set another number in the profile. */
+export const DEFAULT_CLOSING_WEEKS = 6;
+
 export type CapexBasis = 'perUnit' | 'perSqFt' | 'percentOfIncome' | 'percentOfValue';
 
 /** Every assumption the owner can set for an asset class. All optional; none has a built-in value. */
@@ -284,7 +287,7 @@ export function suggestedStartingPoints(current: UnderwritingAssumptions | null 
   const base = sanitizeAssumptions(current);
   const out: UnderwritingAssumptions = { ...base, assets: { ...base.assets } };
   // A typical purchase takes about six weeks from agreement to closing; used only for a deal with no closing date yet
-  if (out.assumedClosingWeeks === undefined) out.assumedClosingWeeks = 6;
+  if (out.assumedClosingWeeks === undefined) out.assumedClosingWeeks = DEFAULT_CLOSING_WEEKS;
   if (out.propertyTaxRatePercent === undefined) {
     out.propertyTaxRatePercent = 1;
     out.propertyTaxRateRationale = 'Washington effective rates run about 0.8% to 1.1% of assessed value; adjust to your tax code area';

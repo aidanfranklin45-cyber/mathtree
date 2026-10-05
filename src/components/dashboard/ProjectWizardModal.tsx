@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { AddressService } from '../../lib/services/addressService';
 
-import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, reconcileBasis, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
@@ -359,9 +359,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const hold = optInt(w.exitYear);
       const capex = opt(w.capexValue);
       // The closing date is fixed now: the one entered, else today plus the owner's assumed weeks (set once, so it does not drift)
-      const weeks = getProfile().underwritingAssumptions?.assumedClosingWeeks;
+      const weeks = getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS;
       const enteredClosing = w.closingDate.trim();
-      const closingDate = enteredClosing || (weeks !== undefined ? new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10) : undefined);
+      const closingDate = enteredClosing || new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
       const inputs: Record<string, any> = {
         closingDate,
         closingDateSource: closingDate ? (enteredClosing ? 'entered' : 'assumed') : undefined,
@@ -793,7 +793,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         <div className="space-y-1.5">
           <label htmlFor="wiz-closing-date" className={lbl}>Expected Closing Date (optional)</label>
           <input id="wiz-closing-date" type="date" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
-          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? 6} weeks from today (your profile setting). The loan schedule starts then.</p>
+          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (the standard, or your profile setting). The loan schedule starts then.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
