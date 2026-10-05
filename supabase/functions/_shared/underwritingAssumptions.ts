@@ -38,6 +38,8 @@ export interface AssetAssumptions {
   insuranceRatePercent?: number;
   /** What it costs to keep up, as a % of its value a year. This is also what you carry while it is vacant. */
   maintenanceRatePercent?: number;
+  /** Power, water, sewer and garbage, in dollars per square foot a year. Carried while a space is vacant or where tenants reimburse the cost. */
+  utilitiesPerSqFt?: number;
   payrollMarketingPercent?: number; // storage only, % of gross income
   /** The owner's reason for each figure, shown with it on every deal it seeds. */
   rationale?: Partial<Record<AssumptionField, string>>;
@@ -87,6 +89,7 @@ export const FIELD_SPECS: FieldSpec[] = [
   { key: 'managementFeePercent', label: 'Management fee', unit: '%', min: 0, max: 30, assets: ALL, hint: 'Share of collected income, charged only on deals where you use a manager.' },
   { key: 'insuranceRatePercent', label: 'Insurance', unit: '%', min: 0, max: 5, assets: ALL, hint: 'A share of value a year (purchase price, else assessed value), until a quote replaces it.' },
   { key: 'maintenanceRatePercent', label: 'Maintenance and upkeep', unit: '%', min: 0, max: 10, assets: ALL, hint: 'A share of value a year. It is what you carry on a vacant property or one where tenants pay the costs.' },
+  { key: 'utilitiesPerSqFt', label: 'Utilities: power, water, sewer, garbage', unit: '$', min: 0, max: 50, assets: ALL, hint: 'Dollars per square foot a year. It scales with the size of the building, and is what you carry while it is vacant or where tenants reimburse the cost.' },
   { key: 'capexValue', label: 'Replacement reserve', unit: '$', min: 0, max: 1_000_000, assets: ALL, hint: 'Amount per the basis chosen beside it.' },
   { key: 'payrollMarketingPercent', label: 'Payroll and marketing', unit: '%', min: 0, max: 60, assets: ['storage'], hint: 'On-site payroll and marketing as a share of gross income.' },
 ];
@@ -239,6 +242,9 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
   else unfilled.push('annualInsurance');
   if (a.maintenanceRatePercent !== undefined && valueBase) put('annualMaintenance', Math.round(valueBase * a.maintenanceRatePercent) / 100, `Maintenance (${a.maintenanceRatePercent}% of ${valueLabel} $${Math.round(valueBase).toLocaleString()})`, why('maintenanceRatePercent'));
   else unfilled.push('annualMaintenance');
+  // Utilities scale with the size of the building, so they need its square footage
+  if (a.utilitiesPerSqFt !== undefined && ctx.squareFeet && ctx.squareFeet > 0) put('annualUtilities', Math.round(a.utilitiesPerSqFt * ctx.squareFeet * 100) / 100, `Utilities ($${a.utilitiesPerSqFt} a sq ft x ${Math.round(ctx.squareFeet).toLocaleString()} sq ft)`, why('utilitiesPerSqFt'));
+  else unfilled.push('annualUtilities');
 
   // Property tax: the county's assessed value times the owner's own rate for that tax code area. Neither alone is a tax bill.
   const rate = assumptions?.propertyTaxRatePercent;
@@ -274,13 +280,14 @@ interface Row {
   payrollMarketingPercent?: number;
   capexBasis: CapexBasis;
   capexValue: number;
+  utilitiesPerSqFt: number;
 }
 
 const STARTING_POINTS: Record<AssetKey, Row> = {
-  'single-family': { vacancyRate: 5, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 0, managementFeePercent: 8, capexBasis: 'perUnit', capexValue: 300 },
-  'multi-unit': { vacancyRate: 5, expenseRatio: 40, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 0, managementFeePercent: 6, capexBasis: 'perUnit', capexValue: 300 },
-  commercial: { vacancyRate: 6, expenseRatio: 35, expenseRatioNNN: 10, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 7, sellingCostPercent: 0, managementFeePercent: 4, capexBasis: 'perSqFt', capexValue: 0.25 },
-  storage: { vacancyRate: 10, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 6.5, sellingCostPercent: 0, managementFeePercent: 6, payrollMarketingPercent: 8, capexBasis: 'percentOfIncome', capexValue: 3 },
+  'single-family': { vacancyRate: 5, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 0, managementFeePercent: 8, capexBasis: 'perUnit', capexValue: 300, utilitiesPerSqFt: 1.2 },
+  'multi-unit': { vacancyRate: 5, expenseRatio: 40, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 0, managementFeePercent: 6, capexBasis: 'perUnit', capexValue: 300, utilitiesPerSqFt: 0.8 },
+  commercial: { vacancyRate: 6, expenseRatio: 35, expenseRatioNNN: 10, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 7, sellingCostPercent: 0, managementFeePercent: 4, capexBasis: 'perSqFt', capexValue: 0.25, utilitiesPerSqFt: 0.75 },
+  storage: { vacancyRate: 10, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 6.5, sellingCostPercent: 0, managementFeePercent: 6, payrollMarketingPercent: 8, capexBasis: 'percentOfIncome', capexValue: 3, utilitiesPerSqFt: 0.5 },
 };
 
 export function suggestedStartingPoints(current: UnderwritingAssumptions | null | undefined): UnderwritingAssumptions {
@@ -314,6 +321,7 @@ export function suggestedStartingPoints(current: UnderwritingAssumptions | null 
     fill('payrollMarketingPercent', row.payrollMarketingPercent);
     fill('insuranceRatePercent', 0.35, 'Roughly 0.3% to 0.5% of value a year; replace with a quote');
     fill('maintenanceRatePercent', 0.5, 'Upkeep carried when vacant or tenants pay costs');
+    fill('utilitiesPerSqFt', row.utilitiesPerSqFt, 'Rough power, water, sewer and garbage for the size; replace with local rates');
     if (a.capexValue === undefined) { a.capexBasis = row.capexBasis; a.capexValue = row.capexValue; why.capexValue = 'Typical replacement reserve'; }
     a.rationale = why;
     out.assets[asset] = a;
@@ -342,6 +350,7 @@ export const TRACKED_INPUTS: Record<string, string> = {
   annualTaxes: 'Property taxes',
   annualInsurance: 'Insurance',
   annualMaintenance: 'Maintenance',
+  annualUtilities: 'Utilities',
 };
 
 /**

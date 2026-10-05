@@ -1,6 +1,5 @@
 import { isLeaseInForce, isoDay, leaseMonthlyRent } from '@engine/leaseInForce';
 import { paymentsByMonth, type PaymentLite } from '../baselines/core';
-import type { ExpenseEntry } from '../operations/expenses';
 import {
   COLLECTED_WINDOW_MONTHS,
   MIN_COLLECTED_MONTHS,
@@ -64,17 +63,12 @@ export function resolvePropertyState(args: {
   const value = estimated(estimate.value, 'Purchase price grown at the appreciation rate; no appraisal is recorded.');
   let noi: Figure = estimated(estimate.noi, 'Underwriting forecast.');
   let cashFlow: Figure = estimated(estimate.cashFlow, 'Underwriting forecast.');
-  const spend = owned && !isDemo && facts?.expenses ? recordedExpenses(facts.expenses.filter((e) => e && e.deal_id === deal.id), asOf) : null;
-  if (owned && collected?.annualised != null && spend?.annualised != null) {
-    const n = collected.annualised - spend.annualised;
-    noi = { value: n, basis: 'collected', note: `Rent collected and expenses recorded over the last 12 months, annualised (${collected.months} rent months, ${spend.months} expense months).` };
-    cashFlow = { value: n - estimate.debtService, basis: 'blended', note: 'That NOI less scheduled debt service.' };
-  } else if (owned && collected?.annualised != null && estimate.operatingExpenses !== null) {
+  if (owned && collected?.annualised != null && estimate.operatingExpenses !== null) {
     const n = collected.annualised - estimate.operatingExpenses;
     noi = {
       value: n,
       basis: 'blended',
-      note: `Rent collected over the last ${collected.months} months, annualised, less forecast expenses (fewer than ${MIN_COLLECTED_MONTHS} months of expenses recorded).`,
+      note: `Rent collected over the last ${collected.months} months, annualised, less the underwritten operating expenses.`,
     };
     cashFlow = { value: n - estimate.debtService, basis: 'blended', note: 'That NOI less scheduled debt service.' };
   } else if (owned) {
@@ -113,17 +107,4 @@ function collectedRent(payments: Row[], asOf: Date): CollectedRent | null {
   const total = rows.reduce((sum, [, r]) => sum + r.paid, 0);
   const billed = rows.reduce((sum, [, r]) => sum + r.due, 0);
   return { months: rows.length, total, billed, annualised: rows.length >= MIN_COLLECTED_MONTHS ? (total / rows.length) * 12 : null };
-}
-
-/** Recorded expenses in the window, annualised over the months that have entries (a month with none is unknown, not zero). */
-function recordedExpenses(entries: ExpenseEntry[], asOf: Date): { months: number; annualised: number | null } {
-  const last = monthIndex(isoDay(asOf));
-  const byMonth = new Map<string, number>();
-  for (const e of entries) {
-    const m = String(e.expense_date).slice(0, 7);
-    if (/^\d{4}-\d{2}$/.test(m) && inWindow(m, last)) byMonth.set(m, (byMonth.get(m) ?? 0) + Number(e.amount || 0));
-  }
-  const months = byMonth.size;
-  const total = [...byMonth.values()].reduce((s, v) => s + v, 0);
-  return { months, annualised: months >= MIN_COLLECTED_MONTHS ? (total / months) * 12 : null };
 }

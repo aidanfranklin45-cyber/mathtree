@@ -119,7 +119,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
       vacancyRate: 'vacancyRate', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
       discountRate: 'discountRate', targetCapRate: 'appreciation', appreciationRate: 'appreciation', sellingCostPercent: 'sellingCost',
       closingCosts: 'closingCosts', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
-      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance',
+      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
     };
     const patch: Record<string, string> = {};
     const basis: Record<string, InputBasis> = {};
@@ -492,7 +492,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
             {(asset === 'commercial' || form.leaseType === 'NNN' || !(parseFloat(form.grossRentAnnual) > 0 || parseFloat(form.grossRentMonthly) > 0)) && (
               <div className="pt-2 border-t border-slate-900 space-y-2">
                 <span className="text-[10px] font-bold text-slate-400 block">What it costs to carry (required when there is no rent, or tenants pay the building's costs)</span>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <label className={label}>Property Taxes ($/yr)</label>
                     <input type="number" min="0" step="any" value={form.taxes} onChange={(e) => set('taxes', e.target.value)} className={inp2} />
@@ -504,6 +504,10 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                   <div className="space-y-1">
                     <label className={label}>Maintenance ($/yr)</label>
                     <input type="number" min="0" step="any" value={form.maintenance} onChange={(e) => set('maintenance', e.target.value)} className={inp2} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={label} title="Power, water, sewer and garbage while the space has no tenant">Utilities ($/yr)</label>
+                    <input type="number" min="0" step="any" value={form.utilities} onChange={(e) => set('utilities', e.target.value)} className={inp2} />
                   </div>
                 </div>
               </div>

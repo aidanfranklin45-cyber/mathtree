@@ -83,6 +83,8 @@ export const KEYS = {
   taxes: ['annualTaxes', 'propertyTaxes'],
   insurance: ['annualInsurance', 'insurance'],
   maintenance: ['annualMaintenance', 'maintenance'],
+  // Optional: power, water, sewer and garbage carried while a space is vacant. Unstated means none is carried.
+  utilities: ['annualUtilities', 'utilities'],
 } as const;
 
 const hasRentSource = (inputs: Record<string, any>): boolean =>

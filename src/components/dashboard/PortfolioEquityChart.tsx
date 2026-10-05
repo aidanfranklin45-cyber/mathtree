@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics } from '../../lib/math/pointInTime';
+import { prepareEngineInputs } from '../../lib/engine/compute';
 import { getMonthlyAmortization } from '../../lib/engine';
 import { formatCurrency } from '../../lib/format';
 
@@ -31,14 +32,14 @@ export const PortfolioEquityChart: React.FC<PortfolioEquityChartProps> = ({ deal
     // 1. Calculate Point-in-Time facts for each deal TODAY
     const dealStates = targetDeals.map((deal) => {
       const pit = resolvePointInTimeDealMetrics(deal, today);
-      const inp = (deal.inputs || {}) as Record<string, any>;
+      // The same inputs the engine uses: what the property states, plus your profile assumptions for what it leaves unstated
+      const inp = prepareEngineInputs(deal) as Record<string, any>;
 
       const price = Number(deal.purchase_price || inp.purchasePrice || inp.price || 0);
-      const appRate = Number(
-        inp.appreciationRate !== undefined ? inp.appreciationRate : (inp.targetCapRate ?? 3.0),
-      );
-      const termYears = Number(inp.loanTerm || inp.loanTermYears || inp.amortizationYears || 30);
-      const rate = Number(inp.interestRate ?? 6.5);
+      // With no stated appreciation the value is held at cost, never grown by a guess (the same rule as the point-in-time figures)
+      const appRate = Number(inp.appreciationRate) || 0;
+      const termYears = Number(inp.amortizationYears ?? inp.loanTerm ?? inp.loanTermYears) || 0;
+      const rate = Number(inp.interestRate) || 0;
       const baseLoan = pit.baseLoanAmount || 0;
       const monthsElapsed = pit.monthsElapsed || 0;
 
