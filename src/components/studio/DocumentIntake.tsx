@@ -21,6 +21,8 @@ interface Props {
   applyLabel: (count: number) => string;
   onApply: (a: IntakeAcceptance) => Promise<boolean>;
   onCancel?: () => void;
+  /** A new project has no asset class yet: also propose the one the documents point to. */
+  proposeAssetClass?: boolean;
   /** One line shown after a successful apply, for callers that stay on screen. */
   appliedNote?: string | null;
 }
@@ -49,7 +51,7 @@ const btn = 'px-3 py-2 rounded-xl text-xs font-bold transition disabled:opacity-
 const sel = 'bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white';
 
 /** Add documents, read them, see what they say against what the property states, and tick what to accept. Saves nothing itself. */
-export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote }) => {
+export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote, proposeAssetClass }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[] | null>(null);
@@ -60,7 +62,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const nextId = useRef(1);
 
   const docs = useMemo<IntakeDocument[]>(() => (reads ?? []).flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? [r.parsed.intake] : [])), [reads]);
-  const proposal = useMemo(() => (docs.length > 0 ? proposeChanges(docs, deal) : null), [docs, deal]);
+  const proposal = useMemo(() => (docs.length > 0 ? proposeChanges(docs, deal, { assetClass: proposeAssetClass }) : null), [docs, deal, proposeAssetClass]);
   const hardErrors = (reads ?? []).some((r) => r.issues.some((i) => i.severity === 'error'));
 
   // Everything starts ticked except what would replace a figure the owner already states: that is their call

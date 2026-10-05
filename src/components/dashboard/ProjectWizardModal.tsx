@@ -169,7 +169,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   /** Documents the owner read: what they accepted fills the form (they can still change any of it in the steps); the rest rides along to creation. */
   const applyDocuments = async ({ proposal, ticked, docs }: IntakeAcceptance): Promise<boolean> => {
-    const docAsset = assetFromDocs(docs);
+    // The asset class the documents point to, if the owner ticked it
+    const docAsset = ticked.has('assetClass') ? assetFromDocs(docs) : null;
     const nextAsset = docAsset ?? asset;
     const base: W = nextAsset === asset ? w : { ...seed(nextAsset), name: w.name, location: w.location, entity: w.entity };
     const fill = applyToForm({ form: base, asset: nextAsset, proposal, ticked });
@@ -497,6 +498,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           {docOpen && (
             <DocumentIntake
               deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }}
+              proposeAssetClass
               applyLabel={(n) => `Fill the form with ${n} figure${n === 1 ? '' : 's'}`}
               appliedNote="Filled in. Check each step, change anything that is not right, then create the project."
               onApply={applyDocuments}

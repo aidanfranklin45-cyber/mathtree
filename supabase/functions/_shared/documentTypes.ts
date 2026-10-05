@@ -85,6 +85,7 @@ export const DOCUMENT_PROFILES: Record<Exclude<DocumentType, 'unknown'>, Documen
     teaches: 'Identity and the broker\'s story: address, size, asking price and the NOI and cap rate the seller is claiming.',
     questions: [
       'What is the property address, city, state, zip, parcel number (APN), asset class, net rentable square feet, land area (in acres, or in square feet if that is how it is printed), year built and unit count?',
+      'What type of property is it (assetClass)? Decide from the whole document even when it never says so outright: apartments, townhomes or a unit mix with bedrooms is multi_family; a single house or condo is residential; self-storage units or RV/boat parking is storage; retail, office, industrial, medical or flex space is commercial. If you had to infer it, say what you based it on in the evidence and lower the confidence.',
       'What is the asking or list price and the stated occupancy?',
       'What NOI and cap rate does the memorandum claim? (Record these as claims.)',
       'Which tenants does it summarise?',

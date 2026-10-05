@@ -9,6 +9,7 @@
 import type { IntakeDocument } from './intake';
 import { buildDealPatch, type DealPatch } from './toDealInputs';
 import { reconcileBasis, TRACKED_INPUTS, type InputBasis } from '@engine/underwritingAssumptions';
+import { ASSET_LABEL, deduceAsset, type WizardAsset } from './wizardMap';
 
 export interface ProposedChange {
   key: string;
@@ -52,6 +53,7 @@ export interface Proposal {
 export function proposeChanges(
   docs: IntakeDocument[],
   deal: { asset_class?: string | null; purchase_price?: number | null; inputs?: Record<string, any> | null },
+  opts: { assetClass?: boolean } = {},
 ): Proposal {
   const existing = (deal.inputs ?? {}) as Record<string, any>;
   const price = Number(deal.purchase_price) > 0 ? Number(deal.purchase_price) : Number(existing.purchasePrice) > 0 ? Number(existing.purchasePrice) : null;
@@ -73,6 +75,16 @@ export function proposeChanges(
       value,
       replaces: stated,
     });
+  }
+  // A new project has to choose an asset class: when the documents point to one, say so first (the wizard switches to it when ticked)
+  if (opts.assetClass) {
+    const found = deduceAsset(docs);
+    if (found && found.asset !== deal.asset_class) {
+      changes.unshift({
+        key: 'assetClass', label: 'Asset class', current: deal.asset_class ? ASSET_LABEL[deal.asset_class as WizardAsset] ?? null : null,
+        proposed: ASSET_LABEL[found.asset], how: found.why, reliability: 'projected', value: found.asset, replaces: false,
+      });
+    }
   }
   return { patch, changes };
 }

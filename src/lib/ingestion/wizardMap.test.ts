@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
 import { proposeChanges } from './apply';
-import { applyToForm, assetFromDocs, formAsInputs } from './wizardMap';
+import { applyToForm, assetFromDocs, deduceAsset, formAsInputs } from './wizardMap';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
 const rentRoll = coerceIntake('rent_roll', {
@@ -97,5 +97,29 @@ describe('an offering memorandum with a unit mix and an income table', () => {
   it('never replaces a price the owner already typed unless they tick it', () => {
     const proposal = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: 17000000, inputs: formAsInputs({ price: '17000000' }, 'multi-unit') });
     expect(proposal.changes.find((c) => c.key === 'purchasePrice')).toBeUndefined();
+  });
+});
+
+describe('deducing the asset class', () => {
+  const emptyOm = (extra: Record<string, unknown>) => coerceIntake('offering_memorandum', extra);
+
+  it('uses what the memorandum says, with its evidence', () => {
+    const d = deduceAsset([emptyOm({ assetClass: { value: 'multi_family', confidence: 0.8, evidence: 'Property Type Townhomes' } })]);
+    expect(d?.asset).toBe('multi-unit');
+    expect(d?.why).toContain('Townhomes');
+  });
+
+  it('decides from plain facts when the memorandum does not say', () => {
+    expect(deduceAsset([emptyOm({ unitMix: [{ unitType: box('2 Bd'), unitCount: box(12), currentMonthlyRent: box(1500) }] })])?.asset).toBe('multi-unit');
+    expect(deduceAsset([emptyOm({ unitCount: box(1) })])?.asset).toBe('single-family');
+    expect(deduceAsset([emptyOm({ unitCount: box(40) })])?.asset).toBe('multi-unit');
+    expect(deduceAsset([emptyOm({ address: box('1 Main St') })])).toBeNull(); // nothing points either way: the owner picks
+  });
+
+  it('puts the asset class first in the review of a new project, and not at all on an existing deal', () => {
+    const om = emptyOm({ assetClass: box('multi_family'), unitCount: box(66) });
+    const first = proposeChanges([om], { asset_class: 'commercial', purchase_price: null, inputs: {} }, { assetClass: true }).changes[0];
+    expect(first).toMatchObject({ key: 'assetClass', proposed: 'Multi-unit', current: 'Commercial' });
+    expect(proposeChanges([om], { asset_class: 'commercial', purchase_price: null, inputs: {} }).changes.some((c) => c.key === 'assetClass')).toBe(false);
   });
 });

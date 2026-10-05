@@ -15,13 +15,41 @@ type Form = Record<string, string>;
 
 const OM_ASSET: Record<string, WizardAsset> = { commercial: 'commercial', multi_family: 'multi-unit', residential: 'single-family', storage: 'storage' };
 
-/** The asset class an offering memorandum states, when one was read. */
-export function assetFromDocs(docs: IntakeDocument[]): WizardAsset | null {
+export const ASSET_LABEL: Record<WizardAsset, string> = { 'single-family': 'Single-family', 'multi-unit': 'Multi-unit', commercial: 'Commercial', storage: 'Storage' };
+
+export interface DeducedAsset {
+  asset: WizardAsset;
+  /** One line on how it was decided, for the review. */
+  why: string;
+}
+
+/**
+ * The asset class the documents point to. A memorandum often states it outright; when it does not, plain facts decide: a unit mix or several
+ * units is multi-unit, a single unit is a single-family home. Null when nothing points either way (the owner picks).
+ */
+export function deduceAsset(docs: IntakeDocument[]): DeducedAsset | null {
   for (const d of docs) if (d.documentType === 'offering_memorandum') {
     const c = val(d.assetClass);
-    if (c && OM_ASSET[c]) return OM_ASSET[c];
+    if (c && OM_ASSET[c]) {
+      const ev = d.assetClass.evidence;
+      return { asset: OM_ASSET[c], why: ev ? `From the offering memorandum: "${ev.replace(/\s+/g, ' ').slice(0, 80)}"` : 'Stated in the offering memorandum' };
+    }
+  }
+  for (const d of docs) if (d.documentType === 'offering_memorandum') {
+    const units = val(d.unitCount) ?? d.unitMix.reduce((s, r) => s + (val(r.unitCount) ?? 0), 0);
+    if (d.unitMix.length > 0 || units >= 2) return { asset: 'multi-unit', why: `Deduced: the offering memorandum has a unit mix of ${units || d.unitMix.length} units` };
+    if (units === 1) return { asset: 'single-family', why: 'Deduced: the offering memorandum describes a single unit' };
+  }
+  for (const d of docs) if (d.documentType === 'rent_roll') {
+    const units = d.rows.filter((r) => val(r.unit) !== null || val(r.tenantName) !== null).length;
+    if (units >= 2) return { asset: 'multi-unit', why: `Deduced: the rent roll lists ${units} units` };
   }
   return null;
+}
+
+/** The asset class the documents point to, when one can be told. */
+export function assetFromDocs(docs: IntakeDocument[]): WizardAsset | null {
+  return deduceAsset(docs)?.asset ?? null;
 }
 
 const SQFT_FIELD: Record<WizardAsset, string> = { 'single-family': 'sfrSqft', 'multi-unit': 'multiSqft', commercial: 'commSqft', storage: 'storageSqft' };
@@ -36,7 +64,7 @@ const DIRECT: Record<string, string> = {
 };
 
 /** Rent figures the form derives from its own rent fields: nothing to set separately. */
-const DERIVED = new Set(['monthlyRent', 'grossRentAnnual']);
+const DERIVED = new Set(['monthlyRent', 'grossRentAnnual', 'assetClass']);
 
 /** The wizard keeps the monthly rent of the whole property in a field per asset class. */
 function setGrossRent(form: Form, asset: WizardAsset, monthly: number): void {
