@@ -51,10 +51,11 @@ describe('both Cloudflare address forms', () => {
 
   it('uses the account API chat endpoint with a Bearer token and a google/ model name', async () => {
     const { buildRequest } = await import('@engine/aiGateway');
-    const r = buildRequest({ ...args, base: 'https://api.cloudflare.com/client/v4/accounts/abc123/ai/run' });
+    const r = buildRequest({ ...args, base: 'https://api.cloudflare.com/client/v4/accounts/abc123/ai/run', gatewayId: 'lease-parser' });
     expect(r.mode).toBe('account-api');
     expect(r.url).toBe('https://api.cloudflare.com/client/v4/accounts/abc123/ai/v1/chat/completions');
     expect(r.headers.Authorization).toBe('Bearer TOKEN');
+    expect(r.headers['cf-aig-gateway-id']).toBe('lease-parser');
     expect(JSON.parse(r.body)).toMatchObject({ model: 'google/gemini-3.8-flash', response_format: { type: 'json_object' } });
   });
 

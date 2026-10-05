@@ -5,7 +5,8 @@
 //                                                                                       OpenAI-compatible chat endpoint beside it)
 //                     https://gateway.ai.cloudflare.com/v1/{account}/{gateway}[/google-ai-studio]   (an AI Gateway address)
 //   CF_AIG_TOKEN    the Cloudflare token. Sent as `Authorization: Bearer` to the account API, and as `cf-aig-authorization` to a gateway.
-// Optional: AI_MODEL (default below). GEMINI_API_KEY is only sent to a gateway, if set, when the gateway does not store the provider key.
+// Optional: AI_GATEWAY_ID, the gateway's name (sent as `cf-aig-gateway-id` so the account API routes the call through that gateway for its
+// logging, caching and limits). AI_MODEL (default below). GEMINI_API_KEY is only sent to a gateway, if set, when the gateway does not store the provider key.
 
 // Deno's global, declared so the browser-side type-check (which imports this from tests) compiles
 declare const Deno: { env: { get(key: string): string | undefined } };
@@ -73,13 +74,13 @@ export interface ModelRequest {
 }
 
 /** The request for either form of address. Pure, so it can be tested without a network. */
-export function buildRequest(args: { base: string; token: string; model: string; system: string; user: string; providerKey?: string }): ModelRequest {
+export function buildRequest(args: { base: string; token: string; model: string; system: string; user: string; providerKey?: string; gatewayId?: string }): ModelRequest {
   const mode = gatewayMode(args.base);
   if (mode === 'account-api') {
     return {
       mode,
       url: accountApiEndpoint(args.base),
-      headers: { 'content-type': 'application/json', Authorization: `Bearer ${args.token}` },
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${args.token}`, ...(args.gatewayId ? { 'cf-aig-gateway-id': args.gatewayId } : {}) },
       body: JSON.stringify({
         model: accountApiModel(args.model),
         messages: [{ role: 'system', content: args.system }, { role: 'user', content: args.user }],
@@ -129,7 +130,7 @@ export async function generateJson(args: { system: string; user: string; timeout
   const token = clean(env('CF_AIG_TOKEN'));
   if (!base || !token) throw new GatewayError('The AI gateway is not configured.', 503);
   const model = modelName();
-  const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey: clean(env('GEMINI_API_KEY')) || undefined });
+  const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey: clean(env('GEMINI_API_KEY')) || undefined, gatewayId: clean(env('AI_GATEWAY_ID')) || undefined });
 
   let res: Response;
   try {
