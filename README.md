@@ -15,7 +15,7 @@ Live app: [mathtree-app.web.app](https://mathtree-app.web.app)
   refinance. The database stores facts only; results are computed on demand.
 - **Investor profile.** Your underwriting standards (vacancy, expenses, reserves, utilities, property tax rate, appreciation, exit cap,
   selling costs, closing time) by asset class. They are starting points for screening, copied into a deal only where it is silent. Nothing is fixed: a new profile starts with common
-  conventions (a six-week closing, for example), you change any of them, and every deal can override them with its own figure.
+  conventions (a six-week closing, for example), you can change any of them globally in your profile, or individually on any single property. A property's own figure always wins; the rest keep following your profile.
 - **Inputs needed.** When a deal lacks something the engine requires, the app lists exactly what, instead of guessing.
 - **Compare.** Side-by-side boards of deals and scenarios, with charts and saved views.
 - **Operations.** Rent roll, payments, escalations, NNN recoveries and daily reminders across owned properties.

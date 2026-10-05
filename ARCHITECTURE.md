@@ -225,8 +225,8 @@ assumption. Assumptions live in the investor profile by asset class (`_shared/un
 (NNN or not), rent and expense growth, appreciation, exit cap, selling costs, management fee, reserves per unit, per square foot, or as
 a percent of income or value, insurance and upkeep as rates on value, utilities per square foot, property tax rate, closing time). Each
 carries a short rationale. They are starting points for screening, not a standard imposed on every deal. Nothing in them is fixed: values such as a
-six-week closing or a 5% vacancy are only the conventions a new profile starts with, the owner changes any of them in the profile, and a
-property states its own figure in Edit Inputs and that wins. `suggestedStartingPoints` fills blanks with labelled conventions only; `seedFromAssumptions`
+six-week closing or a 5% vacancy are only the conventions a new profile starts with, the owner changes any of them globally in the investor profile, or individually on a single property in Edit Inputs. A figure stated on
+a property always wins over the profile, and a property that states nothing keeps following the profile as it changes. `suggestedStartingPoints` fills blanks with labelled conventions only; `seedFromAssumptions`
 turns profile rates into per-deal dollar inputs using the deal's own size, price or county values and reports which it could not fill.
 
 **Provenance.** `assumptionBasis` on a deal records the source of each tracked input (profile, owner, county record, document);
