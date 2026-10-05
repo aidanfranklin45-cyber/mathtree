@@ -4,7 +4,7 @@ import { Download } from 'lucide-react';
 import { ComparisonColumn } from '../../lib/compare/compareTypes';
 import { formatCurrency } from '../../lib/format';
 import { ALL_METRICS, getMetric } from '../../lib/compare/metrics';
-import { cashFlowSeries, metricValues, paybackYear, riskReturnPoints, seriesColor, wealthSeries, yearLabels } from '../../lib/compare/chartData';
+import { cashFlowSeries, cashInSeries, metricValues, paybackYear, riskReturnPoints, seriesColor, shortfallTotal, wealthSeries, yearLabels } from '../../lib/compare/chartData';
 
 Chart.register(...registerables);
 
@@ -18,8 +18,8 @@ type ChartKind = 'returns' | 'cashflow' | 'wealth' | 'capital' | 'risk' | 'metri
 const KINDS: Array<{ id: ChartKind; label: string; blurb: string }> = [
   { id: 'returns', label: 'Returns', blurb: '10-year levered IRR next to year 1 cash-on-cash for each column.' },
   { id: 'cashflow', label: 'Cash flow', blurb: 'What each column pays you, year by year or as a running total.' },
-  { id: 'wealth', label: 'Wealth built', blurb: 'Equity plus cash collected, minus the cash you put in. Where a line crosses zero, the deal has paid you back.' },
-  { id: 'capital', label: 'Capital stack', blurb: 'Cash equity against borrowed money for each column.' },
+  { id: 'wealth', label: 'Wealth built', blurb: 'Equity plus cash collected, minus the cash you put in (including any shortfalls you have to cover). Where a line crosses zero, the deal has paid you back.' },
+  { id: 'capital', label: 'Capital stack', blurb: 'Cash equity against borrowed money for each column, plus any extra cash the deal needs to cover years that do not pay their own costs.' },
   { id: 'risk', label: 'Risk vs return', blurb: 'Leverage across, IRR up, bubble size by price. Top left is more return for less borrowing.' },
   { id: 'metric', label: 'Any metric', blurb: 'Rank every column on one metric of your choice, or see how far each is from the benchmark.' },
 ];
@@ -63,6 +63,9 @@ export const CompareCharts: React.FC<CompareChartsProps> = ({ columns, metricKey
 
   const years = Math.min(10, Math.max(1, ...columns.map((c) => (c.metrics?.projections?.length ?? 0) || 10)));
   const wealth = useMemo(() => columns.map((c) => wealthSeries(c, years)), [columns, years]);
+  // Cash put in along the way, shortfalls included, so a deal that has to be topped up shows what it really costs
+  const cashIn = useMemo(() => columns.map((c) => cashInSeries(c, years)), [columns, years]);
+  const shortfalls = useMemo(() => columns.map((c) => shortfallTotal(c, years)), [columns, years]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -106,7 +109,11 @@ export const CompareCharts: React.FC<CompareChartsProps> = ({ columns, metricKey
           labels: yearLabels(columns, true),
           datasets: columns.map((c, i) => ({ label: label(c), data: wealth[i], borderColor: seriesColor(i), backgroundColor: `${seriesColor(i)}22`, borderWidth: 2.5, tension: 0.25, pointRadius: 2 })) as any,
         },
-        options: baseOptions(money, { plugins: { legend: { labels: { color: TEXT, font: FONT, usePointStyle: true, boxWidth: 8 } }, tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1, padding: 10, callbacks: { label: (ctx: any) => `${ctx.dataset.label}: ${money(ctx.parsed.y)}` } } } }),
+        options: baseOptions(money, { plugins: { legend: { labels: { color: TEXT, font: FONT, usePointStyle: true, boxWidth: 8 } }, tooltip: { backgroundColor: '#0f172a', borderColor: '#334155', borderWidth: 1, padding: 10, callbacks: {
+          label: (ctx: any) => `${ctx.dataset.label}: ${money(ctx.parsed.y)}`,
+          // The line is net of the cash you put in; say how much that is by this year, shortfalls included
+          afterLabel: (ctx: any) => { const v = cashIn[ctx.datasetIndex]?.[ctx.dataIndex]; return v == null ? '' : `Cash you have put in: ${money(v)}`; },
+        } } } }),
       };
     } else if (kind === 'capital') {
       config = {
@@ -115,6 +122,7 @@ export const CompareCharts: React.FC<CompareChartsProps> = ({ columns, metricKey
           labels: columns.map(label),
           datasets: [
             { label: 'Initial Cash Equity', data: columns.map((c) => Math.round(c.summary.initialCash || 0)), backgroundColor: '#10b981', borderRadius: 4 },
+            ...(shortfalls.some((s) => s > 0) ? [{ label: 'More cash to cover shortfalls (over the hold)', data: shortfalls, backgroundColor: '#f59e0b', borderRadius: 4 }] : []),
             { label: 'Senior Debt Financed', data: columns.map((c) => Math.round(c.summary.loanAmount || 0)), backgroundColor: '#3b82f6', borderRadius: 4 },
           ],
         },
@@ -171,7 +179,7 @@ export const CompareCharts: React.FC<CompareChartsProps> = ({ columns, metricKey
     chartRef.current?.destroy();
     chartRef.current = new Chart(canvas, config);
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
-  }, [columns, kind, cfMode, metric, metricMode, sortBars, wealth]);
+  }, [columns, kind, cfMode, metric, metricMode, sortBars, wealth, cashIn, shortfalls]);
 
   const download = () => {
     const src = canvasRef.current;
@@ -242,7 +250,7 @@ export const CompareCharts: React.FC<CompareChartsProps> = ({ columns, metricKey
               <li key={c.id} className="rounded-xl bg-slate-950/60 border border-slate-900 px-3 py-2 flex items-center gap-2.5 text-xs">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: seriesColor(i) }} />
                 <span className="min-w-0 flex-1 truncate text-slate-300">{label(c)}</span>
-                <span className="font-bold text-slate-100 whitespace-nowrap">{pb ? `pays back in year ${pb}` : 'not within 10 years'}</span>
+                <span className="font-bold text-slate-100 whitespace-nowrap">{pb ? `pays back in year ${pb}` : 'not within 10 years'}{shortfalls[i] > 0 ? ` · ${formatCurrency(shortfalls[i])} more cash needed` : ''}</span>
               </li>
             );
           })}
