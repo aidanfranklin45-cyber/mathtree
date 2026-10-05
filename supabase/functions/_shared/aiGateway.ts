@@ -144,17 +144,24 @@ export async function generateJson(args: { system: string; user: string; timeout
   const model = modelName();
   const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey: clean(env('GEMINI_API_KEY')) || undefined, gatewayId: clean(env('AI_GATEWAY_ID')) || undefined, byokAlias: clean(env('AI_BYOK_ALIAS')) || undefined });
 
-  let res: Response;
-  try {
-    res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(args.timeoutMs ?? 55_000), body: req.body });
-  } catch (e) {
-    throw new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504);
+  // A busy model answers 503 ("overloaded"); that clears in seconds, so try again a couple of times before giving up
+  const started = Date.now();
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(args.timeoutMs ?? 55_000), body: req.body });
+    } catch (e) {
+      throw new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504);
+    }
+    if (res.status !== 503 || attempt === 2 || Date.now() - started > 60_000) break;
+    await new Promise((r) => setTimeout(r, 2500 * (attempt + 1)));
   }
+  if (!res) throw new GatewayError('Could not reach the AI gateway.', 504);
   if (!res.ok) {
     // For setup problems (bad request, credentials, model name, quota) the reason is passed on, cut short: it is what lets the owner fix
     // the configuration. Other failures report the status only, since a body could echo document text.
     let reason = '';
-    if ([400, 401, 402, 403, 404, 405, 409, 413, 422, 429].includes(res.status)) {
+    if ([400, 401, 402, 403, 404, 405, 409, 413, 422, 429, 500, 503].includes(res.status)) {
       const body = await res.text().catch(() => '');
       try {
         const j = JSON.parse(body);
