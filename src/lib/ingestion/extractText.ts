@@ -46,6 +46,18 @@ export function linesFromPieces(pieces: TextPiece[]): string {
     .join('\n');
 }
 
+/**
+ * Joins the pages' text, dropping the running headers and footers a brochure repeats on every page ("Confidential", a broker's name, page
+ * titles). Only plain lines are dropped, never table rows (a line with a tab), so a rent roll keeps its header and its rows. Pages are
+ * joined without a blank line so a table that runs across pages stays one table.
+ */
+export function joinPages(pages: string[]): string {
+  const seen = new Map<string, number>();
+  for (const page of pages) for (const line of new Set(page.split('\n').map((l) => l.trim()))) if (line) seen.set(line, (seen.get(line) ?? 0) + 1);
+  const repeated = (line: string) => !line.includes('\t') && line.length < 90 && (seen.get(line.trim()) ?? 0) >= Math.max(3, pages.length / 2);
+  return pages.map((p) => p.split('\n').filter((l) => !repeated(l)).join('\n')).join('\n');
+}
+
 export const MAX_PDF_PAGES = 60;
 
 export class ScannedPdfError extends Error {
@@ -73,7 +85,7 @@ export async function extractPdfText(file: File): Promise<string> {
       }
       out.push(linesFromPieces(pieces));
     }
-    const text = out.join('\n\n');
+    const text = joinPages(out);
     if (text.replace(/\s/g, '').length < 20 * pages) throw new ScannedPdfError();
     return pdf.numPages > pages ? `${text}\n\n[Only the first ${pages} of ${pdf.numPages} pages were read.]` : text;
   } finally {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linesFromPieces } from './extractText';
+import { joinPages, linesFromPieces } from './extractText';
 import { redactForModel } from '@engine/redact';
 
 const p = (str: string, x: number, y: number) => ({ str, x, y, width: str.length * 5 });
@@ -16,5 +16,17 @@ describe('linesFromPieces', () => {
     const r = redactForModel(text);
     expect(r.text).not.toMatch(/Jane|555-1234/);
     expect(r.text).toContain('Vacant');
+  });
+});
+
+describe('joinPages', () => {
+  it('drops a footer repeated on every page but keeps repeated table headers and rows', () => {
+    const header = 'Unit\tTenant\tRent';
+    const pages = ['Acme Brokerage Confidential\n' + header + '\n101\tJane Doe\t1500', 'Acme Brokerage Confidential\n' + header + '\n102\tBob Roe\t1600', 'Acme Brokerage Confidential\n' + header + '\n103\tAnn Poe\t1700'];
+    const text = joinPages(pages);
+    expect(text).not.toContain('Confidential');
+    expect(text.split(header).length - 1).toBe(3);
+    expect(text).toContain('103\tAnn Poe\t1700');
+    expect(redactForModel(text).text).not.toMatch(/Jane|Bob|Ann/);
   });
 });
