@@ -60,7 +60,8 @@ modules, so it runs in both Vite and Deno). Siblings: `monte-carlo.ts`, `remodel
 - `prepareEngineInputs(deal, overrides)` merges `deal.inputs` + overrides, fills `purchasePrice` from the column, drops an
   ARV that just echoes the assessed value, applies the investor's lease-expiry defaults, and overlays the owner's profile
   assumptions **live** for the assumptions the deal leaves unstated (an allowlist, `PROFILE_FILLS`). A pipeline deal with no
-  closing date and no dated leases is given one: created date plus the profile's closing time (default six weeks). Nothing else
+  closing date and no dated leases is given one: created date plus the owner's own assumed closing time from the investor profile. Six weeks is only the starting
+  point offered to a new profile; the owner sets whatever they like, and any deal can state its own closing date. Nothing else
   is defaulted. `missingInputsFor(deal)` asks the same question as the engine, so screens and engine agree on what is missing.
 - `computeDealMetrics(deal, overrides?)` runs `calculateProjections(assetClass, inputs)` and maps it to `DealMetrics`
   (bounded memo keyed by the exact inputs). What-ifs, scenarios and remodels are just `overrides`.
@@ -223,8 +224,9 @@ Owner decisions carried over from the retired plan docs (still in git history). 
 assumption. Assumptions live in the investor profile by asset class (`_shared/underwritingAssumptions.ts`: vacancy, expense ratio
 (NNN or not), rent and expense growth, appreciation, exit cap, selling costs, management fee, reserves per unit, per square foot, or as
 a percent of income or value, insurance and upkeep as rates on value, utilities per square foot, property tax rate, closing time). Each
-carries a short rationale. They are starting points for screening, not a standard imposed on every deal: a property states its own
-figure in Edit Inputs and that wins. `suggestedStartingPoints` fills blanks with labelled conventions only; `seedFromAssumptions`
+carries a short rationale. They are starting points for screening, not a standard imposed on every deal. Nothing in them is fixed: values such as a
+six-week closing or a 5% vacancy are only the conventions a new profile starts with, the owner changes any of them in the profile, and a
+property states its own figure in Edit Inputs and that wins. `suggestedStartingPoints` fills blanks with labelled conventions only; `seedFromAssumptions`
 turns profile rates into per-deal dollar inputs using the deal's own size, price or county values and reports which it could not fill.
 
 **Provenance.** `assumptionBasis` on a deal records the source of each tracked input (profile, owner, county record, document);
