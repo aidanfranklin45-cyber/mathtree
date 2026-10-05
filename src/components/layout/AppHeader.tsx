@@ -4,8 +4,7 @@ import { supabase } from '../../lib/supabase/client';
 import {
   comparePrefetchProps,
   operationsPrefetchProps,
-  prefetchCompare,
-  prefetchOperations,
+  prefetchCoreRoutes,
 } from '../../lib/prefetchRoutes';
 
 interface AppHeaderProps {
@@ -46,14 +45,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const totalNotifications = alertCount > 0 ? alertCount : 0;
 
   // Close dropdown on outside click or Escape key
-  // Fetch the Operations and Compare chunks once the browser is idle so navigation is instant
+  // Warm primary hub chunks (Studio, Operations, Compare) once the browser is idle so navigation is instant
   useEffect(() => {
     const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
-    const prefetchRoutes = () => {
-      prefetchOperations();
-      prefetchCompare();
-    };
-    const id = w.requestIdleCallback ? w.requestIdleCallback(prefetchRoutes) : window.setTimeout(prefetchRoutes, 1500);
+    const id = w.requestIdleCallback ? w.requestIdleCallback(prefetchCoreRoutes) : window.setTimeout(prefetchCoreRoutes, 1500);
     return () => { if (!w.requestIdleCallback) window.clearTimeout(id); };
   }, []);
 

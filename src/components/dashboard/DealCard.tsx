@@ -7,6 +7,7 @@ import { missingInputsFor } from '../../lib/engine/compute';
 import { useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
 import { formatCurrency } from '../../lib/format';
 import { currentLeases } from '../../lib/leases';
+import { prefetchStudio } from '../../lib/prefetchRoutes';
 import {
   CheckSquare,
   Square,
@@ -193,6 +194,9 @@ const DealCardComponent: React.FC<DealCardProps> = ({
       role="link"
       tabIndex={0}
       onClick={openStudio}
+      onMouseEnter={prefetchStudio}
+      onTouchStart={prefetchStudio}
+      onFocus={prefetchStudio}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && e.target === e.currentTarget) openStudio(e);
       }}

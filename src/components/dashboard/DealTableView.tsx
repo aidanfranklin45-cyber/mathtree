@@ -5,6 +5,7 @@ import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { missingInputsFor } from '../../lib/engine/compute';
 import { formatCurrency } from '../../lib/format';
+import { prefetchStudio } from '../../lib/prefetchRoutes';
 import {
   ArrowUpDown,
   ArrowUp,
@@ -246,6 +247,8 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                   className={`hover:bg-slate-800/40 transition group cursor-pointer ${
                     isSelected ? selectedBgClass : ''
                   }`}
+                  onMouseEnter={prefetchStudio}
+                  onTouchStart={prefetchStudio}
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
                     if (target.closest('button, a, input, select, textarea, [data-no-row-click]')) return;
