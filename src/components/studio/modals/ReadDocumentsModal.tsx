@@ -5,7 +5,8 @@ import type { DocumentType, IntakeDocument } from '../../../lib/ingestion/intake
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../../lib/ingestion/validate';
 import { buildApplication, knownTenantNames, proposeChanges } from '../../../lib/ingestion/apply';
-import { isReadableFile, readDocument, READABLE_EXTENSIONS, type ParsedDocument } from '../../../lib/ingestion/client';
+import { readDocument, type ParsedDocument } from '../../../lib/ingestion/client';
+import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../../lib/ingestion/extractText';
 
 interface Props {
   isOpen: boolean;
@@ -64,12 +65,21 @@ export const ReadDocumentsModal: React.FC<Props> = ({ isOpen, deal, onClose, onA
     if (!files) return;
     const added: Source[] = [];
     const rejected: string[] = [];
+    const problems: string[] = [];
+    setBusy(true);
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { rejected.push(f.name); continue; }
-      added.push({ id: nextId.current++, name: f.name, text: await f.text(), type: 'auto' });
+      try {
+        added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto' });
+      } catch (e) {
+        problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`);
+      }
     }
+    setBusy(false);
     setSources((s) => [...s, ...added]);
-    setNote(rejected.length ? `${rejected.join(', ')} can't be read yet. For now use ${READABLE_EXTENSIONS.join(', ')} files, or paste the text.` : null);
+    setReads(null);
+    const notes = [...problems, ...(rejected.length ? [`${rejected.join(', ')} can't be read. Use ${READABLE_EXTENSIONS.join(', ')} files, or paste the text.`] : [])];
+    setNote(notes.length ? notes.join(' ') : null);
   };
 
   const addPasted = () => {
@@ -125,7 +135,7 @@ export const ReadDocumentsModal: React.FC<Props> = ({ isOpen, deal, onClose, onA
               Choose files
               <input type="file" multiple accept={READABLE_EXTENSIONS.join(',')} className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
             </label>
-            <span className="text-[11px] text-slate-500">{READABLE_EXTENSIONS.join(', ')}. For a PDF or Excel file, export it to CSV or paste its text below.</span>
+            <span className="text-[11px] text-slate-500">PDF, CSV or text. A scanned PDF (a picture of a page) can't be read; Excel files: save as CSV.</span>
           </div>
           <textarea value={pasted} onChange={(e) => setPasted(e.target.value)} rows={3} placeholder="Or paste the document's text here" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500/60" />
           {pasted.trim().length >= 20 && <button type="button" onClick={addPasted} className={`${btn} bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white`}>Add pasted text</button>}
@@ -149,7 +159,7 @@ export const ReadDocumentsModal: React.FC<Props> = ({ isOpen, deal, onClose, onA
 
         {sources.length > 0 && (
           <button type="button" onClick={readAll} disabled={busy} className={`${btn} bg-emerald-500 hover:bg-emerald-400 text-slate-950`}>
-            {busy && !reads ? 'Reading…' : reads ? 'Read again' : `Read ${sources.length} document${sources.length === 1 ? '' : 's'}`}
+            {busy && !reads ? 'Working…' : reads ? 'Read again' : `Read ${sources.length} document${sources.length === 1 ? '' : 's'}`}
           </button>
         )}
 

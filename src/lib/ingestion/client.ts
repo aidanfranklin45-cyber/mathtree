@@ -10,14 +10,6 @@ export interface ParsedDocument {
   message?: string;
 }
 
-/** Files read as text in the browser. Other formats are not supported yet, and the message says so rather than reading them badly. */
-export const READABLE_EXTENSIONS = ['.csv', '.tsv', '.txt', '.md'];
-
-export function isReadableFile(name: string): boolean {
-  const lower = name.toLowerCase();
-  return READABLE_EXTENSIONS.some((e) => lower.endsWith(e));
-}
-
 /** Sends one document's text to the parse-document edge function. Throws an Error with a message fit to show the owner. */
 export async function readDocument(args: { text: string; filename?: string; documentType?: Exclude<DocumentType, 'unknown'>; knownNames?: string[] }): Promise<ParsedDocument> {
   const { data } = await supabase.auth.getSession();
