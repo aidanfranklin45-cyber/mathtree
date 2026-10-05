@@ -51,8 +51,10 @@ export interface PortfolioSector {
   count: number;
   value: number;
   weightPct: number;
+  equity: number;
   cashFlow: number;
-  avgIrr: number | null;
+  /** Cash flow over net equity, or null when there is no equity to measure against. */
+  coc: number | null;
 }
 
 export interface PortfolioDispositionEvent {
@@ -87,9 +89,9 @@ export interface PortfolioModel {
   companyName: string | null;
   hurdleRate: number | null;
   dateStr: string;
+  /** The longest hold among the owned properties; each runs to its own hold period. */
   holdYears: number;
   kpis: PortfolioKpis;
-  totalVolume: number;
   totalDeals: number;
   footprintAcres: number;
   footprintSqFt: number;
@@ -212,20 +214,15 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
   const owned = rows.filter((r) => r.isOwned);
   const pipeline = rows.filter((r) => !r.isOwned);
 
-  const totalVolume = kpis.ownedVal + kpis.pipelineVal;
+  // Diversification is about what is owned; deals that are only underwritten say nothing about it
+  const ownedTotal = owned.reduce((sum, r) => sum + r.price, 0);
   const sectors: PortfolioSector[] = SECTORS.map((s) => {
-    const match = rows.filter((r) => r.assetClass === s.id);
+    const match = owned.filter((r) => r.assetClass === s.id);
     const value = match.reduce((sum, r) => sum + r.price, 0);
-    const irrs = match.map((r) => r.irr).filter((v): v is number => v !== null && v > 0);
-    return {
-      ...s,
-      count: match.length,
-      value,
-      weightPct: totalVolume > 0 ? (value / totalVolume) * 100 : 0,
-      cashFlow: match.reduce((sum, r) => sum + (r.cashFlow ?? 0), 0),
-      avgIrr: irrs.length > 0 ? irrs.reduce((a, b) => a + b, 0) / irrs.length : null,
-    };
-  });
+    const equity = match.reduce((sum, r) => sum + (r.equity ?? 0), 0);
+    const cashFlow = match.reduce((sum, r) => sum + (r.cashFlow ?? 0), 0);
+    return { ...s, count: match.length, value, weightPct: ownedTotal > 0 ? (value / ownedTotal) * 100 : 0, equity, cashFlow, coc: equity > 0 ? (cashFlow / equity) * 100 : null };
+  }).filter((s) => s.count > 0);
 
   const flags: PortfolioModel['flags'] = [];
   rows.forEach((r) => {
@@ -341,7 +338,6 @@ export function buildPortfolioModel(deals: DealRecord[], parcelRows: PortfolioPa
     dateStr: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     holdYears,
     kpis,
-    totalVolume,
     totalDeals: deals.length,
     footprintAcres: owned.reduce((s, r) => s + r.acres, 0),
     footprintSqFt: owned.reduce((s, r) => s + r.buildingSqFt, 0),

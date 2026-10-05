@@ -38,7 +38,7 @@ describe('buildPortfolioModel', () => {
     expect(m.kpis.pipelineVal).toBe(2_900_000);
   });
 
-  it('keeps owned and pipeline rows on engine values and reconciles sector totals to total volume', () => {
+  it('keeps owned and pipeline rows on engine values and reconciles sector totals to owned value', () => {
     const m = buildPortfolioModel(deals, parcels, { now });
     expect(m.owned).toHaveLength(2);
     expect(m.pipeline).toHaveLength(2);
@@ -49,7 +49,7 @@ describe('buildPortfolioModel', () => {
     expect(p1.irr).toBe(e.irr);
     expect(p1.cashFlow).toBe(e.year1Cashflow);
     const sectorSum = m.sectors.reduce((s, x) => s + x.value, 0);
-    expect(Math.abs(sectorSum - m.totalVolume)).toBeLessThan(2);
+    expect(Math.abs(sectorSum - m.owned.reduce((s, r) => s + r.price, 0))).toBeLessThan(2);
     expect(m.totalDeals).toBe(4);
   });
 
@@ -154,8 +154,8 @@ describe('PortfolioBrief render', () => {
     expect(html).toContain('Portfolio Status');
 
     // Portfolio level pro-forma
-    expect(html).toContain('Owned Portfolio 10-Year Operating Pro-Forma');
-    expect(html).toContain('Full 10-Year Holding Period Performance Forecast');
+    expect(html).toContain('Owned Portfolio Operating Pro-Forma');
+    expect(html).toContain('Each property runs to its own hold period (longest: 10 years)');
     expect(html).toContain('Portfolio NOI');
   });
 
