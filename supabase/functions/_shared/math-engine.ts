@@ -1090,8 +1090,9 @@ export function calculateProjections(
       const taxes = stated(inputs, ...KEYS.taxes);
       const insurance = stated(inputs, ...KEYS.insurance);
       const maintenance = stated(inputs, ...KEYS.maintenance);
+      const utilities = stated(inputs, ...KEYS.utilities) ?? 0; // power, water, sewer, garbage: carried when there is no tenant to pay them
       operatingExpenses = (taxes !== undefined && insurance !== undefined && maintenance !== undefined)
-        ? (taxes + insurance + maintenance) * (inflationMultiplier ?? 1)
+        ? (taxes + insurance + maintenance + utilities) * (inflationMultiplier ?? 1)
         // A lease that ends mid-hold with no replacement: the building keeps costing what it costs at the underwritten ratio
         : baselineGrossForOpex * (expenseRatio / 100) * (inflationMultiplier ?? 1);
     } else {
@@ -1108,7 +1109,7 @@ export function calculateProjections(
         const carryInsurance = stated(inputs, ...KEYS.insurance);
         const carryMaintenance = stated(inputs, ...KEYS.maintenance);
         const annualRunCost = (carryTaxes !== undefined && carryInsurance !== undefined && carryMaintenance !== undefined)
-          ? (carryTaxes + carryInsurance + carryMaintenance) * (inflationMultiplier ?? 1)
+          ? (carryTaxes + carryInsurance + carryMaintenance + (stated(inputs, ...KEYS.utilities) ?? 0)) * (inflationMultiplier ?? 1)
           : baselineGrossForOpex * (expenseRatio / 100) * (inflationMultiplier ?? 1);
         const vacantShare = vacantLeaseMonths / Math.max(1, (inputs.leases as any[]).length);
         operatingExpenses += annualRunCost * (vacantShare / 12);

@@ -63,6 +63,7 @@ const DEFS: Def[] = [
   { id: 'taxes', label: 'Property taxes', fmt: 'usd', aliases: KEYS.taxes, fills: ['annualTaxes'] },
   { id: 'insurance', label: 'Insurance', fmt: 'usd', aliases: KEYS.insurance, fills: ['annualInsurance'] },
   { id: 'maintenance', label: 'Maintenance and upkeep', fmt: 'usd', aliases: KEYS.maintenance, fills: ['annualMaintenance'] },
+  { id: 'utilities', label: 'Utilities (power, water, sewer, garbage)', fmt: 'usd', aliases: KEYS.utilities, fills: ['annualUtilities'] },
   { id: 'discount', label: 'Discount rate', fmt: 'pct', aliases: KEYS.discountRate, fills: ['discountRate'] },
 ];
 
@@ -114,6 +115,7 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
     taxes: nnn ? 'Tenants reimburse this while leased; you carry it if the space is vacant' : 'A cost of owning it, carried by you',
     insurance: nnn ? 'Tenants reimburse this while leased; you carry it if the space is vacant' : 'A cost of owning it, carried by you',
     maintenance: nnn ? 'Tenants reimburse this while leased; you carry it if the space is vacant' : 'A cost of owning it, carried by you',
+    utilities: nnn ? 'Tenants pay their own while leased; you carry it if the space is vacant' : 'Carried by you while the space has no tenant',
     discount: a.metrics?.npv != null ? `Discounts the cash flows to an NPV of ${money(a.metrics.npv)}` : undefined,
     price: a.metrics?.initialCashInvested != null ? `Your total cash in at closing is ${money(a.metrics.initialCashInvested)} (down payment plus closing costs)` : undefined,
     down: a.metrics?.loanAmount != null ? `Borrowing ${money(a.metrics.loanAmount)}` : undefined,
@@ -128,7 +130,7 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
     if (d.id === 'expenseGrowth') return stated(a.prepared, ...d.aliases) !== undefined;
     if (d.id === 'exit') return a.assetClass === 'commercial' || a.assetClass === 'storage';
     if (d.id === 'appreciation') return a.assetClass !== 'commercial' && a.assetClass !== 'storage';
-    if (['taxes', 'insurance', 'maintenance'].includes(d.id)) return nnn || !hasRent || stated(a.stored, ...d.aliases) !== undefined;
+    if (['taxes', 'insurance', 'maintenance', 'utilities'].includes(d.id)) return nnn || !hasRent || stated(a.stored, ...d.aliases) !== undefined;
     return true;
   };
 

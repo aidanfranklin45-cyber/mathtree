@@ -88,13 +88,4 @@ describe('resolvePropertyState', () => {
     const s = resolvePropertyState({ deal: deal(), facts: facts(), asOf, estimate: { ...estimate, operatingExpenses: null } });
     expect(s.noi.basis).toBe('estimated');
   });
-
-  it('with 3+ months of recorded expenses, NOI is collected rent less recorded expenses', () => {
-    const expenses = ['2026-08-10', '2026-09-10', '2026-10-10'].map((d) => ({ id: d, deal_id: 'd1', expense_date: d, category: 'insurance', amount: 1_000, vendor_note: null, recurring: false })) as any;
-    const s = resolvePropertyState({ deal: deal(), facts: facts({ expenses }), asOf, estimate });
-    expect(s.noi).toMatchObject({ value: 108_000, basis: 'collected' }); // 120k - 12k
-    expect(s.cashFlow).toMatchObject({ value: 58_000, basis: 'blended' });
-    const two = resolvePropertyState({ deal: deal(), facts: facts({ expenses: expenses.slice(0, 2) }), asOf, estimate });
-    expect(two.noi).toMatchObject({ value: 90_000, basis: 'blended' });
-  });
 });

@@ -38,6 +38,7 @@ const PROFILE_FILLS: Record<string, readonly string[]> = {
   annualTaxes: KEYS.taxes,
   annualInsurance: KEYS.insurance,
   annualMaintenance: KEYS.maintenance,
+  annualUtilities: KEYS.utilities,
 };
 
 export function resolveProfileAssumptions(deal: AnyDeal, overrides?: Partial<DealInputs>): { filled: Record<string, number>; basis: Record<string, InputBasis> } {

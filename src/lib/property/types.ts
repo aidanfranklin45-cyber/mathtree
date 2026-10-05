@@ -3,7 +3,6 @@
  * stored: the database holds the facts (deal, leases, units, rent payments) and this is derived on the fly.
  */
 
-import type { ExpenseEntry } from '../operations/expenses';
 
 type Row = Record<string, any>;
 
@@ -30,8 +29,6 @@ export interface PropertyFacts {
   leases: Row[];
   units: Row[];
   payments: Row[];
-  /** Rows of `expense_entries` for the deal; omit until loaded. */
-  expenses?: ExpenseEntry[];
 }
 
 /** The engine's forecast for the same moment, supplied by the caller so this module stays free of the engine. */
