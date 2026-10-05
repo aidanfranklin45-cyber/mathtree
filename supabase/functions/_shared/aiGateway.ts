@@ -7,7 +7,7 @@
 // Deno's global, declared so the browser-side type-check (which imports this from tests) compiles
 declare const Deno: { env: { get(key: string): string | undefined } };
 
-export const DEFAULT_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 function env(key: string): string {
   try {

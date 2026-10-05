@@ -150,7 +150,7 @@ Views: `view_monthly_rent_reconciliation` (lease × current period payment statu
 | `configure-lease-terms` | Save lease terms/escalations (does not touch deal `inputs`) |
 | `manage-profile`, `manage-entities`, `manage-collaboration` | Profile, entities, sharing/groups with server-side checks |
 | `batch-sync-gis` | Monthly county GIS re-sync of parcels (cron secret) |
-| `parse-document` | Reads a document's text into the intake schema (signed-in users). Redacts tenant names, phones and emails first, calls Gemini Flash only through Cloudflare AI Gateway (secrets `AI_GATEWAY_URL`, `CF_AIG_TOKEN`, optional `AI_MODEL`), returns facts with confidence and evidence. Writes nothing to deals |
+| `parse-document` | Reads a document's text into the intake schema (signed-in users). Redacts tenant names, phones and emails first, calls Gemini Flash only through Cloudflare AI Gateway (secrets `AI_GATEWAY_URL`, `CF_AIG_TOKEN`, optional `AI_MODEL`), returns facts with confidence and evidence. Writes nothing itself: the app applies what the owner accepts |
 
 Shared server rules live beside the engine in `_shared/` and are unit tested from `src/`: `reminderEligibility.ts`
 (contact a tenant only if the deal is owned, not demo, and the lease is in force today), `rentIncreaseRules.ts`
@@ -240,7 +240,7 @@ tenants reimburse them under NNN while leased. Property tax is the county's asse
 **Intake groundwork.** `lib/ingestion` defines the document types, the questions to ask for each, and the normalising and validation
 that turn extracted values into deal inputs the engine accepts. The `parse-document` edge function is the parser (rules in
 `_shared/intakeParse.ts`, redaction in `_shared/redact.ts`, the gateway call in `_shared/aiGateway.ts`); the intake types and questions live in
-`_shared` so the function and the app share them. The upload and review screen is not built yet. Decisions made for it: the model is reached
+`_shared` so the function and the app share them. The deal page's **Read documents** modal (`ReadDocumentsModal`) takes CSV, text or pasted text, calls the function, checks the result (`ingestion/validate.ts`), lines the figures up against what the deal states (`ingestion/apply.ts`), and saves only what the owner ticks, through the same save as Edit Inputs, recording each figure as document-sourced in `assumptionBasis`. PDF and Excel reading is not built. Decisions made for it: the model is reached
 only through Cloudflare AI Gateway, the owner holds the keys and spend limits (never handled in chat or the repo), tenant names, phones and
 emails are redacted before anything is sent, and extracted values land on a review screen before they touch a deal.
 

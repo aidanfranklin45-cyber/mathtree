@@ -39,9 +39,9 @@ describe('prompt and gateway', () => {
   });
 
   it('builds the Google AI Studio endpoint from either form of gateway URL', () => {
-    const want = 'https://gateway.ai.cloudflare.com/v1/acct/gw/google-ai-studio/v1beta/models/gemini-2.5-flash:generateContent';
-    expect(gatewayEndpoint('https://gateway.ai.cloudflare.com/v1/acct/gw/', 'gemini-2.5-flash')).toBe(want);
-    expect(gatewayEndpoint('https://gateway.ai.cloudflare.com/v1/acct/gw/google-ai-studio', 'gemini-2.5-flash')).toBe(want);
+    const want = 'https://gateway.ai.cloudflare.com/v1/acct/gw/google-ai-studio/v1beta/models/gemini-3.8-flash:generateContent';
+    expect(gatewayEndpoint('https://gateway.ai.cloudflare.com/v1/acct/gw/', 'gemini-3.8-flash')).toBe(want);
+    expect(gatewayEndpoint('https://gateway.ai.cloudflare.com/v1/acct/gw/google-ai-studio', 'gemini-3.8-flash')).toBe(want);
     expect(gatewayEndpoint(want, 'other')).toBe(want);
   });
 });
