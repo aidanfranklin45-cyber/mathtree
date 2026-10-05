@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeDealMetrics } from './compute';
+import { computeDealMetrics } from './testEngine';
 
 const deal = (over: Record<string, unknown> = {}): any => ({
   id: 'd1', asset_class: 'commercial', purchase_price: 500000,

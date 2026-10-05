@@ -3,163 +3,204 @@ import { getExpiryDefaults } from '../../../lib/engine/expiryDefaults';
 
 export type Form = Record<string, string> & { manageProperty: string; storageAutomated: string };
 
-const str = (v: unknown, fallback: unknown = ''): string => (v === undefined || v === null || v === '' ? String(fallback ?? '') : String(v));
+/** A stated value as a string; blank when the deal does not state it. There is no fallback: a blank field stays blank and is flagged. */
+const str = (v: unknown): string => (v === undefined || v === null ? '' : String(v));
 
-/** Port of legacy openEditDealModalFromProject: seed the form from the deal's facts. */
+/** Port of legacy openEditDealModalFromProject: seed the form from the deal's facts, and only its facts. */
 export function seedForm(deal: DealRecord): Form {
   const i: any = deal.inputs ?? {};
   const a = String(deal.asset_class ?? 'commercial');
   const lease = (Array.isArray(i.leases) && i.leases[0]) || {};
 
-  let preAnnual = 0;
-  let preMonthly = 0;
+  let preAnnual: number | undefined;
+  let preMonthly: number | undefined;
   if (a === 'commercial') {
-    preAnnual = i.grossRentAnnual ?? (i.grossRentPerMonth ? i.grossRentPerMonth * 12 : 0);
+    preAnnual = i.grossRentAnnual ?? (i.grossRentPerMonth ? i.grossRentPerMonth * 12 : undefined);
   } else if (a === 'single-family') {
-    preMonthly = i.monthlyRent ?? i.grossRentPerMonth ?? (i.grossRentAnnual ? Math.round(i.grossRentAnnual / 12) : 0);
-    preAnnual = preMonthly ? preMonthly * 12 : 0;
+    preMonthly = i.monthlyRent ?? i.grossRentPerMonth ?? (i.grossRentAnnual ? Math.round(i.grossRentAnnual / 12) : undefined);
+    preAnnual = preMonthly ? preMonthly * 12 : undefined;
   } else if (a === 'multi-unit') {
-    const u = i.unitCount || i.numUnits || 4;
-    preMonthly = i.monthlyRentPerUnit ?? i.rentPerUnit ?? (i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (i.monthlyRent ? Math.round(i.monthlyRent / u) : 0));
-    preAnnual = i.grossRentAnnual ?? (preMonthly ? preMonthly * u * 12 : 0);
+    const u = i.unitCount || i.numUnits || 0;
+    preMonthly = i.monthlyRentPerUnit ?? i.rentPerUnit ?? (u && i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (u && i.monthlyRent ? Math.round(i.monthlyRent / u) : undefined));
+    preAnnual = i.grossRentAnnual ?? (preMonthly && u ? preMonthly * u * 12 : undefined);
   } else if (a === 'storage') {
-    const u = i.storageUnitCount || i.unitCount || 20;
-    preMonthly = i.storageRentPerUnit ?? i.monthlyRentPerUnit ?? (i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (i.monthlyRent ? Math.round(i.monthlyRent / u) : 0));
-    preAnnual = i.grossRentAnnual ?? (preMonthly ? preMonthly * u * 12 : 0);
+    const u = i.storageUnitCount || i.unitCount || 0;
+    preMonthly = i.storageRentPerUnit ?? i.monthlyRentPerUnit ?? (u && i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (u && i.monthlyRent ? Math.round(i.monthlyRent / u) : undefined));
+    preAnnual = i.grossRentAnnual ?? (preMonthly && u ? preMonthly * u * 12 : undefined);
   }
-  const appRate = a === 'commercial' || a === 'storage'
-    ? (i.targetCapRate ?? i.targetExitCapRate ?? 6.5)
-    : (i.appreciationRate ?? 2);
+  const appRate = a === 'commercial' || a === 'storage' ? (i.targetCapRate ?? i.targetExitCapRate) : i.appreciationRate;
+  const capexIsPercent = i.capexReservePercent !== undefined && i.capexReservePercent !== null && i.capexReservePercent !== '';
 
   return {
     name: deal.title || '',
     location: deal.location || '',
     status: deal.status || 'prospect',
     entity: deal.entity_id || i.entity_id || '',
-    price: str(deal.purchase_price || i.purchasePrice, 0),
-    marketTier: str(i.marketTier || i.commTier || i.storageTier, 'Tier 2'),
-    propertyClass: str(i.propertyClass || i.commClass || i.storageClass, 'Class B'),
+    price: str(deal.purchase_price || i.purchasePrice),
+    marketTier: str(i.marketTier || i.commTier || i.storageTier) || 'Tier 2',
+    propertyClass: str(i.propertyClass || i.commClass || i.storageClass) || 'Class B',
     facilityType: str(i.facilityType),
-    grossRentAnnual: str(preAnnual, 0),
-    grossRentMonthly: str(preMonthly, 0),
-    vacancyRate: str(i.vacancyRate, 5),
-    rentGrowth: str(i.rentGrowth ?? i.annualRentGrowth, 3),
+    grossRentAnnual: str(preAnnual),
+    grossRentMonthly: str(preMonthly),
+    vacancyRate: str(i.vacancyRate ?? i.vacancyRatePercent),
+    rentGrowth: str(i.rentGrowth ?? i.annualRentGrowth ?? i.rentGrowthPercent),
     appreciation: str(appRate),
-    opexRatio: str(i.expenseRatio ?? i.operatingExpenseRatio, 35),
-    expenseGrowth: str(i.expenseGrowth ?? i.expenseInflation ?? i.expenseGrowthRate ?? i.expenseGrowthPercent ?? (i.rentGrowth !== undefined ? i.rentGrowth : 2.5)),
-    // Reflect what the engine assumes: an unset flag means no management fee, so never pre-tick it.
+    opexRatio: str(i.expenseRatio ?? i.operatingExpenseRatio),
+    expenseGrowth: str(i.expenseGrowth ?? i.expenseInflation ?? i.expenseGrowthRate ?? i.expenseGrowthPercent),
+    // Reflect what the engine does: an unset flag means no management fee, so never pre-tick it.
     manageProperty: i.manageProperty ? 'true' : 'false',
-    rehabCosts: str(i.rehabCosts ?? i.rehabBudget, 0),
-    closingCosts: str(i.closingCosts, 0),
-    closingDate: str(i.closingDate, '2026-10-01'),
-    exitYear: str(i.exitYear, 10),
-    discountRate: str(i.discountRate, 8),
+    managementFee: str(i.managementFeePercent),
+    payroll: str(i.payrollMarketingPercent),
+    capexKind: capexIsPercent ? 'percent' : 'annual',
+    capexValue: str(capexIsPercent ? i.capexReservePercent : (i.capexReserveAnnual ?? i.capexReserve)),
+    taxes: str(i.annualTaxes ?? i.propertyTaxes),
+    insurance: str(i.annualInsurance ?? i.insurance),
+    maintenance: str(i.annualMaintenance ?? i.maintenance),
+    sellingCost: str(i.sellingCostPercent),
+    rehabCosts: str(i.rehabCosts ?? i.rehabBudget),
+    closingCosts: str(i.closingCosts),
+    closingDate: str(i.closingDate),
+    exitYear: str(i.holdingPeriod ?? i.exitYear ?? i.holdYears),
+    discountRate: str(i.discountRate ?? i.discountRatePercent),
     rehabMode: i.rehabFinancingMode || (i.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket'),
     exitCapTiming: i.exitCapTiming || 'amortized',
     financingType: i.financingType || 'fixed',
-    armInitial: str(i.armInitialYears, 5),
-    armRate: str(i.armAdjustmentRate, 7.75),
-    armCap: str(i.armRateCap, 9.5),
-    ioYears: str(i.interestOnlyYears, 3),
-    downPayment: str(i.downPaymentPercent, 25),
-    interestRate: str(i.interestRate, 6.5),
-    loanTerm: str(i.loanTerm, 30),
-    leaseType: i.leaseType || (a === 'commercial' ? 'NNN' : 'Gross'),
+    armInitial: str(i.armInitialYears),
+    armRate: str(i.armAdjustmentRate),
+    armCap: str(i.armRateCap),
+    ioYears: str(i.interestOnlyYears),
+    downPayment: str(i.downPaymentPercent),
+    loanAmount: str(i.loanAmount),
+    interestRate: str(i.interestRate),
+    // `loanTerm` is the key the wizard has always stored for the amortization period
+    amortization: str(i.amortizationYears ?? i.loanTerm),
+    maturity: str(i.loanMaturityYears ?? i.loanTermYears),
+    leaseType: i.leaseType || '',
     tenantName: str(lease.tenantName || i.tenantName || deal.title),
     leaseStart: str(lease.leaseStartDate || i.leaseStartDate || i.closingDate),
     leaseEnd: str(lease.leaseEndDate || i.leaseEndDate),
-    escalationType: str(lease.escalationType, 'Percentage Bump (%)'),
+    escalationType: str(lease.escalationType) || 'Percentage Bump (%)',
+    escalation: str(lease.escalationRate),
     nextEscalation: str(lease.nextEscalationDate),
-    dueDay: str(lease.paymentDueDay, 1),
-    graceDays: str(lease.gracePeriodDays, 5),
-    expiryAssumption: str(lease.expiryAssumption, ''),
-    extensionYears: str(lease.extensionYears, 5),
-    extensionRentChangePct: str(lease.extensionRentChangePct, 0),
-    reletVacancyMonths: str(lease.reletVacancyMonths, getExpiryDefaults().vacancyMonths),
-    reletRentChangePct: str(lease.reletRentChangePct, 0),
-    reletCosts: str(lease.reletCosts, 0),
-    gla: str(i.gla, 15000),
-    unitCount: str(i.unitCount || i.numUnits, 4),
-    storageUnits: str(i.storageUnitCount || i.unitCount, a === 'storage' ? 20 : 100),
-    storageSqft: str(i.storageSqFt || i.totalSqFt || i.gla, a === 'storage' ? 2000 : 10000),
+    dueDay: str(lease.paymentDueDay) || '1',
+    graceDays: str(lease.gracePeriodDays) || '5',
+    expiryAssumption: str(lease.expiryAssumption),
+    extensionYears: str(lease.extensionYears) || '5',
+    extensionRentChangePct: str(lease.extensionRentChangePct) || '0',
+    reletVacancyMonths: str(lease.reletVacancyMonths) || String(getExpiryDefaults().vacancyMonths),
+    reletRentChangePct: str(lease.reletRentChangePct) || '0',
+    reletCosts: str(lease.reletCosts) || '0',
+    gla: str(i.gla || i.buildingSqFt),
+    unitCount: str(i.unitCount || i.numUnits),
+    storageUnits: str(i.storageUnitCount || i.unitCount),
+    storageSqft: str(i.storageSqFt || i.totalSqFt || i.gla),
     storageAutomated: String(!!i.isAutomated),
     arv: str(i.arv),
   } as Form;
 }
 
-/** Port of legacy getEditModalInputs (same keys the engine and the legacy page use). */
+/**
+ * Port of legacy getEditModalInputs (same keys the engine and the legacy page use). A blank field becomes `undefined`, which clears the
+ * saved value and leaves the deal asking for it: nothing is substituted for what the owner did not state.
+ */
 export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
   const prev: any = deal.inputs ?? {};
   const a = String(deal.asset_class ?? 'commercial');
-  const num = (v: string, fb: number) => { const n = parseFloat(v); return isNaN(n) ? fb : n; };
-  const int = (v: string, fb: number) => { const n = parseInt(v, 10); return isNaN(n) ? fb : n; };
-  const optional = (v: string) => { const n = parseFloat(v); return v.trim() !== '' && !isNaN(n) ? Math.max(0, n) : null; };
-  const annual = optional(f.grossRentAnnual);
-  const monthly = optional(f.grossRentMonthly);
+  const opt = (v: string | undefined): number | undefined => {
+    if (v === undefined || v.trim() === '') return undefined;
+    const n = parseFloat(v);
+    return Number.isNaN(n) ? undefined : n;
+  };
+  const optInt = (v: string | undefined): number | undefined => {
+    const n = opt(v);
+    return n === undefined ? undefined : Math.round(n);
+  };
+  const nonNeg = (v: string | undefined): number | null => { const n = opt(v); return n === undefined ? null : Math.max(0, n); };
+  const annual = nonNeg(f.grossRentAnnual);
+  const monthly = nonNeg(f.grossRentMonthly);
   const isIncomeValued = a === 'commercial' || a === 'storage';
-  const app = num(f.appreciation, isIncomeValued ? 6.5 : 2);
+  const app = opt(f.appreciation);
+  const amort = optInt(f.amortization);
+  const capex = opt(f.capexValue);
+  const hold = optInt(f.exitYear);
 
   const o: Record<string, any> = {
-    purchasePrice: num(f.price, 0),
-    downPaymentPercent: num(f.downPayment, 25),
-    interestRate: num(f.interestRate, 6.5),
-    loanTerm: int(f.loanTerm, 30),
-    expenseRatio: num(f.opexRatio, 35),
-    operatingExpenseRatio: num(f.opexRatio, 35),
-    expenseGrowth: num(f.expenseGrowth, 2.5),
-    expenseInflation: num(f.expenseGrowth, 2.5),
-    vacancyRate: num(f.vacancyRate, 5),
-    rentGrowth: num(f.rentGrowth, 3),
-    annualRentGrowth: num(f.rentGrowth, 3),
+    purchasePrice: opt(f.price),
+    downPaymentPercent: opt(f.downPayment),
+    loanAmount: opt(f.loanAmount),
+    interestRate: opt(f.interestRate),
+    amortizationYears: amort,
+    loanTerm: amort,
+    loanMaturityYears: optInt(f.maturity),
+    expenseRatio: opt(f.opexRatio),
+    operatingExpenseRatio: opt(f.opexRatio),
+    expenseGrowth: opt(f.expenseGrowth),
+    expenseInflation: opt(f.expenseGrowth),
+    vacancyRate: opt(f.vacancyRate),
+    rentGrowth: opt(f.rentGrowth),
+    annualRentGrowth: opt(f.rentGrowth),
     // Commercial/storage are valued off NOI and an exit cap rate; residential is valued by appreciation. One form
     // field feeds only the key its asset class uses, and the other key is left as saved.
     ...(isIncomeValued
       ? { targetCapRate: app, targetExitCapRate: app }
       : { appreciationRate: app }),
-    rehabCosts: num(f.rehabCosts, 0),
-    rehabBudget: num(f.rehabCosts, 0),
+    sellingCostPercent: opt(f.sellingCost),
+    rehabCosts: opt(f.rehabCosts) ?? 0,
+    rehabBudget: opt(f.rehabCosts) ?? 0,
     rehabFinancingMode: f.rehabMode || 'out_of_pocket',
     financeRehabAndClosingCosts: f.rehabMode === 'roll_into_loan',
-    closingCosts: num(f.closingCosts, 0),
-    closingDate: f.closingDate || prev.closingDate || '2026-10-01',
-    leaseType: f.leaseType || 'Gross',
-    exitYear: int(f.exitYear, 10),
-    discountRate: num(f.discountRate, 8),
+    closingCosts: opt(f.closingCosts),
+    closingDate: f.closingDate || undefined,
+    leaseType: f.leaseType || undefined,
+    exitYear: hold,
+    holdingPeriod: hold,
+    discountRate: opt(f.discountRate),
     financingType: f.financingType || 'fixed',
-    armInitialYears: int(f.armInitial, 5),
-    armAdjustmentRate: num(f.armRate, 7.75),
-    armRateCap: num(f.armCap, 9.5),
-    interestOnlyYears: int(f.ioYears, 3),
+    armInitialYears: optInt(f.armInitial),
+    armAdjustmentRate: opt(f.armRate),
+    armRateCap: opt(f.armCap),
+    interestOnlyYears: optInt(f.ioYears),
     manageProperty: f.manageProperty === 'true',
+    managementFeePercent: opt(f.managementFee),
+    // Reserves are stated as dollars a year or a share of income, never both; the old `capexReserve` key folds into the new one
+    capexReserveAnnual: f.capexKind === 'percent' ? undefined : capex,
+    capexReservePercent: f.capexKind === 'percent' ? capex : undefined,
+    capexReserve: undefined,
+    annualTaxes: opt(f.taxes),
+    annualInsurance: opt(f.insurance),
+    annualMaintenance: opt(f.maintenance),
     exitCapTiming: f.exitCapTiming || 'amortized',
     marketTier: f.marketTier || 'Tier 2',
     propertyClass: f.propertyClass || 'Class B',
     facilityType: (f.facilityType || '').trim(),
   };
+  if (a === 'storage') o.payrollMarketingPercent = opt(f.payroll);
 
   if (a === 'single-family') {
-    o.monthlyRent = monthly !== null ? monthly : annual !== null ? Math.round(annual / 12) : (prev.monthlyRent ?? 0);
+    o.monthlyRent = monthly !== null ? monthly : annual !== null ? Math.round(annual / 12) : prev.monthlyRent;
     o.grossRentPerMonth = o.monthlyRent;
-    o.grossRentAnnual = o.monthlyRent * 12;
-    o.arv = num(f.arv, 0);
+    o.grossRentAnnual = o.monthlyRent !== undefined ? o.monthlyRent * 12 : undefined;
+    o.arv = opt(f.arv);
   } else if (a === 'multi-unit') {
-    o.unitCount = int(f.unitCount, 4);
-    o.numUnits = o.unitCount;
+    const units = optInt(f.unitCount);
+    o.unitCount = units;
+    o.numUnits = units;
     if (monthly !== null) {
       o.monthlyRentPerUnit = monthly;
-      o.grossRentPerMonth = monthly * o.unitCount;
+      // With no unit count the total cannot be worked out, so it is left blank rather than guessed
+      o.grossRentPerMonth = units ? monthly * units : undefined;
       o.monthlyRent = o.grossRentPerMonth;
-      o.grossRentAnnual = o.grossRentPerMonth * 12;
+      o.grossRentAnnual = o.grossRentPerMonth !== undefined ? o.grossRentPerMonth * 12 : undefined;
     } else if (annual !== null) {
-      o.monthlyRentPerUnit = o.unitCount > 0 ? Math.round(annual / 12 / o.unitCount) : 0;
+      o.monthlyRentPerUnit = units ? Math.round(annual / 12 / units) : undefined;
       o.grossRentAnnual = annual;
       o.grossRentPerMonth = Math.round(annual / 12);
       o.monthlyRent = o.grossRentPerMonth;
     } else {
-      o.grossRentAnnual = prev.grossRentAnnual ?? 0;
-      o.grossRentPerMonth = prev.grossRentPerMonth ?? 0;
+      o.grossRentAnnual = prev.grossRentAnnual;
+      o.grossRentPerMonth = prev.grossRentPerMonth;
       o.monthlyRent = o.grossRentPerMonth;
-      o.monthlyRentPerUnit = prev.monthlyRentPerUnit ?? 0;
+      o.monthlyRentPerUnit = prev.monthlyRentPerUnit;
     }
   } else if (a === 'commercial') {
     if (annual !== null) {
@@ -171,36 +212,35 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
       o.grossRentPerMonth = monthly;
       o.monthlyRent = monthly;
     } else {
-      o.grossRentAnnual = prev.grossRentAnnual ?? 0;
-      o.grossRentPerMonth = prev.grossRentPerMonth ?? 0;
+      o.grossRentAnnual = prev.grossRentAnnual;
+      o.grossRentPerMonth = prev.grossRentPerMonth;
       o.monthlyRent = o.grossRentPerMonth;
     }
-    o.leaseType = f.leaseType || 'NNN';
-    o.gla = num(f.gla, 15000);
+    o.gla = opt(f.gla);
   } else if (a === 'storage') {
-    o.storageUnitCount = int(f.storageUnits, 20);
-    o.unitCount = o.storageUnitCount;
-    o.storageSqFt = num(f.storageSqft, 2000);
+    const units = optInt(f.storageUnits);
+    o.storageUnitCount = units;
+    o.unitCount = units;
+    o.storageSqFt = opt(f.storageSqft);
     o.totalSqFt = o.storageSqFt;
     o.isAutomated = f.storageAutomated === 'true';
     if (monthly !== null) {
       o.monthlyRentPerUnit = monthly;
       o.storageRentPerUnit = monthly;
-      o.grossRentPerMonth = monthly * o.storageUnitCount;
+      o.grossRentPerMonth = units ? monthly * units : undefined;
       o.monthlyRent = o.grossRentPerMonth;
-      o.grossRentAnnual = o.grossRentPerMonth * 12;
+      o.grossRentAnnual = o.grossRentPerMonth !== undefined ? o.grossRentPerMonth * 12 : undefined;
     } else if (annual !== null) {
-      o.monthlyRentPerUnit = o.storageUnitCount > 0 ? Math.round(annual / 12 / o.storageUnitCount) : 0;
+      o.monthlyRentPerUnit = units ? Math.round(annual / 12 / units) : undefined;
       o.storageRentPerUnit = o.monthlyRentPerUnit;
       o.grossRentAnnual = annual;
       o.grossRentPerMonth = Math.round(annual / 12);
       o.monthlyRent = o.grossRentPerMonth;
     } else {
-      o.grossRentAnnual = prev.grossRentAnnual ?? 0;
-      o.grossRentPerMonth = prev.grossRentPerMonth ?? 0;
+      o.grossRentAnnual = prev.grossRentAnnual;
+      o.grossRentPerMonth = prev.grossRentPerMonth;
       o.monthlyRent = o.grossRentPerMonth;
     }
   }
   return o;
 }
-

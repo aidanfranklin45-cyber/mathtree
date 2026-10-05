@@ -11,11 +11,12 @@ interface WhatIfScrubberBarProps {
 export const WhatIfScrubberBar: React.FC<WhatIfScrubberBarProps> = ({ deal, onAddWhatIfColumn }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const basePrice = Number(deal.purchase_price || deal.inputs?.purchasePrice || 1000000);
-  const baseDownPct = Number(deal.inputs?.downPaymentPercent ?? 20);
-  const baseRate = Number(deal.inputs?.interestRate ?? 6.5);
-  const baseRent = Number(deal.inputs?.grossRentAnnual || (deal.inputs?.monthlyRent ? deal.inputs.monthlyRent * 12 : 100000));
-  const baseVacancy = Number(deal.inputs?.vacancyRate ?? 5.0);
+  // The scrubber moves the deal's own stated figures; nothing here is assumed
+  const basePrice = Number(deal.purchase_price || deal.inputs?.purchasePrice);
+  const baseDownPct = Number(deal.inputs?.downPaymentPercent);
+  const baseRate = Number(deal.inputs?.interestRate);
+  const baseRent = Number(deal.inputs?.grossRentAnnual || (deal.inputs?.monthlyRent ? deal.inputs.monthlyRent * 12 : 0));
+  const baseVacancy = Number(deal.inputs?.vacancyRate);
 
   const [price, setPrice] = useState(basePrice);
   const [downPaymentPct, setDownPaymentPct] = useState(baseDownPct);

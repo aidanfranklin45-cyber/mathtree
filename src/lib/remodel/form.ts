@@ -41,7 +41,11 @@ export function missingForPlan(plan: RemodelPlan): string[] {
   } else if (!(Number(plan.manualValue) > 0)) {
     missing.push('the value after');
   }
-  if (plan.financing === 'new_loan' && plan.ltcPct !== undefined && (plan.ltcPct < 0 || plan.ltcPct > 100)) missing.push('a borrowed share between 0 and 100');
+  if (plan.financing === 'new_loan') {
+    if (plan.ltcPct === undefined || !(plan.ltcPct >= 0 && plan.ltcPct <= 100)) missing.push('a borrowed share between 0 and 100');
+    if (plan.loanRatePct === undefined) missing.push('the loan rate');
+    if (!(Number(plan.loanTermYears) > 0)) missing.push('the loan term');
+  }
   return missing;
 }
 

@@ -18,6 +18,10 @@ import {
   remodelStartsInYear,
   remodelLoanYear,
 } from './remodel.ts';
+import { KEYS, checkEngineInputs, checkTaxInputs, IncompleteInputsError, parseClosingDate, stated } from './inputRequirements.ts';
+
+export { IncompleteInputsError, checkEngineInputs, checkTaxInputs } from './inputRequirements.ts';
+export type { MissingInput } from './inputRequirements.ts';
 
 // ---------------------------------------------------------------------------
 // Utility: safe numeric coercion
@@ -323,12 +327,13 @@ export function getAnnualAmortization(
 ): any[] {
   const schedule: any[] = [];
   const finType = String(options.financingType || 'fixed').toLowerCase();
-  const armInitial = parseInt(options.armInitialYears || 5, 10);
-  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(options.armAdjustmentRate) : (annualRate + 1.5);
-  const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : (annualRate + 4.0);
-  const ioYears = parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : (finType === 'interest_only' ? 3 : 0), 10);
-  const holdYears = parseInt(options.holdingPeriod || options.exitYear || options.holdYears || 10, 10);
-  const maxYears = Math.max(1, Math.min(30, isNaN(holdYears) ? 10 : holdYears));
+  // ARM and interest-only terms are the loan's own (checked present before any schedule is built); nothing is assumed here
+  const armInitial = parseInt(options.armInitialYears ?? 0, 10) || 0;
+  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(options.armAdjustmentRate) : annualRate;
+  const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : annualRate;
+  const ioYears = parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : 0, 10) || 0;
+  const holdYears = parseInt(options.holdingPeriod || options.exitYear || options.holdYears || 0, 10);
+  const maxYears = Math.max(1, Math.min(30, isNaN(holdYears) || holdYears <= 0 ? 1 : holdYears));
   const firstYearMonths = (options.firstYearMonths && options.firstYearMonths >= 1 && options.firstYearMonths <= 12) ? parseInt(options.firstYearMonths, 10) : 12;
 
   if (loanAmount <= 0 || termYears <= 0) {
@@ -460,12 +465,12 @@ export function getMonthlyAmortization(
   const schedule: any[] = [];
   if (loanAmount <= 0 || termYears <= 0) return schedule;
 
-  const totalMonths = parseInt(options.totalMonths || ((options.holdingPeriod || 10) * 12), 10);
+  const totalMonths = parseInt(options.totalMonths || ((options.holdingPeriod || 0) * 12), 10);
   const finType = String(options.financingType || 'fixed').toLowerCase();
-  const armInitialMonths = parseInt(options.armInitialYears || 5, 10) * 12;
-  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(options.armAdjustmentRate) : (annualRate + 1.5);
-  const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : (annualRate + 4.0);
-  const ioMonths = parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : (finType === 'interest_only' ? 3 : 0), 10) * 12;
+  const armInitialMonths = (parseInt(options.armInitialYears ?? 0, 10) || 0) * 12;
+  const armAdjRate = options.armAdjustmentRate !== undefined ? parseFloat(options.armAdjustmentRate) : annualRate;
+  const armCap = options.armRateCap !== undefined ? parseFloat(options.armRateCap) : annualRate;
+  const ioMonths = (parseInt(options.interestOnlyYears !== undefined ? options.interestOnlyYears : 0, 10) || 0) * 12;
 
   let currentBalance = loanAmount;
   let cumulativePrincipal = 0;
@@ -653,6 +658,20 @@ export function numOr(v: any, fallback: number): number {
 }
 
 /**
+ * The down payment percent: stated outright, or derived from a stated loan amount over the financed basis. One of the two must be
+ * stated; with neither there is no loan to model and nothing is assumed.
+ */
+export function resolveDownPaymentPercent(inputs: Record<string, any>, financedBasis: number): number {
+  const down = stated(inputs, "downPaymentPercent");
+  if (down !== undefined) return down;
+  const loan = stated(inputs, "loanAmount");
+  if (loan === undefined) {
+    throw new IncompleteInputsError([{ key: "downPaymentPercent", label: "Down payment (%) or loan amount", kind: "fact", why: "Without it the engine cannot tell how much is borrowed." }]);
+  }
+  return financedBasis > 0 ? (1 - Math.min(Math.max(loan, 0), financedBasis) / financedBasis) * 100 : 0;
+}
+
+/**
  * Resolves the first full operating year from a projections array.
  * When closing mid-year, year 1 is a partial stub (operatingMonths < 12);
  * coverage and annualised performance ratios use the first full operating year (year 2).
@@ -675,9 +694,16 @@ export function firstFullYear<T extends { operatingMonths?: number }>(projection
 export function calculateProjections(
   rawAssetType: string,
   inputs: Record<string, any> = {},
-  opts?: { lean?: boolean; leaseScheduleCache?: LeaseScheduleCache },
+  opts?: { lean?: boolean; leaseScheduleCache?: LeaseScheduleCache; allowMaturityBeforeHold?: boolean },
 ): any {
   const lean = opts?.lean === true;
+  // The engine never invents an input: a deal that does not state everything it needs is refused with the list of what is missing.
+  // (`allowMaturityBeforeHold` is for the monthly view, which stretches the horizon only to have enough months to show.)
+  {
+    const missing = checkEngineInputs(rawAssetType, inputs);
+    const blocking = opts?.allowMaturityBeforeHold ? missing.filter((m) => m.key !== 'loanMaturityYears' || !/comes due in year/.test(m.label)) : missing;
+    if (blocking.length > 0) throw new IncompleteInputsError(blocking);
+  }
   // Scenario inputs used by the Monte Carlo (both optional; absent = no effect):
   //   marketRentDrift   percentage points a year added to market rent after a lease ends (contractual rent is never moved)
   //   tenantInterruptions [{leaseIndex, months, makeReadyCost?, startIdx (year*12+month) | startOffset (months after closing)}]: each
@@ -689,24 +715,25 @@ export function calculateProjections(
   const assetType = normalizeAssetClass(rawAssetType);
 
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
-  const downPaymentPercent = parseFloat(inputs.downPaymentPercent) || 0;
-  const interestRate = parseFloat(inputs.interestRate) || 0;
-  const loanTerm = parseInt(inputs.loanTerm) || parseInt(inputs.loanTermYears) || parseInt(inputs.amortizationYears) || 30;
   const rehabCosts = parseFloat(inputs.rehabCosts) || parseFloat(inputs.rehabBudget) || 0;
   const closingCosts = parseFloat(inputs.closingCosts) || 0;
-  const vacancyRate = parseFloat(inputs.vacancyRate) || parseFloat(inputs.vacancyRatePercent) || 0;
-  // Unset/blank appreciation defaults to 2% (matches the Edit Inputs form and wizard); an explicit 0 is respected.
-  const parsedAppreciation = parseFloat(inputs.appreciationRate);
-  const appreciationRate = Number.isFinite(parsedAppreciation) ? parsedAppreciation : 2.0;
-  const rentGrowth = parseFloat(inputs.rentGrowth) || parseFloat(inputs.rentGrowthPercent) || parseFloat(inputs.annualRentGrowth) || 0;
-  const expenseRatio = parseFloat(inputs.expenseRatio) || parseFloat(inputs.operatingExpenseRatio) || 0;
+  // Everything below was checked present by `checkEngineInputs`; `?? 0` only covers values that do not apply (no rent growth with leases).
+  // The loan's payment runs over its own amortization. The maturity is a separate fact, checked against the hold.
+  const interestRate = stated(inputs, 'interestRate') ?? 0;
+  const loanTerm = Math.floor(stated(inputs, ...KEYS.amortization) ?? stated(inputs, ...KEYS.maturity) ?? 0);
+  const vacancyRate = stated(inputs, ...KEYS.vacancy) ?? 0;
+  // With no stated appreciation (income-valued property whose NOI is not positive) the value is held at cost, never grown by a guess.
+  const appreciationRate = stated(inputs, 'appreciationRate') ?? 0;
+  const rentGrowth = stated(inputs, ...KEYS.rentGrowth) ?? 0;
+  const expenseRatio = stated(inputs, ...KEYS.expenseRatio) ?? 0;
+  const sellingCostPct = stated(inputs, ...KEYS.sellingCost) ?? 0;
   const rawExpenseGrowth = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent ?? inputs.holdingInflation;
   const expenseGrowth = (rawExpenseGrowth !== undefined && rawExpenseGrowth !== null && rawExpenseGrowth !== '')
     ? (parseFloat(rawExpenseGrowth) || 0)
     : undefined;
 
-  const rawHoldingPeriod = parseInt(inputs.holdingPeriod || inputs.exitYear || inputs.holdYears || 10, 10);
-  const holdingPeriod = Math.max(1, Math.min(30, isNaN(rawHoldingPeriod) ? 10 : rawHoldingPeriod));
+  const rawHoldingPeriod = Math.floor(stated(inputs, ...KEYS.hold) ?? 1);
+  const holdingPeriod = Math.max(1, Math.min(30, rawHoldingPeriod));
   const exitYear = Math.max(1, Math.min(holdingPeriod, parseInt(inputs.exitYear || holdingPeriod, 10)));
 
   const arv = parseFloat(inputs.arv) || 0;
@@ -717,7 +744,8 @@ export function calculateProjections(
   // Prospective ARV (After-Repair Value) is realized upon completion of the value-add program.
   const initialPropertyValue = purchasePrice;
   const hasValidPostRehabArv = (assetType === 'single-family' || assetType === 'multi-unit') && arv > purchasePrice && (rehabCosts > 0);
-  const targetCapRate = parseFloat(inputs.targetCapRate) || parseFloat(inputs.targetExitCapRate) || parseFloat(inputs.exitCapRate) || 6.5;
+  // The exit cap rate is the owner's stated assumption (required for income-valued property; unused for the rest).
+  const targetCapRate = stated(inputs, ...KEYS.exitCap) ?? 0;
 
   // Revenue Resolution
   let year1GrossIncome = 0;
@@ -784,6 +812,8 @@ export function calculateProjections(
   const isRehabFinanced = rehabFinancingMode === 'roll_into_loan';
   const totalFinancedBasis = isRehabFinanced ? purchasePrice + rehabCosts + closingCosts : purchasePrice;
 
+  // The loan is stated either as a down payment percent or as the lender's loan amount (the percent wins when both are present).
+  const downPaymentPercent = resolveDownPaymentPercent(inputs, totalFinancedBasis);
   const downPaymentAmount = totalFinancedBasis * (downPaymentPercent / 100);
   const loanAmount = Math.max(0, isRehabFinanced ? totalFinancedBasis - downPaymentAmount : purchasePrice - downPaymentAmount);
 
@@ -796,20 +826,10 @@ export function calculateProjections(
   const monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, loanTerm);
   const annualDebtService = monthlyPayment * 12;
 
-  let closeYear = 2025;
-  let closeMonth = 7;
-  if (inputs.closingDate) {
-    const parts = String(inputs.closingDate).split(/[-/]/);
-    if (parts.length >= 2) {
-      if (parts[0].length === 4) {
-        closeYear = parseInt(parts[0], 10);
-        closeMonth = parseInt(parts[1], 10);
-      } else {
-        closeMonth = parseInt(parts[0], 10);
-        closeYear = parseInt(parts[2] || parts[1], 10);
-      }
-    }
-  }
+  // The closing date is a stated fact (checked above); there is no assumed date.
+  const closing = parseClosingDate(inputs.closingDate) as { year: number; month: number };
+  const closeYear = closing.year;
+  const closeMonth = closing.month;
 
   // Optional remodel of an owned property (inputs.remodel). Absent or unusable = every line below is skipped.
   const remodel = resolveRemodel(inputs.remodel, closeYear * 12 + closeMonth, { interestRate });
@@ -832,7 +852,7 @@ export function calculateProjections(
 
   const finOptions = {
     financingType: inputs.financingType || 'fixed',
-    armInitialYears: inputs.armInitialYears ?? 5,
+    armInitialYears: inputs.armInitialYears,
     armAdjustmentRate: inputs.armAdjustmentRate,
     armRateCap: inputs.armRateCap,
     interestOnlyYears: inputs.interestOnlyYears,
@@ -1054,65 +1074,44 @@ export function calculateProjections(
       : (currentGrossIncome * (expenseRatio / 100));
 
     let operatingExpenses = 0;
-    let capexReserve = 0;
+    // Reserves are the owner's stated assumption: a dollar amount a year, or a share of income. Never a rule of thumb built into the engine.
+    const capexAnnualStated = stated(inputs, ...KEYS.capexAnnual);
+    const capexPercentStated = stated(inputs, ...KEYS.capexPercent);
+    const capexReserve = capexAnnualStated !== undefined ? capexAnnualStated : effectiveGrossIncome * ((capexPercentStated ?? 0) / 100);
+    // Management is charged only when the owner has a manager, at the rate the owner states, on collected (effective gross) income.
+    const managementFee = inputs.manageProperty ? effectiveGrossIncome * ((stated(inputs, 'managementFeePercent') ?? 0) / 100) : 0;
 
-    if (assetType === 'single-family') {
-      const managementFee = inputs.manageProperty ? currentGrossIncome * 0.10 : 0;
+    if (assetType === 'storage') {
+      // On-site payroll and marketing, at the stated share of income
+      operatingExpenses = baseOpex + managementFee + (currentGrossIncome * ((stated(inputs, 'payrollMarketingPercent') ?? 0) / 100));
+    } else if (assetType === 'commercial' && (currentGrossIncome + remodelLostGross) <= 0) {
+      // No income this year (land, a vacant building, or the months before a lease starts): the carrying costs, as stated. The
+      // remodel case is excluded on purpose: rent lost to works does not make the building a vacant lot.
+      const taxes = stated(inputs, ...KEYS.taxes);
+      const insurance = stated(inputs, ...KEYS.insurance);
+      const maintenance = stated(inputs, ...KEYS.maintenance);
+      operatingExpenses = (taxes !== undefined && insurance !== undefined && maintenance !== undefined)
+        ? (taxes + insurance + maintenance) * (inflationMultiplier ?? 1)
+        // A lease that ends mid-hold with no replacement: the building keeps costing what it costs at the underwritten ratio
+        : baselineGrossForOpex * (expenseRatio / 100) * (inflationMultiplier ?? 1);
+    } else {
       operatingExpenses = baseOpex + managementFee;
-      capexReserve = 0;
-    } else if (assetType === 'multi-unit') {
-      let pmRate = 0.03;
-      if (inputs.manageProperty) {
-        pmRate = (unitCount && unitCount <= 4) ? 0.09 : 0.05;
-      }
-      const managementFee = effectiveGrossIncome * pmRate;
-      operatingExpenses = baseOpex + managementFee;
-      capexReserve = (unitCount || 1) * 350;
-    } else if (assetType === 'commercial') {
-      const preRemodelGross = currentGrossIncome + remodelLostGross; // rent lost to a remodel does not make the building a vacant lot
-      const isVacantOrRawLand = preRemodelGross <= 0 ||
-                                !!inputs.isVacantLot ||
-                                !!inputs.isVacantLand ||
-                                /vacant|land|dirt|lot/i.test(inputs.facilityType || '') ||
-                                /vacant|land/i.test(inputs.useCode || '');
-      if (isVacantOrRawLand && preRemodelGross <= 0) {
-        // Holding Costs for Empty Lot / Vacant Commercial without active tenant:
-        // 1. Property Taxes (~1.1% of assessed or purchase value if not explicitly given)
-        const assessedVal = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || purchasePrice;
-        const annualTaxes = parseFloat(inputs.annualTaxes) || parseFloat(inputs.propertyTaxes) || (assessedVal * 0.011);
-        // 2. Vacant Land / Property Liability Insurance
-        const annualInsurance = parseFloat(inputs.annualInsurance) || parseFloat(inputs.insurance) || 600;
-        // 3. Routine Site Maintenance / Mowing / Municipal Compliance
-        const annualMaint = parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600;
-        operatingExpenses = (annualTaxes + annualInsurance + annualMaint) * (inflationMultiplier ?? 1);
-        capexReserve = 0; // No building structural capex on raw dirt / empty lot
-      } else {
-        if (inputs.leaseType === 'NNN') {
-          operatingExpenses = baseOpex;
-        } else {
-          const managementFee = inputs.manageProperty ? currentGrossIncome * 0.035 : 0;
-          operatingExpenses = baseOpex + managementFee;
-        }
-        const isRawLand = /vacant|land|dirt|lot/i.test(inputs.facilityType || '') || /vacant|land/i.test(inputs.useCode || '');
-        const gla = isRawLand ? 0 : (parseFloat(inputs.gla) || 15000);
-        capexReserve = inputs.leaseType === 'NNN' ? (parseFloat(inputs.capexReserve) || 0) : (gla * 1.50);
-      }
-    } else if (assetType === 'storage') {
-      const managementFee = inputs.manageProperty ? currentGrossIncome * 0.06 : 0;
-      const payrollMarketingRatio = inputs.isAutomated ? 0.04 : 0.13;
-      operatingExpenses = baseOpex + managementFee + (currentGrossIncome * payrollMarketingRatio);
-      capexReserve = effectiveGrossIncome * 0.03;
     }
 
     if (hasExplicitLeases && (vacantLeaseMonths > 0 || expiryOneTimeCosts > 0)) {
-      // While a unit awaits a replacement tenant the owner carries taxes, insurance and upkeep (same basis as a vacant property)
+      // While a space awaits a replacement tenant the owner still pays what the building costs to run. Operating expenses are a
+      // ratio of rent collected, so they shrink when rent stops; this puts back the share that belongs to the vacant lease-months.
+      // The building's stated carrying costs (taxes, insurance, upkeep) are used when the deal states them (always, when tenants
+      // pay the costs, because the ratio is then too small to carry the space); otherwise the same underwritten ratio on the same rent roll.
       if (vacantLeaseMonths > 0 && (currentGrossIncome > 0 || assetType !== 'commercial')) {
-        const assessedBasis = parseFloat(inputs.totalAssessedValue) || parseFloat(inputs.combinedAssessedValue) || purchasePrice;
-        const annualHolding = ((parseFloat(inputs.annualTaxes) || parseFloat(inputs.propertyTaxes) || (assessedBasis * 0.011))
-          + (parseFloat(inputs.annualInsurance) || parseFloat(inputs.insurance) || 600)
-          + (parseFloat(inputs.annualMaintenance) || parseFloat(inputs.maintenance) || 600)) * (inflationMultiplier ?? 1);
+        const carryTaxes = stated(inputs, ...KEYS.taxes);
+        const carryInsurance = stated(inputs, ...KEYS.insurance);
+        const carryMaintenance = stated(inputs, ...KEYS.maintenance);
+        const annualRunCost = (carryTaxes !== undefined && carryInsurance !== undefined && carryMaintenance !== undefined)
+          ? (carryTaxes + carryInsurance + carryMaintenance) * (inflationMultiplier ?? 1)
+          : baselineGrossForOpex * (expenseRatio / 100) * (inflationMultiplier ?? 1);
         const vacantShare = vacantLeaseMonths / Math.max(1, (inputs.leases as any[]).length);
-        operatingExpenses += annualHolding * (vacantShare / 12);
+        operatingExpenses += annualRunCost * (vacantShare / 12);
       }
       operatingExpenses += expiryOneTimeCosts;
     }
@@ -1273,6 +1272,8 @@ export function calculateProjections(
       endingDebt: Math.round(remainingLoanBalance * 100) / 100,
       remainingLoanBalance: Math.round(remainingLoanBalance * 100) / 100,
       equity: Math.round(equity * 100) / 100,
+      // What the owner would receive if they sold at the end of this year: value less selling costs less the loan balance
+      exitProceedsNet: Math.round((currentPropertyValue * (1 - sellingCostPct / 100) - remainingLoanBalance) * 100) / 100,
       dscr: dscr !== null ? Math.round(dscr * 100) / 100 : null,
       debtYield: debtYield !== null ? Math.round(debtYield * 100) / 100 : null,
       ltv: Math.round(ltv * 100) / 100,
@@ -1288,13 +1289,13 @@ export function calculateProjections(
     });
   }
 
-  const discountRate = isNaN(parseFloat(inputs.discountRate)) ? 8 : parseFloat(inputs.discountRate);
+  const discountRate = stated(inputs, ...KEYS.discountRate) ?? 0;
 
   let npv = -initialCashInvested;
   for (let t = 1; t <= exitYear; t++) {
     let cf = projections[t - 1].cashFlow;
     if (t === exitYear) {
-      cf += projections[t - 1].equity;
+      cf += projections[t - 1].exitProceedsNet;
     }
     npv += cf / Math.pow(1 + discountRate / 100, t);
   }
@@ -1303,7 +1304,7 @@ export function calculateProjections(
   for (let t = 1; t <= exitYear; t++) {
     let cf = projections[t - 1].cashFlow;
     if (t === exitYear) {
-      cf += projections[t - 1].equity;
+      cf += projections[t - 1].exitProceedsNet;
     }
     irrCashFlows.push(cf);
   }
@@ -1319,7 +1320,7 @@ export function calculateProjections(
       totalReturned += cf;
     }
   }
-  totalReturned += projections[exitYear - 1].equity;
+  totalReturned += projections[exitYear - 1].exitProceedsNet;
   const equityMultiplier = totalInvested > 0 ? (totalReturned / totalInvested) : 0;
 
   let cumulativeCash = -initialCashInvested;
@@ -1390,21 +1391,11 @@ export function calculateProjections(
 // 8. Granular Monthly Cash Flow Schedule
 // ---------------------------------------------------------------------------
 export function calculateMonthlyProjections(assetType: string, inputs: Record<string, any>, options: Record<string, any> = {}): any {
-  const rawDate = inputs.closingDate || options.closingDate || options.startDate || '2026-10-01';
-  let startYear = 2026;
-  let startMonth = 10;
-  if (rawDate) {
-    const parts = String(rawDate).split(/[-/]/);
-    if (parts.length >= 2) {
-      if (parts[0].length === 4) {
-        startYear = parseInt(parts[0], 10);
-        startMonth = parseInt(parts[1], 10);
-      } else {
-        startMonth = parseInt(parts[0], 10);
-        startYear = parseInt(parts[2] || parts[1], 10);
-      }
-    }
-  }
+  // The schedule starts at the deal's closing date (or a start date the caller names). There is no assumed date.
+  const start = parseClosingDate(inputs.closingDate || options.closingDate || options.startDate);
+  if (!start) throw new IncompleteInputsError([{ key: 'closingDate', label: 'Closing date', kind: 'fact', why: 'The monthly schedule starts at closing.' }]);
+  const startYear = start.year;
+  const startMonth = start.month;
 
   let monthsCount = 24;
   const hasExplicitMonths = options.totalMonths !== undefined || options.monthsCount !== undefined;
@@ -1442,21 +1433,20 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
   }
 
   const requiredYears = Math.min(30, Math.max(10, Math.ceil(monthsCount / 12)));
-  const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears, prorateFirstYear: false });
+  const annualBase = calculateProjections(assetType, { ...inputs, holdingPeriod: requiredYears, exitYear: requiredYears, prorateFirstYear: false }, { allowMaturityBeforeHold: true });
   const purchasePrice = annualBase.purchasePrice;
   const rawExpenseGrowth = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent ?? inputs.holdingInflation;
   const expenseGrowth = (rawExpenseGrowth !== undefined && rawExpenseGrowth !== null && rawExpenseGrowth !== '')
     ? (parseFloat(rawExpenseGrowth) || 0)
     : undefined;
-  const baseGrossMonthly = (annualBase.projections[0]?.grossPotentialRent ?? annualBase.projections[0]?.grossPotentialIncome ?? (annualBase.purchasePrice * 0.09)) / 12;
-  const downPct = numOr(inputs.downPaymentPercent, 25);
-  const loanAmount = annualBase.loanAmount !== undefined ? annualBase.loanAmount : Math.max(0, purchasePrice - (purchasePrice * (downPct / 100)));
-  const interestRate = parseFloat(inputs.interestRate) || 6.5;
-  const loanTerm = parseInt(inputs.loanTerm) || 30;
+  const baseGrossMonthly = (annualBase.projections[0]?.grossPotentialRent ?? annualBase.projections[0]?.grossPotentialIncome ?? 0) / 12;
+  const loanAmount = annualBase.loanAmount;
+  const interestRate = stated(inputs, 'interestRate') ?? 0;
+  const loanTerm = Math.floor(stated(inputs, ...KEYS.amortization) ?? stated(inputs, ...KEYS.maturity) ?? 0);
 
   const finOptions = {
     financingType: inputs.financingType || 'fixed',
-    armInitialYears: inputs.armInitialYears ?? 5,
+    armInitialYears: inputs.armInitialYears,
     armAdjustmentRate: inputs.armAdjustmentRate,
     armRateCap: inputs.armRateCap,
     interestOnlyYears: inputs.interestOnlyYears,
@@ -1847,8 +1837,11 @@ export function buildAdaptiveHistogramBins(sortedIrrs: number[], targetBinCount 
 export function calculateTaxAndDepreciation(assetType: string, inputs: Record<string, any>, baseResults: any): any {
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
   const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
-  const landPercent = parseFloat(inputs.landPercent) || 20;
-  const taxRate = parseFloat(inputs.taxRate) || 24;
+  // Land share and tax rate vary by deal and by owner: stated, never assumed (the county's land and improvement values are a starting point)
+  const missingTax = checkTaxInputs(inputs);
+  if (missingTax.length > 0) throw new IncompleteInputsError(missingTax);
+  const landPercent = stated(inputs, 'landPercent') ?? 0;
+  const taxRate = stated(inputs, 'taxRate') ?? 0;
   const enableCostSeg = inputs.enableCostSeg === true || inputs.enableCostSeg === 'true';
 
   const landValue = purchasePrice * (landPercent / 100);
@@ -1946,8 +1939,8 @@ export function calculateTaxMetrics(rawAssetClass: string, inputs: DealInputs): 
   const assetClass = normalizeAssetClass(rawAssetClass);
   const baseRes = calculateProjections(assetClass, inputs);
   const tax = calculateTaxAndDepreciation(assetClass, inputs, baseRes);
-  const landAllocationPct = parseFloat(String(inputs.landPercent || 20)) || 20;
-  const effectiveTaxRate = parseFloat(String(inputs.taxRate || 24)) || 24;
+  const landAllocationPct = stated(inputs, 'landPercent') ?? 0;
+  const effectiveTaxRate = stated(inputs, 'taxRate') ?? 0;
   return {
     depYears: (assetClass === 'single-family' || assetClass === 'multi-unit') ? 27.5 : 39.0,
     depreciableBasis: tax.depreciableBasis,
@@ -1964,10 +1957,12 @@ export function calculateTaxMetrics(rawAssetClass: string, inputs: DealInputs): 
 export function calculateRefinanceEvent(
   assetType: string,
   baseInputs: Record<string, any>,
-  refiYear = 3,
-  refiLtv = 75,
-  refiRate = 6.5,
-  refiTerm = 30
+  // The new loan is its own loan: every term is the caller's, none is assumed
+  refiYear: number,
+  refiLtv: number,
+  refiRate: number,
+  refiTerm: number,
+  refiClosingCostPercent: number
 ): any {
   const baseRes = calculateProjections(assetType, baseInputs);
   const targetYear = Math.max(1, Math.min(9, parseInt(String(refiYear)) || 3));
@@ -1978,7 +1973,7 @@ export function calculateRefinanceEvent(
   const refiValue = projAtRefi.propertyValue;
   const newLoanAmount = refiValue * (refiLtv / 100);
   const oldLoanBalance = projAtRefi.loanBalanceRemaining;
-  const refiClosingCosts = newLoanAmount * 0.02;
+  const refiClosingCosts = newLoanAmount * (refiClosingCostPercent / 100);
   const netCashOut = newLoanAmount - oldLoanBalance - refiClosingCosts;
 
   const newMonthlyPayment = calculateMonthlyPayment(newLoanAmount, refiRate, refiTerm);
@@ -2001,6 +1996,8 @@ export function calculateRefinanceEvent(
       const newBalance = calculateRemainingBalance(newLoanAmount, refiRate, refiTerm, y - targetYear);
       p.loanBalanceRemaining = Math.round(newBalance * 100) / 100;
       p.equity = Math.round((p.propertyValue - newBalance) * 100) / 100;
+      // Sale proceeds change by exactly the difference between the old loan's balance and the new loan's
+      p.exitProceedsNet = Math.round((baseRes.projections[y - 1].exitProceedsNet + baseRes.projections[y - 1].loanBalanceRemaining - newBalance) * 100) / 100;
       p.dscr = p.debtService > 0 ? Math.round((p.netOperatingIncome / p.debtService) * 100) / 100 : null;
     }
   }
@@ -2010,7 +2007,7 @@ export function calculateRefinanceEvent(
   for (let t = 1; t <= exitYear; t++) {
     let cf = updatedProjections[t - 1].cashFlow;
     if (t === exitYear) {
-      cf += updatedProjections[t - 1].equity;
+      cf += updatedProjections[t - 1].exitProceedsNet;
     }
     irrFlows.push(cf);
   }
@@ -2163,7 +2160,7 @@ export function aggregatePortfolio(dealsList: any[]): any {
         combinedProjections[idx].cashFlow += p.cashFlow * qty;
         combinedProjections[idx].equity += p.equity * qty;
 
-        portfolioIrrFlows[idx] += (p.cashFlow * qty) + (idx === (maxHold - 1) ? (p.equity * qty) : 0);
+        portfolioIrrFlows[idx] += (p.cashFlow * qty) + (idx === (maxHold - 1) ? (p.exitProceedsNet * qty) : 0);
       }
     });
   });
@@ -2216,45 +2213,6 @@ export function aggregatePortfolio(dealsList: any[]): any {
 }
 
 // ---------------------------------------------------------------------------
-// 16. Benchmark Cap Rate Ranges
-// ---------------------------------------------------------------------------
-export function getBenchmarkCapRateRange(assetType: string, marketTier = 'Tier2', propertyClass = 'ClassB', subType = ''): any {
-  const tier = String(marketTier || 'Tier2').replace(/[^a-zA-Z0-9]/g, '');
-  const pClass = String(propertyClass || 'ClassB').replace(/[^a-zA-Z0-9]/g, '');
-  const sub = String(subType || '').toLowerCase();
-
-  if (assetType === 'commercial') {
-    const isIndustrial = sub.includes('industrial') || sub.includes('logistics') || sub.includes('warehouse');
-    const isOffice = sub.includes('office') || sub.includes('medical');
-    if (isIndustrial) {
-      if (tier.includes('1')) return pClass.includes('A') ? { min: 4.75, max: 5.50 } : (pClass.includes('B') ? { min: 5.25, max: 6.00 } : { min: 6.00, max: 7.00 });
-      if (tier.includes('2')) return pClass.includes('A') ? { min: 5.50, max: 6.25 } : (pClass.includes('B') ? { min: 6.00, max: 6.75 } : { min: 6.75, max: 7.75 });
-      return pClass.includes('A') ? { min: 6.25, max: 7.00 } : (pClass.includes('B') ? { min: 6.75, max: 7.75 } : { min: 7.50, max: 8.75 });
-    } else if (isOffice) {
-      if (tier.includes('1')) return pClass.includes('A') ? { min: 6.25, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.00 } : { min: 8.00, max: 9.50 });
-      if (tier.includes('2')) return pClass.includes('A') ? { min: 7.00, max: 8.00 } : (pClass.includes('B') ? { min: 7.75, max: 8.75 } : { min: 8.75, max: 10.00 });
-      return pClass.includes('A') ? { min: 8.00, max: 9.00 } : (pClass.includes('B') ? { min: 8.75, max: 9.75 } : { min: 9.50, max: 11.00 });
-    } else {
-      if (tier.includes('1')) return pClass.includes('A') ? { min: 5.75, max: 6.50 } : (pClass.includes('B') ? { min: 6.25, max: 7.25 } : { min: 7.00, max: 8.25 });
-      if (tier.includes('2')) return pClass.includes('A') ? { min: 6.50, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.00 } : { min: 7.75, max: 9.00 });
-      return pClass.includes('A') ? { min: 7.25, max: 8.25 } : (pClass.includes('B') ? { min: 7.75, max: 8.75 } : { min: 8.50, max: 10.00 });
-    }
-  } else if (assetType === 'multi-unit') {
-    if (tier.includes('1')) return pClass.includes('A') ? { min: 4.50, max: 5.25 } : (pClass.includes('B') ? { min: 5.00, max: 5.75 } : { min: 5.75, max: 6.50 });
-    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.00, max: 5.75 } : (pClass.includes('B') ? { min: 5.50, max: 6.50 } : { min: 6.25, max: 7.25 });
-    return pClass.includes('A') ? { min: 5.75, max: 6.75 } : (pClass.includes('B') ? { min: 6.50, max: 7.50 } : { min: 7.25, max: 8.50 });
-  } else if (assetType === 'storage') {
-    if (tier.includes('1')) return pClass.includes('A') ? { min: 5.00, max: 5.75 } : (pClass.includes('B') ? { min: 5.50, max: 6.50 } : { min: 6.25, max: 7.25 });
-    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.75, max: 6.50 } : (pClass.includes('B') ? { min: 6.25, max: 7.25 } : { min: 7.00, max: 8.00 });
-    return pClass.includes('A') ? { min: 6.75, max: 7.75 } : (pClass.includes('B') ? { min: 7.25, max: 8.25 } : { min: 7.75, max: 9.00 });
-  } else {
-    if (tier.includes('1')) return pClass.includes('A') ? { min: 4.50, max: 5.50 } : (pClass.includes('B') ? { min: 5.25, max: 6.50 } : { min: 6.00, max: 7.25 });
-    if (tier.includes('2')) return pClass.includes('A') ? { min: 5.25, max: 6.25 } : (pClass.includes('B') ? { min: 6.00, max: 7.25 } : { min: 6.75, max: 8.00 });
-    return pClass.includes('A') ? { min: 6.00, max: 7.25 } : (pClass.includes('B') ? { min: 7.00, max: 8.50 } : { min: 7.50, max: 9.25 });
-  }
-}
-
-// ---------------------------------------------------------------------------
 // 17. Holding Period Wealth Deconstruction
 // ---------------------------------------------------------------------------
 export function calculateHoldingPeriodWealth(inputs: Record<string, any>, projections: any[], amortizationSchedule: any[], holdYear = 1): any {
@@ -2263,12 +2221,12 @@ export function calculateHoldingPeriodWealth(inputs: Record<string, any>, projec
   const yearIdx = year - 1;
   const proj = projections[yearIdx];
   const purchasePrice = parseFloat(inputs.purchasePrice) || 0;
-  const downPaymentPercent = isNaN(parseFloat(inputs.downPaymentPercent)) ? 25 : parseFloat(inputs.downPaymentPercent);
   const rehabCosts = parseFloat(inputs.rehabCosts) || 0;
   const closingCosts = parseFloat(inputs.closingCosts) || 0;
   const rehabFinancingMode = inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket');
   const isRehabFinanced = rehabFinancingMode === 'roll_into_loan';
   const totalFinancedBasis = isRehabFinanced ? purchasePrice + rehabCosts + closingCosts : purchasePrice;
+  const downPaymentPercent = resolveDownPaymentPercent(inputs, totalFinancedBasis);
 
   const downPaymentAmount = totalFinancedBasis * (downPaymentPercent / 100);
   const initialCashInvested = isRehabFinanced
@@ -2304,12 +2262,12 @@ export function calculateHoldingPeriodWealth(inputs: Record<string, any>, projec
     roeDisplay = 'N/M (100% Financed)';
   }
 
-  const discountRate = isNaN(parseFloat(inputs.discountRate)) ? 8 : parseFloat(inputs.discountRate);
+  const discountRate = stated(inputs, ...KEYS.discountRate) ?? 0;
   let holdNpv = -initialCashInvested;
   for (let t = 1; t <= year; t++) {
     let cf = projections[t - 1] ? projections[t - 1].cashFlow : 0;
     if (t === year) {
-      cf += (projections[t - 1] ? projections[t - 1].equity : 0);
+      cf += (projections[t - 1] ? projections[t - 1].exitProceedsNet : 0);
     }
     holdNpv += cf / Math.pow(1 + discountRate / 100, t);
   }
@@ -2399,18 +2357,6 @@ export function auditDealRisks(assetType: string, inputs: Record<string, any>, r
     });
   }
 
-  const marketTier = inputs.marketTier || inputs.commTier || inputs.storageTier || 'Tier2';
-  const propClass = inputs.propertyClass || inputs.commClass || inputs.storageClass || 'ClassB';
-  const benchmarkRange = getBenchmarkCapRateRange(assetType, marketTier, propClass, inputs.facilityType || '');
-  const exitCap = parseFloat(inputs.targetCapRate || inputs.targetExitCapRate || inputs.exitCapRate || 0);
-  if (exitCap > 0 && benchmarkRange && exitCap < (benchmarkRange.min - 0.5)) {
-    warnings.push({
-      level: 'warning',
-      title: 'Aggressive Exit Cap Rate Assumption',
-      description: `Exit cap rate (${exitCap.toFixed(2)}%) is priced more aggressively than typical market ranges (${benchmarkRange.min.toFixed(2)}% - ${benchmarkRange.max.toFixed(2)}%) for ${marketTier} ${propClass} assets.`
-    });
-  }
-
   const pPrice = parseFloat(inputs.purchasePrice) || 0;
   const targetArv = parseFloat(inputs.arv) || 0;
   const rehabCost = parseFloat(inputs.rehabCosts) || parseFloat(inputs.rehabBudget) || 0;
@@ -2485,7 +2431,6 @@ export const PropertyMath = {
   aggregatePortfolio,
   auditDealRisks,
   generateScenarioVariants,
-  getBenchmarkCapRateRange,
   calculateHoldingPeriodWealth,
   calculateNPV,
   calculateIRR,

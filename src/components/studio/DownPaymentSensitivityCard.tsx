@@ -35,7 +35,7 @@ export const DownPaymentSensitivityCard: React.FC<Props> = ({ deal, metrics: _me
   const [hoveredRow, setHoveredRow] = useState<DownPaymentMatrixRow | null>(null);
   const [appliedFeedback, setAppliedFeedback] = useState<string | null>(null);
 
-  const baselinePercent = Number(deal.inputs?.downPaymentPercent ?? 25);
+  const baselinePercent = Number(deal.inputs?.downPaymentPercent);
 
   const handleSelectPreset = (key: PresetKey) => {
     setSelectedPreset(key);

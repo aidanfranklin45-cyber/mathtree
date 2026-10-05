@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections, resolveLeaseMonthlyRent, createMonteCarloRunner, runMonteCarlo } from './index';
+import { resolveLeaseMonthlyRent } from './index';
+import { calculateProjections, createMonteCarloRunner, runMonteCarlo } from './testEngine';
 
 /** Pure fixtures, no database. A lease-based deal (two lease periods, like an intercompany period then a formal lease). */
 const leases = [

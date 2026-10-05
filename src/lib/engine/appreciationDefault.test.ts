@@ -1,20 +1,23 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections } from './index';
+import { calculateProjections, checkEngineInputs, IncompleteInputsError } from './index';
 import { buildInputs, seedForm } from '../../components/studio/modals/editInputsForm';
 
+// Every input the engine needs is stated, so the only thing under test is appreciation
 const base = {
-  purchasePrice: 750000, downPaymentPercent: 100, monthlyRent: 3750, vacancyRate: 1,
-  expenseRatio: 30, rentGrowth: 3.5, exitYear: 10, interestRate: 6.25, loanTerm: 30,
+  purchasePrice: 750000, downPaymentPercent: 100, monthlyRent: 3750, vacancyRate: 1, expenseRatio: 30, rentGrowth: 3.5,
+  holdingPeriod: 10, exitYear: 10, interestRate: 6.25, amortizationYears: 30, loanMaturityYears: 30, closingDate: '2026-01-01',
+  capexReserveAnnual: 0, sellingCostPercent: 0, closingCosts: 0, discountRate: 8,
 };
 const valueAt = (inputs: Record<string, any>, i: number) =>
   calculateProjections('multi-unit', inputs).projections[i].propertyValue;
 
-describe('appreciation default', () => {
-  it('appreciates at the 2% default when the input is unset', () => {
-    expect(valueAt(base, 9)).toBeGreaterThan(750000 * 1.02 ** 8);
+describe('appreciation is stated, never defaulted', () => {
+  it('refuses a residential deal that does not state appreciation', () => {
+    expect(() => valueAt(base, 9)).toThrow(IncompleteInputsError);
+    try { valueAt(base, 9); } catch (e: any) { expect(e.missing.map((m: any) => m.key)).toContain('appreciationRate'); }
   });
-  it('treats a blank input as unset', () => {
-    expect(valueAt({ ...base, appreciationRate: '' }, 9)).toBeGreaterThan(750000);
+  it('treats a blank input as not stated', () => {
+    expect(() => valueAt({ ...base, appreciationRate: '' }, 9)).toThrow(IncompleteInputsError);
   });
   it('respects an explicit 0% appreciation', () => {
     expect(valueAt({ ...base, appreciationRate: 0 }, 9)).toBe(750000);
@@ -22,12 +25,38 @@ describe('appreciation default', () => {
   it('uses the stated rate', () => {
     expect(valueAt({ ...base, appreciationRate: 4 }, 9)).toBeCloseTo(750000 * 1.04 ** 9, 0);
   });
-  it('Edit Inputs saves 0% as 0 and a blank field as the 2% default', () => {
+  it('Edit Inputs saves 0% as 0 and leaves a blank field blank (no default)', () => {
     const deal: any = { asset_class: 'multi-unit', inputs: {} };
     const form: any = seedForm(deal);
-    expect(form.appreciation).toBe('2');
+    expect(form.appreciation).toBe('');
     expect(buildInputs({ ...form, appreciation: '0' }, deal).appreciationRate).toBe(0);
-    expect(buildInputs({ ...form, appreciation: '' }, deal).appreciationRate).toBe(2);
+    expect(buildInputs({ ...form, appreciation: '' }, deal).appreciationRate).toBeUndefined();
+  });
+
+  it('saving an empty form gives a deal the engine says is incomplete, not one with numbers made up for it', () => {
+    const deal: any = { asset_class: 'commercial', inputs: {} };
+    const built = buildInputs(seedForm(deal), deal);
+    const missing = checkEngineInputs('commercial', built).map((m) => m.key);
+    // The things only the owner can know are asked for
+    expect(missing).toEqual(expect.arrayContaining(['purchasePrice', 'closingDate', 'downPaymentPercent', 'vacancyRate', 'expenseRatio']));
+    // and a complete, saved deal round-trips unchanged
+    const complete = { ...base, appreciationRate: 3 };
+    const again = buildInputs(seedForm({ asset_class: 'multi-unit', inputs: complete } as any), { asset_class: 'multi-unit', inputs: complete } as any);
+    expect(again.vacancyRate).toBe(complete.vacancyRate);
+    expect(again.sellingCostPercent).toBe(complete.sellingCostPercent);
+  });
+
+  it('reserves are saved under one key, as dollars or as a share of income', () => {
+    const deal: any = { asset_class: 'multi-unit', inputs: { capexReserve: 900 } };
+    const form: any = seedForm(deal);
+    expect(form.capexValue).toBe('900');
+    const dollars = buildInputs({ ...form, capexKind: 'annual' }, deal);
+    expect(dollars.capexReserveAnnual).toBe(900);
+    expect(dollars.capexReservePercent).toBeUndefined();
+    expect(dollars.capexReserve).toBeUndefined();
+    const share = buildInputs({ ...form, capexKind: 'percent', capexValue: '3' }, deal);
+    expect(share.capexReservePercent).toBe(3);
+    expect(share.capexReserveAnnual).toBeUndefined();
   });
   it('residential saves appreciation only; commercial saves exit cap only', () => {
     const res: any = { asset_class: 'multi-unit', inputs: { targetCapRate: 6.5 } };

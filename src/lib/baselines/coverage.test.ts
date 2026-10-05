@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { buildBaselineDraft, compareToBaseline, type BaselineRow } from './core';
-import { computeDealMetrics } from '../engine/compute';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 /** Pure fixtures, no database. A deal projected at $2,600/month from closing. */
 const deal: any = {
   id: 'deal-1',
   asset_class: 'commercial',
   purchase_price: 300000,
-  inputs: {
+  inputs: withLegacyDefaults('commercial', {
     purchasePrice: 300000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 25, exitYear: 12, closingDate: '2025-07-15',
     closingCosts: 9000, grossRentAnnual: 31200, monthlyRent: 2600, vacancyRate: 1, expenseRatio: 1, targetCapRate: 7.5, leaseType: 'NNN', discountRate: 8,
-  },
+  }),
 };
 const draft = buildBaselineDraft(deal, 'user-1');
 const baseline: BaselineRow = { ...draft, id: 'b1', captured_at: '2025-07-20T00:00:00Z' };

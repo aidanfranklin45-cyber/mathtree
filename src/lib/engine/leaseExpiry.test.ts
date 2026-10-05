@@ -1,8 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { computeDealMetrics, prepareEngineInputs } from './compute';
+import { prepareEngineInputs } from './compute';
 import { auditDealRisks } from './index';
 import { setExpiryDefaults } from './expiryDefaults';
 import { applyLeaseExpiryDefaults, normalizeExpiryDefaults, leaseExpiryNotices, DEFAULT_EXPIRY } from '../../../supabase/functions/_shared/leaseExpiry';
+import { computeDealMetrics } from './testEngine';
 
 /** Pure fixtures only, no database. A 10-year lease ending Aug 2035, held 15 years (the Stop and Go shape). */
 const lease = {

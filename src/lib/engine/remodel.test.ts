@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections } from './index';
+import { calculateProjections } from './testEngine';
 
 /** Pure fixtures. A building owned since 2022 with flat $20k/month rent (no leases: annual path). */
 const owned = (over: Record<string, any> = {}): any => ({

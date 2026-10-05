@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections, createLeaseScheduleCache, createMonteCarloRunner } from './index';
+import { createLeaseScheduleCache } from './index';
+import { calculateProjections, createMonteCarloRunner } from './testEngine';
 
 /** A 120-unit apartment building, one lease per tenant, with a spread of move-in dates, rents, terms and expiry assumptions. */
 const modes = ['renew', 'extend', 'relet', 'vacant'];

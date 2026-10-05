@@ -22,6 +22,11 @@ import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRu
 import { DealInputs, DealRecord } from '../lib/math/types';
 import { ensureBaseline } from '../lib/baselines/db';
 import { Loader2 } from 'lucide-react';
+import { InputsNeeded } from '../components/studio/InputsNeeded';
+import { getProfile } from '../lib/profile';
+import { checkEngineInputs } from '../lib/engine';
+import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../supabase/functions/_shared/underwritingAssumptions';
+import { stated } from '../../supabase/functions/_shared/inputRequirements';
 
 export const DealStudioPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -47,7 +52,7 @@ export const DealStudioPage: React.FC = () => {
   const [runsVersion, setRunsVersion] = useState(0);
 
   // All financial math is derived on the fly from the deal's inputs; nothing is stored or fetched.
-  const { metrics, error: engineError } = useComputedMetrics(deal);
+  const { metrics, error: engineError, missing } = useComputedMetrics(deal);
 
   // JIT 30-Day GIS Cache check: evaluates cache freshness once per active session per day
   React.useEffect(() => {
@@ -105,6 +110,57 @@ export const DealStudioPage: React.FC = () => {
         <h2 className="text-base font-black text-white">Opening Deal Studio...</h2>
         <p className="text-xs text-slate-400 mt-1">Loading deal</p>
       </div>
+    );
+  }
+
+  /**
+   * One click: copy the owner's profile assumptions onto this property for everything it does not already state. Figures it does state
+   * are never touched, each copied figure keeps the owner's reason, and what still cannot be filled (a closing date, the loan) is said plainly.
+   */
+  const fillFromAssumptions = async (): Promise<string> => {
+    if (!deal) return '';
+    const inp = deal.inputs as Record<string, any>;
+    const asset = String(deal.asset_class ?? 'commercial');
+    const profile = getProfile();
+    const units = asset === 'single-family' ? 1 : Number(inp.unitCount || inp.storageUnitCount || inp.numUnits) || null;
+    const seeded = seedFromAssumptions(profile.underwritingAssumptions, {
+      assetClass: asset,
+      leaseType: inp.leaseType,
+      purchasePrice: Number(deal.purchase_price || inp.purchasePrice) || null,
+      unitCount: units,
+      squareFeet: Number(inp.gla || inp.buildingSqFt || inp.storageSqFt || inp.totalSqFt) || null,
+      discountRate: profile.discountRate,
+      exitYear: profile.exitYear,
+      assessedValue: Number(inp.taxableValue || inp.totalAssessedValue || inp.combinedAssessedValue) || null,
+    });
+    const patch: Record<string, number> = {};
+    const basis: Record<string, InputBasis> = {};
+    for (const [key, value] of Object.entries(seeded.inputs)) {
+      // The deal's hold is stated under either key; the engine reads both
+      const present = key === 'exitYear' ? stated(inp, 'holdingPeriod', 'exitYear') !== undefined : stated(inp, key) !== undefined;
+      if (present) continue;
+      patch[key] = value;
+      if (seeded.basis[key]) basis[key] = seeded.basis[key];
+    }
+    if (Object.keys(patch).length === 0) {
+      return 'Nothing could be filled: set your assumptions in your Investor Profile first (the "Use starting points" button there fills the carrying costs and reserves).';
+    }
+    const merged = { ...inp, ...patch };
+    const ok = await patchAndRecord({ ...patch, assumptionBasis: reconcileBasis({ ...(inp.assumptionBasis ?? {}), ...basis }, merged) } as Partial<DealInputs>, {});
+    if (!ok) throw new Error('Could not save. Try again.');
+    const still = checkEngineInputs(asset, merged);
+    return still.length === 0
+      ? `Filled ${Object.keys(patch).length} figures from your assumptions.`
+      : `Filled ${Object.keys(patch).length} figures from your assumptions. Still needed: ${still.map((m) => m.label).join(', ')}.`;
+  };
+
+  // The deal exists but does not state everything the engine needs: say what is missing and let the owner enter it
+  if (!dealError && deal && !metrics && missing.length > 0) {
+    return (
+      <>
+        <InputsNeeded title={deal.title || 'This property'} missing={missing} onEdit={() => setIsEditModalOpen(true)} onFill={fillFromAssumptions} />
+        <EditInputsModal isOpen={isEditModalOpen} deal={deal} onClose={() => setIsEditModalOpen(false)} onSave={patchAndRecord} />
+      </>
     );
   }
 

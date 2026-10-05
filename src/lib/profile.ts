@@ -5,6 +5,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase/client';
 import { setExpiryDefaults } from './engine/expiryDefaults';
 import { normalizeExpiryDefaults, type ExpiryMode } from '../../supabase/functions/_shared/leaseExpiry';
+import { sanitizeAssumptions, type UnderwritingAssumptions } from '../../supabase/functions/_shared/underwritingAssumptions';
 
 export interface AssociatedCompany {
   id: string;
@@ -33,6 +34,8 @@ export interface InvestorProfile {
   /** What the analysis assumes after a lease ends, unless a property says otherwise (Edit Inputs). */
   leaseExpiryMode: ExpiryMode;
   leaseExpiryVacancyMonths: number;
+  /** The owner's underwriting assumptions per asset class: the one place defaults live. Copied onto each new deal with its rationale. */
+  underwritingAssumptions?: UnderwritingAssumptions;
   notification_email?: string | null;
   alert_preferences?: Record<string, unknown> | null;
 }
@@ -49,6 +52,7 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   propertyClass: 'Class B',   // 'Class A' | 'Class B' | 'Class C'
   leaseExpiryMode: 'renew',   // 'renew' | 'relet' | 'vacant'
   leaseExpiryVacancyMonths: 6,
+  underwritingAssumptions: { assets: {} },
 };
 
 // In-memory runtime cache for the active session (not stored in localStorage)
@@ -84,6 +88,7 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     propertyClass: String(raw.propertyClass || DEFAULT_PROFILE.propertyClass).trim(),
     leaseExpiryMode: expiry.mode,
     leaseExpiryVacancyMonths: expiry.vacancyMonths,
+    underwritingAssumptions: sanitizeAssumptions(raw.underwritingAssumptions),
     notification_email: raw.notification_email ?? null,
     alert_preferences: raw.alert_preferences ?? null,
   };
@@ -225,8 +230,22 @@ export async function saveProfile(
     if (res.ok) {
       const data = await res.json();
       if (data?.profile) {
-        cachedProfile = sanitizeProfile(data.profile);
+        const wanted = JSON.stringify(merged.underwritingAssumptions ?? { assets: {} });
+        const echoed = JSON.stringify(sanitizeAssumptions(data.profile.underwritingAssumptions));
+        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions });
         savedSuccessfully = true;
+        // An edge function deployed before assumptions existed saves the rest and drops them: write them directly so they are never lost
+        if (wanted !== echoed && supabaseClient && currentUser?.id) {
+          try {
+            const { data: row } = await supabaseClient.from('profiles').select('preferences').eq('id', currentUser.id).maybeSingle();
+            const prefs = row?.preferences && typeof row.preferences === 'object' ? row.preferences : {};
+            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions } }).eq('id', currentUser.id);
+            if (error) throw error;
+          } catch (e) {
+            console.warn('[profile] Could not store underwriting assumptions directly:', e);
+            savedSuccessfully = false;
+          }
+        }
       }
     }
   } catch (err) {
@@ -254,6 +273,7 @@ export async function saveProfile(
           propertyClass: merged.propertyClass,
           leaseExpiryMode: merged.leaseExpiryMode,
           leaseExpiryVacancyMonths: merged.leaseExpiryVacancyMonths,
+          underwritingAssumptions: merged.underwritingAssumptions,
         },
         updated_at: new Date().toISOString(),
       });

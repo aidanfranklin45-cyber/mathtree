@@ -54,7 +54,7 @@ modules, so it runs in both Vite and Deno). Siblings: `monte-carlo.ts`, `remodel
 **How the app calls it:** always through `src/lib/engine/compute.ts`:
 
 - `prepareEngineInputs(deal, overrides)` merges `deal.inputs` + overrides, fills `purchasePrice` from the column, drops an
-  ARV that just echoes the assessed value, defaults `discountRate` to 8, and applies the investor's lease-expiry defaults.
+  ARV that just echoes the assessed value, and applies the investor's lease-expiry defaults. It supplies no other defaults.
 - `computeDealMetrics(deal, overrides?)` runs `calculateProjections(assetClass, inputs)` and maps it to `DealMetrics`
   (bounded memo keyed by the exact inputs). What-ifs, scenarios and remodels are just `overrides`.
 - Other entry points are re-exported from `src/lib/engine/index.ts` (sensitivity, down-payment matrix, tax/MACRS,
@@ -72,10 +72,19 @@ modules, so it runs in both Vite and Deno). Siblings: `monte-carlo.ts`, `remodel
 | Cash-on-cash | cash flow ÷ cumulative cash invested × 100 |
 | Cap rate | NOI ÷ current property value × 100; **going-in cap uses the first full year** |
 | DSCR | NOI ÷ debt service (null with no debt); **headline DSCR = first full year** (`firstFullYear`) |
-| IRR / NPV | `calculateIRR` / `calculateNPV` on equity cash flows incl. sale proceeds at exit |
+| IRR / NPV | `calculateIRR` / `calculateNPV` on equity cash flows incl. `exitProceedsNet` at exit (value less selling costs less loan balance) |
 | Lease rent | `resolveLeaseMonthlyRent`: explicit leases with escalations; at expiry a lease renews on current terms unless it states extension / vacancy-then-re-let (`leaseExpiry.ts`) |
 
 Year 1 can be a partial year (`operatingMonths`), which is why headline ratios use the first full year.
+
+**The engine never invents an input** (`_shared/inputRequirements.ts`). Every input is a fact (price, closing date, the loan's own
+amortization, maturity and rate, a lease's rent and escalation) or an owner assumption (vacancy, expense ratio, exit cap or
+appreciation, selling costs, reserves, management fee). Both must be stated on the deal; `calculateProjections` throws
+`IncompleteInputsError` listing what is missing, and the Monte Carlo, monthly schedule and tax module hold the same line. An
+explicit 0 is an answer; blank is not. A loan is never generic: amortization (the payment basis) and maturity (when the balance
+falls due, not before the exit) are separate facts. Land share and tax rate vary by deal and have no default. Every number
+should carry a rationale the owner can show a lender; defaults, where they exist, live in the investor profile and are copied
+onto the deal, never in the engine. Tests that are not about requirements build deals with `engine/testInputs.ts`.
 
 **Changing the math:** any change that alters a computed number (fixes included) must bump `ENGINE_VERSION` in
 `src/lib/engine/version.ts` with a one-line changelog entry, and update the golden snapshot
@@ -166,7 +175,7 @@ The deal screen shows a **stage lens** (`src/lib/studio/stageLens.ts`, stage fro
 Owner decisions carried over from the retired plan docs (still in git history). Change them only deliberately.
 
 - **Single user, compute on the fly.** Marketing pages (`index.html`, `terms`, `privacy`) stay static for SEO; the
-  authenticated app is React. There is no global expense-ratio default: it is set per lease type with explicit inputs.
+  authenticated app is React. There is no global expense-ratio default in the engine: the owner states it per deal (a profile default may seed it).
 - **Monte Carlo model.** Contract rent never varies (fixed dollar or percentage escalators stay fixed). Only what the
   contract does not fix varies: market rent after a lease ends drifts with the sampled rent growth. Tenant default is an
   explicit, adjustable probability with downtime (default 10% over the hold, 12 months; commercial and storage with

@@ -106,8 +106,8 @@ export interface WinnerAnalysis {
 /** Pre-set definitions for scenario variations */
 export function getPresetOverrides(preset: ScenarioPresetType, dealInputs: Record<string, any>): Partial<DealInputs> {
   const currentRent = Number(dealInputs.grossRentAnnual || (dealInputs.monthlyRent ? dealInputs.monthlyRent * 12 : 0));
-  const currentVacancy = Number(dealInputs.vacancyRate ?? 5);
-  const currentRate = Number(dealInputs.interestRate ?? 6.5);
+  const currentVacancy = Number(dealInputs.vacancyRate);
+  const currentRate = Number(dealInputs.interestRate);
 
   switch (preset) {
     case 'bull':
@@ -136,22 +136,23 @@ export function extractComparisonSummary(deal: DealRecord, overrides?: Partial<D
   const inputs = prepareEngineInputs(deal, overrides);
 
   const purchasePrice = Number(inputs.purchasePrice || deal.purchase_price || 0);
-  const downPaymentPct = Number(inputs.downPaymentPercent ?? 20);
-  const initialCash = Number(metrics.initialCashInvested ?? purchasePrice * (downPaymentPct / 100));
+  // Every figure here comes from the engine's result for a deal that states its own inputs; none is assumed
+  const downPaymentPct = Number(inputs.downPaymentPercent);
+  const initialCash = Number(metrics.initialCashInvested);
 
   const p0: any = metrics.projections?.[0] || {};
   const firstFull: any = firstFullYear(metrics.projections) || p0;
 
-  const loanAmount = Number((metrics as any).loanAmount ?? (purchasePrice * (1 - downPaymentPct / 100)));
+  const loanAmount = Number((metrics as any).loanAmount);
   const interestRate = Number(inputs.interestRate || 0);
-  const loanTerm = Number(inputs.loanTerm || 30);
+  const loanTerm = Number(inputs.amortizationYears ?? inputs.loanTerm);
   const annualDebt = Number(firstFull.debtService ?? 0);
   const monthlyDebt = annualDebt > 0 ? annualDebt / 12 : Number((metrics as any).monthlyMortgagePayment || 0);
 
   const grossRentAnnual = Number(inputs.grossRentAnnual || (inputs.monthlyRent ? inputs.monthlyRent * 12 : firstFull.grossPotentialRent || 0));
   const grossRentMonthly = grossRentAnnual > 0 ? grossRentAnnual / 12 : Number(inputs.monthlyRent || 0);
 
-  const vacancyRate = Number(inputs.vacancyRate ?? 5);
+  const vacancyRate = Number(inputs.vacancyRate);
   const operatingExpenses = Number(firstFull.operatingExpenses ?? 0);
   const expenseRatio = Number(inputs.expenseRatio ?? (grossRentAnnual > 0 ? (operatingExpenses / grossRentAnnual) * 100 : 0));
 
@@ -178,7 +179,7 @@ export function extractComparisonSummary(deal: DealRecord, overrides?: Partial<D
 
   const pLast: any = metrics.projections?.[metrics.projections.length - 1] || {};
   const tenYearTerminalValue = Number(pLast.propertyValue ?? (pLast.noi && exitCapRate > 0 ? (pLast.noi / (exitCapRate / 100)) : 0));
-  const totalNetEquityExit = Number(pLast.equity ?? (tenYearTerminalValue - (pLast.endingLoanBalance ?? 0)));
+  const totalNetEquityExit = Number(pLast.exitProceedsNet ?? pLast.equity ?? (tenYearTerminalValue - (pLast.endingLoanBalance ?? 0)));
   const totalWealthCreated = Math.round(tenYearCashFlow + totalNetEquityExit - initialCash);
 
   const blendedCoC = initialCash > 0 && metrics.projections?.length

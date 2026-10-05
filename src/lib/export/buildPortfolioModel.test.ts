@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { buildPortfolioModel, type PortfolioParcelRow } from './buildPortfolioModel';
 import { computePortfolioKpis } from '../portfolio/kpis';
-import { computeDealMetrics } from '../engine/compute';
 import { resolvePointInTimeDealMetrics } from '../math/pointInTime';
+import { computeDealMetrics } from '../engine/testEngine';
+import { withLegacyDefaults } from '../engine/testInputs';
 
 const inputs = (over: Record<string, any> = {}) => ({
   purchasePrice: 1_000_000, downPaymentPercent: 30, interestRate: 6.5, loanTerm: 25,
@@ -10,7 +11,7 @@ const inputs = (over: Record<string, any> = {}) => ({
 });
 const mk = (id: string, status: string, asset: string, over: Record<string, any> = {}, price = 1_000_000): any => ({
   id, title: `Deal ${id}`, location: `${id} Main St`, status, asset_class: asset, purchase_price: price,
-  inputs: inputs({ purchasePrice: price, ...over }),
+  inputs: withLegacyDefaults(asset, inputs({ purchasePrice: price, ...over })),
 });
 
 const deals = [

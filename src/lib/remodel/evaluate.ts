@@ -72,7 +72,7 @@ export function evaluateRemodel(deal: EvalDeal, plan: RemodelPlan): RemodelEvalu
 
   // Extra cash flow by year; the change in exit equity lands on the exit year
   const incremental = ap.slice(0, exitYearIdx).map((p, i) => ({ calendarYear: p.calendarYear as number, cashFlow: num(p.cashFlow) - num(bp[i]?.cashFlow) }));
-  if (incremental.length > 0) incremental[incremental.length - 1].cashFlow += num(ap[exitYearIdx - 1]?.equity) - num(bp[exitYearIdx - 1]?.equity);
+  if (incremental.length > 0) incremental[incremental.length - 1].cashFlow += num(ap[exitYearIdx - 1]?.exitProceedsNet) - num(bp[exitYearIdx - 1]?.exitProceedsNet);
 
   // Incremental IRR and multiple, starting at the first year money goes out
   const firstOut = incremental.findIndex((r) => r.cashFlow < -0.5);

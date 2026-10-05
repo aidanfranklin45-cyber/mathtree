@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections } from './index';
 import { seedForm, buildInputs } from '../../components/studio/modals/editInputsForm';
-import { computeDealMetrics } from './compute';
 import type { DealRecord } from '../math/types';
+import { calculateProjections, computeDealMetrics } from './testEngine';
 
 describe('expense inflation underwriting mechanics', () => {
   it('escalates operating expenses at expenseGrowth when rent growth is zero', () => {

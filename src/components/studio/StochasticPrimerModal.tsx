@@ -75,8 +75,8 @@ export const StochasticPrimerModal: React.FC<Props> = ({ isOpen, onClose, deal, 
   const closingCosts = inputs.closingCosts || 0;
   const loanAmt = Number(metrics.loanAmount) || 0;
   const intRate = inputs.interestRate ?? 0;
-  const term = inputs.loanTerm ?? 30;
-  const holdYrs = inputs.exitYear || 10;
+  const term = inputs.amortizationYears ?? inputs.loanTerm;
+  const holdYrs = inputs.holdingPeriod ?? inputs.exitYear;
   const noi = p1.netOperatingIncome || 0;
   const ds = p1.debtService || 0;
   const cf = p1.cashFlow !== undefined ? p1.cashFlow : noi - ds;

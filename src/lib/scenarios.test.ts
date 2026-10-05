@@ -1,15 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { diffInputs, nameRun, withComputedDiffs, type ScenarioRun } from './scenarios';
+import { withLegacyDefaults } from './engine/testInputs';
 
 const base = {
   purchasePrice: 300000, downPaymentPercent: 25, interestRate: 6.5, loanTerm: 30,
   monthlyRent: 2600, vacancyRate: 5, expenseRatio: 35, rentGrowth: 3, appreciationRate: 3,
   closingCosts: 6000, exitYear: 10,
 };
-const deal: any = { asset_class: 'residential', purchase_price: 300000, inputs: base };
+const deal: any = { asset_class: 'residential', purchase_price: 300000, inputs: withLegacyDefaults('residential', base) };
 
 const run = (id: string, created: string, inputs: Record<string, any>): ScenarioRun =>
-  ({ id, deal_id: 'd', name: id, inputs: inputs as any, created_at: created });
+  ({ id, deal_id: 'd', name: id, inputs: withLegacyDefaults('residential', inputs) as any, created_at: created });
 
 describe('scenario diffs are computed, not stored', () => {
   it('finds which parameters moved (and reads either input alias)', () => {

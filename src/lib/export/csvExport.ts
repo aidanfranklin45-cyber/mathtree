@@ -49,7 +49,7 @@ export function exportPortfolioCSV(deals: DealRecord[]): void {
 
   deals.forEach((d) => {
     const price = d.purchase_price || d.inputs?.purchasePrice || 0;
-    const hold = d.inputs?.holdingPeriod || d.inputs?.exitYear || 10;
+    const hold = d.inputs?.holdingPeriod ?? d.inputs?.exitYear ?? '';
     const em = tryComputeDealMetrics(d);
     const irr = em?.irr || 0;
     const coc = em?.cashOnCash || 0;

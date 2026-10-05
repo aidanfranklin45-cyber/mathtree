@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateProjections, runMonteCarlo, buildFixedHistogram, seededRandom } from './index';
+import { buildFixedHistogram, seededRandom } from './index';
+import { calculateProjections, runMonteCarlo } from './testEngine';
 
 /** Pure fixtures, no database. A lease-based deal: intercompany rent, then a formal 10-year lease ending Aug 2036. */
 const leases = [

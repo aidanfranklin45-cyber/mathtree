@@ -15,6 +15,7 @@
 // Both profit in dollars and IRR are reported for every deal: IRR alone is unstable when equity is thin.
 
 import { calculateProjections, createLeaseScheduleCache, normalizeAssetClass } from './math-engine.ts';
+import { KEYS, assertEngineInputs, parseClosingDate, stated } from './inputRequirements.ts';
 
 export interface MonteCarloOptions {
   runs?: number;
@@ -289,6 +290,8 @@ export function createMonteCarloRunner(
     return mean + Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) * stdDev;
   };
 
+  // Every run is a full engine calculation, so the deal must state everything the engine needs: nothing is assumed here either
+  assertEngineInputs(rawAssetType, inputs);
   const assetType = normalizeAssetClass(rawAssetType);
   const runs = Math.min(Math.max(Math.round(options.runs ?? 1000), 100), 10000);
   const isCommercialOrStorage = assetType === 'commercial' || assetType === 'storage';
@@ -307,15 +310,14 @@ export function createMonteCarloRunner(
     (num(inputs.monthlyRent) ?? 0) <= 0 &&
     !hasLeaseIncome;
 
-  const baseGrowth = num(inputs.rentGrowth) ?? 2.5;
-  const baseVacancy = num(inputs.vacancyRate) ?? 5.0;
-  const baseApprec = num(inputs.appreciationRate) ?? 2.0;
-  const baseExitCap =
-    num(inputs.targetCapRate) ??
-    num(inputs.targetExitCapRate) ??
-    num(inputs.exitCapRate) ??
-    (isCommercialOrStorage ? 6.5 : 0);
-  const baseHoldingInflation = num(inputs.expenseGrowth) ?? num(inputs.expenseInflation) ?? num(inputs.expenseGrowthRate) ?? num(inputs.expenseGrowthPercent) ?? 2.5;
+  // The centre of every distribution is the deal's own stated assumption (the engine refuses a deal that does not state them)
+  const baseGrowth = stated(inputs, ...KEYS.rentGrowth) ?? 0;
+  const baseVacancy = stated(inputs, ...KEYS.vacancy) ?? 0;
+  const baseApprec = stated(inputs, 'appreciationRate') ?? 0;
+  const baseExitCap = stated(inputs, ...KEYS.exitCap) ?? 0;
+  // Cost inflation is sampled only when the deal states one; otherwise costs follow income exactly as in the base calculation
+  const statedInflation = stated(inputs, 'expenseGrowth', 'expenseInflation', 'expenseGrowthRate', 'expenseGrowthPercent');
+  const baseHoldingInflation = statedInflation ?? 0;
 
   const growthStdDev = options.rentGrowthVolPct ?? 1.5;
   const vacancyStdDev = options.vacancyVolPct ?? 2.5;
@@ -335,9 +337,9 @@ export function createMonteCarloRunner(
     : assetType === 'commercial' ? vacancyStdDev * 0.75
     : assetType === 'storage' ? vacancyStdDev * 1.15
     : vacancyStdDev;
-  const holdYears = Math.max(1, Math.round(num(inputs.exitYear) ?? num(inputs.holdingPeriod) ?? 10));
+  const holdYears = Math.max(1, Math.round(num(inputs.exitYear) ?? num(inputs.holdingPeriod) ?? stated(inputs, ...KEYS.hold) ?? 1));
   const holdMonths = holdYears * 12;
-  const hurdleRate = options.hurdleRatePct ?? num(inputs.discountRate) ?? 8;
+  const hurdleRate = options.hurdleRatePct ?? stated(inputs, ...KEYS.discountRate) ?? 0;
 
   // Tenant default risk: a labelled probability and downtime (commercial and storage with income only; other asset types model
   // turnover through their vacancy mechanics)
@@ -353,8 +355,8 @@ export function createMonteCarloRunner(
   // The deal's own vacancy setting is the anchor: pick the vacant stretch so turnover x stretch matches it (capped at six months)
   const calibratedMonths = turnoverPct > 0 ? Math.min(6, (baseVacancy / 100) * 12 / (turnoverPct / 100)) : 0;
   const downtimeMonthsMean = turnoverApplies ? (calibrated ? calibratedMonths : Math.max(0, options.turnoverDowntimeDays as number) / DAYS_PER_MONTH) : 0;
-  const closing = String(inputs.closingDate ?? "").match(/(\d{4})[-/](\d{1,2})/);
-  const closeIdx = (closing ? parseInt(closing[1], 10) : 2025) * 12 + (closing ? parseInt(closing[2], 10) : 7);
+  const closeDate = parseClosingDate(inputs.closingDate) as { year: number; month: number }; // stated, checked above
+  const closeIdx = closeDate.year * 12 + closeDate.month;
   const ymIdx = (v: unknown): number | null => {
     const m = String(v ?? "").match(/(\d{4})[-/](\d{1,2})/);
     return m ? parseInt(m[1], 10) * 12 + parseInt(m[2], 10) : null;
@@ -428,9 +430,7 @@ export function createMonteCarloRunner(
       appreciationRate: sampledApprec,
       targetCapRate: sampledExitCap,
       targetExitCapRate: sampledExitCap,
-      expenseGrowth: sampledHoldingInflation,
-      expenseInflation: sampledHoldingInflation,
-      holdingInflation: sampledHoldingInflation,
+      ...(statedInflation !== undefined ? { expenseGrowth: sampledHoldingInflation, expenseInflation: sampledHoldingInflation, holdingInflation: sampledHoldingInflation } : {}),
     };
     // With leases, contractual rent is fixed; only what the contract does not fix (rent after a lease ends) drifts with the sample
     if (hasLeaseIncome) scenario.marketRentDrift = sampledGrowth - baseGrowth;
@@ -484,7 +484,7 @@ export function createMonteCarloRunner(
     const proj: any[] = res.projections ?? [];
     let profit = -(Number(res.initialCashInvested) || 0);
     for (const p of proj) profit += Number(p.cashFlow) || 0;
-    profit += Number(proj[proj.length - 1]?.equity) || 0;
+    profit += Number(proj[proj.length - 1]?.exitProceedsNet) || 0;
     profitResults[r] = profit;
     if (r === 0) cashInvested = Number(res.initialCashInvested) || 0;
   };

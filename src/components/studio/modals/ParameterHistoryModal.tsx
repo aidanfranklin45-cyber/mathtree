@@ -29,7 +29,7 @@ function summarize(inputs: Record<string, any>, m: DealMetrics | null) {
     downPaymentPct,
     loanAmount: n((m as any)?.loanAmount) ?? purchasePrice * (1 - downPaymentPct / 100),
     interestRate: Number(inputs.interestRate || 0),
-    loanTerm: Number(inputs.loanTerm || 30),
+    loanTerm: Number(inputs.amortizationYears ?? inputs.loanTerm ?? 0),
     monthlyDebt: n((m as any)?.monthlyMortgagePayment) ?? (firstFull?.debtService ? Number(firstFull.debtService) / 12 : null),
     rehabCosts: Number(inputs.rehabBudget || inputs.rehabCosts || 0),
     grossRentAnnual,
