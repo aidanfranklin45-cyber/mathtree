@@ -46,35 +46,46 @@ export interface EquityPoint {
   value: number;
   loan: number;
   equity: number;
+  /** Cash you have received so far: the years the property paid you. A year it fell short is not negative cash collected; see `cashIn`. */
   cumulativeCash: number;
-  /** Equity plus cash collected so far. */
+  /** Cash you have put in so far: what you paid at purchase plus every year's shortfall you had to cover. It only goes up. */
+  cashIn: number;
+  /** Equity plus cash collected so far. Compare it with `cashIn` for what you are actually ahead. */
   total: number;
 }
 
-/** Equity (value less loan) and cash collected, year by year, starting from what you put in at purchase. */
-export function equityGrowth(projections: Proj[], purchasePrice: number, loanAmount: number): EquityPoint[] {
+/**
+ * Equity (value less loan), cash collected and cash put in, year by year, starting from what you put in at purchase. A year the property
+ * does not cover its costs is cash you have to put in, so it raises `cashIn` instead of making cash collected negative.
+ */
+export function equityGrowth(projections: Proj[], purchasePrice: number, loanAmount: number, initialCash?: number): EquityPoint[] {
+  const atPurchase = initialCash ?? Math.max(0, purchasePrice - loanAmount);
   const start: EquityPoint = {
     year: 0,
     value: purchasePrice,
     loan: loanAmount,
     equity: Math.max(0, purchasePrice - loanAmount),
     cumulativeCash: 0,
+    cashIn: atPurchase,
     total: Math.max(0, purchasePrice - loanAmount),
   };
-  let cum = 0;
+  let collected = 0;
+  let cashIn = atPurchase;
   const rows = projections.map((p, i) => {
-    cum += num(p.cashFlow);
+    const cf = num(p.cashFlow);
+    if (cf >= 0) collected += cf;
+    else cashIn += -cf;
     const value = num(p.propertyValue);
     const loan = num(p.endingLoanBalance ?? p.loanBalanceRemaining);
     const equity = value - loan;
-    return { year: num(p.year) || i + 1, value, loan, equity, cumulativeCash: cum, total: equity + cum };
+    return { year: num(p.year) || i + 1, value, loan, equity, cumulativeCash: collected, cashIn, total: equity + collected };
   });
   return [start, ...rows];
 }
 
-/** First year equity plus cash collected is at least the cash you put in, or null if not within the projection. */
+/** First year equity plus cash collected is at least the cash you have put in by then (shortfalls included), or null if not within the projection. */
 export function paybackYear(points: EquityPoint[], initialCash: number): number | null {
-  const hit = points.find((pt) => pt.year > 0 && pt.total >= initialCash);
+  const hit = points.find((pt) => pt.year > 0 && pt.total >= Math.max(initialCash, pt.cashIn));
   return hit ? hit.year : null;
 }
 
