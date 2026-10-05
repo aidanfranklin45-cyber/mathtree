@@ -51,6 +51,37 @@ export function wealthSeries(c: ComparisonColumn, years: number): Array<number |
   return out;
 }
 
+/**
+ * Cash put in by year: what was paid at purchase plus every year's shortfall the owner has to cover (a year that does not pay its own
+ * costs). It only goes up. Index 0 is purchase, matching `wealthSeries`.
+ */
+export function cashInSeries(c: ComparisonColumn, years: number): Array<number | null> {
+  const p = projections(c);
+  let cashIn = num(c.summary.initialCash);
+  const out: Array<number | null> = [Math.round(cashIn)];
+  for (let i = 0; i < years; i++) {
+    if (!p[i]) {
+      out.push(null);
+      continue;
+    }
+    const cf = num(p[i].cashFlow);
+    if (cf < 0) cashIn += -cf;
+    out.push(Math.round(cashIn));
+  }
+  return out;
+}
+
+/** The extra cash, over the chart's horizon, that the owner has to put in to cover years that do not pay their own costs. */
+export function shortfallTotal(c: ComparisonColumn, years: number): number {
+  const p = projections(c);
+  let total = 0;
+  for (let i = 0; i < years && i < p.length; i++) {
+    const cf = num(p[i].cashFlow);
+    if (cf < 0) total += -cf;
+  }
+  return Math.round(total);
+}
+
 /** First year (1-based) net wealth is at or above zero, or null if it never gets there inside the horizon. */
 export function paybackYear(series: Array<number | null>): number | null {
   for (let i = 1; i < series.length; i++) {
