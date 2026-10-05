@@ -28,3 +28,9 @@ globs: "**/*"
 - **Never commit plans, design notes, status trackers or progress logs** (e.g. `*_PLAN.md`, `NOTES.md`). They go in the chat thread or the project's shared folder.
 - Decisions that must outlive a task belong in `ARCHITECTURE.md`, kept short and current.
 
+
+## 5. ENGINE RULES (SHORT)
+- **No invented inputs.** The engine never supplies a default. A figure is stated on the deal or filled live from the owner's investor profile; if neither, the engine throws `IncompleteInputsError` and the screen asks. Do not add a fallback number anywhere (engine, chart, brief).
+- **One calculator.** Never compute a metric in the UI, SQL or an edge function; call the shared engine through `src/lib/engine/compute.ts`.
+- **Changing a computed number** means bumping `ENGINE_VERSION` (`src/lib/engine/version.ts`) and updating the golden snapshot on purpose.
+- **Live data.** Real writes only when the user explicitly asks; tests and dev work never touch or mix with customer deals. SQL is reviewed, applied by hand, and recorded in `supabase/migrations_draft/README.md`.

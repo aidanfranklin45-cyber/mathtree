@@ -36,7 +36,11 @@ src/
     supabase/               client.ts (anon client, BENCHMARK_DEAL demo), types.ts (generated DB types), authHeaders.ts
     benchmarks/             Dated, sourced public market facts shown beside a property's own numbers. Never defaults,
                             never read by the engine. Pure lookup + plausibility checks the future CSV/OM parser can call
-    baselines/ compare/ remodel/ operations/ underwriting/ portfolio/ export/ services/ auth/
+    assumptions/            ledger.ts: every figure a deal rests on, with where it came from (entered, document, profile, assumed)
+    ingestion/              Intake groundwork for the document parser: document types, the questions to ask, normalising and
+                            validating extracted values into deal inputs. No parser yet; see section 8
+    property/               Facts about an owned property (rent roll, payments) and its present state; no stored results
+    baselines/ compare/ remodel/ operations/ underwriting/ portfolio/ export/ services/ auth/ studio/
 supabase/
   functions/_shared/        THE engine and shared rules (Deno + browser). Imported in the app as `@engine/*`
   functions/<name>/         Deno edge functions (see §4)
@@ -54,7 +58,10 @@ modules, so it runs in both Vite and Deno). Siblings: `monte-carlo.ts`, `remodel
 **How the app calls it:** always through `src/lib/engine/compute.ts`:
 
 - `prepareEngineInputs(deal, overrides)` merges `deal.inputs` + overrides, fills `purchasePrice` from the column, drops an
-  ARV that just echoes the assessed value, and applies the investor's lease-expiry defaults. It supplies no other defaults.
+  ARV that just echoes the assessed value, applies the investor's lease-expiry defaults, and overlays the owner's profile
+  assumptions **live** for the assumptions the deal leaves unstated (an allowlist, `PROFILE_FILLS`). A pipeline deal with no
+  closing date and no dated leases is given one: created date plus the profile's closing time (default six weeks). Nothing else
+  is defaulted. `missingInputsFor(deal)` asks the same question as the engine, so screens and engine agree on what is missing.
 - `computeDealMetrics(deal, overrides?)` runs `calculateProjections(assetClass, inputs)` and maps it to `DealMetrics`
   (bounded memo keyed by the exact inputs). What-ifs, scenarios and remodels are just `overrides`.
 - Other entry points are re-exported from `src/lib/engine/index.ts` (sensitivity, down-payment matrix, tax/MACRS,
@@ -81,10 +88,11 @@ Year 1 can be a partial year (`operatingMonths`), which is why headline ratios u
 amortization, maturity and rate, a lease's rent and escalation) or an owner assumption (vacancy, expense ratio, exit cap or
 appreciation, selling costs, reserves, management fee). Both must be stated on the deal; `calculateProjections` throws
 `IncompleteInputsError` listing what is missing, and the Monte Carlo, monthly schedule and tax module hold the same line. An
-explicit 0 is an answer; blank is not. A loan is never generic: amortization (the payment basis) and maturity (when the balance
-falls due, not before the exit) are separate facts. Land share and tax rate vary by deal and have no default. Every number
+explicit 0 is an answer; blank is not. A loan has one term (the amortization; paid off at the end, counted from the closing date). A separate maturity applies only
+to a balloon and is refused if it falls due before the exit. Land share and tax rate vary by deal and have no default. Every number
 should carry a rationale the owner can show a lender; defaults, where they exist, live in the investor profile and are copied
-onto the deal, never in the engine. Tests that are not about requirements build deals with `engine/testInputs.ts`.
+onto the deal or overlaid live from it, never in the engine. Tests that are not about requirements build deals with
+`engine/testInputs.ts`. See section 8 for the assumptions model.
 
 **Changing the math:** any change that alters a computed number (fixes included) must bump `ENGINE_VERSION` in
 `src/lib/engine/version.ts` with a one-line changelog entry, and update the golden snapshot
@@ -121,10 +129,13 @@ Column lists are in `src/lib/supabase/types.ts` (regenerate it rather than hand-
 | `cam_reconciliations` | Annual CAM true-ups |
 | `parcels` | County GIS parcels attached to a deal (APN, assessed values, acres, zoning) |
 | `entities` | Owning legal entities (LLC etc). Names/structure only, never EIN or banking |
-| `profiles` | Investor profile and preferences (discount rate, exit assumptions, alert prefs, lease-expiry default) |
+| `profiles` | Investor profile and preferences (discount rate, alert prefs, lease-expiry default) and the underwriting assumptions by asset class, each with its rationale |
 | `deal_shares`, `collaborator_groups`, `collaborator_group_members` | Sharing deals with people or groups |
 | `app_notifications` | Written by the daily monitor (NNN alerts, email de-duplication). The app no longer reads it: the bell shows the live inbox (`lib/operations/attention.ts`) |
 | `reconciliation_tokens`, `rent_batches` | One-click email links. Tokens stored **hashed** only; service role only |
+
+There are no utility-meter, meter-reading or expense-ledger tables (the meters were dropped; the expense ledger was never built). Utilities
+are an assumption (section 8), not a record of bills.
 
 Views: `view_monthly_rent_reconciliation` (lease × current period payment status), `view_deal_parcel_packages`
 (parcels rolled up per deal), `view_property_management_stats` (occupancy, rent roll per deal).
@@ -150,11 +161,11 @@ React 18 + Vite + TypeScript + Tailwind, react-router, Chart.js. Pages are lazy 
 
 | Route | Page | Main components |
 |---|---|---|
-| `/`, `/dashboard` | `DashboardPage` | `components/dashboard` (deal cards, `ProjectWizardModal`), portfolio KPIs (`lib/portfolio`) |
-| `/project?id=…&tab=…` | `DealStudioPage` | `components/studio`: `StudioNavbar`, tabs (Overview, ProForma, Property, Debt, Diligence, Sensitivity), modals (`EditInputsModal`, `RemodelModal`, `ParameterHistoryModal`) |
+| `/`, `/dashboard` | `DashboardPage` | `components/dashboard` (deal cards, `ProjectWizardModal`, deal actions menu, equity chart), portfolio KPIs (`lib/portfolio`). A deal that is missing required inputs shows what it needs instead of numbers |
+| `/project?id=…&tab=…` | `DealStudioPage` | `components/studio`: `StudioNavbar`, tabs (Overview, ProForma, Property, Debt, Diligence, Sensitivity, plus Performance and Operate for owned deals), `InputsNeeded`, `AssumptionsLedger`, modals (`EditInputsModal`, `RemodelModal`, `ParameterHistoryModal`) |
 | `/compare` | `ComparePage` | `components/compare` (starter, builder strip, Add / Metrics / Filters / Saved panels, matrix, phone cards, charts, what-if scrubber, baseline column). Board settings live in `lib/compare/config.ts` (metrics in `metrics.ts`, saved boards in `savedViews.ts`); a plain visit opens blank |
-| `/operations` | `OperationsPage` | `components/operations/OperationsWorkspace` (rent roll, leases, payments, recoveries, CAM, meters) across all properties. The same workspace, locked to one deal, is the **Operate** tab of an owned deal on `/project`, so each figure has one code path |
-| `/brief`, `/demo-brief`, `/portfolio-brief` | `DealBriefPage`, `PortfolioBriefPage` | `components/brief`, models built in `lib/export` |
+| `/operations` | `OperationsPage` | `components/operations/OperationsWorkspace` (rent roll, leases, payments, recoveries, CAM) across all properties. The same workspace, locked to one deal, is the **Operate** tab of an owned deal on `/project`, so each figure has one code path |
+| `/brief`, `/demo-brief`, `/portfolio-brief` | `DealBriefPage`, `PortfolioBriefPage` | `components/brief`, models built in `lib/export`. The portfolio brief's diversification and allocation cover owned properties only; each owned property runs to its own hold period |
 | `/reconcile` | `ReconcilePage` | Public, token-based |
 | `/login` | `LoginPage` | |
 
@@ -164,9 +175,9 @@ The deal screen shows a **stage lens** (`src/lib/studio/stageLens.ts`, stage fro
 ## 6. Build, deploy, verify
 
 - `npm run build` = `tsc && vite build && node scripts/postbuild.js` → `dist/` (`app.html` + static pages).
-- Firebase Hosting `mathtree-app` (`firebase.json` rewrites app routes to `/app.html`). GitHub Actions build on every PR
+- Firebase Hosting `mathtree-app`, the only host (`firebase.json` rewrites app routes to `/app.html`). GitHub Actions build on every PR
   (preview channel) and deploy live on merge to `main`. CI does not run tests.
-- Edge functions and SQL are deployed to Supabase separately (not by CI).
+- Edge functions and SQL are deployed to Supabase separately (not by CI): `npx supabase functions deploy <name> --project-ref bgexwcepwbxvhxbpblhd --no-verify-jwt --use-api`. SQL is applied by hand after review; applied drafts are recorded in `supabase/migrations_draft/README.md`.
 - Verification follows `AGENTS.md`: `npx tsc --noEmit` and single-file `npx vitest run <file> --reporter=dot` only.
 
 ## 7. Decisions that still shape the code
@@ -205,3 +216,28 @@ Owner decisions carried over from the retired plan docs (still in git history). 
   plan is committed. The engine supports capex plus a rent step mid-hold, optional new-loan financing, downtime rent
   percentage, extra opex, and value by cap rate or a typed ARV.
 - **PDF brief.** Computed from facts with the shared engine; no stored metrics.
+
+## 8. Assumptions, the investor profile, and intake
+
+**Where numbers come from.** A deal's figure is one of: a fact the owner stated, a fact read from a county record or a document, or an
+assumption. Assumptions live in the investor profile by asset class (`_shared/underwritingAssumptions.ts`: vacancy, expense ratio
+(NNN or not), rent and expense growth, appreciation, exit cap, selling costs, management fee, reserves per unit, per square foot, or as
+a percent of income or value, insurance and upkeep as rates on value, utilities per square foot, property tax rate, closing time). Each
+carries a short rationale. They are starting points for screening, not a standard imposed on every deal: a property states its own
+figure in Edit Inputs and that wins. `suggestedStartingPoints` fills blanks with labelled conventions only; `seedFromAssumptions`
+turns profile rates into per-deal dollar inputs using the deal's own size, price or county values and reports which it could not fill.
+
+**Provenance.** `assumptionBasis` on a deal records the source of each tracked input (profile, owner, county record, document);
+`assumptions/ledger.ts` renders it as two groups on the property page: specific to this property, and from your standards.
+
+**Carrying costs.** Taxes, insurance, upkeep and utilities are carried by the owner while a space is vacant (and always on a gross lease);
+tenants reimburse them under NNN while leased. Property tax is the county's assessed value times the owner's rate for that tax-code area
+(county data holds no tax bill). Selling costs are optional: unstated means none. Utilities unstated means none carried.
+
+**Intake groundwork.** `lib/ingestion` defines the document types, the questions to ask for each, and the normalising and validation
+that turn extracted values into deal inputs the engine accepts. There is no parser or model call yet. Decisions already made for it: the
+owner creates the API key and spend cap (never handled in chat or the repo), tenant personal data is redacted before anything is sent,
+and extracted values land on a review screen before they touch a deal.
+
+**Market benchmarks** (`lib/benchmarks`, draft `13_market_benchmarks.sql`): dated, sourced public facts shown beside a property's numbers;
+never defaults and never read by the engine. The table is not yet created in the database.
