@@ -154,7 +154,7 @@ export async function generateJson(args: { system: string; user: string; timeout
     // For setup problems (bad request, credentials, model name, quota) the reason is passed on, cut short: it is what lets the owner fix
     // the configuration. Other failures report the status only, since a body could echo document text.
     let reason = '';
-    if ([400, 401, 403, 404, 429].includes(res.status)) {
+    if ([400, 401, 402, 403, 404, 405, 409, 413, 422, 429].includes(res.status)) {
       const body = await res.text().catch(() => '');
       try {
         const j = JSON.parse(body);
