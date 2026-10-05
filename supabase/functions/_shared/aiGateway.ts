@@ -81,10 +81,21 @@ export async function generateJson(args: { system: string; user: string; timeout
       } catch {
         reason = '';
       }
-      reason = reason.replace(/\s+/g, ' ').slice(0, 160);
+      // Not JSON in the shape expected (or empty): show what came back, as plain text
+      if (!reason) reason = body.replace(/<[^>]*>/g, ' ');
+      reason = reason.replace(/\s+/g, ' ').trim().slice(0, 160) || 'no explanation in the reply';
     }
-    console.error(`[ai-gateway] ${res.status} model=${model}${reason ? ` reason=${reason}` : ''}`);
-    throw new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} (google-ai-studio, ${model}).`, res.status === 429 ? 429 : 502);
+    // The shape of the address called, with the account and gateway names hidden, so a wrong gateway URL can be spotted
+    let shape = '';
+    try {
+      const u = new URL(gatewayEndpoint(base, model));
+      shape = `${u.host}${u.pathname.replace(/\/v1\/[^/]+\/[^/]+/, '/v1/{account}/{gateway}')}`;
+    } catch {
+      shape = 'the gateway address is not a valid URL';
+    }
+    const via = res.headers.get('cf-ray') ? 'Cloudflare' : res.headers.get('server') || 'unknown server';
+    console.error(`[ai-gateway] ${res.status} via=${via} endpoint=${shape}${reason ? ` reason=${reason}` : ''}`);
+    throw new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} [${via}; ${shape}]`, res.status === 429 ? 429 : 502);
   }
   const data = await res.json().catch(() => null);
   const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
