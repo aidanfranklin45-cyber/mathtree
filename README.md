@@ -1,26 +1,41 @@
-# MathTree - Premium PropTech Modeling Studio
+# MathTree
 
-A high-performance, client-side real estate investment analysis and 10-year financial modeling platform.
-See Demo Mode to see what happens behind the curtains
+Real-estate underwriting and property operations for an owner-investor. Underwrite a deal, track it through the pipeline, run it once
+it is owned, and compare it with what was expected. Every number on screen is either a fact the owner stated or an assumption the
+owner can explain to a lender; the app never invents an input.
 
-## Features
-- **Institutional Landing Page**: Comprehensive institutional introduction detailing MathTree's mission, mathematical precision, 4 asset class models, serverless edge engine, and pitch deck generation with live demo and sign-in triggers.
-- **Account Dashboard First Flow**: Investor dashboard
-- **Guided 4-Step Project Creation Wizard**: Intuitive step-by-step project setup (Asset Class & Identity, Capital & Valuation, Income & Operations, Debt & Exit Strategy) replacing 30 raw spreadsheet inputs with smart asset defaults and real-time upfront cash calculation.
-- **Serverless Supabase Edge Function (`create-project`)**: Deno-based backend engine executing 10-year pro-forma calculations, risk auditing, and automated presentation-ready Executive Pitch Deck synthesis.
-- **4 Real Estate Asset Classes**: Single-Family Residential (with ARV), Multi-Unit Residential, Commercial Real Estate (Gross & NNN Leases with Gradual Cap Rate Valuation), and Storage Facilities (Automated vs Manned).
-- **Multi-Asset Portfolio Aggregator Studio**: Roll up multiple properties into a blended fund model with customized door/unit scaling, blended 10-Yr IRR, Cash-on-Cash yield, equity multiples, cash flow waterfall charts, and 10-year pro-forma statements.
-- **Executive Pitch Deck Presentation Mode**: Distraction-free, presentation-ready investor brief with hero KPI spotlights, investment highlights, risk auditor checks, 10-year equity trajectory charts, and direct 1-click jump into the deep modeler.
-- **Underwriting Scenario Manager**: 1-click toggles between Base (Target), Bull (+8% Rent, -1.5% Vacancy), and Bear (-8% Rent, +3% Vacancy, +50bps Rate) cases, plus custom named scenario presets.
-- **Dynamic "What-If" Range Scrubbers**: Real-time slider scrubbers linked to Purchase Price, Down Payment %, Interest Rate, Monthly Rent, and Vacancy Rate for instant sensitivity exploration.
-- **Command Palette (`Ctrl+K` / `Cmd+K`)**: Rapid keyboard command search to switch asset classes, toggle workspaces, run Monte Carlo simulations, solve target prices, or trigger exports.
-- **Supabase Cloud Sync & Accounts**: Seamless client account authentication, cloud deal saving, and fund portfolio sync with zero-breaking offline `localStorage` fallback.
-- **2D Sensitivity Heatmap**: Real-time matrix of returns (IRR and NPV) across variable Interest Rates, Exit Cap Rates, Purchase Prices, and Vacancy Rates.
-- **Monte Carlo 1,000-Run Risk Simulation**: Stochastic market volatility simulation modeling Mean IRR, P5 Downside Risk, P95 Upside Potential, and Probability of Negative Cash Flow with frequency histograms.
-- **Tax Depreciation (MACRS) & BRRRR Refinance**: 27.5/39-year MACRS depreciation schedule, Cost Segregation (80% bonus year 1), tax liability/shield tracking, capital gains tax at exit, and mid-hold cash-out refinance simulations.
-- **4-Deal Comparison Matrix**: Side-by-side comparison across all 4 asset classes with winner highlight badges.
-- **Institutional Reporting**: 1-click CSV pro-forma download, print-optimized PDF investment brief, JSON state backups, and shareable URL hash links.
+Live app: [mathtree-app.web.app](https://mathtree-app.web.app)
 
-## Live Application
-- **Production (Firebase Hosting):** [https://mathtree-app.web.app](https://mathtree-app.web.app) (also accessible at [https://mathtree-app.firebaseapp.com](https://mathtree-app.firebaseapp.com))
-- **Mirror (GitHub Pages):** [https://aidanfranklin45-cyber.github.io/mathtree/](https://aidanfranklin45-cyber.github.io/mathtree/)
+## What it does
+
+- **Dashboard.** Owned holdings and the acquisition pipeline, with portfolio totals for what is owned.
+- **Deal studio.** One page per property. Prospects show the underwriting (overview, pro-forma, property, debt, diligence, sensitivity);
+  owned properties open on performance and add an Operate tab (rent roll, payments, recoveries, CAM).
+- **Engine.** One shared calculator: projections, debt, taxes and depreciation, IRR and NPV, sensitivity, Monte Carlo, remodel plans,
+  refinance. The database stores facts only; results are computed on demand.
+- **Investor profile.** Your underwriting standards (vacancy, expenses, reserves, utilities, property tax rate, appreciation, exit cap,
+  selling costs, closing time) by asset class. They are starting points for screening, copied into a deal only where it is silent. Nothing is fixed: a new profile starts with common
+  conventions (a six-week closing, for example), you can change any of them globally in your profile, or individually on any single property. A property's own figure always wins; the rest keep following your profile.
+- **Inputs needed.** When a deal lacks something the engine requires, the app lists exactly what, instead of guessing.
+- **Compare.** Side-by-side boards of deals and scenarios, with charts and saved views.
+- **Operations.** Rent roll, payments, escalations, NNN recoveries and daily reminders across owned properties.
+- **Briefs.** Printable deal and portfolio PDFs computed from the same engine.
+
+Asset classes: single-family, multi-unit, commercial (gross and NNN), and storage.
+
+## Stack
+
+React 18, Vite, TypeScript, Tailwind, Chart.js. Supabase (Postgres with row-level security, Deno edge functions). Firebase Hosting;
+GitHub Actions build every pull request and deploy on merge to `main`.
+
+## Working on it
+
+```bash
+npm install
+npm run dev        # local app
+npx tsc --noEmit   # type-check
+npx vitest run <file> --reporter=dot   # one test file at a time
+```
+
+Read `ARCHITECTURE.md` for how it fits together and `AGENTS.md` for how changes are made (branches and pull requests only, no
+full-suite test runs, no plan documents in the repo).
