@@ -73,14 +73,14 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
         onClose();
         onClick();
       }}
-      className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition text-left group ${
+      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl border transition text-left group ${
         variant === 'danger'
           ? 'bg-rose-950/20 hover:bg-rose-950/40 border-rose-900/40 hover:border-rose-800'
           : 'bg-slate-950/60 hover:bg-slate-800/80 border-slate-800/80 hover:border-slate-700'
       }`}
     >
-      <div className="flex items-center space-x-3.5 min-w-0">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${iconBg}`}>
+      <div className="flex items-center space-x-3 min-w-0">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${iconBg}`}>
           {icon}
         </div>
         <div className="min-w-0">
@@ -93,7 +93,8 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
           >
             {title}
           </div>
-          <div className="text-[11px] text-slate-400 leading-tight mt-0.5">
+          {/* One line keeps every action on screen without scrolling; the full text is on hover */}
+          <div className="text-[10.5px] text-slate-400 leading-snug mt-px truncate" title={description}>
             {description}
           </div>
         </div>
@@ -116,11 +117,11 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative my-8"
+        className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-5 space-y-3 shadow-2xl relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between pb-3 border-b border-slate-800/80">
+        <div className="flex items-start justify-between pb-2.5 border-b border-slate-800/80">
           <div className="min-w-0 pr-4">
             <div className="flex items-center space-x-2">
               <span
@@ -157,7 +158,7 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
         </div>
 
         {/* Actions List */}
-        <div className="space-y-2.5 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-1.5">
           {actionItem(
             isOwned ? 'Move to Pipeline' : 'Mark as Acquired (Owned)',
             isOwned
@@ -212,7 +213,7 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
             () => onExportCsv(deal)
           )}
 
-          <div className="pt-1">
+          <div className="pt-0.5">
             {actionItem(
               'Delete Project',
               'Permanently remove this deal, history, and all financial model assumptions.',
@@ -225,11 +226,11 @@ export const DealActionsModal: React.FC<DealActionsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-end">
+        <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+            className="px-4 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
           >
             Close
           </button>
