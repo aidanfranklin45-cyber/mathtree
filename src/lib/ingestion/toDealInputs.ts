@@ -10,8 +10,8 @@
  * - The owner confirms the patch on the review screen before anything is saved. This module only proposes.
  */
 
-import type { IntakeDocument, LeaseIntake, LoanTermsIntake, OperatingStatementIntake, Reliability, RentRollIntake } from './intake';
-import { val } from './intake';
+import type { ExpenseCategory, IntakeDocument, LeaseIntake, LoanTermsIntake, OfferingMemorandumIntake, OperatingStatementIntake, Reliability, RentRollIntake } from './intake';
+import { missing as missingValue, val } from './intake';
 import { DOCUMENT_PROFILES } from './documentTypes';
 import { leaseMonthlyRent, rentRollTotals, rowMonthlyRent, statementTotals } from './normalize';
 import { checkEngineInputs, type MissingInput } from '../../../supabase/functions/_shared/inputRequirements';
@@ -174,13 +174,33 @@ function leasesFromRentRoll(doc: RentRollIntake, notes: string[]): LeaseRow[] {
   return out;
 }
 
-function applyOperatingStatement(b: Builder, doc: OperatingStatementIntake, leasesEmitted: boolean): void {
-  const t = statementTotals(doc);
+/** Expense lines that are inputs in their own right (not only part of the ratio), and the engine key each one sets. */
+const ITEM_KEYS: Partial<Record<ExpenseCategory, [string, string]>> = {
+  property_tax: ['annualTaxes', 'Property taxes'],
+  insurance: ['annualInsurance', 'Insurance'],
+  utilities: ['annualUtilities', 'Utilities'],
+  repairs_maintenance: ['annualMaintenance', 'Repairs and maintenance'],
+  reserves_capex: ['capexReserveAnnual', 'Replacement reserve'],
+};
+
+/**
+ * An income and expense table into inputs: the expense ratio, vacancy, and the lines that are inputs themselves (taxes, insurance,
+ * utilities, upkeep, reserves). `doc` is the document it came from, which decides how far the figures are trusted.
+ */
+function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc: IntakeDocument, leasesEmitted: boolean): void {
+  const t = statementTotals(stmt);
+  const source = doc.documentType === 'offering_memorandum' ? "offering memorandum (the seller's current column)" : 'operating statement';
+  for (const [category, [key, label]] of Object.entries(ITEM_KEYS) as Array<[ExpenseCategory, [string, string]]>) {
+    const lines = stmt.expenses.filter((l) => val(l.category) === category && val(l.amount) !== null);
+    if (lines.length === 0) continue;
+    const total = lines.reduce((s, l) => s + Math.abs(val(l.amount) as number), 0) * (t.annualFactor ?? 1);
+    if (total > 0) b.set(key, round2(total), doc, `${label} on the ${source}${t.months && t.months !== 12 ? `, annualised from ${t.months} months` : ''}`);
+  }
   if (t.operatingExpenses > 0 && t.grossRent > 0) {
     // The engine applies the expense ratio to gross rent before vacancy (the same basis as `grossRent` here), so that is the basis used.
     const ratio = round2((t.operatingExpenses / t.grossRent) * 100);
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
-    b.set('expenseRatio', ratio, doc, `Operating expenses ${Math.round(t.operatingExpenses).toLocaleString()} / gross rent ${Math.round(t.grossRent).toLocaleString()}${span}; reserves, debt service and depreciation excluded`);
+    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : 'Seller\'s figures: '}Operating expenses ${Math.round(t.operatingExpenses).toLocaleString()} / gross rent ${Math.round(t.grossRent).toLocaleString()}${span}; reserves, debt service and depreciation excluded`);
     if (t.excludedExpenses > 0) b.notes.push(`Left out of the expense ratio: ${Math.round(t.excludedExpenses).toLocaleString()} of reserves, debt service or depreciation.`);
   }
   if (t.income.other_income > 0) b.notes.push(`The statement shows ${Math.round(t.income.other_income).toLocaleString()} of other income a year; the engine does not model other income, so it is not in the result.`);
@@ -192,7 +212,32 @@ function applyOperatingStatement(b: Builder, doc: OperatingStatementIntake, leas
       b.set('vacancyRate', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)');
     }
   }
-  b.claim('reportedNoi', val(doc.reportedNoi), doc, 'NOI printed on the statement (seller figure)');
+  if (stmt.documentType === 'operating_statement') b.claim('reportedNoi', val(stmt.reportedNoi), doc, 'NOI printed on the statement (seller figure)');
+}
+
+/** The unit mix as the rent the property would collect now, and what the broker says the market would pay. */
+function applyUnitMix(b: Builder, doc: OfferingMemorandumIntake, leasesEmitted: boolean): void {
+  const rows = doc.unitMix.map((r) => ({ count: val(r.unitCount), current: val(r.currentMonthlyRent), market: val(r.marketMonthlyRent) })).filter((r) => r.count !== null && r.count > 0);
+  const priced = rows.filter((r) => r.current !== null);
+  const units = rows.reduce((s, r) => s + (r.count as number), 0);
+  if (units > 0 && val(doc.unitCount) === null) b.set('unitCount', units, doc, 'Sum of the unit mix in the offering memorandum');
+  if (priced.length === 0) return;
+  const pricedUnits = priced.reduce((s, r) => s + (r.count as number), 0);
+  const monthly = round2(priced.reduce((s, r) => s + (r.count as number) * (r.current as number), 0));
+  if (leasesEmitted) {
+    b.notes.push('The offering memorandum\'s unit mix rents were not applied: rent comes from the leases that were read.');
+  } else {
+    const how = `Current rents in the offering memorandum's unit mix (${pricedUnits} units, average ${Math.round(monthly / pricedUnits).toLocaleString()} a month)`;
+    b.set('grossRentPerMonth', monthly, doc, how);
+    b.set('monthlyRent', monthly, doc, how);
+    b.set('grossRentAnnual', round2(monthly * 12), doc, how);
+    b.set('monthlyRentPerUnit', round2(monthly / pricedUnits), doc, how);
+  }
+  const withMarket = priced.filter((r) => r.market !== null);
+  if (withMarket.length === priced.length) {
+    const market = priced.reduce((s, r) => s + (r.count as number) * (r.market as number), 0) / pricedUnits;
+    b.notes.push(`The broker's market rents average ${Math.round(market).toLocaleString()} a month against ${Math.round(monthly / pricedUnits).toLocaleString()} current. Current rents are used; the market figure is the broker's claim.`);
+  }
 }
 
 function applyLoan(b: Builder, doc: LoanTermsIntake, ctx: PatchContext, missing: string[]): void {
@@ -272,7 +317,7 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
   for (const doc of ordered) {
     switch (doc.documentType) {
       case 'operating_statement':
-        applyOperatingStatement(b, doc, leases.length > 0);
+        applyOperatingStatement(b, doc, doc, leases.length > 0);
         break;
       case 'loan_terms':
         applyLoan(b, doc, ctx, missing);
@@ -285,6 +330,22 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
         b.set('primaryApn', val(doc.apn), doc, 'Parcel number in the offering memorandum');
         b.set('squareFeet', val(doc.squareFeet), doc, 'Offering memorandum');
         b.set('unitCount', val(doc.unitCount), doc, 'Offering memorandum');
+        b.set('yearBuilt', val(doc.yearBuilt), doc, 'Year built in the offering memorandum');
+        const lotSf = val(doc.lotSqFt);
+        b.set('acres', val(doc.lotAcres) ?? (lotSf !== null && lotSf > 0 ? round2(lotSf / 43560) : null), doc, 'Land area in the offering memorandum');
+        // The list price is the natural starting price for a prospect, but it is the seller's number: it is offered, not assumed, and a
+        // price the owner already typed always wins
+        if (!ctx.purchasePrice) b.set('purchasePrice', val(doc.askingPrice), doc, "The seller's list price in the offering memorandum");
+        applyUnitMix(b, doc, leases.length > 0);
+        // The memorandum's income and expense table is the seller's own account of the property: read like a statement, trusted like a claim
+        if (doc.income.length > 0 || doc.expenses.length > 0) {
+          applyOperatingStatement(b, {
+            documentType: 'operating_statement',
+            periodStart: missingValue(), periodEnd: missingValue(),
+            income: doc.income, expenses: doc.expenses,
+            reportedEffectiveGrossIncome: missingValue(), reportedTotalExpenses: missingValue(), reportedNoi: missingValue(),
+          }, doc, leases.length > 0);
+        }
         // The broker's numbers are claims. They are shown next to the engine's result and never become inputs.
         b.claim('askingPrice', val(doc.askingPrice), doc, 'Asking price in the offering memorandum');
         b.claim('claimedNoi', val(doc.claimedNoi), doc, 'NOI claimed in the offering memorandum');

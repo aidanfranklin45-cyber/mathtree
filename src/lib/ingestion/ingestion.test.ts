@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LeaseIntake, LoanTermsIntake, OperatingStatementIntake, PurchaseAgreementIntake, RentRollIntake, RentRollRow, Sourced } from './intake';
+import type { IntakeDocument, LeaseIntake, LoanTermsIntake, OperatingStatementIntake, PurchaseAgreementIntake, RentRollIntake, RentRollRow, Sourced } from './intake';
 import { found, missing, val } from './intake';
 import { classifyDocument } from './documentTypes';
 import { leaseMonthlyRent, periodMonths, statementTotals } from './normalize';
@@ -181,14 +181,19 @@ describe('buildDealPatch', () => {
     expect(noPrice.missing.join(' ')).toMatch(/downPaymentPercent/);
   });
 
-  it('keeps broker figures out of the inputs', () => {
-    const r = buildDealPatch([{
+  it('uses the list price as a starting price, but keeps the NOI and cap rate the seller claims out of the inputs', () => {
+    const om = (): IntakeDocument => ({
       documentType: 'offering_memorandum', address: f('1 Main St'), city: missing(), state: missing(), zip: missing(), apn: missing(), assetClass: missing(),
       askingPrice: f(2000000), squareFeet: f(10000), lotAcres: missing(), yearBuilt: missing(), unitCount: missing(), occupancyPercent: f(100),
       claimedNoi: f(150000), claimedCapRatePercent: f(7.5), tenantSummaries: missing(),
-    }]);
+      lotSqFt: missing(), unitMix: [], income: [], expenses: [],
+    });
+    const r = buildDealPatch([om()]);
     expect(r.patch.address).toBe('1 Main St');
-    expect(r.patch.purchasePrice).toBeUndefined();
+    expect(r.patch.purchasePrice).toBe(2000000);
+    expect(r.provenance.purchasePrice.reliability).toBe('projected');
+    // a price the owner already typed always wins over the seller's
+    expect(buildDealPatch([om()], { purchasePrice: 1800000 }).patch.purchasePrice).toBe(1800000);
     expect(r.claims.claimedNoi.value).toBe(150000);
     expect(r.claims.askingPrice.value).toBe(2000000);
     expect(Object.keys(r.patch)).not.toContain('claimedNoi');

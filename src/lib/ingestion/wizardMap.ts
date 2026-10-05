@@ -32,7 +32,20 @@ const FINANCING = new Set(['fixed', 'arm', 'interest_only']);
 const DIRECT: Record<string, string> = {
   purchasePrice: 'price', closingDate: 'closingDate', closingCosts: 'closing', downPaymentPercent: 'down', interestRate: 'rate',
   amortizationYears: 'amort', interestOnlyYears: 'ioYears', expenseRatio: 'opexRatio', vacancyRate: 'vacancy',
+  annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
 };
+
+/** Rent figures the form derives from its own rent fields: nothing to set separately. */
+const DERIVED = new Set(['monthlyRent', 'grossRentAnnual']);
+
+/** The wizard keeps the monthly rent of the whole property in a field per asset class. */
+function setGrossRent(form: Form, asset: WizardAsset, monthly: number): void {
+  form.grossRent = numText(monthly);
+  if (asset === 'commercial') { form.commGrossRent = numText(monthly); form.commAnnualRent = numText(Math.round(monthly * 12)); }
+  else if (asset === 'multi-unit') form.multiGrossRent = numText(monthly);
+  else if (asset === 'storage') form.storageGrossRent = numText(monthly);
+  else form.sfrGrossRent = numText(monthly);
+}
 
 const has = (w: Form, k: string): boolean => (w[k] ?? '').trim() !== '';
 const numText = (n: unknown): string => String(n);
@@ -48,6 +61,7 @@ export function formAsInputs(w: Form, asset: WizardAsset): Record<string, unknow
   const units = UNIT_FIELD[asset];
   if (units) put('unitCount', n(units));
   put('leaseType', has(w, 'leaseType') ? w.leaseType : undefined);
+  put('grossRentPerMonth', n('grossRent'));
   return out;
 }
 
@@ -72,7 +86,19 @@ export function applyToForm(args: { form: Form; asset: WizardAsset; proposal: Pr
     const v = c.value;
     if (proposal.patch.basis[c.key]) basis[c.key] = proposal.patch.basis[c.key];
     if (DIRECT[c.key]) { form[DIRECT[c.key]] = numText(v); continue; }
+    if (DERIVED.has(c.key)) continue;
     switch (c.key) {
+      case 'grossRentPerMonth':
+        setGrossRent(form, asset, Number(v));
+        break;
+      case 'monthlyRentPerUnit':
+        if (asset === 'multi-unit') form.multiRentPerUnit = numText(v);
+        else if (asset === 'storage') form.storageRentPerUnit = numText(v);
+        break;
+      case 'capexReserveAnnual':
+        form.capexValue = numText(v);
+        form.capexKind = 'annual';
+        break;
       case 'address': {
         const street = String(v);
         const city = byKey.get('city');
@@ -106,13 +132,7 @@ export function applyToForm(args: { form: Form; asset: WizardAsset; proposal: Pr
         const leases = v as Array<{ monthlyRent?: number }>;
         extra.leases = leases;
         const monthly = Math.round(leases.reduce((s, l) => s + (Number(l.monthlyRent) || 0), 0) * 100) / 100;
-        if (monthly > 0) {
-          form.grossRent = numText(monthly);
-          if (asset === 'commercial') { form.commGrossRent = numText(monthly); form.commAnnualRent = numText(Math.round(monthly * 12)); }
-          else if (asset === 'multi-unit') form.multiGrossRent = numText(monthly);
-          else if (asset === 'storage') form.storageGrossRent = numText(monthly);
-          else form.sfrGrossRent = numText(monthly);
-        }
+        if (monthly > 0) setGrossRent(form, asset, monthly);
         break;
       }
       case 'city': case 'state': case 'zip':
