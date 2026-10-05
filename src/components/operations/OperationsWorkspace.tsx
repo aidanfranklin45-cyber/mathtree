@@ -29,7 +29,7 @@ import { buildRowView, type RowHandlers } from './rowStatus';
 
 type OpsSnapshot = {
   entities: Row[]; deals: Row[]; leases: Row[]; units: Row[]; payments: Row[]; increases: Row[]; baselines: Row[];
-  recTerms: Row[]; recItems: Row[]; recons: Row[]; meters: Row[]; readings: Row[]; recPrefs: RecoveryPrefs;
+  recTerms: Row[]; recItems: Row[]; recons: Row[]; recPrefs: RecoveryPrefs;
 };
 
 // Last loaded data, kept for the session so revisiting the page paints instantly while a fresh load runs in the background.
@@ -60,8 +60,6 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
   const [recTerms, setRecTerms] = useState<Row[]>(opsCache?.recTerms ?? []);
   const [recItems, setRecItems] = useState<Row[]>(opsCache?.recItems ?? []);
   const [recons, setRecons] = useState<Row[]>(opsCache?.recons ?? []);
-  const [meters, setMeters] = useState<Row[]>(opsCache?.meters ?? []);
-  const [readings, setReadings] = useState<Row[]>(opsCache?.readings ?? []);
   const [recPrefs, setRecPrefs] = useState<RecoveryPrefs>(opsCache?.recPrefs ?? DEFAULT_RECOVERY_PREFS);
   // Only show the blocking loading state when there is nothing cached to display
   const [loading, setLoading] = useState(!opsCache);
@@ -98,7 +96,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
       const { data: auth } = await supabase.auth.getSession();
       const uid = auth?.session?.user?.id;
       const scoped = (q: any) => (uid ? q.eq('user_id', uid) : q);
-      const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase, rTerms, rItems, rRecons, rMeters, rReads] = await Promise.allSettled([
+      const [rDeals, rLeases, rUnits, rPay, rInc, rEnt, rBase, rTerms, rItems, rRecons] = await Promise.allSettled([
         scoped(supabase.from('deals').select('*')).order('title', { ascending: true }),
         scoped(supabase.from('leases').select('*')).order('is_active', { ascending: false }),
         scoped(supabase.from('units').select('*')).order('unit_number', { ascending: true }),
@@ -109,8 +107,6 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
         scoped(supabase.from('lease_recovery_terms').select('*')),
         scoped(supabase.from('lease_recovery_items').select('*')).order('due_date', { ascending: true }),
         scoped(supabase.from('cam_reconciliations').select('*')),
-        scoped(supabase.from('utility_meters').select('*')),
-        scoped(supabase.from('meter_readings').select('*')),
       ]);
       const rows = (r: PromiseSettledResult<any>): Row[] => (r.status === 'fulfilled' && r.value.data) || [];
       // Recovery tables may not exist yet on an older database; that just means nothing is tracked.
@@ -133,8 +129,6 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
       setRecTerms(termRows);
       setRecItems(itemRows);
       setRecons(rows(rRecons));
-      setMeters(rows(rMeters));
-      setReadings(rows(rReads));
       setDeals(rows(rDeals));
       setLeases(rows(rLeases));
       setUnits(rows(rUnits));
@@ -145,7 +139,7 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
       opsCache = {
         entities: rows(rEnt), deals: rows(rDeals), leases: rows(rLeases), units: rows(rUnits), payments: rows(rPay),
         increases: rows(rInc), baselines: rows(rBase), recTerms: termRows, recItems: itemRows, recons: rows(rRecons),
-        meters: rows(rMeters), readings: rows(rReads), recPrefs: prefs,
+        recPrefs: prefs,
       };
     } catch (err) {
       console.error('Operations load error:', err);
@@ -585,8 +579,6 @@ export const OperationsWorkspace: React.FC<OperationsWorkspaceProps> = ({ locked
             terms={recTerms}
             items={recItems}
             recons={recons}
-            meters={meters}
-            readings={readings}
             leadDays={recPrefs.leadDays}
             onChanged={() => { void load(); }}
           />

@@ -8,7 +8,6 @@ import { setItemDone, syncRecoveryItems } from '../../lib/operations/recoveryDb'
 import { formatDateInput, parseDateInput, parsePercentInput } from '../../lib/operations/recoveryInput';
 import { CamReconciliation } from './CamReconciliation';
 import { money } from './money';
-import { MeterBilling } from './MeterBilling';
 
 type Row = Record<string, any>;
 
@@ -22,8 +21,6 @@ interface Props {
   terms: Row[];
   items: Row[];
   recons: Row[];
-  meters: Row[];
-  readings: Row[];
   /** Owner's reminder lead time per category, so "Due soon" here matches the alerts. */
   leadDays?: Partial<Record<RecoveryCategory, number>>;
   onChanged: () => void;
@@ -43,7 +40,7 @@ const field = 'w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-
 const lbl = 'block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 const today = () => new Date().toISOString().split('T')[0];
 
-export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft, unitSqft, terms, items, recons, meters, readings, leadDays, onChanged }) => {
+export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft, unitSqft, terms, items, recons, leadDays, onChanged }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -51,7 +48,7 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
 
   const [category, setCategory] = useState<RecoveryCategory>('property_tax');
   const [mode, setMode] = useState<RecoveryMode>('direct_pay');
-  const [basis, setBasis] = useState<'pro_rata_share' | 'fixed_amount' | 'actual_metered'>('fixed_amount');
+  const [basis, setBasis] = useState<'pro_rata_share' | 'fixed_amount'>('fixed_amount');
   const [frequency, setFrequency] = useState<RecoveryFrequency>('semiannual');
   const [firstDue, setFirstDue] = useState(formatDateInput(today()));
   const pickerRef = useRef<HTMLInputElement>(null);
@@ -107,7 +104,8 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
     if (c === 'property_tax') { setMode('direct_pay'); setFrequency('semiannual'); setBasis('fixed_amount'); }
     else if (c === 'insurance') { setMode('direct_pay'); setFrequency('annual'); setBasis('fixed_amount'); }
     else if (c === 'cam') { setMode('reimburse'); setFrequency('monthly'); setBasis('pro_rata_share'); }
-    else if (c === 'utilities_submetered') { setMode('reimburse'); setFrequency('monthly'); setBasis('actual_metered'); }
+    // Utilities are a reimbursed amount like any other: individual meters are not tracked
+    else if (c === 'utilities_submetered') { setMode('reimburse'); setFrequency('monthly'); setBasis('fixed_amount'); }
   };
 
   const views = leaseItems.flatMap((item) => {
@@ -118,7 +116,6 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
   const open = views.filter((v) => v.status !== 'complete');
   const done = views.filter((v) => v.status === 'complete').reverse();
   const camTerm = leaseTerms.find((t) => t.category === 'cam');
-  const meterTerms = leaseTerms.filter((t) => t.category === 'utilities_submetered');
 
   if (derived) {
     return <p className="text-xs text-slate-500">Set up this tenancy as a lease first (Edit lease), then you can track what the tenant owes beyond rent.</p>;
@@ -220,9 +217,6 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
           )}
 
           {camTerm && <CamReconciliation lease={lease} camTerm={camTerm} camItems={leaseItems.filter((i) => i.category === 'cam')} recons={recons.filter((r) => r.lease_id === lease.id)} onChanged={onChanged} />}
-          {meterTerms.length > 0 && (
-            <MeterBilling lease={lease} meterTerms={meterTerms} items={leaseItems} meters={meters.filter((m) => m.lease_id === lease.id)} readings={readings.filter((r) => r.lease_id === lease.id)} onChanged={onChanged} />
-          )}
         </>
       )}
     </div>
@@ -232,7 +226,6 @@ export const RecoveriesPanel: React.FC<Props> = ({ lease, derived, propertySqft,
 const ItemRow: React.FC<{ item: Row; term: Row; status: RecoveryStatus; busy: boolean; onDone: (done: boolean) => void }> = ({ item, term, status, busy, onDone }) => {
   const direct = term.mode === 'direct_pay';
   const amt = item.amount_actual ?? item.amount_expected;
-  const needsReading = term.basis === 'actual_metered' && amt == null && status !== 'complete';
   return (
     <li className="flex items-center justify-between gap-2 text-[11px] bg-slate-900 rounded-lg px-3 py-1.5">
       <span className="min-w-0 truncate">
@@ -244,8 +237,6 @@ const ItemRow: React.FC<{ item: Row; term: Row; status: RecoveryStatus; busy: bo
         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>
         {status === 'complete' ? (
           <button type="button" disabled={busy} onClick={() => onDone(false)} className="text-slate-500 hover:text-white transition">Undo</button>
-        ) : needsReading ? (
-          <span className="text-slate-500" title="Enter the meter reading below to bill this">Needs reading</span>
         ) : direct ? (
           <label className="flex items-center gap-1 text-slate-300 cursor-pointer">
             <input type="checkbox" disabled={busy} checked={false} onChange={() => onDone(true)} className="accent-emerald-500" /> Verified paid
