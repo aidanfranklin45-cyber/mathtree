@@ -54,7 +54,7 @@ export const SPECS: Record<Exclude<DocumentType, 'unknown'>, Spec> = {
   offering_memorandum: {
     fields: {
       address: 'string', city: 'string', state: 'string', zip: 'string', apn: 'string',
-      assetClass: ['commercial', 'multi_family', 'residential', 'storage'], askingPrice: 'number', squareFeet: 'number', lotAcres: 'number', lotSqFt: 'number',
+      assetClass: ['commercial', 'multi_family', 'residential', 'storage'], askingPrice: 'number', squareFeet: 'number', lotAcres: 'number', lotSqFt: 'number', averageCurrentRent: 'number', averageMarketRent: 'number',
       yearBuilt: 'number', unitCount: 'number', occupancyPercent: 'number', claimedNoi: 'number', claimedCapRatePercent: 'number', tenantSummaries: 'string',
     },
     lists: {

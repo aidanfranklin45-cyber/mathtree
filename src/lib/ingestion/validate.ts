@@ -99,6 +99,17 @@ export function validateIntake(doc: IntakeDocument): IntakeIssue[] {
       }
       const occ = val(doc.occupancyPercent);
       if (occ !== null && (occ < 0 || occ > 100)) err('occupancyPercent', 'Occupancy must be between 0 and 100 percent.');
+      // The unit mix was assembled by the model; these checks are what keep it honest
+      const mix = doc.unitMix.filter((r) => val(r.unitCount) !== null);
+      const units = val(doc.unitCount);
+      const mixUnits = mix.reduce((s, r) => s + (val(r.unitCount) as number), 0);
+      if (mix.length > 0 && units !== null && mixUnits !== units) warn('unitMix', `The unit mix adds up to ${mixUnits} units but the memorandum states ${units}. Check the unit counts.`);
+      const mk = mix.filter((r) => val(r.marketMonthlyRent) !== null);
+      const avgMarket = val(doc.averageMarketRent);
+      if (mk.length === mix.length && mk.length > 0 && avgMarket !== null && mixUnits > 0) {
+        const weighted = mk.reduce((s, r) => s + (val(r.unitCount) as number) * (val(r.marketMonthlyRent) as number), 0) / mixUnits;
+        if (off(weighted, avgMarket) && Math.abs(weighted - avgMarket) / avgMarket > 0.02) warn('unitMix', `The market rents in the unit mix average ${Math.round(weighted).toLocaleString()} a month, but the memorandum states ${Math.round(avgMarket).toLocaleString()}. Check the rents.`);
+      }
       break;
     }
 

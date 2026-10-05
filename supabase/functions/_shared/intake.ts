@@ -190,8 +190,11 @@ export interface OfferingMemorandumIntake {
   claimedCapRatePercent: S<number>;
   /** Tenant names and any lease facts the memorandum summarises; the leases themselves are the better source. */
   tenantSummaries: S<string>;
-  /** The unit mix table: one row per unit type, with the current rent and the broker's market rent, as printed. */
+  /** The unit mix: one row per unit type, assembled from wherever the document gives it (a table, a sentence, a comparables row for the property itself). */
   unitMix: UnitMixRow[];
+  /** Average rent per unit per month, when the document states it in words or a table. */
+  averageCurrentRent: S<number>;
+  averageMarketRent: S<number>;
   /** The memorandum's annual income and expense table, from its current (in-place) column. Subtotals and totals are not listed. */
   income: StatementLine<IncomeCategory>[];
   expenses: StatementLine<ExpenseCategory>[];

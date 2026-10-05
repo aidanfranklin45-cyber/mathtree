@@ -186,7 +186,7 @@ describe('buildDealPatch', () => {
       documentType: 'offering_memorandum', address: f('1 Main St'), city: missing(), state: missing(), zip: missing(), apn: missing(), assetClass: missing(),
       askingPrice: f(2000000), squareFeet: f(10000), lotAcres: missing(), yearBuilt: missing(), unitCount: missing(), occupancyPercent: f(100),
       claimedNoi: f(150000), claimedCapRatePercent: f(7.5), tenantSummaries: missing(),
-      lotSqFt: missing(), unitMix: [], income: [], expenses: [],
+      lotSqFt: missing(), averageCurrentRent: missing(), averageMarketRent: missing(), unitMix: [], income: [], expenses: [],
     });
     const r = buildDealPatch([om()]);
     expect(r.patch.address).toBe('1 Main St');

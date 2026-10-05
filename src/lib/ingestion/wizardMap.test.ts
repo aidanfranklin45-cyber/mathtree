@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
 import { formatValue, proposeChanges } from './apply';
+import { validateIntake } from './validate';
 import { applyToForm, assetFromDocs, deduceAsset, formAsInputs } from './wizardMap';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
@@ -155,5 +156,32 @@ describe('a memorandum whose unit mix is only a chart (no printed table)', () =>
   it('shows a year as a year', () => {
     expect(formatValue('yearBuilt', 2023)).toBe('2023');
     expect(formatValue('purchasePrice', 18400000)).toBe('18,400,000');
+  });
+});
+
+describe('a unit mix pieced together from text, then checked by code', () => {
+  const base = { address: box('5101 W Powerhouse Rd'), assetClass: box('multi_family'), unitCount: box(66), averageCurrentRent: box(1832), averageMarketRent: box(1905) };
+  const mix = (a: number, b: number) => [
+    { unitType: box('2 Bd TH'), unitCount: box(a), avgSqFt: box(1266), marketMonthlyRent: box(1850) },
+    { unitType: box('3 Bd TH'), unitCount: box(b), avgSqFt: box(1268), marketMonthlyRent: box(1950) },
+  ];
+
+  it('accepts a mix that adds up and averages to what the memorandum states', () => {
+    const om: any = coerceIntake('offering_memorandum', { ...base, unitMix: mix(30, 36) });
+    expect(validateIntake(om)).toEqual([]);
+  });
+
+  it('flags a mix whose counts do not add up, or whose rents do not average to the stated market rent', () => {
+    const wrongCount: any = coerceIntake('offering_memorandum', { ...base, unitMix: mix(30, 30) });
+    expect(validateIntake(wrongCount).map((i) => i.message).join(' ')).toContain('adds up to 60 units');
+    const wrongRent: any = coerceIntake('offering_memorandum', { ...base, averageMarketRent: box(2400), unitMix: mix(30, 36) });
+    expect(validateIntake(wrongRent).map((i) => i.message).join(' ')).toContain('market rents in the unit mix average');
+  });
+
+  it('with no per-type current rent, uses the stated average current rent times the units', () => {
+    const om: any = coerceIntake('offering_memorandum', { ...base, unitMix: mix(30, 36) });
+    const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    expect(p.patch.patch.grossRentPerMonth).toBe(120912); // 1,832 x 66
+    expect(p.patch.patch.monthlyRentPerUnit).toBe(1832);
   });
 });

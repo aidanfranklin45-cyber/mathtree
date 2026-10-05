@@ -358,6 +358,17 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
             reportedEffectiveGrossIncome: missingValue(), reportedTotalExpenses: missingValue(), reportedNoi: missingValue(),
           }, doc, leases.length > 0);
         }
+        // Still no rent: the average in-place rent the memorandum states, times the units
+        const avgCurrent = val(doc.averageCurrentRent);
+        const unitsForRent = Number(b.patch.unitCount);
+        if (leases.length === 0 && b.patch.grossRentPerMonth === undefined && avgCurrent !== null && unitsForRent > 0) {
+          const monthly = round2(avgCurrent * unitsForRent);
+          const how = `Average current rent stated in the offering memorandum (${Math.round(avgCurrent).toLocaleString()} a month) x ${unitsForRent} units`;
+          b.set('grossRentPerMonth', monthly, doc, how);
+          b.set('monthlyRent', monthly, doc, how);
+          b.set('grossRentAnnual', round2(monthly * 12), doc, how);
+          b.set('monthlyRentPerUnit', round2(avgCurrent), doc, how);
+        }
         // The broker's numbers are claims. They are shown next to the engine's result and never become inputs.
         // The list price is shown as a claim only when it was not used (the owner's own price, or a contract's, took its place)
         if (b.patch.purchasePrice !== val(doc.askingPrice)) b.claim('askingPrice', val(doc.askingPrice), doc, 'Asking price in the offering memorandum (not used: a price is already set)');

@@ -89,7 +89,7 @@ export const DOCUMENT_PROFILES: Record<Exclude<DocumentType, 'unknown'>, Documen
       'What is the asking or list price and the stated occupancy?',
       'What NOI and cap rate does the memorandum claim? (Record these as claims.)',
       'Which tenants does it summarise?',
-      'Unit mix: for each unit type, how many units, the average square feet, the current (in-place) monthly rent per unit and the market monthly rent per unit, exactly as printed? Use only numbers that appear as text; if the unit mix is only a chart with no printed numbers, leave it empty.',
+      'Unit mix: for each unit type, how many units, the average square feet, the current (in-place) monthly rent per unit and the market monthly rent per unit? Piece it together from anywhere in the text: a table, a sentence such as "30 two-bedroom and 36 three-bedroom units", or the row for the property itself in a rent comparables table (a rent there is the market or asking rent for that unit type unless the document says otherwise). Also give the average current rent and the average market rent per unit if the document states them. In the evidence, say where each figure came from. Use only figures that are printed as text, never an estimate, and leave a figure null when it is not printed.',
       'Income and expenses: list each income line and each expense line from the memorandum\'s annual table, using the CURRENT (in-place) column, with its amount as printed. Include vacancy, other income (utility reimbursements, pet, misc), and every expense line including reserves. Do not list subtotals or totals (such as total expenses, effective gross income or NOI).',
     ],
     feeds: ['identity', 'price'],
