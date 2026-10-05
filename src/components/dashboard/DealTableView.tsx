@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
+import { checkEngineInputs } from '../../lib/engine';
 import { formatCurrency } from '../../lib/format';
 import {
   ArrowUpDown,
@@ -188,6 +189,8 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
               const dealTitle = resolveDealDisplayName(deal);
               const locStr = deal.location || inputs.propertyAddress || deal.address || '—';
               const aClass = String(deal.asset_class || deal.assetType || 'commercial');
+              const missingInputs = checkEngineInputs(aClass, deal.inputs || {});
+              const needsInputs = missingInputs.length > 0;
 
               // Value & Equity
               const valueFormatted = pit.currentVal > 0 ? formatCurrency(pit.currentVal) : '—';
@@ -297,56 +300,75 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
                     </td>
                   )}
 
-                  {/* Current Value */}
-                  <td className="py-3 px-3 text-right font-mono font-bold text-white tabular-nums">
-                    {valueFormatted}
-                  </td>
-
-                  {/* Debt */}
-                  <td className="py-3 px-3 text-right font-mono text-slate-300 tabular-nums">
-                    {debtFormatted}
-                  </td>
-
-                  {/* Equity */}
-                  <td className="py-3 px-3 text-right font-mono text-white font-bold tabular-nums">
-                    {equityFormatted}
-                  </td>
-
-                  {/* Monthly Cash Flow with Estimated/Collected label */}
-                  <td className="py-3 px-3 text-right whitespace-nowrap">
-                    {cashFlowFormatted === '—' ? (
-                      <span className="font-mono text-slate-500">—</span>
-                    ) : (
-                      <div className="inline-flex flex-col items-end">
-                        <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                          {cashFlowFormatted}<span className="text-slate-400 font-sans text-[10px]">/mo</span>
+                  {needsInputs ? (
+                    <td colSpan={6} className="py-3 px-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                          Inputs needed ({missingInputs.length})
                         </span>
                         <span
-                          className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded ${
-                            hasCollections
-                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
-                              : monthlyCashFlowVal < 0
-                              ? 'bg-red-500/10 text-red-400'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
+                          className="text-[11px] text-slate-300 truncate max-w-[340px] cursor-help"
+                          title={missingInputs.map((m) => m.label).join(', ')}
                         >
-                          {hasCollections ? 'Collected' : 'Estimated'}
+                          {missingInputs.slice(0, 3).map((m) => m.label).join(' · ')}
+                          {missingInputs.length > 3 ? ' …' : ''}
                         </span>
                       </div>
-                    )}
-                  </td>
+                    </td>
+                  ) : (
+                    <>
+                      {/* Current Value */}
+                      <td className="py-3 px-3 text-right font-mono font-bold text-white tabular-nums">
+                        {valueFormatted}
+                      </td>
 
-                  {/* DSCR */}
-                  <td className="py-3 px-3 text-right font-mono font-semibold text-slate-300 tabular-nums">
-                    {dscrFormatted}
-                  </td>
+                      {/* Debt */}
+                      <td className="py-3 px-3 text-right font-mono text-slate-300 tabular-nums">
+                        {debtFormatted}
+                      </td>
 
-                  {/* Target Return (IRR / CoC) */}
-                  <td className={`py-3 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap ${
-                    returnFormatted === '—' || returnFormatted === 'N/M' ? 'text-slate-400' : isReturnNegative ? 'text-red-400' : 'text-emerald-400'
-                  }`}>
-                    {returnFormatted}
-                  </td>
+                      {/* Equity */}
+                      <td className="py-3 px-3 text-right font-mono text-white font-bold tabular-nums">
+                        {equityFormatted}
+                      </td>
+
+                      {/* Monthly Cash Flow with Estimated/Collected label */}
+                      <td className="py-3 px-3 text-right whitespace-nowrap">
+                        {cashFlowFormatted === '—' ? (
+                          <span className="font-mono text-slate-500">—</span>
+                        ) : (
+                          <div className="inline-flex flex-col items-end">
+                            <span className={`font-mono font-bold tabular-nums ${monthlyCashFlowVal < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                              {cashFlowFormatted}<span className="text-slate-400 font-sans text-[10px]">/mo</span>
+                            </span>
+                            <span
+                              className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded ${
+                                hasCollections
+                                  ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                                  : monthlyCashFlowVal < 0
+                                  ? 'bg-red-500/10 text-red-400'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {hasCollections ? 'Collected' : 'Estimated'}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* DSCR */}
+                      <td className="py-3 px-3 text-right font-mono font-semibold text-slate-300 tabular-nums">
+                        {dscrFormatted}
+                      </td>
+
+                      {/* Target Return (IRR / CoC) */}
+                      <td className={`py-3 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap ${
+                        returnFormatted === '—' || returnFormatted === 'N/M' ? 'text-slate-400' : isReturnNegative ? 'text-red-400' : 'text-emerald-400'
+                      }`}>
+                        {returnFormatted}
+                      </td>
+                    </>
+                  )}
 
                   {/* Actions Column */}
                   <td className="py-3 px-3 text-center whitespace-nowrap" data-no-row-click>

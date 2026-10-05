@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
+import { checkEngineInputs } from '../../lib/engine';
 import { formatCurrency } from '../../lib/format';
 import { currentLeases } from '../../lib/leases';
 import {
@@ -139,6 +140,8 @@ const DealCardComponent: React.FC<DealCardProps> = ({
   const engine = useMemo(() => tryComputeDealMetrics(deal), [deal]);
   const inputs = deal.inputs || {};
   const aClass = String(deal.asset_class || deal.assetType || 'single-family');
+  const missingInputs = useMemo(() => checkEngineInputs(aClass, deal.inputs || {}), [aClass, deal.inputs]);
+  const needsInputs = missingInputs.length > 0;
   const dealTitle = resolveDealDisplayName(deal);
   const locStr = deal.location || inputs.propertyAddress || deal.address || '—';
 
@@ -279,50 +282,68 @@ const DealCardComponent: React.FC<DealCardProps> = ({
           </div>
         </div>
 
-        {/* Dense Metrics Grid */}
-        <div className="grid grid-cols-3 gap-2 bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 text-center font-mono">
-          <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
-              {isOwned ? 'Current Value' : 'Price'}
-            </span>
-            <span className="text-xs font-black text-white mt-0.5 block tabular-nums">
-              {currentVal > 0 ? formatCurrency(currentVal) : '—'}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">Target IRR</span>
-            <span className={`text-xs font-black mt-0.5 block tabular-nums ${
-              !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400'
-            }`}>
-              {irrStr}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
-              {hasCollections ? 'Monthly Rent' : 'Est. Cash Flow'}
-            </span>
-            <span className={`text-xs font-black mt-0.5 block tabular-nums ${
-              monthlyCfVal < 0 ? 'text-red-400' : 'text-emerald-400'
-            }`}>
-              {hasCashFlow ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
-            </span>
-            {hasCashFlow ? (
-              <span
-                className={`text-[8px] font-bold block uppercase tracking-wider font-sans leading-none mt-0.5 ${
-                  hasCollections ? 'text-emerald-400' : monthlyCfVal < 0 ? 'text-red-400' : 'text-slate-400'
-                }`}
-              >
-                {hasCollections ? 'Collected' : 'Estimated'}
+        {/* Dense Metrics Grid or Inputs Needed State */}
+        {needsInputs ? (
+          <div className="bg-amber-950/20 border border-amber-900/40 p-3 rounded-xl text-left space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                Inputs needed ({missingInputs.length})
               </span>
-            ) : (
-              <span className="text-[8px] text-slate-500 block font-sans leading-none mt-0.5">
-                No Income
-              </span>
-            )}
+              <span className="text-[10px] text-amber-500/70 font-semibold font-sans">Strict Underwriting</span>
+            </div>
+            <p
+              className="text-[11px] text-slate-300 truncate font-sans cursor-help"
+              title={missingInputs.map((m) => m.label).join(', ')}
+            >
+              {missingInputs.slice(0, 3).map((m) => m.label).join(' · ')}
+              {missingInputs.length > 3 ? ' …' : ''}
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 bg-slate-950/70 p-3 rounded-xl border border-slate-800/80 text-center font-mono">
+            <div>
+              <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
+                {isOwned ? 'Current Value' : 'Price'}
+              </span>
+              <span className="text-xs font-black text-white mt-0.5 block tabular-nums">
+                {currentVal > 0 ? formatCurrency(currentVal) : '—'}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">Target IRR</span>
+              <span className={`text-xs font-black mt-0.5 block tabular-nums ${
+                !hasIrr || isZeroEq ? 'text-slate-400' : (rawIrr ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400'
+              }`}>
+                {irrStr}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-[9px] uppercase font-bold text-slate-500 block font-sans">
+                {hasCollections ? 'Monthly Rent' : 'Est. Cash Flow'}
+              </span>
+              <span className={`text-xs font-black mt-0.5 block tabular-nums ${
+                monthlyCfVal < 0 ? 'text-red-400' : 'text-emerald-400'
+              }`}>
+                {hasCashFlow ? `${formatCurrency(monthlyCfVal)}/mo` : '—'}
+              </span>
+              {hasCashFlow ? (
+                <span
+                  className={`text-[8px] font-bold block uppercase tracking-wider font-sans leading-none mt-0.5 ${
+                    hasCollections ? 'text-emerald-400' : monthlyCfVal < 0 ? 'text-red-400' : 'text-slate-400'
+                  }`}
+                >
+                  {hasCollections ? 'Collected' : 'Estimated'}
+                </span>
+              ) : (
+                <span className="text-[8px] text-slate-500 block font-sans leading-none mt-0.5">
+                  No Income
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Card Footer */}
