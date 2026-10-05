@@ -15,17 +15,25 @@ export async function readDocument(args: { text: string; filename?: string; docu
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error('Sign in to read a document.');
-  let res: Response;
-  try {
-    res = await fetch(`${SUPABASE_URL}/functions/v1/parse-document`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify(args),
-    });
-  } catch {
-    throw new Error('Could not reach the document reader. Check your connection and try again.');
+  // The reader already retries a busy model on its side. If the whole call still fails for a passing reason (busy, rate limited, a dropped
+  // connection), one more try a few seconds later usually succeeds. Setup problems (sign-in, billing, credentials) are not retried.
+  const PASSING = new Set([429, 502, 503, 504]);
+  for (let attempt = 0; ; attempt++) {
+    let res: Response | null = null;
+    try {
+      res = await fetch(`${SUPABASE_URL}/functions/v1/parse-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify(args),
+      });
+    } catch {
+      if (attempt >= 1) throw new Error('Could not reach the document reader. Check your connection and try again.');
+    }
+    if (res) {
+      const body = await res.json().catch(() => null);
+      if (res.ok) return body as ParsedDocument;
+      if (!PASSING.has(res.status) || attempt >= 1) throw new Error(body?.error || `The document reader returned ${res.status}.`);
+    }
+    await new Promise((r) => setTimeout(r, 4000));
   }
-  const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error || `The document reader returned ${res.status}.`);
-  return body as ParsedDocument;
 }

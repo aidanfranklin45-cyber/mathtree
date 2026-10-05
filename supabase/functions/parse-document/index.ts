@@ -37,6 +37,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
 
+  const startedAt = Date.now();
   const caller = await getCaller(req);
   if (!caller) return json({ error: "Sign in to read a document." }, 401);
   if (!gatewayConfigured()) return json({ error: "Document reading is not set up yet." }, 503);
@@ -75,8 +76,10 @@ export async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const reply = await generateJson({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text) });
-    const parsed = parseModelJson(reply);
+    const ask = () => generateJson({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text) });
+    let parsed = parseModelJson(await ask());
+    // An answer that is not JSON is rare and usually does not repeat: ask once more if there is time left in the request
+    if (parsed === null && Date.now() - startedAt < 60_000) parsed = parseModelJson(await ask());
     if (parsed === null) return json({ error: "The model's answer could not be read. Try again." }, 502);
 
     return json({
