@@ -347,7 +347,8 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
           }, doc, leases.length > 0);
         }
         // The broker's numbers are claims. They are shown next to the engine's result and never become inputs.
-        b.claim('askingPrice', val(doc.askingPrice), doc, 'Asking price in the offering memorandum');
+        // The list price is shown as a claim only when it was not used (the owner's own price, or a contract's, took its place)
+        if (b.patch.purchasePrice !== val(doc.askingPrice)) b.claim('askingPrice', val(doc.askingPrice), doc, 'Asking price in the offering memorandum (not used: a price is already set)');
         b.claim('claimedNoi', val(doc.claimedNoi), doc, 'NOI claimed in the offering memorandum');
         b.claim('claimedCapRatePercent', val(doc.claimedCapRatePercent), doc, 'Cap rate claimed in the offering memorandum');
         b.claim('statedOccupancyPercent', val(doc.occupancyPercent), doc, 'Occupancy stated in the offering memorandum');

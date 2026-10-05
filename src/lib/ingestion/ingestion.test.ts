@@ -195,7 +195,8 @@ describe('buildDealPatch', () => {
     // a price the owner already typed always wins over the seller's
     expect(buildDealPatch([om()], { purchasePrice: 1800000 }).patch.purchasePrice).toBe(1800000);
     expect(r.claims.claimedNoi.value).toBe(150000);
-    expect(r.claims.askingPrice.value).toBe(2000000);
+    expect(r.claims.askingPrice).toBeUndefined(); // used as the price, so not also listed as a claim
+    expect(buildDealPatch([om()], { purchasePrice: 1800000 }).claims.askingPrice.value).toBe(2000000); // not used: shown for comparison
     expect(Object.keys(r.patch)).not.toContain('claimedNoi');
   });
 

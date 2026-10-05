@@ -214,7 +214,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
           )}
           {Object.keys(proposal.patch.claims).length > 0 && (
             <div>
-              <h4 className="text-[11px] font-black text-slate-300">Claims in the documents (shown, never applied)</h4>
+              <h4 className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</h4>
               <ul className="text-[11px] text-slate-400">{Object.entries(proposal.patch.claims).map(([k, c]) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul>
             </div>
           )}
