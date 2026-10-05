@@ -201,7 +201,11 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
     const ratio = round2((t.operatingExpenses / t.grossRent) * 100);
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
     b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : 'Seller\'s figures: '}Operating expenses ${Math.round(t.operatingExpenses).toLocaleString()} / gross rent ${Math.round(t.grossRent).toLocaleString()}${span}; reserves, debt service and depreciation excluded`);
-    if (t.excludedExpenses > 0) b.notes.push(`Left out of the expense ratio: ${Math.round(t.excludedExpenses).toLocaleString()} of reserves, debt service or depreciation.`);
+    // The reserve is its own input (listed above), so it stays out of the ratio; debt service and depreciation are not applied at all
+    const reserves = stmt.expenses.filter((l) => val(l.category) === 'reserves_capex').reduce((s, l) => s + Math.abs(val(l.amount) ?? 0), 0) * (t.annualFactor ?? 1);
+    const notApplied = t.excludedExpenses - reserves;
+    if (reserves > 0) b.notes.push(`The replacement reserve (${Math.round(reserves).toLocaleString()} a year) is applied on its own, so it is not part of the expense ratio.`);
+    if (notApplied > 0.5) b.notes.push(`Not applied: ${Math.round(notApplied).toLocaleString()} of debt service or depreciation, which are not operating expenses.`);
   }
   if (t.income.other_income > 0) b.notes.push(`The statement shows ${Math.round(t.income.other_income).toLocaleString()} of other income a year; the engine does not model other income, so it is not in the result.`);
   if (t.income.vacancy_credit_loss > 0 && t.income.rent > 0) {
@@ -217,7 +221,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   const grossBeforeVacancy = doc.documentType === 'offering_memorandum' || t.income.vacancy_credit_loss > 0;
   if (!leasesEmitted && b.patch.grossRentPerMonth === undefined && t.income.rent > 0 && grossBeforeVacancy) {
     const monthly = round2(t.income.rent / 12);
-    const how = `Gross potential rent on the ${source}: ${Math.round(t.income.rent).toLocaleString()} a year`;
+    const how = `The income table in the ${source}: gross potential rent ${Math.round(t.income.rent).toLocaleString()} a year, divided by 12 (before vacancy)`;
     b.set('grossRentPerMonth', monthly, doc, how);
     b.set('monthlyRent', monthly, doc, how);
     b.set('grossRentAnnual', round2(t.income.rent), doc, how);

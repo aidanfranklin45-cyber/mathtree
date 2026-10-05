@@ -21,6 +21,8 @@ export interface ProposedChange {
   reliability: 'executed' | 'reported' | 'projected';
   /** The same value, as the deal will store it. */
   value: unknown;
+  /** Other inputs that are the same figure in another form (rent per year, per unit), applied together with this one. */
+  also?: Array<{ key: string; value: unknown }>;
   /** The deal already states a different value for this: ticking it replaces the owner's figure. */
   replaces: boolean;
 }
@@ -37,6 +39,9 @@ const humanize = (key: string): string => LABELS[key] ?? key.replace(/([A-Z])/g,
 
 /** Figures the form derives from each other: listing them as "already filled" would only repeat the rent. */
 const DERIVED_QUIET = new Set(['monthlyRent', 'grossRentAnnual']);
+
+/** Rent figures that are the same number in another form: shown as one row. */
+const RENT_FORMS = new Set(['monthlyRent', 'grossRentAnnual', 'monthlyRentPerUnit']);
 
 const PLAIN_NUMBER = new Set(['yearBuilt', 'taxYear']);
 
@@ -85,6 +90,17 @@ export function proposeChanges(
       replaces: stated,
     });
   }
+  // One rent, shown once: the monthly, yearly and per-unit forms are the same figure and are applied together
+  const rent = changes.find((c) => c.key === 'grossRentPerMonth');
+  if (rent) {
+    const parts = changes.filter((c) => RENT_FORMS.has(c.key));
+    const annual = parts.find((c) => c.key === 'grossRentAnnual');
+    const perUnit = parts.find((c) => c.key === 'monthlyRentPerUnit');
+    rent.also = parts.map((c) => ({ key: c.key, value: c.value }));
+    rent.label = 'Rent';
+    rent.proposed = `${formatValue('grossRentPerMonth', rent.value)} a month` + (annual ? ` (${formatValue('grossRentAnnual', annual.value)} a year` : '') + (perUnit ? `${annual ? ', ' : ' ('}${formatValue('monthlyRentPerUnit', perUnit.value)} a unit` : '') + (annual || perUnit ? ')' : '');
+    for (const c of parts) changes.splice(changes.indexOf(c), 1);
+  }
   // A new project has to choose an asset class: when the documents point to one, say so first (the wizard switches to it when ticked)
   if (opts.assetClass) {
     const found = deduceAsset(docs);
@@ -114,6 +130,7 @@ export function buildApplication(
   for (const c of proposal.changes) {
     if (!ticked.has(c.key)) continue;
     inputsPatch[c.key] = c.value;
+    for (const a of c.also ?? []) inputsPatch[a.key] = a.value;
     if (proposal.patch.basis[c.key]) basis[c.key] = proposal.patch.basis[c.key];
   }
   const existing = (deal.inputs ?? {}) as Record<string, any>;

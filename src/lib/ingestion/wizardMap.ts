@@ -112,7 +112,8 @@ export function applyToForm(args: { form: Form; asset: WizardAsset; proposal: Pr
   const form: Form = { ...args.form };
   const extra: Record<string, unknown> = {};
   const basis: Record<string, InputBasis> = {};
-  const accepted = proposal.changes.filter((c) => ticked.has(c.key));
+  // A row can stand for several inputs that are one figure (rent per month, per year, per unit): all of them are applied
+  const accepted = proposal.changes.filter((c) => ticked.has(c.key)).flatMap((c) => [c, ...(c.also ?? []).map((a) => ({ ...c, key: a.key, value: a.value, also: undefined }))]);
   const byKey = new Map(accepted.map((c) => [c.key, c.value]));
 
   for (const c of accepted) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
-import { formatValue, proposeChanges } from './apply';
+import { buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
 import { applyToForm, assetFromDocs, deduceAsset, formAsInputs } from './wizardMap';
 
@@ -138,7 +138,7 @@ describe('a memorandum whose unit mix is only a chart (no printed table)', () =>
     const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
     expect(p.patch.patch.grossRentPerMonth).toBe(120900); // 1,450,800 / 12
     expect(p.patch.patch.monthlyRentPerUnit).toBe(1831.82); // about $1,832 a unit, as the memorandum says
-    expect(p.patch.provenance.grossRentPerMonth.how).toContain('Gross potential rent');
+    expect(p.patch.provenance.grossRentPerMonth.how).toContain('gross potential rent');
   });
 
   it('on a second read of the same document, says what is already filled instead of silently showing less', () => {
@@ -183,5 +183,34 @@ describe('a unit mix pieced together from text, then checked by code', () => {
     const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
     expect(p.patch.patch.grossRentPerMonth).toBe(120912); // 1,832 x 66
     expect(p.patch.patch.monthlyRentPerUnit).toBe(1832);
+  });
+});
+
+describe('the review shows each figure once, in plain words', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  const om = coerceIntake('offering_memorandum', {
+    address: box('1 Main St'), assetClass: box('multi_family'), unitCount: box(66),
+    income: [line('Gross Potential Rent', 'rent', 1450800), line('Vacancy', 'vacancy_credit_loss', -72540)],
+    expenses: [line('RE Taxes', 'property_tax', 115670), line('Reserves', 'reserves_capex', 16500), line('Debt service', 'debt_service', 900000)],
+  });
+
+  it('lists the rent as one row, and applies every form of it', () => {
+    const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    const keys = p.changes.map((c) => c.key);
+    expect(keys.filter((k) => ['grossRentPerMonth', 'monthlyRent', 'grossRentAnnual', 'monthlyRentPerUnit'].includes(k))).toEqual(['grossRentPerMonth']);
+    const rent = p.changes.find((c) => c.key === 'grossRentPerMonth')!;
+    expect(rent.label).toBe('Rent');
+    expect(rent.proposed).toContain('120,900 a month');
+    expect(rent.proposed).toContain('1,450,800 a year');
+    expect(rent.how).toContain('income table');
+    const saved = buildApplication({ inputs: {} }, p, new Set(['grossRentPerMonth'])).inputsPatch;
+    expect(saved).toMatchObject({ grossRentPerMonth: 120900, monthlyRent: 120900, grossRentAnnual: 1450800 });
+  });
+
+  it('says the reserve is applied on its own, and that debt service is not applied', () => {
+    const notes = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} }).patch.notes.join(' | ');
+    expect(notes).toContain('replacement reserve (16,500 a year) is applied on its own');
+    expect(notes).toContain('Not applied: 900,000 of debt service or depreciation');
+    expect(notes).not.toContain('Left out of the expense ratio');
   });
 });
