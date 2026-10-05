@@ -215,7 +215,7 @@ export const DealStudioPage: React.FC = () => {
         {tab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
         {tab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
         {tab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
-        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
+        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} onOpenEdit={() => setIsEditModalOpen(true)} />}
         {tab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
       </main>
 
