@@ -119,7 +119,6 @@ Column lists are in `src/lib/supabase/types.ts` (regenerate it rather than hand-
 | `lease_recovery_terms` / `lease_recovery_items` | NNN recoveries (tax, insurance, CAM): terms and expected vs actual items |
 | `compare_views` | Saved Compare studio boards (private): deals, scenarios, metrics and view as JSON settings, never computed numbers |
 | `cam_reconciliations` | Annual CAM true-ups |
-| `utility_meters` / `meter_readings` | Sub-metered utility billing |
 | `parcels` | County GIS parcels attached to a deal (APN, assessed values, acres, zoning) |
 | `entities` | Owning legal entities (LLC etc). Names/structure only, never EIN or banking |
 | `profiles` | Investor profile and preferences (discount rate, exit assumptions, alert prefs, lease-expiry default) |

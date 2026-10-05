@@ -15,7 +15,7 @@ export const RECOVERY_CATEGORY_LABELS: Record<RecoveryCategory, string> = {
   property_tax: 'Property tax',
   insurance: 'Insurance',
   cam: 'CAM',
-  utilities_submetered: 'Submetered utilities',
+  utilities_submetered: 'Utilities',
   other: 'Other',
 };
 
