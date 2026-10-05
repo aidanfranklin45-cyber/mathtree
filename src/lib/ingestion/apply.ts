@@ -35,9 +35,15 @@ const LABELS: Record<string, string> = {
 
 const humanize = (key: string): string => LABELS[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 
+/** Figures the form derives from each other: listing them as "already filled" would only repeat the rent. */
+const DERIVED_QUIET = new Set(['monthlyRent', 'grossRentAnnual']);
+
+const PLAIN_NUMBER = new Set(['yearBuilt', 'taxYear']);
+
 export function formatValue(key: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return '';
   if (key === 'leases' && Array.isArray(v)) return `${v.length} tenant${v.length === 1 ? '' : 's'}`;
+  if (typeof v === 'number' && PLAIN_NUMBER.has(key)) return String(v); // a year is not a quantity: no thousands separator
   if (typeof v === 'number') return Number.isInteger(v) ? v.toLocaleString('en-US') : v.toLocaleString('en-US', { maximumFractionDigits: 2 });
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
@@ -48,6 +54,8 @@ const sameValue = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSO
 export interface Proposal {
   patch: DealPatch;
   changes: ProposedChange[];
+  /** Figures the documents state that the property (or form) already holds, so there is nothing to change. Shown so a repeat read is not a mystery. */
+  unchanged: Array<{ key: string; label: string; value: string }>;
 }
 
 export function proposeChanges(
@@ -60,10 +68,11 @@ export function proposeChanges(
   const patch = buildDealPatch(docs, { purchasePrice: price, assetClass: deal.asset_class ?? undefined, existingInputs: existing });
 
   const changes: ProposedChange[] = [];
+  const unchanged: Proposal['unchanged'] = [];
   for (const [key, value] of Object.entries(patch.patch)) {
     const prov = patch.provenance[key];
     const had = key === 'purchasePrice' ? (price ?? undefined) : existing[key];
-    if (sameValue(had, value)) continue; // nothing to change
+    if (sameValue(had, value)) { unchanged.push({ key, label: humanize(key), value: formatValue(key, value) }); continue; } // nothing to change
     const stated = had !== undefined && had !== null && had !== '' && !(Array.isArray(had) && had.length === 0);
     changes.push({
       key,
@@ -86,7 +95,7 @@ export function proposeChanges(
       });
     }
   }
-  return { patch, changes };
+  return { patch, changes, unchanged: unchanged.filter((u) => !DERIVED_QUIET.has(u.key)) };
 }
 
 export interface Application {

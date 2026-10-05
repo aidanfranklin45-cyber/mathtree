@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
-import { proposeChanges } from './apply';
+import { formatValue, proposeChanges } from './apply';
 import { applyToForm, assetFromDocs, deduceAsset, formAsInputs } from './wizardMap';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
@@ -121,5 +121,39 @@ describe('deducing the asset class', () => {
     const first = proposeChanges([om], { asset_class: 'commercial', purchase_price: null, inputs: {} }, { assetClass: true }).changes[0];
     expect(first).toMatchObject({ key: 'assetClass', proposed: 'Multi-unit', current: 'Commercial' });
     expect(proposeChanges([om], { asset_class: 'commercial', purchase_price: null, inputs: {} }).changes.some((c) => c.key === 'assetClass')).toBe(false);
+  });
+});
+
+describe('a memorandum whose unit mix is only a chart (no printed table)', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  const om = coerceIntake('offering_memorandum', {
+    address: box('5101 W Powerhouse Rd'), assetClass: box('multi_family'), askingPrice: box(18400000), squareFeet: box(83628), yearBuilt: box(2023), unitCount: box(66),
+    unitMix: [],
+    income: [line('Gross Potential Rent', 'rent', 1450800), line('Vacancy', 'vacancy_credit_loss', -72540), line('RUBS', 'recoveries', 103932)],
+    expenses: [line('RE Taxes', 'property_tax', 115670), line('Reserves', 'reserves_capex', 16500), line('Management', 'management', 53522)],
+  });
+
+  it('takes the in-place rent from the gross potential rent in the income table', () => {
+    const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    expect(p.patch.patch.grossRentPerMonth).toBe(120900); // 1,450,800 / 12
+    expect(p.patch.patch.monthlyRentPerUnit).toBe(1831.82); // about $1,832 a unit, as the memorandum says
+    expect(p.patch.provenance.grossRentPerMonth.how).toContain('Gross potential rent');
+  });
+
+  it('on a second read of the same document, says what is already filled instead of silently showing less', () => {
+    const first = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    const fill = applyToForm({ form: { financingType: 'fixed', capexKind: 'annual' }, asset: 'multi-unit', proposal: first, ticked: new Set(first.changes.map((c) => c.key)) });
+    const again = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: Number(fill.form.price), inputs: formAsInputs(fill.form, 'multi-unit') });
+    const keys = again.changes.map((c) => c.key);
+    for (const k of ['purchasePrice', 'unitCount', 'grossRentPerMonth', 'annualTaxes', 'capexReserveAnnual']) expect(keys).not.toContain(k);
+    const said = again.unchanged.map((u) => u.label).join(' | ');
+    expect(said).toContain('Purchase price');
+    expect(said).toContain('Property taxes');
+    expect(again.unchanged.map((u) => u.key)).not.toContain('monthlyRent'); // derived from the rent: not repeated
+  });
+
+  it('shows a year as a year', () => {
+    expect(formatValue('yearBuilt', 2023)).toBe('2023');
+    expect(formatValue('purchasePrice', 18400000)).toBe('18,400,000');
   });
 });

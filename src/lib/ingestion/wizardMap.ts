@@ -90,6 +90,11 @@ export function formAsInputs(w: Form, asset: WizardAsset): Record<string, unknow
   if (units) put('unitCount', n(units));
   put('leaseType', has(w, 'leaseType') ? w.leaseType : undefined);
   put('grossRentPerMonth', n('grossRent'));
+  put('monthlyRent', n('grossRent'));
+  put('grossRentAnnual', n('grossRent') === undefined ? undefined : (n('grossRent') as number) * 12);
+  put('monthlyRentPerUnit', asset === 'storage' ? n('storageRentPerUnit') : asset === 'multi-unit' ? n('multiRentPerUnit') : undefined);
+  // The reserve is one field in the form; which input it is depends on whether it is dollars or a percent of income
+  if (has(w, 'capexValue')) put(w.capexKind === 'percent' ? 'capexReservePercent' : 'capexReserveAnnual', n('capexValue'));
   return out;
 }
 

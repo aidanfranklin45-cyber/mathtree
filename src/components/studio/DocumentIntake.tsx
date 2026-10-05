@@ -212,6 +212,9 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
               ))}
             </ul>
           )}
+          {proposal.unchanged.length > 0 && (
+            <p className="text-[11px] text-slate-500">Already filled in and matching the documents: {proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(", ")}.</p>
+          )}
           {Object.keys(proposal.patch.claims).length > 0 && (
             <div>
               <h4 className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</h4>

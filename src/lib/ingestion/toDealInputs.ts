@@ -212,6 +212,18 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
       b.set('vacancyRate', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)');
     }
   }
+  // No leases and no unit mix gave a rent: the gross potential rent in the income table is the in-place rent. It is only taken when it is
+  // before vacancy (a memorandum's table, or a statement with its own vacancy line), so vacancy is not counted twice.
+  const grossBeforeVacancy = doc.documentType === 'offering_memorandum' || t.income.vacancy_credit_loss > 0;
+  if (!leasesEmitted && b.patch.grossRentPerMonth === undefined && t.income.rent > 0 && grossBeforeVacancy) {
+    const monthly = round2(t.income.rent / 12);
+    const how = `Gross potential rent on the ${source}: ${Math.round(t.income.rent).toLocaleString()} a year`;
+    b.set('grossRentPerMonth', monthly, doc, how);
+    b.set('monthlyRent', monthly, doc, how);
+    b.set('grossRentAnnual', round2(t.income.rent), doc, how);
+    const units = Number(b.patch.unitCount);
+    if (units > 0) b.set('monthlyRentPerUnit', round2(monthly / units), doc, how);
+  }
   if (stmt.documentType === 'operating_statement') b.claim('reportedNoi', val(stmt.reportedNoi), doc, 'NOI printed on the statement (seller figure)');
 }
 
