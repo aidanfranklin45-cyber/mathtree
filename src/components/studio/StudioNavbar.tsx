@@ -15,6 +15,7 @@ interface StudioNavbarProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
   onOpenEditModal: () => void;
+  onOpenDocuments?: () => void;
   onOpenHistoryModal?: () => void;
   onOpenShare?: () => void;
   onOpenRemodel?: () => void;
@@ -49,7 +50,7 @@ const ASSET_LABEL: Record<string, string> = {
 };
 
 export const StudioNavbar: React.FC<StudioNavbarProps> = ({
-  deal, metrics, lens, activeTab, onSelectTab, onOpenEditModal, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
+  deal, metrics, lens, activeTab, onSelectTab, onOpenEditModal, onOpenDocuments, onOpenHistoryModal, onOpenShare, onOpenRemodel, scenarioCount = 0,
 }) => {
   const [moduleOpen, setModuleOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -216,6 +217,12 @@ export const StudioNavbar: React.FC<StudioNavbarProps> = ({
 
         {/* Actions: Edit Inputs + menu */}
         <div className="flex items-center space-x-2 shrink-0">
+          {onOpenDocuments && (
+            <button onClick={onOpenDocuments} aria-label="Read documents" className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5">
+              <svg className="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span className="hidden sm:inline">Read documents</span>
+            </button>
+          )}
           <button onClick={onOpenEditModal} aria-label="Edit inputs" className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-center space-x-1.5">
             <svg className="w-3.5 h-3.5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
             <span className="hidden sm:inline">Edit Inputs</span>

@@ -6,6 +6,8 @@ interface Props {
   title: string;
   missing: MissingInput[];
   onEdit: () => void;
+  /** Opens the document reader, which can supply some of what is missing from a rent roll, lease, statement or loan terms. */
+  onReadDocuments?: () => void;
   /** Copies the owner's profile assumptions onto this property for what it is missing. Returns a one-line result to show. */
   onFill?: () => Promise<string>;
 }
@@ -14,7 +16,7 @@ interface Props {
  * What the studio shows when a property does not yet state everything the engine needs. The engine never fills a gap with a guess,
  * so this lists exactly what is missing and why, and takes the owner straight to the place to enter it.
  */
-export const InputsNeeded: React.FC<Props> = ({ title, missing, onEdit, onFill }) => {
+export const InputsNeeded: React.FC<Props> = ({ title, missing, onEdit, onFill, onReadDocuments }) => {
   const [filling, setFilling] = useState(false);
   const [fillNote, setFillNote] = useState<string | null>(null);
   const fill = async () => {
@@ -60,6 +62,11 @@ export const InputsNeeded: React.FC<Props> = ({ title, missing, onEdit, onFill }
           {onFill && (
             <button type="button" onClick={() => void fill()} disabled={filling} className="px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold disabled:opacity-50">
               {filling ? 'Filling…' : 'Fill from my assumptions'}
+            </button>
+          )}
+          {onReadDocuments && (
+            <button type="button" onClick={onReadDocuments} className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold">
+              Read a document
             </button>
           )}
           <button type="button" onClick={onEdit} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-bold">

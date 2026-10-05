@@ -23,6 +23,7 @@ import { DealInputs, DealRecord } from '../lib/math/types';
 import { ensureBaseline } from '../lib/baselines/db';
 import { Loader2 } from 'lucide-react';
 import { InputsNeeded } from '../components/studio/InputsNeeded';
+import { ReadDocumentsModal } from '../components/studio/modals/ReadDocumentsModal';
 import { getProfile } from '../lib/profile';
 import { missingInputsFor } from '../lib/engine/compute';
 import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../supabase/functions/_shared/underwritingAssumptions';
@@ -46,6 +47,7 @@ export const DealStudioPage: React.FC = () => {
   } = useDealStore(dealIdFromUrl);
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isRemodelOpen, setIsRemodelOpen] = useState(false);
   const [rawRuns, setRawRuns] = useState<ScenarioRun[]>([]);
@@ -158,7 +160,8 @@ export const DealStudioPage: React.FC = () => {
   if (!dealError && deal && !metrics && missing.length > 0) {
     return (
       <>
-        <InputsNeeded title={deal.title || 'This property'} missing={missing} onEdit={() => setIsEditModalOpen(true)} onFill={fillFromAssumptions} />
+        <InputsNeeded title={deal.title || 'This property'} missing={missing} onEdit={() => setIsEditModalOpen(true)} onFill={fillFromAssumptions} onReadDocuments={() => setIsDocumentsOpen(true)} />
+        <ReadDocumentsModal isOpen={isDocumentsOpen} deal={deal} onClose={() => setIsDocumentsOpen(false)} onApply={patchAndRecord} />
         <EditInputsModal isOpen={isEditModalOpen} deal={deal} onClose={() => setIsEditModalOpen(false)} onSave={patchAndRecord} />
       </>
     );
@@ -194,6 +197,7 @@ export const DealStudioPage: React.FC = () => {
         activeTab={tab}
         onSelectTab={setActiveTab}
         onOpenEditModal={() => setIsEditModalOpen(true)}
+        onOpenDocuments={() => setIsDocumentsOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onOpenShare={() => setIsShareOpen(true)}
         onOpenRemodel={() => setIsRemodelOpen(true)}
@@ -225,6 +229,8 @@ export const DealStudioPage: React.FC = () => {
         onClose={() => setIsEditModalOpen(false)}
         onSave={patchAndRecord}
       />
+
+      <ReadDocumentsModal isOpen={isDocumentsOpen} deal={deal} onClose={() => setIsDocumentsOpen(false)} onApply={patchAndRecord} />
 
       <RemodelModal isOpen={isRemodelOpen} deal={deal} onClose={() => setIsRemodelOpen(false)} onSave={(patch) => patchDeal(patch)} />
 

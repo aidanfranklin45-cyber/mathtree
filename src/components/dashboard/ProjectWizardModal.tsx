@@ -7,6 +7,8 @@ import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import type { DealRecord } from '../../lib/math/types';
+import { DocumentIntake, type IntakeAcceptance } from '../studio/DocumentIntake';
+import { applyToForm, assetFromDocs, formAsInputs } from '../../lib/ingestion/wizardMap';
 
 interface Props {
   isOpen: boolean;
@@ -133,12 +135,15 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   // Figures copied from the owner's profile assumptions, with their reasons; saved with the deal as its record of where numbers came from
   const [seededBasis, setSeededBasis] = useState<Record<string, InputBasis>>({});
   const [seedNote, setSeedNote] = useState<string | null>(null);
+  // Read from documents: figures the form has no field for (the tenant list, loan amount, parcel number), saved with the project
+  const [docExtra, setDocExtra] = useState<Record<string, unknown>>({});
+  const [docOpen, setDocOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!isOpen) return;
     setStep(1); setW(seed('commercial')); setIsNameTouched(false); setError(null); setSubmitting(false);
-    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null);
+    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({}); setDocOpen(false);
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
 
@@ -160,6 +165,19 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     }));
     setSeededBasis({});
     setSeedNote(null);
+  };
+
+  /** Documents the owner read: what they accepted fills the form (they can still change any of it in the steps); the rest rides along to creation. */
+  const applyDocuments = async ({ proposal, ticked, docs }: IntakeAcceptance): Promise<boolean> => {
+    const docAsset = assetFromDocs(docs);
+    const nextAsset = docAsset ?? asset;
+    const base: W = nextAsset === asset ? w : { ...seed(nextAsset), name: w.name, location: w.location, entity: w.entity };
+    const fill = applyToForm({ form: base, asset: nextAsset, proposal, ticked });
+    setW(fill.form);
+    setDocExtra((e) => ({ ...(nextAsset === asset ? e : {}), ...fill.extra }));
+    setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fill.basis }));
+    if (fill.form.location && fill.form.location !== w.location) onLocation(fill.form.location);
+    return true;
   };
 
   /** Copies the owner's profile assumptions into every blank field, with their reasons. Fields already filled are never overwritten. */
@@ -419,6 +437,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       };
       // Where each number came from: the owner's profile assumptions (with their reasons) or the owner's own entry
       inputs.assumptionBasis = reconcileBasis(seededBasis, inputs);
+      // What was read from documents and has no field in the wizard (never overrides a figure the form or the county record supplied)
+      for (const [k, v] of Object.entries(docExtra)) if (inputs[k] === undefined || inputs[k] === null) inputs[k] = v;
       Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
 
 
@@ -464,6 +484,26 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     <>
       {/* Step 1 */}
       <div className={`space-y-5 ${step === 1 ? '' : 'hidden'}`}>
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold text-white">Start from a document <span className="text-slate-500 font-semibold">(optional)</span></div>
+              <p className="text-[11px] text-slate-400">Offering memorandum, rent roll, leases, operating statement, loan terms or purchase agreement. It fills this form; you check every step before creating.</p>
+            </div>
+            <button type="button" onClick={() => setDocOpen((o) => !o)} className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              {docOpen ? 'Hide' : 'Add documents'}
+            </button>
+          </div>
+          {docOpen && (
+            <DocumentIntake
+              deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }}
+              applyLabel={(n) => `Fill the form with ${n} figure${n === 1 ? '' : 's'}`}
+              appliedNote="Filled in. Check each step, change anything that is not right, then create the project."
+              onApply={applyDocuments}
+            />
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <label htmlFor="wiz-deal-name" className={lbl}>Project / Deal Name</label>
           <input

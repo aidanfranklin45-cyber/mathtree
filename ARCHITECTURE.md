@@ -38,7 +38,7 @@ src/
                             never read by the engine. Pure lookup + plausibility checks the future CSV/OM parser can call
     assumptions/            ledger.ts: every figure a deal rests on, with where it came from (entered, document, profile, assumed)
     ingestion/              Intake groundwork for the document parser: document types, the questions to ask, normalising and
-                            validating extracted values into deal inputs. No parser yet; see section 8
+                            validating extracted values into deal inputs; the parser itself is the `parse-document` edge function (section 8)
     property/               Facts about an owned property (rent roll, payments) and its present state; no stored results
     baselines/ compare/ remodel/ operations/ underwriting/ portfolio/ export/ services/ auth/ studio/
 supabase/
@@ -150,6 +150,7 @@ Views: `view_monthly_rent_reconciliation` (lease × current period payment statu
 | `configure-lease-terms` | Save lease terms/escalations (does not touch deal `inputs`) |
 | `manage-profile`, `manage-entities`, `manage-collaboration` | Profile, entities, sharing/groups with server-side checks |
 | `batch-sync-gis` | Monthly county GIS re-sync of parcels (cron secret) |
+| `parse-document` | Reads a document's text into the intake schema (signed-in users). Redacts tenant names, phones and emails first, calls Gemini Flash only through Cloudflare AI Gateway (secrets `AI_GATEWAY_URL`, `CF_AIG_TOKEN`, optional `AI_MODEL`), returns facts with confidence and evidence. Writes nothing itself: the app applies what the owner accepts |
 
 Shared server rules live beside the engine in `_shared/` and are unit tested from `src/`: `reminderEligibility.ts`
 (contact a tenant only if the deal is owned, not demo, and the lease is in force today), `rentIncreaseRules.ts`
@@ -237,9 +238,11 @@ tenants reimburse them under NNN while leased. Property tax is the county's asse
 (county data holds no tax bill). Selling costs are optional: unstated means none. Utilities unstated means none carried.
 
 **Intake groundwork.** `lib/ingestion` defines the document types, the questions to ask for each, and the normalising and validation
-that turn extracted values into deal inputs the engine accepts. There is no parser or model call yet. Decisions already made for it: the
-owner creates the API key and spend cap (never handled in chat or the repo), tenant personal data is redacted before anything is sent,
-and extracted values land on a review screen before they touch a deal.
+that turn extracted values into deal inputs the engine accepts. The `parse-document` edge function is the parser (rules in
+`_shared/intakeParse.ts`, redaction in `_shared/redact.ts`, the gateway call in `_shared/aiGateway.ts`); the intake types and questions live in
+`_shared` so the function and the app share them. **Start from a document** in the new-project wizard (and **Read documents** on an existing deal, `ReadDocumentsModal`) share one component, `studio/DocumentIntake`. It takes PDF, CSV, text or pasted text (`ingestion/extractText.ts` rebuilds a PDF's text layer in the browser with `pdfjs-dist`, loaded only when a PDF is read; a scanned PDF is refused), calls the function, checks the result (`ingestion/validate.ts`), lines the figures up against what the deal states (`ingestion/apply.ts`), and applies only what the owner ticks: on an existing deal through the same save as Edit Inputs, in the wizard into its form fields (`ingestion/wizardMap.ts`; figures with no field, like the tenant list, ride along to creation). Each figure is recorded as document-sourced in `assumptionBasis`. Excel and OCR are not built. Decisions made for it: the model is reached
+only through Cloudflare AI Gateway, the owner holds the keys and spend limits (never handled in chat or the repo), tenant names, phones and
+emails are redacted before anything is sent, and extracted values land on a review screen before they touch a deal.
 
 **Market benchmarks** (`lib/benchmarks`, draft `13_market_benchmarks.sql`): dated, sourced public facts shown beside a property's numbers;
 never defaults and never read by the engine. The table is not yet created in the database.
