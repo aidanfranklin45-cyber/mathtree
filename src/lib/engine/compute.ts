@@ -1,5 +1,5 @@
 import type { DealInputs, DealMetrics, DealRecord, SensitivityMatrix, TaxMetrics } from '../math/types';
-import { calculateProjections, calculateSensitivityMatrix, calculateTaxMetrics } from './index';
+import { calculateProjections, calculateSensitivityMatrix, calculateTaxMetrics, IncompleteInputsError } from './index';
 import { applyLeaseExpiryDefaults } from '../../../supabase/functions/_shared/leaseExpiry';
 import { getExpiryDefaults } from './expiryDefaults';
 import { getAssumptionDefaults } from './assumptionDefaults';
@@ -146,7 +146,8 @@ export function tryComputeDealMetrics(deal: AnyDeal, overrides?: Partial<DealInp
   try {
     return computeDealMetrics(deal, overrides);
   } catch (err) {
-    console.warn('[engine] could not compute deal', (deal as { id?: string }).id, err);
+    // A property that does not yet state everything is an expected state (the screens say what is missing), not a fault worth logging
+    if (!(err instanceof IncompleteInputsError)) console.warn('[engine] could not compute deal', (deal as { id?: string }).id, err);
     return null;
   }
 }
