@@ -40,8 +40,9 @@ export function seedForm(deal: DealRecord): Form {
     marketTier: str(i.marketTier || i.commTier || i.storageTier) || 'Tier 2',
     propertyClass: str(i.propertyClass || i.commClass || i.storageClass) || 'Class B',
     facilityType: str(i.facilityType),
-    grossRentAnnual: str(preAnnual),
-    grossRentMonthly: str(preMonthly),
+    // Rents are shown in whole dollars: cents and floating-point noise (38192.399999999994) are not information
+    grossRentAnnual: str(preAnnual === undefined ? undefined : Math.round(Number(preAnnual))),
+    grossRentMonthly: str(preMonthly === undefined ? undefined : Math.round(Number(preMonthly))),
     vacancyRate: str(i.vacancyRate ?? i.vacancyRatePercent),
     rentGrowth: str(i.rentGrowth ?? i.annualRentGrowth ?? i.rentGrowthPercent),
     appreciation: str(appRate),
@@ -76,9 +77,12 @@ export function seedForm(deal: DealRecord): Form {
     amortization: str(i.amortizationYears ?? i.loanTerm),
     maturity: str(i.loanMaturityYears ?? i.loanTermYears),
     leaseType: i.leaseType || '',
-    tenantName: str(lease.tenantName || i.tenantName || deal.title),
-    leaseStart: str(lease.leaseStartDate || i.leaseStartDate || i.closingDate),
+    // Only what was entered: the project's name is not a tenant, and a closing date is not a lease start
+    tenantName: str(lease.tenantName || i.tenantName),
+    leaseStart: str(lease.leaseStartDate || i.leaseStartDate),
     leaseEnd: str(lease.leaseEndDate || i.leaseEndDate),
+    // Many leases (most residential) are month to month and have no end date: say so, rather than invent one
+    termType: str(lease.termType),
     escalationType: str(lease.escalationType) || 'Percentage Bump (%)',
     escalation: str(lease.escalationRate),
     nextEscalation: str(lease.nextEscalationDate),
@@ -116,6 +120,7 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
     return n === undefined ? undefined : Math.round(n);
   };
   const nonNeg = (v: string | undefined): number | null => { const n = opt(v); return n === undefined ? null : Math.max(0, n); };
+  const cents = (n: number): number => Math.round(n * 100) / 100;
   const annual = nonNeg(f.grossRentAnnual);
   const monthly = nonNeg(f.grossRentMonthly);
   const isIncomeValued = a === 'commercial' || a === 'storage';
@@ -179,7 +184,7 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
   if (a === 'single-family') {
     o.monthlyRent = monthly !== null ? monthly : annual !== null ? Math.round(annual / 12) : prev.monthlyRent;
     o.grossRentPerMonth = o.monthlyRent;
-    o.grossRentAnnual = o.monthlyRent !== undefined ? o.monthlyRent * 12 : undefined;
+    o.grossRentAnnual = o.monthlyRent !== undefined ? cents(o.monthlyRent * 12) : undefined;
     o.arv = opt(f.arv);
   } else if (a === 'multi-unit') {
     const units = optInt(f.unitCount);
@@ -188,9 +193,9 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
     if (monthly !== null) {
       o.monthlyRentPerUnit = monthly;
       // With no unit count the total cannot be worked out, so it is left blank rather than guessed
-      o.grossRentPerMonth = units ? monthly * units : undefined;
+      o.grossRentPerMonth = units ? cents(monthly * units) : undefined;
       o.monthlyRent = o.grossRentPerMonth;
-      o.grossRentAnnual = o.grossRentPerMonth !== undefined ? o.grossRentPerMonth * 12 : undefined;
+      o.grossRentAnnual = o.grossRentPerMonth !== undefined ? cents(o.grossRentPerMonth * 12) : undefined;
     } else if (annual !== null) {
       o.monthlyRentPerUnit = units ? Math.round(annual / 12 / units) : undefined;
       o.grossRentAnnual = annual;
@@ -208,7 +213,7 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
       o.grossRentPerMonth = Math.round(annual / 12);
       o.monthlyRent = o.grossRentPerMonth;
     } else if (monthly !== null) {
-      o.grossRentAnnual = monthly * 12;
+      o.grossRentAnnual = cents(monthly * 12);
       o.grossRentPerMonth = monthly;
       o.monthlyRent = monthly;
     } else {
@@ -227,9 +232,9 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
     if (monthly !== null) {
       o.monthlyRentPerUnit = monthly;
       o.storageRentPerUnit = monthly;
-      o.grossRentPerMonth = units ? monthly * units : undefined;
+      o.grossRentPerMonth = units ? cents(monthly * units) : undefined;
       o.monthlyRent = o.grossRentPerMonth;
-      o.grossRentAnnual = o.grossRentPerMonth !== undefined ? o.grossRentPerMonth * 12 : undefined;
+      o.grossRentAnnual = o.grossRentPerMonth !== undefined ? cents(o.grossRentPerMonth * 12) : undefined;
     } else if (annual !== null) {
       o.monthlyRentPerUnit = units ? Math.round(annual / 12 / units) : undefined;
       o.storageRentPerUnit = o.monthlyRentPerUnit;

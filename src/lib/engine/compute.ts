@@ -4,7 +4,7 @@ import { applyLeaseExpiryDefaults } from '../../../supabase/functions/_shared/le
 import { getExpiryDefaults } from './expiryDefaults';
 import { getAssumptionDefaults } from './assumptionDefaults';
 import { KEYS, checkEngineInputs, parseClosingDate, stated, type MissingInput } from '../../../supabase/functions/_shared/inputRequirements';
-import { seedFromAssumptions, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 
 /**
  * Compute-on-the-fly entry points. Everything derived from a deal (projections, amortization, IRR,
@@ -86,8 +86,8 @@ export function prepareEngineInputs(deal: AnyDeal, overrides?: Partial<DealInput
   // day the analysis is run, and the preliminary amortization schedule starts there. Dated leases are measured from a real closing date,
   // which stays required; so does a closing date when the owner has set no such assumption.
   const hasDatedLeases = Array.isArray(inputs.leases) && inputs.leases.some((l: any) => l?.leaseStartDate || l?.leaseEndDate);
-  const weeks = getAssumptionDefaults().assumptions.assumedClosingWeeks;
-  if (!parseClosingDate(inputs.closingDate) && !hasDatedLeases && weeks !== undefined) {
+  const weeks = getAssumptionDefaults().assumptions.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS;
+  if (!parseClosingDate(inputs.closingDate) && !hasDatedLeases) {
     // Counted from when the project was created, so the date does not drift from day to day
     const createdAt = Date.parse(String((deal as { created_at?: string }).created_at ?? ''));
     const start = Number.isFinite(createdAt) ? createdAt : Date.now();

@@ -3,6 +3,7 @@ import type { DealMetrics, DealRecord } from '../../lib/math/types';
 import { prepareEngineInputs, resolveProfileAssumptions } from '../../lib/engine/compute';
 import { useAssumptionVersion, getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
 import { buildAssumptionLedger, type LedgerRow } from '../../lib/assumptions/ledger';
+import { DEFAULT_CLOSING_WEEKS } from '../../../supabase/functions/_shared/underwritingAssumptions';
 
 interface Props {
   deal: DealRecord;
@@ -35,7 +36,7 @@ export const AssumptionsLedger: React.FC<Props> = ({ deal, metrics, onOpenEdit }
       filledBasis: basis,
       assetClass: String(deal.asset_class ?? 'commercial'),
       metrics,
-      assumedClosingWeeks: getAssumptionDefaults().assumptions.assumedClosingWeeks,
+      assumedClosingWeeks: getAssumptionDefaults().assumptions.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deal, metrics, version]);

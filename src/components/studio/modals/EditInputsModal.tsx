@@ -6,7 +6,7 @@ import { AddressService } from '../../../lib/services/addressService';
 import { computeDealMetrics, resolveProfileAssumptions } from '../../../lib/engine/compute';
 import { IncompleteInputsError, type MissingInput } from '../../../lib/engine';
 import { getProfile } from '../../../lib/profile';
-import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, reconcileBasis, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../../supabase/functions/_shared/underwritingAssumptions';
 import { formatCurrency } from '../../../lib/format';
 import { rentRollToInputs } from '../../../lib/underwriting/rentRollInputs';
 
@@ -177,9 +177,11 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     // In-place lease terms
     const monthlyRent = built.monthlyRent || built.grossRentPerMonth || 0;
     if (!rollMode) {
-      patch.tenantName = form.tenantName.trim() || name;
-      patch.leaseStartDate = form.leaseStart || built.closingDate || '';
-      patch.leaseEndDate = form.leaseEnd || '';
+      // Only what was entered. The project's name is not a tenant, a closing date is not a lease start, and a month-to-month
+      // tenancy has no end date (and none is made up).
+      patch.tenantName = form.tenantName.trim();
+      patch.leaseStartDate = form.leaseStart || '';
+      patch.leaseEndDate = form.termType === 'month_to_month' ? '' : (form.leaseEnd || '');
     }
     const existingLease = (Array.isArray((deal.inputs as any)?.leases) && (deal.inputs as any).leases[0]) || {};
     const numOr = (v: string, fb: number) => { const n = parseFloat(v); return isNaN(n) ? fb : n; };
@@ -202,6 +204,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
           reletRentChangePct: form.expiryAssumption === 'relet' ? numOr(form.reletRentChangePct, 0) : undefined,
           reletCosts: form.expiryAssumption === 'relet' ? numOr(form.reletCosts, 0) : undefined,
           tenantName: patch.tenantName,
+          termType: form.termType || undefined,
           monthlyRent,
           annualRent: monthlyRent * 12,
           leaseStartDate: patch.leaseStartDate,
@@ -257,8 +260,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
         </div>
 
         <form noValidate onSubmit={submit} className="space-y-4">
-          {!form.closingDate && getProfile().underwritingAssumptions?.assumedClosingWeeks !== undefined && (
-            <p role="status" className="text-[11px] text-slate-400">No closing date entered: the numbers assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks} weeks after today (your profile setting).</p>
+          {!form.closingDate && (
+            <p role="status" className="text-[11px] text-slate-400">No closing date entered: the numbers assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after this project was created (the standard, or your profile setting).</p>
           )}
           {covered.length > 0 && (
             <div role="status" className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
@@ -672,7 +675,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               </div>
               <div className="space-y-1">
                 <label className={label}>Lease Expiration</label>
-                <input type="date" value={form.leaseEnd} onChange={(e) => set('leaseEnd', e.target.value)} className={inp2} />
+                <input type="date" value={form.termType === 'month_to_month' ? '' : form.leaseEnd} disabled={form.termType === 'month_to_month'} onChange={(e) => set('leaseEnd', e.target.value)} className={`${inp2} ${form.termType === 'month_to_month' ? 'opacity-50' : ''}`} />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -693,7 +696,15 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className={label} title="Many leases, most residential ones, run month to month and have no end date.">Lease Term</label>
+                <select value={form.termType} onChange={(e) => set('termType', e.target.value)} className={inp2}>
+                  <option value="">Not specified</option>
+                  <option value="fixed">Fixed term</option>
+                  <option value="month_to_month">Month to month</option>
+                </select>
+              </div>
               <div className="space-y-1">
                 <label className={label}>Rent Due Day of Month</label>
                 <input type="number" min="1" max="31" step="1" value={form.dueDay} onChange={(e) => set('dueDay', e.target.value)} className={inp2} />
