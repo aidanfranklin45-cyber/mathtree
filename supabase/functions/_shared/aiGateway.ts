@@ -5,7 +5,8 @@
 //                                                                                       OpenAI-compatible chat endpoint beside it)
 //                     https://gateway.ai.cloudflare.com/v1/{account}/{gateway}[/google-ai-studio]   (an AI Gateway address)
 //   CF_AIG_TOKEN    the Cloudflare token. Sent as `Authorization: Bearer` to the account API, and as `cf-aig-authorization` to a gateway.
-// Optional: AI_MODEL_FALLBACK, backup model names (comma separated) tried if the main one stays busy or unavailable. AI_BYOK_ALIAS, the name the Google key is stored under in the gateway when it is not "default". AI_GATEWAY_ID, the gateway's name (sent as `cf-aig-gateway-id` so the account API routes the call through that gateway for its
+// Optional: AI_MODELS, the model names allowed (comma separated), tried in random order, each at most once per call (AI_MODEL_ORDER=listed keeps
+// the listed order). AI_MODEL and AI_MODEL_FALLBACK are still read when AI_MODELS is not set. AI_BYOK_ALIAS, the name the Google key is stored under in the gateway when it is not "default". AI_GATEWAY_ID, the gateway's name (sent as `cf-aig-gateway-id` so the account API routes the call through that gateway for its
 // logging, caching and limits). AI_MODEL (default below). GEMINI_API_KEY is only sent to a gateway, if set, when the gateway does not store the provider key.
 
 // Deno's global, declared so the browser-side type-check (which imports this from tests) compiles
@@ -69,8 +70,9 @@ export function gatewayConfigured(): boolean {
   return !!env('AI_GATEWAY_URL') && !!env('CF_AIG_TOKEN');
 }
 
+/** The first model of the pool: a stand-in name where no particular call is involved. */
 export function modelName(): string {
-  return env('AI_MODEL') || DEFAULT_MODEL;
+  return modelPool()[0];
 }
 
 export interface ModelRequest {
@@ -134,23 +136,53 @@ function shapeOf(url: string): string {
   }
 }
 
-/** Statuses that clear by themselves: busy, rate limited, or a hiccup upstream. Anything else is a setup problem and is not retried. */
-const TRANSIENT = new Set([429, 500, 502, 503, 504]);
 /** Statuses that name their reason in the message: setup problems the owner can fix, and busy/limit notices. */
 const EXPLAINED = new Set([400, 401, 402, 403, 404, 405, 409, 413, 422, 429, 500, 503]);
-/** The whole call, retries and backup models included, must finish inside the platform's request limit (150 seconds on the free plan). */
+/** Another model may succeed where this one did not: busy, over its quota, a hiccup, or a name the service does not know. */
+const TRY_NEXT = new Set([400, 404, 429, 500, 502, 503, 504]);
+/** Models tried in one call. A free tier counts every request, so a failing call does not keep knocking. */
+export const MAX_MODELS_PER_CALL = 4;
+/** The whole call must finish inside the platform's request limit (150 seconds on the free plan). */
 export const CALL_DEADLINE_MS = 100_000;
-const BACKOFF_MS = [2_000, 5_000];
+
+/**
+ * Models that just ran out of quota, and until when (this process only). Free-tier limits are per model, per minute and per day, so a
+ * model that answered 429 is left alone for a minute, or for half an hour when the reply says its daily allowance is gone.
+ */
+const coolingUntil = new Map<string, number>();
+
+export function resetCooldowns(): void {
+  coolingUntil.clear();
+}
+
+/** The models allowed for this app, from AI_MODELS (comma separated); AI_MODEL and AI_MODEL_FALLBACK are still read; else the default. */
+export function modelPool(): string[] {
+  const raw = env('AI_MODELS') || [env('AI_MODEL'), env('AI_MODEL_FALLBACK')].filter(Boolean).join(',');
+  const names = raw.split(',').map((m) => m.trim()).filter(Boolean);
+  return [...new Set(names.length > 0 ? names : [DEFAULT_MODEL])];
+}
+
+/**
+ * The order to try the pool in: shuffled, so no single model's quota carries the load (AI_MODEL_ORDER=listed keeps the listed order),
+ * with models that are cooling down put last.
+ */
+export function orderModels(pool: string[], opts: { random?: () => number; now?: number; listed?: boolean } = {}): string[] {
+  const random = opts.random ?? Math.random;
+  const now = opts.now ?? Date.now();
+  const listed = opts.listed ?? env('AI_MODEL_ORDER').trim().toLowerCase() === 'listed';
+  const order = [...pool];
+  if (!listed) for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  const ready = order.filter((m) => (coolingUntil.get(m) ?? 0) <= now);
+  const resting = order.filter((m) => (coolingUntil.get(m) ?? 0) > now);
+  return [...ready, ...resting];
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Model names to try in order: the main one, then any backups from AI_MODEL_FALLBACK (comma separated). */
-export function modelChain(): string[] {
-  const backups = env('AI_MODEL_FALLBACK').split(',').map((m) => m.trim()).filter(Boolean);
-  return [modelName(), ...backups.filter((m) => m !== modelName())];
-}
-
-async function failure(res: Response, req: ModelRequest, model: string): Promise<GatewayError> {
+async function failure(res: Response, req: ModelRequest, model: string): Promise<{ error: GatewayError; reason: string }> {
   // For setup problems the reason is passed on, cut short: it is what lets the owner fix the configuration. Other failures report the
   // status only, since a body could echo document text.
   let reason = '';
@@ -169,15 +201,22 @@ async function failure(res: Response, req: ModelRequest, model: string): Promise
   const shape = shapeOf(req.url);
   const via = res.headers.get('cf-ray') ? 'Cloudflare' : res.headers.get('server') || 'unknown server';
   console.error(`[ai-gateway] ${res.status} via=${via} mode=${req.mode} model=${model} endpoint=${shape}${reason ? ` reason=${reason}` : ''}`);
-  return new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} [${via}; ${req.mode}; ${model}; ${shape}]`, res.status === 429 ? 429 : 502);
+  return { error: new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} [${via}; ${req.mode}; ${model}; ${shape}]`, res.status === 429 ? 429 : 502), reason };
+}
+
+export interface ModelReply {
+  text: string;
+  /** The model that actually answered. */
+  model: string;
 }
 
 /**
- * One JSON-answer call. Returns the model's reply text. Document text is in `user`, the rules in `system`.
- * It keeps trying when the service is only busy: up to three attempts per model with a pause between them, then the next model in
- * AI_MODEL_FALLBACK, all inside one overall time limit. A setup problem (credentials, billing, a bad request) fails at once.
+ * One JSON-answer call. Document text is in `user`, the rules in `system`.
+ * Each model in the pool is asked at most once: a model that is busy, out of quota or unknown is skipped for the next one straight away,
+ * with no waiting and no repeat requests (every request counts against a free tier). With a single model in the pool one retry is made
+ * after a short pause. A setup problem (credentials, billing, a bad request) fails at once.
  */
-export async function generateJson(args: { system: string; user: string; timeoutMs?: number }): Promise<string> {
+export async function generateJsonDetailed(args: { system: string; user: string; timeoutMs?: number }): Promise<ModelReply> {
   // Secrets pasted into a dashboard often carry quotes, spaces or a "Bearer " prefix; none of those belong in the value
   const clean = (v: string) => v.trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '').trim();
   const base = clean(env('AI_GATEWAY_URL'));
@@ -187,36 +226,42 @@ export async function generateJson(args: { system: string; user: string; timeout
   const gatewayId = clean(env('AI_GATEWAY_ID')) || undefined;
   const byokAlias = clean(env('AI_BYOK_ALIAS')) || undefined;
 
+  const pool = modelPool();
+  const queue = orderModels(pool);
+  // A single-model pool gets one more go at the same model, since there is no other to turn to
+  const attempts = pool.length === 1 ? [pool[0], pool[0]] : queue.slice(0, MAX_MODELS_PER_CALL);
   const started = Date.now();
   const left = () => CALL_DEADLINE_MS - (Date.now() - started);
   let last: GatewayError = new GatewayError('Could not reach the AI gateway.', 504);
 
-  for (const model of modelChain()) {
+  for (let i = 0; i < attempts.length; i++) {
+    const model = attempts[i];
+    if (left() < 5_000) break;
     const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey, gatewayId, byokAlias });
-    for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
-      if (left() < 5_000) throw last;
-      let res: Response;
-      try {
-        res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(Math.min(args.timeoutMs ?? 55_000, left())), body: req.body });
-      } catch (e) {
-        last = new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504);
-        if (attempt < BACKOFF_MS.length && left() > BACKOFF_MS[attempt] + 5_000) { await sleep(BACKOFF_MS[attempt]); continue; }
-        break;
-      }
-      if (res.ok) {
-        const text = replyText(await res.json().catch(() => null));
-        if (text) return text;
-        last = new GatewayError('The model returned no answer.', 502);
-        if (attempt < BACKOFF_MS.length && left() > BACKOFF_MS[attempt] + 5_000) { await sleep(BACKOFF_MS[attempt]); continue; }
-        break;
-      }
-      last = await failure(res, req, model);
-      if (res.status === 404 || res.status === 400) break; // this model name is not accepted: try the next one, if any
-      if (!TRANSIENT.has(res.status)) throw last; // credentials, billing, size: retrying cannot help
-      const wait = Math.min(Number(res.headers.get('retry-after')) * 1000 || BACKOFF_MS[attempt] || 0, 8_000);
-      if (attempt < BACKOFF_MS.length && left() > wait + 5_000) await sleep(wait);
-      else break;
+    let res: Response;
+    try {
+      res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(Math.min(args.timeoutMs ?? 55_000, left())), body: req.body });
+    } catch (e) {
+      last = new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504);
+      if (pool.length === 1 && i === 0 && left() > 8_000) await sleep(2_500);
+      continue;
     }
+    if (res.ok) {
+      const text = replyText(await res.json().catch(() => null));
+      if (text) return { text, model };
+      last = new GatewayError('The model returned no answer.', 502);
+      continue;
+    }
+    const { error, reason } = await failure(res, req, model);
+    last = error;
+    if (res.status === 429) coolingUntil.set(model, Date.now() + (/day/i.test(reason) ? 30 * 60_000 : 60_000));
+    if (!TRY_NEXT.has(res.status)) throw error; // credentials, billing, size: another model will not help
+    if (pool.length === 1 && i === 0 && left() > 8_000) await sleep(2_500);
   }
   throw last;
+}
+
+/** The model's reply text for one JSON-answer call (see `generateJsonDetailed`). */
+export async function generateJson(args: { system: string; user: string; timeoutMs?: number }): Promise<string> {
+  return (await generateJsonDetailed(args)).text;
 }

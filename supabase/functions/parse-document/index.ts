@@ -10,7 +10,7 @@ import { serve } from "std/http/server.ts";
 import { getCaller } from "../_shared/auth.ts";
 import { classifyDocument, CLEAR_ENOUGH } from "../_shared/documentTypes.ts";
 import { redactForModel } from "../_shared/redact.ts";
-import { GatewayError, gatewayConfigured, generateJson, modelName } from "../_shared/aiGateway.ts";
+import { GatewayError, gatewayConfigured, generateJson, generateJsonDetailed, modelName } from "../_shared/aiGateway.ts";
 import {
   buildClassifyPrompt,
   buildExtractionPrompt,
@@ -76,10 +76,14 @@ export async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const ask = () => generateJson({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text) });
-    let parsed = parseModelJson(await ask());
+    const ask = () => generateJsonDetailed({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text) });
+    let answered = await ask();
+    let parsed = parseModelJson(answered.text);
     // An answer that is not JSON is rare and usually does not repeat: ask once more if there is time left in the request
-    if (parsed === null && Date.now() - startedAt < 60_000) parsed = parseModelJson(await ask());
+    if (parsed === null && Date.now() - startedAt < 60_000) {
+      answered = await ask();
+      parsed = parseModelJson(answered.text);
+    }
     if (parsed === null) return json({ error: "The model's answer could not be read. Try again." }, 502);
 
     return json({
@@ -87,7 +91,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       classification: { ...classification, thresholds: CLEAR_ENOUGH },
       intake: coerceIntake(documentType, parsed, redaction.restore),
       redaction: redaction.report,
-      model: modelName(),
+      model: answered.model,
     });
   } catch (e) {
     if (e instanceof GatewayError) return json({ error: e.message }, e.status);
