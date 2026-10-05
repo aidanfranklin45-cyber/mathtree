@@ -51,6 +51,8 @@ export interface UnderwritingAssumptions {
    */
   propertyTaxRatePercent?: number;
   propertyTaxRateRationale?: string;
+  /** A pipeline deal with no closing date is assumed to close this many weeks after the day the analysis is run. */
+  assumedClosingWeeks?: number;
 }
 
 export type AssumptionField = Exclude<keyof AssetAssumptions, 'rationale' | 'capexBasis'>;
@@ -109,6 +111,8 @@ export function sanitizeAssumptions(raw: unknown): UnderwritingAssumptions {
   if (taxWhy) out.taxRateRationale = taxWhy;
   const propTax = finite(r.propertyTaxRatePercent);
   if (propTax !== undefined && propTax >= 0 && propTax <= 10) out.propertyTaxRatePercent = propTax;
+  const weeks = finite(r.assumedClosingWeeks);
+  if (weeks !== undefined && weeks >= 0 && weeks <= 52) out.assumedClosingWeeks = Math.round(weeks);
   const propTaxWhy = text(r.propertyTaxRateRationale);
   if (propTaxWhy && out.propertyTaxRatePercent !== undefined) out.propertyTaxRateRationale = propTaxWhy;
 
@@ -246,31 +250,66 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
 }
 
 /**
- * Conventional starting points for the carrying costs and reserves, offered so a new profile is not blank. They are the engine's NOT: they
- * only enter a profile when the owner chooses to use them, each with a plain statement that it is a starting convention and not a sourced
- * market figure, and the owner is expected to replace them with their own quotes and levy rates.
+ * Conventional starting points for every assumption, so a new profile is not blank. They apply until the owner saves their own, and each
+ * is labelled as a convention, not a sourced market figure. They are meant to be identifiable and explainable, not exhaustive: a
+ * lender can be told "this is a common underwriting convention, and here is where I changed it for this market".
  */
+const CONVENTION = 'Common underwriting convention';
+
+interface Row {
+  vacancyRate: number;
+  expenseRatio: number;
+  expenseRatioNNN?: number;
+  rentGrowth: number;
+  expenseGrowth: number;
+  exitCapRate?: number;
+  appreciationRate?: number;
+  sellingCostPercent: number;
+  managementFeePercent: number;
+  payrollMarketingPercent?: number;
+  capexBasis: CapexBasis;
+  capexValue: number;
+}
+
+const STARTING_POINTS: Record<AssetKey, Row> = {
+  'single-family': { vacancyRate: 5, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 6, managementFeePercent: 8, capexBasis: 'perUnit', capexValue: 300 },
+  'multi-unit': { vacancyRate: 5, expenseRatio: 40, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 4, managementFeePercent: 6, capexBasis: 'perUnit', capexValue: 300 },
+  commercial: { vacancyRate: 6, expenseRatio: 35, expenseRatioNNN: 10, rentGrowth: 3, expenseGrowth: 3, exitCapRate: 7, sellingCostPercent: 3, managementFeePercent: 4, capexBasis: 'perSqFt', capexValue: 0.25 },
+  storage: { vacancyRate: 10, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, exitCapRate: 6.5, sellingCostPercent: 3, managementFeePercent: 6, payrollMarketingPercent: 8, capexBasis: 'percentOfIncome', capexValue: 3 },
+};
+
 export function suggestedStartingPoints(current: UnderwritingAssumptions | null | undefined): UnderwritingAssumptions {
   const base = sanitizeAssumptions(current);
   const out: UnderwritingAssumptions = { ...base, assets: { ...base.assets } };
+  // A typical purchase takes about six weeks from agreement to closing; used only for a deal with no closing date yet
+  if (out.assumedClosingWeeks === undefined) out.assumedClosingWeeks = 6;
   if (out.propertyTaxRatePercent === undefined) {
     out.propertyTaxRatePercent = 1;
-    out.propertyTaxRateRationale = 'Starting point. Washington effective property tax rates generally run about 0.8% to 1.1% of assessed value (third-party county estimates: Spokane about 0.83% to 1.05%, Yakima about 0.82%). Replace with your tax code area\'s levy rate.';
+    out.propertyTaxRateRationale = 'Washington effective rates run about 0.8% to 1.1% of assessed value; adjust to your tax code area';
   }
-  const insuranceWhy = 'Starting point: a common underwriting convention of roughly 0.3% to 0.5% of value a year. Not a quote; replace with one.';
-  const upkeepWhy = 'Starting point: a common convention of about 0.5% of value a year for the upkeep you carry when a property is vacant or tenants pay the costs. Replace with your own record.';
-  const reserve: Record<AssetKey, { basis: CapexBasis; value: number; why: string }> = {
-    'single-family': { basis: 'perUnit', value: 300, why: 'Starting point: a common convention of about $250 to $350 a unit a year for replacement reserves. Replace with your capital plan.' },
-    'multi-unit': { basis: 'perUnit', value: 300, why: 'Starting point: lenders commonly underwrite about $250 to $350 a unit a year for replacement reserves. Replace with your capital plan.' },
-    commercial: { basis: 'perSqFt', value: 0.25, why: 'Starting point: a common convention of about $0.15 to $0.30 a square foot a year for replacement reserves. Replace with your capital plan.' },
-    storage: { basis: 'percentOfIncome', value: 3, why: 'Starting point: a common convention of about 3% of income for replacement reserves. Replace with your capital plan.' },
-  };
   for (const asset of ASSET_KEYS) {
     const a: AssetAssumptions = { ...(out.assets[asset] ?? {}) };
     const why: Partial<Record<AssumptionField, string>> = { ...(a.rationale ?? {}) };
-    if (a.insuranceRatePercent === undefined) { a.insuranceRatePercent = 0.35; why.insuranceRatePercent = insuranceWhy; }
-    if (a.maintenanceRatePercent === undefined) { a.maintenanceRatePercent = 0.5; why.maintenanceRatePercent = upkeepWhy; }
-    if (a.capexValue === undefined) { a.capexBasis = reserve[asset].basis; a.capexValue = reserve[asset].value; why.capexValue = reserve[asset].why; }
+    const row = STARTING_POINTS[asset];
+    const fill = <K extends AssumptionField>(key: K, value: number | undefined, note: string = CONVENTION) => {
+      if (value === undefined || (a as Record<string, unknown>)[key] !== undefined) return;
+      (a as Record<string, unknown>)[key] = value;
+      why[key] = note;
+    };
+    fill('vacancyRate', row.vacancyRate);
+    fill('expenseRatio', row.expenseRatio, asset === 'commercial' ? 'Common underwriting convention for gross and modified-gross leases' : CONVENTION);
+    fill('expenseRatioNNN', row.expenseRatioNNN, 'What the landlord still pays under a triple-net lease');
+    fill('rentGrowth', row.rentGrowth);
+    fill('expenseGrowth', row.expenseGrowth);
+    fill('exitCapRate', row.exitCapRate, 'Set near market cap rates for the type; adjust per property');
+    fill('appreciationRate', row.appreciationRate);
+    fill('sellingCostPercent', row.sellingCostPercent, 'Brokerage and closing costs at sale');
+    fill('closingCostPercent', 2, 'Typical buyer closing costs');
+    fill('managementFeePercent', row.managementFeePercent, 'Typical property management fee');
+    fill('payrollMarketingPercent', row.payrollMarketingPercent);
+    fill('insuranceRatePercent', 0.35, 'Roughly 0.3% to 0.5% of value a year; replace with a quote');
+    fill('maintenanceRatePercent', 0.5, 'Upkeep carried when vacant or tenants pay costs');
+    if (a.capexValue === undefined) { a.capexBasis = row.capexBasis; a.capexValue = row.capexValue; why.capexValue = 'Typical replacement reserve'; }
     a.rationale = why;
     out.assets[asset] = a;
   }

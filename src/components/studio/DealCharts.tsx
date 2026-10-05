@@ -66,7 +66,11 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
         responsive: true,
         maintainAspectRatio: false,
         cutout: '68%',
-        plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: { label: (ctx) => `${ctx.label}: ${formatCurrency(ctx.parsed)} (${breakdown.gross > 0 ? Math.round((ctx.parsed / breakdown.gross) * 100) : 0}%)` } } },
+        plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: {
+          // A tooltip is drawn inside the chart's own box, so it must be short: the name on top, the dollars and share below
+          title: (items) => String(items[0]?.label ?? '').split(' (')[0],
+          label: (ctx) => `${formatCurrency(ctx.parsed)} (${breakdown.gross > 0 ? Math.round((ctx.parsed / breakdown.gross) * 100) : 0}% of rent)`,
+        } } },
       },
     });
   }, [breakdown]);
@@ -164,7 +168,8 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
             <p className="text-xs text-slate-500 py-10 text-center">No rent is modeled for this year.</p>
           ) : (
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="relative h-48 w-48 shrink-0">
+              {/* Wider than the ring so the tooltip has room beside it; the ring stays centred and the same size */}
+              <div className="relative h-48 w-60 shrink-0">
                 <canvas ref={donutRef} role="img" aria-label={`Breakdown of year ${year} gross rent`} />
               </div>
               <ul className="flex-1 w-full space-y-1.5">

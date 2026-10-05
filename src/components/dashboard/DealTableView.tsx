@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DealRecord } from '../../lib/math/types';
 import { resolvePointInTimeDealMetrics, resolveDealDisplayName } from '../../lib/math/pointInTime';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
-import { checkEngineInputs } from '../../lib/engine';
+import { missingInputsFor } from '../../lib/engine/compute';
 import { formatCurrency } from '../../lib/format';
 import {
   ArrowUpDown,
@@ -189,7 +189,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
               const dealTitle = resolveDealDisplayName(deal);
               const locStr = deal.location || inputs.propertyAddress || deal.address || '—';
               const aClass = String(deal.asset_class || deal.assetType || 'commercial');
-              const missingInputs = checkEngineInputs(aClass, deal.inputs || {});
+              const missingInputs = missingInputsFor(deal);
               const needsInputs = missingInputs.length > 0;
 
               // Value & Equity

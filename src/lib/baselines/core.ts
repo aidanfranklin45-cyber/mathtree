@@ -5,7 +5,7 @@
  * dated record (like a signed underwriting memo), so it is captured once with the shared engine and never recomputed;
  * a newer engine must not quietly rewrite past expectations. This file is pure (no database access) so it is testable.
  */
-import { computeDealMetrics } from '../engine/compute';
+import { computeDealMetrics, resolveProfileAssumptions } from '../engine/compute';
 import { ENGINE_VERSION } from '../engine/version';
 import type { DealMetrics, DealRecord } from '../math/types';
 
@@ -96,7 +96,8 @@ export function buildBaselineDraft(
   const ff = firstFullYear(slim);
 
   // Parcel / assessor blobs are large and not part of the underwriting assumptions
-  const { assessorData: _a, parcels: _p, ...frozenInputs } = (deal.inputs ?? {}) as Record<string, unknown>;
+  // The owner's assumptions in force today are written into the record, so a later change to the profile cannot move a frozen expectation
+  const { assessorData: _a, parcels: _p, ...frozenInputs } = { ...resolveProfileAssumptions(deal as DealRecord).filled, ...((deal.inputs ?? {}) as Record<string, unknown>) } as Record<string, unknown>;
 
   return {
     deal_id: deal.id,

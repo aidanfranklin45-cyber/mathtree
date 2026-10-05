@@ -3,7 +3,7 @@ import type { DealInputs, DealRecord } from '../../../lib/math/types';
 import type { DealTopPatch } from '../../../stores/useDealStore';
 import { supabase } from '../../../lib/supabase/client';
 import { AddressService } from '../../../lib/services/addressService';
-import { computeDealMetrics } from '../../../lib/engine/compute';
+import { computeDealMetrics, resolveProfileAssumptions } from '../../../lib/engine/compute';
 import { IncompleteInputsError, type MissingInput } from '../../../lib/engine';
 import { getProfile } from '../../../lib/profile';
 import { seedFromAssumptions, reconcileBasis, type InputBasis } from '../../../../supabase/functions/_shared/underwritingAssumptions';
@@ -138,6 +138,12 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
       : `Filled ${n} blank field${n === 1 ? '' : 's'} from your assumptions. Each keeps your reason on this property.`);
   };
 
+  // Blank assumptions are not blank to the engine: your profile covers them. Say which, so nothing is a surprise.
+  const covered = useMemo(() => {
+    const { basis } = resolveProfileAssumptions({ asset_class: deal.asset_class, purchase_price: deal.purchase_price, inputs: { ...(deal.inputs as Record<string, any>), ...built } } as any);
+    return [...new Map(Object.values(basis).map((b) => [b.label, b])).values()];
+  }, [built, deal]);
+
   const onLocation = (val: string) => {
     set('location', val);
     clearTimeout(addrTimer.current);
@@ -248,6 +254,15 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
         </div>
 
         <form noValidate onSubmit={submit} className="space-y-4">
+          {!form.closingDate && getProfile().underwritingAssumptions?.assumedClosingWeeks !== undefined && (
+            <p role="status" className="text-[11px] text-slate-400">No closing date entered: the numbers assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks} weeks after today (your profile setting).</p>
+          )}
+          {covered.length > 0 && (
+            <div role="status" className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+              <span className="text-[11px] font-bold text-emerald-300 block">Blank fields use your profile assumptions</span>
+              <p className="text-[10px] text-slate-400 leading-relaxed">{covered.map((b) => `${b.label} ${b.value}`).join(' · ')}</p>
+            </div>
+          )}
           {preview.missing.length > 0 && (
             <div role="status" className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
               <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 block">Still needed to show returns ({preview.missing.length})</span>

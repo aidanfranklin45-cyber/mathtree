@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase/client';
 import { DealRecord } from '../lib/math/types';
 import { tryComputeDealMetrics } from '../lib/engine/compute';
-import { checkEngineInputs } from '../lib/engine';
+import { missingInputsFor } from '../lib/engine/compute';
+import { useAssumptionVersion } from '../lib/engine/assumptionDefaults';
 import { computePortfolioKpis } from '../lib/portfolio/kpis';
 import { loadPortfolioDeals } from '../lib/portfolio/loadDeals';
 import { resolvePointInTimeDealMetrics } from '../lib/math/pointInTime';
@@ -499,20 +500,21 @@ export const DashboardPage: React.FC = () => {
     collectedMonthlyMap,
   ]);
 
+  const assumptionVersion = useAssumptionVersion(); // figures follow the owner's assumptions when they change
+
   // Partition deals: exclude deals missing strict engine inputs from portfolio calculations
   const { completeDeals, inputsNeededCount } = useMemo(() => {
     let needed = 0;
     const complete: DealRecord[] = [];
     deals.forEach((d) => {
-      const aClass = String(d.asset_class || d.assetType || 'single-family');
-      if (checkEngineInputs(aClass, d.inputs || {}).length > 0) {
+      if (missingInputsFor(d).length > 0) {
         needed++;
       } else {
         complete.push(d);
       }
     });
     return { completeDeals: complete, inputsNeededCount: needed };
-  }, [deals]);
+  }, [deals, assumptionVersion]);
 
   // Executive KPI tiles
   const portfolioKPIs = useMemo(() => computePortfolioKpis(completeDeals, new Date()), [completeDeals]);
