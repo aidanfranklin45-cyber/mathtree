@@ -43,13 +43,15 @@ export function modelName(): string {
 
 /** One JSON-answer call. Returns the model's reply text. Document text is in `user`, the rules in `system`. */
 export async function generateJson(args: { system: string; user: string; timeoutMs?: number }): Promise<string> {
-  const base = env('AI_GATEWAY_URL');
-  const token = env('CF_AIG_TOKEN');
+  // Secrets pasted into a dashboard often carry quotes, spaces or a "Bearer " prefix; none of those belong in the value
+  const clean = (v: string) => v.trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '').trim();
+  const base = clean(env('AI_GATEWAY_URL'));
+  const token = clean(env('CF_AIG_TOKEN'));
   if (!base || !token) throw new GatewayError('The AI gateway is not configured.', 503);
   const model = modelName();
 
   const headers: Record<string, string> = { 'content-type': 'application/json', 'cf-aig-authorization': `Bearer ${token}` };
-  const providerKey = env('GEMINI_API_KEY');
+  const providerKey = clean(env('GEMINI_API_KEY'));
   if (providerKey) headers['x-goog-api-key'] = providerKey;
 
   let res: Response;
@@ -68,8 +70,21 @@ export async function generateJson(args: { system: string; user: string; timeout
     throw new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504);
   }
   if (!res.ok) {
-    // Status only: the body could echo document text, so it is not passed on
-    throw new GatewayError(`The AI gateway returned ${res.status}.`, res.status === 429 ? 429 : 502);
+    // For setup problems (bad request, credentials, model name, quota) the reason is passed on, cut short: it is what lets the owner fix
+    // the configuration. Other failures report the status only, since a body could echo document text.
+    let reason = '';
+    if ([400, 401, 403, 404, 429].includes(res.status)) {
+      const body = await res.text().catch(() => '');
+      try {
+        const j = JSON.parse(body);
+        reason = String(j?.error?.message ?? j?.error?.[0]?.message ?? j?.message ?? '');
+      } catch {
+        reason = '';
+      }
+      reason = reason.replace(/\s+/g, ' ').slice(0, 160);
+    }
+    console.error(`[ai-gateway] ${res.status} model=${model}${reason ? ` reason=${reason}` : ''}`);
+    throw new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} (google-ai-studio, ${model}).`, res.status === 429 ? 429 : 502);
   }
   const data = await res.json().catch(() => null);
   const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
