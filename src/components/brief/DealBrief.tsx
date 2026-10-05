@@ -21,6 +21,7 @@ export const BRIEF_CSS = `
 @page { size: letter landscape; margin: 8mm 10mm; }
 .brief { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; font-size: 12px; color: #0f172a; background: #ffffff; padding: 16px 22px; max-width: 1180px; margin: 0 auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .brief * { box-sizing: border-box; }
+.brief ::selection { background: #bae6fd; color: #0f172a; }
 .brief .pg { break-before: page; page-break-before: always; }
 .brief .hdr { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #059669; padding-bottom: 8px; margin-bottom: 12px; gap: 16px; }
 .brief .logo { font-size: 24px; font-weight: 900; color: #059669; letter-spacing: -0.5px; }

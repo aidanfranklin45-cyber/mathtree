@@ -74,7 +74,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
         <div className="hside">
           <p style={{ margin: 0, fontWeight: 600 }}>Report Date: <strong style={{ color: '#0f172a' }}>{m.dateStr}</strong></p>
           <p style={{ margin: '2px 0 0 0' }}>Underwritten Assets: <strong style={{ color: '#0f172a' }}>{m.totalDeals} ({m.owned.length} Owned, {m.pipeline.length} Pipeline)</strong></p>
-          <p style={{ margin: '2px 0 0 0' }}>Hold Horizon: <strong style={{ color: '#0f172a' }}>{m.holdYears} Years</strong> • Total Real Estate Capital: <strong style={{ color: '#059669' }}>{cur(m.totalVolume)}</strong></p>
+          <p style={{ margin: '2px 0 0 0' }}>Owned Value: <strong style={{ color: '#059669' }}>{cur(k.ownedVal)}</strong> • Net Equity: <strong style={{ color: '#0f172a' }}>{cur(k.ownedEquity)}</strong></p>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
 
       {m.ownedProForma.length > 0 && (
         <div className="box split">
-          <div className="bh" style={{ background: '#0f4033' }}><span>📊 Owned Portfolio {m.holdYears}-Year Operating Pro-Forma &amp; Cash Flow Waterfall</span><span className="sub" style={{ color: '#34d399' }}>Full {m.holdYears}-Year Holding Period Performance Forecast</span></div>
+          <div className="bh" style={{ background: '#0f4033' }}><span>📊 Owned Portfolio Operating Pro-Forma &amp; Cash Flow Waterfall</span><span className="sub" style={{ color: '#34d399' }}>Each property runs to its own hold period (longest: {m.holdYears} years)</span></div>
           <table>
             <thead>
               <tr>
@@ -174,19 +174,21 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
       )}
 
       <div className="box split pg">
-        <div className="bh" style={{ background: '#334155' }}><span>Sector Diversification &amp; Asset Allocation Matrix</span><span className="sub" style={{ color: '#fff' }}>Capital Allocation</span></div>
+        <div className="bh" style={{ background: '#334155' }}><span>Sector Diversification &amp; Asset Allocation Matrix — Owned Holdings</span><span className="sub" style={{ color: '#fff' }}>Share of {cur(k.ownedVal)} owned value</span></div>
         <table>
-          <thead><tr><th>Asset Class / Sector</th><th className="num">Deals</th><th className="num">Aggregate Valuation</th><th className="num">Portfolio Weight</th><th className="num">Annual Cash Flow</th><th className="num">Avg Target IRR</th></tr></thead>
+          <thead><tr><th>Asset Class / Sector</th><th className="num">Deals</th><th className="num">Current Value</th><th className="num">Portfolio Weight</th><th className="num">Net Equity</th><th className="num">Annual Cash Flow</th><th className="num">CoC Yield</th></tr></thead>
           <tbody>
             {m.sectors.map((s, i) => (
               <tr key={s.id} className={i % 2 ? 'alt' : ''}>
                 <td style={{ fontWeight: 700 }}>{s.icon} {s.label}</td>
                 <td className="num">{s.count}</td><td className="num" style={{ fontWeight: 700 }}>{cur(s.value)}</td>
                 <td className="num">{s.weightPct.toFixed(1)}%</td>
+                <td className="num">{cur(s.equity)}</td>
                 <td className="num" style={{ fontWeight: 700, color: cfColor(s.cashFlow) }}>{cur(s.cashFlow)}/yr</td>
-                <td className="num" style={{ fontWeight: 700, color: '#059669' }}>{s.avgIrr !== null ? pct(s.avgIrr, 1) : 'N/A'}</td>
+                <td className="num" style={{ fontWeight: 700, color: '#059669' }}>{s.coc !== null ? pct(s.coc, 1) : 'N/M'}</td>
               </tr>
             ))}
+            {m.sectors.length === 0 && <tr><td colSpan={6} className="empty">No owned properties yet, so there is nothing to diversify.</td></tr>}
           </tbody>
         </table>
       </div>
