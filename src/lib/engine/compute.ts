@@ -88,7 +88,10 @@ export function prepareEngineInputs(deal: AnyDeal, overrides?: Partial<DealInput
   const hasDatedLeases = Array.isArray(inputs.leases) && inputs.leases.some((l: any) => l?.leaseStartDate || l?.leaseEndDate);
   const weeks = getAssumptionDefaults().assumptions.assumedClosingWeeks;
   if (!parseClosingDate(inputs.closingDate) && !hasDatedLeases && weeks !== undefined) {
-    inputs.closingDate = new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
+    // Counted from when the project was created, so the date does not drift from day to day
+    const createdAt = Date.parse(String((deal as { created_at?: string }).created_at ?? ''));
+    const start = Number.isFinite(createdAt) ? createdAt : Date.now();
+    inputs.closingDate = new Date(start + weeks * 7 * 86400000).toISOString().slice(0, 10);
   }
 
   // An ARV that merely echoes the county assessment is not a real post-rehab value

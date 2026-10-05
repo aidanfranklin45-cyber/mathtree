@@ -165,7 +165,9 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
 
   // The closing date: entered, or assumed from the owner's setting
   const closing = parseClosingDate(a.stored.closingDate);
-  if (closing) {
+  if (closing && a.stored.closingDateSource === 'assumed') {
+    rows.splice(1, 0, { id: 'closing', label: 'Closing date', value: String(a.stored.closingDate).slice(0, 10), effect: 'Year 1 starts here; the loan is paid down from here', group: 'standard', mode: 'assumed', source: 'Assumed when the project was created (your profile setting)' });
+  } else if (closing) {
     rows.splice(1, 0, { id: 'closing', label: 'Closing date', value: String(a.stored.closingDate).slice(0, 10), effect: 'Year 1 starts here; the loan is paid down from here', group: 'project', mode: 'entered', source: 'Your entry for this property' });
   } else if (parseClosingDate(a.prepared.closingDate) && a.assumedClosingWeeks !== undefined) {
     rows.push({ id: 'closing', label: 'Closing date', value: String(a.prepared.closingDate).slice(0, 10), effect: 'No date entered: assumed from the day the analysis is run, so the loan schedule has a start', group: 'standard', mode: 'assumed', source: `Your profile: ${a.assumedClosingWeeks} weeks after the analysis` });
