@@ -11,28 +11,20 @@ export interface LoanOfficerQuestion { question: string; where: string; tip: str
 
 export const CONVERSATION: BankPrepPoint[] = [
   {
-    heading: 'The loan officer wants to make the loan',
-    text: 'Lending is their business, and a good loan officer is working to get you to a yes. Walk in expecting an ally, not an opponent.',
+    heading: 'The loan officer is on your side',
+    text: 'Lending is their business, and a good loan officer works to get you to a yes. They also protect the bank, so they look for evidence the loan will be repaid, and they test whether you understand your own numbers.',
   },
   {
-    heading: 'They are also protecting the bank',
-    text: 'Their job is to find evidence that the loan will be repaid. Part of how they do that is by testing whether you understand your own numbers.',
+    heading: 'Credibility is the test',
+    text: 'A borrower who knows where every figure came from, can explain it, and is honest about what is unknown is easier to lend to. One number you cannot explain gives the officer a reason to doubt the rest.',
   },
   {
-    heading: 'That test is the turning point',
-    text: 'A borrower who knows where every figure came from, can explain it, and is honest about what is unknown is easier to lend to. A borrower who cannot explain one number gives the officer a reason to doubt all the others.',
+    heading: 'Underwriting is judgment',
+    text: 'Nobody can predict the future, and two careful people can reach different numbers. What counts is assumptions you can defend: each one sourced, reasonable and explained. Knowing your material and defending what you hand the bank is a good starting point.',
   },
   {
-    heading: 'Nobody can predict the future',
-    text: 'No property comes with a guaranteed outcome, and a lender knows it. What gets a deal approved is assumptions you can defend: each one sourced, reasonable for the property and the market, and explained in plain words.',
-  },
-  {
-    heading: 'Much of underwriting is judgment',
-    text: 'Two careful people can look at the same property and reach different numbers. Because so much is subjective, knowing your material and being able to defend everything you hand the bank is a good starting point.',
-  },
-  {
-    heading: 'Bring the evidence, then explain it',
-    text: 'The brief shows each figure and where it came from. Read it before you go. When the officer points at a number, answer with three things: the figure, where it came from, and why it is reasonable.',
+    heading: 'Show your work',
+    text: 'The brief shows each figure and where it came from. Read it before you go. When the officer points at a number, answer with the figure, where it came from, and why it is reasonable.',
   },
 ];
 
