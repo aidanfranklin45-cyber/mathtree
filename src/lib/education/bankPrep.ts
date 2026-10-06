@@ -28,7 +28,7 @@ export const CONVERSATION: BankPrepPoint[] = [
   },
   {
     heading: 'Much of underwriting is judgment',
-    text: 'Two careful people can look at the same property and reach different numbers. Because so much is subjective, knowing your material and being able to defend everything you hand the bank is a good starting point for an approval.',
+    text: 'Two careful people can look at the same property and reach different numbers. Because so much is subjective, knowing your material and being able to defend everything you hand the bank is a good starting point.',
   },
   {
     heading: 'Bring the evidence, then explain it',
