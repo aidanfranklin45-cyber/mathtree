@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
-import { proposeChanges, type Proposal } from '../../lib/ingestion/apply';
+import { applyChoices, attachVariances, proposeChanges, type Expected, type Proposal } from '../../lib/ingestion/apply';
+import { resolveProfileAssumptions } from '../../lib/engine/compute';
+import { useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
 import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
 
@@ -59,10 +61,30 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
+  // Which flagged figures the owner chose to take from their own assumption instead of the document
+  const [useMine, setUseMine] = useState<Set<string>>(new Set());
   const nextId = useRef(1);
+  const assumptionVersion = useAssumptionVersion();
 
   const docs = useMemo<IntakeDocument[]>(() => (reads ?? []).flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? [r.parsed.intake] : [])), [reads]);
   const proposal = useMemo(() => (docs.length > 0 ? proposeChanges(docs, deal, { assetClass: proposeAssetClass }) : null), [docs, deal, proposeAssetClass]);
+  // What the owner's profile would use for this property, to compare the document's figures with: the size, price and lease structure come
+  // from the documents where the form has none yet, and none of the assumption figures themselves are passed in
+  const expected = useMemo<Expected | null>(() => {
+    if (!proposal) return null;
+    const p = proposal.patch.patch as Record<string, any>;
+    const own = (deal.inputs ?? {}) as Record<string, any>;
+    return resolveProfileAssumptions({
+      asset_class: deal.asset_class ?? undefined,
+      purchase_price: Number(p.purchasePrice ?? deal.purchase_price) || undefined,
+      inputs: {
+        purchasePrice: p.purchasePrice ?? own.purchasePrice, unitCount: p.unitCount ?? own.unitCount, leaseType: p.leaseType ?? own.leaseType,
+        gla: p.squareFeet ?? own.gla ?? own.squareFeet, taxableValue: own.taxableValue, totalAssessedValue: own.totalAssessedValue,
+      },
+    } as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposal, deal, assumptionVersion]);
+  useMemo(() => { if (proposal && expected) attachVariances(proposal, expected); }, [proposal, expected]);
   const hardErrors = (reads ?? []).some((r) => r.issues.some((i) => i.severity === 'error'));
 
   // Everything starts ticked except what would replace a figure the owner already states: that is their call
@@ -122,7 +144,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const apply = async () => {
     if (!proposal) return;
     setBusy(true);
-    const ok = await onApply({ proposal, ticked, docs });
+    const ok = await onApply({ proposal: expected ? applyChoices(proposal, useMine, expected) : proposal, ticked, docs });
     setBusy(false);
     if (ok) setApplied(true);
     else setNote('Could not apply that. Try again.');
@@ -203,6 +225,16 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
                     <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
                     <span className="text-sm font-black text-emerald-400">{c.proposed}</span>
                     {c.current !== null && <span className="text-[11px] text-slate-400"> (now {c.current})</span>}
+                    {c.variance && (
+                      <span className="block mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200" onClick={(e) => e.preventDefault()}>
+                        <span className="font-bold block">Differs from your assumption: yours is {c.variance.expectedText}, this document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.</span>
+                        {c.variance.why && <span className="block text-amber-200/80 italic">Your reason: {c.variance.why}</span>}
+                        <span className="flex flex-wrap gap-3 mt-1.5">
+                          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`pick-${c.key}`} checked={!useMine.has(c.key)} onChange={() => setUseMine((s) => { const n = new Set(s); n.delete(c.key); return n; })} />Use the document's ({c.proposed})</label>
+                          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`pick-${c.key}`} checked={useMine.has(c.key)} onChange={() => setUseMine((s) => new Set(s).add(c.key))} />Use my assumption ({c.variance.expectedText})</label>
+                        </span>
+                      </span>
+                    )}
                     <span className="flex flex-wrap items-center gap-1.5 mt-0.5">
                       <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${RELIABILITY_STYLE[c.reliability]}`}>{c.reliability}</span>
                       <span className="text-[10.5px] text-slate-500 italic">{c.how}</span>

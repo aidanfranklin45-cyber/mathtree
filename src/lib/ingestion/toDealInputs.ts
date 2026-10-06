@@ -70,6 +70,8 @@ class Builder {
   provenance: Record<string, FieldProvenance> = {};
   claims: DealPatch['claims'] = {};
   notes: string[] = [];
+  /** The asset class the documents are being read for: it decides which costs the engine charges separately from the expense ratio. */
+  assetClass = 'commercial';
 
   /** Set a key unless a more reliable document already set it. */
   set(key: string, value: unknown, doc: IntakeDocument, how: string): void {
@@ -196,17 +198,34 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
     const total = lines.reduce((s, l) => s + Math.abs(val(l.amount) as number), 0) * (t.annualFactor ?? 1);
     if (total > 0) b.set(key, round2(total), doc, `${label} on the ${source}${t.months && t.months !== 12 ? `, annualised from ${t.months} months` : ''}`);
   }
-  if (t.operatingExpenses > 0 && t.grossRent > 0) {
-    // The engine applies the expense ratio to gross rent before vacancy (the same basis as `grossRent` here), so that is the basis used.
-    const ratio = round2((t.operatingExpenses / t.grossRent) * 100);
+  // The expense ratio is built the way the engine uses it. The engine charges `ratio x gross rent (before vacancy)` and adds on top, each from
+  // its own input: the management fee (only if the owner hires a manager), on-site payroll and marketing (storage), the replacement reserve,
+  // and debt service. So the ratio holds the property's other operating costs, less what tenants reimburse (the engine has nowhere else to
+  // receive a reimbursement), over the rent it will be applied to.
+  const annual = t.annualFactor ?? 1;
+  const sumOf = (cats: ExpenseCategory[]) => stmt.expenses.filter((l) => cats.includes(val(l.category) as ExpenseCategory)).reduce((s, l) => s + Math.abs(val(l.amount) ?? 0), 0) * annual;
+  const onSite: ExpenseCategory[] = b.assetClass === 'storage' ? ['payroll', 'marketing'] : [];
+  const management = sumOf(['management']);
+  const onSiteCost = sumOf(onSite);
+  const reserves = sumOf(['reserves_capex']);
+  const costs = t.operatingExpenses - management - onSiteCost;
+  const reimbursed = t.income.recoveries;
+  const netCosts = costs - reimbursed;
+  if (netCosts > 0 && t.income.rent > 0) {
+    const ratio = round2((netCosts / t.income.rent) * 100);
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
-    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : 'Seller\'s figures: '}Operating expenses ${Math.round(t.operatingExpenses).toLocaleString()} / gross rent ${Math.round(t.grossRent).toLocaleString()}${span}; reserves, debt service and depreciation excluded`);
-    // The reserve is its own input (listed above), so it stays out of the ratio; debt service and depreciation are not applied at all
-    const reserves = stmt.expenses.filter((l) => val(l.category) === 'reserves_capex').reduce((s, l) => s + Math.abs(val(l.amount) ?? 0), 0) * (t.annualFactor ?? 1);
-    const notApplied = t.excludedExpenses - reserves;
-    if (reserves > 0) b.notes.push(`The replacement reserve (${Math.round(reserves).toLocaleString()} a year) is applied on its own, so it is not part of the expense ratio.`);
-    if (notApplied > 0.5) b.notes.push(`Not applied: ${Math.round(notApplied).toLocaleString()} of debt service or depreciation, which are not operating expenses.`);
+    const left = [management > 0 ? 'management' : '', onSiteCost > 0 ? 'on-site payroll and marketing' : '', 'reserves'].filter(Boolean).join(', ');
+    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()} (without ${left})${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`);
   }
+  if (management > 0) {
+    const egi = t.income.rent + t.income.recoveries + t.income.other_income - t.income.vacancy_credit_loss;
+    b.notes.push(`The ${source === 'operating statement' ? 'statement' : 'seller'}'s management cost (${Math.round(management).toLocaleString()} a year${egi > 0 ? `, ${round2((management / egi) * 100)}% of income` : ''}) is not in the expense ratio. Whether you hire a manager is your decision: a management fee is charged separately, at your rate, only if you say you will.`);
+  }
+  if (onSiteCost > 0) b.notes.push(`On-site payroll and marketing (${Math.round(onSiteCost).toLocaleString()} a year) are not in the expense ratio: storage charges them separately as a share of income.`);
+  // The reserve is its own input (listed above); debt service and depreciation are not operating expenses and are not applied at all
+  const notApplied = t.excludedExpenses - reserves;
+  if (reserves > 0) b.notes.push(`The replacement reserve (${Math.round(reserves).toLocaleString()} a year) is applied on its own, so it is not part of the expense ratio.`);
+  if (notApplied > 0.5) b.notes.push(`Not applied: ${Math.round(notApplied).toLocaleString()} of debt service or depreciation, which are not operating expenses.`);
   if (t.income.other_income > 0) b.notes.push(`The statement shows ${Math.round(t.income.other_income).toLocaleString()} of other income a year; the engine does not model other income, so it is not in the result.`);
   if (t.income.vacancy_credit_loss > 0 && t.income.rent > 0) {
     const vacancy = round2((t.income.vacancy_credit_loss / t.income.rent) * 100);
@@ -280,6 +299,10 @@ function applyLoan(b: Builder, doc: LoanTermsIntake, ctx: PatchContext, missing:
 export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): DealPatch {
   const b = new Builder();
   const missing: string[] = [];
+  // The asset class decides how costs are split between the expense ratio and what the engine charges separately
+  const omEarly = docs.find((d) => d.documentType === 'offering_memorandum');
+  const omAsset = omEarly && omEarly.documentType === 'offering_memorandum' ? omEarly.assetClass.value : null;
+  b.assetClass = String(ctx.assetClass ?? omAsset ?? 'commercial');
 
   // Highest reliability first so a lower one can never overwrite a higher one, whatever order the files arrived in.
   const ordered = [...docs].sort((x, y) => RANK[reliabilityOf(y)] - RANK[reliabilityOf(x)]);

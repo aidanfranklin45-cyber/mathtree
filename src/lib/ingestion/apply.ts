@@ -25,6 +25,19 @@ export interface ProposedChange {
   also?: Array<{ key: string; value: unknown }>;
   /** The deal already states a different value for this: ticking it replaces the owner's figure. */
   replaces: boolean;
+  /** The document's figure is far from what the owner's own assumption would be: the owner is asked which to use. */
+  variance?: Variance;
+}
+
+export interface Variance {
+  /** The owner's assumption for this figure, as the deal would store it, and formatted. */
+  expected: number;
+  expectedText: string;
+  /** The owner's reason for it, when they gave one. */
+  why: string;
+  /** How far the document's figure is from the assumption, in percent of the assumption. */
+  percent: number;
+  higher: boolean;
 }
 
 const LABELS: Record<string, string> = {
@@ -39,6 +52,51 @@ const humanize = (key: string): string => LABELS[key] ?? key.replace(/([A-Z])/g,
 
 /** Figures the form derives from each other: listing them as "already filled" would only repeat the rent. */
 const DERIVED_QUIET = new Set(['monthlyRent', 'grossRentAnnual']);
+
+/**
+ * Figures that are assumptions or costs the owner has a standard for (their investor profile), and the smallest gap worth asking about.
+ * A document's figure is used by default; when it is this far from the owner's own, the owner chooses.
+ */
+export const VARIANCE_RATIO = 0.25;
+const COMPARABLE: Record<string, { minGap: number }> = {
+  vacancyRate: { minGap: 1 }, expenseRatio: { minGap: 1 }, managementFeePercent: { minGap: 1 },
+  annualTaxes: { minGap: 500 }, annualInsurance: { minGap: 500 }, annualMaintenance: { minGap: 500 }, annualUtilities: { minGap: 500 }, capexReserveAnnual: { minGap: 500 },
+};
+
+/** What the owner's profile would use for each figure, for a property of the documents' size, price and lease structure. */
+export interface Expected {
+  filled: Record<string, number>;
+  basis: Record<string, InputBasis>;
+}
+
+/** Marks the rows whose figure differs a lot from the owner's own assumption. Changes the rows in place. */
+export function attachVariances(proposal: Proposal, expected: Expected): void {
+  for (const c of proposal.changes) {
+    if (!COMPARABLE[c.key]) continue;
+    const mine = expected.filled[c.key];
+    const doc = Number(c.value);
+    if (!(mine > 0) || !Number.isFinite(doc)) continue;
+    const gap = doc - mine;
+    if (Math.abs(gap) / mine > VARIANCE_RATIO && Math.abs(gap) >= COMPARABLE[c.key].minGap) {
+      c.variance = {
+        expected: mine, expectedText: formatValue(c.key, mine), why: expected.basis[c.key]?.rationale ?? '',
+        percent: Math.round((Math.abs(gap) / mine) * 100), higher: gap > 0,
+      };
+    }
+  }
+}
+
+/** The proposal with the owner's choices carried out: a figure they chose to take from their own assumption replaces the document's. */
+export function applyChoices(proposal: Proposal, useMine: Set<string>, expected: Expected): Proposal {
+  if (useMine.size === 0) return proposal;
+  const basis = { ...proposal.patch.basis };
+  const changes = proposal.changes.map((c) => {
+    if (!useMine.has(c.key) || !c.variance) return c;
+    if (expected.basis[c.key]) basis[c.key] = expected.basis[c.key];
+    return { ...c, value: c.variance.expected, proposed: c.variance.expectedText, how: `Your own assumption${c.variance.why ? `: ${c.variance.why}` : ''}`, reliability: 'executed' as const };
+  });
+  return { ...proposal, changes, patch: { ...proposal.patch, basis } };
+}
 
 /** Rent figures that are the same number in another form: shown as one row. */
 const RENT_FORMS = new Set(['monthlyRent', 'grossRentAnnual', 'monthlyRentPerUnit']);

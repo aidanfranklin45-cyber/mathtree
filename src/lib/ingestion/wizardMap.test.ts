@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
-import { buildApplication, formatValue, proposeChanges } from './apply';
+import { applyChoices, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
 import { applyToForm, assetFromDocs, deduceAsset, formAsInputs } from './wizardMap';
 
@@ -86,7 +86,7 @@ describe('an offering memorandum with a unit mix and an income table', () => {
     expect(fill.form.maintenance).toBe('33000');
     expect(fill.form.capexValue).toBe('16500');
     expect(fill.form.vacancy).toBe('5');
-    expect(Number(fill.form.opexRatio)).toBeGreaterThan(20);
+    expect(Number(fill.form.opexRatio)).toBeCloseTo(11.72, 2); // (274,014 of costs less 103,932 reimbursed) / 1,450,800 of rent; management and reserves left out
     expect(fill.extra.yearBuilt).toBe(2023);
     expect(fill.extra.acres).toBe(8.87);
     expect(fill.extra.primaryApn).toBe('181309-41011');
@@ -212,5 +212,54 @@ describe('the review shows each figure once, in plain words', () => {
     expect(notes).toContain('replacement reserve (16,500 a year) is applied on its own');
     expect(notes).toContain('Not applied: 900,000 of debt service or depreciation');
     expect(notes).not.toContain('Left out of the expense ratio');
+  });
+});
+
+describe('the expense ratio means what the engine expects, and large gaps from your own assumption are flagged', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  const memo = (assetClass: string, expenses: ReturnType<typeof line>[]) => coerceIntake('offering_memorandum', {
+    address: box('1 Main St'), assetClass: box(assetClass), unitCount: box(66),
+    income: [line('Gross Potential Rent', 'rent', 1450800), line('Vacancy', 'vacancy_credit_loss', -72540), line('RUBS', 'recoveries', 103932), line('Pet', 'other_income', 34686)],
+    expenses,
+  });
+  const costs = [
+    line('Maint/Repair', 'repairs_maintenance', 33000), line('Payroll', 'payroll', 32000), line('Marketing', 'marketing', 7720), line('RE Taxes', 'property_tax', 115670),
+    line('Insurance', 'insurance', 19962), line('Utilities', 'utilities', 73382), line('Management', 'management', 53522), line('Reserves', 'reserves_capex', 16500),
+  ];
+
+  it('leaves management out (that is your decision), takes reserves on their own, and nets tenant reimbursements', () => {
+    const p = proposeChanges([memo('multi_family', costs)], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    // 33,000 + 32,000 + 7,720 + 115,670 + 19,962 + 73,382 = 281,734; less 103,932 reimbursed = 177,802; over rent 1,450,800
+    expect(p.patch.patch.expenseRatio).toBe(12.26);
+    const how = p.patch.provenance.expenseRatio.how;
+    expect(how).toContain('without management');
+    expect(how).toContain('less tenant reimbursements 103,932');
+    expect(how).toContain('divided by rent 1,450,800');
+    const notes = p.patch.notes.join(' | ');
+    expect(notes).toContain('management cost (53,522 a year');
+    expect(notes).toContain('Whether you hire a manager is your decision');
+    expect(p.patch.patch.capexReserveAnnual).toBe(16500);
+  });
+
+  it('for storage, also leaves payroll and marketing out, since the engine charges them separately', () => {
+    const p = proposeChanges([memo('storage', costs)], { asset_class: 'storage', purchase_price: null, inputs: {} });
+    // without payroll 32,000 and marketing 7,720: 241,... 33,000 + 115,670 + 19,962 + 73,382 = 242,014; less 103,932 = 138,082
+    expect(p.patch.patch.expenseRatio).toBe(9.52);
+    expect(p.patch.notes.join(' ')).toContain('On-site payroll and marketing (39,720 a year)');
+  });
+
+  it('flags a figure far from your own assumption, with both numbers, and carries out the choice', () => {
+    const p = proposeChanges([memo('multi_family', costs)], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    const expected = { filled: { vacancyRate: 8, expenseRatio: 12.5, annualInsurance: 19000 }, basis: { vacancyRate: { source: 'profile' as const, label: 'Vacancy', value: 8, rationale: 'Yakima apartments run about 8%' } } };
+    attachVariances(p, expected);
+    const vacancy = p.changes.find((c) => c.key === 'vacancyRate')!;
+    expect(vacancy.variance).toMatchObject({ expected: 8, percent: 38, higher: false, why: 'Yakima apartments run about 8%' }); // document 5, yours 8
+    expect(p.changes.find((c) => c.key === 'expenseRatio')!.variance).toBeUndefined(); // 12.26 vs 12.5: close enough, no question
+    expect(p.changes.find((c) => c.key === 'annualInsurance')!.variance).toBeUndefined(); // 19,962 vs 19,000: close enough
+    const chosen = applyChoices(p, new Set(['vacancyRate']), expected);
+    expect(chosen.changes.find((c) => c.key === 'vacancyRate')).toMatchObject({ value: 8, how: 'Your own assumption: Yakima apartments run about 8%' });
+    expect(chosen.patch.basis.vacancyRate.source).toBe('profile');
+    expect(buildApplication({ inputs: {} }, chosen, new Set(['vacancyRate'])).inputsPatch.vacancyRate).toBe(8);
+    expect(buildApplication({ inputs: {} }, p, new Set(['vacancyRate'])).inputsPatch.vacancyRate).toBe(5); // no choice made: the document's
   });
 });

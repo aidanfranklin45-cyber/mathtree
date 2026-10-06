@@ -118,7 +118,7 @@ describe('buildDealPatch', () => {
   it('derives the expense ratio from a T12 on the engine\'s own basis (gross rent before vacancy, operating lines only)', () => {
     const r = buildDealPatch([t12()]);
     // (14000 + 6000 + 12000 + 8000) / 120000 = 33.33%; reserves and mortgage are excluded
-    expect(r.patch.expenseRatio).toBeCloseTo(33.33, 2);
+    expect(r.patch.expenseRatio).toBeCloseTo(26.67, 2); // (80,000 less the 16,000 of management, which is your decision) / 240,000
     expect(r.provenance.expenseRatio.reliability).toBe('reported');
     expect(r.notes.join(' ')).toMatch(/other income/);
   });
