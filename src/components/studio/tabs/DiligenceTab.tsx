@@ -2,6 +2,7 @@ import React from 'react';
 import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { AssumptionsLedger } from '../AssumptionsLedger';
 import { DealDocumentsList } from '../DealDocumentsList';
+import { DiligenceDisclosures } from '../DiligenceDisclosures';
 
 interface DiligenceTabProps {
   deal: DealRecord;
@@ -89,6 +90,8 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
           </div>
         </div>
       </div>
+
+      <DiligenceDisclosures />
     </div>
   );
 };
