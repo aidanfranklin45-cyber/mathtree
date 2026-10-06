@@ -5,7 +5,7 @@ import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/inge
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import { DocumentLineage } from '../studio/DocumentLineage';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
+import { assumptionText, attachVariances, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
@@ -131,7 +131,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         const proposal = proposeChanges(docs, deal, { assetClass: true, manager: managerFor(deal) });
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
-        const ticked = new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure).map((c) => c.key));
+        const ticked = new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure && !c.waitingOn).map((c) => c.key));
         const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
         await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)), lineage: out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? traceDocument(r.parsed.intake, r.source.text, r.source.name) : [])) });
         setResult({ proposal, docs, filled: ticked.size });
@@ -149,6 +149,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const questions: Question[] = useMemo(() => {
     if (!result) return [];
     return result.proposal.changes.flatMap<Question>((c) => {
+      if (c.waitingOn) return []; // shown as waiting, not asked: its answer depends on another
       if ((c.unsure || c.chosen) && !c.replaces) return [{ change: c, kind: 'unsure' }];
       if (c.variance) return [{ change: c, kind: 'variance' }];
       if (c.replaces && (FORM_FIELD_FOR_KEY[c.key] || c.key === 'address')) return [{ change: c, kind: 'replaces' }];
@@ -169,18 +170,14 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   // A figure the reader was unsure of: the owner checks the document, then uses what was read or leaves the field to enter themselves
   const settleUnsure = (c: ProposedChange, useRead: boolean, chosen?: { value: number; text: string }) => {
     if (useRead && result) {
-      const next = chosen ? withChosenValue(result.proposal, c.key, chosen.value) : result.proposal;
+      const decided = chosen ? withChosenValue(result.proposal, c.key, chosen.value) : result.proposal;
+      // Whatever was waiting on this figure (the expense ratio waits on the rent) can now be stated, from the same costs over the rent chosen
+      const waited = result.proposal.changes.some((x) => x.waitingOn === c.key);
+      const next = releaseDependents(decided, c.key);
       onAccept(next, c.key);
-      if (chosen && c.key === 'grossRentPerMonth') {
-        // The ratio is the costs over the rent that is underwritten: a different rent gives a different ratio. Re-apply it only if the owner has not changed or answered it.
-        const before = result.proposal.changes.find((x) => x.key === 'expenseRatio');
-        const after = next.changes.find((x) => x.key === 'expenseRatio');
-        if (before && after && Number(before.value) !== Number(after.value)) {
-          attachVariances(next, expectedFor(next, deal));
-          const held = Number(deal.inputs?.expenseRatio);
-          const untouched = !Number.isFinite(held) || Math.abs(held - Number(before.value)) < 0.005;
-          if (untouched && resolved.expenseRatio === undefined) onAccept(next, 'expenseRatio');
-        }
+      if (waited) {
+        attachVariances(next, expectedFor(next, deal));
+        onAccept(next, 'expenseRatio');
       }
       setResult((r) => (r ? { ...r, proposal: next } : r));
     }
@@ -351,6 +348,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
           <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + missing.length})</h4>
           <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below. {VARIANCE_DISCLOSURE}</p>
+
+          {(result?.proposal.changes ?? []).filter((c) => c.waitingOn).map((c) => (
+            <div key={`waiting-${c.key}`} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1">
+              <span className="text-xs font-bold text-slate-100 block">{c.label}: waiting on the rent</span>
+              <span className="block text-slate-400">The expense ratio is the document's operating costs{c.netCosts !== undefined ? ` (${Math.round(c.netCosts).toLocaleString()} a year after tenant reimbursements)` : ''} divided by the rent you underwrite. It cannot be worked out until you decide the rent above.</span>
+            </div>
+          ))}
 
           {questions.map(({ change: c, kind }) => (
             resolved[c.key] !== undefined ? (

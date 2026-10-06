@@ -35,6 +35,10 @@ export interface ProposedChange {
   unsure?: boolean;
   /** The owner chose this figure from several the documents gave. */
   chosen?: boolean;
+  /** This figure depends on another that is not decided yet (an expense ratio is the costs over the rent underwritten): it is not stated or applied until then. */
+  waitingOn?: string;
+  /** For an expense ratio: the yearly costs it is a share of. */
+  netCosts?: number;
   /** Other readings of the same figure that disagree with it, each with the text to show. */
   alternatives?: Array<{ value: number; how: string; text: string }>;
   /** The document's figure is far from what the owner's own assumption would be: the owner is asked which to use. */
@@ -84,6 +88,7 @@ export interface Expected {
 /** Marks the rows whose figure is more than 5% away from the owner's own assumption. Changes the rows in place. */
 export function attachVariances(proposal: Proposal, expected: Expected): void {
   for (const c of proposal.changes) {
+    if (c.waitingOn) continue; // not stated yet, so there is nothing to compare
     const mine = expected.filled[c.key];
     const doc = Number(c.value);
     if (mine === undefined || !(mine >= 0) || !Number.isFinite(doc)) continue; // the owner has no standard for this figure, or the document gave no number
@@ -174,6 +179,7 @@ export function proposeChanges(
       reliability: prov?.reliability ?? 'reported',
       value,
       replaces: stated,
+      ...(prov?.netCosts !== undefined ? { netCosts: prov.netCosts } : {}),
       ...(prov?.confidence !== undefined ? { confidence: prov.confidence } : {}),
       ...(prov?.evidence ? { evidence: prov.evidence } : {}),
       ...(prov?.confidence !== undefined && prov.confidence < LOW_CONFIDENCE && !stated ? { unsure: true } : {}),
@@ -223,6 +229,10 @@ export function proposeChanges(
       });
     }
   }
+  // The expense ratio is the costs over the rent that is underwritten. While the rent is still a question, the ratio cannot be stated yet.
+  const rentNow = changes.find((c) => c.key === 'grossRentPerMonth');
+  const ratioNow = changes.find((c) => c.key === 'expenseRatio');
+  if (rentNow?.unsure && ratioNow && ratioNow.netCosts !== undefined && !ratioNow.replaces) ratioNow.waitingOn = 'grossRentPerMonth';
   return { patch, changes, unchanged: unchanged.filter((u) => !DERIVED_QUIET.has(u.key)) };
 }
 
@@ -243,7 +253,7 @@ export function withChosenValue(proposal: Proposal, key: string, value: number):
   const changes = proposal.changes.map((c) => {
     // The expense ratio is the costs over the rent that is underwritten, so a different rent gives a different ratio from the same costs
     if (c.key === 'expenseRatio' && rederived !== null) {
-      return { ...c, value: rederived, proposed: formatValue('expenseRatio', rederived), variance: undefined, how: c.how.replace(/divided by rent [\d,]+( \(the rent underwritten; the income table shows [\d,]+\))?/, `divided by rent ${Math.round(value * 12).toLocaleString()} (the rent you chose)`) };
+      return { ...c, value: rederived, proposed: formatValue('expenseRatio', rederived), variance: undefined, waitingOn: undefined, how: c.how.replace(/divided by rent [\d,]+( \(the rent underwritten; the income table shows [\d,]+\))?/, `divided by rent ${Math.round(value * 12).toLocaleString()} (the rent you chose)`) };
     }
     if (c.key !== key) return c;
     const chosen: ProposedChange = { ...c, value, how: 'The figure you chose from those the documents gave', reliability: 'executed', unsure: false, chosen: true, alternatives: undefined };
@@ -256,6 +266,11 @@ export function withChosenValue(proposal: Proposal, key: string, value: number):
   });
   const patched = rederived === null ? proposal.patch : { ...proposal.patch, patch: { ...proposal.patch.patch, expenseRatio: rederived } };
   return { ...proposal, changes, patch: patched };
+}
+
+/** The proposal with whatever was waiting on this figure released, now that it is decided. */
+export function releaseDependents(proposal: Proposal, key: string): Proposal {
+  return { ...proposal, changes: proposal.changes.map((c) => (c.waitingOn === key ? { ...c, waitingOn: undefined } : c)) };
 }
 
 export function buildApplication(

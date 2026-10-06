@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
-import { LOW_CONFIDENCE, proposeChanges, withChosenValue, buildApplication } from './apply';
+import { LOW_CONFIDENCE, proposeChanges, withChosenValue, buildApplication, releaseDependents, attachVariances } from './apply';
 
 const box = (value: unknown, confidence = 1, evidence?: string) => ({ value, confidence, ...(evidence ? { evidence } : {}) });
 const line = (label: string, category: string, amount: number, confidence = 1, evidence?: string) => ({ label: box(label), category: box(category), amount: box(amount, confidence, evidence) });
@@ -112,5 +112,33 @@ describe('the expense ratio is the costs over the rent that is underwritten', ()
     expect(ratio.value).toBeCloseTo((180_000 / 1_450_800) * 100, 2);
     expect(ratio.how).toContain('divided by rent 1,450,800 (the rent you chose)');
     expect(chosen.patch.patch.expenseRatio).toBeCloseTo((180_000 / 1_450_800) * 100, 2);
+  });
+});
+
+describe('a figure that depends on another waits for it', () => {
+  const costsOnly = [line('Taxes', 'property_tax', 150_000), line('Insurance', 'insurance', 30_000)];
+  const waiting = () => proposeChanges([memo({ income: [line('Rent', 'rent', 1_450_800)], expenses: costsOnly })], deal);
+  const ratio = (p: ReturnType<typeof proposeChanges>) => p.changes.find((c) => c.key === 'expenseRatio')!;
+
+  it('does not state the expense ratio while the rent is still a question', () => {
+    expect(ratio(waiting()).waitingOn).toBe('grossRentPerMonth');
+    expect(ratio(waiting()).netCosts).toBe(180_000);
+  });
+
+  it('does not compare a waiting ratio with the owner\'s standard (there is nothing stated to compare)', () => {
+    const p = waiting();
+    attachVariances(p, { filled: { expenseRatio: 35 }, basis: {} });
+    expect(ratio(p).variance).toBeUndefined();
+  });
+
+  it('states it once the rent is decided, from the same costs over the rent chosen', () => {
+    const chosen = releaseDependents(withChosenValue(waiting(), 'grossRentPerMonth', 120_900), 'grossRentPerMonth');
+    expect(ratio(chosen).waitingOn).toBeUndefined();
+    expect(ratio(chosen).value).toBeCloseTo((180_000 / 1_450_800) * 100, 2);
+  });
+
+  it('is stated at once when the rent is not in question', () => {
+    const p = proposeChanges([memo({ income: [line('Rent', 'rent', 1_512_000)], expenses: costsOnly })], deal);
+    expect(ratio(p).waitingOn).toBeUndefined();
   });
 });

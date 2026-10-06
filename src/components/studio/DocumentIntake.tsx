@@ -110,7 +110,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   // Everything starts ticked except what would replace a figure the owner already states: that is their call
   const proposalKey = proposal?.changes.map((c) => c.key).join('|') ?? '';
   useEffect(() => {
-    setTicked(new Set((proposal?.changes ?? []).filter((c) => !c.replaces && !c.unsure).map((c) => c.key)));
+    setTicked(new Set((proposal?.changes ?? []).filter((c) => !c.replaces && !c.unsure && !c.waitingOn).map((c) => c.key)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proposalKey]);
 
@@ -247,6 +247,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
                     <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
                     <span className="text-sm font-black text-emerald-400">{c.proposed}</span>
                     {c.current !== null && <span className="text-[11px] text-slate-400"> (now {c.current})</span>}
+                    {c.waitingOn && <span className="block mt-1 text-[11px] text-amber-300">This depends on the rent, which the documents give in more than one way. Decide the rent first; this figure is the costs over the rent you underwrite.</span>}
                     {c.unsure && (c.alternatives && c.alternatives.length > 0
                       ? <span className="block mt-1 text-[11px] text-amber-300">The documents give more than one figure for this: {[c.proposed, ...c.alternatives.map((x) => x.text)].join(' or ')}. Check which is right before you tick it.</span>
                       : <span className="block mt-1 text-[11px] text-amber-300">The reader was not sure of this figure ({Math.round((c.confidence ?? 0) * 100)}%){c.evidence ? `: "${c.evidence}"` : ''}. Check the document before you tick it.</span>)}
