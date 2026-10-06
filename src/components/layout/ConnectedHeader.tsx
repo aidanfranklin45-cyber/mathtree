@@ -8,7 +8,7 @@ import { InboxPanel } from './InboxPanel';
 import { openPortfolioBrief } from '../../lib/export/pdfBrief';
 
 interface Props {
-  active: 'portfolio' | 'operations' | 'compare';
+  active: 'portfolio' | 'operations' | 'compare' | 'bank';
   /** Deals the page has loaded (owned + shared with me); used by the Investor Profile. */
   deals?: DealRecord[];
   onProfileSaved?: (profile: InvestorProfile) => void;

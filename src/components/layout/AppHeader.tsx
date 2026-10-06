@@ -8,7 +8,7 @@ import {
 } from '../../lib/prefetchRoutes';
 
 interface AppHeaderProps {
-  active: 'portfolio' | 'operations' | 'compare';
+  active: 'portfolio' | 'operations' | 'compare' | 'bank';
   /** Handlers for modal hubs and tools. */
   onOpenAlerts?: () => void;
   onOpenProfile?: () => void;
@@ -197,6 +197,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 role="menu"
                 className="absolute right-0 top-full mt-2 w-64 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
               >
+                <Link
+                  role="menuitem" to="/bank-prep" onClick={() => setIsAccountMenuOpen(false)}
+                  className="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-200 hover:bg-slate-800 hover:text-white flex items-center justify-between transition group"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <svg className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    <span>Prepare for the bank</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono">Guide</span>
+                </Link>
+
                 {onOpenProfile && (
                   <button
                     role="menuitem"

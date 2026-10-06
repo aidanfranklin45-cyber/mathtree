@@ -12,6 +12,7 @@ const ComparePage = lazyWithRetry(() => import('./pages/ComparePage').then((m) =
 const ReconcilePage = lazyWithRetry(() => import('./pages/ReconcilePage').then((m) => ({ default: m.ReconcilePage })));
 const DealBriefPage = lazyWithRetry(() => import('./pages/DealBriefPage').then((m) => ({ default: m.DealBriefPage })));
 const PortfolioBriefPage = lazyWithRetry(() => import('./pages/PortfolioBriefPage').then((m) => ({ default: m.PortfolioBriefPage })));
+const BankPrepPage = lazyWithRetry(() => import('./pages/BankPrepPage').then((m) => ({ default: m.BankPrepPage })));
 const LoginPage = lazyWithRetry(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 
 const PageSpinner: React.FC = () => (
@@ -50,6 +51,7 @@ export const App: React.FC = () => {
             {['/compare', '/compare.html'].map((p) => (
               <Route key={p} path={p} element={guard(<ComparePage />)} />
             ))}
+            <Route path="/bank-prep" element={guard(<BankPrepPage />)} />
             <Route path="/brief" element={guard(<DealBriefPage />)} />
             {/* Public sample memo linked from the landing page: no sign-in, demo deals only */}
             <Route path="/demo-brief" element={<DealBriefPage publicDemo />} />
