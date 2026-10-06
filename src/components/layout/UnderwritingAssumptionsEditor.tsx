@@ -11,14 +11,13 @@ interface Props {
 }
 
 const ASSET_LABEL: Record<AssetKey, string> = { 'single-family': 'Single-family', 'multi-unit': 'Multi-unit', commercial: 'Commercial', storage: 'Storage' };
-/** How each kind of property is underwritten, in a few words: what the sale value rests on and what is particular to the class. */
+/** What the sale value of each kind of property rests on, in one line: the rest is the owner's own figures, each with its reason. */
 const METHOD_NOTE: Record<AssetKey, string> = {
-  'single-family': 'Valued by appreciation: the sale value is today\'s value grown at your appreciation rate. One tenancy, and the expense ratio covers the running costs. There is no exit cap rate.',
-  'multi-unit': 'Valued on its income at exit: net operating income divided by your exit cap rate. Rent is per unit and reserves are usually per unit. Utility reimbursements (such as RUBS) come off costs, and other income such as pet fees counts as income.',
-  commercial: 'Valued on its income at exit, like an apartment building. Leases drive the rent, and an NNN lease uses its own, smaller expense ratio because the tenant pays the building\'s costs.',
-  storage: 'Valued on its income at exit, like an apartment building. On-site payroll and marketing are charged as a share of income, on top of the expense ratio.',
+  'single-family': 'Valued by appreciation: today\'s value grown at your appreciation rate.',
+  'multi-unit': 'Valued on its income at exit: net operating income divided by your exit cap rate.',
+  commercial: 'Valued on its income at exit: net operating income divided by your exit cap rate. The lease type decides who pays the building\'s costs, so there is one expense ratio for NNN leases and one for all other lease types.',
+  storage: 'Valued on its income at exit: net operating income divided by your exit cap rate. On-site payroll and marketing are charged as a share of income.',
 };
-
 const CAPEX_LABEL: Record<CapexBasis, string> = { perUnit: '$ per unit a year', perSqFt: '$ per sq ft a year', percentOfIncome: '% of income', percentOfValue: '% of value' };
 
 const inputCls = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500';
@@ -158,7 +157,7 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
         ))}
       </div>
 
-      <p className="text-[11px] text-slate-400 leading-relaxed p-2.5 rounded-xl bg-slate-900 border border-slate-800">{METHOD_NOTE[asset]}</p>
+      <p className="text-[11px] text-slate-400 leading-relaxed p-2.5 rounded-xl bg-slate-900 border border-slate-800">{METHOD_NOTE[asset]} Every figure takes a reason, so it can be audited and defended.</p>
 
       <div className="space-y-3">
         {specs.map((s) => (
