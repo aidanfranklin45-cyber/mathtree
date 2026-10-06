@@ -12,7 +12,7 @@ export interface LoanOfficerQuestion { question: string; where: string; tip: str
 export const CONVERSATION: BankPrepPoint[] = [
   {
     heading: 'A good loan officer is not an enemy',
-    text: 'Lending is their business, so they want deals that work. They also protect the bank, so they look for evidence the loan will be repaid. You both want the same outcome: a deal that can stand on its own feet.',
+    text: 'Lending is their business, so they want deals that work. Their first loyalty is to the bank, so they look for evidence the loan will be repaid. That usually lines up with your interests: a deal that is safe for the bank is a deal that can stand on its own feet for you too.',
   },
   {
     heading: 'Credibility is the test',
