@@ -322,3 +322,23 @@ describe('the investor profile decides whether a property manager is hired, and 
     expect(formAsInputs({ manageProperty: 'false' }, 'multi-unit').manageProperty).toBe(false);
   });
 });
+
+describe('one address line', () => {
+  const om = coerceIntake('offering_memorandum', { address: box('5101 W Powerhouse Rd'), city: box('Yakima'), state: box('WA'), zip: box('98908'), assetClass: box('multi_family'), unitCount: box(66) });
+
+  it('shows street, city, state and zip as one address, and fills the form with it', () => {
+    const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
+    const keys = p.changes.map((c) => c.key);
+    expect(keys).toContain('address');
+    for (const k of ['city', 'state', 'zip']) expect(keys).not.toContain(k);
+    expect(p.changes.find((c) => c.key === 'address')!.proposed).toBe('5101 W Powerhouse Rd, Yakima, WA 98908');
+    const fill = applyToForm({ form: { financingType: 'fixed' }, asset: 'multi-unit', proposal: p, ticked: new Set(keys) });
+    expect(fill.form.location).toBe('5101 W Powerhouse Rd, Yakima, WA 98908');
+  });
+
+  it('does not ask again when the form already holds that address', () => {
+    const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: formAsInputs({ location: '5101 W Powerhouse Rd, Yakima, WA 98908' }, 'multi-unit') });
+    expect(p.changes.some((c) => ['address', 'city', 'state', 'zip'].includes(c.key))).toBe(false);
+    expect(p.unchanged.map((u) => u.key)).toContain('address');
+  });
+});

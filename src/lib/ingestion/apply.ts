@@ -157,6 +157,25 @@ export function proposeChanges(
       replaces: stated,
     });
   }
+  // One address, shown once: street, city, state and zip are one line. A form that already holds this address is not asked about it again.
+  const addr = changes.find((c) => c.key === 'address');
+  if (addr) {
+    const parts = changes.filter((c) => ['city', 'state', 'zip'].includes(c.key));
+    const pick = (k: string) => String(parts.find((c) => c.key === k)?.value ?? '');
+    const tail = [pick('city'), [pick('state'), pick('zip')].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const composed = tail ? `${addr.value}, ${tail}` : String(addr.value);
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const held = typeof existing.address === 'string' ? existing.address : '';
+    const drop = (cs: ProposedChange[]) => cs.forEach((c) => changes.splice(changes.indexOf(c), 1));
+    if (held && norm(held).startsWith(norm(String(addr.value)))) {
+      unchanged.push({ key: 'address', label: 'Address', value: held });
+      drop([addr, ...parts]);
+    } else {
+      addr.also = parts.map((c) => ({ key: c.key, value: c.value }));
+      addr.proposed = composed;
+      drop(parts);
+    }
+  }
   // One rent, shown once: the monthly, yearly and per-unit forms are the same figure and are applied together
   const rent = changes.find((c) => c.key === 'grossRentPerMonth');
   if (rent) {
