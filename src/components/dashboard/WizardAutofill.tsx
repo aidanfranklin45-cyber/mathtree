@@ -3,7 +3,7 @@ import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
+import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
@@ -161,9 +161,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const mineText = (c: ProposedChange): string => (c.variance ? assumptionText(c.key, c.variance.expected) : '');
 
   // A figure the reader was unsure of: the owner checks the document, then uses what was read or leaves the field to enter themselves
-  const settleUnsure = (c: ProposedChange, useRead: boolean) => {
-    if (useRead && result) onAccept(result.proposal, c.key);
-    const said = useRead ? `${c.proposed} (checked against the document and kept)` : 'left blank for you to enter';
+  const settleUnsure = (c: ProposedChange, useRead: boolean, chosen?: { value: number; text: string }) => {
+    if (useRead && result) onAccept(chosen ? withChosenValue(result.proposal, c.key, chosen.value) : result.proposal, c.key);
+    const said = useRead ? `${chosen ? chosen.text : c.proposed} (${chosen ? 'chosen from the figures the document gives' : 'checked against the document and kept'})` : 'left blank for you to enter';
     setResolved((r) => ({ ...r, [c.key]: said }));
     onAnswered(c.key, c.label, said);
   };
@@ -342,6 +342,24 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
               <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
                 <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
                 {kind === 'unsure' ? (
+                  c.alternatives && c.alternatives.length > 0 ? (
+                    <>
+                      <span className="block text-amber-200">The documents give more than one figure for this. Which is right?</span>
+                      <span className="block space-y-1.5 pt-1">
+                        {[{ value: Number(c.value), text: c.proposed, how: c.how }, ...c.alternatives].map((o, k) => (
+                          <span key={k} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-900 border border-slate-800">
+                            <span className="font-bold text-emerald-300">{o.text}</span>
+                            <span className="text-slate-500 italic flex-1 min-w-[10rem]">{o.how}</span>
+                            <button type="button" onClick={() => settleUnsure(c, true, k === 0 ? undefined : { value: o.value, text: o.text })} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold">Use this one</button>
+                          </span>
+                        ))}
+                      </span>
+                      <span className="block text-slate-400">Check the document at these spots. Which one to underwrite is a judgment only you can make.</span>
+                      <span className="flex flex-wrap gap-2 pt-1">
+                        <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
+                      </span>
+                    </>
+                  ) : (
                   <>
                     <span className="block text-amber-200">The reader was not sure of this figure ({Math.round((c.confidence ?? 0) * 100)}% sure): it read <span className="font-bold">{c.proposed}</span>.{c.evidence ? <> From the document: <span className="italic">"{c.evidence}"</span></> : null}</span>
                     <span className="block text-slate-400">Please check the document at this spot. If several figures could be the one, this is a judgment only you can make.</span>
@@ -350,6 +368,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                       <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
                     </span>
                   </>
+                  )
                 ) : kind === 'variance' && c.variance ? (
                   <>
                     <span className="block text-amber-200">The document says {docText(c)}; your assumption is {mineText(c)}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>

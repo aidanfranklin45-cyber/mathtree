@@ -31,9 +31,16 @@ export interface FieldProvenance {
 /** The reader's own confidence and quote for a field it returned. */
 type Reading = { confidence: number; evidence?: string } | null | undefined;
 
+/** Two readings of the same figure that differ by more than this are different numbers, not rounding. */
+export const COMPETING_TOLERANCE = 0.01;
+
+export interface CompetingFigure { value: number; how: string }
+
 export interface DealPatch {
   /** Merged into the deal's inputs when the owner confirms. Engine-read keys only. */
   patch: Record<string, unknown>;
+  /** Other readings of a figure that stand equally with the one in `patch` and disagree with it (say, the rent in a unit mix and in an income table). The owner is asked which is right. */
+  alternatives: Record<string, CompetingFigure[]>;
   provenance: Record<string, FieldProvenance>;
   /** Figures a document asserts that must not become inputs: shown beside the engine's own result. */
   claims: Record<string, { value: number; documentType: IntakeDocument['documentType']; how: string }>;
@@ -77,6 +84,7 @@ type LeaseRow = {
 class Builder {
   patch: Record<string, unknown> = {};
   provenance: Record<string, FieldProvenance> = {};
+  alternatives: Record<string, CompetingFigure[]> = {};
   claims: DealPatch['claims'] = {};
   notes: string[] = [];
   /** The asset class the documents are being read for: it decides which costs the engine charges separately from the expense ratio. */
@@ -89,7 +97,16 @@ class Builder {
     if (value === null || value === undefined || (typeof value === 'number' && !Number.isFinite(value))) return;
     const reliability = reliabilityOf(doc);
     const existing = this.provenance[key];
-    if (existing && RANK[existing.reliability] >= RANK[reliability]) return;
+    if (existing && RANK[existing.reliability] >= RANK[reliability]) {
+      // A more reliable source settles it. Two readings of the same standing that disagree are a question, not a tie to break quietly.
+      const chosen = this.patch[key];
+      if (RANK[existing.reliability] === RANK[reliability] && typeof value === 'number' && typeof chosen === 'number') {
+        const seen = [chosen, ...(this.alternatives[key] ?? []).map((a) => a.value)];
+        if (seen.every((v) => Math.abs(value - v) > Math.max(1e-9, Math.abs(v)) * COMPETING_TOLERANCE)) (this.alternatives[key] ??= []).push({ value, how });
+      }
+      return;
+    }
+    delete this.alternatives[key]; // a more reliable source replaces the figure, and whatever competed with it
     this.patch[key] = value;
     const known = readings.filter((r): r is { confidence: number; evidence?: string } => !!r);
     this.provenance[key] = {
@@ -271,7 +288,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   // No leases and no unit mix gave a rent: the gross potential rent in the income table is the in-place rent. It is only taken when it is
   // before vacancy (a memorandum's table, or a statement with its own vacancy line), so vacancy is not counted twice.
   const grossBeforeVacancy = doc.documentType === 'offering_memorandum' || t.income.vacancy_credit_loss > 0;
-  if (!leasesEmitted && b.patch.grossRentPerMonth === undefined && t.income.rent > 0 && grossBeforeVacancy) {
+  if (!leasesEmitted && t.income.rent > 0 && grossBeforeVacancy) {
     const monthly = round2(t.income.rent / 12);
     const how = `The income table in the ${source}: gross potential rent ${Math.round(t.income.rent).toLocaleString()} a year, divided by 12 (before vacancy)`;
     b.set('grossRentPerMonth', monthly, doc, how, rentReadings);
@@ -423,7 +440,7 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
         // Still no rent: the average in-place rent the memorandum states, times the units
         const avgCurrent = val(doc.averageCurrentRent);
         const unitsForRent = Number(b.patch.unitCount);
-        if (leases.length === 0 && b.patch.grossRentPerMonth === undefined && avgCurrent !== null && unitsForRent > 0) {
+        if (leases.length === 0 && avgCurrent !== null && unitsForRent > 0) {
           const monthly = round2(avgCurrent * unitsForRent);
           const how = `Average current rent stated in the offering memorandum (${Math.round(avgCurrent).toLocaleString()} a month) x ${unitsForRent} units`;
           b.set('grossRentPerMonth', monthly, doc, how, [doc.averageCurrentRent, doc.unitCount]);
@@ -466,5 +483,5 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
     }
   }
 
-  return { patch: b.patch, provenance: b.provenance, claims: b.claims, missing: missingText, missingInputs, basis, notes: b.notes };
+  return { patch: b.patch, alternatives: b.alternatives, provenance: b.provenance, claims: b.claims, missing: missingText, missingInputs, basis, notes: b.notes };
 }

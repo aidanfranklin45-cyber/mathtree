@@ -31,8 +31,10 @@ export interface ProposedChange {
   /** How sure the reader was (0 to 1), and the quote it read the figure from. */
   confidence?: number;
   evidence?: string;
-  /** The reader was not sure of this figure: it is not applied until the owner has checked the document. */
+  /** The reader was not sure of this figure, or the documents give more than one figure for it: it is not applied until the owner has checked. */
   unsure?: boolean;
+  /** Other readings of the same figure that disagree with it, each with the text to show. */
+  alternatives?: Array<{ value: number; how: string; text: string }>;
   /** The document's figure is far from what the owner's own assumption would be: the owner is asked which to use. */
   variance?: Variance;
 }
@@ -173,6 +175,10 @@ export function proposeChanges(
       ...(prov?.confidence !== undefined ? { confidence: prov.confidence } : {}),
       ...(prov?.evidence ? { evidence: prov.evidence } : {}),
       ...(prov?.confidence !== undefined && prov.confidence < LOW_CONFIDENCE && !stated ? { unsure: true } : {}),
+      ...((patch.alternatives?.[key] ?? []).length > 0 && !stated ? {
+        unsure: true,
+        alternatives: (patch.alternatives[key] ?? []).map((a) => ({ value: a.value, how: a.how, text: key === 'grossRentPerMonth' ? `${formatValue(key, a.value)} a month (${formatValue('grossRentAnnual', Math.round(a.value * 1200) / 100)} a year)` : formatValue(key, a.value) })),
+      } : {}),
     });
   }
   // One address, shown once: street, city, state and zip are one line. A form that already holds this address is not asked about it again.
@@ -224,6 +230,25 @@ export interface Application {
 }
 
 /** What to save for the ticked rows. A figure read from a document is recorded as such; the rest of the deal is untouched. */
+/**
+ * The proposal with one figure set to the value the owner chose from those the documents gave. A rent is one figure in three forms (a month, a
+ * year, per unit), so choosing it sets all three.
+ */
+export function withChosenValue(proposal: Proposal, key: string, value: number): Proposal {
+  const units = Number(proposal.patch.patch.unitCount);
+  const changes = proposal.changes.map((c) => {
+    if (c.key !== key) return c;
+    const chosen: ProposedChange = { ...c, value, how: 'The figure you chose from those the documents gave', reliability: 'executed', unsure: false, alternatives: undefined };
+    if (key === 'grossRentPerMonth') {
+      const annual = Math.round(value * 1200) / 100;
+      chosen.proposed = `${formatValue(key, value)} a month (${formatValue('grossRentAnnual', annual)} a year${units > 0 ? `, ${formatValue('monthlyRentPerUnit', Math.round((value / units) * 100) / 100)} a unit` : ''})`;
+      chosen.also = [{ key: 'monthlyRent', value }, { key: 'grossRentAnnual', value: annual }, ...(units > 0 ? [{ key: 'monthlyRentPerUnit', value: Math.round((value / units) * 100) / 100 }] : [])];
+    } else chosen.proposed = formatValue(key, value);
+    return chosen;
+  });
+  return { ...proposal, changes };
+}
+
 export function buildApplication(
   deal: { inputs?: Record<string, any> | null },
   proposal: Proposal,
