@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { HOW_ASSUMPTIONS_WORK } from '../../lib/assumptions/howAssumptionsWork';
 import type { BriefModel } from '../../lib/export/buildBriefModel';
 import { createMonteCarloRunner, seedFromText, type MonteCarloResult, type MonteCarloHistogramBin } from '../../lib/engine';
 
@@ -873,12 +874,34 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
       {/* PAGE 5: Monte Carlo */}
       <MonteCarloSection m={m} mc={monteCarlo} />
 
+      {/* Where every figure came from: the sources a reader needs to stand behind each number */}
+      {m.figureSources.length > 0 && (
+        <div className="box">
+          <div className="bh"><span>Where each figure comes from</span><span className="sub">Document, your own entry, your investor profile or the county record</span></div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+            <tbody>
+              {m.figureSources.map((r) => (
+                <tr key={r.label} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '4px 8px', fontWeight: 700, width: '24%' }}>{r.label}</td>
+                  <td style={{ padding: '4px 8px', width: '22%' }}>{r.value}</td>
+                  <td style={{ padding: '4px 8px', color: '#475569' }}>{r.source}{r.reason ? <span style={{ color: '#64748b', fontStyle: 'italic' }}> {'\u2014'} {r.reason}</span> : null}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* LAST: methodology and diligence provenance, as fine print */}
       <div className="fine">
         <h3>Methodology, Diligence Provenance &amp; Disclosures</h3>
         <ol>
           {disclosures.map((d) => <li key={d.title}><strong>{d.title}.</strong> {d.text}</li>)}
         </ol>
+        <h3>How the assumptions work</h3>
+        <ul>
+          {HOW_ASSUMPTIONS_WORK.map((s) => <li key={s.title}><strong>{s.title}.</strong> {s.points.join(' ')}</li>)}
+        </ul>
         <p>Figures in this brief are computed from the deal's recorded inputs, its in-place rent roll and linked county parcels. Provenance statements describe how each figure was derived and are not independently verified.</p>
       </div>
 

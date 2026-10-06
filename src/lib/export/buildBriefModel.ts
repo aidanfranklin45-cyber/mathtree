@@ -1,5 +1,8 @@
 import type { DealMetrics, DealRecord, ProFormaYear } from '../math/types';
-import { computeDealMetrics, prepareEngineInputs } from '../engine/compute';
+import { computeDealMetrics, prepareEngineInputs, resolveProfileAssumptions } from '../engine/compute';
+import { buildAssumptionLedger } from '../assumptions/ledger';
+import { getAssumptionDefaults } from '../engine/assumptionDefaults';
+import { DEFAULT_CLOSING_WEEKS } from '@engine/underwritingAssumptions';
 import { firstFullYear, calculateDownPaymentMatrix, type DownPaymentMatrixResult } from '../engine';
 
 /**
@@ -211,6 +214,8 @@ export interface BriefModel {
   construction: string | null;
   buildingSqFt: number;
   gisBadge: string;
+  /** Every figure the numbers rest on, and where it came from (the same ledger as the Assumptions & Diligence tab). */
+  figureSources: Array<{ label: string; value: string; source: string; reason?: string; group: 'project' | 'standard' }>;
 
   /** The in-place rent roll from the Operations `leases` table (actuals), active leases only. */
   rentRoll: BriefLease[];
@@ -391,6 +396,12 @@ export function buildBriefModel(
     ? 'Single-Family Residential Investment Memo'
     : isMultiFamily ? 'Multi-Family Residential Memo' : isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo';
 
+  const { filled, basis } = resolveProfileAssumptions(deal);
+  const figureSources = buildAssumptionLedger({
+    stored: (deal.inputs ?? {}) as Record<string, any>, prepared: inputs, filled, filledBasis: basis, assetClass: String(deal.asset_class ?? 'commercial'), metrics,
+    assumedClosingWeeks: getAssumptionDefaults().assumptions.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS,
+  }).map((r) => ({ label: r.label, value: r.value, source: r.source, reason: r.reason, group: r.group }));
+
   return {
     title: String(deal.title || deal.name || 'Investment Underwriting Brief'),
     location: text(deal.location) ?? text(deal.address),
@@ -454,6 +465,7 @@ export function buildBriefModel(
     construction: text(assessor.constructionType) ?? text(inputs.constructionType),
     buildingSqFt,
     gisBadge,
+    figureSources,
     rentRoll,
     rentRollMonthly,
     rentVarianceMonthly,
