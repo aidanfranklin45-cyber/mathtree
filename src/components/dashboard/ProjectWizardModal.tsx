@@ -10,7 +10,7 @@ import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import type { DealRecord } from '../../lib/math/types';
 import { WizardAutofill, type Autofill, type ProfileFilled } from './WizardAutofill';
-import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs } from '../../lib/ingestion/wizardMap';
+import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs, PROFILE_FIELD, profileFill } from '../../lib/ingestion/wizardMap';
 
 interface Props {
   isOpen: boolean;
@@ -194,43 +194,17 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   /** The owner's profile assumptions for every blank field of `base`, with their reasons. Fields already filled are never overwritten. */
   const assumptionFill = (base: W, assetKey: Asset) => {
     const profile = getProfile();
-    const units = assetKey === 'storage' ? int(base.storageUnits) : assetKey === 'multi-unit' ? int(base.multiUnits) : assetKey === 'single-family' ? 1 : 0;
-    const sqft = num(assetKey === 'storage' ? base.storageSqft : assetKey === 'multi-unit' ? base.multiSqft : assetKey === 'commercial' ? (base.commSqft || base.gla) : base.sfrSqft);
-    const seeded = seedFromAssumptions(profile.underwritingAssumptions, {
-      assetClass: assetKey,
-      leaseType: base.leaseType,
-      purchasePrice: num(base.price) || null,
-      unitCount: units > 0 ? units : null,
-      squareFeet: sqft > 0 ? sqft : null,
-      discountRate: profile.discountRate,
-      exitYear: profile.exitYear,
+    return profileFill({
+      assumptions: profile.underwritingAssumptions, discountRate: profile.discountRate, exitYear: profile.exitYear, base, asset: assetKey,
       assessedValue: Number(assessor?.taxableValue) || Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
     });
-    const target: Record<string, string> = {
-      vacancyRate: 'vacancy', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
-      discountRate: 'discountRate', targetCapRate: 'exitCap', appreciationRate: 'apprec', sellingCostPercent: 'sellingCost',
-      closingCosts: 'closing', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
-      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
-    };
-    const patch: W = {};
-    const basis: Record<string, InputBasis> = {};
-    for (const [key, value] of Object.entries(seeded.inputs)) {
-      const field = target[key];
-      if (key === 'managementFeePercent' && base.manageProperty !== 'true') continue; // no manager, no fee
-      if (!field || (base[field] ?? '').trim() !== '') continue;
-      patch[field] = String(value);
-      if (key === 'capexReserveAnnual') patch.capexKind = 'annual';
-      if (key === 'capexReservePercent') patch.capexKind = 'percent';
-      if (seeded.basis[key]) basis[key] = seeded.basis[key];
-    }
-    return { patch, basis };
   };
 
   /**
    * The one action. What the documents gave goes into the form first (facts), then the owner's own assumptions fill what is still blank, and
    * the fields that remain empty are marked. Nothing is asked here: the owner only answers what is left.
    */
-  const autofill = async (a: Autofill | null): Promise<ProfileFilled[]> => {
+  const autofill = async (a: Autofill | null): Promise<void> => {
     let form: W = w;
     let nextAsset: Asset = asset;
     let fromDocs: Record<string, InputBasis> = {};
@@ -249,8 +223,6 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fromDocs, ...fromProfile.basis }));
     if (form.location && form.location !== w.location) onLocation(form.location);
     setFilledOnce(true);
-    // Which figures came from the owner's own standards, and why, so the screen can tell them apart from what the documents said
-    return Object.entries(fromProfile.basis).flatMap(([key, b]) => (b.value === undefined ? [] : [{ key, label: b.label, value: b.value, why: b.rationale }]));
   };
 
   const guidance = useMemo(() => {
@@ -519,6 +491,17 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
   };
 
+  // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
+  // value (a figure the owner changed is theirs now). Worked out from the form, not from the last click, so it stays true after a second fill or a reload.
+  const profileFigures = useMemo<ProfileFilled[]>(() => (
+    Object.entries(seededBasis).flatMap(([key, b]) => {
+      if (b.source !== 'profile' || b.value === undefined) return [];
+      const field = PROFILE_FIELD[key];
+      if (!field || Number(w[field]) !== b.value) return [];
+      return [{ key, label: b.label, value: b.value, why: b.rationale }];
+    })
+  ), [seededBasis, w]);
+
   // The facts and assumptions the engine still has nobody's answer for, as the form fields they belong to (the closing date is assumed at creation)
   const emptyFields = useMemo(() => {
     const out = new Set<string>();
@@ -542,7 +525,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       {/* Step 1 */}
       <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
         <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
-        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} />
+        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} profileFigures={profileFigures}
+          assumedClosingWeeks={w.closingDate.trim() ? null : (getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS)} />
 
         <div className="space-y-1.5">
           <label htmlFor="wiz-deal-name" className={lbl}>Project / Deal Name</label>

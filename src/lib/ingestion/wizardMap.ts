@@ -8,7 +8,7 @@
 import type { IntakeDocument } from './intake';
 import { val } from './intake';
 import type { Proposal } from './apply';
-import type { InputBasis } from '@engine/underwritingAssumptions';
+import { seedFromAssumptions, type InputBasis, type UnderwritingAssumptions } from '@engine/underwritingAssumptions';
 
 export type WizardAsset = 'single-family' | 'multi-unit' | 'commercial' | 'storage';
 type Form = Record<string, string>;
@@ -190,4 +190,54 @@ export function applyToForm(args: { form: Form; asset: WizardAsset; proposal: Pr
     }
   }
   return { form, extra, basis, applied: accepted.length };
+}
+
+/** The wizard field each figure of the owner's profile goes into. */
+export const PROFILE_FIELD: Record<string, string> = {
+  vacancyRate: 'vacancy', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
+  discountRate: 'discountRate', targetCapRate: 'exitCap', appreciationRate: 'apprec', sellingCostPercent: 'sellingCost',
+  closingCosts: 'closing', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
+  payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
+};
+
+const asNumber = (v: string | undefined): number => { const n = parseFloat(v ?? ''); return Number.isNaN(n) ? 0 : n; };
+
+/**
+ * The owner's investor-profile assumptions for every field of the form that is still blank, each with the reason the owner gave. Fields that
+ * already hold something (a document's figure, or the owner's own entry) are never overwritten. No management fee unless a manager is hired.
+ */
+export function profileFill(args: {
+  assumptions: UnderwritingAssumptions | null | undefined;
+  discountRate?: number | null;
+  exitYear?: number | null;
+  base: Form;
+  asset: WizardAsset;
+  /** The county's assessed value, when a parcel has been looked up. */
+  assessedValue?: number | null;
+}): { patch: Form; basis: Record<string, InputBasis> } {
+  const { base, asset } = args;
+  const units = asset === 'storage' ? Math.round(asNumber(base.storageUnits)) : asset === 'multi-unit' ? Math.round(asNumber(base.multiUnits)) : asset === 'single-family' ? 1 : 0;
+  const sqft = asNumber(asset === 'storage' ? base.storageSqft : asset === 'multi-unit' ? base.multiSqft : asset === 'commercial' ? (base.commSqft || base.gla) : base.sfrSqft);
+  const seeded = seedFromAssumptions(args.assumptions, {
+    assetClass: asset,
+    leaseType: base.leaseType,
+    purchasePrice: asNumber(base.price) || null,
+    unitCount: units > 0 ? units : null,
+    squareFeet: sqft > 0 ? sqft : null,
+    discountRate: args.discountRate ?? null,
+    exitYear: args.exitYear ?? null,
+    assessedValue: args.assessedValue ?? null,
+  });
+  const patch: Form = {};
+  const basis: Record<string, InputBasis> = {};
+  for (const [key, value] of Object.entries(seeded.inputs)) {
+    const field = PROFILE_FIELD[key];
+    if (key === 'managementFeePercent' && base.manageProperty !== 'true') continue; // no manager, no fee
+    if (!field || (base[field] ?? '').trim() !== '') continue;
+    patch[field] = String(value);
+    if (key === 'capexReserveAnnual') patch.capexKind = 'annual';
+    if (key === 'capexReservePercent') patch.capexKind = 'percent';
+    if (seeded.basis[key]) basis[key] = seeded.basis[key];
+  }
+  return { patch, basis };
 }

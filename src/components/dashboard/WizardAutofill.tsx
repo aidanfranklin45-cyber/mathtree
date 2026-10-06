@@ -26,7 +26,11 @@ interface Props {
   /** What the form holds now (as inputs), so the reader compares the documents with it. */
   deal: { asset_class?: string | null; purchase_price?: number | null; inputs?: Record<string, any> | null };
   /** Reads the documents (if any) and writes them, then the owner's own assumptions for the rest, into the form. Resolves when the form is filled. */
-  onAutofill: (a: Autofill | null) => Promise<ProfileFilled[]>;
+  onAutofill: (a: Autofill | null) => Promise<void>;
+  /** What the form holds that came from the owner's investor profile and still matches it (kept by the form, so it survives a second click or a reload). */
+  profileFigures: ProfileFilled[];
+  /** Weeks from creation to the assumed closing date, when the owner has not entered one; null when they have. */
+  assumedClosingWeeks: number | null;
   /** Changes one field of the form: an answer the owner gave to a question here (input key and value). */
   onSet: (key: string, value: string) => void;
 }
@@ -65,13 +69,12 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' };
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profileFigures, assumedClosingWeeks }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
   const [result, setResult] = useState<{ proposal: Proposal; docs: IntakeDocument[]; filled: number } | null>(null);
   const [open, setOpen] = useState(true);
-  const [fromProfile, setFromProfile] = useState<ProfileFilled[]>([]);
   const [details, setDetails] = useState(true); // the disclosures are on show: the owner is here to check the reader's work
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -111,14 +114,14 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
       setReads(out);
       const docs = out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? [r.parsed.intake] : []));
       if (docs.length === 0) {
-        setFromProfile(await onAutofill(null));
+        await onAutofill(null);
         setResult(null);
       } else {
         const proposal = proposeChanges(docs, deal, { assetClass: true, manager: managerFor(deal) });
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
         const ticked = new Set(proposal.changes.filter((c) => !c.replaces).map((c) => c.key));
-        setFromProfile(await onAutofill({ proposal, ticked, docs }));
+        await onAutofill({ proposal, ticked, docs });
         setResult({ proposal, docs, filled: ticked.size });
       }
       setPicked({});
@@ -152,6 +155,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
   };
 
   const done = result !== null || reads.length > 0;
+  const manager = managerFor(deal);
+  const liveNotes = useMemo(
+    () => (result ? proposeChanges(result.docs, deal, { assetClass: true, manager }).patch.notes : []),
+    // the notes depend on the documents, the asset class and the manager choice: not on every keystroke in the form
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [result, manager.uses, manager.fee, deal.asset_class],
+  );
   const hidden = reads.flatMap((r) => (r.parsed ? [r.parsed.redaction] : []));
   const sum = (k: 'names' | 'phones' | 'emails') => hidden.reduce((s, h) => s + h[k], 0);
 
@@ -207,7 +217,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
       {note && <p className="text-[11px] text-amber-300">{note}</p>}
       {reads.filter((r) => r.error).map((r) => <p key={r.source.id} className="text-[11px] text-amber-300">{r.source.name}: {r.error}</p>)}
 
-      {done && (result || fromProfile.length > 0) && (
+      {(done || profileFigures.length > 0) && (
         <div>
           <button type="button" onClick={() => setDetails((d) => !d)} className="text-[11px] font-bold text-slate-400 hover:text-white">{details ? 'Hide' : 'Show'} what was found and what was filled in</button>
           {details && (
@@ -227,16 +237,24 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
                     <div><p className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</p>
                       <ul className="text-[11px] text-slate-400">{Object.entries(result.proposal.patch.claims).map(([k, c]) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul></div>
                   )}
-                  {result.proposal.patch.notes.length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{result.proposal.patch.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+                  {liveNotes.length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{liveNotes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
                 </section>
               )}
 
-              {fromProfile.length > 0 && (
+              {(
                 <section className="space-y-2">
-                  <h5 className="text-[11px] uppercase tracking-wider font-black text-violet-300">2 · Using your investor profile ({fromProfile.length})</h5>
+                  <h5 className="text-[11px] uppercase tracking-wider font-black text-violet-300">2 · Using your investor profile ({profileFigures.length})</h5>
                   <p className="text-[11px] text-slate-500">Not in any document: these are your own standards for this kind of property, filled in wherever the documents were silent. Change any of them in the form below for this property.</p>
                   <ul className="space-y-1">
-                    {fromProfile.map((f) => (
+                    <li className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">Property manager (this property):</span>{' '}
+                      {manager.uses === true ? <span className="text-emerald-400">{`you hire one. Their fee (${manager.fee !== undefined ? `${manager.fee}%` : 'not set yet'} of collected income) is charged on top of the expense ratio.`}</span>
+                        : manager.uses === false ? <span className="text-emerald-400">you manage it yourself, so no management fee is charged (a lender will usually add one).</span>
+                        : <span className="text-amber-300">your profile does not say, so no management fee is charged. Tick "I hire a property manager" below, or set it in your investor profile.</span>}
+                    </li>
+                    {assumedClosingWeeks !== null && (
+                      <li className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">Closing date:</span> <span className="text-emerald-400">{assumedClosingWeeks} weeks after you create the project</span> <span className="text-slate-500 italic">Your profile's closing time; enter a date below to replace it.</span></li>
+                    )}
+                    {profileFigures.map((f) => (
                       <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{assumptionText(f.key, f.value)}</span> <span className="text-slate-500 italic">{f.why ? `Your reason: ${f.why}` : 'Your investor profile'}</span></li>
                     ))}
                   </ul>

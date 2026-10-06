@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
 import { applyChoices, assumptionText, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
-import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs } from './wizardMap';
+import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs, profileFill } from './wizardMap';
 import { missingInputsFor } from '../engine/compute';
 import { openQuestions } from './openQuestions';
-import { managerChoice, sanitizeAssumptions } from '@engine/underwritingAssumptions';
+import { calculateProjections, checkEngineInputs } from '../engine';
+import { managerChoice, sanitizeAssumptions, suggestedStartingPoints } from '@engine/underwritingAssumptions';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
 const rentRoll = coerceIntake('rent_roll', {
@@ -373,5 +374,56 @@ describe('how a profile figure is written next to its reason', () => {
     expect(assumptionText('exitYear', 10)).toBe('10 years');
     expect(assumptionText('capexReserveAnnual', 16500)).toBe('$16,500 a year');
     expect(assumptionText('closingCosts', 552000)).toBe('$552,000');
+  });
+});
+
+describe('hiring a property manager changes the underwriting, not just the note', () => {
+  const deal = (extra: Record<string, unknown> = {}): Record<string, any> => ({
+    purchasePrice: 18400000, closingDate: '2026-01-01', holdingPeriod: 10, discountRate: 8, downPaymentPercent: 25, interestRate: 6.5, amortizationYears: 30,
+    grossRentAnnual: 1450800, vacancyRate: 5, rentGrowth: 3, expenseGrowth: 3, expenseRatio: 18.03, capexReserveAnnual: 16500, appreciationRate: 3, sellingCostPercent: 0,
+    closingCosts: 0, unitCount: 66, ...extra,
+  });
+  const profile = sanitizeAssumptions({ assets: { 'multi-unit': { usesPropertyManager: true, managementFeePercent: 6 } } });
+
+  it('the profile choice and rate become the property\'s, and the engine charges the fee on collected income on top of the ratio', () => {
+    const choice = managerChoice(profile, 'multi-unit');
+    expect(choice).toEqual({ uses: true, fee: 6 });
+    const alone: any = calculateProjections('multi-unit', deal({ manageProperty: false }));
+    const managed: any = calculateProjections('multi-unit', deal({ manageProperty: choice.uses === true, managementFeePercent: choice.fee }));
+    const year1 = (m: any) => m.projections[0];
+    const collected = 1450800 * 0.95;
+    expect(year1(managed).operatingExpenses - year1(alone).operatingExpenses).toBeCloseTo(collected * 0.06, 0);
+    expect(year1(managed).netOperatingIncome).toBeLessThan(year1(alone).netOperatingIncome);
+  });
+
+  it('a manager with no rate set is asked for, not guessed', () => {
+    const noRate = sanitizeAssumptions({ assets: { 'multi-unit': { usesPropertyManager: true } } });
+    expect(managerChoice(noRate, 'multi-unit').fee).toBeUndefined();
+    expect(checkEngineInputs('multi-unit', deal({ manageProperty: true })).map((m) => m.key)).toContain('managementFeePercent');
+  });
+});
+
+describe('the investor profile fills what the documents left blank', () => {
+  const profile = suggestedStartingPoints(null);
+  const base = { price: '18400000', multiUnits: '66', multiSqft: '83628', manageProperty: 'false', capexKind: 'annual' } as Record<string, string>;
+  const fill = (over: Record<string, string> = {}, assumptions = profile) => profileFill({ assumptions, discountRate: 8, exitYear: 10, base: { ...base, ...over }, asset: 'multi-unit' });
+
+  it('fills the blanks with the owner\'s figures and the reason for each', () => {
+    const r = fill();
+    expect(r.patch).toMatchObject({ rentGrowth: '3', expenseGrowth: '3', apprec: '3', sellingCost: '0', closing: '368000', exitYear: '10', discountRate: '8' });
+    expect(r.basis.closingCosts.label).toContain('2% of price');
+    expect(r.basis.capexReserveAnnual.label).toContain('66 units');
+    expect(Object.values(r.basis).every((b) => b.source === 'profile')).toBe(true);
+  });
+
+  it('never overwrites a figure a document (or the owner) already put in the form', () => {
+    const r = fill({ vacancy: '5', opexRatio: '18.03', closing: '500000', capexValue: '16500' });
+    for (const f of ['vacancy', 'opexRatio', 'closing', 'capexValue']) expect(r.patch[f]).toBeUndefined();
+  });
+
+  it('charges no management fee unless a manager is hired', () => {
+    const withFee = sanitizeAssumptions({ assets: { 'multi-unit': { managementFeePercent: 6, usesPropertyManager: true } } });
+    expect(fill({}, withFee).patch.managementFee).toBeUndefined(); // not hired for this property
+    expect(fill({ manageProperty: 'true' }, withFee).patch.managementFee).toBe('6');
   });
 });
