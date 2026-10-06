@@ -52,3 +52,28 @@ export function collapseUnits<T extends { street?: string; formattedAddress?: st
     };
   });
 }
+
+/**
+ * A property listed under several street numbers ("1403-1407 S 18th Ave", "1403, 1405 & 1407 S 18th Ave") becomes one address per number, so
+ * each can be looked up on its own. A range steps by two when both ends are on the same side of the street. An address that is not a range or
+ * a list comes back as it is, and so does a range too wide to be one building group.
+ */
+export function expandAddressRange(address: string): string[] {
+  const text = String(address ?? '');
+  const range = /^\s*(\d+)\s*(?:[-\u2010-\u2015]|to)\s*(\d+)\s+([^,]+?)(\s*,.*)?$/i.exec(text);
+  if (range) {
+    const a = Number(range[1]); const b = Number(range[2]);
+    const step = (b - a) % 2 === 0 ? 2 : 1;
+    const count = Math.floor((b - a) / step) + 1;
+    if (b > a && count <= 12) {
+      return Array.from({ length: count }, (_, i) => `${a + i * step} ${range[3].trim()}${range[4] ?? ''}`);
+    }
+    return [text];
+  }
+  const list = /^\s*(\d+(?:\s*(?:,|&|and)\s*\d+)+)\s+([^,]+?)(\s*,.*)?$/i.exec(text);
+  if (list) {
+    const numbers = list[1].split(/\s*(?:,|&|and)\s*/i).filter(Boolean);
+    if (numbers.length <= 12) return numbers.map((n) => `${n} ${list[2].trim()}${list[3] ?? ''}`);
+  }
+  return [text];
+}

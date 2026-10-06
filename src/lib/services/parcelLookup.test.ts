@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { countyFromText, isRealParcel, pickPropertyResult, streetOf } from './parcelLookup';
-import { collapseUnits } from './addressText';
+import { collapseUnits, expandAddressRange } from './addressText';
 
 describe('streetOf', () => {
   it('keeps the street line only, without unit, city or zip', () => {
@@ -59,5 +59,19 @@ describe('collapseUnits', () => {
   });
   it('respects a limit on properties, not units', () => {
     expect(collapseUnits(list, 1)).toHaveLength(1);
+  });
+});
+
+describe('expandAddressRange', () => {
+  it('turns a range into one address per street number, on the same side of the street', () => {
+    expect(expandAddressRange('1403\u20131407 S 18th Ave, Yakima, WA 98902')).toEqual(['1403 S 18th Ave, Yakima, WA 98902', '1405 S 18th Ave, Yakima, WA 98902', '1407 S 18th Ave, Yakima, WA 98902']);
+    expect(expandAddressRange('1403-1405 S 18th Ave')).toEqual(['1403 S 18th Ave', '1405 S 18th Ave']);
+  });
+  it('reads a list of numbers', () => {
+    expect(expandAddressRange('1403, 1405 & 1407 S 18th Ave, Yakima')).toEqual(['1403 S 18th Ave, Yakima', '1405 S 18th Ave, Yakima', '1407 S 18th Ave, Yakima']);
+  });
+  it('leaves a single address, or a range too wide to be one group, alone', () => {
+    expect(expandAddressRange('5101 W Powerhouse Rd, Yakima')).toEqual(['5101 W Powerhouse Rd, Yakima']);
+    expect(expandAddressRange('100-900 Main St')).toEqual(['100-900 Main St']);
   });
 });

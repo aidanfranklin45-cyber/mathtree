@@ -7,7 +7,7 @@ import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
-import { findParcel, isRealParcel } from '../../lib/services/parcelLookup';
+import { findParcels, isRealParcel } from '../../lib/services/parcelLookup';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
@@ -400,7 +400,27 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       // The county parcel: the one picked from the address list, else looked up now (by the parcel number the documents gave, or by the
       // street address with any unit taken off). Only a real county record is used: nothing is saved as county data without figures behind it.
       let a: any = assessor;
-      if (!isRealParcel(a)) a = await findParcel({ apn: String(docExtra.primaryApn ?? ''), location: w.location });
+      if (!isRealParcel(a)) {
+        const found = await findParcels({ apn: String(docExtra.primaryApn ?? ''), location: w.location });
+        a = found.primary;
+        // Other parcels the owner has to decide about: other street numbers that lead to a different parcel, and parcels next door with the same
+        // owner. Nothing is included silently: the owner chooses which belong to the project, then presses Create again.
+        if (a) {
+          const others: any[] = [...found.others];
+          try {
+            const near: any[] = (await AddressService.detectNearbySameOwnerParcels(a.apn, a.owner, a)) || [];
+            near.forEach((n) => { if (!others.some((o) => String(o.apn) === String(n.apn)) && String(n.apn) !== String(a.apn)) others.push(n); });
+          } catch { /* the nearby check is a courtesy; the parcel itself was found */ }
+          if (others.length > 0) {
+            setAssessor(a);
+            setParcels([{ ...a, isPrimary: true, included: true }, ...others.map((o) => ({ ...o, isPrimary: false, included: false }))]);
+            setCompanions(others.length);
+            setError(`We found ${others.length} other parcel${others.length === 1 ? '' : 's'} connected to this address. Please choose which belong to this project in the parcel list above, then press Create project again.`);
+            setTimeout(() => document.getElementById('wiz-parcel-package')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+            return;
+          }
+        }
+      }
       if (!isRealParcel(a)) a = null;
       const profile = getProfile();
       const isStorage = asset === 'storage';
@@ -807,7 +827,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         )}
 
         {companions > 0 && (
-          <div className="p-3.5 bg-slate-900/90 border border-brand-500/40 rounded-2xl space-y-3 text-xs">
+          <div id="wiz-parcel-package" className="p-3.5 bg-slate-900/90 border border-brand-500/40 rounded-2xl space-y-3 text-xs">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <div className="flex items-center space-x-2">
                 <span className="text-brand-400 font-extrabold text-sm">📦 Multi-Parcel Acquisition Package</span>

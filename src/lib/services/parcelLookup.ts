@@ -10,7 +10,7 @@
  */
 
 import { AddressService } from './addressService';
-import { hasUnit, streetOf } from './addressText';
+import { expandAddressRange, hasUnit, streetOf } from './addressText';
 
 export { streetOf };
 
@@ -37,30 +37,48 @@ export function pickPropertyResult<T extends { street?: string; formattedAddress
 const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T | null> =>
   Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
 
+const digitsOf = (v: unknown): string => String(v ?? '').replace(/D/g, '');
+
+/** The parcel for one street address: the property's own line (units taken off), looked up in the county's records. Null when none is real. */
+async function parcelForAddress(address: string): Promise<any | null> {
+  const service: any = AddressService;
+  const results: any[] = (await withTimeout(service.searchAddresses(address), 12_000)) ?? [];
+  const item = pickPropertyResult(results, address);
+  if (!item) return null;
+  const data = await withTimeout(service.resolveParcelDetails(item), 12_000);
+  return isRealParcel(data) ? data : null;
+}
+
 /**
- * The parcel for a property: by the parcel number the documents gave when there is one, else by its address. Returns null when the county
- * gives nothing real. Never throws: a project is created either way, and the deal page tries the county again later.
+ * The parcels for a property: by the parcel number the documents gave when there is one, then by street address. A property listed under
+ * several street numbers ("1403-1407 S 18th Ave") is looked up number by number. `primary` is the first parcel found; `others` are any
+ * different parcels the other numbers lead to. Several numbers on one parcel are one parcel, not several. Never throws: a project is
+ * created either way, and the deal page tries the county again later.
  */
-export async function findParcel(args: { apn?: string | null; location?: string | null }): Promise<any | null> {
+export async function findParcels(args: { apn?: string | null; location?: string | null }): Promise<{ primary: any | null; others: any[] }> {
   const service: any = AddressService;
   const location = String(args.location ?? '').trim();
   const county = countyFromText(location);
+  const found: any[] = [];
+  const add = (d: any) => { if (d && !found.some((f) => digitsOf(f.apn) === digitsOf(d.apn))) found.push(d); };
   try {
-    const digits = String(args.apn ?? '').replace(/\D/g, '');
+    const digits = digitsOf(args.apn);
     if (digits && county) {
       const byApn = await withTimeout(service.resolveParcelDetails({ apn: digits, county }), 12_000);
-      if (isRealParcel(byApn)) return byApn;
+      if (isRealParcel(byApn)) add(byApn);
     }
     if (location.length >= 6) {
-      const results: any[] = (await withTimeout(service.searchAddresses(location), 12_000)) ?? [];
-      const item = pickPropertyResult(results, location);
-      if (item) {
-        const data = await withTimeout(service.resolveParcelDetails(item), 12_000);
-        if (isRealParcel(data)) return data;
-      }
+      const addresses = expandAddressRange(location);
+      const results = await Promise.all(addresses.map((a) => parcelForAddress(a).catch(() => null)));
+      results.forEach(add);
     }
   } catch (e) {
     console.warn('[parcelLookup] county lookup failed:', e);
   }
-  return null;
+  return { primary: found[0] ?? null, others: found.slice(1) };
+}
+
+/** The first parcel found for a property, or null. */
+export async function findParcel(args: { apn?: string | null; location?: string | null }): Promise<any | null> {
+  return (await findParcels(args)).primary;
 }

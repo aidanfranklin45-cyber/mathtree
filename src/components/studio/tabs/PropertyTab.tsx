@@ -373,13 +373,14 @@ export const PropertyTab: React.FC<PropertyTabProps> = ({ deal, onPatchDeal }) =
         <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-900 space-y-2 text-xs">
           <div className="flex items-center justify-between">
             <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Building Characteristics &amp; Specs</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">{yearBuilt ? `Year Built: ${yearBuilt}` : 'Year Built: Pending'}</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">{yearBuilt ? (raw.latestYearBuilt && Number(raw.latestYearBuilt) !== Number(yearBuilt) ? `Built ${yearBuilt}-${raw.latestYearBuilt}` : `Year Built: ${yearBuilt}`) : 'Year Built: Pending'}</span>
           </div>
           <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900/60 text-center">
             <div><span className="text-[9px] text-slate-500 block uppercase">Bldg Area</span><span className="text-xs font-bold text-slate-200">{bldgSqFt > 0 ? `${Number(bldgSqFt).toLocaleString()} Sq Ft` : 'Pending Survey'}</span></div>
             <div><span className="text-[9px] text-slate-500 block uppercase">Stories</span><span className="text-xs font-bold text-slate-200">{stories ? `${stories} Stories` : '1 Story'}</span></div>
             <div><span className="text-[9px] text-slate-500 block uppercase">Condition</span><span className="text-xs font-bold text-slate-200">{condition}</span></div>
           </div>
+          {Number(raw.buildingCount) > 1 && <p className="pt-1 border-t border-slate-900/60 text-[10px] text-amber-300/90 leading-relaxed">{raw.buildingCount} buildings on this parcel. {raw.buildingNote}</p>}
           <div className="flex items-center justify-between pt-1 border-t border-slate-900/60 text-[10px] text-slate-400">
             <span className="truncate">Frame: {construction}</span>
             <span className="truncate font-mono text-slate-400">HVAC: {hvac}</span>
