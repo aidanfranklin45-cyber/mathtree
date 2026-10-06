@@ -90,7 +90,7 @@ describe('an offering memorandum with a unit mix and an income table', () => {
     for (const k of ['annualTaxes', 'annualInsurance', 'annualUtilities', 'annualMaintenance']) expect(fill.extra[k]).toBeUndefined();
     expect(fill.form.capexValue).toBe('16500');
     expect(fill.form.vacancy).toBe('5');
-    expect(Number(fill.form.opexRatio)).toBeCloseTo(11.72, 2); // (274,014 of costs less 103,932 reimbursed) / 1,450,800 of rent; management and reserves left out
+    expect(Number(fill.form.opexRatio)).toBeCloseTo(11.28, 2); // (274,014 of costs less 103,932 reimbursed) / 1,508,400, the rent underwritten (the unit mix), not the 1,450,800 the income table prints; management and reserves left out
     expect(fill.extra.yearBuilt).toBe(2023);
     expect(fill.extra.acres).toBe(8.87);
     expect(fill.extra.primaryApn).toBe('181309-41011');

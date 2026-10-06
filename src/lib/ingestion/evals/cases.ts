@@ -62,7 +62,8 @@ export const EVAL_CASES: EvalCase[] = [
     about: 'The unit mix gives 126,000 a month and the income table 120,900. Neither may be chosen silently: the owner is asked.',
     documentText: [...pageOne, ...unitMix, ...incomeTable('1,450,800', '72,540')].join('\n'),
     modelAnswer: base({ income: [line('Gross Potential Rent', 'rent', 1_450_800), line('Vacancy', 'vacancy_credit_loss', -72_540), line('Other income', 'other_income', 54_268)] }),
-    answerKey: { inputs: { ...CLEAN_INPUTS, expenseRatio: 14.41 }, flagged: ['grossRentPerMonth'], notInDocument: [], checks: [] },
+    // the costs are divided by the rent underwritten (the unit mix, 1,512,000), not by the 1,450,800 the income table prints
+    answerKey: { inputs: CLEAN_INPUTS, flagged: ['grossRentPerMonth'], notInDocument: [], checks: [] },
   },
   {
     name: 'the reader returns a number that is not in the document',

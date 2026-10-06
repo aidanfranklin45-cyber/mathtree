@@ -93,3 +93,24 @@ describe('several figures for one thing are a question for the owner', () => {
     expect(price.alternatives).toBeUndefined();
   });
 });
+
+describe('the expense ratio is the costs over the rent that is underwritten', () => {
+  const costsOnly = [line('Taxes', 'property_tax', 150_000), line('Insurance', 'insurance', 30_000)]; // 180,000 of costs
+  it('divides by the rent from the unit mix, not by the rent the income table prints', () => {
+    // the unit mix gives 126,000 a month (1,512,000 a year); the income table prints 2,821,806
+    const p = proposeChanges([memo({ income: [line('Rent', 'rent', 2_821_806)], expenses: costsOnly })], deal);
+    const ratio = p.changes.find((c) => c.key === 'expenseRatio')!;
+    expect(ratio.value).toBeCloseTo((180_000 / 1_512_000) * 100, 2);
+    expect(ratio.how).toContain('divided by rent 1,512,000');
+    expect(ratio.how).toContain('the income table shows 2,821,806');
+  });
+
+  it('is worked out again from the same costs when the owner chooses a different rent', () => {
+    const p = proposeChanges([memo({ income: [line('Rent', 'rent', 1_450_800)], expenses: costsOnly })], deal);
+    const chosen = withChosenValue(p, 'grossRentPerMonth', 120_900);
+    const ratio = chosen.changes.find((c) => c.key === 'expenseRatio')!;
+    expect(ratio.value).toBeCloseTo((180_000 / 1_450_800) * 100, 2);
+    expect(ratio.how).toContain('divided by rent 1,450,800 (the rent you chose)');
+    expect(chosen.patch.patch.expenseRatio).toBeCloseTo((180_000 / 1_450_800) * 100, 2);
+  });
+});

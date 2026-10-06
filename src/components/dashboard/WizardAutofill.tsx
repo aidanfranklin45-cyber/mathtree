@@ -149,7 +149,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const questions: Question[] = useMemo(() => {
     if (!result) return [];
     return result.proposal.changes.flatMap<Question>((c) => {
-      if (c.unsure && !c.replaces) return [{ change: c, kind: 'unsure' }];
+      if ((c.unsure || c.chosen) && !c.replaces) return [{ change: c, kind: 'unsure' }];
       if (c.variance) return [{ change: c, kind: 'variance' }];
       if (c.replaces && (FORM_FIELD_FOR_KEY[c.key] || c.key === 'address')) return [{ change: c, kind: 'replaces' }];
       return [];
@@ -168,7 +168,22 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
 
   // A figure the reader was unsure of: the owner checks the document, then uses what was read or leaves the field to enter themselves
   const settleUnsure = (c: ProposedChange, useRead: boolean, chosen?: { value: number; text: string }) => {
-    if (useRead && result) onAccept(chosen ? withChosenValue(result.proposal, c.key, chosen.value) : result.proposal, c.key);
+    if (useRead && result) {
+      const next = chosen ? withChosenValue(result.proposal, c.key, chosen.value) : result.proposal;
+      onAccept(next, c.key);
+      if (chosen && c.key === 'grossRentPerMonth') {
+        // The ratio is the costs over the rent that is underwritten: a different rent gives a different ratio. Re-apply it only if the owner has not changed or answered it.
+        const before = result.proposal.changes.find((x) => x.key === 'expenseRatio');
+        const after = next.changes.find((x) => x.key === 'expenseRatio');
+        if (before && after && Number(before.value) !== Number(after.value)) {
+          attachVariances(next, expectedFor(next, deal));
+          const held = Number(deal.inputs?.expenseRatio);
+          const untouched = !Number.isFinite(held) || Math.abs(held - Number(before.value)) < 0.005;
+          if (untouched && resolved.expenseRatio === undefined) onAccept(next, 'expenseRatio');
+        }
+      }
+      setResult((r) => (r ? { ...r, proposal: next } : r));
+    }
     const said = useRead ? `${chosen ? chosen.text : c.proposed} (${chosen ? 'chosen from the figures the document gives' : 'checked against the document and kept'})` : 'left blank for you to enter';
     setResolved((r) => ({ ...r, [c.key]: said }));
     onAnswered(c.key, c.label, said);

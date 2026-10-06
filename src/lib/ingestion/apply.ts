@@ -33,6 +33,8 @@ export interface ProposedChange {
   evidence?: string;
   /** The reader was not sure of this figure, or the documents give more than one figure for it: it is not applied until the owner has checked. */
   unsure?: boolean;
+  /** The owner chose this figure from several the documents gave. */
+  chosen?: boolean;
   /** Other readings of the same figure that disagree with it, each with the text to show. */
   alternatives?: Array<{ value: number; how: string; text: string }>;
   /** The document's figure is far from what the owner's own assumption would be: the owner is asked which to use. */
@@ -236,9 +238,15 @@ export interface Application {
  */
 export function withChosenValue(proposal: Proposal, key: string, value: number): Proposal {
   const units = Number(proposal.patch.patch.unitCount);
+  const netCosts = proposal.patch.provenance.expenseRatio?.netCosts;
+  const rederived = key === 'grossRentPerMonth' && typeof netCosts === 'number' && value > 0 ? Math.round((netCosts / (value * 12)) * 10000) / 100 : null;
   const changes = proposal.changes.map((c) => {
+    // The expense ratio is the costs over the rent that is underwritten, so a different rent gives a different ratio from the same costs
+    if (c.key === 'expenseRatio' && rederived !== null) {
+      return { ...c, value: rederived, proposed: formatValue('expenseRatio', rederived), variance: undefined, how: c.how.replace(/divided by rent [\d,]+( \(the rent underwritten; the income table shows [\d,]+\))?/, `divided by rent ${Math.round(value * 12).toLocaleString()} (the rent you chose)`) };
+    }
     if (c.key !== key) return c;
-    const chosen: ProposedChange = { ...c, value, how: 'The figure you chose from those the documents gave', reliability: 'executed', unsure: false, alternatives: undefined };
+    const chosen: ProposedChange = { ...c, value, how: 'The figure you chose from those the documents gave', reliability: 'executed', unsure: false, chosen: true, alternatives: undefined };
     if (key === 'grossRentPerMonth') {
       const annual = Math.round(value * 1200) / 100;
       chosen.proposed = `${formatValue(key, value)} a month (${formatValue('grossRentAnnual', annual)} a year${units > 0 ? `, ${formatValue('monthlyRentPerUnit', Math.round((value / units) * 100) / 100)} a unit` : ''})`;
@@ -246,7 +254,8 @@ export function withChosenValue(proposal: Proposal, key: string, value: number):
     } else chosen.proposed = formatValue(key, value);
     return chosen;
   });
-  return { ...proposal, changes };
+  const patched = rederived === null ? proposal.patch : { ...proposal.patch, patch: { ...proposal.patch.patch, expenseRatio: rederived } };
+  return { ...proposal, changes, patch: patched };
 }
 
 export function buildApplication(

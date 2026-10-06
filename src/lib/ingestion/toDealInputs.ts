@@ -26,6 +26,8 @@ export interface FieldProvenance {
   confidence?: number;
   /** A verbatim quote from the document at the spot the figure was read. */
   evidence?: string;
+  /** For an expense ratio: the yearly costs it is a share of, so it can be re-derived if the owner chooses a different rent. */
+  netCosts?: number;
 }
 
 /** The reader's own confidence and quote for a field it returned. */
@@ -247,8 +249,11 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   // money coming back from costs the landlord pays. Other income (pet fees, miscellaneous) is not a reimbursement of a cost: it is its own input, below.
   const reimbursed = t.income.recoveries;
   const netCosts = costs - reimbursed;
-  if (netCosts > 0 && t.income.rent > 0) {
-    const ratio = round2((netCosts / t.income.rent) * 100);
+  // The engine charges the ratio against the rent that is underwritten, so that is the rent the costs are divided by. The income table can print a
+  // different rent (a total possible rent, say) from the one the unit mix or leases gave.
+  const rentUnderwritten = typeof b.patch.grossRentAnnual === 'number' && (b.patch.grossRentAnnual as number) > 0 ? (b.patch.grossRentAnnual as number) : t.income.rent;
+  if (netCosts > 0 && rentUnderwritten > 0) {
+    const ratio = round2((netCosts / rentUnderwritten) * 100);
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
     const left = [management > 0 ? 'management' : '', onSiteCost > 0 ? 'on-site payroll and marketing' : '', 'reserves'].filter(Boolean).join(', ');
     // What the ratio is made of, so "what does this include?" is answered on screen
@@ -258,11 +263,12 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
       .sort((x, y) => (y[1] as number) - (x[1] as number))
       .map(([cat, v]) => `${NAMES[cat as ExpenseCategory] ?? cat} ${Math.round(v as number).toLocaleString()}`)
       .join(', ');
-    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`, [...rentReadings, ...stmt.expenses.flatMap((l) => [l.amount, l.category])]);
+    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(rentUnderwritten).toLocaleString()}${rentUnderwritten !== t.income.rent ? ` (the rent underwritten; the income table shows ${Math.round(t.income.rent).toLocaleString()})` : ''}${span}`, [...rentReadings, ...stmt.expenses.flatMap((l) => [l.amount, l.category])]);
+    if (b.provenance.expenseRatio && b.patch.expenseRatio === ratio) b.provenance.expenseRatio.netCosts = netCosts;
   }
   // The reimbursement is an assumption in its own right: it lowers the ratio only for as long as tenants keep paying it back
-  if (reimbursed > 0 && costs > 0 && t.income.rent > 0) {
-    const without = round2((costs / t.income.rent) * 100);
+  if (reimbursed > 0 && costs > 0 && rentUnderwritten > 0) {
+    const without = round2((costs / rentUnderwritten) * 100);
     const label = b.assetClass === 'commercial' ? 'Tenant reimbursements (recoveries)' : 'Tenant utility reimbursements (such as RUBS)';
     b.notes.push(`${label} of ${Math.round(reimbursed).toLocaleString()} a year are taken off the costs, because the engine has no input for income other than rent. This assumes tenants keep paying them: without them the expense ratio would be ${without}%. A lender will want to see them in an operating statement.`);
   }
