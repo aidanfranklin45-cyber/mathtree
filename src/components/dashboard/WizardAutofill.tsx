@@ -79,6 +79,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
+  // The questions the owner has answered, with the answer in words (they collapse to one line and can be reopened)
+  const [resolved, setResolved] = useState<Record<string, string>>({});
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [asked, setAsked] = useState<Record<string, string>>({});
   const nextId = useRef(1);
@@ -125,6 +127,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
         setResult({ proposal, docs, filled: ticked.size });
       }
       setPicked({});
+      setResolved({});
       setOpen(false);
     } finally {
       setBusy(false);
@@ -147,12 +150,31 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
     try { return openQuestions(deal); } catch { return []; }
   }, [deal, result, reads.length, open]);
 
-  const choose = (c: ProposedChange, which: string) => {
-    setPicked((p) => ({ ...p, [c.key]: which }));
-    if (which === 'doc') onSet(c.key, String(c.value));
-    else if (which === 'mine' && c.variance) onSet(c.key, String(c.variance.expected));
-    else if (which === 'keep') return; // the owner's own figure is already in the form
+  const choose = (c: ProposedChange, which: string) => setPicked((p) => ({ ...p, [c.key]: which }));
+
+  /** Applies the owner's pick to the form and closes the question. A figure typed for this property needs a number. */
+  const confirm = (c: ProposedChange, kind: Question['kind']) => {
+    const which = picked[c.key] ?? (kind === 'variance' ? 'doc' : 'keep');
+    const unit = (v: number) => assumptionText(c.key, v);
+    let said: string;
+    if (which === 'own') {
+      const v = (typed[c.key] ?? '').trim();
+      if (!v || !Number.isFinite(Number(v))) return;
+      onSet(c.key, v);
+      said = `${Number.isFinite(Number(v)) && c.variance ? unit(Number(v)) : v} (your own number)`;
+    } else if (which === 'mine' && c.variance) {
+      onSet(c.key, String(c.variance.expected));
+      said = `${c.variance.expectedText} (your assumption)`;
+    } else if (which === 'doc') {
+      onSet(c.key, String(c.value));
+      said = `${c.proposed} (from the document)`;
+    } else {
+      said = `${c.current} (what you entered)`;
+    }
+    setResolved((r) => ({ ...r, [c.key]: said }));
   };
+  const reopen = (key: string) => setResolved((r) => { const n = { ...r }; delete n[key]; return n; });
+  const openQuestionsLeft = questions.filter((q) => resolved[q.change.key] === undefined);
 
   const done = result !== null || reads.length > 0;
   const manager = managerFor(deal);
@@ -266,37 +288,49 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
       )}
       {done && (questions.length > 0 || missing.length > 0) && (
         <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
-          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({questions.length + missing.length})</h4>
+          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + missing.length})</h4>
           <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below.</p>
 
           {questions.map(({ change: c, kind }) => (
-            <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
-              <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
-              {kind === 'variance' && c.variance ? (
-                <>
-                  <span className="block text-amber-200">The document says {c.proposed}; your assumption is {c.variance.expectedText}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
-                  <span className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? 'doc') === 'doc'} onChange={() => choose(c, 'doc')} />Document's ({c.proposed})</label>
-                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'mine'} onChange={() => choose(c, 'mine')} />My assumption ({c.variance.expectedText})</label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'own'} onChange={() => { setPicked((p) => ({ ...p, [c.key]: 'own' })); if ((typed[c.key] ?? '').trim()) onSet(c.key, typed[c.key]); }} />
-                      My own
-                      <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} className="w-20 bg-slate-950 border border-amber-500/30 rounded px-1.5 py-0.5 text-amber-100"
-                        onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); setPicked((p) => ({ ...p, [c.key]: 'own' })); if (v.trim()) onSet(c.key, v); }} />
-                    </label>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="block text-amber-200">You entered {c.current}; the document says {c.proposed}.</span>
-                  <span className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? 'keep') === 'keep'} onChange={() => choose(c, 'keep')} />Keep mine ({c.current})</label>
-                    <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'doc'} onChange={() => choose(c, 'doc')} />Use the document's ({c.proposed})</label>
-                  </span>
-                </>
-              )}
-              <span className="block text-slate-500 italic">{c.how}</span>
-            </div>
+            resolved[c.key] !== undefined ? (
+              <div key={c.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
+                <span className="text-emerald-400">✓</span>
+                <span className="font-bold text-slate-200">{c.label}:</span>
+                <span className="text-slate-300">{resolved[c.key]}</span>
+                <button type="button" onClick={() => reopen(c.key)} className="text-slate-500 hover:text-white underline">Change</button>
+              </div>
+            ) : (
+              <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
+                <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
+                {kind === 'variance' && c.variance ? (
+                  <>
+                    <span className="block text-amber-200">The document says {c.proposed}; your assumption is {c.variance.expectedText}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
+                    <span className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? 'doc') === 'doc'} onChange={() => choose(c, 'doc')} />Document's ({c.proposed})</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'mine'} onChange={() => choose(c, 'mine')} />My assumption ({c.variance.expectedText})</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'own'} onChange={() => choose(c, 'own')} />
+                        My own
+                        <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} className="w-20 bg-slate-950 border border-amber-500/30 rounded px-1.5 py-0.5 text-amber-100"
+                          onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); choose(c, 'own'); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') confirm(c, kind); }} />
+                      </label>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="block text-amber-200">You entered {c.current}; the document says {c.proposed}.</span>
+                    <span className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? 'keep') === 'keep'} onChange={() => choose(c, 'keep')} />Keep mine ({c.current})</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'doc'} onChange={() => choose(c, 'doc')} />Use the document's ({c.proposed})</label>
+                    </span>
+                  </>
+                )}
+                <span className="block text-slate-500 italic">{c.how}</span>
+                <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
+              </div>
+            )
           ))}
 
           {missing.map((m) => {
@@ -316,7 +350,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
           })}
         </div>
       )}
-      {done && questions.length === 0 && missing.length === 0 && <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property. Check the form below, then create it.</p>}
+      {done && openQuestionsLeft.length === 0 && missing.length === 0 && <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property. Check the form below, then create it.</p>}
 
     </div>
   );
