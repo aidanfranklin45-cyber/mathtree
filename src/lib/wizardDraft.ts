@@ -18,6 +18,8 @@ export interface WizardDraft {
   /** What was read and decided so far, so the project's record of sources survives a reload. */
   intake?: unknown;
   answers?: Record<string, { label: string; decision: string }>;
+  /** The closing date the investor profile filled in, and the weeks it used. */
+  closingFilled?: { date: string; weeks: number } | null;
 }
 
 interface Stored extends WizardDraft { savedAt: number }

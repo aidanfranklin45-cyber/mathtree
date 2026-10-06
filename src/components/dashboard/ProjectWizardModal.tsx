@@ -135,6 +135,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
   // The owner confirms they reviewed what was read from documents and filled from their profile. Not kept in the draft: after a reload they confirm again.
   const [verified, setVerified] = useState(false);
+  // The closing date the investor profile filled in (and the weeks it used), so it can be told apart from a date the owner entered
+  const [closingFilled, setClosingFilled] = useState<{ date: string; weeks: number } | null>(null);
   const [answers, setAnswers] = useState<Record<string, { label: string; decision: string }>>({});
   const [w, setW] = useState<W>(() => seed('commercial'));
   const [isNameTouched, setIsNameTouched] = useState(false);
@@ -161,12 +163,12 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       setW(draft.w as W); setFilledOnce(draft.filledOnce); setIsNameTouched(draft.isNameTouched); setError(null); setSubmitting(false);
       setAssessor(draft.assessor ?? null); setParcels((draft.parcels as any[]) ?? []); setCompanions(0); setAddrResults([]); setAddrOpen(false);
       setSeededBasis(draft.seededBasis as Record<string, InputBasis>); setSeedNote(null); setDocExtra(draft.docExtra); setRestored(true);
-      setIntake((draft.intake as IntakeSnapshot) ?? null); setAnswers(draft.answers ?? {});
+      setIntake((draft.intake as IntakeSnapshot) ?? null); setAnswers(draft.answers ?? {}); setClosingFilled(draft.closingFilled ?? null);
     } else {
       setRestored(false);
       setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
       setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
-      setIntake(null); setAnswers({});
+      setIntake(null); setAnswers({}); setClosingFilled(null);
     }
     setVerified(false);;
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
@@ -238,6 +240,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     }
     const fromProfile = assumptionFill(form, nextAsset);
     setW({ ...form, ...fromProfile.patch });
+    if (fromProfile.closing) setClosingFilled(fromProfile.closing);
     setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fromDocs, ...fromProfile.basis }));
     if (form.location && form.location !== w.location) onLocation(form.location);
     setFilledOnce(true);
@@ -403,7 +406,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const closingDate = enteredClosing || new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
       const inputs: Record<string, any> = {
         closingDate,
-        closingDateSource: closingDate ? (enteredClosing ? 'entered' : 'assumed') : undefined,
+        // A date the investor profile filled in is the profile's assumption, not something the owner entered
+        closingDateSource: closingDate ? (enteredClosing && !(closingFilled && enteredClosing === closingFilled.date) ? 'entered' : 'assumed') : undefined,
         purchasePrice,
         downPaymentPercent: opt(w.down),
         interestRate: opt(w.rate),
@@ -486,7 +490,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           w.manageProperty === 'true'
             ? `Property manager: you hire one; a fee of ${w.managementFee.trim() || '(not set)'}% of collected income is charged on top of the expense ratio.`
             : 'Property manager: you manage it yourself; no management fee is charged.',
-          ...(w.closingDate.trim() ? [] : [`Closing date: assumed ${getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after the project was created (your investor profile's closing time).`]),
+          ...(w.closingDate.trim() === '' || (closingFilled && w.closingDate === closingFilled.date)
+            ? [`Closing date: ${closingFilled?.date ?? 'assumed'} — your investor profile is set to close ${closingFilled?.weeks ?? (getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS)} weeks after the project is created.`]
+            : []),
         ],
         choices: Object.values(answers),
         verifiedBy: needsVerification && verified ? user.id : undefined,
@@ -520,9 +526,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     if (!isOpen || submitting) return;
     const pristine = JSON.stringify(w) === JSON.stringify(withManager(seed(w.asset as Asset))) && !filledOnce;
     if (pristine) return;
-    const t = setTimeout(() => saveWizardDraft({ w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers }), 400);
+    const t = setTimeout(() => saveWizardDraft({ w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers, closingFilled }), 400);
     return () => clearTimeout(t);
-  }, [isOpen, submitting, w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers]);
+  }, [isOpen, submitting, w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers, closingFilled]);
 
   /** Closing on purpose (Cancel, the X, or after creating) throws the draft away. */
   const close = () => { clearWizardDraft(); setRestored(false); onClose(); };
@@ -532,7 +538,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     clearWizardDraft();
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
-    setIntake(null); setAnswers({}); setVerified(false);
+    setIntake(null); setAnswers({}); setVerified(false); setClosingFilled(null);
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -573,7 +579,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
         <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
         <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} profileFigures={profileFigures}
-          assumedClosingWeeks={w.closingDate.trim() ? null : (getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS)} />
+          intake={intake}
+          closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)} />
 
         <div className="space-y-1.5">
           <label htmlFor="wiz-deal-name" className={lbl}>Project / Deal Name</label>
@@ -904,7 +911,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         <div className="space-y-1.5">
           <label htmlFor="wiz-closing-date" className={lbl}>Expected Closing Date (optional)</label>
           <input id="wiz-closing-date" type="date" data-field="closingDate" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
-          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (the standard, or your profile setting). The loan schedule starts then.</p>
+          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (your investor profile's setting). The loan schedule starts then.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1208,7 +1215,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-black text-sm shrink-0">✨</div>
               <div>
                 <h3 id="wizard-modal-title" className="text-base sm:text-lg font-black text-white tracking-tight">Create New Project</h3>
-                <p className="text-[11px] sm:text-xs text-slate-400">{filledOnce ? <><span className="text-amber-300 font-bold">{emptyFields.size}</span> field{emptyFields.size === 1 ? '' : 's'} still need an answer</> : 'One page: fill everything you can, then answer what is left'}</p>
+                <p className="text-[11px] sm:text-xs text-slate-400">{filledOnce ? <><span className="text-amber-300 font-bold">{emptyFields.size}</span> field{emptyFields.size === 1 ? '' : 's'} still need{emptyFields.size === 1 ? 's' : ''} an answer</> : 'One page: fill everything you can, then answer what is left'}</p>
               </div>
             </div>
             <button aria-label="Close project creation wizard" onClick={close} className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>

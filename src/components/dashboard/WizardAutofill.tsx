@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
+import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { assumptionText, attachVariances, proposeChanges, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { resolveProfileAssumptions } from '../../lib/engine/compute';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
@@ -31,8 +32,10 @@ interface Props {
   onAutofill: (a: Autofill | null) => Promise<void>;
   /** What the form holds that came from the owner's investor profile and still matches it (kept by the form, so it survives a second click or a reload). */
   profileFigures: ProfileFilled[];
-  /** Weeks from creation to the assumed closing date, when the owner has not entered one; null when they have. */
-  assumedClosingWeeks: number | null;
+  /** What was read from documents, kept by the form: shown even after a reload, when the documents themselves are gone. */
+  intake: IntakeSnapshot | null;
+  /** The investor profile's closing time: the date it filled in (or null while the date box is empty); null when the owner entered their own date. */
+  closing: { weeks: number; date: string | null } | null;
   /** Changes one field of the form: an answer the owner gave to a question here (input key and value). */
   onSet: (key: string, value: string) => void;
   /** The owner answered a question where the sources disagreed: what they decided, for the record. */
@@ -73,7 +76,7 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' };
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, profileFigures, assumedClosingWeeks }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, profileFigures, intake, closing }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
@@ -245,27 +248,30 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       {note && <p className="text-[11px] text-amber-300">{note}</p>}
       {reads.filter((r) => r.error).map((r) => <p key={r.source.id} className="text-[11px] text-amber-300">{r.source.name}: {r.error}</p>)}
 
-      {(done || profileFigures.length > 0) && (
+      {(done || profileFigures.length > 0 || intake !== null) && (
         <div>
           <button type="button" onClick={() => setDetails((d) => !d)} className="text-[11px] font-bold text-slate-400 hover:text-white">{details ? 'Hide' : 'Show'} what was found and what was filled in</button>
           {details && (
             <div className="mt-2 space-y-4">
-              {result && (
+              {intake && (
                 <section className="space-y-2">
-                  <h5 className="text-[11px] uppercase tracking-wider font-black text-sky-300">1 · Found in your documents ({result.proposal.changes.length})</h5>
-                  <p className="text-[11px] text-slate-500">Read from the documents you added. Hidden from the reader: {sum('names')} names, {sum('phones')} phone numbers, {sum('emails')} emails.</p>
+                  <h5 className="text-[11px] uppercase tracking-wider font-black text-sky-300">1 · Found in your documents ({intake.figures.length})</h5>
+                  <p className="text-[11px] text-slate-500">
+                    Read from {intake.documents.length > 0 ? intake.documents.map((d) => d.name).join(', ') : 'the documents you added'}.
+                    {result ? ` Hidden from the reader: ${sum('names')} names, ${sum('phones')} phone numbers, ${sum('emails')} emails.` : ' The documents themselves are not kept: add them again to read them again.'}
+                  </p>
                   {reads.flatMap((r) => r.issues).map((i, n) => <p key={n} className={`text-[11px] ${i.severity === 'error' ? 'text-rose-300' : 'text-amber-300'}`}>{i.severity === 'error' ? 'Check: ' : 'Note: '}{i.message}</p>)}
                   <ul className="space-y-1">
-                    {result.proposal.changes.map((c) => (
-                      <li key={c.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{c.label}:</span> <span className="text-emerald-400">{c.proposed}</span> <span className="text-slate-500 italic">({c.reliability}) {c.how}</span></li>
+                    {intake.figures.map((f) => (
+                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{f.text}</span> <span className="text-slate-500 italic">({f.reliability}) {f.how}</span></li>
                     ))}
                   </ul>
-                  {result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
-                  {Object.keys(result.proposal.patch.claims).length > 0 && (
+                  {result && result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
+                  {intake.claims.length > 0 && (
                     <div><p className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</p>
-                      <ul className="text-[11px] text-slate-400">{Object.entries(result.proposal.patch.claims).map(([k, c]) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul></div>
+                      <ul className="text-[11px] text-slate-400">{intake.claims.map((c, k) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul></div>
                   )}
-                  {liveNotes.length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{liveNotes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+                  {(result ? liveNotes : intake.notes).length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{(result ? liveNotes : intake.notes).map((n, i) => <li key={i}>{n}</li>)}</ul>}
                 </section>
               )}
 
@@ -279,8 +285,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                         : manager.uses === false ? <span className="text-emerald-400">you manage it yourself, so no management fee is charged (a lender will usually add one).</span>
                         : <span className="text-amber-300">your profile does not say, so no management fee is charged. Tick "I hire a property manager" below, or set it in your investor profile.</span>}
                     </li>
-                    {assumedClosingWeeks !== null && (
-                      <li className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">Closing date:</span> <span className="text-emerald-400">{assumedClosingWeeks} weeks after you create the project</span> <span className="text-slate-500 italic">Your profile's closing time; enter a date below to replace it.</span></li>
+                    {closing !== null && (
+                      <li className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">Closing date:</span>{' '}
+                        <span className="text-emerald-400">{closing.date ? `${closing.date}. ` : ''}Your investor profile is set to close {closing.weeks} weeks after the project is created.</span>{' '}
+                        <span className="text-slate-500 italic">Change the date in the form below to replace it.</span></li>
                     )}
                     {profileFigures.map((f) => (
                       <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{assumptionText(f.key, f.value)}</span> <span className="text-slate-500 italic">{f.why ? `Your reason: ${f.why}` : 'Your investor profile'}</span></li>

@@ -446,3 +446,23 @@ describe('the separate tax, insurance, upkeep and utility amounts are only fille
     for (const f of ['taxes', 'insurance', 'maintenance']) expect(nnn.patch[f]).toBeDefined();
   });
 });
+
+describe('the closing date comes from the investor profile', () => {
+  const now = new Date('2026-10-06T12:00:00Z');
+  const base = { price: '18400000', multiUnits: '66', manageProperty: 'false', capexKind: 'annual' } as Record<string, string>;
+
+  it('fills in a real date: the profile\'s weeks after today', () => {
+    const six = profileFill({ assumptions: suggestedStartingPoints(null), base, asset: 'multi-unit', now });
+    expect(six.patch.closingDate).toBe('2026-11-17'); // six weeks, the default
+    expect(six.closing).toEqual({ date: '2026-11-17', weeks: 6 });
+    const eight = profileFill({ assumptions: sanitizeAssumptions({ assumedClosingWeeks: 8 }), base, asset: 'multi-unit', now });
+    expect(eight.patch.closingDate).toBe('2026-12-01');
+    expect(eight.closing?.weeks).toBe(8);
+  });
+
+  it('never replaces a date the owner has entered', () => {
+    const r = profileFill({ assumptions: suggestedStartingPoints(null), base: { ...base, closingDate: '2027-01-15' }, asset: 'multi-unit', now });
+    expect(r.patch.closingDate).toBeUndefined();
+    expect(r.closing).toBeNull();
+  });
+});

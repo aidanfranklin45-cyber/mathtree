@@ -8,7 +8,7 @@
 import type { IntakeDocument } from './intake';
 import { val } from './intake';
 import type { Proposal } from './apply';
-import { seedFromAssumptions, type InputBasis, type UnderwritingAssumptions } from '@engine/underwritingAssumptions';
+import { DEFAULT_CLOSING_WEEKS, seedFromAssumptions, type InputBasis, type UnderwritingAssumptions } from '@engine/underwritingAssumptions';
 
 export type WizardAsset = 'single-family' | 'multi-unit' | 'commercial' | 'storage';
 type Form = Record<string, string>;
@@ -214,7 +214,9 @@ export function profileFill(args: {
   asset: WizardAsset;
   /** The county's assessed value, when a parcel has been looked up. */
   assessedValue?: number | null;
-}): { patch: Form; basis: Record<string, InputBasis> } {
+  /** Today, for the closing date (tests pass a fixed day). */
+  now?: Date;
+}): { patch: Form; basis: Record<string, InputBasis>; closing: { date: string; weeks: number } | null } {
   const { base, asset } = args;
   const units = asset === 'storage' ? Math.round(asNumber(base.storageUnits)) : asset === 'multi-unit' ? Math.round(asNumber(base.multiUnits)) : asset === 'single-family' ? 1 : 0;
   const sqft = asNumber(asset === 'storage' ? base.storageSqft : asset === 'multi-unit' ? base.multiSqft : asset === 'commercial' ? (base.commSqft || base.gla) : base.sfrSqft);
@@ -244,5 +246,13 @@ export function profileFill(args: {
     if (key === 'capexReservePercent') patch.capexKind = 'percent';
     if (seeded.basis[key]) basis[key] = seeded.basis[key];
   }
-  return { patch, basis };
+  // The closing date is the owner's own setting: so many weeks after the project is created. Filled in as a date, unless one is already entered.
+  let closing: { date: string; weeks: number } | null = null;
+  if ((base.closingDate ?? '').trim() === '') {
+    const weeks = args.assumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS;
+    const date = new Date((args.now ?? new Date()).getTime() + weeks * 7 * 86400000).toISOString().slice(0, 10);
+    patch.closingDate = date;
+    closing = { date, weeks };
+  }
+  return { patch, basis, closing };
 }
