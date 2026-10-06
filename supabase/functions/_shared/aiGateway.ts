@@ -59,8 +59,12 @@ export function accountApiModel(model: string): string {
   return model.includes('/') ? model : `google/${model}`;
 }
 
+/** What the owner sees when no model could answer because the service is busy or out of room. The detail goes to the logs, not the screen. */
+export const BUSY_MESSAGE = 'Due to high demand the parser is currently unavailable. Please try again later.';
+
 export class GatewayError extends Error {
-  constructor(message: string, readonly status: number) {
+  /** `busy`: the failure is demand or availability (limits, overload, no answer), which waiting fixes. Anything else is a setup problem the owner may need to see. */
+  constructor(message: string, readonly status: number, readonly busy = false) {
     super(message);
     this.name = 'GatewayError';
   }
@@ -140,6 +144,8 @@ function shapeOf(url: string): string {
 const EXPLAINED = new Set([400, 401, 402, 403, 404, 405, 409, 413, 422, 429, 500, 503]);
 /** Another model may succeed where this one did not: busy, over its quota, a hiccup, or a name the service does not know. */
 const TRY_NEXT = new Set([400, 404, 429, 500, 502, 503, 504]);
+/** Replies that mean demand or availability, not a mistake in the setup. */
+const BUSY_STATUS = new Set([429, 500, 502, 503, 504]);
 /** Models tried in one call. A free tier counts every request, so a failing call does not keep knocking. */
 export const MAX_MODELS_PER_CALL = 4;
 /** The whole call must finish inside the platform's request limit (150 seconds on the free plan). */
@@ -215,7 +221,7 @@ async function failure(res: Response, req: ModelRequest, model: string): Promise
   const shape = shapeOf(req.url);
   const via = res.headers.get('cf-ray') ? 'Cloudflare' : res.headers.get('server') || 'unknown server';
   console.error(`[ai-gateway] ${res.status} via=${via} mode=${req.mode} model=${model} endpoint=${shape}${reason ? ` reason=${reason}` : ''}`);
-  return { error: new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} [${via}; ${req.mode}; ${model}; ${shape}]`, res.status === 429 ? 429 : 502), reason };
+  return { error: new GatewayError(`The AI gateway returned ${res.status}${reason ? `: ${reason}` : ''} [${via}; ${req.mode}; ${model}; ${shape}]`, res.status === 429 ? 429 : 502, BUSY_STATUS.has(res.status)), reason };
 }
 
 export interface ModelReply {
@@ -246,7 +252,7 @@ export async function generateJsonDetailed(args: { system: string; user: string;
   const attempts = pool.length === 1 ? [pool[0], pool[0]] : queue.slice(0, MAX_MODELS_PER_CALL);
   const started = Date.now();
   const left = () => CALL_DEADLINE_MS - (Date.now() - started);
-  let last: GatewayError = new GatewayError('Could not reach the AI gateway.', 504);
+  let last: GatewayError = new GatewayError('Could not reach the AI gateway.', 504, true);
 
   for (let i = 0; i < attempts.length; i++) {
     const model = attempts[i];
@@ -256,14 +262,14 @@ export async function generateJsonDetailed(args: { system: string; user: string;
     try {
       res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(Math.min(args.timeoutMs ?? 55_000, left())), body: req.body });
     } catch (e) {
-      last = new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504);
+      last = new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504, true);
       if (pool.length === 1 && i === 0 && left() > 8_000) await sleep(2_500);
       continue;
     }
     if (res.ok) {
       const text = replyText(await res.json().catch(() => null));
       if (text) return { text, model };
-      last = new GatewayError('The model returned no answer.', 502);
+      last = new GatewayError('The model returned no answer.', 502, true);
       continue;
     }
     const { error, reason } = await failure(res, req, model);

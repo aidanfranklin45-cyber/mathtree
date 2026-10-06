@@ -10,6 +10,21 @@ export interface ParsedDocument {
   message?: string;
 }
 
+/** What the owner is told when no model could answer because of demand. The same sentence the reader itself sends. */
+export const READER_BUSY_MESSAGE = 'Due to high demand the parser is currently unavailable. Please try again later.';
+
+/**
+ * A message fit for the owner. A reader that was busy, out of room, or could not be reached is one calm sentence (waiting fixes it). Anything else
+ * keeps its detail: a setup problem is something the owner may need to see. The reader sends the calm sentence itself once it is updated; an older
+ * reader sent its gateway detail, which is recognised by the replies that mean demand (429, 500, 502, 503, 504) or by no answer.
+ */
+export function readerErrorMessage(message: string | undefined, status: number): string {
+  const text = String(message ?? '');
+  if (/Due to high demand/i.test(text)) return text;
+  if (/The AI gateway returned (429|500|502|503|504)\b/.test(text) || /The model took too long to answer|The model returned no answer|Could not reach the AI gateway/i.test(text)) return READER_BUSY_MESSAGE;
+  return text || `The document reader returned ${status}.`;
+}
+
 /** Sends one document's text to the parse-document edge function. Throws an Error with a message fit to show the owner. */
 export async function readDocument(args: { text: string; filename?: string; documentType?: Exclude<DocumentType, 'unknown'>; knownNames?: string[] }): Promise<ParsedDocument> {
   const { data } = await supabase.auth.getSession();
@@ -27,6 +42,6 @@ export async function readDocument(args: { text: string; filename?: string; docu
     throw new Error('Could not reach the document reader. Check your connection and try again.');
   }
   const body = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(body?.error || `The document reader returned ${res.status}.`);
+  if (!res.ok) throw new Error(readerErrorMessage(body?.error, res.status));
   return body as ParsedDocument;
 }

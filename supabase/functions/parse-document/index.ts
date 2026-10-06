@@ -10,7 +10,7 @@ import { serve } from "std/http/server.ts";
 import { getCaller } from "../_shared/auth.ts";
 import { classifyDocument, CLEAR_ENOUGH } from "../_shared/documentTypes.ts";
 import { redactForModel } from "../_shared/redact.ts";
-import { GatewayError, gatewayConfigured, generateJson, generateJsonDetailed, modelName } from "../_shared/aiGateway.ts";
+import { BUSY_MESSAGE, GatewayError, gatewayConfigured, generateJson, generateJsonDetailed, modelName } from "../_shared/aiGateway.ts";
 import {
   buildClassifyPrompt,
   buildExtractionPrompt,
@@ -95,7 +95,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       model: answered.model,
     });
   } catch (e) {
-    if (e instanceof GatewayError) return json({ error: e.message }, e.status);
+    // Busy or unavailable: one calm message, with the detail left in the logs. A setup problem keeps its detail so the owner can fix it.
+    if (e instanceof GatewayError) return json({ error: e.busy ? BUSY_MESSAGE : e.message }, e.status);
     // Never include the error object: it can carry document text
     return json({ error: "Something went wrong reading that document." }, 500);
   }

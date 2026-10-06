@@ -68,8 +68,24 @@ describe('the model pool', () => {
   it('stops after four models and says why', async () => {
     script(() => fail(503));
     const r: any = await run();
-    expect(r.e.message).toContain('503');
-    expect(calls).toHaveLength(4);
+    expect(r.e.message).toContain('503'); // the detail stays in the error, for the logs
+    expect(r.e.busy).toBe(true); // and the owner is told it is demand, in one calm sentence
+    expect(calls).toHaveLength(4); // never the whole pool: a free tier counts every request
+  });
+
+  it('calls a service that cannot be reached busy as well, and a setup problem not', async () => {
+    script(() => { throw new TypeError('network down'); });
+    const down: any = await run();
+    expect(down.e.busy).toBe(true);
+    script(() => fail(401, 'bad token'));
+    const setup: any = await run();
+    expect(setup.e.busy).toBe(false);
+  });
+
+  it('words the busy message for the owner, with no gateway, model or status in it', async () => {
+    const { BUSY_MESSAGE } = await import('@engine/aiGateway');
+    expect(BUSY_MESSAGE).toBe('Due to high demand the parser is currently unavailable. Please try again later.');
+    expect(BUSY_MESSAGE).not.toMatch(/gateway|gemini|\d{3}/i);
   });
 
   it('does not try other models for a setup problem (billing, credentials)', async () => {
