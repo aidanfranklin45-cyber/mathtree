@@ -10,6 +10,7 @@ const SECTIONS: Array<{ title: string; points: string[] }> = [
     title: 'Where a figure comes from',
     points: [
       'Each figure says whether it came from a document, your own entry, your investor profile or the county record. Your own entry always wins.',
+      'Facts only the property can state, such as price, rent and loan terms, are never filled in for you.',
     ],
   },
   {
@@ -37,10 +38,7 @@ const SECTIONS: Array<{ title: string; points: string[] }> = [
 
 export const DiligenceDisclosures: React.FC = () => (
   <section aria-label="Disclosures" className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-4">
-    <div>
-      <h3 className="text-sm font-extrabold text-white">How our assumptions work</h3>
-      <p className="text-xs text-slate-400 mt-0.5">What your figures rest on and what to check.</p>
-    </div>
+    <h3 className="text-sm font-extrabold text-white">How our assumptions work</h3>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {SECTIONS.map((section) => (
         <div key={section.title} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
