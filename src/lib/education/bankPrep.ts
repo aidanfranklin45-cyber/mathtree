@@ -20,7 +20,7 @@ export const CONVERSATION: BankPrepPoint[] = [
   },
   {
     heading: 'That test is the turning point',
-    text: 'A borrower who knows where every figure came from, can explain it, and is honest about what is unknown is easy to lend to. A borrower who cannot explain one number gives the officer a reason to doubt all the others.',
+    text: 'A borrower who knows where every figure came from, can explain it, and is honest about what is unknown is easier to lend to. A borrower who cannot explain one number gives the officer a reason to doubt all the others.',
   },
   {
     heading: 'Nobody can predict the future',
