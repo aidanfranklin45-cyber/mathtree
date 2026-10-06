@@ -27,6 +27,10 @@ export const CONVERSATION: BankPrepPoint[] = [
     text: 'No property comes with a guaranteed outcome, and a lender knows it. What gets a deal approved is assumptions you can defend: each one sourced, reasonable for the property and the market, and explained in plain words.',
   },
   {
+    heading: 'Much of underwriting is judgment',
+    text: 'Two careful people can look at the same property and reach different numbers. Because so much is subjective, knowing your material and being able to defend everything you hand the bank is a good starting point for an approval.',
+  },
+  {
     heading: 'Bring the evidence, then explain it',
     text: 'The brief shows each figure and where it came from. Read it before you go. When the officer points at a number, answer with three things: the figure, where it came from, and why it is reasonable.',
   },
