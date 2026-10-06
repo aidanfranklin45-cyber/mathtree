@@ -112,6 +112,14 @@ const RENT_FORMS = new Set(['monthlyRent', 'grossRentAnnual', 'monthlyRentPerUni
 
 const PLAIN_NUMBER = new Set(['yearBuilt', 'taxYear']);
 
+/** An assumption of the owner's, with its unit: a percent, years, or dollars a year. */
+const PERCENT_KEYS = new Set(['vacancyRate', 'expenseRatio', 'rentGrowth', 'expenseGrowth', 'targetCapRate', 'appreciationRate', 'sellingCostPercent', 'discountRate', 'capexReservePercent', 'payrollMarketingPercent', 'managementFeePercent']);
+export function assumptionText(key: string, value: number): string {
+  if (PERCENT_KEYS.has(key)) return `${value}%`;
+  if (key === 'exitYear') return `${value} years`;
+  return `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}${key === 'closingCosts' ? '' : ' a year'}`;
+}
+
 export function formatValue(key: string, v: unknown): string {
   if (v === null || v === undefined || v === '') return '';
   if (key === 'leases' && Array.isArray(v)) return `${v.length} tenant${v.length === 1 ? '' : 's'}`;

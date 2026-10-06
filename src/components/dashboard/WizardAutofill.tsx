@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
-import { attachVariances, proposeChanges, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
+import { assumptionText, attachVariances, proposeChanges, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { resolveProfileAssumptions } from '../../lib/engine/compute';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
@@ -19,11 +19,14 @@ export interface Autofill {
   docs: IntakeDocument[];
 }
 
+/** A figure the owner's investor profile supplied, with the reason the owner gave for it. */
+export interface ProfileFilled { key: string; label: string; value: number; why?: string }
+
 interface Props {
   /** What the form holds now (as inputs), so the reader compares the documents with it. */
   deal: { asset_class?: string | null; purchase_price?: number | null; inputs?: Record<string, any> | null };
   /** Reads the documents (if any) and writes them, then the owner's own assumptions for the rest, into the form. Resolves when the form is filled. */
-  onAutofill: (a: Autofill | null) => Promise<void>;
+  onAutofill: (a: Autofill | null) => Promise<ProfileFilled[]>;
   /** Changes one field of the form: an answer the owner gave to a question here (input key and value). */
   onSet: (key: string, value: string) => void;
 }
@@ -68,6 +71,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
   const [reads, setReads] = useState<Read[]>([]);
   const [result, setResult] = useState<{ proposal: Proposal; docs: IntakeDocument[]; filled: number } | null>(null);
   const [open, setOpen] = useState(true);
+  const [fromProfile, setFromProfile] = useState<ProfileFilled[]>([]);
   const [details, setDetails] = useState(true); // the disclosures are on show: the owner is here to check the reader's work
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -107,14 +111,14 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
       setReads(out);
       const docs = out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? [r.parsed.intake] : []));
       if (docs.length === 0) {
-        await onAutofill(null);
+        setFromProfile(await onAutofill(null));
         setResult(null);
       } else {
         const proposal = proposeChanges(docs, deal, { assetClass: true, manager: managerFor(deal) });
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
         const ticked = new Set(proposal.changes.filter((c) => !c.replaces).map((c) => c.key));
-        await onAutofill({ proposal, ticked, docs });
+        setFromProfile(await onAutofill({ proposal, ticked, docs }));
         setResult({ proposal, docs, filled: ticked.size });
       }
       setPicked({});
@@ -203,9 +207,49 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
       {note && <p className="text-[11px] text-amber-300">{note}</p>}
       {reads.filter((r) => r.error).map((r) => <p key={r.source.id} className="text-[11px] text-amber-300">{r.source.name}: {r.error}</p>)}
 
+      {done && (result || fromProfile.length > 0) && (
+        <div>
+          <button type="button" onClick={() => setDetails((d) => !d)} className="text-[11px] font-bold text-slate-400 hover:text-white">{details ? 'Hide' : 'Show'} what was found and what was filled in</button>
+          {details && (
+            <div className="mt-2 space-y-4">
+              {result && (
+                <section className="space-y-2">
+                  <h5 className="text-[11px] uppercase tracking-wider font-black text-sky-300">1 · Found in your documents ({result.proposal.changes.length})</h5>
+                  <p className="text-[11px] text-slate-500">Read from the documents you added. Hidden from the reader: {sum('names')} names, {sum('phones')} phone numbers, {sum('emails')} emails.</p>
+                  {reads.flatMap((r) => r.issues).map((i, n) => <p key={n} className={`text-[11px] ${i.severity === 'error' ? 'text-rose-300' : 'text-amber-300'}`}>{i.severity === 'error' ? 'Check: ' : 'Note: '}{i.message}</p>)}
+                  <ul className="space-y-1">
+                    {result.proposal.changes.map((c) => (
+                      <li key={c.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{c.label}:</span> <span className="text-emerald-400">{c.proposed}</span> <span className="text-slate-500 italic">({c.reliability}) {c.how}</span></li>
+                    ))}
+                  </ul>
+                  {result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
+                  {Object.keys(result.proposal.patch.claims).length > 0 && (
+                    <div><p className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</p>
+                      <ul className="text-[11px] text-slate-400">{Object.entries(result.proposal.patch.claims).map(([k, c]) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul></div>
+                  )}
+                  {result.proposal.patch.notes.length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{result.proposal.patch.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+                </section>
+              )}
+
+              {fromProfile.length > 0 && (
+                <section className="space-y-2">
+                  <h5 className="text-[11px] uppercase tracking-wider font-black text-violet-300">2 · Using your investor profile ({fromProfile.length})</h5>
+                  <p className="text-[11px] text-slate-500">Not in any document: these are your own standards for this kind of property, filled in wherever the documents were silent. Change any of them in the form below for this property.</p>
+                  <ul className="space-y-1">
+                    {fromProfile.map((f) => (
+                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{assumptionText(f.key, f.value)}</span> <span className="text-slate-500 italic">{f.why ? `Your reason: ${f.why}` : 'Your investor profile'}</span></li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {done && (questions.length > 0 || missing.length > 0) && (
         <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
-          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">Needs your answer ({questions.length + missing.length})</h4>
+          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({questions.length + missing.length})</h4>
+          <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below.</p>
 
           {questions.map(({ change: c, kind }) => (
             <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
@@ -256,28 +300,6 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
       )}
       {done && questions.length === 0 && missing.length === 0 && <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property. Check the form below, then create it.</p>}
 
-      {result && (
-        <div>
-          <button type="button" onClick={() => setDetails((d) => !d)} className="text-[11px] font-bold text-slate-400 hover:text-white">{details ? 'Hide' : 'Show'} what was read and how each figure was found</button>
-          {details && (
-            <div className="mt-2 space-y-2">
-              <p className="text-[11px] text-slate-500">Hidden from the reader: {sum('names')} names, {sum('phones')} phone numbers, {sum('emails')} emails.</p>
-              {reads.flatMap((r) => r.issues).map((i, n) => <p key={n} className={`text-[11px] ${i.severity === 'error' ? 'text-rose-300' : 'text-amber-300'}`}>{i.severity === 'error' ? 'Check: ' : 'Note: '}{i.message}</p>)}
-              <ul className="space-y-1">
-                {result.proposal.changes.map((c) => (
-                  <li key={c.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{c.label}:</span> <span className="text-emerald-400">{c.proposed}</span> <span className="text-slate-500 italic">({c.reliability}) {c.how}</span></li>
-                ))}
-              </ul>
-              {result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
-              {Object.keys(result.proposal.patch.claims).length > 0 && (
-                <div><p className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</p>
-                  <ul className="text-[11px] text-slate-400">{Object.entries(result.proposal.patch.claims).map(([k, c]) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul></div>
-              )}
-              {result.proposal.patch.notes.length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{result.proposal.patch.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
-import { applyChoices, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
+import { applyChoices, assumptionText, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
 import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs } from './wizardMap';
 import { missingInputsFor } from '../engine/compute';
@@ -364,5 +364,14 @@ describe('the loan is asked about all at once', () => {
     const keys = ask({ ...filled, down: '100' });
     expect(keys).not.toContain('interestRate');
     expect(keys).not.toContain('amortizationYears');
+  });
+});
+
+describe('how a profile figure is written next to its reason', () => {
+  it('gives each its unit', () => {
+    expect(assumptionText('vacancyRate', 5)).toBe('5%');
+    expect(assumptionText('exitYear', 10)).toBe('10 years');
+    expect(assumptionText('capexReserveAnnual', 16500)).toBe('$16,500 a year');
+    expect(assumptionText('closingCosts', 552000)).toBe('$552,000');
   });
 });

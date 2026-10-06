@@ -9,7 +9,7 @@ import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import type { DealRecord } from '../../lib/math/types';
-import { WizardAutofill, type Autofill } from './WizardAutofill';
+import { WizardAutofill, type Autofill, type ProfileFilled } from './WizardAutofill';
 import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs } from '../../lib/ingestion/wizardMap';
 
 interface Props {
@@ -230,7 +230,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
    * The one action. What the documents gave goes into the form first (facts), then the owner's own assumptions fill what is still blank, and
    * the fields that remain empty are marked. Nothing is asked here: the owner only answers what is left.
    */
-  const autofill = async (a: Autofill | null): Promise<void> => {
+  const autofill = async (a: Autofill | null): Promise<ProfileFilled[]> => {
     let form: W = w;
     let nextAsset: Asset = asset;
     let fromDocs: Record<string, InputBasis> = {};
@@ -249,6 +249,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fromDocs, ...fromProfile.basis }));
     if (form.location && form.location !== w.location) onLocation(form.location);
     setFilledOnce(true);
+    // Which figures came from the owner's own standards, and why, so the screen can tell them apart from what the documents said
+    return Object.entries(fromProfile.basis).flatMap(([key, b]) => (b.value === undefined ? [] : [{ key, label: b.label, value: b.value, why: b.rationale }]));
   };
 
   const guidance = useMemo(() => {
