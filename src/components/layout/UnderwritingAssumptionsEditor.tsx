@@ -146,7 +146,12 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
         </div>
       </div>
 
-      <div role="tablist" className="grid grid-cols-4 gap-1.5">
+      <div className="pt-3 border-t border-slate-800 space-y-1">
+        <span className="text-[10px] uppercase font-bold text-slate-400 block">Standards for each property type</span>
+        <p className="text-[11px] text-slate-300 leading-relaxed">Each property type has its own set of assumptions. <span className="font-bold text-white">Choose a type below to see and edit its settings.</span> A new property uses the set for its own type.</p>
+      </div>
+
+      <div role="tablist" aria-label="Property type" className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         {ASSET_KEYS.map((k) => (
           <button
             key={k} type="button" role="tab" aria-selected={asset === k} onClick={() => setAsset(k)}
@@ -155,6 +160,11 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
             {ASSET_LABEL[k]}
           </button>
         ))}
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-extrabold text-brand-300">Editing the {ASSET_LABEL[asset]} standards</span>
+        <span className="text-[10px] text-slate-500">{ASSET_KEYS.indexOf(asset) + 1} of {ASSET_KEYS.length} property types</span>
       </div>
 
       <p className="text-[11px] text-slate-400 leading-relaxed p-2.5 rounded-xl bg-slate-900 border border-slate-800">{METHOD_NOTE[asset]} Every figure takes a reason, so it can be audited and defended.</p>
