@@ -19,9 +19,20 @@ const row = (id: string, over?: Record<string, any>) => rows(over).find((r) => r
 
 describe('where each figure came from', () => {
   it('attributes a figure that is still the document\'s to the document, with its file name', () => {
-    expect(row('price')).toMatchObject({ mode: 'document', source: 'From your documents (Quail Ridge OM.pdf)' });
+    expect(row('price')).toMatchObject({ mode: 'document', source: 'From Quail Ridge OM.pdf' });
     expect(row('rent')).toMatchObject({ mode: 'document' });
     expect(row('address')).toMatchObject({ mode: 'document' });
+  });
+  it('names the file when it is the only one of its kind, and the kind when there are several (never a guess)', () => {
+    const two = {
+      documents: [{ name: 'OM.pdf', type: 'offering_memorandum' }, { name: 'T12 2025.csv', type: 'operating_statement' }, { name: 'T12 2024.csv', type: 'operating_statement' }],
+      figures: [
+        { key: 'purchasePrice', label: 'Purchase price', value: 3_100_000, source: 'document', how: 'x', documentType: 'offering_memorandum' },
+        { key: 'expenseRatio', label: 'Expense ratio', value: 34.38, source: 'document', how: 'x', documentType: 'operating_statement' },
+      ],
+    };
+    expect(row('price', { intakeRecord: two })).toMatchObject({ source: 'From OM.pdf' });
+    expect(row('expenses', { intakeRecord: two })).toMatchObject({ source: 'From your operating statements (2 files)' });
   });
   it('attributes a figure the owner replaced to the owner', () => {
     expect(row('rate')).toMatchObject({ mode: 'entered', source: 'Your entry (it replaced what the document said)' });

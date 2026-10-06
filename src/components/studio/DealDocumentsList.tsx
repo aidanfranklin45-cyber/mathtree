@@ -4,7 +4,7 @@ import { downloadDealDocument, listDealDocuments, opensInTab, type StoredDocumen
 const size = (bytes: number): string => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
 /** The original files kept with this deal, as a plain record of what it was underwritten from. A PDF opens in a new tab; any other file downloads. */
-export const DealDocumentsList: React.FC<{ dealId: string }> = ({ dealId }) => {
+export const DealDocumentsList: React.FC<{ dealId: string; refreshKey?: number; onAdd?: () => void }> = ({ dealId, refreshKey = 0, onAdd }) => {
   const [docs, setDocs] = useState<StoredDocument[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -13,7 +13,7 @@ export const DealDocumentsList: React.FC<{ dealId: string }> = ({ dealId }) => {
     let live = true;
     listDealDocuments(dealId).then((d) => { if (live) setDocs(d); });
     return () => { live = false; };
-  }, [dealId]);
+  }, [dealId, refreshKey]);
 
   const open = async (d: StoredDocument) => {
     setBusy(d.id); setProblem(null);
@@ -30,10 +30,14 @@ export const DealDocumentsList: React.FC<{ dealId: string }> = ({ dealId }) => {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  if (docs === null || docs.length === 0) return null;
+  if (docs === null) return null;
   return (
     <section aria-label="Source documents" className="space-y-2">
-      <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">Source documents <span className="text-slate-500 font-semibold normal-case tracking-normal">({docs.length})</span></h4>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">Source documents <span className="text-slate-500 font-semibold normal-case tracking-normal">({docs.length})</span></h4>
+        {onAdd && <button type="button" onClick={onAdd} className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20">Add documents</button>}
+      </div>
+      {docs.length === 0 && <p className="text-[11px] text-slate-500">No original files are stored with this property yet. Add the offering memorandum, rent roll or statements it is underwritten from.</p>}
       <ul className="space-y-1.5">
         {docs.map((d) => (
           <li key={d.id} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">

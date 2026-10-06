@@ -102,7 +102,16 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
   // document's is attributed to the document; one the owner replaced is theirs. Figures the profile filled keep the ledger's own logic below.
   const record: any = a.stored.intakeRecord;
   const recorded: any[] = Array.isArray(record?.figures) ? record.figures : [];
-  const docName: string | undefined = record?.documents?.[0]?.name;
+  const recordedDocs: Array<{ name: string; type: string }> = Array.isArray(record?.documents) ? record.documents : [];
+  const TYPE_NAME: Record<string, string> = { offering_memorandum: 'offering memorandum', operating_statement: 'operating statement', rent_roll: 'rent roll', lease: 'lease', purchase_agreement: 'purchase agreement', loan_terms: 'loan terms' };
+  /** Which document a figure came from: the file's name when it is the only one of its kind, else the kind (never a guess at which of several). */
+  const fromWhich = (f: any): string => {
+    const ofType = f?.documentType ? recordedDocs.filter((d) => d.type === f.documentType) : [];
+    if (ofType.length === 1) return `From ${ofType[0].name}`;
+    if (ofType.length > 1) return `From your ${TYPE_NAME[f.documentType] ?? 'documents'}s (${ofType.length} files)`;
+    if (!f?.documentType && recordedDocs.length === 1) return `From ${recordedDocs[0].name}`;
+    return f?.documentType ? `From your ${TYPE_NAME[f.documentType] ?? 'documents'}` : 'From your documents';
+  };
   const fromRecord = (keys: readonly string[], current?: number): { mode: LedgerMode; source: string; reason?: string } | null => {
     const f = recorded.find((x) => keys.includes(x.key));
     if (!f) return null;
@@ -112,7 +121,7 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
       if (current !== undefined && Number.isFinite(was) && Math.abs(current - was) > Math.max(0.5, Math.abs(was) * 0.005)) {
         return { mode: 'entered', source: 'Your entry (you changed what the document said)' };
       }
-      return { mode: 'document', source: `From your documents${docName ? ` (${docName})` : ''}`, reason: how };
+      return { mode: 'document', source: fromWhich(f), reason: how };
     }
     if (f.source === 'owner') return { mode: 'entered', source: 'Your entry (it replaced what the document said)', reason: how };
     return null;
@@ -212,12 +221,11 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
   const address = String(a.stored.propertyAddress ?? a.stored.address ?? '').trim();
   if (address) {
     const fig = Array.isArray(rec?.figures) ? rec.figures.find((f: any) => f.key === 'address') : undefined;
-    const docName = rec?.documents?.[0]?.name;
     rows.unshift({
       id: 'address', label: 'Property address', value: address, group: 'project',
       mode: fig?.source === 'document' ? 'document' : 'entered',
       effect: fig?.source === 'owner' ? fig.how : undefined,
-      source: fig?.source === 'document' ? `From your documents${docName ? ` (${docName})` : ''}`
+      source: fig?.source === 'document' ? fromWhich(fig)
         : fig?.source === 'owner' ? 'Your entry (it replaced what the document said)'
         : src?.method === 'picked' ? 'You picked it from the county address list'
         : 'Your entry for this property',

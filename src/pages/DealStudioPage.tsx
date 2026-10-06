@@ -47,6 +47,8 @@ export const DealStudioPage: React.FC = () => {
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
+  // Bumped when original files are stored, so the Source documents list reads itself again
+  const [docsVersion, setDocsVersion] = useState(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isRemodelOpen, setIsRemodelOpen] = useState(false);
   const [rawRuns, setRawRuns] = useState<ScenarioRun[]>([]);
@@ -197,7 +199,6 @@ export const DealStudioPage: React.FC = () => {
         activeTab={tab}
         onSelectTab={setActiveTab}
         onOpenEditModal={() => setIsEditModalOpen(true)}
-        onOpenDocuments={() => setIsDocumentsOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onOpenShare={() => setIsShareOpen(true)}
         onOpenRemodel={() => setIsRemodelOpen(true)}
@@ -213,7 +214,7 @@ export const DealStudioPage: React.FC = () => {
         {tab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
         {tab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
         {tab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
-        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} onOpenEdit={() => setIsEditModalOpen(true)} />}
+        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} onOpenEdit={() => setIsEditModalOpen(true)} onAddDocuments={() => setIsDocumentsOpen(true)} docsVersion={docsVersion} />}
         {tab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
       </main>
 

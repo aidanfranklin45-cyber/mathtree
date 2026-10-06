@@ -14,6 +14,8 @@ export interface DocumentFigure {
   label: string;
   /** What was read, as shown to the owner. */
   text: string;
+  /** The kind of document it was read from (offering_memorandum, rent_roll, ...). */
+  documentType?: string;
   /** The value as the project stores it (a number or a string); undefined for a tenant list, which is compared by what it says in `text`. */
   value: number | string | undefined;
   how: string;
@@ -32,6 +34,8 @@ export interface RecordedFigure {
   /** The reasoning: how it was found, or the owner's reason, or what they changed. */
   how: string;
   reliability?: string;
+  /** The kind of document a figure read from a document came from. */
+  documentType?: string;
 }
 
 export interface IntakeRecord {
@@ -66,8 +70,8 @@ export function buildIntakeRecord(args: {
   for (const f of args.documentFigures) {
     const changed = f.current !== undefined && f.value !== undefined && !same(f.current, f.value);
     figures.push(changed
-      ? { key: f.key, label: f.label, value: f.current as number | string, source: 'owner', how: cut(`Changed by you. The document said ${f.text}. ${f.how}`, 400) }
-      : { key: f.key, label: f.label, value: f.value ?? null, source: 'document', how: cut(`${f.text}. ${f.how}`, 400), reliability: f.reliability });
+      ? { key: f.key, label: f.label, value: f.current as number | string, source: 'owner', how: cut(`Changed by you. The document said ${f.text}. ${f.how}`, 400), documentType: f.documentType }
+      : { key: f.key, label: f.label, value: f.value ?? null, source: 'document', how: cut(`${f.text}. ${f.how}`, 400), reliability: f.reliability, documentType: f.documentType });
   }
   for (const p of args.profileFigures) {
     figures.push({ key: p.key, label: p.label, value: p.value, source: 'profile', how: cut(p.why ? `Your investor profile: ${p.why}` : 'Your investor profile', 400) });

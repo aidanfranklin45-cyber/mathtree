@@ -33,6 +33,8 @@ interface Props {
   onProvide?: (key: string, value: string) => void;
   /** Fills what is still blank from the owner's own assumptions. */
   onFillAssumptions?: () => void;
+  /** The original files the owner added and what each was read as, so the caller can keep them with the property. Called when the documents are read. */
+  onFiles?: (files: Array<{ file: File; type?: string }>) => void;
 }
 
 interface Source {
@@ -40,6 +42,8 @@ interface Source {
   name: string;
   text: string;
   type: 'auto' | Exclude<DocumentType, 'unknown'>;
+  /** The original file (absent for pasted text). */
+  file?: File;
 }
 
 interface Read {
@@ -66,7 +70,7 @@ function managerForDeal(deal: Props['deal']): { uses: boolean | null; fee?: numb
 }
 
 /** Add documents, read them, see what they say against what the property states, and tick what to accept. Saves nothing itself. */
-export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote, proposeAssetClass, onProvide, onFillAssumptions }) => {
+export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote, proposeAssetClass, onProvide, onFillAssumptions, onFiles }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[] | null>(null);
@@ -118,7 +122,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { rejected.push(f.name); continue; }
       try {
-        added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto' });
+        added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto', file: f });
       } catch (e) {
         problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`);
       }
@@ -153,6 +157,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
       }
     }
     setReads(out);
+    onFiles?.(out.flatMap((r) => (r.source.file ? [{ file: r.source.file, type: r.parsed && r.parsed.documentType !== 'unknown' ? r.parsed.documentType : undefined }] : [])));
     setBusy(false);
   };
 

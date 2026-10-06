@@ -250,7 +250,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       setIntake({
         documents: a.documents,
         figures: a.proposal.changes.filter((c) => a.ticked.has(c.key)).map((c) => ({
-          key: c.key, label: c.label, text: c.proposed, how: c.how, reliability: c.reliability,
+          key: c.key, label: c.label, text: c.proposed, how: c.how, reliability: c.reliability, documentType: (a.proposal.patch.provenance as Record<string, { documentType?: string }>)[c.key]?.documentType,
           value: typeof c.value === 'number' || typeof c.value === 'string' ? c.value : undefined,
         })),
         claims: Object.values(a.proposal.patch.claims).map((c) => ({ how: c.how, value: c.value })),
