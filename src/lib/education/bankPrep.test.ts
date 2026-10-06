@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BANK_PREP_NOTE, CONVERSATION, GLOSSARY, LENDER_NUMBERS, LOAN_OFFICER_QUESTIONS } from './bankPrep';
+import { BANK_PREP_NOTE, CONVERSATION, GLOSSARY, LENDER_NUMBERS, LOAN_OFFICER_QUESTIONS, WHAT_TO_BRING } from './bankPrep';
 
 describe('the "Prepare for the bank" content', () => {
   it('has a plain definition for every term, with no duplicates, in alphabetical order', () => {
@@ -14,6 +14,11 @@ describe('the "Prepare for the bank" content', () => {
     for (const needed of ['noi', 'dscr', 'loan-to-value', 'cap rate', 'irr', 'npv', 'equity multiple', 'amortization', 'balloon', 'vacancy', 'operating expense ratio', 'replacement reserve', 't12', 'rent roll', 'exit cap rate', 'other income', 'negative leverage']) {
       expect(all).toContain(needed);
     }
+  });
+
+  it('lists what to bring: about the borrower, about the property, and what MathTree prepares', () => {
+    expect(WHAT_TO_BRING.map((g) => g.heading)).toEqual(['About you', 'About the property', 'Your underwriting']);
+    for (const g of WHAT_TO_BRING) { expect(g.items.length).toBeGreaterThanOrEqual(3); for (const i of g.items) expect(i.length).toBeGreaterThan(20); }
   });
 
   it('tells each question how to answer it and where the answer is in the app', () => {

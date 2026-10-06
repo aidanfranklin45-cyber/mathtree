@@ -1,11 +1,12 @@
 /**
- * The words of the "Prepare for the bank" page: how the conversation with a lender works, what a lender looks at, the terms in plain English, and the
- * questions a loan officer is likely to ask (with where MathTree already holds the answer). General education only. Lenders differ, and nothing
+ * The words of the "Prepare for the bank" page: how the relationship with a lender works, what to bring to be successful, the questions a loan
+ * officer is likely to ask (with where MathTree already holds the answer), what a lender looks at, and the terms you will hear. General education only. Lenders differ, and nothing
  * here is financial or legal advice. Ranges are described as common, never as rules.
  */
 
 export interface BankPrepPoint { heading: string; text: string }
 export interface GlossaryTerm { term: string; plain: string }
+export interface BringGroup { heading: string; note: string; items: string[] }
 export interface LoanOfficerQuestion { question: string; where: string; tip: string }
 
 export const CONVERSATION: BankPrepPoint[] = [
@@ -28,6 +29,43 @@ export const CONVERSATION: BankPrepPoint[] = [
   {
     heading: 'Bring the evidence, then explain it',
     text: 'The brief shows each figure and where it came from. Read it before you go. When the officer points at a number, answer with three things: the figure, where it came from, and why it is reasonable.',
+  },
+];
+
+/**
+ * What a lender typically asks for. Requirements differ by lender, loan and property, so this is a starting list to ask about, not a rule. The
+ * third group is what MathTree prepares for you.
+ */
+export const WHAT_TO_BRING: BringGroup[] = [
+  {
+    heading: 'About you',
+    note: 'The lender is underwriting the borrower as well as the property.',
+    items: [
+      'A personal financial statement: what you own and what you owe.',
+      'Recent tax returns and bank statements, to show income and the cash for the down payment and reserves.',
+      'A short summary of your experience with similar properties, or who is helping you.',
+      'The entity that will own the property, if there is one, and its documents.',
+    ],
+  },
+  {
+    heading: 'About the property',
+    note: 'The documents that show what the property earns and what you are buying.',
+    items: [
+      'The purchase agreement and the offering memorandum.',
+      'The rent roll and the leases.',
+      'The last twelve months of income and expenses (the T12), and the last two or three years if you can get them.',
+      'The property tax and insurance figures.',
+    ],
+  },
+  {
+    heading: 'Your underwriting',
+    note: 'This is the part MathTree prepares for you.',
+    items: [
+      'The brief: your figures, each with where it came from, so you can show your work.',
+      'The reasons behind your assumptions, written down, so each can be defended.',
+      'A downside case: what happens to the loan payment coverage if rents fall or vacancy rises.',
+      'The original documents, kept with the property, so you can show where a figure came from.',
+    ],
   },
 ];
 

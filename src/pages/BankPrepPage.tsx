@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
-import { BANK_PREP_NOTE, CONVERSATION, GLOSSARY, LENDER_NUMBERS, LOAN_OFFICER_QUESTIONS } from '../lib/education/bankPrep';
+import { BANK_PREP_NOTE, CONVERSATION, GLOSSARY, LENDER_NUMBERS, LOAN_OFFICER_QUESTIONS, WHAT_TO_BRING } from '../lib/education/bankPrep';
 
 const card = 'bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-3';
 const h2 = 'text-sm font-extrabold text-white';
@@ -20,7 +20,7 @@ export const BankPrepPage: React.FC = () => {
       <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-5">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Prepare for the bank</h1>
-          <p className="text-xs text-slate-400 mt-0.5">How the conversation works, what a lender looks at, and what the terms mean, in plain English.</p>
+          <p className="text-xs text-slate-400 mt-0.5">Understand your relationship with the lender, and what you need in hand to be successful.</p>
         </div>
 
         <section className={card} aria-label="How the conversation works">
@@ -30,6 +30,24 @@ export const BankPrepPage: React.FC = () => {
               <div key={p.heading} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-1">
                 <h3 className="text-[11px] font-black uppercase tracking-wider text-emerald-300">{p.heading}</h3>
                 <p className="text-xs text-slate-300 leading-relaxed">{p.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className={card} aria-label="What to bring">
+          <h2 className={h2}>What to bring</h2>
+          <p className="text-xs text-slate-400">Lenders differ, so ask yours for their list. This is what most will want to see.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {WHAT_TO_BRING.map((g) => (
+              <div key={g.heading} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                <div>
+                  <h3 className="text-[11px] font-black uppercase tracking-wider text-emerald-300">{g.heading}</h3>
+                  <p className="text-[11px] text-slate-500">{g.note}</p>
+                </div>
+                <ul className="space-y-1.5 list-disc pl-4">
+                  {g.items.map((i) => <li key={i} className="text-xs text-slate-300 leading-relaxed">{i}</li>)}
+                </ul>
               </div>
             ))}
           </div>
@@ -61,9 +79,9 @@ export const BankPrepPage: React.FC = () => {
           </ul>
         </section>
 
-        <section className={card} aria-label="Terms in plain English">
+        <section className={card} aria-label="Terms you will hear">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className={h2}>Terms in plain English</h2>
+            <h2 className={h2}>Terms you will hear</h2>
             <input
               type="search" value={find} onChange={(e) => setFind(e.target.value)} placeholder="Find a term"
               aria-label="Find a term" className="w-48 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
