@@ -29,4 +29,9 @@ describe('joinPages', () => {
     expect(text).toContain('103\tAnn Poe\t1700');
     expect(redactForModel(text).text).not.toMatch(/Jane|Bob|Ann/);
   });
+
+  it('starts every page with a marker, so a figure can be traced to its page', () => {
+    const text = joinPages(['Page one line', 'Page two line']);
+    expect(text.split('\n')).toEqual(['--- Page 1 ---', 'Page one line', '--- Page 2 ---', 'Page two line']);
+  });
 });

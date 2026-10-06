@@ -7,6 +7,8 @@
  * Anything the owner simply typed, with no document or profile behind it, is theirs by default and is not listed.
  */
 
+import type { TraceRow } from './lineage';
+
 export interface RecordedCheck { label: string; ok: boolean; detail: string }
 
 export interface RecordedDocument { name: string; type: string; /** The model that read it. */ model?: string }
@@ -49,6 +51,8 @@ export interface IntakeRecord {
   notes: string[];
   /** The structural checks run on the documents (their own arithmetic) and how each came out. */
   checks?: RecordedCheck[];
+  /** Each line the reader took from the documents: where it is in the document, what it was sorted into, and what that feeds. */
+  lineage?: TraceRow[];
   /** What the owner decided where sources disagreed. */
   choices: Array<{ label: string; decision: string }>;
   /** The owner confirmed they reviewed everything read or filled in. The tool helps; the owner underwrites the deal. */
@@ -67,6 +71,7 @@ export function buildIntakeRecord(args: {
   claims: Array<{ how: string; value: number }>;
   notes: string[];
   checks?: RecordedCheck[];
+  lineage?: TraceRow[];
   choices: Array<{ label: string; decision: string }>;
   /** Who confirmed, when the project is created (the account that created it). */
   verifiedBy?: string;
@@ -89,6 +94,7 @@ export function buildIntakeRecord(args: {
     figures: figures.slice(0, 80),
     claims: args.claims.slice(0, 20).map((c) => ({ label: cut(c.how, 160), value: c.value })),
     notes: args.notes.slice(0, 20).map((n) => cut(n, 500)),
+    ...(args.lineage && args.lineage.length > 0 ? { lineage: args.lineage.slice(0, 200).map((r) => ({ ...r, label: cut(r.label, 120), snippet: r.snippet ? cut(r.snippet, 160) : null })) } : {}),
     ...(args.checks && args.checks.length > 0 ? { checks: args.checks.slice(0, 20).map((c) => ({ label: cut(c.label, 120), ok: c.ok, detail: cut(c.detail, 400) })) } : {}),
     choices: args.choices.slice(0, 20).map((c) => ({ label: cut(c.label, 80), decision: cut(c.decision, 200) })),
     ...(args.verifiedBy ? { verification: { at: (args.now ?? new Date()).toISOString(), by: args.verifiedBy, statement: 'Reviewed and confirmed by the owner before the project was created.' } } : {}),
@@ -102,4 +108,5 @@ export interface IntakeSnapshot {
   claims: Array<{ how: string; value: number }>;
   notes: string[];
   checks?: RecordedCheck[];
+  lineage?: TraceRow[];
 }

@@ -8,6 +8,7 @@ import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults, useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
 import { managerChoice } from '@engine/underwritingAssumptions';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
+import { groundIntake } from '../../lib/ingestion/lineage';
 import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
 
 /** What the owner accepted. The caller decides what to do with it: save it to a deal, or fill a form. */
@@ -150,7 +151,8 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
     const out: Read[] = [];
     for (const source of sources) {
       try {
-        const parsed = await readDocument({ text: source.text, filename: source.name, documentType: source.type === 'auto' ? undefined : source.type, knownNames });
+        const read = await readDocument({ text: source.text, filename: source.name, documentType: source.type === 'auto' ? undefined : source.type, knownNames });
+        const parsed = { ...read, intake: groundIntake(read.intake, source.text) };
         out.push({ source, parsed, error: parsed.message ?? null, issues: parsed.intake.documentType === 'unknown' ? [] : validateIntake(parsed.intake) });
       } catch (e) {
         out.push({ source, parsed: null, error: e instanceof Error ? e.message : 'Could not read this document.', issues: [] });

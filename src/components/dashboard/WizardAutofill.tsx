@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
+import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
@@ -22,6 +23,8 @@ export interface Autofill {
   documents: Array<{ name: string; type: string; model?: string }>;
   /** The documents held to their own arithmetic, and how each check came out. */
   checks: Array<{ label: string; ok: boolean; detail: string }>;
+  /** Each line the reader took from the documents, where it is, and what it feeds. */
+  lineage: TraceRow[];
 }
 
 /** A figure the owner's investor profile supplied, with the reason the owner gave for it. */
@@ -108,7 +111,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       const out: Read[] = [];
       for (const source of sources) {
         try {
-          const parsed = await readDocument({ text: source.text, filename: source.name, documentType: source.type === 'auto' ? undefined : source.type });
+          const read = await readDocument({ text: source.text, filename: source.name, documentType: source.type === 'auto' ? undefined : source.type });
+          // A number the reader returned that is not in the document text cannot have been read as printed: it goes to the owner as unsure
+          const parsed = { ...read, intake: groundIntake(read.intake, source.text) };
           out.push({ source, parsed, error: parsed.message ?? null, issues: parsed.intake.documentType === 'unknown' ? [] : validateIntake(parsed.intake) });
         } catch (e) {
           out.push({ source, parsed: null, error: e instanceof Error ? e.message : 'Could not read this document.', issues: [] });
@@ -127,7 +132,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
         const ticked = new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure).map((c) => c.key));
         const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
-        await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)) });
+        await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)), lineage: out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? traceDocument(r.parsed.intake, r.source.text, r.source.name) : [])) });
         setResult({ proposal, docs, filled: ticked.size });
       }
       setPicked({});

@@ -265,6 +265,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         claims: Object.values(a.proposal.patch.claims).map((c) => ({ how: c.how, value: c.value })),
         notes: a.proposal.patch.notes,
         checks: a.checks,
+        lineage: a.lineage,
       });
       setDocExtra((e) => ({ ...(nextAsset === asset ? e : {}), ...fill.extra }));
     }
@@ -544,6 +545,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         profileFigures,
         claims: intake?.claims ?? [],
         checks: intake?.checks,
+        lineage: intake?.lineage,
         // The two assumptions that are not figures in the form: whether a manager is hired, and when closing is taken to be
         notes: [
           ...(intake?.notes ?? []),
