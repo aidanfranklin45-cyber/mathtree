@@ -1,21 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
+import { sanitizeNextUrl } from '../lib/auth/safeNext';
 import { Lock, Mail, AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-
-/**
- * Safely sanitizes redirect URLs to prevent open-redirect vulnerabilities.
- * Strictly requires the target to start with a single '/' and rejects protocol/domain manipulation.
- */
-function sanitizeNextUrl(raw: string | null): string {
-  if (!raw) return '/dashboard';
-  const trimmed = raw.trim();
-  // Valid in-app relative path starts with a single '/' and is NOT followed by '/' or '\'
-  if (/^\/[^\/\\]/.test(trimmed)) {
-    return trimmed;
-  }
-  return '/dashboard';
-}
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
