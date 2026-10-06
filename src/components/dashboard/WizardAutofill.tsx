@@ -40,9 +40,11 @@ interface Props {
   onSet: (key: string, value: string) => void;
   /** The owner answered a question where the sources disagreed: what they decided, for the record. */
   onAnswered: (key: string, label: string, decision: string) => void;
+  /** The original files the owner added (and what each was read as), so the project can keep them. Called when the documents are read. */
+  onFiles?: (files: Array<{ file: File; type?: string }>) => void;
 }
 
-interface Source { id: number; name: string; text: string; type: 'auto' | Exclude<DocumentType, 'unknown'> }
+interface Source { id: number; name: string; text: string; type: 'auto' | Exclude<DocumentType, 'unknown'>; /** The original file, kept for the project (absent for pasted text). */ file?: File }
 interface Read { source: Source; parsed: ParsedDocument | null; error: string | null; issues: IntakeIssue[] }
 
 const btn = 'px-3 py-2 rounded-xl text-xs font-bold transition disabled:opacity-40';
@@ -76,7 +78,7 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' };
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, profileFigures, intake, closing }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onFiles, profileFigures, intake, closing }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
@@ -101,7 +103,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     setBusy(true);
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { problems.push(`${f.name} can't be read. Use ${READABLE_EXTENSIONS.join(', ')} files, or paste the text.`); continue; }
-      try { added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto' }); }
+      try { added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto', file: f }); }
       catch (e) { problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`); }
     }
     setBusy(false);
@@ -123,6 +125,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         }
       }
       setReads(out);
+      // The originals are kept with the project whether or not they could be read: the owner added them as their sources
+      onFiles?.(out.flatMap((r) => (r.source.file ? [{ file: r.source.file, type: r.parsed && r.parsed.documentType !== 'unknown' ? r.parsed.documentType : undefined }] : [])));
       const docs = out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? [r.parsed.intake] : []));
       if (docs.length === 0) {
         await onAutofill(null);

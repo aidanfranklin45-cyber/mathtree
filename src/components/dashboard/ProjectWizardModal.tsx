@@ -8,6 +8,7 @@ import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { findParcels, isRealParcel } from '../../lib/services/parcelLookup';
+import { uploadDealDocuments } from '../../lib/documents/dealDocuments';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
@@ -138,6 +139,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [verified, setVerified] = useState(false);
   // Pressing Create before confirming: say what is missing and bring the confirmation into view
   const [verifyNudge, setVerifyNudge] = useState(false);
+  // The original files the owner added to be read: kept with the project once it exists (files cannot be kept in the draft, so a reload drops them)
+  const [docFiles, setDocFiles] = useState<Array<{ file: File; type?: string }>>([]);
   // How the county parcel was found, kept with the project so the Assumptions tab can say so
   const parcelHow = useRef<{ method: 'picked' | 'apn' | 'address'; addressesChecked: string[] } | null>(null);
   const verifyRef = useRef<HTMLLabelElement | null>(null);
@@ -555,6 +558,16 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         .single();
       if (insErr || !data) throw new Error(insErr?.message || 'Failed to create project record');
 
+      // Keep the original documents with the project (private to the owner). The project exists either way: a failure here is reported, not fatal.
+      if (docFiles.length > 0) {
+        try {
+          const kept = await uploadDealDocuments({ userId: user.id, dealId: String((data as any).id), files: docFiles });
+          if (kept.failed.length > 0) window.alert(`The project was created, but ${kept.failed.length === 1 ? 'one original file' : `${kept.failed.length} original files`} could not be stored with it: ${kept.failed.map((f) => `${f.name} (${f.reason})`).join('; ')}`);
+        } catch (e) {
+          console.warn('[wizard] storing the original documents failed:', e);
+        }
+      }
+
       onProjectCreated(mapSupabaseDeal(data));
       close();
     } catch (err: any) {
@@ -584,7 +597,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     clearWizardDraft();
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
-    setIntake(null); setAnswers({}); setVerified(false); setVerifyNudge(false); setClosingFilled(null);
+    setIntake(null); setAnswers({}); setVerified(false); setVerifyNudge(false); setClosingFilled(null); setDocFiles([]);
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -624,7 +637,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       {/* Step 1 */}
       <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
         <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
-        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} profileFigures={profileFigures}
+        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
           intake={intake}
           closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)} />
 

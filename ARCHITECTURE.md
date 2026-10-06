@@ -248,3 +248,8 @@ emails are redacted before anything is sent, and extracted values land on a revi
 
 **Market benchmarks** (`lib/benchmarks`, draft `13_market_benchmarks.sql`): dated, sourced public facts shown beside a property's numbers;
 never defaults and never read by the engine. The table is not yet created in the database.
+
+**Original documents** (`lib/documents/dealDocuments.ts`, draft `16_deal_documents.sql`, not yet applied): the files the owner added to be read are kept with the
+deal in a private, owner-only bucket (`deal-documents`, path `<user id>/<deal id>/<file>`, 50 MB per file, PDF, CSV, Excel, Word or text), listed by
+`deal_documents`, and opened through short-lived signed links. They hold names and contact details the parser redacts, so deal shares do not grant access
+to them. A project is created whether or not the upload works. Open follow-ups: ownership transfer must move the files, and deleting a deal must remove them.

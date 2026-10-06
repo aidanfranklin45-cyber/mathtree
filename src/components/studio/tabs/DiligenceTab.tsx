@@ -1,6 +1,7 @@
 import React from 'react';
 import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { AssumptionsLedger } from '../AssumptionsLedger';
+import { DealDocumentsList } from '../DealDocumentsList';
 
 interface DiligenceTabProps {
   deal: DealRecord;
@@ -42,6 +43,8 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
         </div>
 
         <AssumptionsLedger deal={deal} metrics={metrics} onOpenEdit={onOpenEdit} />
+
+        <DealDocumentsList dealId={deal.id} />
 
         <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
