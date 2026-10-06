@@ -6,8 +6,6 @@
  * The reader's answer below is SIMULATED: written by hand the way a competent reader would answer this text, slips included. It tests the checks
  * and the asking, not the model. Replace `READER_ANSWER` with a recorded `parse-document` response when one can be captured; the expectations stay.
  *
- * A test marked `it.fails` is a known gap: the behaviour the policy wants and the code does not yet do. When the gap is closed the test turns red
- * and the marker is removed.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
@@ -17,6 +15,7 @@ import { attachVariances, proposeChanges, type Proposal } from '../apply';
 import { expectedFor } from '../expected';
 import { groundIntake, traceDocument } from '../lineage';
 import { documentChecks } from '../validate';
+import { evaluateContracts } from '../contracts';
 import { openQuestions } from '../openQuestions';
 import { COWICHE_TEXT } from './fixtures/cowicheCreek';
 
@@ -75,6 +74,15 @@ function run(profile: UnderwritingAssumptions): { proposal: Proposal; asks: stri
   return { proposal, asks, auto };
 }
 
+/** Every contract's outcome for a reader's answer, under a profile. */
+function contractsFor(answer: Record<string, unknown>, profile: UnderwritingAssumptions) {
+  setAssumptionDefaults({ assumptions: profile, discountRate: 8, exitYear: 10 });
+  const intake = groundIntake(coerceIntake('offering_memorandum', answer), COWICHE_TEXT);
+  const proposal = proposeChanges([intake], deal);
+  attachVariances(proposal, expectedFor(proposal, deal));
+  return evaluateContracts(proposal, [intake]);
+}
+
 afterEach(() => setAssumptionDefaults({ assumptions: { assets: {} }, discountRate: undefined, exitYear: undefined } as never));
 
 describe('Cowiche Creek: what is asked whatever the owner\'s profile', () => {
@@ -109,13 +117,13 @@ describe('Cowiche Creek: what is asked whatever the owner\'s profile', () => {
     expect(proposal.changes.some((c) => /noi|capRate/i.test(c.key))).toBe(false);
   });
 
-  // The policy: these are the owner's call even when the document states a figure. Neither is asked today.
-  it.fails('asks about the management fee: the table charges 53,522 (3.5% of income) while the text calls it "above-market (~5% of EGI)" and "self-managed"', () => {
-    expect(proposal.changes.some((c) => /management/i.test(c.key) && c.unsure)).toBe(true);
+  // The policy: these are the owner's call even when the document states a figure.
+  it('asks about the management fee: the table charges 53,522 (3.5% of income) while the text calls it "above-market (~5% of EGI)" and "self-managed"', () => {
+    expect(contractsFor(READER_ANSWER, closeProfile()).find((r) => r.key === 'managementFee')).toMatchObject({ outcome: 'ask' });
   });
 
-  it.fails('asks how the utility reimbursements (RUBS, 103,932) are treated: taken off the costs, or counted as income', () => {
-    expect(proposal.changes.some((c) => /rubs|reimburse|recover/i.test(c.key) && c.unsure)).toBe(true);
+  it('asks how the utility reimbursements (RUBS, 103,932) are treated: taken off the costs, or counted as income', () => {
+    expect(contractsFor(READER_ANSWER, closeProfile()).find((r) => r.key === 'utilityReimbursements')).toMatchObject({ outcome: 'ask' });
   });
 });
 
@@ -145,5 +153,42 @@ describe('Cowiche Creek: what the document cannot give is listed as missing, nev
     const keys = openQuestions({ asset_class: 'multi-unit', purchase_price: Number(inputs.purchasePrice), inputs }).map((m) => m.key);
     expect(keys).toEqual(expect.arrayContaining(['downPaymentPercent']));
     expect(keys).not.toContain('purchasePrice');
+  });
+});
+
+describe('Contracts: governance (they hold when the reader slips or the document changes)', () => {
+  const asked = (answer: Record<string, unknown>) => contractsFor(answer, closeProfile()).filter((r) => r.outcome === 'ask').map((r) => r.key);
+  const without = (label: string) => ({ ...READER_ANSWER, expenses: READER_ANSWER.expenses.filter((l) => l.label.value !== label) });
+
+  it('records every check that ran, and names the failed one for every question', () => {
+    for (const r of contractsFor(READER_ANSWER, farProfile())) {
+      expect(r.checksRun.length, r.key).toBeGreaterThan(0);
+      if (r.outcome === 'ask') expect(r.reasons.length, r.key).toBeGreaterThan(0);
+      else expect(r.reasons, r.key).toEqual([]);
+    }
+  });
+
+  it('stops asking about management when the document has no management line', () => {
+    expect(asked(without('Management'))).not.toContain('managementFee');
+  });
+
+  it('still asks when the reader files management under "other" (its name gives it away)', () => {
+    const slip = { ...READER_ANSWER, expenses: READER_ANSWER.expenses.map((l) => (l.label.value === 'Management' ? line('Management', 'other', 53_522) : l)) };
+    expect(asked(slip)).toContain('managementFee');
+  });
+
+  it('still asks when the reader files the reimbursements as ordinary other income', () => {
+    const slip = { ...READER_ANSWER, income: READER_ANSWER.income.map((l) => (l.label.value === 'RUBS' ? line('RUBS', 'other_income', 103_932) : l)) };
+    expect(asked(slip)).toContain('utilityReimbursements');
+  });
+
+  it('asks about an income line the reader could not classify, instead of leaving it out silently', () => {
+    const answer = { ...READER_ANSWER, income: [...READER_ANSWER.income, line('Parking', 'other', 12_000)] };
+    expect(asked(answer)).toContain('unclassifiedIncome');
+  });
+
+  it('asks about nothing the document leaves unsaid: a clean answer with no such lines raises no line contracts', () => {
+    const answer = { ...READER_ANSWER, expenses: READER_ANSWER.expenses.filter((l) => l.label.value !== 'Management'), income: READER_ANSWER.income.filter((l) => l.label.value !== 'RUBS') };
+    expect(asked(answer)).toEqual(expect.not.arrayContaining(['managementFee', 'utilityReimbursements', 'unclassifiedIncome']));
   });
 });
