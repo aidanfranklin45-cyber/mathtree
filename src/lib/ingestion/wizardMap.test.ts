@@ -80,10 +80,9 @@ describe('an offering memorandum with a unit mix and an income table', () => {
     expect(fill.form.multiSqft).toBe('83628');
     expect(fill.form.multiGrossRent).toBe('125700'); // 30 x 1,850 + 36 x 1,950
     expect(fill.form.multiRentPerUnit).toBe('1904.55');
-    expect(fill.form.taxes).toBe('115670');
-    expect(fill.form.insurance).toBe('19962');
-    expect(fill.form.utilities).toBe('73382');
-    expect(fill.form.maintenance).toBe('33000');
+    // taxes, insurance, utilities and upkeep live inside the one expense ratio: they are not copied into separate fields
+    for (const f of ['taxes', 'insurance', 'utilities', 'maintenance']) expect(fill.form[f]).toBeUndefined();
+    for (const k of ['annualTaxes', 'annualInsurance', 'annualUtilities', 'annualMaintenance']) expect(fill.extra[k]).toBeUndefined();
     expect(fill.form.capexValue).toBe('16500');
     expect(fill.form.vacancy).toBe('5');
     expect(Number(fill.form.opexRatio)).toBeCloseTo(11.72, 2); // (274,014 of costs less 103,932 reimbursed) / 1,450,800 of rent; management and reserves left out
@@ -149,7 +148,7 @@ describe('a memorandum whose unit mix is only a chart (no printed table)', () =>
     for (const k of ['purchasePrice', 'unitCount', 'grossRentPerMonth', 'annualTaxes', 'capexReserveAnnual']) expect(keys).not.toContain(k);
     const said = again.unchanged.map((u) => u.label).join(' | ');
     expect(said).toContain('Purchase price');
-    expect(said).toContain('Property taxes');
+    expect(said).toContain('Unit count');
     expect(again.unchanged.map((u) => u.key)).not.toContain('monthlyRent'); // derived from the rent: not repeated
   });
 
@@ -255,7 +254,7 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     const vacancy = p.changes.find((c) => c.key === 'vacancyRate')!;
     expect(vacancy.variance).toMatchObject({ expected: 8, percent: 38, higher: false, why: 'Yakima apartments run about 8%' }); // document 5, yours 8
     expect(p.changes.find((c) => c.key === 'expenseRatio')!.variance).toBeUndefined(); // 12.26 vs 12.5: close enough, no question
-    expect(p.changes.find((c) => c.key === 'annualInsurance')!.variance).toBeUndefined(); // 19,962 vs 19,000: close enough
+    expect(p.changes.some((c) => c.key === 'annualInsurance')).toBe(false); // folded into the expense ratio, not a field of its own
     const chosen = applyChoices(p, new Set(['vacancyRate']), expected);
     expect(chosen.changes.find((c) => c.key === 'vacancyRate')).toMatchObject({ value: 8, how: 'Your own assumption: Yakima apartments run about 8%' });
     expect(chosen.patch.basis.vacancyRate.source).toBe('profile');

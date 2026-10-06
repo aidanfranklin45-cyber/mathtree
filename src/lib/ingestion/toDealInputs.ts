@@ -176,12 +176,12 @@ function leasesFromRentRoll(doc: RentRollIntake, notes: string[]): LeaseRow[] {
   return out;
 }
 
-/** Expense lines that are inputs in their own right (not only part of the ratio), and the engine key each one sets. */
+/**
+ * Expense lines that are an input in their own right, and the engine key each one sets. The engine has a separate input only for the
+ * reserve. Every other operating cost (taxes, insurance, utilities, upkeep, payroll) lives in the one expense ratio, so it is folded
+ * into the ratio below and not copied into separate fields.
+ */
 const ITEM_KEYS: Partial<Record<ExpenseCategory, [string, string]>> = {
-  property_tax: ['annualTaxes', 'Property taxes'],
-  insurance: ['annualInsurance', 'Insurance'],
-  utilities: ['annualUtilities', 'Utilities'],
-  repairs_maintenance: ['annualMaintenance', 'Repairs and maintenance'],
   reserves_capex: ['capexReserveAnnual', 'Replacement reserve'],
 };
 
