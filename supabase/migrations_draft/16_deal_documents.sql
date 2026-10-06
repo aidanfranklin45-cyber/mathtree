@@ -1,4 +1,4 @@
--- DRAFT 16: keep the original documents (offering memorandum, rent roll, statements) with the deal.   *** NOT APPLIED. Run by hand after review. ***
+-- 16: keep the original documents (offering memorandum, rent roll, statements) with the deal.   *** APPLIED 2026-10-05 (via the Supabase tool, without the BEGIN and COMMIT, which the tool adds itself). Do not re-run. ***
 --
 -- Adds ONE private storage bucket, `deal-documents`, and ONE table, `public.deal_documents`, that lists what is in it. Nothing existing changes.
 --

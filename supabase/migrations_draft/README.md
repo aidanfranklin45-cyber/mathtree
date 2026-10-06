@@ -17,6 +17,6 @@ outside `supabase/migrations/` on purpose: the live schema was never built from 
 | 11 | One share per deal per target |
 | 13 | Market benchmarks table (**not applied**) |
 | 15 | Dropped utility meters and meter readings |
-| 16 | Private owner-only bucket for the original documents, and the `deal_documents` list (**not applied**) |
+| 16 | Private bucket for the original documents (access follows the deal's owner), and the `deal_documents` list |
 
 Still the owner's to do: switch on leaked-password protection (Supabase Auth dashboard, Auth, Passwords).
