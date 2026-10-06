@@ -185,6 +185,17 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     try { return AddressService.aggregateParcelPackage(parcels) as any; } catch { return { totalAcres: 0, totalSqFt: 0, totalAssessedValue: 0, totalParcels: 0 }; }
   }, [parcels]);
 
+  // The owner-of-record check on a multi-parcel package: parcels sold together are normally held by one owner. A parcel held by someone else
+  // may still belong (a related entity), but it is the first thing to double-check, so it is flagged rather than assumed.
+  const ownerCheck = (p: any): 'primary' | 'same' | 'different' | 'unknown' => {
+    if (p.isPrimary) return 'primary';
+    const main = parcels.find((x) => x.isPrimary);
+    const known = (o: unknown) => typeof o === 'string' && o.trim() !== '' && o !== 'Owner of Record';
+    if (!main || !known(main.owner) || !known(p.owner)) return 'unknown';
+    try { return AddressService.ownersMatch(main.owner, p.owner) ? 'same' : 'different'; } catch { return 'unknown'; }
+  };
+  const ownerMismatch = parcels.some((p) => p.included && !p.isPrimary && ownerCheck(p) !== 'same');
+
   const selectAsset = (a: Asset) => {
     // Identity and location carry across a change of asset class; everything else starts blank for the new class
     setW((prev) => ({
@@ -838,6 +849,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <p className="text-[11px] text-slate-200 leading-relaxed">
               We identified adjacent or companion parcels owned by the same entity on this block. <span className="text-amber-300 font-semibold">Does the sale include these properties as well?</span> Select all that apply:
             </p>
+            {ownerMismatch && (
+              <p role="alert" className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                A parcel you included is not held by the same owner of record as the primary parcel. Parcels sold together usually share an owner, so please check the county card for each before you create the project.
+              </p>
+            )}
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {parcels.map((p, idx) => {
                 const portal = p.assessorPortalUrl || (() => { try { return AddressService.getAssessorPortalUrl(p.apn, p.county); } catch { return '#'; } })();
@@ -853,6 +869,10 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                           {p.isPrimary && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-500/20 text-brand-300">PRIMARY</span>}
                         </div>
                         <span className="text-[10px] text-slate-400">APN: {p.formattedApn || p.apn} • {p.acres} Acres ({Number(p.sqft || 0).toLocaleString()} sqft) • {p.useCode || ''}</span>
+                        {!p.isPrimary && (() => { const c = ownerCheck(p); return (
+                          <span className={`block text-[10px] font-semibold ${c === 'same' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                            {c === 'same' ? `Same owner of record: ${p.owner}` : c === 'different' ? `Different owner of record: ${p.owner}. Double-check this parcel belongs to the sale.` : 'Owner of record could not be compared. Double-check this parcel belongs to the sale.'}
+                          </span>); })()}
                       </div>
                     </div>
                     <div className="text-right">
