@@ -37,7 +37,7 @@ export const BankPrepPage: React.FC = () => {
 
         <section className={card} aria-label="What to bring">
           <h2 className={h2}>What to bring</h2>
-          <p className="text-xs text-slate-400">Lenders differ, so ask yours for their list. This is what most will want to see.</p>
+          <p className="text-xs text-slate-400">Lenders differ, so ask yours for their list. Here is a good starting point.</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {WHAT_TO_BRING.map((g) => (
               <div key={g.heading} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
