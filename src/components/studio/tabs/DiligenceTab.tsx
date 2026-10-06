@@ -2,6 +2,7 @@ import React from 'react';
 import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { AssumptionsLedger } from '../AssumptionsLedger';
 import { DealDocumentsList } from '../DealDocumentsList';
+import { DocumentLineage } from '../DocumentLineage';
 import { DiligenceDisclosures } from '../DiligenceDisclosures';
 
 interface DiligenceTabProps {
@@ -40,6 +41,9 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
     <div className="space-y-6">
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">
         <DealDocumentsList dealId={deal.id} refreshKey={docsVersion} onAdd={onAddDocuments} />
+        {(inputs.intakeRecord as { lineage?: import('../../../lib/ingestion/lineage').TraceRow[] } | undefined)?.lineage && (
+          <div className="pt-3"><DocumentLineage rows={(inputs.intakeRecord as { lineage: import('../../../lib/ingestion/lineage').TraceRow[] }).lineage} /></div>
+        )}
       </div>
 
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-5 transition duration-300">

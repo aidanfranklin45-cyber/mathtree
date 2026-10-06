@@ -3,6 +3,7 @@ import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
+import { DocumentLineage } from '../studio/DocumentLineage';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
@@ -293,6 +294,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                     ))}
                   </ul>
                   {result && result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
+                  <DocumentLineage rows={intake.lineage} />
                   {(intake.checks ?? []).length > 0 && (
                     <div><p className="text-[11px] font-black text-slate-300">Checks on the document's own arithmetic</p>
                       <ul className="text-[11px]">{(intake.checks ?? []).map((c, k) => <li key={k} className={c.ok ? 'text-emerald-300' : 'text-amber-300'}>{c.ok ? '✓' : '⚠'} <span className="font-bold">{c.label}.</span> <span className="text-slate-400">{c.detail}</span></li>)}</ul></div>
