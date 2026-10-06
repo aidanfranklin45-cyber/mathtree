@@ -3,6 +3,7 @@ import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { AssumptionsLedger } from '../AssumptionsLedger';
 import { DealDocumentsList } from '../DealDocumentsList';
 import { DocumentLineage } from '../DocumentLineage';
+import { ChecksSummary } from '../ChecksSummary';
 import { DiligenceDisclosures } from '../DiligenceDisclosures';
 
 interface DiligenceTabProps {
@@ -41,6 +42,13 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
     <div className="space-y-6">
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">
         <DealDocumentsList dealId={deal.id} refreshKey={docsVersion} onAdd={onAddDocuments} />
+        <div className="pt-3">
+          <ChecksSummary
+            record={inputs.intakeRecord as Parameters<typeof ChecksSummary>[0]['record']}
+            ourNoi={(() => { const ps = ((metrics as { projections?: Array<{ operatingMonths?: number; netOperatingIncome?: number }> }).projections ?? []); const y = ps.find((p) => Number(p.operatingMonths) >= 12) ?? ps[0]; return y && Number.isFinite(Number(y.netOperatingIncome)) ? Number(y.netOperatingIncome) : null; })()}
+            selfManaged={!inputs.manageProperty}
+          />
+        </div>
         {(inputs.intakeRecord as { lineage?: import('../../../lib/ingestion/lineage').TraceRow[] } | undefined)?.lineage && (
           <div className="pt-3"><DocumentLineage rows={(inputs.intakeRecord as { lineage: import('../../../lib/ingestion/lineage').TraceRow[] }).lineage} /></div>
         )}

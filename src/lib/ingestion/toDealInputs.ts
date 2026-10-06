@@ -273,6 +273,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
     b.notes.push(`${label} of ${Math.round(reimbursed).toLocaleString()} a year are taken off the costs, because the engine has no input for income other than rent. This assumes tenants keep paying them: without them the expense ratio would be ${without}%. A lender will want to see them in an operating statement.`);
   }
   if (management > 0) {
+    b.claim('sellerManagementCost', round2(management), doc, "The seller's management cost");
     const egi = t.income.rent + t.income.recoveries + t.income.other_income - t.income.vacancy_credit_loss;
     b.notes.push(`The ${source === 'operating statement' ? 'statement' : 'seller'}'s management cost (${Math.round(management).toLocaleString()} a year${egi > 0 ? `, ${round2((management / egi) * 100)}% of income` : ''}) is not in the expense ratio. ${b.manager?.uses === true ? `You hire a manager, so your own management fee${b.manager.fee !== undefined ? ` (${b.manager.fee}% of income)` : ''} is charged separately.` : b.manager?.uses === false ? 'You manage it yourself, so no management fee is charged (a lender will usually add one).' : 'Whether you hire a manager is your decision: a management fee is charged separately, at your rate, only if you say you will.'}`);
   }
