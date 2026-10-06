@@ -11,6 +11,14 @@ interface Props {
 }
 
 const ASSET_LABEL: Record<AssetKey, string> = { 'single-family': 'Single-family', 'multi-unit': 'Multi-unit', commercial: 'Commercial', storage: 'Storage' };
+/** How each kind of property is underwritten, in a few words: what the sale value rests on and what is particular to the class. */
+const METHOD_NOTE: Record<AssetKey, string> = {
+  'single-family': 'Valued by appreciation: the sale value is today\'s value grown at your appreciation rate. One tenancy, and the expense ratio covers the running costs. There is no exit cap rate.',
+  'multi-unit': 'Valued on its income at exit: net operating income divided by your exit cap rate. Rent is per unit and reserves are usually per unit. Utility reimbursements (such as RUBS) come off costs, and other income such as pet fees counts as income.',
+  commercial: 'Valued on its income at exit, like an apartment building. Leases drive the rent, and an NNN lease uses its own, smaller expense ratio because the tenant pays the building\'s costs.',
+  storage: 'Valued on its income at exit, like an apartment building. On-site payroll and marketing are charged as a share of income, on top of the expense ratio.',
+};
+
 const CAPEX_LABEL: Record<CapexBasis, string> = { perUnit: '$ per unit a year', perSqFt: '$ per sq ft a year', percentOfIncome: '% of income', percentOfValue: '% of value' };
 
 const inputCls = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500';
@@ -42,7 +50,8 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
   const setWhy = (field: AssumptionField, why: string) => writeAsset({ ...current, rationale: { ...current.rationale, [field]: why } });
 
   // The hold is one setting for every property (above), not one per asset class
-  const specs = FIELD_SPECS.filter((s) => s.assets.includes(asset) && s.key !== 'holdingPeriod');
+  // Appreciation only drives the value of a single-family home; every other class is valued at the exit cap rate, so it is not shown for them
+  const specs = FIELD_SPECS.filter((s) => s.assets.includes(asset) && s.key !== 'holdingPeriod' && (s.key !== 'appreciationRate' || asset === 'single-family'));
   const get = (f: AssumptionField): string => {
     const v = (current as Record<string, unknown>)[f];
     return v === undefined || v === null ? '' : String(v);
@@ -148,6 +157,8 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
           </button>
         ))}
       </div>
+
+      <p className="text-[11px] text-slate-400 leading-relaxed p-2.5 rounded-xl bg-slate-900 border border-slate-800">{METHOD_NOTE[asset]}</p>
 
       <div className="space-y-3">
         {specs.map((s) => (
