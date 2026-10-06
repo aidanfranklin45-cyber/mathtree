@@ -326,7 +326,8 @@ export function buildBriefModel(
   const primary = parcels[0];
   const gisSyncDate = assessor.lastSyncedAt ?? inputs.gisSync?.lastSyncedAt;
   const hasApn = !!primary && primary.apn !== 'Pending Link';
-  const gisBadge = gisSyncDate
+  const hasCountyFigures = parcels.some((p) => p.assessed > 0 || p.acres > 0) || num(assessor.totalAssessedValue) > 0;
+  const gisBadge = gisSyncDate && hasCountyFigures
     ? `Live GIS Verified (${new Date(gisSyncDate).toLocaleDateString()})`
     : hasApn ? 'Verified County Parcel' : 'Manual Underwriting Record';
   const buildingSqFt = num(assessor.buildingSqFt ?? inputs.buildingSqFt ?? inputs.gla ?? inputs.totalSqFt);

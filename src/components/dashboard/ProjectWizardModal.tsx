@@ -7,6 +7,7 @@ import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
+import { findParcel, isRealParcel } from '../../lib/services/parcelLookup';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
@@ -393,7 +394,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         grossRent = opt(w.sfrGrossRent);
       }
 
-      const a: any = assessor;
+      // The county parcel: the one picked from the address list, else looked up now (by the parcel number the documents gave, or by the
+      // street address with any unit taken off). Only a real county record is used: nothing is saved as county data without figures behind it.
+      let a: any = assessor;
+      if (!isRealParcel(a)) a = await findParcel({ apn: String(docExtra.primaryApn ?? ''), location: w.location });
+      if (!isRealParcel(a)) a = null;
       const profile = getProfile();
       const isStorage = asset === 'storage';
       const isIncomeValued = asset === 'commercial' || asset === 'storage';
@@ -455,7 +460,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         taxableValue: a?.taxableValue || null, taxCodeArea: a?.taxCodeArea || null,
         assessorData: a || null,
         parcels: parcels.length ? parcels : a ? [a] : [],
-        gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a?.source || 'county_arcgis', status: 'active' },
+        // "Synced" only when a county record was actually found; the deal page tries the county again when it is not
+        ...(a ? { gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a.source || 'county_arcgis', status: 'active' } } : {}),
         financingType: w.financingType,
         armInitialYears: optInt(w.armInitial), armAdjustmentRate: opt(w.armRate), armRateCap: opt(w.armCap),
         interestOnlyYears: optInt(w.ioYears),
