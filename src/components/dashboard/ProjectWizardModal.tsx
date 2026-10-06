@@ -9,6 +9,7 @@ import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { findParcels, isRealParcel } from '../../lib/services/parcelLookup';
 import { uploadDealDocuments } from '../../lib/documents/dealDocuments';
+import { VARIANCE_DISCLOSURE } from '../../lib/ingestion/apply';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
@@ -536,6 +537,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         // The two assumptions that are not figures in the form: whether a manager is hired, and when closing is taken to be
         notes: [
           ...(intake?.notes ?? []),
+          ...((intake?.documents ?? []).length > 0 ? [VARIANCE_DISCLOSURE] : []),
           w.manageProperty === 'true'
             ? `Property manager: you hire one; a fee of ${w.managementFee.trim() || '(not set)'}% of collected income is charged on top of the expense ratio.`
             : 'Property manager: you manage it yourself; no management fee is charged.',
@@ -1307,7 +1309,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <input type="checkbox" className="mt-0.5" checked={verified} onChange={(e) => { setVerified(e.target.checked); if (e.target.checked) setVerifyNudge(false); }} />
               <span className="text-[11px] text-slate-300 leading-relaxed">
                 <span className="font-bold text-slate-100 block">I have reviewed what was read from my documents and what was filled in from my investor profile.</span>
-                Automated reading can miss or misread things, so I have checked the figures against my source documents. I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
+                Automated reading can miss or misread things, so I have checked the figures against my source documents. {VARIANCE_DISCLOSURE} I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
               </span>
             </label>
           )}

@@ -258,16 +258,24 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     expect(p.patch.notes.join(' ')).toContain('On-site payroll and marketing (39,720 a year)');
   });
 
-  it('asks about any difference between the document and your standard, and only ignores rounding', () => {
+  it('uses the document within 5% of your standard and asks about anything further away', () => {
     const make = () => proposeChanges([memo('multi_family', costs)], { asset_class: 'multi-unit', purchase_price: null, inputs: {} });
-    // the document says 5% vacancy; a standard of 4% does not line up (a gap of one point, exactly a quarter of 4, used to slip through)
+    // the document says 5% vacancy; a standard of 4% is 25% away, so it is asked
     const differs = make();
     attachVariances(differs, { filled: { vacancyRate: 4 }, basis: {} });
     expect(differs.changes.find((c) => c.key === 'vacancyRate')!.variance).toMatchObject({ expected: 4, higher: true, percent: 25 });
-    // the same figure is not a question, nor is rounding
-    const same = make();
-    attachVariances(same, { filled: { vacancyRate: 5.001 }, basis: {} });
-    expect(same.changes.find((c) => c.key === 'vacancyRate')!.variance).toBeUndefined();
+    // within 5% of the standard (5 against 4.8 is 4.2%) the document's figure is used, and so is an exact match
+    for (const mine of [4.8, 5, 5.2]) {
+      const near = make();
+      attachVariances(near, { filled: { vacancyRate: mine }, basis: {} });
+      expect(near.changes.find((c) => c.key === 'vacancyRate')!.variance).toBeUndefined();
+    }
+    // just over 5% (5 against 4.75 is 5.26%) is asked, in either direction
+    for (const mine of [4.75, 5.3]) {
+      const over = make();
+      attachVariances(over, { filled: { vacancyRate: mine }, basis: {} });
+      expect(over.changes.find((c) => c.key === 'vacancyRate')!.variance).toBeDefined();
+    }
     // a figure the owner has no standard for is not compared
     const none = make();
     attachVariances(none, { filled: {}, basis: {} });
@@ -280,7 +288,7 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     attachVariances(p, expected);
     const vacancy = p.changes.find((c) => c.key === 'vacancyRate')!;
     expect(vacancy.variance).toMatchObject({ expected: 8, percent: 38, higher: false, why: 'Yakima apartments run about 8%' }); // document 5, yours 8
-    expect(p.changes.find((c) => c.key === 'expenseRatio')!.variance).toMatchObject({ expected: 12.5, higher: false }); // 12.26 vs 12.5 does not line up exactly, so it is asked too
+    expect(p.changes.find((c) => c.key === 'expenseRatio')!.variance).toBeUndefined(); // 12.26 vs 12.5 is within 5%: the document's figure is used without asking
     expect(p.changes.some((c) => c.key === 'annualInsurance')).toBe(false); // folded into the expense ratio, not a field of its own
     const chosen = applyChoices(p, { vacancyRate: { use: 'mine' } }, expected);
     expect(chosen.changes.find((c) => c.key === 'vacancyRate')).toMatchObject({ value: 8, how: 'Your own assumption: Yakima apartments run about 8%' });

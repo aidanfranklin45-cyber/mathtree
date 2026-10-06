@@ -54,26 +54,30 @@ const humanize = (key: string): string => LABELS[key] ?? key.replace(/([A-Z])/g,
 const DERIVED_QUIET = new Set(['monthlyRent', 'grossRentAnnual']);
 
 /**
- * Any figure a document gives that the owner's investor profile also has a standard for (vacancy, expense ratio, taxes, insurance, reserves,
- * closing costs, and so on) is checked against it. When the two do not line up the owner is asked which to use: the document's figure, their
- * own assumption, or a number for this property. Only rounding is ignored (a hundredth of a percent, or under a dollar).
+ * The 5% rule. A figure a document gives that the owner's investor profile also has a standard for (vacancy, expense ratio, taxes, insurance,
+ * reserves, closing costs, and so on) is compared with that standard. Within 5% of the standard, the document's figure is underwritten as the
+ * document states it, without asking. More than 5% away, the owner is asked which to use: the document's figure, their own assumption, or a number
+ * for this property. The 5% is of the owner's standard, so a 4% vacancy standard accepts a document's 4.2% and asks about a 5%.
  */
-const SAME_PERCENT = 0.005;
-const SAME_DOLLARS = 0.5;
+export const VARIANCE_TOLERANCE = 0.05;
+
+/** The rule in words, for the owner to read and for the record saved with the project. */
+export const VARIANCE_DISCLOSURE = "Where a document's figure differs from one of your own standards by 5% or less, the document's figure is underwritten as the document states it. A difference of more than 5% is put to you to decide, so you choose which figure is used.";
 /** What the owner's profile would use for each figure, for a property of the documents' size, price and lease structure. */
 export interface Expected {
   filled: Record<string, number>;
   basis: Record<string, InputBasis>;
 }
 
-/** Marks the rows whose figure does not line up with the owner's own assumption. Changes the rows in place. */
+/** Marks the rows whose figure is more than 5% away from the owner's own assumption. Changes the rows in place. */
 export function attachVariances(proposal: Proposal, expected: Expected): void {
   for (const c of proposal.changes) {
     const mine = expected.filled[c.key];
     const doc = Number(c.value);
     if (mine === undefined || !(mine >= 0) || !Number.isFinite(doc)) continue; // the owner has no standard for this figure, or the document gave no number
     const gap = doc - mine;
-    if (Math.abs(gap) <= (PERCENT_KEYS.has(c.key) ? SAME_PERCENT : SAME_DOLLARS)) continue; // the same figure
+    // A standard of zero has no percentage to measure against: any figure other than zero is a difference worth asking about
+    if (mine > 0 ? Math.abs(gap) / mine <= VARIANCE_TOLERANCE : Math.abs(gap) < 1e-9) continue;
     c.variance = {
       expected: mine, expectedText: formatValue(c.key, mine), why: expected.basis[c.key]?.rationale ?? '',
       percent: mine > 0 ? Math.round((Math.abs(gap) / mine) * 100) : 100, higher: gap > 0,

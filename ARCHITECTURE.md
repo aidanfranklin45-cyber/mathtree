@@ -246,6 +246,10 @@ that turn extracted values into deal inputs the engine accepts. The `parse-docum
 only through Cloudflare AI Gateway, the owner holds the keys and spend limits (never handled in chat or the repo), tenant names, phones and
 emails are redacted before anything is sent, and extracted values land on a review screen before they touch a deal.
 
+**The 5% rule.** A figure a document gives that the owner's profile also has a standard for is underwritten as the document states it when it is within 5% of the
+standard; more than 5% away, the owner is asked which to use (`attachVariances`, `VARIANCE_TOLERANCE`, `VARIANCE_DISCLOSURE` in `lib/ingestion/apply.ts`). The rule is stated on
+the wizard's confirmation and saved in the project's record of where figures came from, because it is a judgment that has to be justified.
+
 **Market benchmarks** (`lib/benchmarks`, draft `13_market_benchmarks.sql`): dated, sourced public facts shown beside a property's numbers;
 never defaults and never read by the engine. The table is not yet created in the database.
 

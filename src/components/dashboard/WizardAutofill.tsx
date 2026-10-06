@@ -3,7 +3,7 @@ import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { assumptionText, attachVariances, proposeChanges, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
+import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { resolveProfileAssumptions } from '../../lib/engine/compute';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
@@ -321,7 +321,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       {done && (questions.length > 0 || missing.length > 0 || Object.keys(provided).length > 0) && (
         <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
           <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + missing.length})</h4>
-          <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below.</p>
+          <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below. {VARIANCE_DISCLOSURE}</p>
 
           {questions.map(({ change: c, kind }) => (
             resolved[c.key] !== undefined ? (
