@@ -133,6 +133,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [restored, setRestored] = useState(false);
   // What was read from documents and what the owner decided, kept until the project is created and saved with it as the record of sources
   const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
+  // The owner confirms they reviewed what was read from documents and filled from their profile. Not kept in the draft: after a reload they confirm again.
+  const [verified, setVerified] = useState(false);
   const [answers, setAnswers] = useState<Record<string, { label: string; decision: string }>>({});
   const [w, setW] = useState<W>(() => seed('commercial'));
   const [isNameTouched, setIsNameTouched] = useState(false);
@@ -165,7 +167,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
       setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
       setIntake(null); setAnswers({});
-    };
+    }
+    setVerified(false);;
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
 
@@ -456,6 +459,15 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       };
       // Where each number came from: the owner's profile assumptions (with their reasons) or the owner's own entry
       inputs.assumptionBasis = reconcileBasis(seededBasis, inputs);
+      // What was read from documents and has no field in the wizard (never overrides a figure the form or the county record supplied)
+      for (const [k, v] of Object.entries(docExtra)) if (inputs[k] === undefined || inputs[k] === null) inputs[k] = v;
+      Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
+
+
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes?.user;
+      if (!user) throw new Error('Please sign in to create a project.');
+
       // The record of where the figures came from: the documents read, the reasoning for each figure, the seller's claims, the notes and the owner's decisions
       const live = formAsInputs(w, asset) as Record<string, unknown>;
       const currentFor = (key: string, value: unknown): number | string | undefined => {
@@ -477,16 +489,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           ...(w.closingDate.trim() ? [] : [`Closing date: assumed ${getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after the project was created (your investor profile's closing time).`]),
         ],
         choices: Object.values(answers),
+        verifiedBy: needsVerification && verified ? user.id : undefined,
       });
       if (record) inputs.intakeRecord = record;
-      // What was read from documents and has no field in the wizard (never overrides a figure the form or the county record supplied)
-      for (const [k, v] of Object.entries(docExtra)) if (inputs[k] === undefined || inputs[k] === null) inputs[k] = v;
-      Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
-
-
-      const { data: userRes } = await supabase.auth.getUser();
-      const user = userRes?.user;
-      if (!user) throw new Error('Please sign in to create a project.');
 
       const { data, error: insErr } = await supabase
         .from('deals')
@@ -527,7 +532,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     clearWizardDraft();
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
-    setIntake(null); setAnswers({});
+    setIntake(null); setAnswers({}); setVerified(false);
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -540,6 +545,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       return [{ key, label: b.label, value: b.value, why: b.rationale }];
     })
   ), [seededBasis, w]);
+
+  // Anything read from a document or filled from the investor profile has to be confirmed by the owner before the project is created
+  const needsVerification = filledOnce && (intake !== null || profileFigures.length > 0);
 
   // The facts and assumptions the engine still has nobody's answer for, as the form fields they belong to (the closing date is assumed at creation)
   const emptyFields = useMemo(() => {
@@ -1215,12 +1223,21 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </p>
           )}
           {stepDivs}
+          {needsVerification && !submitting && (
+            <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={verified} onChange={(e) => setVerified(e.target.checked)} />
+              <span className="text-[11px] text-slate-300 leading-relaxed">
+                <span className="font-bold text-slate-100 block">I have reviewed what was read from my documents and what was filled in from my investor profile.</span>
+                I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
+              </span>
+            </label>
+          )}
           {error && <p className="text-xs text-rose-400 font-semibold">{error}</p>}
         </div>
 
         <div className="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
-          <button onClick={submit} disabled={submitting}
+          <button onClick={submit} disabled={submitting || (needsVerification && !verified)} title={needsVerification && !verified ? 'Confirm that you reviewed the figures first' : undefined}
             className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/20 transition disabled:opacity-60">
             <span>⚡ Create project and run the engine</span>
           </button>

@@ -38,6 +38,12 @@ describe('the record of where the figures came from', () => {
     expect(r.figures[0]).toMatchObject({ source: 'document', value: null });
   });
 
+  it('records who confirmed it, and when, once the owner has reviewed everything', () => {
+    const confirmed = buildIntakeRecord({ ...base, documentFigures: [fig({})], verifiedBy: 'user-123' })!;
+    expect(confirmed.verification).toEqual({ at: '2026-10-06T12:00:00.000Z', by: 'user-123', statement: 'Reviewed and confirmed by the owner before the project was created.' });
+    expect(buildIntakeRecord({ ...base, documentFigures: [fig({})] })!.verification).toBeUndefined(); // not confirmed: nothing claims it was
+  });
+
   it('records nothing when nothing was read and nothing came from the profile', () => {
     expect(buildIntakeRecord({ ...base, documents: [], documentFigures: [] })).toBeNull();
   });

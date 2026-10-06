@@ -43,6 +43,8 @@ export interface IntakeRecord {
   notes: string[];
   /** What the owner decided where sources disagreed. */
   choices: Array<{ label: string; decision: string }>;
+  /** The owner confirmed they reviewed everything read or filled in. The tool helps; the owner underwrites the deal. */
+  verification?: { at: string; by: string; statement: string };
 }
 
 const cut = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -57,6 +59,8 @@ export function buildIntakeRecord(args: {
   claims: Array<{ how: string; value: number }>;
   notes: string[];
   choices: Array<{ label: string; decision: string }>;
+  /** Who confirmed, when the project is created (the account that created it). */
+  verifiedBy?: string;
 }): IntakeRecord | null {
   const figures: RecordedFigure[] = [];
   for (const f of args.documentFigures) {
@@ -77,6 +81,7 @@ export function buildIntakeRecord(args: {
     claims: args.claims.slice(0, 20).map((c) => ({ label: cut(c.how, 160), value: c.value })),
     notes: args.notes.slice(0, 20).map((n) => cut(n, 500)),
     choices: args.choices.slice(0, 20).map((c) => ({ label: cut(c.label, 80), decision: cut(c.decision, 200) })),
+    ...(args.verifiedBy ? { verification: { at: (args.now ?? new Date()).toISOString(), by: args.verifiedBy, statement: 'Reviewed and confirmed by the owner before the project was created.' } } : {}),
   };
 }
 
