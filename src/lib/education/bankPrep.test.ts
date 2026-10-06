@@ -30,7 +30,7 @@ describe('the "Prepare for the bank" content', () => {
   });
 
   it('states what the conversation is, and that this is education and not advice', () => {
-    expect(CONVERSATION.length).toBeGreaterThanOrEqual(4);
+    expect(CONVERSATION.map((p) => p.heading)).toEqual(['A good loan officer is not an enemy', 'Credibility is the test', 'Underwriting is judgment']);
     expect(BANK_PREP_NOTE.toLowerCase()).toContain('not financial or legal advice');
   });
 });

@@ -25,7 +25,7 @@ export const BankPrepPage: React.FC = () => {
 
         <section className={card} aria-label="How the conversation works">
           <h2 className={h2}>How the conversation works</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {CONVERSATION.map((p) => (
               <div key={p.heading} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-1">
                 <h3 className="text-[11px] font-black uppercase tracking-wider text-emerald-300">{p.heading}</h3>

@@ -16,15 +16,11 @@ export const CONVERSATION: BankPrepPoint[] = [
   },
   {
     heading: 'Credibility is the test',
-    text: 'A borrower who knows where every figure came from, can explain it, and is honest about what is unknown is easier to lend to. One number you cannot explain gives the officer a reason to doubt the rest.',
+    text: 'A borrower who knows where every figure came from, can explain it, and is honest about what is unknown is easier to lend to. One number you cannot explain gives the officer a reason to doubt the rest. The brief shows each figure and where it came from, so read it before you go. When the officer points at a number, answer with the figure, where it came from, and why it is reasonable.',
   },
   {
     heading: 'Underwriting is judgment',
     text: 'Nobody can predict the future, and two careful people can reach different numbers. What counts is assumptions you can defend: each one sourced, reasonable and explained. Knowing your material and defending what you hand the bank is a good starting point.',
-  },
-  {
-    heading: 'Show your work',
-    text: 'The brief shows each figure and where it came from. Read it before you go. When the officer points at a number, answer with the figure, where it came from, and why it is reasonable.',
   },
 ];
 
