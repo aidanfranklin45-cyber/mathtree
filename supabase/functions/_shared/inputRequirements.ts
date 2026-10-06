@@ -76,6 +76,8 @@ export const KEYS = {
   expenseRatio: ['expenseRatio', 'operatingExpenseRatio'],
   hold: ['holdingPeriod', 'exitYear', 'holdYears'],
   exitCap: ['targetCapRate', 'targetExitCapRate', 'exitCapRate'],
+  // Optional: income the owner keeps besides rent (pet fees, parking, late fees). Unstated means none. Utility reimbursements are not this: they stay netted against costs.
+  otherIncome: ['otherIncomeAnnual', 'otherIncome'],
   capexAnnual: ['capexReserveAnnual', 'capexReserve'],
   capexPercent: ['capexReservePercent'],
   sellingCost: ['sellingCostPercent'],
@@ -173,11 +175,12 @@ export function checkEngineInputs(rawAssetType: string, inputs: Record<string, a
   }
 
   // ---- Valuation and exit ----
-  const incomeValued = asset === 'commercial' || asset === 'storage';
+  // Everything but single-family is sold on its income: net operating income over the cap rate the owner expects at exit
+  const incomeValued = asset !== 'single-family';
   if (incomeValued) {
     if (stated(inputs, ...KEYS.exitCap) === undefined) need('targetCapRate', 'Exit cap rate (%)', 'assumption', 'Income-producing property is valued at exit by capitalising its income.');
   } else if (stated(inputs, 'appreciationRate') === undefined) {
-    need('appreciationRate', 'Appreciation (% a year)', 'assumption', 'Residential property is valued by appreciation.');
+    need('appreciationRate', 'Appreciation (% a year)', 'assumption', 'A single-family home is valued by appreciation.');
   }
   // Selling costs are optional: they exist only if a sale is planned. With none stated the exit carries no sale costs (a hold or refinance).
 

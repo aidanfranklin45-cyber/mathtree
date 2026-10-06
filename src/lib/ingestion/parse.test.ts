@@ -45,3 +45,33 @@ describe('prompt and gateway', () => {
     expect(gatewayEndpoint(want, 'other')).toBe(want);
   });
 });
+
+describe('both Cloudflare address forms', () => {
+  const args = { token: 'TOKEN', model: 'gemini-3.8-flash', system: 'rules', user: 'doc' };
+
+  it('uses the account API chat endpoint with a Bearer token and a google/ model name', async () => {
+    const { buildRequest } = await import('@engine/aiGateway');
+    const r = buildRequest({ ...args, base: 'https://api.cloudflare.com/client/v4/accounts/abc123/ai/run', gatewayId: 'lease-parser' });
+    expect(r.mode).toBe('account-api');
+    expect(r.url).toBe('https://api.cloudflare.com/client/v4/accounts/abc123/ai/v1/chat/completions');
+    expect(r.headers.Authorization).toBe('Bearer TOKEN');
+    expect(r.headers['cf-aig-gateway-id']).toBe('lease-parser');
+    expect(JSON.parse(r.body)).toMatchObject({ model: 'google/gemini-3.8-flash', response_format: { type: 'json_object' } });
+  });
+
+  it('keeps the AI Gateway form with cf-aig-authorization', async () => {
+    const { buildRequest, replyText } = await import('@engine/aiGateway');
+    const r = buildRequest({ ...args, base: 'https://gateway.ai.cloudflare.com/v1/a/g' });
+    expect(r.mode).toBe('gateway');
+    expect(r.headers['cf-aig-authorization']).toBe('Bearer TOKEN');
+    expect(r.url).toContain('/google-ai-studio/v1beta/models/gemini-3.8-flash:generateContent');
+    // the gateway name can come from AI_GATEWAY_ID instead of being typed into the address
+    expect(buildRequest({ ...args, base: 'https://gateway.ai.cloudflare.com/v1/a/g', byokAlias: 'MathTree-Parser' }).headers['cf-aig-byok-alias']).toBe('MathTree-Parser');
+    const byId = buildRequest({ ...args, base: 'https://gateway.ai.cloudflare.com/v1/acct', gatewayId: 'lease-parser' });
+    expect(byId.url).toBe('https://gateway.ai.cloudflare.com/v1/acct/lease-parser/google-ai-studio/v1beta/models/gemini-3.8-flash:generateContent');
+    expect(buildRequest({ ...args, base: 'https://gateway.ai.cloudflare.com/v1/acct/{gateway}/google-ai-studio', gatewayId: 'lease-parser' }).url).toContain('/acct/lease-parser/google-ai-studio/');
+    expect(replyText({ choices: [{ message: { content: '{"a":1}' } }] })).toBe('{"a":1}');
+    expect(replyText({ result: { choices: [{ message: { content: 'x' } }] } })).toBe('x');
+    expect(replyText({ candidates: [{ content: { parts: [{ text: 'y' }] } }] })).toBe('y');
+  });
+});

@@ -1,6 +1,10 @@
 import React from 'react';
 import { DealRecord, DealMetrics, DealInputs } from '../../../lib/math/types';
 import { AssumptionsLedger } from '../AssumptionsLedger';
+import { DealDocumentsList } from '../DealDocumentsList';
+import { DocumentLineage } from '../DocumentLineage';
+import { ChecksSummary } from '../ChecksSummary';
+import { DiligenceDisclosures } from '../DiligenceDisclosures';
 
 interface DiligenceTabProps {
   deal: DealRecord;
@@ -8,6 +12,10 @@ interface DiligenceTabProps {
   onPatchDeal: (inputsPatch: Partial<DealInputs>) => Promise<boolean>;
   /** Opens Edit Inputs, where a figure is changed for this property only. */
   onOpenEdit: () => void;
+  /** Opens the reader to add documents to this property. */
+  onAddDocuments: () => void;
+  /** Changes when original files are stored, so the list reads itself again. */
+  docsVersion: number;
 }
 
 const CHECKLIST = [
@@ -21,7 +29,7 @@ const CHECKLIST = [
   { id: 'tax_cost_seg', label: 'Tax Depreciation & Basis Allocation', detail: 'Land vs improvement basis split for annual cost recovery and deductions' },
 ];
 
-export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPatchDeal, onOpenEdit }) => {
+export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPatchDeal, onOpenEdit, onAddDocuments, docsVersion }) => {
   const inputs: Record<string, any> = deal.inputs || {};
   const checks: Record<string, boolean> = inputs.diligenceChecks || {};
 
@@ -32,6 +40,20 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
 
   return (
     <div className="space-y-6">
+      <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl">
+        <DealDocumentsList dealId={deal.id} refreshKey={docsVersion} onAdd={onAddDocuments} />
+        <div className="pt-3">
+          <ChecksSummary
+            record={inputs.intakeRecord as Parameters<typeof ChecksSummary>[0]['record']}
+            ourNoi={(() => { const ps = ((metrics as { projections?: Array<{ operatingMonths?: number; netOperatingIncome?: number }> }).projections ?? []); const y = ps.find((p) => Number(p.operatingMonths) >= 12) ?? ps[0]; return y && Number.isFinite(Number(y.netOperatingIncome)) ? Number(y.netOperatingIncome) : null; })()}
+            selfManaged={!inputs.manageProperty}
+          />
+        </div>
+        {(inputs.intakeRecord as { lineage?: import('../../../lib/ingestion/lineage').TraceRow[] } | undefined)?.lineage && (
+          <div className="pt-3"><DocumentLineage rows={(inputs.intakeRecord as { lineage: import('../../../lib/ingestion/lineage').TraceRow[] }).lineage} /></div>
+        )}
+      </div>
+
       <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl shadow-xl space-y-5 transition duration-300">
         <div className="pb-3 border-b border-slate-900">
           <h3 className="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
@@ -80,6 +102,8 @@ export const DiligenceTab: React.FC<DiligenceTabProps> = ({ deal, metrics, onPat
           </div>
         </div>
       </div>
+
+      <DiligenceDisclosures />
     </div>
   );
 };

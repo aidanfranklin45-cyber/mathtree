@@ -76,6 +76,7 @@ modules, so it runs in both Vite and Deno). Siblings: `monte-carlo.ts`, `remodel
 | Metric | Definition |
 |---|---|
 | NOI | effective gross income − operating expenses |
+| Expense ratio | The property's operating costs, as a % of **gross rent before vacancy** less what tenants reimburse (NNN recoveries, utility billing), since the engine cannot hold that as income. Other income (pet fees, miscellaneous) is not counted. It does **not** include management (charged separately, only if the owner hires a manager), on-site payroll and marketing (storage, charged separately), the replacement reserve, or debt service. Parsed figures are built to this definition (`ingestion/toDealInputs.ts`) |
 | Cash flow | NOI − debt service − capex reserve − remodel cash cost (in the year it is spent) |
 | Cash-on-cash | cash flow ÷ cumulative cash invested × 100 |
 | Cap rate | NOI ÷ current property value × 100; **going-in cap uses the first full year** |
@@ -233,8 +234,9 @@ turns profile rates into per-deal dollar inputs using the deal's own size, price
 **Provenance.** `assumptionBasis` on a deal records the source of each tracked input (profile, owner, county record, document);
 `assumptions/ledger.ts` renders it as two groups on the property page: specific to this property, and from your standards.
 
-**Carrying costs.** Taxes, insurance, upkeep and utilities are carried by the owner while a space is vacant (and always on a gross lease);
-tenants reimburse them under NNN while leased. Property tax is the county's assessed value times the owner's rate for that tax-code area
+**Carrying costs.** In a normal year, taxes, insurance, upkeep and utilities are part of the expense ratio the engine runs (`ratio x gross rent`);
+the separate amounts are not added on top. They are used only for a year with no rent and for the months a leased space is vacant, and
+under NNN tenants reimburse them while leased. Property tax is the county's assessed value times the owner's rate for that tax-code area
 (county data holds no tax bill). Selling costs are optional: unstated means none. Utilities unstated means none carried.
 
 **Intake groundwork.** `lib/ingestion` defines the document types, the questions to ask for each, and the normalising and validation
@@ -244,5 +246,14 @@ that turn extracted values into deal inputs the engine accepts. The `parse-docum
 only through Cloudflare AI Gateway, the owner holds the keys and spend limits (never handled in chat or the repo), tenant names, phones and
 emails are redacted before anything is sent, and extracted values land on a review screen before they touch a deal.
 
+**The 5% rule.** A figure a document gives that the owner's profile also has a standard for is underwritten as the document states it when it is within 5% of the
+standard; more than 5% away, the owner is asked which to use (`attachVariances`, `VARIANCE_TOLERANCE`, `VARIANCE_DISCLOSURE` in `lib/ingestion/apply.ts`). The rule is stated on
+the wizard's confirmation and saved in the project's record of where figures came from, because it is a judgment that has to be justified.
+
 **Market benchmarks** (`lib/benchmarks`, draft `13_market_benchmarks.sql`): dated, sourced public facts shown beside a property's numbers;
 never defaults and never read by the engine. The table is not yet created in the database.
+
+**Original documents** (`lib/documents/dealDocuments.ts`, `16_deal_documents.sql`, applied): the files the owner added to be read are kept with the
+deal in a private bucket (`deal-documents`, path `<deal id>/<file>`, 50 MB per file, PDF, CSV, Excel, Word or text), listed by
+`deal_documents`. Access follows the deal's current owner, so a transferred deal's documents go with it. A file is fetched through the signed-in session and shown in a new tab (PDF, text) or downloaded; no shareable link is ever made. This is a record of what the deal was underwritten from, not a document manager: no previews, folders or editing. They hold names and contact details the parser redacts, so deal shares do not grant access
+to them. A project is created whether or not the upload works. Open follow-up: deleting a deal must also remove its files.

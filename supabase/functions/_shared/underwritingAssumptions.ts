@@ -32,6 +32,8 @@ export interface AssetAssumptions {
   sellingCostPercent?: number; // % of sale price
   closingCostPercent?: number; // % of purchase price
   managementFeePercent?: number; // % of collected income, applied when the owner has a manager
+  /** Whether the owner hires a property manager for this kind of property. Their decision: a new property starts with it, and may differ. */
+  usesPropertyManager?: boolean;
   capexBasis?: CapexBasis;
   capexValue?: number; // $ per unit a year, $ per sq ft a year, % of income, or % of value, per capexBasis
   /** What the building costs to insure, as a % of its value (the purchase price, else the county assessed value) a year. */
@@ -60,7 +62,7 @@ export interface UnderwritingAssumptions {
   assumedClosingWeeks?: number;
 }
 
-export type AssumptionField = Exclude<keyof AssetAssumptions, 'rationale' | 'capexBasis'>;
+export type AssumptionField = Exclude<keyof AssetAssumptions, 'rationale' | 'capexBasis' | 'usesPropertyManager'>;
 
 export interface FieldSpec {
   key: AssumptionField;
@@ -82,14 +84,14 @@ export const FIELD_SPECS: FieldSpec[] = [
   { key: 'rentGrowth', label: 'Rent growth', unit: '%', min: -20, max: 30, assets: ALL, hint: 'Yearly growth of rent that is not fixed by a lease.' },
   { key: 'expenseGrowth', label: 'Expense growth', unit: '%', min: -20, max: 30, assets: ALL, hint: 'Yearly growth of operating expenses. Leave blank to have expenses follow income at the ratio.' },
   { key: 'holdingPeriod', label: 'Hold period', unit: 'years', min: 1, max: 30, assets: ALL, hint: 'Years until the assumed sale. A loan cannot mature before it.' },
-  { key: 'exitCapRate', label: 'Exit cap rate', unit: '%', min: 0.5, max: 25, assets: ['commercial', 'storage'], hint: 'The cap rate the property is assumed to sell at.' },
-  { key: 'appreciationRate', label: 'Appreciation', unit: '%', min: -20, max: 30, assets: ALL, hint: 'Yearly growth in value (used for what the property is worth along the way, and for the sale value of residential).' },
+  { key: 'exitCapRate', label: 'Exit cap rate', unit: '%', min: 0.5, max: 25, assets: ['commercial', 'storage', 'multi-unit'], hint: 'The cap rate the property is assumed to sell at: its net operating income divided by this rate.' },
+  { key: 'appreciationRate', label: 'Appreciation', unit: '%', min: -20, max: 30, assets: ALL, hint: 'Yearly growth in value of a single-family home (everything else is valued on its income at your exit cap rate).' },
   { key: 'sellingCostPercent', label: 'Selling costs (only if you plan to sell)', unit: '%', min: 0, max: 20, assets: ALL, hint: 'Brokerage and closing costs at sale, as a share of the sale price. Leave at 0 if you plan to hold or refinance.' },
   { key: 'closingCostPercent', label: 'Buyer closing costs', unit: '%', min: 0, max: 20, assets: ALL, hint: 'As a share of the purchase price, until a lender quote or settlement statement replaces it.' },
   { key: 'managementFeePercent', label: 'Management fee', unit: '%', min: 0, max: 30, assets: ALL, hint: 'Share of collected income, charged only on deals where you use a manager.' },
-  { key: 'insuranceRatePercent', label: 'Insurance', unit: '%', min: 0, max: 5, assets: ALL, hint: 'A share of value a year (purchase price, else assessed value), until a quote replaces it.' },
-  { key: 'maintenanceRatePercent', label: 'Maintenance and upkeep', unit: '%', min: 0, max: 10, assets: ALL, hint: 'A share of value a year. It is what you carry on a vacant property or one where tenants pay the costs.' },
-  { key: 'utilitiesPerSqFt', label: 'Utilities: power, water, sewer, garbage', unit: '$', min: 0, max: 50, assets: ALL, hint: 'Dollars per square foot a year. It scales with the size of the building, and is what you carry while it is vacant or where tenants reimburse the cost.' },
+  { key: 'insuranceRatePercent', label: 'Insurance', unit: '%', min: 0, max: 5, assets: ALL, hint: 'A share of value a year (purchase price, else assessed value), until a quote replaces it. In a normal year insurance is part of your expense ratio; this amount is used for a year with no rent and for vacant months.' },
+  { key: 'maintenanceRatePercent', label: 'Maintenance and upkeep', unit: '%', min: 0, max: 10, assets: ALL, hint: 'A share of value a year. In a normal year upkeep is part of your expense ratio; this amount is used for a year with no rent, for vacant months, and where tenants pay the costs.' },
+  { key: 'utilitiesPerSqFt', label: 'Utilities: power, water, sewer, garbage', unit: '$', min: 0, max: 50, assets: ALL, hint: 'Dollars per square foot a year, scaling with the size of the building. In a normal year utilities are part of your expense ratio; this amount is used for a year with no rent, for vacant months, and where tenants reimburse the cost.' },
   { key: 'capexValue', label: 'Replacement reserve', unit: '$', min: 0, max: 1_000_000, assets: ALL, hint: 'Amount per the basis chosen beside it.' },
   { key: 'payrollMarketingPercent', label: 'Payroll and marketing', unit: '%', min: 0, max: 60, assets: ['storage'], hint: 'On-site payroll and marketing as a share of gross income.' },
 ];
@@ -134,6 +136,7 @@ export function sanitizeAssumptions(raw: unknown): UnderwritingAssumptions {
     }
     if (a.capexBasis === 'perUnit' || a.capexBasis === 'perSqFt' || a.capexBasis === 'percentOfIncome' || a.capexBasis === 'percentOfValue') clean.capexBasis = a.capexBasis;
     if (clean.capexValue !== undefined && !clean.capexBasis) delete clean.capexValue; // an amount with no basis means nothing
+    if (typeof a.usesPropertyManager === 'boolean') clean.usesPropertyManager = a.usesPropertyManager;
     const why: Partial<Record<AssumptionField, string>> = {};
     const rawWhy = (a.rationale && typeof a.rationale === 'object' ? a.rationale : {}) as Record<string, unknown>;
     for (const spec of FIELD_SPECS) {
@@ -152,6 +155,12 @@ export function normAssetKey(raw: unknown): AssetKey {
   if (s === 'multi-family' || s === 'multifamily' || s === 'multi-unit') return 'multi-unit';
   if (s === 'storage' || s === 'self-storage') return 'storage';
   return 'commercial';
+}
+
+/** Whether the owner hires a property manager for this kind of property (null when they have not said), and the fee they underwrite. */
+export function managerChoice(assumptions: UnderwritingAssumptions | null | undefined, assetClass: unknown): { uses: boolean | null; fee?: number } {
+  const a = assumptions?.assets?.[normAssetKey(assetClass)];
+  return { uses: typeof a?.usesPropertyManager === 'boolean' ? a.usesPropertyManager : null, fee: a?.managementFeePercent };
 }
 
 /** Where a figure on a deal came from. Stored on the deal as `assumptionBasis` so a lender can be shown the reason for each number. */
@@ -216,10 +225,10 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
   if (a.expenseGrowth !== undefined) put('expenseGrowth', a.expenseGrowth, 'Expense growth', why('expenseGrowth'), ['expenseInflation']);
   put('exitYear', a.holdingPeriod ?? ctx.exitYear ?? undefined, 'Hold period', a.holdingPeriod !== undefined ? why('holdingPeriod') : undefined);
   put('discountRate', ctx.discountRate ?? undefined, 'Discount rate');
-  if (asset === 'commercial' || asset === 'storage') put('targetCapRate', a.exitCapRate, 'Exit cap rate', why('exitCapRate'), ['targetExitCapRate']);
+  if (asset !== 'single-family') put('targetCapRate', a.exitCapRate, 'Exit cap rate', why('exitCapRate'), ['targetExitCapRate']);
   else put('appreciationRate', a.appreciationRate, 'Appreciation', why('appreciationRate'));
   // Appreciation also drives what an income-valued property is worth along the way, so it follows the profile for every asset class
-  if ((asset === 'commercial' || asset === 'storage') && a.appreciationRate !== undefined) put('appreciationRate', a.appreciationRate, 'Appreciation', why('appreciationRate'));
+  if (asset !== 'single-family' && a.appreciationRate !== undefined) put('appreciationRate', a.appreciationRate, 'Appreciation', why('appreciationRate'));
   put('sellingCostPercent', a.sellingCostPercent, 'Selling costs', why('sellingCostPercent'));
   put('managementFeePercent', a.managementFeePercent, 'Management fee', why('managementFeePercent'));
   if (asset === 'storage') put('payrollMarketingPercent', a.payrollMarketingPercent, 'Payroll and marketing', why('payrollMarketingPercent'));
@@ -285,7 +294,7 @@ interface Row {
 
 const STARTING_POINTS: Record<AssetKey, Row> = {
   'single-family': { vacancyRate: 5, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 0, managementFeePercent: 8, capexBasis: 'perUnit', capexValue: 300, utilitiesPerSqFt: 1.2 },
-  'multi-unit': { vacancyRate: 5, expenseRatio: 40, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, sellingCostPercent: 0, managementFeePercent: 6, capexBasis: 'perUnit', capexValue: 300, utilitiesPerSqFt: 0.8 },
+  'multi-unit': { vacancyRate: 5, expenseRatio: 40, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 6, sellingCostPercent: 0, managementFeePercent: 6, capexBasis: 'perUnit', capexValue: 300, utilitiesPerSqFt: 0.8 },
   commercial: { vacancyRate: 6, expenseRatio: 35, expenseRatioNNN: 10, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 7, sellingCostPercent: 0, managementFeePercent: 4, capexBasis: 'perSqFt', capexValue: 0.25, utilitiesPerSqFt: 0.75 },
   storage: { vacancyRate: 10, expenseRatio: 35, rentGrowth: 3, expenseGrowth: 3, appreciationRate: 3, exitCapRate: 6.5, sellingCostPercent: 0, managementFeePercent: 6, payrollMarketingPercent: 8, capexBasis: 'percentOfIncome', capexValue: 3, utilitiesPerSqFt: 0.5 },
 };

@@ -2,13 +2,19 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { AddressService } from '../../lib/services/addressService';
 
-import { seedFromAssumptions, reconcileBasis, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
+import { openQuestions } from '../../lib/ingestion/openQuestions';
+import { findParcels, isRealParcel } from '../../lib/services/parcelLookup';
+import { uploadDealDocuments } from '../../lib/documents/dealDocuments';
+import { VARIANCE_DISCLOSURE } from '../../lib/ingestion/apply';
+import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
+import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
-import { DocumentIntake, type IntakeAcceptance } from '../studio/DocumentIntake';
-import { applyToForm, assetFromDocs, formAsInputs } from '../../lib/ingestion/wizardMap';
+import { WizardAutofill, type Autofill, type ProfileFilled } from './WizardAutofill';
+import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs, PROFILE_FIELD, profileFill } from '../../lib/ingestion/wizardMap';
 
 interface Props {
   isOpen: boolean;
@@ -102,9 +108,12 @@ const seed = (a: Asset): W => {
     multiUnits: '', multiSqft: '', multiRentPerUnit: '', multiGrossRent: '',
     commSqft: '', commAnnualRent: '', commGrossRent: '',
     sfrArv: '', sfrSqft: '', sfrGrossRent: '',
-    financingType: 'fixed', armInitial: '', armRate: '', armCap: '', ioYears: '',
+    financingType: 'fixed', armInitial: '', armRate: '', armCap: '', ioYears: '', manageProperty: 'false',
   };
 };
+
+/** A new project starts with the owner's own choice about hiring a property manager (from their investor profile); this property can differ. */
+const withManager = (w: W): W => ({ ...w, manageProperty: managerChoice(getProfile().underwritingAssumptions, w.asset).uses ? 'true' : 'false' });
 
 const inputBase = 'w-full bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500';
 const lbl = 'text-xs font-bold uppercase tracking-wider text-slate-300';
@@ -120,7 +129,25 @@ const num = (v: string, fb = 0) => { const n = parseFloat(v); return isNaN(n) ? 
 const int = (v: string, fb = 0) => { const n = parseInt(v, 10); return isNaN(n) ? fb : n; };
 
 export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProjectCreated, onManageEntities }) => {
-  const [step, setStep] = useState(1);
+  // Set once the owner has used the one fill action: from then on the fields still empty are marked
+  const [filledOnce, setFilledOnce] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // The form was put back from a draft kept by this tab (a reload or a stale-version refresh would otherwise have thrown it away)
+  const [restored, setRestored] = useState(false);
+  // What was read from documents and what the owner decided, kept until the project is created and saved with it as the record of sources
+  const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
+  // The owner confirms they reviewed what was read from documents and filled from their profile. Not kept in the draft: after a reload they confirm again.
+  const [verified, setVerified] = useState(false);
+  // Pressing Create before confirming: say what is missing and bring the confirmation into view
+  const [verifyNudge, setVerifyNudge] = useState(false);
+  // The original files the owner added to be read: kept with the project once it exists (files cannot be kept in the draft, so a reload drops them)
+  const [docFiles, setDocFiles] = useState<Array<{ file: File; type?: string }>>([]);
+  // How the county parcel was found, kept with the project so the Assumptions tab can say so
+  const parcelHow = useRef<{ method: 'picked' | 'apn' | 'address'; addressesChecked: string[] } | null>(null);
+  const verifyRef = useRef<HTMLLabelElement | null>(null);
+  // The closing date the investor profile filled in (and the weeks it used), so it can be told apart from a date the owner entered
+  const [closingFilled, setClosingFilled] = useState<{ date: string; weeks: number } | null>(null);
+  const [answers, setAnswers] = useState<Record<string, { label: string; decision: string }>>({});
   const [w, setW] = useState<W>(() => seed('commercial'));
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
@@ -137,13 +164,23 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [seedNote, setSeedNote] = useState<string | null>(null);
   // Read from documents: figures the form has no field for (the tenant list, loan amount, parcel number), saved with the project
   const [docExtra, setDocExtra] = useState<Record<string, unknown>>({});
-  const [docOpen, setDocOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!isOpen) return;
-    setStep(1); setW(seed('commercial')); setIsNameTouched(false); setError(null); setSubmitting(false);
-    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({}); setDocOpen(false);
+    const draft = loadWizardDraft();
+    if (draft) {
+      setW(draft.w as W); setFilledOnce(draft.filledOnce); setIsNameTouched(draft.isNameTouched); setError(null); setSubmitting(false);
+      setAssessor(draft.assessor ?? null); setParcels((draft.parcels as any[]) ?? []); setCompanions(0); setAddrResults([]); setAddrOpen(false);
+      setSeededBasis(draft.seededBasis as Record<string, InputBasis>); setSeedNote(null); setDocExtra(draft.docExtra); setRestored(true);
+      setIntake((draft.intake as IntakeSnapshot) ?? null); setAnswers(draft.answers ?? {}); setClosingFilled(draft.closingFilled ?? null);
+    } else {
+      setRestored(false);
+      setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
+      setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
+      setIntake(null); setAnswers({}); setClosingFilled(null);
+    }
+    setVerified(false); setVerifyNudge(false);
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
 
@@ -154,10 +191,21 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     try { return AddressService.aggregateParcelPackage(parcels) as any; } catch { return { totalAcres: 0, totalSqFt: 0, totalAssessedValue: 0, totalParcels: 0 }; }
   }, [parcels]);
 
+  // The owner-of-record check on a multi-parcel package: parcels sold together are normally held by one owner. A parcel held by someone else
+  // may still belong (a related entity), but it is the first thing to double-check, so it is flagged rather than assumed.
+  const ownerCheck = (p: any): 'primary' | 'same' | 'different' | 'unknown' => {
+    if (p.isPrimary) return 'primary';
+    const main = parcels.find((x) => x.isPrimary);
+    const known = (o: unknown) => typeof o === 'string' && o.trim() !== '' && o !== 'Owner of Record';
+    if (!main || !known(main.owner) || !known(p.owner)) return 'unknown';
+    try { return AddressService.ownersMatch(main.owner, p.owner) ? 'same' : 'different'; } catch { return 'unknown'; }
+  };
+  const ownerMismatch = parcels.some((p) => p.included && !p.isPrimary && ownerCheck(p) !== 'same');
+
   const selectAsset = (a: Asset) => {
     // Identity and location carry across a change of asset class; everything else starts blank for the new class
     setW((prev) => ({
-      ...seed(a),
+      ...withManager(seed(a)),
       name: prev.name,
       location: prev.location,
       entity: prev.entity,
@@ -167,58 +215,67 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setSeedNote(null);
   };
 
-  /** Documents the owner read: what they accepted fills the form (they can still change any of it in the steps); the rest rides along to creation. */
-  const applyDocuments = async ({ proposal, ticked, docs }: IntakeAcceptance): Promise<boolean> => {
-    const docAsset = assetFromDocs(docs);
-    const nextAsset = docAsset ?? asset;
-    const base: W = nextAsset === asset ? w : { ...seed(nextAsset), name: w.name, location: w.location, entity: w.entity };
-    const fill = applyToForm({ form: base, asset: nextAsset, proposal, ticked });
+  /** A figure typed by the owner in answer to a question: it goes into the form field it belongs to. */
+  /** Applies one figure the reader was unsure of, after the owner checked the document and chose to use it. */
+  const acceptChange = (proposal: Parameters<typeof applyToForm>[0]['proposal'], key: string) => {
+    const fill = applyToForm({ form: w, asset, proposal, ticked: new Set([key]) });
     setW(fill.form);
-    setDocExtra((e) => ({ ...(nextAsset === asset ? e : {}), ...fill.extra }));
-    setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fill.basis }));
-    if (fill.form.location && fill.form.location !== w.location) onLocation(fill.form.location);
-    return true;
+    setDocExtra((e) => ({ ...e, ...fill.extra }));
+    setSeededBasis((b) => ({ ...b, ...fill.basis }));
   };
 
-  /** Copies the owner's profile assumptions into every blank field, with their reasons. Fields already filled are never overwritten. */
-  const fillFromAssumptions = () => {
+  const provide = (key: string, value: string) => {
+    if (key === 'address') { set({ location: value }); return; }
+    const field = FORM_FIELD_FOR_KEY[key];
+    if (!field) return;
+    set(key === 'capexReserveAnnual' ? { [field]: value, capexKind: 'annual' } : { [field]: value });
+  };
+
+  /** The owner's profile assumptions for every blank field of `base`, with their reasons. Fields already filled are never overwritten. */
+  const assumptionFill = (base: W, assetKey: Asset) => {
     const profile = getProfile();
-    const units = asset === 'storage' ? int(w.storageUnits) : asset === 'multi-unit' ? int(w.multiUnits) : asset === 'single-family' ? 1 : 0;
-    const sqft = num(asset === 'storage' ? w.storageSqft : asset === 'multi-unit' ? w.multiSqft : asset === 'commercial' ? (w.commSqft || w.gla) : w.sfrSqft);
-    const seeded = seedFromAssumptions(profile.underwritingAssumptions, {
-      assetClass: asset,
-      leaseType: w.leaseType,
-      purchasePrice: num(w.price) || null,
-      unitCount: units > 0 ? units : null,
-      squareFeet: sqft > 0 ? sqft : null,
-      discountRate: profile.discountRate,
-      exitYear: profile.exitYear,
+    return profileFill({
+      assumptions: profile.underwritingAssumptions, discountRate: profile.discountRate, exitYear: profile.exitYear, base, asset: assetKey,
       assessedValue: Number(assessor?.taxableValue) || Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
     });
-    const target: Record<string, string> = {
-      vacancyRate: 'vacancy', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
-      discountRate: 'discountRate', targetCapRate: 'exitCap', appreciationRate: 'apprec', sellingCostPercent: 'sellingCost',
-      closingCosts: 'closing', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
-      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
-    };
-    const patch: W = {};
-    const basis: Record<string, InputBasis> = {};
-    for (const [key, value] of Object.entries(seeded.inputs)) {
-      const field = target[key];
-      if (!field || (w[field] ?? '').trim() !== '') continue;
-      patch[field] = String(value);
-      if (key === 'capexReserveAnnual') patch.capexKind = 'annual';
-      if (key === 'capexReservePercent') patch.capexKind = 'percent';
-      if (seeded.basis[key]) basis[key] = seeded.basis[key];
-    }
-    set(patch);
-    setSeededBasis((b) => ({ ...b, ...basis }));
-    const n = Object.keys(basis).length;
-    setSeedNote(n === 0
-      ? 'Nothing to fill: set your assumptions in your Investor Profile first, or every field you have an assumption for already has a value.'
-      : `Filled ${n} blank field${n === 1 ? '' : 's'} from your assumptions. Each keeps your reason on this property.`);
   };
 
+  /**
+   * The one action. What the documents gave goes into the form first (facts), then the owner's own assumptions fill what is still blank, and
+   * the fields that remain empty are marked. Nothing is asked here: the owner only answers what is left.
+   */
+  const autofill = async (a: Autofill | null): Promise<void> => {
+    let form: W = w;
+    let nextAsset: Asset = asset;
+    let fromDocs: Record<string, InputBasis> = {};
+    if (a) {
+      // The asset class the documents point to
+      const docAsset = a.ticked.has('assetClass') ? assetFromDocs(a.docs) : null;
+      nextAsset = docAsset ?? asset;
+      const base: W = nextAsset === asset ? w : { ...withManager(seed(nextAsset)), name: w.name, location: w.location, entity: w.entity };
+      const fill = applyToForm({ form: base, asset: nextAsset, proposal: a.proposal, ticked: a.ticked });
+      form = fill.form;
+      fromDocs = fill.basis;
+      setIntake({
+        documents: a.documents,
+        figures: a.proposal.changes.filter((c) => a.ticked.has(c.key)).map((c) => ({
+          key: c.key, label: c.label, text: c.proposed, how: c.how, reliability: c.reliability, documentType: (a.proposal.patch.provenance as Record<string, { documentType?: string }>)[c.key]?.documentType,
+          value: typeof c.value === 'number' || typeof c.value === 'string' ? c.value : undefined,
+        })),
+        claims: Object.values(a.proposal.patch.claims).map((c) => ({ how: c.how, value: c.value })),
+        notes: a.proposal.patch.notes,
+        checks: a.checks,
+        lineage: a.lineage,
+      });
+      setDocExtra((e) => ({ ...(nextAsset === asset ? e : {}), ...fill.extra }));
+    }
+    const fromProfile = assumptionFill(form, nextAsset);
+    setW({ ...form, ...fromProfile.patch });
+    if (fromProfile.closing) setClosingFilled(fromProfile.closing);
+    setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fromDocs, ...fromProfile.basis }));
+    if (form.location && form.location !== w.location) onLocation(form.location);
+    setFilledOnce(true);
+  };
 
   const guidance = useMemo(() => {
     const tierDesc = w.marketTier.includes('1') ? 'Primary Gateway Metro (High Liquidity, Low Cap Rates)'
@@ -274,6 +331,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
     set(patch);
     setAddrOpen(false);
+    parcelHow.current = { method: 'picked', addressesChecked: [] };
     try {
       const data = await AddressService.resolveParcelDetails(item);
       if (!data) return;
@@ -321,8 +379,6 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     else { set({ commGrossRent: v, commAnnualRent: String(num(v) * 12), grossRent: v }); }
   };
 
-  const next = () => { setError(null); setStep((s) => Math.min(4, s + 1)); };
-  const back = () => { setError(null); setStep((s) => Math.max(1, s - 1)); };
 
   // ---- Submit: insert facts only; every analysis figure is computed on demand ----
   const submit = async () => {
@@ -369,10 +425,35 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         grossRent = opt(w.sfrGrossRent);
       }
 
-      const a: any = assessor;
+      // The county parcel: the one picked from the address list, else looked up now (by the parcel number the documents gave, or by the
+      // street address with any unit taken off). Only a real county record is used: nothing is saved as county data without figures behind it.
+      let a: any = assessor;
+      if (!isRealParcel(a)) {
+        const found = await findParcels({ apn: String(docExtra.primaryApn ?? ''), location: w.location });
+        a = found.primary;
+        if (found.method) parcelHow.current = { method: found.method, addressesChecked: found.addressesChecked };
+        // Other parcels the owner has to decide about: other street numbers that lead to a different parcel, and parcels next door with the same
+        // owner. Nothing is included silently: the owner chooses which belong to the project, then presses Create again.
+        if (a) {
+          const others: any[] = [...found.others];
+          try {
+            const near: any[] = (await AddressService.detectNearbySameOwnerParcels(a.apn, a.owner, a)) || [];
+            near.forEach((n) => { if (!others.some((o) => String(o.apn) === String(n.apn)) && String(n.apn) !== String(a.apn)) others.push(n); });
+          } catch { /* the nearby check is a courtesy; the parcel itself was found */ }
+          if (others.length > 0) {
+            setAssessor(a);
+            setParcels([{ ...a, isPrimary: true, included: true }, ...others.map((o) => ({ ...o, isPrimary: false, included: false }))]);
+            setCompanions(others.length);
+            setError(`We found ${others.length} other parcel${others.length === 1 ? '' : 's'} connected to this address. Please choose which belong to this project in the parcel list above, then press Create project again.`);
+            setTimeout(() => document.getElementById('wiz-parcel-package')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+            return;
+          }
+        }
+      }
+      if (!isRealParcel(a)) a = null;
       const profile = getProfile();
       const isStorage = asset === 'storage';
-      const isIncomeValued = asset === 'commercial' || asset === 'storage';
+      const isIncomeValued = asset !== 'single-family';
       const amort = optInt(w.amort);
       const hold = optInt(w.exitYear);
       const capex = opt(w.capexValue);
@@ -382,7 +463,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const closingDate = enteredClosing || new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
       const inputs: Record<string, any> = {
         closingDate,
-        closingDateSource: closingDate ? (enteredClosing ? 'entered' : 'assumed') : undefined,
+        // A date the investor profile filled in is the profile's assumption, not something the owner entered
+        closingDateSource: closingDate ? (enteredClosing && !(closingFilled && enteredClosing === closingFilled.date) ? 'entered' : 'assumed') : undefined,
         purchasePrice,
         downPaymentPercent: opt(w.down),
         interestRate: opt(w.rate),
@@ -403,12 +485,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         leaseType: w.leaseType || undefined,
         arv: asset === 'single-family' ? arv : undefined,
         vacancyRate: opt(w.vacancy),
+        otherIncomeAnnual: opt(w.other),
         expenseRatio: opt(w.opexRatio), operatingExpenseRatio: opt(w.opexRatio),
         expenseGrowth: opt(w.expenseGrowth), expenseInflation: opt(w.expenseGrowth),
         rentGrowth: opt(w.rentGrowth), annualRentGrowth: opt(w.rentGrowth),
-        // Commercial and storage are valued by capitalising income at exit; the rest by appreciation
+        // Everything but a single-family home is valued by capitalising its income at exit
         ...(isIncomeValued ? { targetCapRate: opt(w.exitCap), targetExitCapRate: opt(w.exitCap) } : { appreciationRate: opt(w.apprec) }),
         sellingCostPercent: opt(w.sellingCost),
+        manageProperty: w.manageProperty === 'true',
         managementFeePercent: opt(w.managementFee),
         payrollMarketingPercent: isStorage ? opt(w.payroll) : undefined,
         capexReserveAnnual: w.capexKind === 'percent' ? undefined : capex,
@@ -429,7 +513,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         taxableValue: a?.taxableValue || null, taxCodeArea: a?.taxCodeArea || null,
         assessorData: a || null,
         parcels: parcels.length ? parcels : a ? [a] : [],
-        gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a?.source || 'county_arcgis', status: 'active' },
+        // "Synced" only when a county record was actually found; the deal page tries the county again when it is not
+        ...(a ? { parcelSource: { method: parcelHow.current?.method ?? 'picked', addressesChecked: (parcelHow.current?.addressesChecked ?? []).length > 1 ? parcelHow.current?.addressesChecked : undefined, foundAt: new Date().toISOString() } } : {}),
+        ...(a ? { gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a.source || 'county_arcgis', status: 'active' } } : {}),
         financingType: w.financingType,
         armInitialYears: optInt(w.armInitial), armAdjustmentRate: opt(w.armRate), armRateCap: opt(w.armCap),
         interestOnlyYears: optInt(w.ioYears),
@@ -446,6 +532,36 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const user = userRes?.user;
       if (!user) throw new Error('Please sign in to create a project.');
 
+      // The record of where the figures came from: the documents read, the reasoning for each figure, the seller's claims, the notes and the owner's decisions
+      const live = formAsInputs(w, asset) as Record<string, unknown>;
+      const currentFor = (key: string, value: unknown): number | string | undefined => {
+        if (key === 'address') return typeof value === 'string' && w.location.toLowerCase().startsWith(value.toLowerCase()) ? value : w.location || undefined;
+        const v = live[key];
+        return typeof v === 'number' || typeof v === 'string' ? v : undefined;
+      };
+      const record = buildIntakeRecord({
+        documents: intake?.documents ?? [],
+        documentFigures: (intake?.figures ?? []).map((f) => ({ ...f, current: currentFor(f.key, f.value) })),
+        profileFigures,
+        claims: intake?.claims ?? [],
+        checks: intake?.checks,
+        lineage: intake?.lineage,
+        // The two assumptions that are not figures in the form: whether a manager is hired, and when closing is taken to be
+        notes: [
+          ...(intake?.notes ?? []),
+          ...((intake?.documents ?? []).length > 0 ? [VARIANCE_DISCLOSURE] : []),
+          w.manageProperty === 'true'
+            ? `Property manager: you hire one; a fee of ${w.managementFee.trim() || '(not set)'}% of collected income is charged on top of the expense ratio.`
+            : 'Property manager: you manage it yourself; no management fee is charged.',
+          ...(w.closingDate.trim() === '' || (closingFilled && w.closingDate === closingFilled.date)
+            ? [`Closing date: ${closingFilled?.date ?? 'assumed'} — your investor profile is set to close ${closingFilled?.weeks ?? (getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS)} weeks after the project is created.`]
+            : []),
+        ],
+        choices: Object.values(answers),
+        verifiedBy: needsVerification && verified ? user.id : undefined,
+      });
+      if (record) inputs.intakeRecord = record;
+
       const { data, error: insErr } = await supabase
         .from('deals')
         .insert({
@@ -456,8 +572,18 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         .single();
       if (insErr || !data) throw new Error(insErr?.message || 'Failed to create project record');
 
+      // Keep the original documents with the project (private to the owner). The project exists either way: a failure here is reported, not fatal.
+      if (docFiles.length > 0) {
+        try {
+          const kept = await uploadDealDocuments({ userId: user.id, dealId: String((data as any).id), files: docFiles });
+          if (kept.failed.length > 0) window.alert(`The project was created, but ${kept.failed.length === 1 ? 'one original file' : `${kept.failed.length} original files`} could not be stored with it: ${kept.failed.map((f) => `${f.name} (${f.reason})`).join('; ')}`);
+        } catch (e) {
+          console.warn('[wizard] storing the original documents failed:', e);
+        }
+      }
+
       onProjectCreated(mapSupabaseDeal(data));
-      onClose();
+      close();
     } catch (err: any) {
       console.error('Wizard error:', err);
       setError(err?.message || 'Could not create the project');
@@ -468,41 +594,68 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   if (!isOpen) return null;
 
-  const fillBar = (
-    <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-      <p className="text-[11px] text-slate-400 leading-relaxed max-w-md">
-        Nothing is pre-filled. Enter each figure, or copy the ones you have set in your Investor Profile (they keep your reason on this property).
-      </p>
-      <button type="button" onClick={fillFromAssumptions} className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-        Fill blanks from my assumptions
-      </button>
-      {seedNote && <p role="status" className="basis-full text-[10px] text-emerald-300/90 leading-relaxed">{seedNote}</p>}
-    </div>
-  );
+  // Keep the form as typed, so nothing is lost if the page reloads. A form nobody has touched is not kept.
+  React.useEffect(() => {
+    if (!isOpen || submitting) return;
+    const pristine = JSON.stringify(w) === JSON.stringify(withManager(seed(w.asset as Asset))) && !filledOnce;
+    if (pristine) return;
+    const t = setTimeout(() => saveWizardDraft({ w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers, closingFilled }), 400);
+    return () => clearTimeout(t);
+  }, [isOpen, submitting, w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers, closingFilled]);
+
+  /** Closing on purpose (Cancel, the X, or after creating) throws the draft away. */
+  const close = () => { clearWizardDraft(); setRestored(false); onClose(); };
+
+  /** Start again from a blank form. */
+  const startOver = () => {
+    clearWizardDraft();
+    setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
+    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
+    setIntake(null); setAnswers({}); setVerified(false); setVerifyNudge(false); setClosingFilled(null); setDocFiles([]);
+  };
+
+  // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
+  // value (a figure the owner changed is theirs now). Worked out from the form, not from the last click, so it stays true after a second fill or a reload.
+  const profileFigures = useMemo<ProfileFilled[]>(() => (
+    Object.entries(seededBasis).flatMap(([key, b]) => {
+      if (b.source !== 'profile' || b.value === undefined) return [];
+      const field = PROFILE_FIELD[key];
+      if (!field || Number(w[field]) !== b.value) return [];
+      // Apartments, commercial and storage are valued at the exit cap rate, so appreciation does not apply to them and is not listed
+      if (key === 'appreciationRate' && asset !== 'single-family') return [];
+      return [{ key, label: b.label, value: b.value, why: b.rationale }];
+    })
+  ), [seededBasis, w, asset]);
+
+  // Anything read from a document or filled from the investor profile has to be confirmed by the owner before the project is created
+  const needsVerification = filledOnce && (intake !== null || profileFigures.length > 0);
+
+  // The facts and assumptions the engine still has nobody's answer for, as the form fields they belong to (the closing date is assumed at creation)
+  const emptyFields = useMemo(() => {
+    const out = new Set<string>();
+    if (!filledOnce) return out;
+    try {
+      for (const m of openQuestions({ asset_class: asset, purchase_price: num(w.price) || undefined, inputs: formAsInputs(w, asset) })) {
+        const f = FORM_FIELD_FOR_KEY[m.key];
+        if (f && f !== 'closingDate') out.add(f);
+      }
+    } catch { /* an incomplete form is exactly what is being marked */ }
+    if (!w.price.trim()) out.add('price');
+    return out;
+  }, [w, asset, filledOnce]);
+
+  React.useEffect(() => {
+    rootRef.current?.querySelectorAll<HTMLElement>('[data-field]').forEach((el) => el.classList.toggle('need-answer', emptyFields.has(el.dataset.field ?? '')));
+  });
 
   const stepDivs = (
     <>
       {/* Step 1 */}
-      <div className={`space-y-5 ${step === 1 ? '' : 'hidden'}`}>
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-bold text-white">Start from a document <span className="text-slate-500 font-semibold">(optional)</span></div>
-              <p className="text-[11px] text-slate-400">Offering memorandum, rent roll, leases, operating statement, loan terms or purchase agreement. It fills this form; you check every step before creating.</p>
-            </div>
-            <button type="button" onClick={() => setDocOpen((o) => !o)} className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-              {docOpen ? 'Hide' : 'Add documents'}
-            </button>
-          </div>
-          {docOpen && (
-            <DocumentIntake
-              deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }}
-              applyLabel={(n) => `Fill the form with ${n} figure${n === 1 ? '' : 's'}`}
-              appliedNote="Filled in. Check each step, change anything that is not right, then create the project."
-              onApply={applyDocuments}
-            />
-          )}
-        </div>
+      <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
+        <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
+        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
+          intake={intake}
+          closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)} />
 
         <div className="space-y-1.5">
           <label htmlFor="wiz-deal-name" className={lbl}>Project / Deal Name</label>
@@ -528,7 +681,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </button>
           </div>
           <div className="relative">
-            <select id="wiz-entity-select" value={w.entity} onChange={(e) => set({ entity: e.target.value })}
+            <select id="wiz-entity-select" data-field="entity" value={w.entity} onChange={(e) => set({ entity: e.target.value })}
               className={`${inputBase} py-2.5 px-3.5 text-xs appearance-none cursor-pointer`}>
               <option value="">No Entity Assigned (Holding / Unassigned)</option>
               {entities.map((en) => <option key={en.id} value={en.id}>{en.name || 'Unnamed Entity'}</option>)}
@@ -567,7 +720,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               {searching && <span className="animate-spin text-[10px]">⏳</span>}
             </span>
           </div>
-          <input id="wiz-location" type="text" autoComplete="off" placeholder="e.g. 128 N 2nd St, Yakima, WA" value={w.location}
+          <input id="wiz-location" type="text" autoComplete="off" placeholder="e.g. 128 N 2nd St, Yakima, WA" data-field="location" value={w.location}
             onChange={(e) => onLocation(e.target.value)} onFocus={() => { if (w.location.length >= 2 && addrResults.length) setAddrOpen(true); }}
             className={`${inputBase} py-2.5 px-3 text-xs placeholder-slate-600`} />
           {addrOpen && (
@@ -607,11 +760,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Total Storage Units</label>
-                  <input type="number" min={1} placeholder="e.g. 20" value={w.storageUnits} onChange={(e) => set({ storageUnits: e.target.value })} className={inputSm} />
+                  <input type="number" min={1} placeholder="e.g. 20" data-field="storageUnits" value={w.storageUnits} onChange={(e) => set({ storageUnits: e.target.value })} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl2}>Rentable Facility Area (Sq Ft)</label>
-                  <input type="number" min={100} placeholder="e.g. 2000" value={w.storageSqft} onChange={(e) => set({ storageSqft: e.target.value })} className={inputSm} />
+                  <input type="number" min={100} placeholder="e.g. 2000" data-field="storageSqft" value={w.storageSqft} onChange={(e) => set({ storageSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
               <label className="flex items-center space-x-2.5 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
@@ -630,11 +783,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Total Apartment Units</label>
-                  <input type="number" min={1} placeholder="e.g. 12" value={w.multiUnits} onChange={(e) => set({ multiUnits: e.target.value })} className={inputSm} />
+                  <input type="number" min={1} placeholder="e.g. 12" data-field="multiUnits" value={w.multiUnits} onChange={(e) => set({ multiUnits: e.target.value })} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
-                  <input type="number" min={100} placeholder="e.g. 11000" value={w.multiSqft} onChange={(e) => set({ multiSqft: e.target.value })} className={inputSm} />
+                  <input type="number" min={100} placeholder="e.g. 11000" data-field="multiSqft" value={w.multiSqft} onChange={(e) => set({ multiSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
             </div>
@@ -645,7 +798,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <label htmlFor="wiz-lease-type" className={lbl2}>Primary Lease Structure</label>
               <span className="text-[10px] text-slate-400">{LEASE_HINT[w.leaseType] || ''}</span>
             </div>
-            <select id="wiz-lease-type" value={w.leaseType} onChange={(e) => set({ leaseType: e.target.value })}
+            <select id="wiz-lease-type" data-field="leaseType" value={w.leaseType} onChange={(e) => set({ leaseType: e.target.value })}
               className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 font-bold">
               <option value="">Choose the lease structure…</option>
               <option value="Gross">Full Service Gross • Landlord absorbs operating expenses</option>
@@ -659,7 +812,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
-                <input type="number" min={100} placeholder="e.g. 15000" value={w.commSqft} onChange={(e) => set({ commSqft: e.target.value })} className={inputSm} />
+                <input type="number" min={100} placeholder="e.g. 15000" data-field="commSqft" value={w.commSqft} onChange={(e) => set({ commSqft: e.target.value })} className={inputSm} />
               </div>
             </div>
           )}
@@ -669,11 +822,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Appraised / After-Repair Value ($)</label>
-                  <input type="number" min={0} placeholder="e.g. 450000" value={w.sfrArv} onChange={(e) => set({ sfrArv: e.target.value })} className={inputSm} />
+                  <input type="number" min={0} placeholder="e.g. 450000" data-field="sfrArv" value={w.sfrArv} onChange={(e) => set({ sfrArv: e.target.value })} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl2}>Living Area (Sq Ft)</label>
-                  <input type="number" min={100} placeholder="e.g. 2400" value={w.sfrSqft} onChange={(e) => set({ sfrSqft: e.target.value })} className={inputSm} />
+                  <input type="number" min={100} placeholder="e.g. 2400" data-field="sfrSqft" value={w.sfrSqft} onChange={(e) => set({ sfrSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
             </div>
@@ -719,7 +872,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         )}
 
         {companions > 0 && (
-          <div className="p-3.5 bg-slate-900/90 border border-brand-500/40 rounded-2xl space-y-3 text-xs">
+          <div id="wiz-parcel-package" className="p-3.5 bg-slate-900/90 border border-brand-500/40 rounded-2xl space-y-3 text-xs">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <div className="flex items-center space-x-2">
                 <span className="text-brand-400 font-extrabold text-sm">📦 Multi-Parcel Acquisition Package</span>
@@ -730,6 +883,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <p className="text-[11px] text-slate-200 leading-relaxed">
               We identified adjacent or companion parcels owned by the same entity on this block. <span className="text-amber-300 font-semibold">Does the sale include these properties as well?</span> Select all that apply:
             </p>
+            {ownerMismatch && (
+              <p role="alert" className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                A parcel you included is not held by the same owner of record as the primary parcel. Parcels sold together usually share an owner, so please check the county card for each before you create the project.
+              </p>
+            )}
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {parcels.map((p, idx) => {
                 const portal = p.assessorPortalUrl || (() => { try { return AddressService.getAssessorPortalUrl(p.apn, p.county); } catch { return '#'; } })();
@@ -745,6 +903,10 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                           {p.isPrimary && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-brand-500/20 text-brand-300">PRIMARY</span>}
                         </div>
                         <span className="text-[10px] text-slate-400">APN: {p.formattedApn || p.apn} • {p.acres} Acres ({Number(p.sqft || 0).toLocaleString()} sqft) • {p.useCode || ''}</span>
+                        {!p.isPrimary && (() => { const c = ownerCheck(p); return (
+                          <span className={`block text-[10px] font-semibold ${c === 'same' ? 'text-emerald-400' : 'text-amber-300'}`}>
+                            {c === 'same' ? `Same owner of record: ${p.owner}` : c === 'different' ? `Different owner of record: ${p.owner}. Double-check this parcel belongs to the sale.` : 'Owner of record could not be compared. Double-check this parcel belongs to the sale.'}
+                          </span>); })()}
                       </div>
                     </div>
                     <div className="text-right">
@@ -779,7 +941,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <label htmlFor="wiz-market-tier" className={lbl2}>Market Tier</label>
-              <select id="wiz-market-tier" value={w.marketTier} onChange={(e) => set({ marketTier: e.target.value })}
+              <select id="wiz-market-tier" data-field="marketTier" value={w.marketTier} onChange={(e) => set({ marketTier: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                 <option value="Tier 1">Tier 1 • Primary / Gateway</option>
                 <option value="Tier 2">Tier 2 • Secondary / Growth</option>
@@ -788,7 +950,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </div>
             <div className="space-y-1.5">
               <label htmlFor="wiz-property-class" className={lbl2}>Property Class</label>
-              <select id="wiz-property-class" value={w.propertyClass} onChange={(e) => set({ propertyClass: e.target.value })}
+              <select id="wiz-property-class" data-field="propertyClass" value={w.propertyClass} onChange={(e) => set({ propertyClass: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                 <option value="Class A">Class A • Prime / Trophy</option>
                 <option value="Class B">Class B • Value-Add / Core-Plus</option>
@@ -797,7 +959,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </div>
             <div className="space-y-1.5">
               <label htmlFor="wiz-facility-type" className={lbl2}>Facility Sub-Type</label>
-              <select id="wiz-facility-type" value={w.facilityType} onChange={(e) => set({ facilityType: e.target.value })}
+              <select id="wiz-facility-type" data-field="facilityType" value={w.facilityType} onChange={(e) => set({ facilityType: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                 {DEFAULTS[asset].subTypes.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -808,12 +970,12 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       </div>
 
       {/* Step 2 */}
-      <div className={`space-y-5 ${step === 2 ? '' : 'hidden'}`}>
-        {fillBar}
+      <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
+        <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">2 · Capital and valuation</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label htmlFor="wiz-purchase-price" className={lbl}>Purchase Price ($)</label>
-            <input id="wiz-purchase-price" type="number" value={w.price} onChange={(e) => set({ price: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+            <input id="wiz-purchase-price" type="number" data-field="price" value={w.price} onChange={(e) => set({ price: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -826,24 +988,24 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 )}
               </span>
             </div>
-            <input id="wiz-down-payment" type="number" step="0.5" value={w.down} onChange={(e) => set({ down: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+            <input id="wiz-down-payment" type="number" step="0.5" data-field="down" value={w.down} onChange={(e) => set({ down: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="wiz-closing-date" className={lbl}>Expected Closing Date (optional)</label>
-          <input id="wiz-closing-date" type="date" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
-          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (the standard, or your profile setting). The loan schedule starts then.</p>
+          <input id="wiz-closing-date" type="date" data-field="closingDate" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (your investor profile's setting). The loan schedule starts then.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label htmlFor="wiz-closing-costs" className={lbl}>Closing Costs ($)</label>
-            <input id="wiz-closing-costs" type="number" value={w.closing} onChange={(e) => set({ closing: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <input id="wiz-closing-costs" type="number" data-field="closing" value={w.closing} onChange={(e) => set({ closing: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-rehab-costs" className={lbl}>Initial Rehab / CapEx ($)</label>
-            <input id="wiz-rehab-costs" type="number" value={w.rehab} onChange={(e) => set({ rehab: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <input id="wiz-rehab-costs" type="number" data-field="rehab" value={w.rehab} onChange={(e) => set({ rehab: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
         </div>
 
@@ -872,8 +1034,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       </div>
 
       {/* Step 3 */}
-      <div className={`space-y-5 ${step === 3 ? '' : 'hidden'}`}>
-        {fillBar}
+      <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
+        <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">3 · Income and operations</h4>
         {asset === 'storage' && (
           <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
@@ -883,11 +1045,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Average Rent per Unit ($/mo)</label>
-                <input type="number" value={w.storageRentPerUnit} onChange={(e) => syncStorage('rpu', e.target.value)} className={inputLg} />
+                <input type="number" data-field="storageRentPerUnit" value={w.storageRentPerUnit} onChange={(e) => syncStorage('rpu', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className={lbl}>Total Monthly Facility Rent ($)</label>
-                <input type="number" value={w.storageGrossRent} onChange={(e) => syncStorage('tot', e.target.value)} className={inputLg} />
+                <input type="number" data-field="storageGrossRent" value={w.storageGrossRent} onChange={(e) => syncStorage('tot', e.target.value)} className={inputLg} />
               </div>
             </div>
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -906,11 +1068,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Average Rent per Unit ($/mo)</label>
-                <input type="number" value={w.multiRentPerUnit} onChange={(e) => syncMulti('rpu', e.target.value)} className={inputLg} />
+                <input type="number" step="any" data-field="multiRentPerUnit" value={w.multiRentPerUnit} onChange={(e) => syncMulti('rpu', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className={lbl}>Total Monthly Property Rent ($)</label>
-                <input type="number" value={w.multiGrossRent} onChange={(e) => syncMulti('tot', e.target.value)} className={inputLg} />
+                <input type="number" step="any" data-field="multiGrossRent" value={w.multiGrossRent} onChange={(e) => syncMulti('tot', e.target.value)} className={inputLg} />
               </div>
             </div>
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -929,11 +1091,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Annual Gross Rent ($/yr)</label>
-                <input type="number" value={w.commAnnualRent} onChange={(e) => syncComm('ann', e.target.value)} className={inputLg} />
+                <input type="number" data-field="commAnnualRent" value={w.commAnnualRent} onChange={(e) => syncComm('ann', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className={lbl}>Monthly Rent Equivalent ($/mo)</label>
-                <input type="number" value={w.commGrossRent} onChange={(e) => syncComm('mo', e.target.value)} className={inputLg} />
+                <input type="number" data-field="commGrossRent" value={w.commGrossRent} onChange={(e) => syncComm('mo', e.target.value)} className={inputLg} />
               </div>
             </div>
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
@@ -951,7 +1113,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className={lbl}>Monthly Rental Income ($/mo)</label>
-                <input type="number" value={w.sfrGrossRent} onChange={(e) => set({ sfrGrossRent: e.target.value, grossRent: e.target.value })} className={inputLg} />
+                <input type="number" data-field="sfrGrossRent" value={w.sfrGrossRent} onChange={(e) => set({ sfrGrossRent: e.target.value, grossRent: e.target.value })} className={inputLg} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Annual Gross Projection</label>
@@ -964,69 +1126,70 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label htmlFor="wiz-other-income" className={lbl}>Other Monthly Income ($)</label>
-            <input id="wiz-other-income" type="number" value={w.other} onChange={(e) => set({ other: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm`} />
+            <label htmlFor="wiz-other-income" className={lbl}>Other Income Besides Rent ($ a year)</label>
+            <input id="wiz-other-income" type="number" data-field="other" value={w.other} onChange={(e) => set({ other: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm`} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label htmlFor="wiz-vacancy-rate" className={lbl}>Vacancy Rate (%)</label>
-              <input id="wiz-vacancy-rate" type="number" step="0.5" value={w.vacancy} onChange={(e) => set({ vacancy: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              <input id="wiz-vacancy-rate" type="number" step="0.5" data-field="vacancy" value={w.vacancy} onChange={(e) => set({ vacancy: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="wiz-rent-growth" className={lbl}>Annual Rent Growth (%)</label>
-              <input id="wiz-rent-growth" type="number" step="0.1" value={w.rentGrowth} onChange={(e) => set({ rentGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              <input id="wiz-rent-growth" type="number" step="0.1" data-field="rentGrowth" value={w.rentGrowth} onChange={(e) => set({ rentGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label htmlFor="wiz-opex-ratio" className={lbl}>Operating Expense Ratio (%)</label>
-              <input id="wiz-opex-ratio" type="number" step="1.0" value={w.opexRatio} onChange={(e) => set({ opexRatio: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              <input id="wiz-opex-ratio" type="number" step="1.0" data-field="opexRatio" value={w.opexRatio} onChange={(e) => set({ opexRatio: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="wiz-expense-growth" className={lbl}>Expense Inflation (%)</label>
-              <input id="wiz-expense-growth" type="number" step="0.1" value={w.expenseGrowth} onChange={(e) => set({ expenseGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              <input id="wiz-expense-growth" type="number" step="0.1" data-field="expenseGrowth" value={w.expenseGrowth} onChange={(e) => set({ expenseGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
             <div className="space-y-1.5">
               <label htmlFor="wiz-capex" className={lbl}>Replacement Reserve</label>
               <div className="flex gap-2">
-                <input id="wiz-capex" type="number" min={0} step="any" value={w.capexValue} onChange={(e) => set({ capexValue: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
-                <select aria-label="Reserve basis" value={w.capexKind} onChange={(e) => set({ capexKind: e.target.value })} className="bg-slate-900 border border-slate-800 rounded-xl px-2 text-[11px] text-white">
+                <input id="wiz-capex" type="number" min={0} step="any" data-field="capexValue" value={w.capexValue} onChange={(e) => set({ capexValue: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                <select aria-label="Reserve basis" data-field="capexKind" value={w.capexKind} onChange={(e) => set({ capexKind: e.target.value })} className="bg-slate-900 border border-slate-800 rounded-xl px-2 text-[11px] text-white">
                   <option value="annual">$ a year</option>
                   <option value="percent">% of income</option>
                 </select>
               </div>
             </div>
             <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer mb-1"><input type="checkbox" checked={w.manageProperty === 'true'} onChange={(e) => set({ manageProperty: e.target.checked ? 'true' : 'false' })} />I hire a property manager</label>
               <label htmlFor="wiz-mgmt" className={lbl}>Management Fee (%)</label>
-              <input id="wiz-mgmt" type="number" min={0} max={30} step="any" value={w.managementFee} onChange={(e) => set({ managementFee: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              <input id="wiz-mgmt" type="number" min={0} max={30} step="any" data-field="managementFee" value={w.managementFee} onChange={(e) => set({ managementFee: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>
             {(asset === 'commercial' || w.leaseType === 'NNN' || !(num(w.grossRent) > 0)) && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:col-span-2">
-                <p className="col-span-2 sm:col-span-4 text-[10px] text-slate-500 leading-relaxed">What it costs to carry: needed when there is no rent yet, or when tenants pay the building's costs. County records give the assessed value; set your tax rate in your Investor Profile to estimate taxes from it.</p>
+                <p className="col-span-2 sm:col-span-4 text-[10px] text-slate-500 leading-relaxed">Taxes, insurance, upkeep and utilities are already inside your expense ratio in a normal year. These amounts are used only for a year with no rent and for the months a space is vacant (they are required when there is no rent yet, or when tenants pay the building's costs). County records give the assessed value; set your tax rate in your Investor Profile to estimate taxes from it.</p>
                 <div className="space-y-1.5">
                   <label htmlFor="wiz-taxes" className={lbl}>Property Taxes ($/yr)</label>
-                  <input id="wiz-taxes" type="number" min={0} step="any" value={w.taxes} onChange={(e) => set({ taxes: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                  <input id="wiz-taxes" type="number" min={0} step="any" data-field="taxes" value={w.taxes} onChange={(e) => set({ taxes: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="wiz-insurance" className={lbl}>Insurance ($/yr)</label>
-                  <input id="wiz-insurance" type="number" min={0} step="any" value={w.insurance} onChange={(e) => set({ insurance: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                  <input id="wiz-insurance" type="number" min={0} step="any" data-field="insurance" value={w.insurance} onChange={(e) => set({ insurance: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="wiz-maintenance" className={lbl}>Maintenance ($/yr)</label>
-                  <input id="wiz-maintenance" type="number" min={0} step="any" value={w.maintenance} onChange={(e) => set({ maintenance: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                  <input id="wiz-maintenance" type="number" min={0} step="any" data-field="maintenance" value={w.maintenance} onChange={(e) => set({ maintenance: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="wiz-utilities" className={lbl}>Utilities ($/yr)</label>
-                  <input id="wiz-utilities" type="number" min={0} step="any" value={w.utilities} onChange={(e) => set({ utilities: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                  <input id="wiz-utilities" type="number" min={0} step="any" data-field="utilities" value={w.utilities} onChange={(e) => set({ utilities: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
                 </div>
               </div>
             )}
             {asset === 'storage' && (
               <div className="space-y-1.5">
                 <label htmlFor="wiz-payroll" className={lbl}>Payroll &amp; Marketing (%)</label>
-                <input id="wiz-payroll" type="number" min={0} max={60} step="any" value={w.payroll} onChange={(e) => set({ payroll: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                <input id="wiz-payroll" type="number" min={0} max={60} step="any" data-field="payroll" value={w.payroll} onChange={(e) => set({ payroll: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
               </div>
             )}
           </div>
@@ -1034,11 +1197,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       </div>
 
       {/* Step 4 */}
-      <div className={`space-y-5 ${step === 4 && !submitting ? '' : 'hidden'}`}>
-        {fillBar}
+      <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
+        <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">4 · Debt and exit</h4>
         <div className="space-y-1.5">
           <label htmlFor="wiz-financing-type" className={lbl}>Financing Structure / Loan Type</label>
-          <select id="wiz-financing-type" value={w.financingType} onChange={(e) => set({ financingType: e.target.value })}
+          <select id="wiz-financing-type" data-field="financingType" value={w.financingType} onChange={(e) => set({ financingType: e.target.value })}
             className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`}>
             <option value="fixed">Traditional Fixed-Rate Mortgage</option>
             <option value="arm">Adjustable-Rate Mortgage (ARM / Floating)</option>
@@ -1051,56 +1214,60 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         {w.financingType === 'arm' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
             <div className="space-y-1"><label className="text-[11px] font-bold text-slate-400">Initial Fixed (Yrs)</label>
-              <input type="number" min={1} max={10} value={w.armInitial} onChange={(e) => set({ armInitial: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
+              <input type="number" min={1} max={10} data-field="armInitial" value={w.armInitial} onChange={(e) => set({ armInitial: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
             <div className="space-y-1"><label className="text-[11px] font-bold text-slate-400">Reset Rate (%)</label>
-              <input type="number" step="0.125" value={w.armRate} onChange={(e) => set({ armRate: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
+              <input type="number" step="0.125" data-field="armRate" value={w.armRate} onChange={(e) => set({ armRate: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
             <div className="space-y-1"><label className="text-[11px] font-bold text-slate-400">Max Rate Cap (%)</label>
-              <input type="number" step="0.125" value={w.armCap} onChange={(e) => set({ armCap: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
+              <input type="number" step="0.125" data-field="armCap" value={w.armCap} onChange={(e) => set({ armCap: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
           </div>
         )}
         {w.financingType === 'interest_only' && (
           <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl">
             <div className="space-y-1 max-w-xs"><label className="text-[11px] font-bold text-slate-400">Interest-Only Period (Years)</label>
-              <input type="number" min={1} max={10} value={w.ioYears} onChange={(e) => set({ ioYears: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
+              <input type="number" min={1} max={10} data-field="ioYears" value={w.ioYears} onChange={(e) => set({ ioYears: e.target.value })} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white" /></div>
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label htmlFor="wiz-interest-rate" className={lbl}>Senior Debt Interest Rate (%)</label>
-            <input id="wiz-interest-rate" type="number" step="0.125" value={w.rate} onChange={(e) => set({ rate: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+            <input id="wiz-interest-rate" type="number" step="0.125" data-field="rate" value={w.rate} onChange={(e) => set({ rate: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-amortization" className={lbl}>Loan Term (Years)</label>
-            <input id="wiz-amortization" type="number" value={w.amort} onChange={(e) => set({ amort: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+            <input id="wiz-amortization" type="number" data-field="amort" value={w.amort} onChange={(e) => set({ amort: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-maturity" className={lbl}>Balloon Due (Years, optional)</label>
-            <input id="wiz-maturity" type="number" min={1} value={w.maturity} onChange={(e) => set({ maturity: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+            <input id="wiz-maturity" type="number" min={1} data-field="maturity" value={w.maturity} onChange={(e) => set({ maturity: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
           </div>
           <p className="sm:col-span-2 text-[10px] text-slate-500 leading-relaxed">Every loan is its own: take the rate and term from this loan's term sheet. The loan is paid off at the end of its term, counted from the closing date. Only a loan with a balloon payment needs the optional due year, and it cannot come before your hold ends.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {asset !== 'single-family' && (
           <div className="space-y-1.5">
-            <label htmlFor="wiz-exit-cap" className={lbl}>Target Exit Cap Rate (%)</label>
-            <input id="wiz-exit-cap" type="number" step="0.1" value={w.exitCap} onChange={(e) => set({ exitCap: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <label htmlFor="wiz-exit-cap" className={lbl}>Exit Cap Rate (%)</label>
+            <input id="wiz-exit-cap" type="number" step="0.1" data-field="exitCap" value={w.exitCap} onChange={(e) => set({ exitCap: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
+          )}
+          {asset === 'single-family' && (
           <div className="space-y-1.5">
             <label htmlFor="wiz-appreciation" className={lbl}>Annual Property Appreciation (%)</label>
-            <input id="wiz-appreciation" type="number" step="0.1" value={w.apprec} onChange={(e) => set({ apprec: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <input id="wiz-appreciation" type="number" step="0.1" data-field="apprec" value={w.apprec} onChange={(e) => set({ apprec: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
+          )}
           <div className="space-y-1.5">
             <label htmlFor="wiz-selling" className={lbl}>Selling Costs at Exit (%)</label>
-            <input id="wiz-selling" type="number" min={0} max={20} step="any" value={w.sellingCost} onChange={(e) => set({ sellingCost: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <input id="wiz-selling" type="number" min={0} max={20} step="any" data-field="sellingCost" value={w.sellingCost} onChange={(e) => set({ sellingCost: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-hold" className={lbl}>Hold Period (Years)</label>
-            <input id="wiz-hold" type="number" min={1} max={30} value={w.exitYear} onChange={(e) => set({ exitYear: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <input id="wiz-hold" type="number" min={1} max={30} data-field="exitYear" value={w.exitYear} onChange={(e) => set({ exitYear: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-discount" className={lbl}>Discount Rate (%)</label>
-            <input id="wiz-discount" type="number" min={0} max={50} step="any" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+            <input id="wiz-discount" type="number" min={0} max={50} step="any" data-field="discountRate" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
         </div>
 
@@ -1128,6 +1295,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="wizard-modal-title" className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4">
+      <style>{`.need-answer { box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.75) !important; border-color: rgb(251 191 36) !important; }`}</style>
       <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh] transition-all">
         <div className="p-4 sm:p-6 border-b border-slate-800/80 bg-slate-950/50">
           <div className="flex items-center justify-between">
@@ -1135,38 +1303,45 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-black text-sm shrink-0">✨</div>
               <div>
                 <h3 id="wizard-modal-title" className="text-base sm:text-lg font-black text-white tracking-tight">Create New Project</h3>
-                <p className="text-[11px] sm:text-xs text-slate-400">Step <span className="text-brand-400 font-bold">{step}</span> of 4: <span className="font-medium text-slate-300">{STEP_TITLES[step]}</span></p>
+                <p className="text-[11px] sm:text-xs text-slate-400">{filledOnce ? <><span className="text-amber-300 font-bold">{emptyFields.size}</span> field{emptyFields.size === 1 ? '' : 's'} still need{emptyFields.size === 1 ? 's' : ''} an answer</> : 'One page: fill everything you can, then answer what is left'}</p>
               </div>
             </div>
-            <button aria-label="Close project creation wizard" onClick={onClose} className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 sm:mt-4 overflow-hidden">
-            <div className="bg-gradient-to-r from-brand-500 to-emerald-400 h-full transition-all duration-300 rounded-full" style={{ width: `${step * 25}%` }} />
+            <button aria-label="Close project creation wizard" onClick={close} className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 flex-grow">
+        <div ref={rootRef} className="p-4 sm:p-6 overflow-y-auto space-y-8 flex-grow">
+          {restored && (
+            <p role="status" className="flex flex-wrap items-center gap-2 text-[11px] text-emerald-300">
+              Your unfinished project was kept and is back as you left it.
+              <button type="button" onClick={startOver} className="font-bold text-slate-300 hover:text-white underline">Start over</button>
+            </p>
+          )}
           {stepDivs}
+          {needsVerification && !submitting && (
+            <label ref={verifyRef} className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer ${verifyNudge && !verified ? 'border-rose-500/60 bg-rose-500/10' : 'border-amber-500/30 bg-amber-500/5'}`}>
+              <input type="checkbox" className="mt-0.5" checked={verified} onChange={(e) => { setVerified(e.target.checked); if (e.target.checked) setVerifyNudge(false); }} />
+              <span className="text-[11px] text-slate-300 leading-relaxed">
+                <span className="font-bold text-slate-100 block">I have reviewed what was read from my documents and what was filled in from my investor profile.</span>
+                Automated reading can miss or misread things, so I have checked the figures against my source documents. {VARIANCE_DISCLOSURE} I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
+              </span>
+            </label>
+          )}
           {error && <p className="text-xs text-rose-400 font-semibold">{error}</p>}
         </div>
 
+        {verifyNudge && needsVerification && !verified && (
+          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Almost there. Please scroll down to the bottom of the page and confirm that you have read and checked everything, then create the project.</p>
+        )}
         <div className="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
-          {step > 1 && !submitting ? (
-            <button onClick={back} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition">← Back</button>
-          ) : <span />}
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
-          <div className="flex items-center space-x-2">
-            {step < 4 ? (
-              <button onClick={next} className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-brand-600 hover:bg-brand-500 shadow-lg shadow-brand-600/30 transition flex items-center space-x-1.5">
-                <span>Next Step</span><span>→</span>
-              </button>
-            ) : (
-              <button onClick={submit} disabled={submitting}
-                className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/20 transition disabled:opacity-60">
-                <span>⚡ Run Engine &amp; Generate Pitch Deck</span>
-              </button>
-            )}
-          </div>
+          <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
+          <button onClick={() => {
+            if (needsVerification && !verified) { setVerifyNudge(true); verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            void submit();
+          }} disabled={submitting} title={needsVerification && !verified ? 'Please scroll to the bottom of the page and confirm you have reviewed everything first' : undefined}
+            className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/20 transition disabled:opacity-60">
+            <span>⚡ Create project and run the engine</span>
+          </button>
         </div>
       </div>
     </div>

@@ -169,21 +169,21 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdat
 
         {view === 'annual' ? (
           <div className="overflow-x-auto -mx-5 mt-4">
-            <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+            <table className="w-full text-left border-collapse text-[11px] tabular-nums whitespace-nowrap">
               <thead>
                 <tr className="border-b border-slate-900 text-slate-400 font-semibold bg-slate-950/60">
-                  <th className="py-3 px-5 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Date / Period</th>
-                  <th className="py-3 px-4">Property Value</th>
-                  <th className="py-3 px-4">Gross Income</th>
-                  <th className="py-3 px-4">Vacancy Loss</th>
-                  <th className="py-3 px-4">Expenses</th>
-                  <th className="py-3 px-4">NOI</th>
-                  <th className="py-3 px-4">Debt Service</th>
-                  <th className="py-3 px-4">Cash Flow</th>
-                  <th className="py-3 px-4">Cash-on-Cash</th>
-                  <th className="py-3 px-4">Cap Rate</th>
-                  <th className="py-3 px-4">Loan Balance</th>
-                  <th className="py-3 px-4 pr-5">Equity</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-3 sticky left-0 bg-slate-950 z-20 border-r border-slate-800/80 shadow-md">Date / Period</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Property Value</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Gross Income</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Vacancy Loss</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Expenses</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">NOI</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Debt Service</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Cash Flow</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Cash-on-Cash</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Cap Rate</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2">Loan Balance</th>
+                  <th className="whitespace-normal leading-tight align-bottom py-3 px-2 pr-3">Equity</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-900/60">
@@ -191,28 +191,28 @@ export const ProFormaTab: React.FC<ProFormaTabProps> = ({ deal, metrics, onUpdat
                   const stub = p.operatingMonths && p.operatingMonths < 12;
                   return (
                     <tr key={p.year} className="border-b border-slate-900/40 hover:bg-slate-900/20 text-slate-300 font-medium transition">
-                      <td className="py-3 px-5">
+                      <td className="py-3 px-3">
                         <div className="text-white font-bold text-xs flex items-center">
                           {startYr + p.year - 1}
                           {stub && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded ml-1">Stub: {p.operatingMonths} Mo</span>}
                         </div>
                         <div className="text-[10px] text-slate-500 font-medium">Year {p.year}{stub ? ` (${p.operatingMonths} operating months)` : ''}</div>
                       </td>
-                      <td className="py-3.5 px-4">{formatCurrency(p.propertyValue)}</td>
-                      <td className="py-3.5 px-4">{formatCurrency(p.grossPotentialIncome)}</td>
-                      <td className="py-3.5 px-4 text-rose-400/85">{formatCurrency(p.vacancyLoss)}</td>
-                      <td className="py-3.5 px-4 text-slate-400">{formatCurrency(p.operatingExpenses)}</td>
-                      <td className="py-3.5 px-4 text-white font-semibold">{formatCurrency(p.netOperatingIncome)}</td>
-                      <td className="py-3.5 px-4 text-slate-500">{formatCurrency(p.debtService)}</td>
-                      <td className={`py-3.5 px-4 font-bold ${p.cashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(p.cashFlow)}</td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-2">{formatCurrency(p.propertyValue)}</td>
+                      <td className="py-3.5 px-2">{formatCurrency(p.grossPotentialIncome)}</td>
+                      <td className="py-3.5 px-2 text-rose-400/85">{formatCurrency(p.vacancyLoss)}</td>
+                      <td className="py-3.5 px-2 text-slate-400">{formatCurrency(p.operatingExpenses)}</td>
+                      <td className="py-3.5 px-2 text-white font-semibold">{formatCurrency(p.netOperatingIncome)}</td>
+                      <td className="py-3.5 px-2 text-slate-500">{formatCurrency(p.debtService)}</td>
+                      <td className={`py-3.5 px-2 font-bold ${p.cashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(p.cashFlow)}</td>
+                      <td className="py-3.5 px-2">
                         {p.isCoCNotMeaningful
                           ? <span className="text-slate-400 font-bold" title="100% Debt Financed - Zero Initial Outlay">N/M</span>
                           : `${(Number(p.cashOnCash) || 0).toFixed(1)}%`}
                       </td>
-                      <td className="py-3.5 px-4">{(Number(p.capRate) || 0).toFixed(1)}%</td>
-                      <td className="py-3.5 px-4 text-slate-500">{formatCurrency(p.loanBalanceRemaining ?? p.endingLoanBalance)}</td>
-                      <td className="py-3.5 px-4 pr-5 text-brand-400 font-bold">{formatCurrency(p.equity)}</td>
+                      <td className="py-3.5 px-2">{(Number(p.capRate) || 0).toFixed(1)}%</td>
+                      <td className="py-3.5 px-2 text-slate-500">{formatCurrency(p.loanBalanceRemaining ?? p.endingLoanBalance)}</td>
+                      <td className="py-3.5 px-2 pr-3 text-brand-400 font-bold">{formatCurrency(p.equity)}</td>
                     </tr>
                   );
                 })}

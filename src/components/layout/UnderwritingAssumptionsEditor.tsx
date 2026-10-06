@@ -11,6 +11,13 @@ interface Props {
 }
 
 const ASSET_LABEL: Record<AssetKey, string> = { 'single-family': 'Single-family', 'multi-unit': 'Multi-unit', commercial: 'Commercial', storage: 'Storage' };
+/** What the sale value of each kind of property rests on, in one line: the rest is the owner's own figures, each with its reason. */
+const METHOD_NOTE: Record<AssetKey, string> = {
+  'single-family': 'Valued by appreciation: today\'s value grown at your appreciation rate.',
+  'multi-unit': 'Valued on its income at exit: net operating income divided by your exit cap rate.',
+  commercial: 'Valued on its income at exit: net operating income divided by your exit cap rate. The lease type decides who pays the building\'s costs, so there is one expense ratio for NNN leases and one for all other lease types.',
+  storage: 'Valued on its income at exit: net operating income divided by your exit cap rate. On-site payroll and marketing are charged as a share of income.',
+};
 const CAPEX_LABEL: Record<CapexBasis, string> = { perUnit: '$ per unit a year', perSqFt: '$ per sq ft a year', percentOfIncome: '% of income', percentOfValue: '% of value' };
 
 const inputCls = 'w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500';
@@ -42,7 +49,8 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
   const setWhy = (field: AssumptionField, why: string) => writeAsset({ ...current, rationale: { ...current.rationale, [field]: why } });
 
   // The hold is one setting for every property (above), not one per asset class
-  const specs = FIELD_SPECS.filter((s) => s.assets.includes(asset) && s.key !== 'holdingPeriod');
+  // Appreciation only drives the value of a single-family home; every other class is valued at the exit cap rate, so it is not shown for them
+  const specs = FIELD_SPECS.filter((s) => s.assets.includes(asset) && s.key !== 'holdingPeriod' && (s.key !== 'appreciationRate' || asset === 'single-family'));
   const get = (f: AssumptionField): string => {
     const v = (current as Record<string, unknown>)[f];
     return v === undefined || v === null ? '' : String(v);
@@ -64,6 +72,14 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
           {general}
         </div>
       )}
+
+      <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer">
+        <input type="checkbox" className="mt-0.5" checked={current.usesPropertyManager === true} onChange={(e) => writeAsset({ ...current, usesPropertyManager: e.target.checked })} />
+        <span>
+          <span className="text-xs font-bold text-slate-100 block">I hire a property manager for this kind of property</span>
+          <span className="text-[11px] text-slate-400 leading-relaxed block">New properties start with the management fee below charged on collected income. Leave it off if you manage them yourself: no fee is charged. Each property can differ.</span>
+        </span>
+      </label>
 
       <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800">
         <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -130,7 +146,12 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
         </div>
       </div>
 
-      <div role="tablist" className="grid grid-cols-4 gap-1.5">
+      <div className="pt-3 border-t border-slate-800 space-y-1">
+        <span className="text-[10px] uppercase font-bold text-slate-400 block">Standards for each property type</span>
+        <p className="text-[11px] text-slate-300 leading-relaxed">Each property type has its own set of assumptions. <span className="font-bold text-white">Choose a type below to see and edit its settings.</span> A new property uses the set for its own type.</p>
+      </div>
+
+      <div role="tablist" aria-label="Property type" className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         {ASSET_KEYS.map((k) => (
           <button
             key={k} type="button" role="tab" aria-selected={asset === k} onClick={() => setAsset(k)}
@@ -140,6 +161,13 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
           </button>
         ))}
       </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-extrabold text-brand-300">Editing the {ASSET_LABEL[asset]} standards</span>
+        <span className="text-[10px] text-slate-500">{ASSET_KEYS.indexOf(asset) + 1} of {ASSET_KEYS.length} property types</span>
+      </div>
+
+      <p className="text-[11px] text-slate-400 leading-relaxed p-2.5 rounded-xl bg-slate-900 border border-slate-800">{METHOD_NOTE[asset]} Every figure takes a reason, so it can be audited and defended.</p>
 
       <div className="space-y-3">
         {specs.map((s) => (

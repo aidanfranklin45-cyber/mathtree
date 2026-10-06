@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cashFlowSeries, metricValues, paybackYear, riskReturnPoints, seriesColor, wealthSeries, yearLabels } from './chartData';
+import { cashFlowSeries, cashPaybackYear, metricValues, paybackYear, saleProceedsAt, riskReturnPoints, seriesColor, wealthSeries, yearLabels } from './chartData';
 import { getMetric } from './metrics';
 import type { ComparisonColumn } from './compareTypes';
 
@@ -35,6 +35,21 @@ describe('compare chart data', () => {
     expect(paybackYear(w)).toBe(1);
     expect(paybackYear([-100, -50, null, -10])).toBeNull();
     expect(paybackYear([-100, -50, 5])).toBe(2);
+  });
+
+  it('pays back on cash received, not on equity: a deal can look ahead on paper while no cash has come back', () => {
+    // $250,000 in; $10,000 a year paid out; equity grows, so the wealth line is above zero from year 1 but the cash is not back in 10 years
+    const c = col('a', { proj: proj(10, 10_000, 1_000_000, 750_000) });
+    expect(paybackYear(wealthSeries(c, 10))).toBe(1);
+    expect(cashPaybackYear(c, 10)).toBeNull();
+    // $60,000 a year returns $250,000 in the fifth year
+    expect(cashPaybackYear(col('b', { proj: proj(10, 60_000, 1_000_000, 750_000) }), 10)).toBe(5);
+  });
+
+  it('reports what a sale would return, separately', () => {
+    const c = col('a', { proj: [{ cashFlow: 1, exitProceedsNet: 320_000.4 }, { cashFlow: 1, exitProceedsNet: 340_000 }] });
+    expect(saleProceedsAt(c, 2)).toBe(340_000);
+    expect(saleProceedsAt(c, 3)).toBeNull();
   });
 
   it('reads a metric absolutely or against the benchmark column', () => {

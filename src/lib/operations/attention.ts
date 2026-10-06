@@ -4,6 +4,7 @@ import { resolvePropertyState } from '../property/state';
 import { MIN_COLLECTED_MONTHS } from '../property/types';
 import type { RowView } from '../../components/operations/rowStatus';
 import type { Row } from './rentRoll';
+import { missingInputsFor } from '../engine/compute';
 
 /**
  * The Operations attention inbox: one portfolio-wide list of things that need action. Pure, and it owns no rules of its own.
@@ -54,7 +55,7 @@ export const INBOX_LABEL: Record<InboxKind, string> = {
 /** Fixed names for the "missing data" types, so a muted entry reads the same whatever the count in the headline. */
 export const MISSING_LABEL: Record<string, string> = {
   leases: 'No lease records', rent: 'Lease with no rent stated', end: 'Lease with no end date',
-  start: 'Lease with no start date', payments: 'Rent payments not recorded',
+  start: 'Lease with no start date', payments: 'Rent payments not recorded', inputs: 'Underwriting inputs missing',
 };
 
 /** What a mute applies to: one property and one type of item (all of a property's overdue rent, or one kind of missing data). */
@@ -169,6 +170,14 @@ export function buildInboxItems(input: InboxInput): InboxItem[] {
     const state = resolvePropertyState({ deal, facts, asOf: now, estimate: { value: 0, noi: 0, operatingExpenses: null, debtService: 0, cashFlow: 0 } });
     const gap = (key: string, headline: string, detail: string) =>
       add({ id: `${deal.id}:missing:${key}`, kind: 'missing_data', dealId: deal.id, leaseId: null, headline, detail, amount: null, basis: null });
+
+    // The same rule the dashboard's "needs inputs" badge uses: the engine cannot show this property's figures until these are entered
+    let missingInputs: Array<{ label: string }> = [];
+    try { missingInputs = missingInputsFor(deal as any); } catch { /* a deal the engine cannot read is not guessed at */ }
+    if (missingInputs.length > 0) {
+      const first = missingInputs.slice(0, 3).map((m) => m.label).join('; ');
+      items.push({ id: `${deal.id}:missing:inputs`, kind: 'missing_data', dealId: deal.id, dealTitle: titleOf(deal.id), leaseId: null, headline: `${plural(missingInputs.length, 'input')} needed for this property's figures`, detail: `${first}${missingInputs.length > 3 ? `; and ${missingInputs.length - 3} more` : ''}. Open the property and enter them.`, amount: null, basis: null, link: `/project?id=${encodeURIComponent(String(deal.id))}` });
+    }
 
     if (state.rentRoll.source === 'none') {
       gap('leases', 'No lease records', 'Add the rent roll so rent, occupancy and expiries can be shown. Until then the property runs on its underwriting estimate.');

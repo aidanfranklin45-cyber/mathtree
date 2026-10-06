@@ -1,6 +1,7 @@
 // @ts-nocheck
 // Ported verbatim from the legacy address-service.js (ArcGIS / county assessor search and lookups).
 // Logic is unchanged; this file is intentionally untyped until it is refactored into typed modules.
+import { collapseUnits } from './addressText';
 /**
  * MathTree Address & County GIS Integration Service
  * Specializes in Yakima County, Washington via official ArcGIS REST Services:
@@ -820,6 +821,8 @@ const factory = function () {
   async function searchAddresses(query, options = {}) {
     if (!query || query.trim().length < 2) return [];
 
+    // The county lists every apartment at a street number. Ask for enough to see past them, and show one entry per property.
+    const shown = options.limit || 8;
     const parsed = parseAddressInput(query);
     const isSpokaneQuery = parsed.county === 'Spokane' || /spokane/i.test(query);
     const isYakimaQuery = parsed.county === 'Yakima' || /yakima|selah|union gap|sunnyside|grandview|toppenish|wapato|zillah|moxee|naches/i.test(query);
@@ -828,23 +831,23 @@ const factory = function () {
     let spokaneResults = [];
 
     if (isYakimaQuery) {
-      yakimaResults = await searchYakimaAddresses(query, options.limit || 8);
+      yakimaResults = await searchYakimaAddresses(query, shown * 6);
     } else if (isSpokaneQuery) {
-      spokaneResults = await searchSpokaneAddresses(query, options.limit || 8);
+      spokaneResults = await searchSpokaneAddresses(query, shown * 6);
     } else {
       [yakimaResults, spokaneResults] = await Promise.all([
-        searchYakimaAddresses(query, 5),
-        searchSpokaneAddresses(query, 5)
+        searchYakimaAddresses(query, 30),
+        searchSpokaneAddresses(query, 30)
       ]);
     }
 
     // If official Yakima GIS matches with real APNs are found, return them directly
     if (yakimaResults.length > 0 && yakimaResults.some(r => r.apn)) {
-      return yakimaResults;
+      return collapseUnits(yakimaResults, shown);
     }
     // If official Spokane GIS matches with real APNs are found, return them directly
     if (spokaneResults.length > 0 && spokaneResults.some(r => r.apn)) {
-      return spokaneResults;
+      return collapseUnits(spokaneResults, shown);
     }
 
     // WA Statewide Cadastre backup
@@ -1021,9 +1024,12 @@ const factory = function () {
       const charData = charRes.status === 'fulfilled' ? charRes.value : null;
 
       const attr = data.features[0].attributes || {};
-      const commAttr = (commData && commData.features && commData.features[0] && commData.features[0].attributes) || {};
-      const charAttr = (charData && charData.features && charData.features[0] && charData.features[0].attributes) || {};
-
+      // A parcel can hold several buildings (an apartment complex is a few buildings plus a laundry room). The county lists each one as its own
+      // record, so the building figures are built from all of them, not from whichever record comes first.
+      const commRows = ((commData && commData.features) || []).map((f) => f.attributes || {});
+      const charRows = ((charData && charData.features) || []).map((f) => f.attributes || {});
+      const commAttr = commRows[0] || {};
+      const charAttr = charRows[0] || {};
       const landVal = parseFloat(attr.MKT_LAND) || 0;
       const impVal = parseFloat(attr.MKT_IMPVT) || 0;
       const totalVal = landVal + impVal;
@@ -1035,13 +1041,23 @@ const factory = function () {
       const owner = names.length > 0 ? (names.join(' ') + (org ? ' / ' + org : '')) : (org || 'Owner of Record');
 
       // Building specifications & architecture characteristics
-      const rawYearBuilt = commAttr.YEAR_BUILT || (charAttr.YEAR_BLT ? parseInt(charAttr.YEAR_BLT, 10) : null) || null;
+      const yearsBuilt = [...commRows.map((r) => Number(r.YEAR_BUILT)), ...charRows.map((r) => parseInt(r.YEAR_BLT, 10))].filter((y) => y > 1700);
+      const rawYearBuilt = yearsBuilt.length ? Math.min(...yearsBuilt) : null;
+      const latestYearBuilt = yearsBuilt.length ? Math.max(...yearsBuilt) : null;
       const rawEffYear = commAttr.EFF_YEAR_B || (charAttr.EFF_YEAR ? parseInt(charAttr.EFF_YEAR, 10) : null) || null;
       
       const charFloorSqFt = (parseFloat(charAttr.MAIN_SQFT) || 0) + (parseFloat(charAttr.UPPR_SQFT) || 0) + (parseFloat(charAttr.FN_BSMT_SQ) || 0);
-      const buildingSqFt = parseFloat(commAttr.GROUND_FL_) || (charFloorSqFt > 0 ? charFloorSqFt : null) || null;
-      
-      const stories = commAttr.NUM_STORIE || (charAttr.STORIES ? parseFloat(charAttr.STORIES) : null) || null;
+      // Floor area: the commercial records give ground floor and storeys per building; the residential records give floor areas. The two lists
+      // may describe the same buildings, so they are not added together: the commercial list is used when it has any, else the residential one.
+      const commArea = commRows.reduce((sum, r) => sum + (parseFloat(r.GROUND_FL_) || 0) * Math.max(1, parseFloat(r.NUM_STORIE) || 1), 0);
+      const charArea = charRows.reduce((sum, r) => sum + (parseFloat(r.MAIN_SQFT) || 0) + (parseFloat(r.UPPR_SQFT) || 0) + (parseFloat(r.FN_BSMT_SQ) || 0), 0);
+      const buildingSqFt = commArea > 0 ? Math.round(commArea) : (charArea > 0 ? Math.round(charArea) : null);
+      const buildingCount = commArea > 0 ? commRows.length : charRows.length;
+      const buildingNote = (commRows.length + charRows.length) > 1
+        ? `The county lists ${commRows.length} building record${commRows.length === 1 ? '' : 's'} in its commercial list${charRows.length ? ` and ${charRows.length} in its residential list` : ''}. Building area adds up the ${commArea > 0 ? 'commercial' : 'residential'} records (ground floor times storeys). The two lists may overlap, so check it against the offering memorandum.`
+        : null;
+      const storyCounts = [...commRows.map((r) => parseFloat(r.NUM_STORIE)), ...charRows.map((r) => parseFloat(r.STORIES))].filter((n) => n > 0);
+      const stories = storyCounts.length ? Math.max(...storyCounts) : null;
       const constructionType = commAttr.CONSTRUCTI || (charAttr.BLD_STYLE ? 'Wood Frame / ' + charAttr.BLD_STYLE : null) || 'Standard Frame';
       const exteriorWall = commAttr.EXT_WALL_T || null;
       const foundation = commAttr.FOUNDATION || null;
@@ -1090,6 +1106,11 @@ const factory = function () {
         // Building Structural Specs
         yearBuilt: rawYearBuilt,
         effectiveYearBuilt: rawEffYear,
+        // 2 = building figures cover every building on the parcel (1 = first record only)
+        recordVersion: 2,
+        latestYearBuilt,
+        buildingCount,
+        buildingNote,
         buildingSqFt: buildingSqFt,
         grossLivingArea: buildingSqFt,
         stories: stories,

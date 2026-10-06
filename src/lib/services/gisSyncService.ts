@@ -5,6 +5,7 @@
 import { supabase } from '../supabase/client';
 import type { DealRecord } from '../math/types';
 import { AddressService } from './addressService';
+import { countyFromText, isRealParcel } from './parcelLookup';
 
 const GIS_STALE_DAYS_THRESHOLD = 30;
 
@@ -27,6 +28,10 @@ export function isGisSyncNeeded(deal: DealRecord | Record<string, any>): boolean
   if (typeof window !== 'undefined' && window.sessionStorage?.getItem(sessionCheckKey)) {
     return false;
   }
+
+  // A county record saved before the building figures covered every building on the parcel is read again, whatever its age
+  const saved = deal.inputs.assessorData;
+  if (saved && saved.source === 'yakima_county_assessor' && (Number(saved.recordVersion) || 0) < 2) return true;
 
   const lastSyncedAt = deal.inputs.gisSync?.lastSyncedAt;
   if (!lastSyncedAt) return true;
@@ -65,7 +70,10 @@ export async function syncDealCountyGisInBackground(
 
   try {
     const apn = deal.inputs.primaryApn || deal.inputs.apn || deal.inputs.assessorData?.apn;
-    const county = deal.inputs.county || 'Yakima';
+    // The county comes from the deal or its address. It is never assumed: an unknown county is not looked up in Yakima's records.
+    const county = deal.inputs.county
+      ? String(deal.inputs.county).replace(/\s*county\s*$/i, '').trim()
+      : countyFromText([deal.inputs.propertyAddress, deal.inputs.address, (deal as any).location].filter(Boolean).join(' '));
 
     // If AddressService exists globally (from window or script)
     const addressService: any = AddressService;
@@ -82,11 +90,17 @@ export async function syncDealCountyGisInBackground(
       }
     }
 
+    // No real county record: leave the deal alone (no "synced" stamp, no placeholder data), and do not ask again this session
+    if (!isRealParcel(freshAssessor)) {
+      if (typeof window !== 'undefined') window.sessionStorage?.setItem(sessionCheckKey, 'no-record');
+      return false;
+    }
+
     const updatedInputs = {
       ...deal.inputs,
       gisSync: {
         status: 'active',
-        syncSource: String(county).toLowerCase().includes('spokane') ? 'spokane_arcgis' : 'yakima_arcgis',
+        syncSource: String(county ?? '').toLowerCase().includes('spokane') ? 'spokane_arcgis' : 'yakima_arcgis',
         lastSyncedAt: new Date().toISOString(),
         manualRefresh: false,
       },
@@ -106,6 +120,10 @@ export async function syncDealCountyGisInBackground(
       if (freshAssessor.marketImprovementValue) {
         updatedInputs.marketImprovementValue = freshAssessor.marketImprovementValue;
       }
+      // The building facts too: the engine reads the building area (for carrying costs), so an out-of-date one must not stay behind
+      if (freshAssessor.buildingSqFt) updatedInputs.buildingSqFt = freshAssessor.buildingSqFt;
+      if (freshAssessor.stories) updatedInputs.stories = freshAssessor.stories;
+      if (freshAssessor.yearBuilt) updatedInputs.yearBuilt = freshAssessor.yearBuilt;
     }
 
     // Persist to Supabase deals table

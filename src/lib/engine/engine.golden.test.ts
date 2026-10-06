@@ -23,7 +23,7 @@ const CASES: Record<string, { assetClass: string; inputs: Record<string, any> }>
     inputs: {
       purchasePrice: 575000, downPaymentPercent: 20, interestRate: 7, loanTerm: 30,
       monthlyRent: 5200, vacancyRate: 7, expenseRatio: 40, rentGrowth: 2.5,
-      appreciationRate: 3, closingCosts: 9000, exitYear: 10, discountRate: 8,
+      appreciationRate: 3, targetCapRate: 6.5, otherIncomeAnnual: 6000, closingCosts: 9000, exitYear: 10, discountRate: 8,
     },
   },
   residential: {

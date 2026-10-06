@@ -27,6 +27,16 @@ const leases: LeaseRow[] = [
 ];
 
 describe('buildBriefModel', () => {
+  it('carries where each figure came from, so the printed brief can be stood behind', () => {
+    const record = { documents: [{ name: 'OM.pdf', type: 'offering_memorandum' }], figures: [{ key: 'purchasePrice', label: 'Purchase price', value: 1_000_000, source: 'document', how: 'The list price', documentType: 'offering_memorandum' }] };
+    const m = buildBriefModel(mkDeal({ ...baseInputs, intakeRecord: record }), [], []);
+    const price = m.figureSources.find((r) => r.label === 'Purchase price')!;
+    expect(price.source).toBe('From OM.pdf');
+    expect(m.figureSources.every((r) => r.source.length > 0)).toBe(true);
+    // a figure with nothing recorded is the owner's own entry, never left unattributed
+    expect(m.figureSources.find((r) => r.label === 'Interest rate')!.source).toBe('Your entry for this property');
+  });
+
   it('lists every included parcel and sums only those', () => {
     const m = buildBriefModel(mkDeal(baseInputs), leases, parcels);
     expect(m.parcels).toHaveLength(2);

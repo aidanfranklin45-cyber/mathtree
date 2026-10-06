@@ -83,9 +83,12 @@ export function equityGrowth(projections: Proj[], purchasePrice: number, loanAmo
   return [start, ...rows];
 }
 
-/** First year equity plus cash collected is at least the cash you have put in by then (shortfalls included), or null if not within the projection. */
+/**
+ * First year the cash the property has paid you covers the cash you have put in by then (shortfalls included), or null if not within the
+ * projection. Only cash counts: equity (value less the loan) is not money back until the property is sold, so it is not part of this.
+ */
 export function paybackYear(points: EquityPoint[], initialCash: number): number | null {
-  const hit = points.find((pt) => pt.year > 0 && pt.total >= Math.max(initialCash, pt.cashIn));
+  const hit = points.find((pt) => pt.year > 0 && pt.cumulativeCash >= Math.max(initialCash, pt.cashIn));
   return hit ? hit.year : null;
 }
 

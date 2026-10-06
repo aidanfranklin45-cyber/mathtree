@@ -10,7 +10,7 @@ import { serve } from "std/http/server.ts";
 import { getCaller } from "../_shared/auth.ts";
 import { classifyDocument, CLEAR_ENOUGH } from "../_shared/documentTypes.ts";
 import { redactForModel } from "../_shared/redact.ts";
-import { GatewayError, gatewayConfigured, generateJson, modelName } from "../_shared/aiGateway.ts";
+import { BUSY_MESSAGE, GatewayError, gatewayConfigured, generateJson, generateJsonDetailed, modelName } from "../_shared/aiGateway.ts";
 import {
   buildClassifyPrompt,
   buildExtractionPrompt,
@@ -37,6 +37,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
 
+  const startedAt = Date.now();
   const caller = await getCaller(req);
   if (!caller) return json({ error: "Sign in to read a document." }, 401);
   if (!gatewayConfigured()) return json({ error: "Document reading is not set up yet." }, 503);
@@ -75,8 +76,15 @@ export async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const reply = await generateJson({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text) });
-    const parsed = parseModelJson(reply);
+    // The document itself fixes which model reads it first, so reading the same document again gives the same answer
+    const ask = () => generateJsonDetailed({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text), orderSeed: redaction.text });
+    let answered = await ask();
+    let parsed = parseModelJson(answered.text);
+    // An answer that is not JSON is rare and usually does not repeat: ask once more if there is time left in the request
+    if (parsed === null && Date.now() - startedAt < 60_000) {
+      answered = await ask();
+      parsed = parseModelJson(answered.text);
+    }
     if (parsed === null) return json({ error: "The model's answer could not be read. Try again." }, 502);
 
     return json({
@@ -84,10 +92,11 @@ export async function handleRequest(req: Request): Promise<Response> {
       classification: { ...classification, thresholds: CLEAR_ENOUGH },
       intake: coerceIntake(documentType, parsed, redaction.restore),
       redaction: redaction.report,
-      model: modelName(),
+      model: answered.model,
     });
   } catch (e) {
-    if (e instanceof GatewayError) return json({ error: e.message }, e.status);
+    // Busy or unavailable: one calm message, with the detail left in the logs. A setup problem keeps its detail so the owner can fix it.
+    if (e instanceof GatewayError) return json({ error: e.busy ? BUSY_MESSAGE : e.message }, e.status);
     // Never include the error object: it can carry document text
     return json({ error: "Something went wrong reading that document." }, 500);
   }

@@ -4,7 +4,7 @@ import { Download } from 'lucide-react';
 import { ComparisonColumn } from '../../lib/compare/compareTypes';
 import { formatCurrency } from '../../lib/format';
 import { ALL_METRICS, getMetric } from '../../lib/compare/metrics';
-import { cashFlowSeries, cashInSeries, metricValues, paybackYear, riskReturnPoints, seriesColor, shortfallTotal, wealthSeries, yearLabels } from '../../lib/compare/chartData';
+import { cashFlowSeries, cashInSeries, cashPaybackYear, metricValues, riskReturnPoints, saleProceedsAt, seriesColor, shortfallTotal, wealthSeries, yearLabels } from '../../lib/compare/chartData';
 
 Chart.register(...registerables);
 
@@ -18,7 +18,7 @@ type ChartKind = 'returns' | 'cashflow' | 'wealth' | 'capital' | 'risk' | 'metri
 const KINDS: Array<{ id: ChartKind; label: string; blurb: string }> = [
   { id: 'returns', label: 'Returns', blurb: '10-year levered IRR next to year 1 cash-on-cash for each column.' },
   { id: 'cashflow', label: 'Cash flow', blurb: 'What each column pays you, year by year or as a running total.' },
-  { id: 'wealth', label: 'Wealth built', blurb: 'Equity plus cash collected, minus the cash you put in (including any shortfalls you have to cover). Where a line crosses zero, the deal has paid you back.' },
+  { id: 'wealth', label: 'Wealth built', blurb: 'Equity plus cash collected, minus the cash you put in (including any shortfalls you have to cover). Equity is paper value until a sale, so a line above zero is not cash back: the payback shown under the chart counts only cash the property has paid you.' },
   { id: 'capital', label: 'Capital stack', blurb: 'Cash equity against borrowed money for each column, plus any extra cash the deal needs to cover years that do not pay their own costs.' },
   { id: 'risk', label: 'Risk vs return', blurb: 'Leverage across, IRR up, bubble size by price. Top left is more return for less borrowing.' },
   { id: 'metric', label: 'Any metric', blurb: 'Rank every column on one metric of your choice, or see how far each is from the benchmark.' },
@@ -245,12 +245,13 @@ export const CompareCharts: React.FC<CompareChartsProps> = ({ columns, metricKey
       {kind === 'wealth' && (
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {columns.map((c, i) => {
-            const pb = paybackYear(wealth[i]);
+            const pb = cashPaybackYear(c, years);
+            const sale = saleProceedsAt(c, years);
             return (
               <li key={c.id} className="rounded-xl bg-slate-950/60 border border-slate-900 px-3 py-2 flex items-center gap-2.5 text-xs">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: seriesColor(i) }} />
                 <span className="min-w-0 flex-1 truncate text-slate-300">{label(c)}</span>
-                <span className="font-bold text-slate-100 whitespace-nowrap">{pb ? `pays back in year ${pb}` : 'not within 10 years'}{shortfalls[i] > 0 ? ` · ${formatCurrency(shortfalls[i])} more cash needed` : ''}</span>
+                <span className="font-bold text-slate-100 whitespace-nowrap">{pb ? `cash paid back in year ${pb}` : `cash not paid back by operations in ${years} years`}{sale !== null ? ` · a sale in year ${years} returns ${formatCurrency(sale)}` : ''}{shortfalls[i] > 0 ? ` · ${formatCurrency(shortfalls[i])} more cash needed` : ''}</span>
               </li>
             );
           })}

@@ -15,7 +15,6 @@ import { getStageLens, resolveTab } from '../lib/studio/stageLens';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import { ParameterHistoryModal } from '../components/studio/modals/ParameterHistoryModal';
 import { DealAuditorBanner } from '../components/studio/DealAuditorBanner';
-import { ScenarioSummaryCard } from '../components/studio/ScenarioSummaryCard';
 import { RemodelModal } from '../components/studio/modals/RemodelModal';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRun } from '../lib/scenarios';
@@ -48,6 +47,8 @@ export const DealStudioPage: React.FC = () => {
 
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isDocumentsOpen, setIsDocumentsOpen] = useState(false);
+  // Bumped when original files are stored, so the Source documents list reads itself again
+  const [docsVersion, setDocsVersion] = useState(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isRemodelOpen, setIsRemodelOpen] = useState(false);
   const [rawRuns, setRawRuns] = useState<ScenarioRun[]>([]);
@@ -60,7 +61,8 @@ export const DealStudioPage: React.FC = () => {
   React.useEffect(() => {
     if (deal) {
       import('../lib/services/gisSyncService').then(({ syncDealCountyGisInBackground }) => {
-        syncDealCountyGisInBackground(deal);
+        // When the county record was refreshed it is saved; read the deal again so the page shows it now, not on the next visit
+        void syncDealCountyGisInBackground(deal).then((changed) => { if (changed) void loadDeal(); });
       });
     }
   }, [deal?.id]);
@@ -197,7 +199,6 @@ export const DealStudioPage: React.FC = () => {
         activeTab={tab}
         onSelectTab={setActiveTab}
         onOpenEditModal={() => setIsEditModalOpen(true)}
-        onOpenDocuments={() => setIsDocumentsOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onOpenShare={() => setIsShareOpen(true)}
         onOpenRemodel={() => setIsRemodelOpen(true)}
@@ -205,12 +206,6 @@ export const DealStudioPage: React.FC = () => {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 md:pb-6 flex flex-col space-y-5">
-        <ScenarioSummaryCard
-          runs={runs}
-          isOwned={deal.status === 'owned'}
-          onOpenHistory={() => setIsHistoryModalOpen(true)}
-          onRestore={handleRestoreInputs}
-        />
         <DealAuditorBanner deal={deal} metrics={metrics} />
 
         {tab === 'performance' && <PerformanceTab deal={deal} metrics={metrics} />}
@@ -219,7 +214,7 @@ export const DealStudioPage: React.FC = () => {
         {tab === 'proforma' && <ProFormaTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} onReloadDeal={() => { void loadDeal(); }} />}
         {tab === 'property' && <PropertyTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} />}
         {tab === 'debt' && <DebtTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
-        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} onOpenEdit={() => setIsEditModalOpen(true)} />}
+        {tab === 'diligence' && <DiligenceTab deal={deal} metrics={metrics} onPatchDeal={patchAndRecord} onOpenEdit={() => setIsEditModalOpen(true)} onAddDocuments={() => setIsDocumentsOpen(true)} docsVersion={docsVersion} />}
         {tab === 'sensitivity' && <SensitivityTab deal={deal} metrics={metrics} onUpdateInputs={updateInputs} />}
       </main>
 
