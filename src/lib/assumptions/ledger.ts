@@ -97,6 +97,26 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
   const first = projections.find((p) => Number(p.operatingMonths) >= 12) ?? projections[0] ?? {};
   const last = projections[projections.length - 1] ?? {};
   const nnn = String(a.stored.leaseType ?? '') === 'NNN';
+
+  // What was read from the owner's documents is recorded with the project (the figures, and what the owner changed). A figure that is still the
+  // document's is attributed to the document; one the owner replaced is theirs. Figures the profile filled keep the ledger's own logic below.
+  const record: any = a.stored.intakeRecord;
+  const recorded: any[] = Array.isArray(record?.figures) ? record.figures : [];
+  const docName: string | undefined = record?.documents?.[0]?.name;
+  const fromRecord = (keys: readonly string[], current?: number): { mode: LedgerMode; source: string; reason?: string } | null => {
+    const f = recorded.find((x) => keys.includes(x.key));
+    if (!f) return null;
+    const how = typeof f.how === 'string' && f.how ? (f.how.length > 220 ? `${f.how.slice(0, 219)}…` : f.how) : undefined;
+    if (f.source === 'document') {
+      const was = Number(f.value) * (String(f.key).includes('Annual') ? 1 : String(f.key).toLowerCase().includes('rent') ? 12 : 1);
+      if (current !== undefined && Number.isFinite(was) && Math.abs(current - was) > Math.max(0.5, Math.abs(was) * 0.005)) {
+        return { mode: 'entered', source: 'Your entry (you changed what the document said)' };
+      }
+      return { mode: 'document', source: `From your documents${docName ? ` (${docName})` : ''}`, reason: how };
+    }
+    if (f.source === 'owner') return { mode: 'entered', source: 'Your entry (it replaced what the document said)', reason: how };
+    return null;
+  };
   const hasRent = Number(a.prepared.grossRentAnnual) > 0 || (Array.isArray(a.prepared.leases) && a.prepared.leases.length > 0);
 
   const effects: Record<string, string | undefined> = {
@@ -153,6 +173,12 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
       continue;
     }
 
+    const documented = fromRecord(d.aliases, effective);
+    if (documented) {
+      rows.push({ id: d.id, label: d.label, value, effect: effects[d.id], group: 'project', mode: documented.mode, reason: documented.reason, source: documented.source });
+      continue;
+    }
+
     // Stated on the property: was it copied from the profile when created, taken from a document, or entered by the owner?
     const basis: InputBasis | undefined = d.fills?.map((k) => a.stored.assumptionBasis?.[k] as InputBasis | undefined).find(Boolean);
     const sameAsBasis = basis !== undefined && basis.value !== undefined && Math.abs(Number(basis.value) - effective) < 1e-9;
@@ -177,7 +203,8 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
 
   // The lease structure and the rent, which are facts about this property
   if (a.stored.leaseType) rows.push({ id: 'lease', label: 'Lease structure', value: String(a.stored.leaseType), effect: nnn ? 'Tenants pay the building\'s costs, so the landlord\'s expense ratio is small' : undefined, group: 'project', mode: 'entered', source: 'Your entry for this property' });
-  if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: `${money(Number(a.prepared.grossRentAnnual))} a year`, group: 'project', mode: 'entered', source: Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? `${a.stored.leases.length} lease${a.stored.leases.length === 1 ? '' : 's'} on this property` : 'Your entry for this property' });
+  const rentRecorded = fromRecord(['grossRentPerMonth', 'monthlyRent', 'grossRentAnnual', 'monthlyRentPerUnit'], Number(a.prepared.grossRentAnnual));
+  if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: `${money(Number(a.prepared.grossRentAnnual))} a year`, group: 'project', mode: rentRecorded?.mode ?? 'entered', reason: rentRecorded?.reason, source: rentRecorded ? rentRecorded.source : Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? `${a.stored.leases.length} lease${a.stored.leases.length === 1 ? '' : 's'} on this property` : 'Your entry for this property' });
 
   // Where the address and the county parcel came from, so the owner can see how this property was identified
   const rec: any = a.stored.intakeRecord;
