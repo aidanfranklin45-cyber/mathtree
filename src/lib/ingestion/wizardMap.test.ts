@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
 import { applyChoices, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
-import { applyToForm, assetFromDocs, deduceAsset, formAsInputs } from './wizardMap';
+import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs } from './wizardMap';
+import { missingInputsFor } from '../engine/compute';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
 const rentRoll = coerceIntake('rent_roll', {
@@ -258,10 +259,33 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     expect(vacancy.variance).toMatchObject({ expected: 8, percent: 38, higher: false, why: 'Yakima apartments run about 8%' }); // document 5, yours 8
     expect(p.changes.find((c) => c.key === 'expenseRatio')!.variance).toBeUndefined(); // 12.26 vs 12.5: close enough, no question
     expect(p.changes.some((c) => c.key === 'annualInsurance')).toBe(false); // folded into the expense ratio, not a field of its own
-    const chosen = applyChoices(p, new Set(['vacancyRate']), expected);
+    const chosen = applyChoices(p, { vacancyRate: { use: 'mine' } }, expected);
     expect(chosen.changes.find((c) => c.key === 'vacancyRate')).toMatchObject({ value: 8, how: 'Your own assumption: Yakima apartments run about 8%' });
     expect(chosen.patch.basis.vacancyRate.source).toBe('profile');
     expect(buildApplication({ inputs: {} }, chosen, new Set(['vacancyRate'])).inputsPatch.vacancyRate).toBe(8);
     expect(buildApplication({ inputs: {} }, p, new Set(['vacancyRate'])).inputsPatch.vacancyRate).toBe(5); // no choice made: the document's
+    // or a number typed for this property, recorded as the owner's own
+    const typed = applyChoices(p, { vacancyRate: { use: 'custom', value: 7 } }, expected);
+    expect(buildApplication({ inputs: {} }, typed, new Set(['vacancyRate'])).inputsPatch.vacancyRate).toBe(7);
+    expect(typed.patch.basis.vacancyRate).toMatchObject({ source: 'owner', value: 7, rationale: 'Entered by you for this property' });
+    expect(applyChoices(p, { vacancyRate: { use: 'custom', value: NaN } }, expected).changes.find((c) => c.key === 'vacancyRate')!.value).toBe(5); // unreadable number: the document's stands
+  });
+});
+
+describe('what is still needed after the documents are applied', () => {
+  const asked = (form: Record<string, string>) => missingInputsFor({ asset_class: 'multi-unit', purchase_price: Number(form.price) || undefined, inputs: formAsInputs(form, 'multi-unit') } as any);
+  const filled = { price: '18400000', multiUnits: '66', multiSqft: '83628', grossRent: '120900', multiGrossRent: '120900', vacancy: '5', opexRatio: '18.03', closingDate: '2026-12-01' };
+
+  it('asks only for the facts the documents lacked, and each answer can be typed into the form', () => {
+    const first = asked(filled).filter((m) => m.kind === 'fact').map((m) => m.key);
+    expect(first).toContain('downPaymentPercent'); // the memorandum does not say how it will be financed
+    expect(first).not.toContain('purchasePrice'); // already filled from the list price
+    // the owner answers right there: the loan then needs its own rate and amortization
+    const afterDown = asked({ ...filled, down: '25' }).filter((m) => m.kind === 'fact').map((m) => m.key);
+    expect(afterDown).toEqual(expect.arrayContaining(['interestRate', 'amortizationYears']));
+    expect(afterDown).not.toContain('downPaymentPercent');
+    expect(asked({ ...filled, down: '25', rate: '6.5', amort: '30' }).filter((m) => m.kind === 'fact')).toEqual([]);
+    // every one of those answers has a form field to land in
+    for (const k of ['downPaymentPercent', 'interestRate', 'amortizationYears', 'purchasePrice', 'closingDate']) expect(FORM_FIELD_FOR_KEY[k]).toBeTruthy();
   });
 });

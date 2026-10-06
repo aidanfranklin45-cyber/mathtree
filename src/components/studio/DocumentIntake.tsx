@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
-import { applyChoices, attachVariances, proposeChanges, type Expected, type Proposal } from '../../lib/ingestion/apply';
-import { resolveProfileAssumptions } from '../../lib/engine/compute';
+import { applyChoices, attachVariances, proposeChanges, type Choice, type Expected, type Proposal } from '../../lib/ingestion/apply';
+import { missingInputsFor, resolveProfileAssumptions } from '../../lib/engine/compute';
+import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
 import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
@@ -27,6 +28,10 @@ interface Props {
   proposeAssetClass?: boolean;
   /** One line shown after a successful apply, for callers that stay on screen. */
   appliedNote?: string | null;
+  /** A caller that keeps a form on screen can take what the owner types for something the documents did not give (input key and value). */
+  onProvide?: (key: string, value: string) => void;
+  /** Fills what is still blank from the owner's own assumptions. */
+  onFillAssumptions?: () => void;
 }
 
 interface Source {
@@ -53,7 +58,7 @@ const btn = 'px-3 py-2 rounded-xl text-xs font-bold transition disabled:opacity-
 const sel = 'bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white';
 
 /** Add documents, read them, see what they say against what the property states, and tick what to accept. Saves nothing itself. */
-export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote, proposeAssetClass }) => {
+export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote, proposeAssetClass, onProvide, onFillAssumptions }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[] | null>(null);
@@ -61,8 +66,10 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
-  // Which flagged figures the owner chose to take from their own assumption instead of the document
-  const [useMine, setUseMine] = useState<Set<string>>(new Set());
+  // For a flagged figure, what the owner picked instead of the document's: their own assumption, or a number typed for this property
+  const [choices, setChoices] = useState<Record<string, Choice>>({});
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [asked, setAsked] = useState<Record<string, string>>({});
   const nextId = useRef(1);
   const assumptionVersion = useAssumptionVersion();
 
@@ -144,7 +151,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const apply = async () => {
     if (!proposal) return;
     setBusy(true);
-    const ok = await onApply({ proposal: expected ? applyChoices(proposal, useMine, expected) : proposal, ticked, docs });
+    const ok = await onApply({ proposal: expected ? applyChoices(proposal, choices, expected) : proposal, ticked, docs });
     setBusy(false);
     if (ok) setApplied(true);
     else setNote('Could not apply that. Try again.');
@@ -230,8 +237,14 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
                         <span className="font-bold block">Differs from your assumption: yours is {c.variance.expectedText}, this document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.</span>
                         {c.variance.why && <span className="block text-amber-200/80 italic">Your reason: {c.variance.why}</span>}
                         <span className="flex flex-wrap gap-3 mt-1.5">
-                          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`pick-${c.key}`} checked={!useMine.has(c.key)} onChange={() => setUseMine((s) => { const n = new Set(s); n.delete(c.key); return n; })} />Use the document's ({c.proposed})</label>
-                          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`pick-${c.key}`} checked={useMine.has(c.key)} onChange={() => setUseMine((s) => new Set(s).add(c.key))} />Use my assumption ({c.variance.expectedText})</label>
+                          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`pick-${c.key}`} checked={!choices[c.key]} onChange={() => setChoices((s) => { const n = { ...s }; delete n[c.key]; return n; })} />Use the document's ({c.proposed})</label>
+                          <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`pick-${c.key}`} checked={choices[c.key]?.use === 'mine'} onChange={() => setChoices((s) => ({ ...s, [c.key]: { use: 'mine' } }))} />Use my assumption ({c.variance.expectedText})</label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input type="radio" name={`pick-${c.key}`} checked={choices[c.key]?.use === 'custom'} onChange={() => setChoices((s) => ({ ...s, [c.key]: { use: 'custom', value: Number(typed[c.key]) } }))} />
+                            Use my own number
+                            <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} placeholder="enter" className="w-20 bg-slate-950 border border-amber-500/30 rounded px-1.5 py-0.5 text-amber-100"
+                              onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); setChoices((s) => ({ ...s, [c.key]: { use: 'custom', value: Number(v) } })); }} />
+                          </label>
                         </span>
                       </span>
                     )}
@@ -256,6 +269,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
           {proposal.patch.notes.length > 0 && <ul className="text-[11px] text-slate-400 list-disc pl-4">{proposal.patch.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
           {hardErrors && <p className="text-[11px] text-rose-300">A document failed a consistency check above. Review the figures before applying.</p>}
           {applied && appliedNote && <p role="status" className="text-[11px] text-emerald-300">{appliedNote}</p>}
+          {applied && onProvide && <StillNeeded deal={deal} asked={asked} setAsked={setAsked} onProvide={onProvide} onFillAssumptions={onFillAssumptions} />}
           <div className="flex justify-end gap-2 pt-1">
             {onCancel && <button type="button" onClick={onCancel} className={`${btn} text-slate-300 hover:text-white`}>Cancel</button>}
             <button type="button" onClick={apply} disabled={busy || ticked.size === 0} className={`${btn} bg-emerald-500 hover:bg-emerald-400 text-slate-950`}>
@@ -263,6 +277,56 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
             </button>
           </div>
         </section>
+      )}
+    </div>
+  );
+};
+
+/**
+ * What the property still needs after the documents were applied, once the owner's own assumptions are taken into account: the facts only
+ * the property can state (the loan's rate and amortization, the price). Each can be typed right here and goes into the form.
+ */
+const StillNeeded: React.FC<{
+  deal: Props['deal'];
+  asked: Record<string, string>;
+  setAsked: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onProvide: (key: string, value: string) => void;
+  onFillAssumptions?: () => void;
+}> = ({ deal, asked, setAsked, onProvide, onFillAssumptions }) => {
+  const missing = useMemo(() => {
+    try { return missingInputsFor({ asset_class: deal.asset_class ?? undefined, purchase_price: deal.purchase_price ?? undefined, inputs: deal.inputs ?? {} } as any); } catch { return []; }
+  }, [deal]);
+  if (missing.length === 0) return <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property.</p>;
+  const facts = missing.filter((m) => m.kind === 'fact');
+  const assumptions = missing.filter((m) => m.kind === 'assumption');
+  const row = (m: (typeof missing)[number]) => {
+    const settable = Boolean(FORM_FIELD_FOR_KEY[m.key]);
+    return (
+      <li key={m.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+        <span className="text-xs font-bold text-slate-100 block">{m.label}</span>
+        <span className="text-[11px] text-slate-400 block">{m.why}</span>
+        {settable && (
+          <span className="flex items-center gap-2 mt-1.5">
+            <input type={m.key === 'closingDate' ? 'date' : 'number'} step="any" aria-label={m.label} value={asked[m.key] ?? ''} onChange={(e) => setAsked((a) => ({ ...a, [m.key]: e.target.value }))}
+              className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+            <button type="button" disabled={!(asked[m.key] ?? '').trim()} onClick={() => { onProvide(m.key, asked[m.key]); setAsked((a) => { const n = { ...a }; delete n[m.key]; return n; }); }}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
+          </span>
+        )}
+      </li>
+    );
+  };
+  return (
+    <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
+      <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">Still needed ({missing.length})</h4>
+      <p className="text-[11px] text-slate-400">The documents did not give these. Type them here, or enter them in the next steps.</p>
+      {facts.length > 0 && <ul className="space-y-1.5">{facts.map(row)}</ul>}
+      {assumptions.length > 0 && (
+        <>
+          <p className="text-[11px] text-slate-400">These are assumptions, not facts about the property. {onFillAssumptions ? 'Your investor profile can fill them.' : ''}</p>
+          <ul className="space-y-1.5">{assumptions.map(row)}</ul>
+          {onFillAssumptions && <button type="button" onClick={onFillAssumptions} className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">Fill these from my assumptions</button>}
+        </>
       )}
     </div>
   );

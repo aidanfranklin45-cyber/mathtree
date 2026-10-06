@@ -63,6 +63,14 @@ const DIRECT: Record<string, string> = {
   annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
 };
 
+/** The wizard field each input is typed into, so a figure the owner supplies for something the documents lacked lands in the form. */
+export const FORM_FIELD_FOR_KEY: Record<string, string> = {
+  ...DIRECT,
+  rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', targetCapRate: 'exitCap', appreciationRate: 'apprec', sellingCostPercent: 'sellingCost',
+  exitYear: 'exitYear', discountRate: 'discountRate', capexReserveAnnual: 'capexValue', loanMaturityYears: 'maturity',
+  armInitialYears: 'armInitial', armAdjustmentRate: 'armRate', armRateCap: 'armCap', payrollMarketingPercent: 'payroll', managementFeePercent: 'managementFee',
+};
+
 /** Rent figures the form derives from its own rent fields: nothing to set separately. */
 const DERIVED = new Set(['monthlyRent', 'grossRentAnnual', 'assetClass']);
 
@@ -83,7 +91,10 @@ export function formAsInputs(w: Form, asset: WizardAsset): Record<string, unknow
   const out: Record<string, unknown> = {};
   const n = (k: string) => (has(w, k) && Number.isFinite(parseFloat(w[k])) ? parseFloat(w[k]) : undefined);
   const put = (key: string, v: unknown) => { if (v !== undefined && v !== '') out[key] = v; };
-  for (const [key, field] of Object.entries(DIRECT)) put(key, key === 'closingDate' ? (has(w, field) ? w[field] : undefined) : n(field));
+  for (const [key, field] of Object.entries(FORM_FIELD_FOR_KEY)) {
+    if (key === 'capexReserveAnnual') continue; // below: dollars or a percent of income, by the form's own setting
+    put(key, key === 'closingDate' ? (has(w, field) ? w[field] : undefined) : n(field));
+  }
   put('address', has(w, 'location') ? w.location : undefined);
   put('squareFeet', n(SQFT_FIELD[asset]));
   const units = UNIT_FIELD[asset];

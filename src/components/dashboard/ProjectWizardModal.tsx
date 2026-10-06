@@ -8,7 +8,7 @@ import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import type { DealRecord } from '../../lib/math/types';
 import { DocumentIntake, type IntakeAcceptance } from '../studio/DocumentIntake';
-import { applyToForm, assetFromDocs, formAsInputs } from '../../lib/ingestion/wizardMap';
+import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs } from '../../lib/ingestion/wizardMap';
 
 interface Props {
   isOpen: boolean;
@@ -179,6 +179,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setSeededBasis((b) => ({ ...(nextAsset === asset ? b : {}), ...fill.basis }));
     if (fill.form.location && fill.form.location !== w.location) onLocation(fill.form.location);
     return true;
+  };
+
+  /** A figure the documents did not give, typed by the owner in the reader: it goes into the form field it belongs to. */
+  const provide = (key: string, value: string) => {
+    const field = FORM_FIELD_FOR_KEY[key];
+    if (!field) return;
+    set(key === 'capexReserveAnnual' ? { [field]: value, capexKind: 'annual' } : { [field]: value });
   };
 
   /** Copies the owner's profile assumptions into every blank field, with their reasons. Fields already filled are never overwritten. */
@@ -499,6 +506,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <DocumentIntake
               deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }}
               proposeAssetClass
+              onProvide={provide}
+              onFillAssumptions={fillFromAssumptions}
               applyLabel={(n) => `Fill the form with ${n} figure${n === 1 ? '' : 's'}`}
               appliedNote="Filled in. Check each step, change anything that is not right, then create the project."
               onApply={applyDocuments}

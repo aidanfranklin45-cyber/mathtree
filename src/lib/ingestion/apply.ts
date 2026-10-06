@@ -86,14 +86,23 @@ export function attachVariances(proposal: Proposal, expected: Expected): void {
   }
 }
 
-/** The proposal with the owner's choices carried out: a figure they chose to take from their own assumption replaces the document's. */
-export function applyChoices(proposal: Proposal, useMine: Set<string>, expected: Expected): Proposal {
-  if (useMine.size === 0) return proposal;
+/** What the owner chose for a flagged figure, when not the document's: their own assumption, or a number typed for this property. */
+export type Choice = { use: 'mine' } | { use: 'custom'; value: number };
+
+/** The proposal with the owner's choices carried out. A choice only applies to a row that was flagged. */
+export function applyChoices(proposal: Proposal, choices: Record<string, Choice>, expected: Expected): Proposal {
+  if (Object.keys(choices).length === 0) return proposal;
   const basis = { ...proposal.patch.basis };
   const changes = proposal.changes.map((c) => {
-    if (!useMine.has(c.key) || !c.variance) return c;
-    if (expected.basis[c.key]) basis[c.key] = expected.basis[c.key];
-    return { ...c, value: c.variance.expected, proposed: c.variance.expectedText, how: `Your own assumption${c.variance.why ? `: ${c.variance.why}` : ''}`, reliability: 'executed' as const };
+    const choice = choices[c.key];
+    if (!choice || !c.variance) return c;
+    if (choice.use === 'mine') {
+      if (expected.basis[c.key]) basis[c.key] = expected.basis[c.key];
+      return { ...c, value: c.variance.expected, proposed: c.variance.expectedText, how: `Your own assumption${c.variance.why ? `: ${c.variance.why}` : ''}`, reliability: 'executed' as const };
+    }
+    if (!Number.isFinite(choice.value) || choice.value < 0) return c;
+    basis[c.key] = { source: 'owner', label: TRACKED_INPUTS[c.key] ?? humanize(c.key), value: choice.value, rationale: 'Entered by you for this property' };
+    return { ...c, value: choice.value, proposed: formatValue(c.key, choice.value), how: 'The number you entered for this property', reliability: 'executed' as const };
   });
   return { ...proposal, changes, patch: { ...proposal.patch, basis } };
 }
