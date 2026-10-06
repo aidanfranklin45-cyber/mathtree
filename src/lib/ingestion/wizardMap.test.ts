@@ -427,3 +427,22 @@ describe('the investor profile fills what the documents left blank', () => {
     expect(fill({ manageProperty: 'true' }, withFee).patch.managementFee).toBe('6');
   });
 });
+
+describe('the separate tax, insurance, upkeep and utility amounts are only filled where they are used', () => {
+  const profile = suggestedStartingPoints(null);
+  const run = (asset: 'multi-unit' | 'commercial', base: Record<string, string>) => profileFill({ assumptions: profile, discountRate: 8, exitYear: 10, base: { manageProperty: 'false', capexKind: 'annual', ...base }, asset });
+  const SEPARATE = ['taxes', 'insurance', 'maintenance', 'utilities'];
+
+  it('an apartment property with rent has them inside its expense ratio, so the profile does not also fill separate amounts', () => {
+    const r = run('multi-unit', { price: '18400000', multiUnits: '66', multiSqft: '83628', grossRent: '120900' });
+    for (const f of SEPARATE) expect(r.patch[f]).toBeUndefined();
+    expect(r.patch.closing).toBe('368000'); // everything else still comes from the profile
+  });
+
+  it('a property with no rent yet, or one where tenants pay the costs, does need them', () => {
+    const noRent = run('multi-unit', { price: '18400000', multiUnits: '66', multiSqft: '83628' });
+    for (const f of SEPARATE) expect(noRent.patch[f]).toBeDefined();
+    const nnn = run('commercial', { price: '2000000', commSqft: '10000', leaseType: 'NNN', grossRent: '15000' });
+    for (const f of ['taxes', 'insurance', 'maintenance']) expect(nnn.patch[f]).toBeDefined();
+  });
+});

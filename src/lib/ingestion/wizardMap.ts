@@ -230,7 +230,12 @@ export function profileFill(args: {
   });
   const patch: Form = {};
   const basis: Record<string, InputBasis> = {};
+  // In a normal year taxes, insurance, upkeep and utilities are part of the expense ratio. The separate amounts exist only for a property with no rent
+  // or where tenants pay the building's costs, so they are filled only then (the form shows them only then too).
+  const needsSeparateCosts = asset === 'commercial' || base.leaseType === 'NNN' || !(asNumber(base.grossRent) > 0);
+  const SEPARATE = new Set(['annualTaxes', 'annualInsurance', 'annualMaintenance', 'annualUtilities']);
   for (const [key, value] of Object.entries(seeded.inputs)) {
+    if (SEPARATE.has(key) && !needsSeparateCosts) continue;
     const field = PROFILE_FIELD[key];
     if (key === 'managementFeePercent' && base.manageProperty !== 'true') continue; // no manager, no fee
     if (!field || (base[field] ?? '').trim() !== '') continue;
