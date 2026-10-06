@@ -468,7 +468,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         documentFigures: (intake?.figures ?? []).map((f) => ({ ...f, current: currentFor(f.key, f.value) })),
         profileFigures,
         claims: intake?.claims ?? [],
-        notes: intake?.notes ?? [],
+        // The two assumptions that are not figures in the form: whether a manager is hired, and when closing is taken to be
+        notes: [
+          ...(intake?.notes ?? []),
+          w.manageProperty === 'true'
+            ? `Property manager: you hire one; a fee of ${w.managementFee.trim() || '(not set)'}% of collected income is charged on top of the expense ratio.`
+            : 'Property manager: you manage it yourself; no management fee is charged.',
+          ...(w.closingDate.trim() ? [] : [`Closing date: assumed ${getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after the project was created (your investor profile's closing time).`]),
+        ],
         choices: Object.values(answers),
       });
       if (record) inputs.intakeRecord = record;
