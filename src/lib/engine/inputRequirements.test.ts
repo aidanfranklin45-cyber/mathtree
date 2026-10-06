@@ -43,7 +43,6 @@ describe('the engine never invents an input', () => {
     ['expenseRatio', 'expenseRatio'],
     ['rentGrowth', 'rentGrowth'],
     ['capexReserveAnnual', 'capexReserveAnnual'],
-    ['appreciationRate', 'appreciationRate'],
     ['closingCosts', 'closingCosts'],
   ])('removing %s names it as missing', (removed, reported) => {
     expect(missingKeys('multi-unit', without(complete(), removed))).toContain(reported);
@@ -59,10 +58,13 @@ describe('the engine never invents an input', () => {
     expect(missingKeys('multi-unit', complete({ closingDate: '07/15/2026' }))).not.toContain('closingDate');
   });
 
-  it('income-valued property needs an exit cap rate; residential needs appreciation instead', () => {
+  it('a single-family home needs appreciation; everything else needs an exit cap rate', () => {
+    expect(missingKeys('single-family', without(complete(), 'appreciationRate'))).toContain('appreciationRate');
+    expect(missingKeys('single-family', without(complete(), 'targetCapRate'))).not.toContain('targetCapRate');
+    expect(missingKeys('multi-unit', without(complete(), 'appreciationRate'))).not.toContain('appreciationRate');
     expect(missingKeys('commercial', without(complete(), 'targetCapRate'))).toContain('targetCapRate');
     expect(missingKeys('commercial', without(complete(), 'appreciationRate'))).not.toContain('appreciationRate');
-    expect(missingKeys('multi-unit', without(complete(), 'targetCapRate'))).not.toContain('targetCapRate');
+    expect(missingKeys('multi-unit', without(complete(), 'targetCapRate'))).toContain('targetCapRate');
   });
 
   it('every lease must state its own escalation (0 if none); the engine will not assume 3%', () => {

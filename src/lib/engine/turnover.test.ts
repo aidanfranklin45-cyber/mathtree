@@ -59,9 +59,11 @@ describe('the vacant stretch is anchored to the deal\'s own vacancy setting', ()
   });
 
   it('on average it lands at the plain vacancy-rate result less the make-ready charges (the move-outs are the vacancy, not extra)', () => {
-    const turnover = run(building(), {});
+    // Valued by appreciation here, so the exit value does not move with the last year's vacancy: only the operating effect is under test
+    const house = building({ appreciationRate: 3 });
+    const turnover = run(house, {}, 'single-family');
     const withTurnover = turnover.profit.mean;
-    const plain = run(building(), { turnoverPct: 0 }).profit.mean;
+    const plain = run(house, { turnoverPct: 0 }, 'single-family').profit.mean;
     const makeReady = turnover.turnover.avgMoveOutsPerRun * turnover.turnover.makeReadyCost;
     // Costs that do not fall while a space is vacant are carried, so the only difference is the make-ready charge on each move-out
     expect(Math.abs((plain - withTurnover) - makeReady) / plain).toBeLessThan(0.03);

@@ -9,5 +9,7 @@
  *  2026-10-04.1  no hidden defaults: the engine refuses a deal that does not state its inputs; selling costs come off exit proceeds;
  *                loan amortization and maturity are separate; closing date, escalation, reserves, management, payroll and carrying
  *                costs are stated, not assumed
+ *  2026-10-05.1  an apartment building is valued on its income at the exit cap rate (was: appreciation; single-family keeps appreciation);
+ *                other income besides rent is an input (grows with rent, takes vacancy, carries no expense ratio)
  */
-export const ENGINE_VERSION = '2026-10-04.1';
+export const ENGINE_VERSION = '2026-10-05.1';

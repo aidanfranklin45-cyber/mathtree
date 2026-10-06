@@ -25,8 +25,15 @@ describe('deal overview chart data', () => {
     expect(pts[0]).toMatchObject({ year: 0, equity: 250_000, total: 250_000 });
     expect(pts[1]).toMatchObject({ year: 1, equity: 290_000, cumulativeCash: 10_000, total: 300_000 });
     expect(pts[2]).toMatchObject({ year: 2, equity: 330_000, cumulativeCash: 22_000, total: 352_000 });
-    expect(paybackYear(pts, 250_000)).toBe(1);
+    // Equity is not cash back: $300,000 of value built against $250,000 in is not a payback while only $10,000 has been paid to you
+    expect(paybackYear(pts, 250_000)).toBeNull();
     expect(paybackYear(pts, 400_000)).toBeNull();
+    // Cash back counts: $10,000 then $12,000 received covers $15,000 put in during year 2
+    const small = equityGrowth(
+      [{ year: 1, cashFlow: 10_000, propertyValue: 1_030_000, endingLoanBalance: 740_000 }, { year: 2, cashFlow: 12_000, propertyValue: 1_060_000, endingLoanBalance: 730_000 }],
+      1_000_000, 750_000, 15_000,
+    );
+    expect(paybackYear(small, 15_000)).toBe(2);
   });
 
   it('computes coverage each year and leaves it blank for an all-cash deal', () => {

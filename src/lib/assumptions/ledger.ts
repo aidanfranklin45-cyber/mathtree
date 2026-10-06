@@ -128,8 +128,8 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
     if (d.id === 'payroll') return a.assetClass === 'storage';
     if (d.id === 'rentGrowth') return !(Array.isArray(a.prepared.leases) && a.prepared.leases.length > 0) || stated(a.stored, ...KEYS.rentGrowth) !== undefined;
     if (d.id === 'expenseGrowth') return stated(a.prepared, ...d.aliases) !== undefined;
-    if (d.id === 'exit') return a.assetClass === 'commercial' || a.assetClass === 'storage';
-    if (d.id === 'appreciation') return a.assetClass !== 'commercial' && a.assetClass !== 'storage';
+    if (d.id === 'exit') return a.assetClass !== 'single-family';
+    if (d.id === 'appreciation') return a.assetClass === 'single-family';
     if (['taxes', 'insurance', 'maintenance', 'utilities'].includes(d.id)) return nnn || !hasRent || stated(a.stored, ...d.aliases) !== undefined;
     return true;
   };

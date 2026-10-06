@@ -7,7 +7,7 @@ const mine: UnderwritingAssumptions = {
   taxRateRationale: 'My CPA\'s estimate of my marginal rate',
   assets: {
     'multi-unit': {
-      vacancyRate: 6, expenseRatio: 40, rentGrowth: 3, holdingPeriod: 10, appreciationRate: 2.5, sellingCostPercent: 4, closingCostPercent: 2,
+      vacancyRate: 6, expenseRatio: 40, rentGrowth: 3, holdingPeriod: 10, appreciationRate: 2.5, exitCapRate: 6, sellingCostPercent: 4, closingCostPercent: 2,
       managementFeePercent: 7, capexBasis: 'perUnit', capexValue: 300,
       rationale: { vacancyRate: 'Spokane multifamily vacancy 5-7% over my last three years', capexValue: 'Roof and appliances, per my 2025 capital plan' },
     },
@@ -26,7 +26,7 @@ describe('sanitizeAssumptions', () => {
     expect(a.vacancyRate).toBe(6);
     expect(a.expenseRatio).toBeUndefined(); // out of range
     expect(a.rentGrowth).toBeUndefined(); // not a number
-    expect(a.exitCapRate).toBeUndefined(); // multi-unit is valued by appreciation
+    expect(a.exitCapRate).toBe(7); // an apartment building is valued on its income too
     expect(a.capexValue).toBeUndefined(); // an amount with no basis means nothing
     expect(a.rationale).toEqual({ vacancyRate: 'reason' });
   });

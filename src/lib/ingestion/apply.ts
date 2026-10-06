@@ -42,7 +42,7 @@ export interface Variance {
 
 const LABELS: Record<string, string> = {
   purchasePrice: 'Purchase price', closingDate: 'Closing date', closingCosts: 'Closing costs', address: 'Address', city: 'City', state: 'State',
-  zip: 'Zip', primaryApn: 'Parcel number (APN)', squareFeet: 'Square feet', unitCount: 'Unit count', leases: 'Tenants and leases',
+  otherIncomeAnnual: 'Other income (a year)', zip: 'Zip', primaryApn: 'Parcel number (APN)', squareFeet: 'Square feet', unitCount: 'Unit count', leases: 'Tenants and leases',
   leaseType: 'Lease structure', loanAmount: 'Loan amount', downPaymentPercent: 'Down payment (%)', interestRate: 'Interest rate (%)',
   loanTermYears: 'Loan maturity (years)', amortizationYears: 'Amortization (years)', financingType: 'Rate type', interestOnlyYears: 'Interest-only (years)',
   ...TRACKED_INPUTS,

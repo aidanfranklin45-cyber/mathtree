@@ -401,7 +401,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       if (!isRealParcel(a)) a = null;
       const profile = getProfile();
       const isStorage = asset === 'storage';
-      const isIncomeValued = asset === 'commercial' || asset === 'storage';
+      const isIncomeValued = asset !== 'single-family';
       const amort = optInt(w.amort);
       const hold = optInt(w.exitYear);
       const capex = opt(w.capexValue);
@@ -433,10 +433,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         leaseType: w.leaseType || undefined,
         arv: asset === 'single-family' ? arv : undefined,
         vacancyRate: opt(w.vacancy),
+        otherIncomeAnnual: opt(w.other),
         expenseRatio: opt(w.opexRatio), operatingExpenseRatio: opt(w.opexRatio),
         expenseGrowth: opt(w.expenseGrowth), expenseInflation: opt(w.expenseGrowth),
         rentGrowth: opt(w.rentGrowth), annualRentGrowth: opt(w.rentGrowth),
-        // Commercial and storage are valued by capitalising income at exit; the rest by appreciation
+        // Everything but a single-family home is valued by capitalising its income at exit
         ...(isIncomeValued ? { targetCapRate: opt(w.exitCap), targetExitCapRate: opt(w.exitCap) } : { appreciationRate: opt(w.apprec) }),
         sellingCostPercent: opt(w.sellingCost),
         manageProperty: w.manageProperty === 'true',
@@ -1048,7 +1049,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label htmlFor="wiz-other-income" className={lbl}>Other Monthly Income ($)</label>
+            <label htmlFor="wiz-other-income" className={lbl}>Other Income Besides Rent ($ a year)</label>
             <input id="wiz-other-income" type="number" data-field="other" value={w.other} onChange={(e) => set({ other: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm`} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1167,14 +1168,18 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {asset !== 'single-family' && (
           <div className="space-y-1.5">
-            <label htmlFor="wiz-exit-cap" className={lbl}>Target Exit Cap Rate (%)</label>
+            <label htmlFor="wiz-exit-cap" className={lbl}>Exit Cap Rate (%)</label>
             <input id="wiz-exit-cap" type="number" step="0.1" data-field="exitCap" value={w.exitCap} onChange={(e) => set({ exitCap: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
+          )}
+          {asset === 'single-family' && (
           <div className="space-y-1.5">
             <label htmlFor="wiz-appreciation" className={lbl}>Annual Property Appreciation (%)</label>
             <input id="wiz-appreciation" type="number" step="0.1" data-field="apprec" value={w.apprec} onChange={(e) => set({ apprec: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
+          )}
           <div className="space-y-1.5">
             <label htmlFor="wiz-selling" className={lbl}>Selling Costs at Exit (%)</label>
             <input id="wiz-selling" type="number" min={0} max={20} step="any" data-field="sellingCost" value={w.sellingCost} onChange={(e) => set({ sellingCost: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />

@@ -746,6 +746,8 @@ export function calculateProjections(
   const hasValidPostRehabArv = (assetType === 'single-family' || assetType === 'multi-unit') && arv > purchasePrice && (rehabCosts > 0);
   // The exit cap rate is the owner's stated assumption (required for income-valued property; unused for the rest).
   const targetCapRate = stated(inputs, ...KEYS.exitCap) ?? 0;
+  // Income besides rent that the owner keeps (pet fees, parking, late fees): grows with rent, takes vacancy, carries no expense ratio. None unless stated.
+  const otherIncomeAnnual = stated(inputs, ...KEYS.otherIncome) ?? 0;
 
   // Revenue Resolution
   let year1GrossIncome = 0;
@@ -1064,8 +1066,9 @@ export function calculateProjections(
       currentGrossIncome = (!hasExplicitLeases && isStubYear) ? opGross / yearFraction : opGross;
     }
 
-    const vacancyLoss = currentGrossIncome * (vacancyRate / 100);
-    const effectiveGrossIncome = currentGrossIncome - vacancyLoss;
+    const otherIncomeYear = otherIncomeAnnual * Math.pow(1 + rentGrowth / 100, year - 1) * ((isStubYear && hasExplicitLeases) ? yearFraction : 1);
+    const vacancyLoss = (currentGrossIncome + otherIncomeYear) * (vacancyRate / 100);
+    const effectiveGrossIncome = currentGrossIncome + otherIncomeYear - vacancyLoss;
 
     const baselineGrossForOpex = year1GrossIncome > 0 ? year1GrossIncome : currentGrossIncome;
     const inflationMultiplier = expenseGrowth !== undefined ? Math.pow(1 + expenseGrowth / 100, year - 1) : null;
@@ -1167,11 +1170,12 @@ export function calculateProjections(
     const valuationNoi = netOperatingIncome + remodelValueNoi; // run-rate income while a remodel distorts the year's actual NOI
     const isIncomeProducing = ((currentGrossIncome + remodelLostGross) > 0 && valuationNoi > 0);
     let valuedFromIncome = false;
-    if ((assetType === 'commercial' || assetType === 'storage') && isIncomeProducing) {
+    // Everything but single-family is valued on its income at the owner's exit cap rate (the amortized or day-one timing below)
+    if (assetType !== 'single-family' && isIncomeProducing) {
       valuedFromIncome = true;
       const exitCapTiming = inputs.exitCapTiming || 'amortized';
       if (year === 1 || capStillPending) {
-        currentPropertyValue = initialPropertyValue;
+        currentPropertyValue = (assetType === 'multi-unit' && hasValidPostRehabArv) ? arv : initialPropertyValue;
       } else {
         if (exitCapTiming === 'day1' || exitCapTiming === 'immediate') {
           currentPropertyValue = targetCapRate > 0 ? (valuationNoi / (targetCapRate / 100)) : initialPropertyValue;
@@ -1247,6 +1251,7 @@ export function calculateProjections(
       monthlyReceipts,
       propertyValue: Math.round(currentPropertyValue * 100) / 100,
       grossPotentialIncome: Math.round((isStubYear ? appliedGross : currentGrossIncome) * 100) / 100,
+      otherIncome: Math.round((isStubYear && !hasExplicitLeases ? otherIncomeYear * yearFraction : otherIncomeYear) * 100) / 100,
       vacancyLoss: Math.round((isStubYear ? appliedVacancy : vacancyLoss) * 100) / 100,
       effectiveGrossIncome: Math.round((isStubYear ? appliedEGI : effectiveGrossIncome) * 100) / 100,
       operatingExpenses: Math.round((isStubYear ? appliedOpex : operatingExpenses) * 100) / 100,
@@ -1479,8 +1484,9 @@ export function calculateMonthlyProjections(assetType: string, inputs: Record<st
     }
 
     const vacPct = numOr(inputs.vacancyRate ?? inputs.vacancyRatePercent, 5);
-    const monthlyVacancy = monthlyGross * (vacPct / 100);
-    const monthlyEGI = monthlyGross - monthlyVacancy;
+    const monthlyOther = (yearProj.otherIncome || 0) / 12;
+    const monthlyVacancy = (monthlyGross + monthlyOther) * (vacPct / 100);
+    const monthlyEGI = monthlyGross + monthlyOther - monthlyVacancy;
     const monthlyInflation = expenseGrowth !== undefined ? Math.pow(1 + expenseGrowth / 100, Math.max(0, opYear - 1)) : 1;
     let monthlyOpex = 0;
     if (monthlyGross > 0) {

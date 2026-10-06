@@ -53,6 +53,7 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
   const invested = Number(metrics.initialCashInvested ?? metrics.initialEquity ?? 0);
   const growth = useMemo(() => equityGrowth(projections, Number(metrics.purchasePrice) || 0, Number(metrics.loanAmount) || 0, invested), [projections, metrics.purchasePrice, metrics.loanAmount, invested]);
   const payback = useMemo(() => paybackYear(growth, invested), [growth, invested]);
+  const saleNet = useMemo(() => { const v = Number(projections[years - 1]?.exitProceedsNet); return Number.isFinite(v) ? Math.round(v) : null; }, [projections, years]);
   const coverage = useMemo(() => coverageSeries(projections), [projections]);
   const hasDebt = coverage.some((c) => c.debtService > 0);
   const last = growth[growth.length - 1];
@@ -140,9 +141,9 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
           <span className="text-[11px] text-slate-400">{formatCurrency(Math.round(last.equity))} equity + {formatCurrency(Math.round(last.cumulativeCash))} cash received</span>
         </div>
         <div className="bg-slate-900/50 border border-slate-900 rounded-2xl p-4">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Pays back your cash</span>
-          <span className="block text-xl font-black text-white tabular-nums mt-1">{invested <= 0 ? 'No cash in' : payback ? `Year ${payback}` : `After year ${years}`}</span>
-          <span className="text-[11px] text-slate-400">{formatCurrency(Math.round(invested))} at purchase{last.cashIn - invested > 0.5 ? ` + ${formatCurrency(Math.round(last.cashIn - invested))} to cover shortfalls = ${formatCurrency(Math.round(last.cashIn))} in by year ${years}` : ''}</span>
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Cash back from operations</span>
+          <span className="block text-xl font-black text-white tabular-nums mt-1">{invested <= 0 ? 'No cash in' : payback ? `Year ${payback}` : `Not within ${years} years`}</span>
+          <span className="text-[11px] text-slate-400">{formatCurrency(Math.round(last.cumulativeCash))} paid to you by year {years} against {formatCurrency(Math.round(last.cashIn))} put in ({formatCurrency(Math.round(invested))} at purchase{last.cashIn - invested > 0.5 ? ` + ${formatCurrency(Math.round(last.cashIn - invested))} to cover shortfalls` : ''}). {saleNet !== null ? `Selling in year ${years} would return ${formatCurrency(saleNet)} after the loan and selling costs; that is separate from this.` : ''}</span>
         </div>
         <div className="bg-slate-900/50 border border-slate-900 rounded-2xl p-4">
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Tightest loan coverage</span>

@@ -28,7 +28,7 @@ export function seedForm(deal: DealRecord): Form {
     preMonthly = i.storageRentPerUnit ?? i.monthlyRentPerUnit ?? (u && i.grossRentPerMonth ? Math.round(i.grossRentPerMonth / u) : (u && i.monthlyRent ? Math.round(i.monthlyRent / u) : undefined));
     preAnnual = i.grossRentAnnual ?? (preMonthly && u ? preMonthly * u * 12 : undefined);
   }
-  const appRate = a === 'commercial' || a === 'storage' ? (i.targetCapRate ?? i.targetExitCapRate) : i.appreciationRate;
+  const appRate = a !== 'single-family' ? (i.targetCapRate ?? i.targetExitCapRate) : i.appreciationRate;
   const capexIsPercent = i.capexReservePercent !== undefined && i.capexReservePercent !== null && i.capexReservePercent !== '';
 
   return {
@@ -44,6 +44,7 @@ export function seedForm(deal: DealRecord): Form {
     grossRentAnnual: str(preAnnual === undefined ? undefined : Math.round(Number(preAnnual))),
     grossRentMonthly: str(preMonthly === undefined ? undefined : Math.round(Number(preMonthly))),
     vacancyRate: str(i.vacancyRate ?? i.vacancyRatePercent),
+    otherIncome: str(i.otherIncomeAnnual ?? i.otherIncome),
     rentGrowth: str(i.rentGrowth ?? i.annualRentGrowth ?? i.rentGrowthPercent),
     appreciation: str(appRate),
     opexRatio: str(i.expenseRatio ?? i.operatingExpenseRatio),
@@ -124,7 +125,7 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
   const cents = (n: number): number => Math.round(n * 100) / 100;
   const annual = nonNeg(f.grossRentAnnual);
   const monthly = nonNeg(f.grossRentMonthly);
-  const isIncomeValued = a === 'commercial' || a === 'storage';
+  const isIncomeValued = a !== 'single-family';
   const app = opt(f.appreciation);
   const amort = optInt(f.amortization);
   const capex = opt(f.capexValue);
@@ -138,6 +139,7 @@ export function buildInputs(f: Form, deal: DealRecord): Record<string, any> {
     amortizationYears: amort,
     loanTerm: amort,
     loanMaturityYears: optInt(f.maturity),
+    otherIncomeAnnual: opt(f.otherIncome),
     expenseRatio: opt(f.opexRatio),
     operatingExpenseRatio: opt(f.opexRatio),
     expenseGrowth: opt(f.expenseGrowth),

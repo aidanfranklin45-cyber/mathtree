@@ -242,7 +242,8 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     expect(how).toContain('divided by rent 1,450,800');
     const notes = p.patch.notes.join(' | ');
     expect(notes).toContain('management cost (53,522 a year');
-    expect(notes).toContain('34,686 a year of other income'); // pet fees: not a reimbursement of a cost, so not counted
+    expect(p.patch.patch.otherIncomeAnnual).toBe(34686); // pet fees and the like: kept by the owner, so counted as income
+    expect(p.patch.provenance.otherIncomeAnnual.how).toContain('Utility reimbursements are not in it'); // those stay netted against the costs
     expect(notes).toContain('Whether you hire a manager is your decision');
     // the reimbursement is stated as an assumption, with the ratio it would be without it: (281,734 / 1,450,800)
     expect(notes).toContain('Tenant utility reimbursements (such as RUBS) of 103,932 a year are taken off the costs');
@@ -380,7 +381,7 @@ describe('how a profile figure is written next to its reason', () => {
 describe('hiring a property manager changes the underwriting, not just the note', () => {
   const deal = (extra: Record<string, unknown> = {}): Record<string, any> => ({
     purchasePrice: 18400000, closingDate: '2026-01-01', holdingPeriod: 10, discountRate: 8, downPaymentPercent: 25, interestRate: 6.5, amortizationYears: 30,
-    grossRentAnnual: 1450800, vacancyRate: 5, rentGrowth: 3, expenseGrowth: 3, expenseRatio: 18.03, capexReserveAnnual: 16500, appreciationRate: 3, sellingCostPercent: 0,
+    grossRentAnnual: 1450800, vacancyRate: 5, rentGrowth: 3, expenseGrowth: 3, expenseRatio: 18.03, capexReserveAnnual: 16500, appreciationRate: 3, targetCapRate: 6, sellingCostPercent: 0,
     closingCosts: 0, unitCount: 66, ...extra,
   });
   const profile = sanitizeAssumptions({ assets: { 'multi-unit': { usesPropertyManager: true, managementFeePercent: 6 } } });

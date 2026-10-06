@@ -390,6 +390,10 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 <label className={label}>Monthly Rent / Unit ($) <span className="text-slate-600 font-normal">(SFR · Multi · Storage)</span></label>
                 <input type="number" min="0" step="any" value={form.grossRentMonthly} onChange={(e) => set('grossRentMonthly', e.target.value)} disabled={rollMode} className={`${inp2} ${rollMode ? 'opacity-50' : ''}`} />
               </div>
+              <div className="space-y-1">
+                <label className={label} title="Pet fees, parking, late fees and the like that you keep. Not utility reimbursements: those come off your costs.">Other Income Besides Rent ($/yr)</label>
+                <input type="number" min="0" step="any" value={form.otherIncome} onChange={(e) => set('otherIncome', e.target.value)} className={inp2} />
+              </div>
               {asset === 'multi-unit' && (
                 <div className="space-y-1">
                   <label className={label}>Total Apartment Units</label>
@@ -415,7 +419,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 {from('rentGrowth')}
               </div>
               <div className="space-y-1">
-                <label className={label}>{asset === 'commercial' || asset === 'storage' ? 'Exit Cap Rate (%)' : 'Annual Appreciation (%)'}</label>
+                <label className={label}>{asset !== 'single-family' ? 'Exit Cap Rate (%)' : 'Annual Appreciation (%)'}</label>
                 <input type="number" min="0" max="30" step="any" value={form.appreciation} onChange={(e) => set('appreciation', e.target.value)} className={inp2} />
                 {from('appreciation')}
               </div>

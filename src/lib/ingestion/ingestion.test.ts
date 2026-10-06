@@ -120,7 +120,8 @@ describe('buildDealPatch', () => {
     // (14000 + 6000 + 12000 + 8000) / 120000 = 33.33%; reserves and mortgage are excluded
     expect(r.patch.expenseRatio).toBeCloseTo(26.67, 2); // (80,000 less the 16,000 of management, which is your decision) / 240,000
     expect(r.provenance.expenseRatio.reliability).toBe('reported');
-    expect(r.notes.join(' ')).toMatch(/other income/);
+    expect(r.patch.otherIncomeAnnual).toBeGreaterThan(0); // other income is kept by the owner, so it counts as income
+    expect(r.provenance.otherIncomeAnnual.how).toMatch(/other income/);
   });
 
   it('never invents a value: with no documents everything required is missing and nothing is patched', () => {

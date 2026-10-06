@@ -71,6 +71,25 @@ export function cashInSeries(c: ComparisonColumn, years: number): Array<number |
   return out;
 }
 
+/** First year (1-based) the cash the property has paid the owner covers the cash put in so far (shortfalls included). Sale proceeds and equity do not count. */
+export function cashPaybackYear(c: ComparisonColumn, years: number): number | null {
+  const p = projections(c);
+  const cashIn = cashInSeries(c, years);
+  let received = 0;
+  for (let i = 0; i < years && i < p.length; i++) {
+    const cf = num(p[i].cashFlow);
+    if (cf > 0) received += cf;
+    if (received >= (cashIn[i + 1] ?? Infinity)) return i + 1;
+  }
+  return null;
+}
+
+/** What selling at the end of the chart's horizon would return after the loan and selling costs (null when the year is not computed). */
+export function saleProceedsAt(c: ComparisonColumn, years: number): number | null {
+  const row = projections(c)[years - 1];
+  return row && Number.isFinite(Number(row.exitProceedsNet)) ? Math.round(Number(row.exitProceedsNet)) : null;
+}
+
 /** The extra cash, over the chart's horizon, that the owner has to put in to cover years that do not pay their own costs. */
 export function shortfallTotal(c: ComparisonColumn, years: number): number {
   const p = projections(c);

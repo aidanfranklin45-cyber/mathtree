@@ -59,7 +59,7 @@ const FINANCING = new Set(['fixed', 'arm', 'interest_only']);
 
 const DIRECT: Record<string, string> = {
   purchasePrice: 'price', closingDate: 'closingDate', closingCosts: 'closing', downPaymentPercent: 'down', interestRate: 'rate',
-  amortizationYears: 'amort', interestOnlyYears: 'ioYears', expenseRatio: 'opexRatio', vacancyRate: 'vacancy',
+  amortizationYears: 'amort', interestOnlyYears: 'ioYears', expenseRatio: 'opexRatio', vacancyRate: 'vacancy', otherIncomeAnnual: 'other',
   annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
 };
 

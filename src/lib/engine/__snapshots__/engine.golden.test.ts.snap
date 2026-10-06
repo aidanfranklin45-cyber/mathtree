@@ -25,23 +25,23 @@ exports[`math engine (shared, browser-importable) > commercialNNN: headline metr
 
 exports[`math engine (shared, browser-importable) > multiFamily: headline metrics are stable 1`] = `
 {
-  "equityMultiplier": 2.71,
+  "equityMultiplier": 3.31,
   "initialCashInvested": 124000,
-  "irr": 10.7,
+  "irr": 13.64,
   "loanAmount": 460000,
   "ltv": 80,
   "monthlyMortgagePayment": 3060.39,
-  "npv": 36671.36,
+  "npv": 74444.49,
   "projectionYears": 10,
   "year1": {
-    "cashFlow": -4002.7,
+    "cashFlow": 1577.3,
     "debtService": 36724.7,
-    "dscr": 0.9,
-    "noi": 33072,
+    "dscr": 1.05,
+    "noi": 38652,
   },
   "year10": {
     "loanBalanceRemaining": 394736.96,
-    "propertyValue": 750244.58,
+    "propertyValue": 742631.56,
   },
 }
 `;
