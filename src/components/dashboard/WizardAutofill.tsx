@@ -3,7 +3,8 @@ import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import { attachVariances, proposeChanges, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
-import { missingInputsFor, resolveProfileAssumptions } from '../../lib/engine/compute';
+import { resolveProfileAssumptions } from '../../lib/engine/compute';
+import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
 import { managerChoice } from '@engine/underwritingAssumptions';
@@ -67,7 +68,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
   const [reads, setReads] = useState<Read[]>([]);
   const [result, setResult] = useState<{ proposal: Proposal; docs: IntakeDocument[]; filled: number } | null>(null);
   const [open, setOpen] = useState(true);
-  const [details, setDetails] = useState(false);
+  const [details, setDetails] = useState(true); // the disclosures are on show: the owner is here to check the reader's work
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -136,7 +137,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet }) => 
   // What the property still needs once the owner's assumptions are taken into account: the facts only the property can state
   const missing = useMemo(() => {
     if (!result && reads.length === 0 && open) return [];
-    try { return missingInputsFor({ asset_class: deal.asset_class ?? undefined, purchase_price: deal.purchase_price ?? undefined, inputs: deal.inputs ?? {} } as any); } catch { return []; }
+    try { return openQuestions(deal); } catch { return []; }
   }, [deal, result, reads.length, open]);
 
   const choose = (c: ProposedChange, which: string) => {

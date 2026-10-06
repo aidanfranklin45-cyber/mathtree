@@ -6,7 +6,7 @@ import { seedFromAssumptions, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEE
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
-import { missingInputsFor } from '../../lib/engine/compute';
+import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import type { DealRecord } from '../../lib/math/types';
 import { WizardAutofill, type Autofill } from './WizardAutofill';
@@ -522,7 +522,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     const out = new Set<string>();
     if (!filledOnce) return out;
     try {
-      for (const m of missingInputsFor({ asset_class: asset, purchase_price: num(w.price) || undefined, inputs: formAsInputs(w, asset) } as any)) {
+      for (const m of openQuestions({ asset_class: asset, purchase_price: num(w.price) || undefined, inputs: formAsInputs(w, asset) })) {
         const f = FORM_FIELD_FOR_KEY[m.key];
         if (f && f !== 'closingDate') out.add(f);
       }

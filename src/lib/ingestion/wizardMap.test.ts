@@ -4,6 +4,7 @@ import { applyChoices, attachVariances, buildApplication, formatValue, proposeCh
 import { validateIntake } from './validate';
 import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs } from './wizardMap';
 import { missingInputsFor } from '../engine/compute';
+import { openQuestions } from './openQuestions';
 import { managerChoice, sanitizeAssumptions } from '@engine/underwritingAssumptions';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
@@ -340,5 +341,28 @@ describe('one address line', () => {
     const p = proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: formAsInputs({ location: '5101 W Powerhouse Rd, Yakima, WA 98908' }, 'multi-unit') });
     expect(p.changes.some((c) => ['address', 'city', 'state', 'zip'].includes(c.key))).toBe(false);
     expect(p.unchanged.map((u) => u.key)).toContain('address');
+  });
+});
+
+describe('the loan is asked about all at once', () => {
+  const filled = { price: '18400000', multiUnits: '66', multiSqft: '83628', grossRent: '120900', multiGrossRent: '120900', vacancy: '5', opexRatio: '18.03', closingDate: '2026-12-01' };
+  const ask = (form: Record<string, string>) => openQuestions({ asset_class: 'multi-unit', purchase_price: Number(form.price) || undefined, inputs: formAsInputs(form, 'multi-unit') }).filter((m) => m.kind === 'fact').map((m) => m.key);
+
+  it('lists the down payment, the rate and the amortization together when none is known', () => {
+    const keys = ask(filled);
+    expect(keys).toEqual(expect.arrayContaining(['downPaymentPercent', 'interestRate', 'amortizationYears']));
+    expect(keys.indexOf('interestRate')).toBe(keys.indexOf('downPaymentPercent') + 1); // together, in loan order
+  });
+
+  it('does not repeat a loan figure the owner has already given, and stops asking once all is answered', () => {
+    expect(ask({ ...filled, rate: '6.5' })).not.toContain('interestRate');
+    expect(ask({ ...filled, rate: '6.5' })).toEqual(expect.arrayContaining(['downPaymentPercent', 'amortizationYears']));
+    expect(ask({ ...filled, down: '25', rate: '6.5', amort: '30' })).toEqual([]);
+  });
+
+  it('an all-cash purchase (100% down) needs no rate or amortization', () => {
+    const keys = ask({ ...filled, down: '100' });
+    expect(keys).not.toContain('interestRate');
+    expect(keys).not.toContain('amortizationYears');
   });
 });
