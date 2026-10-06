@@ -1257,14 +1257,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         {verifyNudge && needsVerification && !verified && (
-          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Before the project can be created, scroll down to the bottom of the page and confirm that you have read and checked everything.</p>
+          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Almost there. Please scroll down to the bottom of the page and confirm that you have read and checked everything, then create the project.</p>
         )}
         <div className="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
           <button onClick={() => {
             if (needsVerification && !verified) { setVerifyNudge(true); verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
             void submit();
-          }} disabled={submitting}
+          }} disabled={submitting} title={needsVerification && !verified ? 'Please scroll to the bottom of the page and confirm you have reviewed everything first' : undefined}
             className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/20 transition disabled:opacity-60">
             <span>⚡ Create project and run the engine</span>
           </button>
