@@ -216,6 +216,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   };
 
   /** A figure typed by the owner in answer to a question: it goes into the form field it belongs to. */
+  /** Applies one figure the reader was unsure of, after the owner checked the document and chose to use it. */
+  const acceptChange = (proposal: Parameters<typeof applyToForm>[0]['proposal'], key: string) => {
+    const fill = applyToForm({ form: w, asset, proposal, ticked: new Set([key]) });
+    setW(fill.form);
+    setDocExtra((e) => ({ ...e, ...fill.extra }));
+    setSeededBasis((b) => ({ ...b, ...fill.basis }));
+  };
+
   const provide = (key: string, value: string) => {
     if (key === 'address') { set({ location: value }); return; }
     const field = FORM_FIELD_FOR_KEY[key];
@@ -643,7 +651,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       {/* Step 1 */}
       <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
         <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
-        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
+        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
           intake={intake}
           closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)} />
 

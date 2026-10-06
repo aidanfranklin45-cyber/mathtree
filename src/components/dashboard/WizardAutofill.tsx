@@ -42,6 +42,8 @@ interface Props {
   onSet: (key: string, value: string) => void;
   /** The owner answered a question where the sources disagreed: what they decided, for the record. */
   onAnswered: (key: string, label: string, decision: string) => void;
+  /** The owner checked a figure the reader was unsure of and chose to use what was read: apply that one figure to the form. */
+  onAccept: (proposal: Proposal, key: string) => void;
   /** The original files the owner added (and what each was read as), so the project can keep them. Called when the documents are read. */
   onFiles?: (files: Array<{ file: File; type?: string }>) => void;
 }
@@ -60,13 +62,13 @@ function managerFor(deal: Props['deal']): { uses: boolean | null; fee?: number }
 }
 
 /** A figure the owner is asked about: the documents and the owner's own number disagree, or the document is far from their assumption. */
-type Question = { change: ProposedChange; kind: 'variance' | 'replaces' };
+type Question = { change: ProposedChange; kind: 'variance' | 'replaces' | 'unsure' };
 
 /**
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onFiles, profileFigures, intake, closing }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, profileFigures, intake, closing }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
@@ -123,7 +125,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         const proposal = proposeChanges(docs, deal, { assetClass: true, manager: managerFor(deal) });
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
-        const ticked = new Set(proposal.changes.filter((c) => !c.replaces).map((c) => c.key));
+        const ticked = new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure).map((c) => c.key));
         const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
         await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)) });
         setResult({ proposal, docs, filled: ticked.size });
@@ -141,6 +143,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const questions: Question[] = useMemo(() => {
     if (!result) return [];
     return result.proposal.changes.flatMap<Question>((c) => {
+      if (c.unsure && !c.replaces) return [{ change: c, kind: 'unsure' }];
       if (c.variance) return [{ change: c, kind: 'variance' }];
       if (c.replaces && (FORM_FIELD_FOR_KEY[c.key] || c.key === 'address')) return [{ change: c, kind: 'replaces' }];
       return [];
@@ -156,6 +159,14 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   // A question is about an assumption, so its figures carry their unit (a percent, or dollars a year), never a bare number
   const docText = (c: ProposedChange): string => (c.variance && typeof c.value === 'number' ? assumptionText(c.key, c.value) : c.proposed);
   const mineText = (c: ProposedChange): string => (c.variance ? assumptionText(c.key, c.variance.expected) : '');
+
+  // A figure the reader was unsure of: the owner checks the document, then uses what was read or leaves the field to enter themselves
+  const settleUnsure = (c: ProposedChange, useRead: boolean) => {
+    if (useRead && result) onAccept(result.proposal, c.key);
+    const said = useRead ? `${c.proposed} (checked against the document and kept)` : 'left blank for you to enter';
+    setResolved((r) => ({ ...r, [c.key]: said }));
+    onAnswered(c.key, c.label, said);
+  };
 
   const choose = (c: ProposedChange, which: string) => setPicked((p) => ({ ...p, [c.key]: which }));
 
@@ -330,7 +341,16 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
             ) : (
               <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
                 <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
-                {kind === 'variance' && c.variance ? (
+                {kind === 'unsure' ? (
+                  <>
+                    <span className="block text-amber-200">The reader was not sure of this figure ({Math.round((c.confidence ?? 0) * 100)}% sure): it read <span className="font-bold">{c.proposed}</span>.{c.evidence ? <> From the document: <span className="italic">"{c.evidence}"</span></> : null}</span>
+                    <span className="block text-slate-400">Please check the document at this spot. If several figures could be the one, this is a judgment only you can make.</span>
+                    <span className="flex flex-wrap gap-2 pt-1">
+                      <button type="button" onClick={() => settleUnsure(c, true)} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold">I checked it: use what was read</button>
+                      <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
+                    </span>
+                  </>
+                ) : kind === 'variance' && c.variance ? (
                   <>
                     <span className="block text-amber-200">The document says {docText(c)}; your assumption is {mineText(c)}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
                     <span className="flex flex-wrap items-center gap-3">
@@ -356,8 +376,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                   </>
                 )}
                 <span className="block text-slate-500 italic">{c.how}</span>
-                <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
+                {kind !== 'unsure' && (
+                  <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
+                )}
               </div>
             )
           ))}

@@ -11,6 +11,9 @@ import { buildDealPatch, type DealPatch } from './toDealInputs';
 import { reconcileBasis, TRACKED_INPUTS, type InputBasis } from '@engine/underwritingAssumptions';
 import { ASSET_LABEL, deduceAsset, type WizardAsset } from './wizardMap';
 
+/** Below this the reader's own confidence in a figure is too low to apply it without the owner checking the document. */
+export const LOW_CONFIDENCE = 0.75;
+
 export interface ProposedChange {
   key: string;
   label: string;
@@ -25,6 +28,11 @@ export interface ProposedChange {
   also?: Array<{ key: string; value: unknown }>;
   /** The deal already states a different value for this: ticking it replaces the owner's figure. */
   replaces: boolean;
+  /** How sure the reader was (0 to 1), and the quote it read the figure from. */
+  confidence?: number;
+  evidence?: string;
+  /** The reader was not sure of this figure: it is not applied until the owner has checked the document. */
+  unsure?: boolean;
   /** The document's figure is far from what the owner's own assumption would be: the owner is asked which to use. */
   variance?: Variance;
 }
@@ -162,6 +170,9 @@ export function proposeChanges(
       reliability: prov?.reliability ?? 'reported',
       value,
       replaces: stated,
+      ...(prov?.confidence !== undefined ? { confidence: prov.confidence } : {}),
+      ...(prov?.evidence ? { evidence: prov.evidence } : {}),
+      ...(prov?.confidence !== undefined && prov.confidence < LOW_CONFIDENCE && !stated ? { unsure: true } : {}),
     });
   }
   // One address, shown once: street, city, state and zip are one line. A form that already holds this address is not asked about it again.

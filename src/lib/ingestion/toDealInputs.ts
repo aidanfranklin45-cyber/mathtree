@@ -22,7 +22,14 @@ export interface FieldProvenance {
   reliability: Reliability;
   /** How the value was arrived at, in one line, for the review screen. */
   how: string;
+  /** How sure the reader was of the figure (0 to 1): the weakest of the document fields it was built from. Absent when no field reported one. */
+  confidence?: number;
+  /** A verbatim quote from the document at the spot the figure was read. */
+  evidence?: string;
 }
+
+/** The reader's own confidence and quote for a field it returned. */
+type Reading = { confidence: number; evidence?: string } | null | undefined;
 
 export interface DealPatch {
   /** Merged into the deal's inputs when the owner confirms. Engine-read keys only. */
@@ -78,13 +85,18 @@ class Builder {
   manager?: { uses: boolean | null; fee?: number };
 
   /** Set a key unless a more reliable document already set it. */
-  set(key: string, value: unknown, doc: IntakeDocument, how: string): void {
+  set(key: string, value: unknown, doc: IntakeDocument, how: string, readings: Reading[] = []): void {
     if (value === null || value === undefined || (typeof value === 'number' && !Number.isFinite(value))) return;
     const reliability = reliabilityOf(doc);
     const existing = this.provenance[key];
     if (existing && RANK[existing.reliability] >= RANK[reliability]) return;
     this.patch[key] = value;
-    this.provenance[key] = { documentType: doc.documentType, reliability, how };
+    const known = readings.filter((r): r is { confidence: number; evidence?: string } => !!r);
+    this.provenance[key] = {
+      documentType: doc.documentType, reliability, how,
+      ...(known.length > 0 ? { confidence: Math.min(...known.map((r) => r.confidence)) } : {}),
+      ...(known.some((r) => r.evidence) ? { evidence: known.find((r) => r.evidence)!.evidence } : {}),
+    };
   }
 
   claim(key: string, value: number | null, doc: IntakeDocument, how: string): void {
@@ -195,6 +207,7 @@ const ITEM_KEYS: Partial<Record<ExpenseCategory, [string, string]>> = {
  */
 function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc: IntakeDocument, leasesEmitted: boolean): void {
   const t = statementTotals(stmt);
+  const rentReadings: Reading[] = stmt.income.filter((l) => val(l.category) === 'rent').flatMap((l) => [l.amount, l.category]);
   const source = doc.documentType === 'offering_memorandum' ? "offering memorandum (the seller's current column)" : 'operating statement';
   for (const [category, [key, label]] of Object.entries(ITEM_KEYS) as Array<[ExpenseCategory, [string, string]]>) {
     const lines = stmt.expenses.filter((l) => val(l.category) === category && val(l.amount) !== null);
@@ -228,7 +241,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
       .sort((x, y) => (y[1] as number) - (x[1] as number))
       .map(([cat, v]) => `${NAMES[cat as ExpenseCategory] ?? cat} ${Math.round(v as number).toLocaleString()}`)
       .join(', ');
-    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`);
+    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`, [...rentReadings, ...stmt.expenses.flatMap((l) => [l.amount, l.category])]);
   }
   // The reimbursement is an assumption in its own right: it lowers the ratio only for as long as tenants keep paying it back
   if (reimbursed > 0 && costs > 0 && t.income.rent > 0) {
@@ -246,13 +259,13 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   if (reserves > 0) b.notes.push(`The replacement reserve (${Math.round(reserves).toLocaleString()} a year) is applied on its own, so it is not part of the expense ratio.`);
   if (notApplied > 0.5) b.notes.push(`Not applied: ${Math.round(notApplied).toLocaleString()} of debt service or depreciation, which are not operating expenses.`);
   // Other income (pet fees, miscellaneous) is kept by the owner, so it counts as income. Utility reimbursements (RUBS) and tenant recoveries are not in it: they were taken off the costs above.
-  if (t.income.other_income > 0) b.set('otherIncomeAnnual', round2(t.income.other_income), doc, `${source === 'operating statement' ? 'The statement' : "The seller's figures"} show other income of ${Math.round(t.income.other_income).toLocaleString()} a year (pet fees and the like). It grows with rent and is reduced by vacancy. Utility reimbursements are not in it: they are taken off the costs.`);
+  if (t.income.other_income > 0) b.set('otherIncomeAnnual', round2(t.income.other_income), doc, `${source === 'operating statement' ? 'The statement' : "The seller's figures"} show other income of ${Math.round(t.income.other_income).toLocaleString()} a year (pet fees and the like). It grows with rent and is reduced by vacancy. Utility reimbursements are not in it: they are taken off the costs.`, stmt.income.filter((l) => val(l.category) === 'other_income').flatMap((l) => [l.amount, l.category]));
   if (t.income.vacancy_credit_loss > 0 && t.income.rent > 0) {
     const vacancy = round2((t.income.vacancy_credit_loss / t.income.rent) * 100);
     if (leasesEmitted) {
       b.notes.push(`The statement shows ${vacancy}% vacancy and credit loss. Vacancy is not applied: rent comes from the occupied leases, and applying it again would double-count.`);
     } else {
-      b.set('vacancyRate', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)');
+      b.set('vacancyRate', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)', [...rentReadings, ...stmt.income.filter((l) => val(l.category) === 'vacancy_credit_loss').map((l) => l.amount)]);
     }
   }
   // No leases and no unit mix gave a rent: the gross potential rent in the income table is the in-place rent. It is only taken when it is
@@ -261,11 +274,11 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   if (!leasesEmitted && b.patch.grossRentPerMonth === undefined && t.income.rent > 0 && grossBeforeVacancy) {
     const monthly = round2(t.income.rent / 12);
     const how = `The income table in the ${source}: gross potential rent ${Math.round(t.income.rent).toLocaleString()} a year, divided by 12 (before vacancy)`;
-    b.set('grossRentPerMonth', monthly, doc, how);
-    b.set('monthlyRent', monthly, doc, how);
-    b.set('grossRentAnnual', round2(t.income.rent), doc, how);
+    b.set('grossRentPerMonth', monthly, doc, how, rentReadings);
+    b.set('monthlyRent', monthly, doc, how, rentReadings);
+    b.set('grossRentAnnual', round2(t.income.rent), doc, how, rentReadings);
     const units = Number(b.patch.unitCount);
-    if (units > 0) b.set('monthlyRentPerUnit', round2(monthly / units), doc, how);
+    if (units > 0) b.set('monthlyRentPerUnit', round2(monthly / units), doc, how, rentReadings);
   }
   if (stmt.documentType === 'operating_statement') b.claim('reportedNoi', val(stmt.reportedNoi), doc, 'NOI printed on the statement (seller figure)');
 }
@@ -274,6 +287,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
 function applyUnitMix(b: Builder, doc: OfferingMemorandumIntake, leasesEmitted: boolean): void {
   const rows = doc.unitMix.map((r) => ({ count: val(r.unitCount), current: val(r.currentMonthlyRent), market: val(r.marketMonthlyRent) })).filter((r) => r.count !== null && r.count > 0);
   const priced = rows.filter((r) => r.current !== null);
+  const mixReadings: Reading[] = doc.unitMix.filter((r) => val(r.unitCount) !== null && val(r.currentMonthlyRent) !== null).flatMap((r) => [r.unitCount, r.currentMonthlyRent]);
   const units = rows.reduce((s, r) => s + (r.count as number), 0);
   if (units > 0 && val(doc.unitCount) === null) b.set('unitCount', units, doc, 'Sum of the unit mix in the offering memorandum');
   if (priced.length === 0) return;
@@ -283,10 +297,10 @@ function applyUnitMix(b: Builder, doc: OfferingMemorandumIntake, leasesEmitted: 
     b.notes.push('The offering memorandum\'s unit mix rents were not applied: rent comes from the leases that were read.');
   } else {
     const how = `Current rents in the offering memorandum's unit mix (${pricedUnits} units, average ${Math.round(monthly / pricedUnits).toLocaleString()} a month)`;
-    b.set('grossRentPerMonth', monthly, doc, how);
-    b.set('monthlyRent', monthly, doc, how);
-    b.set('grossRentAnnual', round2(monthly * 12), doc, how);
-    b.set('monthlyRentPerUnit', round2(monthly / pricedUnits), doc, how);
+    b.set('grossRentPerMonth', monthly, doc, how, mixReadings);
+    b.set('monthlyRent', monthly, doc, how, mixReadings);
+    b.set('grossRentAnnual', round2(monthly * 12), doc, how, mixReadings);
+    b.set('monthlyRentPerUnit', round2(monthly / pricedUnits), doc, how, mixReadings);
   }
   const withMarket = priced.filter((r) => r.market !== null);
   if (withMarket.length === priced.length) {
@@ -388,14 +402,14 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
         b.set('state', val(doc.state), doc, 'Offering memorandum');
         b.set('zip', val(doc.zip), doc, 'Offering memorandum');
         b.set('primaryApn', val(doc.apn), doc, 'Parcel number in the offering memorandum');
-        b.set('squareFeet', val(doc.squareFeet), doc, 'Offering memorandum');
-        b.set('unitCount', val(doc.unitCount), doc, 'Offering memorandum');
-        b.set('yearBuilt', val(doc.yearBuilt), doc, 'Year built in the offering memorandum');
+        b.set('squareFeet', val(doc.squareFeet), doc, 'Offering memorandum', [doc.squareFeet]);
+        b.set('unitCount', val(doc.unitCount), doc, 'Offering memorandum', [doc.unitCount]);
+        b.set('yearBuilt', val(doc.yearBuilt), doc, 'Year built in the offering memorandum', [doc.yearBuilt]);
         const lotSf = val(doc.lotSqFt);
-        b.set('acres', val(doc.lotAcres) ?? (lotSf !== null && lotSf > 0 ? round2(lotSf / 43560) : null), doc, 'Land area in the offering memorandum');
+        b.set('acres', val(doc.lotAcres) ?? (lotSf !== null && lotSf > 0 ? round2(lotSf / 43560) : null), doc, 'Land area in the offering memorandum', [val(doc.lotAcres) !== null ? doc.lotAcres : doc.lotSqFt]);
         // The list price is the natural starting price for a prospect, but it is the seller's number: it is offered, not assumed, and a
         // price the owner already typed always wins
-        if (!ctx.purchasePrice) b.set('purchasePrice', val(doc.askingPrice), doc, "The seller's list price in the offering memorandum");
+        if (!ctx.purchasePrice) b.set('purchasePrice', val(doc.askingPrice), doc, "The seller's list price in the offering memorandum", [doc.askingPrice]);
         applyUnitMix(b, doc, leases.length > 0);
         // The memorandum's income and expense table is the seller's own account of the property: read like a statement, trusted like a claim
         if (doc.income.length > 0 || doc.expenses.length > 0) {
@@ -412,10 +426,10 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
         if (leases.length === 0 && b.patch.grossRentPerMonth === undefined && avgCurrent !== null && unitsForRent > 0) {
           const monthly = round2(avgCurrent * unitsForRent);
           const how = `Average current rent stated in the offering memorandum (${Math.round(avgCurrent).toLocaleString()} a month) x ${unitsForRent} units`;
-          b.set('grossRentPerMonth', monthly, doc, how);
-          b.set('monthlyRent', monthly, doc, how);
-          b.set('grossRentAnnual', round2(monthly * 12), doc, how);
-          b.set('monthlyRentPerUnit', round2(avgCurrent), doc, how);
+          b.set('grossRentPerMonth', monthly, doc, how, [doc.averageCurrentRent, doc.unitCount]);
+          b.set('monthlyRent', monthly, doc, how, [doc.averageCurrentRent, doc.unitCount]);
+          b.set('grossRentAnnual', round2(monthly * 12), doc, how, [doc.averageCurrentRent, doc.unitCount]);
+          b.set('monthlyRentPerUnit', round2(avgCurrent), doc, how, [doc.averageCurrentRent, doc.unitCount]);
         }
         // The broker's numbers are claims. They are shown next to the engine's result and never become inputs.
         // The list price is shown as a claim only when it was not used (the owner's own price, or a contract's, took its place)

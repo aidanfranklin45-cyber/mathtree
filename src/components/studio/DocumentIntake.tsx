@@ -109,7 +109,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   // Everything starts ticked except what would replace a figure the owner already states: that is their call
   const proposalKey = proposal?.changes.map((c) => c.key).join('|') ?? '';
   useEffect(() => {
-    setTicked(new Set((proposal?.changes ?? []).filter((c) => !c.replaces).map((c) => c.key)));
+    setTicked(new Set((proposal?.changes ?? []).filter((c) => !c.replaces && !c.unsure).map((c) => c.key)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proposalKey]);
 
@@ -245,6 +245,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
                     <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
                     <span className="text-sm font-black text-emerald-400">{c.proposed}</span>
                     {c.current !== null && <span className="text-[11px] text-slate-400"> (now {c.current})</span>}
+                    {c.unsure && <span className="block mt-1 text-[11px] text-amber-300">The reader was not sure of this figure ({Math.round((c.confidence ?? 0) * 100)}%){c.evidence ? `: "${c.evidence}"` : ''}. Check the document before you tick it.</span>}
                     {c.variance && (
                       <span className="block mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200" onClick={(e) => e.preventDefault()}>
                         <span className="font-bold block">Differs from your assumption: yours is {c.variance.expectedText}, this document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.</span>
