@@ -19,7 +19,7 @@ export interface Autofill {
   ticked: Set<string>;
   docs: IntakeDocument[];
   /** The documents that were read, for the record of where the figures came from. */
-  documents: Array<{ name: string; type: string }>;
+  documents: Array<{ name: string; type: string; model?: string }>;
 }
 
 /** A figure the owner's investor profile supplied, with the reason the owner gave for it. */
@@ -122,7 +122,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
         const ticked = new Set(proposal.changes.filter((c) => !c.replaces).map((c) => c.key));
-        const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType }] : []));
+        const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
         await onAutofill({ proposal, ticked, docs, documents });
         setResult({ proposal, docs, filled: ticked.size });
       }

@@ -76,7 +76,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    const ask = () => generateJsonDetailed({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text) });
+    // The document itself fixes which model reads it first, so reading the same document again gives the same answer
+    const ask = () => generateJsonDetailed({ system: buildSystemPrompt(), user: buildExtractionPrompt(documentType, redaction.text), orderSeed: redaction.text });
     let answered = await ask();
     let parsed = parseModelJson(answered.text);
     // An answer that is not JSON is rare and usually does not repeat: ask once more if there is time left in the request

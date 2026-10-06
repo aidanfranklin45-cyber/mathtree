@@ -166,6 +166,20 @@ export function modelPool(): string[] {
  * The order to try the pool in: shuffled, so no single model's quota carries the load (AI_MODEL_ORDER=listed keeps the listed order),
  * with models that are cooling down put last.
  */
+/** A repeatable stream of numbers from a text: the same text always gives the same sequence (FNV-1a hash, then mulberry32). */
+export function seededRandom(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function orderModels(pool: string[], opts: { random?: () => number; now?: number; listed?: boolean } = {}): string[] {
   const random = opts.random ?? Math.random;
   const now = opts.now ?? Date.now();
@@ -216,7 +230,7 @@ export interface ModelReply {
  * with no waiting and no repeat requests (every request counts against a free tier). With a single model in the pool one retry is made
  * after a short pause. A setup problem (credentials, billing, a bad request) fails at once.
  */
-export async function generateJsonDetailed(args: { system: string; user: string; timeoutMs?: number }): Promise<ModelReply> {
+export async function generateJsonDetailed(args: { system: string; user: string; timeoutMs?: number; /** Text that fixes the model order: the same text is always tried on the same models in the same order. */ orderSeed?: string }): Promise<ModelReply> {
   // Secrets pasted into a dashboard often carry quotes, spaces or a "Bearer " prefix; none of those belong in the value
   const clean = (v: string) => v.trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '').trim();
   const base = clean(env('AI_GATEWAY_URL'));
@@ -227,7 +241,7 @@ export async function generateJsonDetailed(args: { system: string; user: string;
   const byokAlias = clean(env('AI_BYOK_ALIAS')) || undefined;
 
   const pool = modelPool();
-  const queue = orderModels(pool);
+  const queue = orderModels(pool, args.orderSeed ? { random: seededRandom(args.orderSeed) } : {});
   // A single-model pool gets one more go at the same model, since there is no other to turn to
   const attempts = pool.length === 1 ? [pool[0], pool[0]] : queue.slice(0, MAX_MODELS_PER_CALL);
   const started = Date.now();

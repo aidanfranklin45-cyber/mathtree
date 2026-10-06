@@ -7,7 +7,7 @@
  * Anything the owner simply typed, with no document or profile behind it, is theirs by default and is not listed.
  */
 
-export interface RecordedDocument { name: string; type: string }
+export interface RecordedDocument { name: string; type: string; /** The model that read it. */ model?: string }
 
 export interface DocumentFigure {
   key: string;
@@ -80,7 +80,7 @@ export function buildIntakeRecord(args: {
   return {
     version: 1,
     recordedAt: (args.now ?? new Date()).toISOString(),
-    documents: args.documents.slice(0, 20).map((d) => ({ name: cut(d.name, 120), type: d.type })),
+    documents: args.documents.slice(0, 20).map((d) => ({ name: cut(d.name, 120), type: d.type, ...(d.model ? { model: cut(d.model, 80) } : {}) })),
     figures: figures.slice(0, 80),
     claims: args.claims.slice(0, 20).map((c) => ({ label: cut(c.how, 160), value: c.value })),
     notes: args.notes.slice(0, 20).map((n) => cut(n, 500)),

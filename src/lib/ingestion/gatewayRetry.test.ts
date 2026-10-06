@@ -92,3 +92,14 @@ describe('the model pool', () => {
     expect(calls).toHaveLength(2);
   });
 });
+
+describe('a document is read by the same model every time', () => {
+  const pool = ['m-one', 'm-two', 'm-three', 'm-four', 'm-five'];
+  it('gives the same order for the same text, and spreads different texts over the pool', async () => {
+    const { seededRandom } = await import('@engine/aiGateway');
+    const orderFor = (text: string) => orderModels(pool, { random: seededRandom(text), listed: false });
+    expect(orderFor('Cowiche Creek offering memorandum')).toEqual(orderFor('Cowiche Creek offering memorandum'));
+    const firsts = new Set(Array.from({ length: 40 }, (_, i) => orderFor(`document number ${i}`)[0]));
+    expect(firsts.size).toBeGreaterThan(1);
+  });
+});
