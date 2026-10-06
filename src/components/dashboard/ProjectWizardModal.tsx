@@ -138,6 +138,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [verified, setVerified] = useState(false);
   // Pressing Create before confirming: say what is missing and bring the confirmation into view
   const [verifyNudge, setVerifyNudge] = useState(false);
+  // How the county parcel was found, kept with the project so the Assumptions tab can say so
+  const parcelHow = useRef<{ method: 'picked' | 'apn' | 'address'; addressesChecked: string[] } | null>(null);
   const verifyRef = useRef<HTMLLabelElement | null>(null);
   // The closing date the investor profile filled in (and the weeks it used), so it can be told apart from a date the owner entered
   const [closingFilled, setClosingFilled] = useState<{ date: string; weeks: number } | null>(null);
@@ -315,6 +317,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
     set(patch);
     setAddrOpen(false);
+    parcelHow.current = { method: 'picked', addressesChecked: [] };
     try {
       const data = await AddressService.resolveParcelDetails(item);
       if (!data) return;
@@ -414,6 +417,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       if (!isRealParcel(a)) {
         const found = await findParcels({ apn: String(docExtra.primaryApn ?? ''), location: w.location });
         a = found.primary;
+        if (found.method) parcelHow.current = { method: found.method, addressesChecked: found.addressesChecked };
         // Other parcels the owner has to decide about: other street numbers that lead to a different parcel, and parcels next door with the same
         // owner. Nothing is included silently: the owner chooses which belong to the project, then presses Create again.
         if (a) {
@@ -496,6 +500,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         assessorData: a || null,
         parcels: parcels.length ? parcels : a ? [a] : [],
         // "Synced" only when a county record was actually found; the deal page tries the county again when it is not
+        ...(a ? { parcelSource: { method: parcelHow.current?.method ?? 'picked', addressesChecked: (parcelHow.current?.addressesChecked ?? []).length > 1 ? parcelHow.current?.addressesChecked : undefined, foundAt: new Date().toISOString() } } : {}),
         ...(a ? { gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: a.source || 'county_arcgis', status: 'active' } } : {}),
         financingType: w.financingType,
         armInitialYears: optInt(w.armInitial), armAdjustmentRate: opt(w.armRate), armRateCap: opt(w.armCap),

@@ -59,7 +59,8 @@ export const DealStudioPage: React.FC = () => {
   React.useEffect(() => {
     if (deal) {
       import('../lib/services/gisSyncService').then(({ syncDealCountyGisInBackground }) => {
-        syncDealCountyGisInBackground(deal);
+        // When the county record was refreshed it is saved; read the deal again so the page shows it now, not on the next visit
+        void syncDealCountyGisInBackground(deal).then((changed) => { if (changed) void loadDeal(); });
       });
     }
   }, [deal?.id]);

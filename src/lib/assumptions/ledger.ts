@@ -179,5 +179,43 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
   if (a.stored.leaseType) rows.push({ id: 'lease', label: 'Lease structure', value: String(a.stored.leaseType), effect: nnn ? 'Tenants pay the building\'s costs, so the landlord\'s expense ratio is small' : undefined, group: 'project', mode: 'entered', source: 'Your entry for this property' });
   if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: `${money(Number(a.prepared.grossRentAnnual))} a year`, group: 'project', mode: 'entered', source: Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? `${a.stored.leases.length} lease${a.stored.leases.length === 1 ? '' : 's'} on this property` : 'Your entry for this property' });
 
+  // Where the address and the county parcel came from, so the owner can see how this property was identified
+  const rec: any = a.stored.intakeRecord;
+  const src: any = a.stored.parcelSource;
+  const address = String(a.stored.propertyAddress ?? a.stored.address ?? '').trim();
+  if (address) {
+    const fig = Array.isArray(rec?.figures) ? rec.figures.find((f: any) => f.key === 'address') : undefined;
+    const docName = rec?.documents?.[0]?.name;
+    rows.unshift({
+      id: 'address', label: 'Property address', value: address, group: 'project',
+      mode: fig?.source === 'document' ? 'document' : 'entered',
+      effect: fig?.source === 'owner' ? fig.how : undefined,
+      source: fig?.source === 'document' ? `From your documents${docName ? ` (${docName})` : ''}`
+        : fig?.source === 'owner' ? 'Your entry (it replaced what the document said)'
+        : src?.method === 'picked' ? 'You picked it from the county address list'
+        : 'Your entry for this property',
+    });
+  }
+  const apn = String(a.stored.primaryApn ?? a.stored.apn ?? '').trim();
+  if (apn) {
+    const assessor: any = a.stored.assessorData ?? {};
+    const owner = String(a.stored.owner ?? assessor.owner ?? '').trim();
+    const assessed = Number(a.stored.totalAssessedValue ?? assessor.totalAssessedValue);
+    const acres = Number(a.stored.acres ?? assessor.acres);
+    const included = Array.isArray(a.stored.parcels) ? a.stored.parcels.filter((p: any) => p && p.included !== false).length : 1;
+    const checked: string[] = Array.isArray(src?.addressesChecked) ? src.addressesChecked : [];
+    rows.splice(address ? 1 : 0, 0, {
+      id: 'parcel', label: 'County parcel', value: apn,
+      effect: [owner && `Owner of record: ${owner}`, assessed > 0 && `${money(assessed)} assessed`, acres > 0 && `${acres} acres`, included > 1 && `${included} parcels in this project`, checked.length > 1 && `${checked.length} street numbers checked`].filter(Boolean).join(' · ') || undefined,
+      group: 'project', mode: 'document',
+      source: src?.method === 'apn' ? "Found in the county's records by the parcel number in your documents"
+        : src?.method === 'address' ? "Found in the county's records by the street address"
+        : src?.method === 'picked' ? 'You picked it from the county address list'
+        : "From the county's records",
+    });
+  } else if (address) {
+    rows.splice(1, 0, { id: 'parcel', label: 'County parcel', value: 'Not found yet', effect: 'No county record matched this address, so no county figures are used. It is checked again when the deal page opens.', group: 'project', mode: 'assumed', source: "The county's records have not been matched" });
+  }
+
   return rows;
 }

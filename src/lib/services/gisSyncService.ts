@@ -29,6 +29,10 @@ export function isGisSyncNeeded(deal: DealRecord | Record<string, any>): boolean
     return false;
   }
 
+  // A county record saved before the building figures covered every building on the parcel is read again, whatever its age
+  const saved = deal.inputs.assessorData;
+  if (saved && saved.source === 'yakima_county_assessor' && (Number(saved.recordVersion) || 0) < 2) return true;
+
   const lastSyncedAt = deal.inputs.gisSync?.lastSyncedAt;
   if (!lastSyncedAt) return true;
 
@@ -116,6 +120,10 @@ export async function syncDealCountyGisInBackground(
       if (freshAssessor.marketImprovementValue) {
         updatedInputs.marketImprovementValue = freshAssessor.marketImprovementValue;
       }
+      // The building facts too: the engine reads the building area (for carrying costs), so an out-of-date one must not stay behind
+      if (freshAssessor.buildingSqFt) updatedInputs.buildingSqFt = freshAssessor.buildingSqFt;
+      if (freshAssessor.stories) updatedInputs.stories = freshAssessor.stories;
+      if (freshAssessor.yearBuilt) updatedInputs.yearBuilt = freshAssessor.yearBuilt;
     }
 
     // Persist to Supabase deals table

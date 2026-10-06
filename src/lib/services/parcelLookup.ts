@@ -55,27 +55,30 @@ async function parcelForAddress(address: string): Promise<any | null> {
  * different parcels the other numbers lead to. Several numbers on one parcel are one parcel, not several. Never throws: a project is
  * created either way, and the deal page tries the county again later.
  */
-export async function findParcels(args: { apn?: string | null; location?: string | null }): Promise<{ primary: any | null; others: any[] }> {
+export async function findParcels(args: { apn?: string | null; location?: string | null }): Promise<{ primary: any | null; others: any[]; method: 'apn' | 'address' | null; addressesChecked: string[] }> {
   const service: any = AddressService;
   const location = String(args.location ?? '').trim();
   const county = countyFromText(location);
   const found: any[] = [];
-  const add = (d: any) => { if (d && !found.some((f) => digitsOf(f.apn) === digitsOf(d.apn))) found.push(d); };
+  let method: 'apn' | 'address' | null = null;
+  let addressesChecked: string[] = [];
+  const add = (d: any, how: 'apn' | 'address') => { if (d && !found.some((f) => digitsOf(f.apn) === digitsOf(d.apn))) { found.push(d); if (found.length === 1) method = how; } };
   try {
     const digits = digitsOf(args.apn);
     if (digits && county) {
       const byApn = await withTimeout(service.resolveParcelDetails({ apn: digits, county }), 12_000);
-      if (isRealParcel(byApn)) add(byApn);
+      if (isRealParcel(byApn)) add(byApn, 'apn');
     }
     if (location.length >= 6) {
       const addresses = expandAddressRange(location);
+      addressesChecked = addresses;
       const results = await Promise.all(addresses.map((a) => parcelForAddress(a).catch(() => null)));
-      results.forEach(add);
+      results.forEach((d) => add(d, 'address'));
     }
   } catch (e) {
     console.warn('[parcelLookup] county lookup failed:', e);
   }
-  return { primary: found[0] ?? null, others: found.slice(1) };
+  return { primary: found[0] ?? null, others: found.slice(1), method, addressesChecked };
 }
 
 /** The first parcel found for a property, or null. */

@@ -1106,6 +1106,8 @@ const factory = function () {
         // Building Structural Specs
         yearBuilt: rawYearBuilt,
         effectiveYearBuilt: rawEffYear,
+        // 2 = building figures cover every building on the parcel (1 = first record only)
+        recordVersion: 2,
         latestYearBuilt,
         buildingCount,
         buildingNote,
