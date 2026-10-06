@@ -165,6 +165,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     try { return openQuestions(deal); } catch { return []; }
   }, [deal, result, reads.length, open]);
 
+  // A question is about an assumption, so its figures carry their unit (a percent, or dollars a year), never a bare number
+  const docText = (c: ProposedChange): string => (c.variance && typeof c.value === 'number' ? assumptionText(c.key, c.value) : c.proposed);
+  const mineText = (c: ProposedChange): string => (c.variance ? assumptionText(c.key, c.variance.expected) : '');
+
   const choose = (c: ProposedChange, which: string) => setPicked((p) => ({ ...p, [c.key]: which }));
 
   // What the form holds for this figure right now. If the owner has changed it since the document filled it in, that number is theirs and
@@ -189,10 +193,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       said = `${Number.isFinite(Number(v)) && c.variance ? unit(Number(v)) : v} (your own number)`;
     } else if (which === 'mine' && c.variance) {
       onSet(c.key, String(c.variance.expected));
-      said = `${c.variance.expectedText} (your assumption)`;
+      said = `${mineText(c)} (your assumption)`;
     } else if (which === 'doc') {
       onSet(c.key, String(c.value));
-      said = `${c.proposed} (from the document)`;
+      said = `${docText(c)} (from the document)`;
     } else {
       const mine = inForm(c);
       said = `${mine !== undefined && c.variance ? unit(mine) : (mine ?? c.current)} (what you entered)`;
@@ -336,11 +340,11 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                 <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
                 {kind === 'variance' && c.variance ? (
                   <>
-                    <span className="block text-amber-200">The document says {c.proposed}; your assumption is {c.variance.expectedText}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
+                    <span className="block text-amber-200">The document says {docText(c)}; your assumption is {mineText(c)}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
                     <span className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'doc'} onChange={() => choose(c, 'doc')} />Document's ({c.proposed})</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'doc'} onChange={() => choose(c, 'doc')} />Document's ({docText(c)})</label>
                       {changedInForm(c) && <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'keep'} onChange={() => choose(c, 'keep')} />What I entered ({assumptionText(c.key, inForm(c) as number)})</label>}
-                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'mine'} onChange={() => choose(c, 'mine')} />My assumption ({c.variance.expectedText})</label>
+                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'mine'} onChange={() => choose(c, 'mine')} />My assumption ({mineText(c)})</label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
                         <input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'own'} onChange={() => choose(c, 'own')} />
                         My own

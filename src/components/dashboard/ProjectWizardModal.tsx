@@ -609,9 +609,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       if (b.source !== 'profile' || b.value === undefined) return [];
       const field = PROFILE_FIELD[key];
       if (!field || Number(w[field]) !== b.value) return [];
+      // Apartments, commercial and storage are valued at the exit cap rate, so appreciation does not apply to them and is not listed
+      if (key === 'appreciationRate' && asset !== 'single-family') return [];
       return [{ key, label: b.label, value: b.value, why: b.rationale }];
     })
-  ), [seededBasis, w]);
+  ), [seededBasis, w, asset]);
 
   // Anything read from a document or filled from the investor profile has to be confirmed by the owner before the project is created
   const needsVerification = filledOnce && (intake !== null || profileFigures.length > 0);
