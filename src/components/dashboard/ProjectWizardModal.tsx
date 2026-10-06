@@ -1228,7 +1228,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <input type="checkbox" className="mt-0.5" checked={verified} onChange={(e) => setVerified(e.target.checked)} />
               <span className="text-[11px] text-slate-300 leading-relaxed">
                 <span className="font-bold text-slate-100 block">I have reviewed what was read from my documents and what was filled in from my investor profile.</span>
-                I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
+                Automated reading can miss or misread things, so I have checked the figures against my source documents. I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
               </span>
             </label>
           )}
