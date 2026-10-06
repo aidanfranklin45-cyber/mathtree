@@ -30,6 +30,14 @@ const modeBtn = (active: boolean) =>
     active ? 'bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-sm' : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
   }`;
 
+/** Which form field each engine assumption is entered in. */
+const FORM_FIELD_OF: Record<string, string> = {
+  vacancyRate: 'vacancyRate', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
+  discountRate: 'discountRate', targetCapRate: 'appreciation', appreciationRate: 'appreciation', sellingCostPercent: 'sellingCost',
+  closingCosts: 'closingCosts', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
+  payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
+};
+
 export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, onClose, onSave }) => {
   const [form, setForm] = useState<Form>(() => seedForm(deal));
   const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
@@ -90,6 +98,8 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     try {
       const inputs: Record<string, any> = { ...built };
       if (inputs.grossRentAnnual === 0 || inputs.monthlyRent === 0) inputs.leases = [];
+      // No lease terms entered: the rent is not a lease (same rule as saving), so no escalation is asked for
+      if (!rollMode && !rollApplied && !(form.tenantName.trim() || form.leaseStart || form.leaseEnd || form.escalation.trim() !== '' || form.nextEscalation || form.expiryAssumption || (asset === 'commercial' && form.leaseType))) inputs.leases = [];
       const m: any = computeDealMetrics({ asset_class: deal.asset_class, inputs: { ...deal.inputs, ...inputs, ...(rollApplied ? rollResult.patch : {}) } as DealInputs });
       cf = m.projections?.[0]?.cashFlow ?? 0;
       npv = m.npv ?? 0;
@@ -115,12 +125,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
       exitYear: profile.exitYear,
       assessedValue: Number((deal.inputs as Record<string, any>)?.taxableValue || (deal.inputs as Record<string, any>)?.totalAssessedValue || (deal.inputs as Record<string, any>)?.combinedAssessedValue) || null,
     });
-    const target: Record<string, string> = {
-      vacancyRate: 'vacancyRate', expenseRatio: 'opexRatio', rentGrowth: 'rentGrowth', expenseGrowth: 'expenseGrowth', exitYear: 'exitYear',
-      discountRate: 'discountRate', targetCapRate: 'appreciation', appreciationRate: 'appreciation', sellingCostPercent: 'sellingCost',
-      closingCosts: 'closingCosts', managementFeePercent: 'managementFee', capexReserveAnnual: 'capexValue', capexReservePercent: 'capexValue',
-      payrollMarketingPercent: 'payroll', annualTaxes: 'taxes', annualInsurance: 'insurance', annualMaintenance: 'maintenance', annualUtilities: 'utilities',
-    };
+    const target = FORM_FIELD_OF;
     const patch: Record<string, string> = {};
     const basis: Record<string, InputBasis> = {};
     for (const [key, value] of Object.entries(seeded.inputs)) {
@@ -138,11 +143,19 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
       : `Filled ${n} blank field${n === 1 ? '' : 's'} from your assumptions. Each keeps your reason on this property.`);
   };
 
-  // Blank assumptions are not blank to the engine: your profile covers them. Say which, so nothing is a surprise.
-  const covered = useMemo(() => {
-    const { basis } = resolveProfileAssumptions({ asset_class: deal.asset_class, purchase_price: deal.purchase_price, inputs: { ...(deal.inputs as Record<string, any>), ...built } } as any);
-    return [...new Map(Object.values(basis).map((b) => [b.label, b])).values()];
+  // A blank assumption is not blank to the engine: your profile covers it. Each blank field says so, right where it is.
+  const profileFor = useMemo(() => {
+    const { filled, basis } = resolveProfileAssumptions({ asset_class: deal.asset_class, purchase_price: deal.purchase_price, inputs: { ...(deal.inputs as Record<string, any>), ...built } } as any);
+    const out: Record<string, string> = {};
+    for (const [key, b] of Object.entries(basis)) {
+      const field = FORM_FIELD_OF[key];
+      if (field && !out[field]) out[field] = `From your profile: ${b.label}${filled[key] !== undefined ? ` = ${filled[key]}` : ''}`;
+    }
+    return out;
   }, [built, deal]);
+  const from = (field: string) => (form[field] ?? '').trim() === '' && profileFor[field]
+    ? <p className="text-[9px] text-emerald-400/80 leading-snug">{profileFor[field]}</p>
+    : null;
 
   const onLocation = (val: string) => {
     set('location', val);
@@ -189,7 +202,11 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     const escalation = (() => { const n = parseFloat(form.escalation); return isNaN(n) ? undefined : n; })();
     // This form edits the primary (first) lease; any other leases on the deal (e.g. an earlier intercompany rent period) are kept as they are
     const otherLeases = Array.isArray((deal.inputs as any)?.leases) ? (deal.inputs as any).leases.slice(1) : [];
-    if (!rollMode) patch.leases = monthlyRent > 0
+    // A lease is only written when lease terms were entered, or the deal already has a real one. A rent figure on its own is not a lease:
+    // a property not yet owned has no tenant terms, and its rent grows at the rent growth above. (Commercial keeps the lease structure it chose.)
+    const hasLeaseTerms = !!(patch.tenantName || patch.leaseStartDate || patch.leaseEndDate || escalation !== undefined || form.nextEscalation || (asset === 'commercial' && form.leaseType));
+    const existingIsReal = !!(existingLease.tenantName || existingLease.leaseStartDate || existingLease.leaseEndDate || existingLease.escalationRate !== undefined || existingLease.nextEscalationDate || (existingLease.expiryAssumption && existingLease.expiryAssumption !== ''));
+    if (!rollMode) patch.leases = monthlyRent > 0 && (hasLeaseTerms || existingIsReal)
       ? [{
           ...existingLease,
           paymentDueDay: Math.min(31, Math.max(1, parseInt(form.dueDay, 10) || 1)),
@@ -262,12 +279,6 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
         <form noValidate onSubmit={submit} className="space-y-4">
           {!form.closingDate && (
             <p role="status" className="text-[11px] text-slate-400">No closing date entered: the numbers assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after this project was created (the standard, or your profile setting).</p>
-          )}
-          {covered.length > 0 && (
-            <div role="status" className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-              <span className="text-[11px] font-bold text-emerald-300 block">Blank fields use your profile assumptions</span>
-              <p className="text-[10px] text-slate-400 leading-relaxed">{covered.map((b) => `${b.label} ${b.value}`).join(' · ')}</p>
-            </div>
           )}
           {preview.missing.length > 0 && (
             <div role="status" className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1">
@@ -396,14 +407,17 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-amber-400">Vacancy Rate (%)</label>
                 <input type="number" min="0" max="100" step="any" value={form.vacancyRate} onChange={(e) => set('vacancyRate', e.target.value)} className={inp2} />
+                {from('vacancyRate')}
               </div>
               <div className="space-y-1">
                 <label className={label}>Annual Rent Growth (%)</label>
                 <input type="number" min="-10" max="30" step="any" value={form.rentGrowth} onChange={(e) => set('rentGrowth', e.target.value)} className={inp2} />
+                {from('rentGrowth')}
               </div>
               <div className="space-y-1">
                 <label className={label}>{asset === 'commercial' || asset === 'storage' ? 'Exit Cap Rate (%)' : 'Annual Appreciation (%)'}</label>
                 <input type="number" min="0" max="30" step="any" value={form.appreciation} onChange={(e) => set('appreciation', e.target.value)} className={inp2} />
+                {from('appreciation')}
               </div>
             </div>
           </div>
@@ -417,10 +431,12 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <div className="space-y-1">
                 <label className={label}>Expense Ratio (%)</label>
                 <input type="number" min="0" max="100" step="any" value={form.opexRatio} onChange={(e) => set('opexRatio', e.target.value)} className={inp2} />
+                {from('opexRatio')}
               </div>
               <div className="space-y-1">
                 <label className={label}>Expense Inflation (%)</label>
                 <input type="number" min="0" max="30" step="0.1" value={form.expenseGrowth} onChange={(e) => set('expenseGrowth', e.target.value)} className={inp2} />
+                {from('expenseGrowth')}
               </div>
               <div className="space-y-1 sm:pt-4">
                 <label className="flex items-center space-x-2.5 cursor-pointer bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 hover:border-slate-700 transition h-[38px]" title="Include professional property management fees">
@@ -437,6 +453,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <div className="space-y-1">
                 <label className={label}>Closing Costs ($)</label>
                 <input type="number" min="0" step="any" value={form.closingCosts} onChange={(e) => set('closingCosts', e.target.value)} className={inp2} />
+                {from('closingCosts')}
               </div>
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-emerald-400" title="Closing Date for debt amortization and pro-forma commencement">Closing Date</label>
@@ -445,10 +462,12 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <div className="space-y-1">
                 <label className={label}>Exit Year (Hold)</label>
                 <input type="number" min="1" max="30" step="1" value={form.exitYear} onChange={(e) => set('exitYear', e.target.value)} className={inp2} />
+                {from('exitYear')}
               </div>
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-emerald-400" title="Investor Opportunity Cost / Hurdle Rate for NPV">Discount Rate (%)</label>
                 <input type="number" min="0" max="50" step="any" value={form.discountRate} onChange={(e) => set('discountRate', e.target.value)} className="w-full bg-slate-900 border border-emerald-900/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400" />
+                {from('discountRate')}
               </div>
             </div>
           </div>
@@ -465,6 +484,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
               <div className="space-y-1">
                 <label className={label} title="Brokerage and closing costs at sale, as a share of the sale price">Selling Costs (%)</label>
                 <input type="number" min="0" max="20" step="any" value={form.sellingCost} onChange={(e) => set('sellingCost', e.target.value)} className={inp2} />
+                {from('sellingCost')}
               </div>
               <div className="space-y-1">
                 <label className={label}>Replacement Reserve</label>
@@ -475,17 +495,20 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                     <option value="percent">% inc.</option>
                   </select>
                 </div>
+                {from('capexValue')}
               </div>
               {form.manageProperty === 'true' && (
                 <div className="space-y-1">
                   <label className={label} title="Share of collected income">Management Fee (%)</label>
                   <input type="number" min="0" max="30" step="any" value={form.managementFee} onChange={(e) => set('managementFee', e.target.value)} className={inp2} />
+                {from('managementFee')}
                 </div>
               )}
               {asset === 'storage' && (
                 <div className="space-y-1">
                   <label className={label} title="On-site payroll and marketing as a share of gross income">Payroll &amp; Marketing (%)</label>
                   <input type="number" min="0" max="60" step="any" value={form.payroll} onChange={(e) => set('payroll', e.target.value)} className={inp2} />
+                {from('payroll')}
                 </div>
               )}
             </div>
@@ -496,18 +519,22 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                   <div className="space-y-1">
                     <label className={label}>Property Taxes ($/yr)</label>
                     <input type="number" min="0" step="any" value={form.taxes} onChange={(e) => set('taxes', e.target.value)} className={inp2} />
+                {from('taxes')}
                   </div>
                   <div className="space-y-1">
                     <label className={label}>Insurance ($/yr)</label>
                     <input type="number" min="0" step="any" value={form.insurance} onChange={(e) => set('insurance', e.target.value)} className={inp2} />
+                {from('insurance')}
                   </div>
                   <div className="space-y-1">
                     <label className={label}>Maintenance ($/yr)</label>
                     <input type="number" min="0" step="any" value={form.maintenance} onChange={(e) => set('maintenance', e.target.value)} className={inp2} />
+                {from('maintenance')}
                   </div>
                   <div className="space-y-1">
                     <label className={label} title="Power, water, sewer and garbage while the space has no tenant">Utilities ($/yr)</label>
                     <input type="number" min="0" step="any" value={form.utilities} onChange={(e) => set('utilities', e.target.value)} className={inp2} />
+                {from('utilities')}
                   </div>
                 </div>
               </div>
@@ -656,7 +683,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
           <div className="p-3 bg-slate-950/60 rounded-xl border border-emerald-900/40 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">📑 In-Place Lease & Tenant Terms</span>
-              <span className="text-[10px] text-slate-400">Live Postgres Sync</span>
+              <span className="text-[10px] text-slate-400">Optional: leave blank for a property you do not own yet</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-1">

@@ -510,7 +510,7 @@ export const DashboardPage: React.FC = () => {
     const complete: DealRecord[] = [];
     deals.forEach((d) => {
       if (missingInputsFor(d).length > 0) {
-        needed++;
+        if (d.status === 'owned' && !d.is_demo) needed++;
       } else {
         complete.push(d);
       }

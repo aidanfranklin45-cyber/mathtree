@@ -61,9 +61,16 @@ describe('buildInboxItems', () => {
 
   it('reports missing data for owned deals only, never for prospects or demos', () => {
     const items = run([]);
-    const missing = items.filter((i) => i.kind === 'missing_data');
+    const missing = items.filter((i) => i.kind === 'missing_data' && !i.id.endsWith(':missing:inputs'));
     expect(missing.map((i) => i.dealId).sort()).toEqual(['d1', 'd2']);
     expect(missing.every((i) => i.amount === null && i.basis === null)).toBe(true);
+  });
+
+  it('lists an owned property that lacks underwriting inputs, the same rule as the dashboard badge, and links to the property', () => {
+    const items = run([]);
+    const gaps = items.filter((i) => i.id.endsWith(':missing:inputs'));
+    expect(gaps.map((i) => i.dealId).sort()).toEqual(['d1', 'd2']);
+    expect(gaps[0].link).toBe('/project?id=d1');
   });
 
   it('asks for payments when a leased property has none recorded', () => {
@@ -74,7 +81,7 @@ describe('buildInboxItems', () => {
   it('appends items from other sources and sorts by kind', () => {
     const review = { id: 'imp1', kind: 'needs_review' as const, dealId: 'd1', dealTitle: 'Burgers', leaseId: null, headline: 'Imported rent roll: 3 rows to confirm', detail: 'From rent-roll.csv', amount: null, basis: null, link: operateLink('d1') };
     const items = run([], [], { extra: [review] });
-    expect(items.map((i) => i.kind)).toEqual(['missing_data', 'missing_data', 'needs_review']);
+    expect(items.filter((i) => !i.id.endsWith(':missing:inputs')).map((i) => i.kind)).toEqual(['missing_data', 'missing_data', 'needs_review']);
   });
 });
 

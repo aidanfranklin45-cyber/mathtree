@@ -80,6 +80,13 @@ export function prepareEngineInputs(deal: AnyDeal, overrides?: Partial<DealInput
 
   if (!inputs.purchasePrice && deal.purchase_price) inputs.purchasePrice = Number(deal.purchase_price);
 
+  // A "lease" with no tenant, no dates and no escalation is only a rent figure that an earlier save wrapped in a lease. It is not a lease:
+  // the rent stands on its own and grows at the rent growth, instead of the property being stopped for an escalation no lease states.
+  if (Array.isArray(inputs.leases) && inputs.leases.length > 0) {
+    const isShell = (l: any) => !l || (!l.tenantName && !l.leaseStartDate && !l.leaseEndDate && !l.nextEscalationDate && (l.escalationRate === undefined || l.escalationRate === null || l.escalationRate === '') && !l.expiryAssumption);
+    if (inputs.leases.every(isShell)) inputs.leases = [];
+  }
+
   // The owner's own assumptions fill what the property leaves unstated, live (a property's own figure always wins)
   Object.assign(inputs, resolveProfileAssumptions(deal, overrides).filled);
 
