@@ -15,7 +15,6 @@ import { getStageLens, resolveTab } from '../lib/studio/stageLens';
 import { EditInputsModal } from '../components/studio/modals/EditInputsModal';
 import { ParameterHistoryModal } from '../components/studio/modals/ParameterHistoryModal';
 import { DealAuditorBanner } from '../components/studio/DealAuditorBanner';
-import { ScenarioSummaryCard } from '../components/studio/ScenarioSummaryCard';
 import { RemodelModal } from '../components/studio/modals/RemodelModal';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { listScenarioRuns, recordScenarioRun, withComputedDiffs, type ScenarioRun } from '../lib/scenarios';
@@ -205,12 +204,6 @@ export const DealStudioPage: React.FC = () => {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 md:pb-6 flex flex-col space-y-5">
-        <ScenarioSummaryCard
-          runs={runs}
-          isOwned={deal.status === 'owned'}
-          onOpenHistory={() => setIsHistoryModalOpen(true)}
-          onRestore={handleRestoreInputs}
-        />
         <DealAuditorBanner deal={deal} metrics={metrics} />
 
         {tab === 'performance' && <PerformanceTab deal={deal} metrics={metrics} />}

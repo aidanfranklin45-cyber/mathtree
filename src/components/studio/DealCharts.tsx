@@ -20,7 +20,7 @@ const tooltip = { backgroundColor: '#0f172a', borderColor: '#334155', borderWidt
 const compact = (v: number) => (Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `$${(v / 1e3).toFixed(0)}k` : `$${v}`);
 
 const Card: React.FC<{ title: string; question: string; children: React.ReactNode; aside?: React.ReactNode }> = ({ title, question, children, aside }) => (
-  <section className="bg-slate-900/40 border border-slate-900 p-4 sm:p-5 rounded-2xl shadow-xl space-y-3">
+  <section className="bg-slate-900/40 border border-slate-900 p-4 sm:p-5 rounded-2xl shadow-xl space-y-4">
     <div className="flex items-start justify-between gap-3">
       <div>
         <h3 className="text-sm font-bold text-white tracking-tight">{title}</h3>
@@ -90,10 +90,11 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { labels: { color: TEXT, font: FONT, usePointStyle: true, boxWidth: 8 } }, tooltip: { ...tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y))}` } } },
+      layout: { padding: { top: 12, right: 12, bottom: 6, left: 6 } },
+      plugins: { legend: { labels: { color: TEXT, font: FONT, usePointStyle: true, boxWidth: 8, padding: 16 } }, tooltip: { ...tooltip, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y))}` } } },
       scales: {
         x: { grid: { display: false }, ticks: { color: '#64748b', font: { family: 'Plus Jakarta Sans', weight: 500 }, maxTicksLimit: 8, maxRotation: 0 } },
-        y: { stacked: true, grid: { color: GRID }, ticks: { color: '#64748b', callback: (v) => compact(Number(v)) } },
+        y: { stacked: true, grace: '4%', grid: { color: GRID }, ticks: { color: '#64748b', callback: (v) => compact(Number(v)) } },
       },
     },
   }), [growth, invested, startYear]);
@@ -115,8 +116,9 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 12, right: 12, bottom: 6, left: 6 } },
         plugins: {
-          legend: { labels: { color: TEXT, font: FONT, usePointStyle: true, boxWidth: 8 } },
+          legend: { labels: { color: TEXT, font: FONT, usePointStyle: true, boxWidth: 8, padding: 16 } },
           tooltip: { ...tooltip, callbacks: { label: (ctx) => (ctx.dataset.yAxisID === 'y1' ? `${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(2)}x` : `${ctx.dataset.label}: ${formatCurrency(Number(ctx.parsed.y))}`) } },
         },
         scales: {
@@ -189,13 +191,13 @@ export const DealCharts: React.FC<DealChartsProps> = ({ metrics, startYear, defa
         </Card>
 
         <Card title="Value you are building" question="Equity in the property plus cash collected, against the cash you put in">
-          <div className="h-56 w-full"><canvas ref={equityRef} role="img" aria-label="Equity and cash collected over time" /></div>
+          <div className="h-64 w-full"><canvas ref={equityRef} role="img" aria-label="Equity and cash collected over time" /></div>
         </Card>
       </div>
 
       {hasDebt && (
         <Card title="Can the building carry its loan?" question="Income against loan payments each year, with coverage on the right">
-          <div className="h-64 w-full"><canvas ref={coverageRef} role="img" aria-label="Net operating income against loan payments" /></div>
+          <div className="h-72 w-full"><canvas ref={coverageRef} role="img" aria-label="Net operating income against loan payments" /></div>
         </Card>
       )}
     </div>
