@@ -1029,7 +1029,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </div>
             {(asset === 'commercial' || w.leaseType === 'NNN' || !(num(w.grossRent) > 0)) && (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:col-span-2">
-                <p className="col-span-2 sm:col-span-4 text-[10px] text-slate-500 leading-relaxed">What it costs to carry: needed when there is no rent yet, or when tenants pay the building's costs. County records give the assessed value; set your tax rate in your Investor Profile to estimate taxes from it.</p>
+                <p className="col-span-2 sm:col-span-4 text-[10px] text-slate-500 leading-relaxed">Taxes, insurance, upkeep and utilities are already inside your expense ratio in a normal year. These amounts are used only for a year with no rent and for the months a space is vacant (they are required when there is no rent yet, or when tenants pay the building's costs). County records give the assessed value; set your tax rate in your Investor Profile to estimate taxes from it.</p>
                 <div className="space-y-1.5">
                   <label htmlFor="wiz-taxes" className={lbl}>Property Taxes ($/yr)</label>
                   <input id="wiz-taxes" type="number" min={0} step="any" data-field="taxes" value={w.taxes} onChange={(e) => set({ taxes: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />

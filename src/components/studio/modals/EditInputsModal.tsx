@@ -491,7 +491,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
             </div>
             {(asset === 'commercial' || form.leaseType === 'NNN' || !(parseFloat(form.grossRentAnnual) > 0 || parseFloat(form.grossRentMonthly) > 0)) && (
               <div className="pt-2 border-t border-slate-900 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 block">What it costs to carry (required when there is no rent, or tenants pay the building's costs)</span>
+                <span className="text-[10px] font-bold text-slate-400 block">Taxes, insurance, upkeep and utilities: already inside the expense ratio in a normal year; these amounts are used for a year with no rent and for vacant months (required when there is no rent, or tenants pay the building's costs)</span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <label className={label}>Property Taxes ($/yr)</label>

@@ -234,8 +234,9 @@ turns profile rates into per-deal dollar inputs using the deal's own size, price
 **Provenance.** `assumptionBasis` on a deal records the source of each tracked input (profile, owner, county record, document);
 `assumptions/ledger.ts` renders it as two groups on the property page: specific to this property, and from your standards.
 
-**Carrying costs.** Taxes, insurance, upkeep and utilities are carried by the owner while a space is vacant (and always on a gross lease);
-tenants reimburse them under NNN while leased. Property tax is the county's assessed value times the owner's rate for that tax-code area
+**Carrying costs.** In a normal year, taxes, insurance, upkeep and utilities are part of the expense ratio the engine runs (`ratio x gross rent`);
+the separate amounts are not added on top. They are used only for a year with no rent and for the months a leased space is vacant, and
+under NNN tenants reimburse them while leased. Property tax is the county's assessed value times the owner's rate for that tax-code area
 (county data holds no tax bill). Selling costs are optional: unstated means none. Utilities unstated means none carried.
 
 **Intake groundwork.** `lib/ingestion` defines the document types, the questions to ask for each, and the normalising and validation
