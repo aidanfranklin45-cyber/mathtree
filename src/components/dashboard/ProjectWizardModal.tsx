@@ -136,6 +136,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
   // The owner confirms they reviewed what was read from documents and filled from their profile. Not kept in the draft: after a reload they confirm again.
   const [verified, setVerified] = useState(false);
+  // Pressing Create before confirming: say what is missing and bring the confirmation into view
+  const [verifyNudge, setVerifyNudge] = useState(false);
+  const verifyRef = useRef<HTMLLabelElement | null>(null);
   // The closing date the investor profile filled in (and the weeks it used), so it can be told apart from a date the owner entered
   const [closingFilled, setClosingFilled] = useState<{ date: string; weeks: number } | null>(null);
   const [answers, setAnswers] = useState<Record<string, { label: string; decision: string }>>({});
@@ -171,7 +174,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
       setIntake(null); setAnswers({}); setClosingFilled(null);
     }
-    setVerified(false);;
+    setVerified(false); setVerifyNudge(false);
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
 
@@ -545,7 +548,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     clearWizardDraft();
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
-    setIntake(null); setAnswers({}); setVerified(false); setClosingFilled(null);
+    setIntake(null); setAnswers({}); setVerified(false); setVerifyNudge(false); setClosingFilled(null);
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -1242,8 +1245,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           )}
           {stepDivs}
           {needsVerification && !submitting && (
-            <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer">
-              <input type="checkbox" className="mt-0.5" checked={verified} onChange={(e) => setVerified(e.target.checked)} />
+            <label ref={verifyRef} className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer ${verifyNudge && !verified ? 'border-rose-500/60 bg-rose-500/10' : 'border-amber-500/30 bg-amber-500/5'}`}>
+              <input type="checkbox" className="mt-0.5" checked={verified} onChange={(e) => { setVerified(e.target.checked); if (e.target.checked) setVerifyNudge(false); }} />
               <span className="text-[11px] text-slate-300 leading-relaxed">
                 <span className="font-bold text-slate-100 block">I have reviewed what was read from my documents and what was filled in from my investor profile.</span>
                 Automated reading can miss or misread things, so I have checked the figures against my source documents. I stand behind each figure. This tool helps me underwrite faster, but I am the one underwriting this deal, and a record of where each figure came from is saved with it.
@@ -1253,9 +1256,15 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           {error && <p className="text-xs text-rose-400 font-semibold">{error}</p>}
         </div>
 
+        {verifyNudge && needsVerification && !verified && (
+          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Before the project can be created, scroll down to the bottom of the page and confirm that you have read and checked everything.</p>
+        )}
         <div className="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
-          <button onClick={submit} disabled={submitting || (needsVerification && !verified)} title={needsVerification && !verified ? 'Confirm that you reviewed the figures first' : undefined}
+          <button onClick={() => {
+            if (needsVerification && !verified) { setVerifyNudge(true); verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            void submit();
+          }} disabled={submitting}
             className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/20 transition disabled:opacity-60">
             <span>⚡ Create project and run the engine</span>
           </button>
