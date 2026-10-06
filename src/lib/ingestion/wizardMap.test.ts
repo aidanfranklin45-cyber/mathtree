@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
 import { applyChoices, assumptionText, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
+import { expectedFor } from './expected';
 import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs, profileFill } from './wizardMap';
 import { missingInputsFor } from '../engine/compute';
 import { openQuestions } from './openQuestions';
@@ -280,6 +281,17 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     const none = make();
     attachVariances(none, { filled: {}, basis: {} });
     expect(none.changes.every((c) => c.variance === undefined)).toBe(true);
+  });
+
+  it('compares with the standards of the asset class the documents point to, not the starting class of the form', () => {
+    // a new project's form starts on commercial; the documents describe an apartment building
+    const deal = { asset_class: 'commercial', purchase_price: null, inputs: {} };
+    const p = proposeChanges([memo('multi_family', costs)], deal, { assetClass: true });
+    expect(p.changes.find((c) => c.key === 'assetClass')!.value).toBe('multi-unit');
+    const apartment = expectedFor(p, deal).filled;
+    const commercial = expectedFor(proposeChanges([memo('multi_family', costs)], deal), deal).filled; // no asset class change: the form's own class
+    expect(apartment.vacancyRate).not.toBe(commercial.vacancyRate);
+    expect(apartment.expenseRatio).not.toBe(commercial.expenseRatio);
   });
 
   it('flags a figure that does not line up with your own assumption, with both numbers, and carries out the choice', () => {

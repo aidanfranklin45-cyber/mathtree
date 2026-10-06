@@ -4,7 +4,7 @@ import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentT
 import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
-import { resolveProfileAssumptions } from '../../lib/engine/compute';
+import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
@@ -55,20 +55,6 @@ function managerFor(deal: Props['deal']): { uses: boolean | null; fee?: number }
   const own = (deal.inputs ?? {}) as Record<string, any>;
   if (typeof own.manageProperty === 'boolean') return { uses: own.manageProperty, fee: Number(own.managementFeePercent) || undefined };
   return managerChoice(getAssumptionDefaults().assumptions, deal.asset_class);
-}
-
-/** What the owner's profile would use for the property the documents describe, to compare the document's figures with. */
-function expectedFor(proposal: Proposal, deal: Props['deal']): Expected {
-  const p = proposal.patch.patch as Record<string, any>;
-  const own = (deal.inputs ?? {}) as Record<string, any>;
-  return resolveProfileAssumptions({
-    asset_class: deal.asset_class ?? undefined,
-    purchase_price: Number(p.purchasePrice ?? deal.purchase_price) || undefined,
-    inputs: {
-      purchasePrice: p.purchasePrice ?? own.purchasePrice, unitCount: p.unitCount ?? own.unitCount, leaseType: p.leaseType ?? own.leaseType,
-      gla: p.squareFeet ?? own.gla ?? own.squareFeet, taxableValue: own.taxableValue, totalAssessedValue: own.totalAssessedValue,
-    },
-  } as any);
 }
 
 /** A figure the owner is asked about: the documents and the owner's own number disagree, or the document is far from their assumption. */
