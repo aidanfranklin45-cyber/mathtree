@@ -215,7 +215,14 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
     const ratio = round2((netCosts / t.income.rent) * 100);
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
     const left = [management > 0 ? 'management' : '', onSiteCost > 0 ? 'on-site payroll and marketing' : '', 'reserves'].filter(Boolean).join(', ');
-    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()} (without ${left})${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`);
+    // What the ratio is made of, so "what does this include?" is answered on screen
+    const NAMES: Partial<Record<ExpenseCategory, string>> = { property_tax: 'taxes', insurance: 'insurance', utilities: 'utilities', repairs_maintenance: 'repairs and maintenance', payroll: 'payroll', marketing: 'marketing', professional_fees: 'professional fees', other: 'other' };
+    const parts = Object.entries(t.expensesByCategory)
+      .filter(([cat, v]) => (v ?? 0) > 0 && cat !== 'management' && !onSite.includes(cat as ExpenseCategory))
+      .sort((x, y) => (y[1] as number) - (x[1] as number))
+      .map(([cat, v]) => `${NAMES[cat as ExpenseCategory] ?? cat} ${Math.round(v as number).toLocaleString()}`)
+      .join(', ');
+    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`);
   }
   if (management > 0) {
     const egi = t.income.rent + t.income.recoveries + t.income.other_income - t.income.vacancy_credit_loss;

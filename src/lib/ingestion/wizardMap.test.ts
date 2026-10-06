@@ -232,6 +232,8 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     expect(p.patch.patch.expenseRatio).toBe(12.26);
     const how = p.patch.provenance.expenseRatio.how;
     expect(how).toContain('without management');
+    expect(how).toContain('utilities 73,382'); // the ratio says what is inside it
+    expect(how).toContain('repairs and maintenance 33,000');
     expect(how).toContain('less tenant reimbursements 103,932');
     expect(how).toContain('divided by rent 1,450,800');
     const notes = p.patch.notes.join(' | ');
