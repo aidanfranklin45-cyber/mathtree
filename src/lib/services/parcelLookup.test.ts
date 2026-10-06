@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { countyFromText, isRealParcel, pickPropertyResult, streetOf } from './parcelLookup';
+import { collapseUnits } from './addressText';
 
 describe('streetOf', () => {
   it('keeps the street line only, without unit, city or zip', () => {
@@ -42,5 +43,21 @@ describe('countyFromText', () => {
     expect(countyFromText('1 Main St, Spokane, WA')).toBe('Spokane');
     expect(countyFromText('5101 W Powerhouse Rd, Yakima, WA')).toBe('Yakima');
     expect(countyFromText('12 Oak St, Seattle, WA')).toBeNull();
+  });
+});
+
+describe('collapseUnits', () => {
+  const list = [
+    { street: '5101 POWERHOUSE RD #39', formattedAddress: '5101 POWERHOUSE RD #39, YAKIMA, WA 98908', apn: '1' },
+    { street: '5101 POWERHOUSE RD #40', formattedAddress: '5101 POWERHOUSE RD #40, YAKIMA, WA 98908', apn: '1' },
+    { street: '5103 POWERHOUSE RD #1', formattedAddress: '5103 POWERHOUSE RD #1, YAKIMA, WA 98908', apn: '2' },
+    { street: '5103 POWERHOUSE RD', formattedAddress: '5103 POWERHOUSE RD, YAKIMA, WA 98908', apn: '2' },
+  ];
+  it('shows one entry per property, without its unit', () => {
+    const out = collapseUnits(list);
+    expect(out.map((r) => r.formattedAddress)).toEqual(['5101 POWERHOUSE RD, YAKIMA, WA 98908', '5103 POWERHOUSE RD, YAKIMA, WA 98908']);
+  });
+  it('respects a limit on properties, not units', () => {
+    expect(collapseUnits(list, 1)).toHaveLength(1);
   });
 });

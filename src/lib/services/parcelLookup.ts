@@ -10,6 +10,9 @@
  */
 
 import { AddressService } from './addressService';
+import { hasUnit, streetOf } from './addressText';
+
+export { streetOf };
 
 /** A record from the county itself: it carries figures, not just an address. */
 export function isRealParcel(data: any): boolean {
@@ -22,23 +25,6 @@ export function countyFromText(text: string): 'Yakima' | 'Spokane' | null {
   if (/yakima|selah|union gap|sunnyside|grandview|toppenish|wapato|zillah|moxee|naches/i.test(text)) return 'Yakima';
   return null;
 }
-
-const UNIT = /(#\s*[A-Z0-9-]+|\b(APT|APARTMENT|SUITE|STE|UNIT|BLDG|BUILDING|SPACE|SPC|RM|ROOM|LOT)\b\.?\s*#?\s*[A-Z0-9-]+)/gi;
-const ABBREV: Array<[RegExp, string]> = [
-  [/\bROAD\b/g, 'RD'], [/\bSTREET\b/g, 'ST'], [/\bAVENUE\b/g, 'AVE'], [/\bDRIVE\b/g, 'DR'], [/\bLANE\b/g, 'LN'], [/\bBOULEVARD\b/g, 'BLVD'],
-  [/\bCOURT\b/g, 'CT'], [/\bPLACE\b/g, 'PL'], [/\bPARKWAY\b/g, 'PKWY'], [/\bHIGHWAY\b/g, 'HWY'],
-  [/\bWEST\b/g, 'W'], [/\bEAST\b/g, 'E'], [/\bNORTH\b/g, 'N'], [/\bSOUTH\b/g, 'S'],
-];
-
-/** The street line only, upper case, without city or zip, without any unit, with the usual abbreviations: "5101 W POWERHOUSE RD". */
-export function streetOf(address: string): string {
-  let t = String(address ?? '').split(',')[0].toUpperCase();
-  t = t.replace(UNIT, ' ').replace(/[.]/g, ' ');
-  for (const [re, to] of ABBREV) t = t.replace(re, to);
-  return t.replace(/\s+/g, ' ').trim();
-}
-
-const hasUnit = (address: string): boolean => new RegExp(UNIT.source, 'i').test(String(address ?? '').split(',')[0]);
 
 /** The one result that is the property itself: same street address, preferring the line without a unit. Null when nothing matches. */
 export function pickPropertyResult<T extends { street?: string; formattedAddress?: string }>(results: T[], wanted: string): T | null {

@@ -1,6 +1,7 @@
 // @ts-nocheck
 // Ported verbatim from the legacy address-service.js (ArcGIS / county assessor search and lookups).
 // Logic is unchanged; this file is intentionally untyped until it is refactored into typed modules.
+import { collapseUnits } from './addressText';
 /**
  * MathTree Address & County GIS Integration Service
  * Specializes in Yakima County, Washington via official ArcGIS REST Services:
@@ -820,6 +821,8 @@ const factory = function () {
   async function searchAddresses(query, options = {}) {
     if (!query || query.trim().length < 2) return [];
 
+    // The county lists every apartment at a street number. Ask for enough to see past them, and show one entry per property.
+    const shown = options.limit || 8;
     const parsed = parseAddressInput(query);
     const isSpokaneQuery = parsed.county === 'Spokane' || /spokane/i.test(query);
     const isYakimaQuery = parsed.county === 'Yakima' || /yakima|selah|union gap|sunnyside|grandview|toppenish|wapato|zillah|moxee|naches/i.test(query);
@@ -828,23 +831,23 @@ const factory = function () {
     let spokaneResults = [];
 
     if (isYakimaQuery) {
-      yakimaResults = await searchYakimaAddresses(query, options.limit || 8);
+      yakimaResults = await searchYakimaAddresses(query, shown * 6);
     } else if (isSpokaneQuery) {
-      spokaneResults = await searchSpokaneAddresses(query, options.limit || 8);
+      spokaneResults = await searchSpokaneAddresses(query, shown * 6);
     } else {
       [yakimaResults, spokaneResults] = await Promise.all([
-        searchYakimaAddresses(query, 5),
-        searchSpokaneAddresses(query, 5)
+        searchYakimaAddresses(query, 30),
+        searchSpokaneAddresses(query, 30)
       ]);
     }
 
     // If official Yakima GIS matches with real APNs are found, return them directly
     if (yakimaResults.length > 0 && yakimaResults.some(r => r.apn)) {
-      return yakimaResults;
+      return collapseUnits(yakimaResults, shown);
     }
     // If official Spokane GIS matches with real APNs are found, return them directly
     if (spokaneResults.length > 0 && spokaneResults.some(r => r.apn)) {
-      return spokaneResults;
+      return collapseUnits(spokaneResults, shown);
     }
 
     // WA Statewide Cadastre backup
