@@ -54,35 +54,30 @@ const humanize = (key: string): string => LABELS[key] ?? key.replace(/([A-Z])/g,
 const DERIVED_QUIET = new Set(['monthlyRent', 'grossRentAnnual']);
 
 /**
- * Figures that are assumptions or costs the owner has a standard for (their investor profile), and the smallest gap worth asking about.
- * A document's figure is used by default; when it is this far from the owner's own, the owner chooses.
+ * Any figure a document gives that the owner's investor profile also has a standard for (vacancy, expense ratio, taxes, insurance, reserves,
+ * closing costs, and so on) is checked against it. When the two do not line up the owner is asked which to use: the document's figure, their
+ * own assumption, or a number for this property. Only rounding is ignored (a hundredth of a percent, or under a dollar).
  */
-export const VARIANCE_RATIO = 0.25;
-const COMPARABLE: Record<string, { minGap: number }> = {
-  vacancyRate: { minGap: 1 }, expenseRatio: { minGap: 1 }, managementFeePercent: { minGap: 1 },
-  annualTaxes: { minGap: 500 }, annualInsurance: { minGap: 500 }, annualMaintenance: { minGap: 500 }, annualUtilities: { minGap: 500 }, capexReserveAnnual: { minGap: 500 },
-};
-
+const SAME_PERCENT = 0.005;
+const SAME_DOLLARS = 0.5;
 /** What the owner's profile would use for each figure, for a property of the documents' size, price and lease structure. */
 export interface Expected {
   filled: Record<string, number>;
   basis: Record<string, InputBasis>;
 }
 
-/** Marks the rows whose figure differs a lot from the owner's own assumption. Changes the rows in place. */
+/** Marks the rows whose figure does not line up with the owner's own assumption. Changes the rows in place. */
 export function attachVariances(proposal: Proposal, expected: Expected): void {
   for (const c of proposal.changes) {
-    if (!COMPARABLE[c.key]) continue;
     const mine = expected.filled[c.key];
     const doc = Number(c.value);
-    if (!(mine > 0) || !Number.isFinite(doc)) continue;
+    if (mine === undefined || !(mine >= 0) || !Number.isFinite(doc)) continue; // the owner has no standard for this figure, or the document gave no number
     const gap = doc - mine;
-    if (Math.abs(gap) / mine > VARIANCE_RATIO && Math.abs(gap) >= COMPARABLE[c.key].minGap) {
-      c.variance = {
-        expected: mine, expectedText: formatValue(c.key, mine), why: expected.basis[c.key]?.rationale ?? '',
-        percent: Math.round((Math.abs(gap) / mine) * 100), higher: gap > 0,
-      };
-    }
+    if (Math.abs(gap) <= (PERCENT_KEYS.has(c.key) ? SAME_PERCENT : SAME_DOLLARS)) continue; // the same figure
+    c.variance = {
+      expected: mine, expectedText: formatValue(c.key, mine), why: expected.basis[c.key]?.rationale ?? '',
+      percent: mine > 0 ? Math.round((Math.abs(gap) / mine) * 100) : 100, higher: gap > 0,
+    };
   }
 }
 
