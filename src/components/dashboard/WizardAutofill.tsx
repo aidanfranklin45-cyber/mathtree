@@ -90,6 +90,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const [resolved, setResolved] = useState<Record<string, string>>({});
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [asked, setAsked] = useState<Record<string, string>>({});
+  // What the owner supplied for a missing figure stays on screen as a checked line they can change, instead of disappearing
+  const [provided, setProvided] = useState<Record<string, { label: string; value: string; editing: boolean }>>({});
   const nextId = useRef(1);
 
   const addFiles = async (files: FileList | null) => {
@@ -136,6 +138,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       }
       setPicked({});
       setResolved({});
+      setProvided({});
       setOpen(false);
     } finally {
       setBusy(false);
@@ -311,7 +314,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
           )}
         </div>
       )}
-      {done && (questions.length > 0 || missing.length > 0) && (
+      {done && (questions.length > 0 || missing.length > 0 || Object.keys(provided).length > 0) && (
         <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
           <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + missing.length})</h4>
           <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below.</p>
@@ -359,16 +362,34 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
             )
           ))}
 
-          {missing.map((m) => {
+          {[...Object.keys(provided).map((key) => ({ key, label: provided[key].label, why: '' })), ...missing.filter((m) => !provided[m.key])].map((m) => {
             const settable = Boolean(FORM_FIELD_FOR_KEY[m.key]);
+            const done = provided[m.key];
+            if (done && !done.editing) {
+              return (
+                <div key={m.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
+                  <span className="text-emerald-400">✓</span>
+                  <span className="font-bold text-slate-200">{m.label}:</span>
+                  <span className="text-slate-300">{done.value} (your own number)</span>
+                  <button type="button" onClick={() => { setAsked((a) => ({ ...a, [m.key]: done.value })); setProvided((pr) => ({ ...pr, [m.key]: { ...done, editing: true } })); }} className="text-slate-500 hover:text-white underline">Change</button>
+                </div>
+              );
+            }
+            const add = () => {
+              const v = (asked[m.key] ?? '').trim();
+              if (!v) return;
+              onSet(m.key, v);
+              setProvided((pr) => ({ ...pr, [m.key]: { label: m.label, value: v, editing: false } }));
+              setAsked((a) => { const n = { ...a }; delete n[m.key]; return n; });
+            };
             return (
               <div key={m.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
                 <span className="text-xs font-bold text-slate-100 block">{m.label}</span>
-                <span className="text-[11px] text-slate-400 block">{m.why}</span>
+                {m.why && <span className="text-[11px] text-slate-400 block">{m.why}</span>}
                 {settable && (
                   <span className="flex items-center gap-2 mt-1.5">
-                    <input type={m.key === 'closingDate' ? 'date' : 'number'} step="any" aria-label={m.label} value={asked[m.key] ?? ''} onChange={(e) => setAsked((a) => ({ ...a, [m.key]: e.target.value }))} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
-                    <button type="button" disabled={!(asked[m.key] ?? '').trim()} onClick={() => { onSet(m.key, asked[m.key]); setAsked((a) => { const n = { ...a }; delete n[m.key]; return n; }); }} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
+                    <input type={m.key === 'closingDate' ? 'date' : 'number'} step="any" aria-label={m.label} value={asked[m.key] ?? ''} onChange={(e) => setAsked((a) => ({ ...a, [m.key]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+                    <button type="button" disabled={!(asked[m.key] ?? '').trim()} onClick={add} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
                   </span>
                 )}
               </div>
