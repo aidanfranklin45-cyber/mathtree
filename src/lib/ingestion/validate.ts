@@ -6,7 +6,7 @@
 
 import type { IntakeDocument } from './intake';
 import { val } from './intake';
-import { leaseMonthlyRent, periodMonths, rentRollTotals, statementTotals } from './normalize';
+import { leaseMonthlyRent, NON_OPERATING, periodMonths, rentRollTotals, statementTotals } from './normalize';
 
 export interface IntakeIssue {
   severity: 'error' | 'warning';
@@ -19,6 +19,63 @@ export interface IntakeIssue {
 const TOTAL_TOLERANCE = 0.01;
 
 const off = (a: number, b: number): boolean => Math.abs(a - b) > Math.max(1, Math.abs(b)) * TOTAL_TOLERANCE;
+
+/** One structural check: a figure we derived from the document's own lines set against a figure the document prints. Shown whether it ties or not. */
+export interface DocumentCheck {
+  label: string;
+  ok: boolean;
+  /** In words, with both numbers. */
+  detail: string;
+}
+
+/** A memorandum's NOI is the seller's own arithmetic: the income and costs we read should reproduce it to within this share. */
+export const NOI_TIE_TOLERANCE = 0.02;
+
+const num = (n: number): string => Math.round(n).toLocaleString('en-US');
+
+/**
+ * The checks that make a reading provable. A parser can mis-read a table and still look confident, so the document is held to its own
+ * arithmetic: (1) the income and operating costs we read must add up to the NOI it prints, and (2) that NOI over the price must give the cap
+ * rate it prints. When both tie, we have reproduced the seller's own valuation from the document, which is strong evidence the table was read
+ * correctly. When one does not, a line was missed or misread (or the seller's figures do not add up) and the owner is told so.
+ */
+export function documentChecks(doc: IntakeDocument): DocumentCheck[] {
+  const checks: DocumentCheck[] = [];
+  if (doc.documentType !== 'offering_memorandum') return checks;
+  const claimedNoi = val(doc.claimedNoi);
+  const cap = val(doc.claimedCapRatePercent);
+  const price = val(doc.askingPrice);
+  if (doc.income.length > 0 && doc.expenses.length > 0 && claimedNoi !== null && claimedNoi > 0) {
+    let income = 0; let vacancy = 0; let costs = 0;
+    for (const l of doc.income) {
+      const a = val(l.amount);
+      if (a === null) continue;
+      if (val(l.category) === 'vacancy_credit_loss') vacancy += Math.abs(a); else income += a;
+    }
+    for (const l of doc.expenses) {
+      const a = val(l.amount);
+      if (a === null || NON_OPERATING.has(val(l.category) ?? 'other')) continue;
+      costs += Math.abs(a);
+    }
+    const implied = income - vacancy - costs;
+    const gap = Math.abs(implied - claimedNoi) / claimedNoi;
+    checks.push({
+      label: 'Income less costs equals the memorandum\'s NOI',
+      ok: gap <= NOI_TIE_TOLERANCE,
+      detail: `The income and operating costs we read give an NOI of ${num(implied)}; the memorandum prints ${num(claimedNoi)} (${(gap * 100).toFixed(1)}% apart). ${gap <= NOI_TIE_TOLERANCE ? 'They tie.' : 'They do not tie: a line may have been missed or misread, so check the income and expense table in the document.'}`,
+    });
+  }
+  if (claimedNoi !== null && cap !== null && price !== null && price > 0) {
+    const implied = (claimedNoi / price) * 100;
+    const ok = Math.abs(implied - cap) <= 0.25;
+    checks.push({
+      label: 'NOI over the price equals the memorandum\'s cap rate',
+      ok,
+      detail: `${num(claimedNoi)} over ${num(price)} is a ${implied.toFixed(2)}% cap rate; the memorandum prints ${cap}%. ${ok ? 'They tie.' : 'They do not tie: the NOI, the price or the cap rate may have been misread.'}`,
+    });
+  }
+  return checks;
+}
 
 export function validateIntake(doc: IntakeDocument): IntakeIssue[] {
   const issues: IntakeIssue[] = [];

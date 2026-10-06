@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
-import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
+import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { assumptionText, attachVariances, proposeChanges, VARIANCE_DISCLOSURE, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
@@ -20,6 +20,8 @@ export interface Autofill {
   docs: IntakeDocument[];
   /** The documents that were read, for the record of where the figures came from. */
   documents: Array<{ name: string; type: string; model?: string }>;
+  /** The documents held to their own arithmetic, and how each check came out. */
+  checks: Array<{ label: string; ok: boolean; detail: string }>;
 }
 
 /** A figure the owner's investor profile supplied, with the reason the owner gave for it. */
@@ -123,7 +125,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
         const ticked = new Set(proposal.changes.filter((c) => !c.replaces).map((c) => c.key));
         const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
-        await onAutofill({ proposal, ticked, docs, documents });
+        await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)) });
         setResult({ proposal, docs, filled: ticked.size });
       }
       setPicked({});
@@ -275,6 +277,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                     ))}
                   </ul>
                   {result && result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
+                  {(intake.checks ?? []).length > 0 && (
+                    <div><p className="text-[11px] font-black text-slate-300">Checks on the document's own arithmetic</p>
+                      <ul className="text-[11px]">{(intake.checks ?? []).map((c, k) => <li key={k} className={c.ok ? 'text-emerald-300' : 'text-amber-300'}>{c.ok ? '✓' : '⚠'} <span className="font-bold">{c.label}.</span> <span className="text-slate-400">{c.detail}</span></li>)}</ul></div>
+                  )}
                   {intake.claims.length > 0 && (
                     <div><p className="text-[11px] font-black text-slate-300">Claims in the documents (shown for comparison, never applied)</p>
                       <ul className="text-[11px] text-slate-400">{intake.claims.map((c, k) => <li key={k}>{c.how}: {c.value.toLocaleString('en-US')}</li>)}</ul></div>
