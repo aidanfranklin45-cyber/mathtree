@@ -241,6 +241,9 @@ describe('the expense ratio means what the engine expects, and large gaps from y
     expect(notes).toContain('management cost (53,522 a year');
     expect(notes).toContain('34,686 a year of other income'); // pet fees: not a reimbursement of a cost, so not counted
     expect(notes).toContain('Whether you hire a manager is your decision');
+    // the reimbursement is stated as an assumption, with the ratio it would be without it: (281,734 / 1,450,800)
+    expect(notes).toContain('Tenant utility reimbursements (such as RUBS) of 103,932 a year are taken off the costs');
+    expect(notes).toContain('without them the expense ratio would be 19.42%');
     expect(p.patch.patch.capexReserveAnnual).toBe(16500);
   });
 

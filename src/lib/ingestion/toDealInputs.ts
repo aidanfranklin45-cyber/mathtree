@@ -226,6 +226,12 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
       .join(', ');
     b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(t.income.rent).toLocaleString()}${span}`);
   }
+  // The reimbursement is an assumption in its own right: it lowers the ratio only for as long as tenants keep paying it back
+  if (reimbursed > 0 && costs > 0 && t.income.rent > 0) {
+    const without = round2((costs / t.income.rent) * 100);
+    const label = b.assetClass === 'commercial' ? 'Tenant reimbursements (recoveries)' : 'Tenant utility reimbursements (such as RUBS)';
+    b.notes.push(`${label} of ${Math.round(reimbursed).toLocaleString()} a year are taken off the costs, because the engine has no input for income other than rent. This assumes tenants keep paying them: without them the expense ratio would be ${without}%. A lender will want to see them in an operating statement.`);
+  }
   if (management > 0) {
     const egi = t.income.rent + t.income.recoveries + t.income.other_income - t.income.vacancy_credit_loss;
     b.notes.push(`The ${source === 'operating statement' ? 'statement' : 'seller'}'s management cost (${Math.round(management).toLocaleString()} a year${egi > 0 ? `, ${round2((management / egi) * 100)}% of income` : ''}) is not in the expense ratio. Whether you hire a manager is your decision: a management fee is charged separately, at your rate, only if you say you will.`);
