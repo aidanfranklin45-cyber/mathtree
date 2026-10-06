@@ -75,6 +75,23 @@ export async function checkDeploymentFreshness(): Promise<boolean> {
   return false;
 }
 
+/** A small notice that a newer version is ready. Built without React so it works whatever state the page is in. */
+function showUpdateBanner(): void {
+  if (typeof document === 'undefined' || document.getElementById('mt-update-banner')) return;
+  const el = document.createElement('div');
+  el.id = 'mt-update-banner';
+  el.setAttribute('role', 'status');
+  el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:100000;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:12px;padding:10px 14px;font:600 12px system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;gap:12px;align-items:center';
+  const text = document.createElement('span');
+  text.textContent = 'A newer version is available.';
+  const button = document.createElement('button');
+  button.textContent = 'Reload when you are ready';
+  button.style.cssText = 'background:#10b981;color:#022c22;border:0;border-radius:8px;padding:5px 10px;font:700 12px system-ui,sans-serif;cursor:pointer';
+  button.onclick = () => window.location.reload();
+  el.append(text, button);
+  document.body.appendChild(el);
+}
+
 // Global Self-Healing Listeners
 if (typeof window !== 'undefined') {
   // 1. Vite preload errors (dispatched by Vite runtime when dynamic chunk or its mapDeps 404)
@@ -109,23 +126,19 @@ if (typeof window !== 'undefined') {
     true
   );
 
-  // 4. Tab visibility change: when user returns to a stale tab that was in the background
+  // 4. Coming back to a tab that has been away a long while: if a newer version has gone out, say so. It never reloads the page by itself (that
+  // would throw away whatever is open); reloading on a real failure is handled above, when a script file the page needs is actually missing.
   let lastVisibilityCheck = Date.now();
+  const AWAY_BEFORE_CHECKING_MS = 10 * 60 * 1000;
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        const now = Date.now();
-        // Only check if the tab was away for at least 30 seconds
-        if (now - lastVisibilityCheck > 30000) {
-          lastVisibilityCheck = now;
-          checkDeploymentFreshness().then((isStale) => {
-            if (isStale) {
-              console.info('[MathTree] Tab was inactive during deployment; auto-reloading to fresh version...');
-              triggerChunkReload();
-            }
-          });
-        }
-      }
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastVisibilityCheck <= AWAY_BEFORE_CHECKING_MS) return;
+      lastVisibilityCheck = now;
+      checkDeploymentFreshness().then((isStale) => {
+        if (isStale) showUpdateBanner();
+      });
     });
   }
 }

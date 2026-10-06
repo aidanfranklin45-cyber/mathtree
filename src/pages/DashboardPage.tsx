@@ -17,6 +17,7 @@ import { ShareDealModal } from '../components/collaboration/ShareDealModal';
 import { fetchProfile, getProfile } from '../lib/profile';
 import { formatCurrency } from '../lib/format';
 import { ProjectWizardModal } from '../components/dashboard/ProjectWizardModal';
+import { takeReopenOnLoad } from '../lib/wizardDraft';
 import { TransferOwnershipModal } from '../components/dashboard/TransferOwnershipModal';
 import { DeleteConfirmModal, DealActionsModal } from '../components/dashboard/DealActionsModal';
 import { openDealBrief } from '../lib/export/pdfBrief';
@@ -140,7 +141,8 @@ export const DashboardPage: React.FC = () => {
       : 'slate';
 
   // Modals state
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  // An unfinished project survives a reload of this tab: the form opens again with it
+  const [isWizardOpen, setIsWizardOpen] = useState(() => takeReopenOnLoad());
   const [editingDeal, setEditingDeal] = useState<DealRecord | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<DealRecord | null>(null);
 

@@ -7,6 +7,7 @@ import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import { missingInputsFor } from '../../lib/engine/compute';
+import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import type { DealRecord } from '../../lib/math/types';
 import { WizardAutofill, type Autofill } from './WizardAutofill';
 import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs } from '../../lib/ingestion/wizardMap';
@@ -127,6 +128,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   // Set once the owner has used the one fill action: from then on the fields still empty are marked
   const [filledOnce, setFilledOnce] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The form was put back from a draft kept by this tab (a reload or a stale-version refresh would otherwise have thrown it away)
+  const [restored, setRestored] = useState(false);
   const [w, setW] = useState<W>(() => seed('commercial'));
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
@@ -147,8 +150,16 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   useEffect(() => {
     if (!isOpen) return;
-    setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
-    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});;
+    const draft = loadWizardDraft();
+    if (draft) {
+      setW(draft.w as W); setFilledOnce(draft.filledOnce); setIsNameTouched(draft.isNameTouched); setError(null); setSubmitting(false);
+      setAssessor(draft.assessor ?? null); setParcels((draft.parcels as any[]) ?? []); setCompanions(0); setAddrResults([]); setAddrOpen(false);
+      setSeededBasis(draft.seededBasis as Record<string, InputBasis>); setSeedNote(null); setDocExtra(draft.docExtra); setRestored(true);
+    } else {
+      setRestored(false);
+      setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
+      setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
+    };
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
 
@@ -476,7 +487,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       if (insErr || !data) throw new Error(insErr?.message || 'Failed to create project record');
 
       onProjectCreated(mapSupabaseDeal(data));
-      onClose();
+      close();
     } catch (err: any) {
       console.error('Wizard error:', err);
       setError(err?.message || 'Could not create the project');
@@ -486,6 +497,25 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   };
 
   if (!isOpen) return null;
+
+  // Keep the form as typed, so nothing is lost if the page reloads. A form nobody has touched is not kept.
+  React.useEffect(() => {
+    if (!isOpen || submitting) return;
+    const pristine = JSON.stringify(w) === JSON.stringify(withManager(seed(w.asset as Asset))) && !filledOnce;
+    if (pristine) return;
+    const t = setTimeout(() => saveWizardDraft({ w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels }), 400);
+    return () => clearTimeout(t);
+  }, [isOpen, submitting, w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels]);
+
+  /** Closing on purpose (Cancel, the X, or after creating) throws the draft away. */
+  const close = () => { clearWizardDraft(); setRestored(false); onClose(); };
+
+  /** Start again from a blank form. */
+  const startOver = () => {
+    clearWizardDraft();
+    setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
+    setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
+  };
 
   // The facts and assumptions the engine still has nobody's answer for, as the form fields they belong to (the closing date is assumed at creation)
   const emptyFields = useMemo(() => {
@@ -1148,17 +1178,23 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 <p className="text-[11px] sm:text-xs text-slate-400">{filledOnce ? <><span className="text-amber-300 font-bold">{emptyFields.size}</span> field{emptyFields.size === 1 ? '' : 's'} still need an answer</> : 'One page: fill everything you can, then answer what is left'}</p>
               </div>
             </div>
-            <button aria-label="Close project creation wizard" onClick={onClose} className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>
+            <button aria-label="Close project creation wizard" onClick={close} className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>
           </div>
         </div>
 
         <div ref={rootRef} className="p-4 sm:p-6 overflow-y-auto space-y-8 flex-grow">
+          {restored && (
+            <p role="status" className="flex flex-wrap items-center gap-2 text-[11px] text-emerald-300">
+              Your unfinished project was kept and is back as you left it.
+              <button type="button" onClick={startOver} className="font-bold text-slate-300 hover:text-white underline">Start over</button>
+            </p>
+          )}
           {stepDivs}
           {error && <p className="text-xs text-rose-400 font-semibold">{error}</p>}
         </div>
 
         <div className="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
+          <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
           <button onClick={submit} disabled={submitting}
             className="px-6 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-brand-600 via-emerald-500 to-teal-400 hover:opacity-95 shadow-lg shadow-emerald-500/20 transition disabled:opacity-60">
             <span>⚡ Create project and run the engine</span>
