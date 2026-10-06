@@ -76,7 +76,7 @@ modules, so it runs in both Vite and Deno). Siblings: `monte-carlo.ts`, `remodel
 | Metric | Definition |
 |---|---|
 | NOI | effective gross income − operating expenses |
-| Expense ratio | The property's operating costs, as a % of **gross rent before vacancy** (on a commercial property, less what tenants reimburse; on a residential one the costs are taken as printed and reimbursements and other income are not counted). It does **not** include management (charged separately, only if the owner hires a manager), on-site payroll and marketing (storage, charged separately), the replacement reserve, or debt service. Parsed figures are built to this definition (`ingestion/toDealInputs.ts`) |
+| Expense ratio | The property's operating costs, as a % of **gross rent before vacancy** less what tenants reimburse (NNN recoveries, utility billing), since the engine cannot hold that as income. Other income (pet fees, miscellaneous) is not counted. It does **not** include management (charged separately, only if the owner hires a manager), on-site payroll and marketing (storage, charged separately), the replacement reserve, or debt service. Parsed figures are built to this definition (`ingestion/toDealInputs.ts`) |
 | Cash flow | NOI − debt service − capex reserve − remodel cash cost (in the year it is spent) |
 | Cash-on-cash | cash flow ÷ cumulative cash invested × 100 |
 | Cap rate | NOI ÷ current property value × 100; **going-in cap uses the first full year** |

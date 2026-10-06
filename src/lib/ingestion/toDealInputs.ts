@@ -209,10 +209,9 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   const onSiteCost = sumOf(onSite);
   const reserves = sumOf(['reserves_capex']);
   const costs = t.operatingExpenses - management - onSiteCost;
-  // On a commercial property the engine's NNN ratio is the cost the landlord is left with, so what tenants reimburse comes off. On a residential
-  // property (RUBS, pet fees) the costs are taken as printed: that income is not something the engine can hold, and leaving it out is the
-  // conservative choice.
-  const reimbursed = b.assetClass === 'commercial' ? t.income.recoveries : 0;
+  // What tenants reimburse (NNN recoveries, utility billing such as RUBS) comes off the costs: the engine cannot hold it as income, and it is
+  // money coming back from costs the landlord pays. Other income (pet fees, miscellaneous) is not a reimbursement of a cost, so it is not counted.
+  const reimbursed = t.income.recoveries;
   const netCosts = costs - reimbursed;
   if (netCosts > 0 && t.income.rent > 0) {
     const ratio = round2((netCosts / t.income.rent) * 100);
@@ -236,8 +235,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   const notApplied = t.excludedExpenses - reserves;
   if (reserves > 0) b.notes.push(`The replacement reserve (${Math.round(reserves).toLocaleString()} a year) is applied on its own, so it is not part of the expense ratio.`);
   if (notApplied > 0.5) b.notes.push(`Not applied: ${Math.round(notApplied).toLocaleString()} of debt service or depreciation, which are not operating expenses.`);
-  const unmodelled = t.income.other_income + (b.assetClass === 'commercial' ? 0 : t.income.recoveries);
-  if (unmodelled > 0) b.notes.push(`The statement shows ${Math.round(unmodelled).toLocaleString()} a year of other income and tenant reimbursements (such as utility billing and pet fees). The engine has no input for them, so they are not counted: your income is conservative by that amount.`);
+  if (t.income.other_income > 0) b.notes.push(`The statement shows ${Math.round(t.income.other_income).toLocaleString()} a year of other income (such as pet fees). The engine has no input for other income, so it is not counted: your income is conservative by that amount.`);
   if (t.income.vacancy_credit_loss > 0 && t.income.rent > 0) {
     const vacancy = round2((t.income.vacancy_credit_loss / t.income.rent) * 100);
     if (leasesEmitted) {
