@@ -1,5 +1,5 @@
 /**
- * The original documents (offering memorandum, rent roll, statements) kept with the deal, in a private bucket only the owner can read.
+ * The original documents (offering memorandum, rent roll, statements) kept with the deal, in a private bucket. Whoever owns the deal can read them.
  * See supabase/migrations_draft/16_deal_documents.sql. Nothing here is required for a project to exist: a missing bucket or a failed upload
  * is reported and the project is still created.
  */
@@ -32,9 +32,9 @@ export function safeFileName(name: string): string {
   return cleaned.replace(/^\.+/, '') || 'document';
 }
 
-/** <owner id>/<deal id>/<time>-<name>: the owner's id first is what the bucket's access rule checks. */
-export function documentPath(userId: string, dealId: string, fileName: string, stamp: number = Date.now()): string {
-  return `${userId}/${dealId}/${stamp}-${safeFileName(fileName)}`;
+/** <deal id>/<time>-<name>: the deal id first is what the bucket's access rule checks (the deal's current owner can read it). */
+export function documentPath(dealId: string, fileName: string, stamp: number = Date.now()): string {
+  return `${dealId}/${stamp}-${safeFileName(fileName)}`;
 }
 
 export interface StoredDocument {
@@ -61,7 +61,7 @@ export async function uploadDealDocuments(args: { userId: string; dealId: string
     const mime = documentMimeType(file.name);
     if (!mime) { out.failed.push({ name: file.name, reason: 'This kind of file is not kept (PDF, CSV, Excel, Word or text only).' }); continue; }
     if (file.size > MAX_DOCUMENT_BYTES) { out.failed.push({ name: file.name, reason: 'It is larger than 50 MB.' }); continue; }
-    const path = documentPath(args.userId, args.dealId, file.name, stamp++);
+    const path = documentPath(args.dealId, file.name, stamp++);
     try {
       const up = await supabase.storage.from(DEAL_DOCUMENT_BUCKET).upload(path, file, { contentType: mime, upsert: false });
       if (up.error) throw new Error(up.error.message);
@@ -92,12 +92,15 @@ export async function listDealDocuments(dealId: string): Promise<StoredDocument[
   }
 }
 
-/** A link that opens one stored document for a few minutes. Null when it cannot be made. */
-export async function documentLink(path: string, seconds = 300): Promise<string | null> {
+/** The stored file itself, fetched through the signed-in session (no link is made, so there is nothing to share or expire). Null when it cannot be read. */
+export async function downloadDealDocument(path: string): Promise<Blob | null> {
   try {
-    const { data, error } = await supabase.storage.from(DEAL_DOCUMENT_BUCKET).createSignedUrl(path, seconds);
-    return error ? null : data?.signedUrl ?? null;
+    const { data, error } = await supabase.storage.from(DEAL_DOCUMENT_BUCKET).download(path);
+    return error ? null : data ?? null;
   } catch {
     return null;
   }
 }
+
+/** Whether a browser can show the file in a tab (a PDF or plain text); any other file is downloaded. */
+export const opensInTab = (mime: string | null): boolean => mime === 'application/pdf' || mime === 'text/plain';

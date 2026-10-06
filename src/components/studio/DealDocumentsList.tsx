@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { documentLink, listDealDocuments, type StoredDocument } from '../../lib/documents/dealDocuments';
+import { downloadDealDocument, listDealDocuments, opensInTab, type StoredDocument } from '../../lib/documents/dealDocuments';
 
-const TYPE_LABEL: Record<string, string> = {
-  offering_memorandum: 'Offering memorandum', operating_statement: 'Operating statement', rent_roll: 'Rent roll', t12: 'Operating statement', other: 'Document',
-};
 const size = (bytes: number): string => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
-/** The original documents kept with this deal. Private to the owner; a file opens through a link that works for a few minutes. */
+/** The original files kept with this deal, as a plain record of what it was underwritten from. A PDF opens in a new tab; any other file downloads. */
 export const DealDocumentsList: React.FC<{ dealId: string }> = ({ dealId }) => {
   const [docs, setDocs] = useState<StoredDocument[] | null>(null);
-  const [opening, setOpening] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,30 +16,33 @@ export const DealDocumentsList: React.FC<{ dealId: string }> = ({ dealId }) => {
   }, [dealId]);
 
   const open = async (d: StoredDocument) => {
-    setOpening(d.id); setProblem(null);
-    const url = await documentLink(d.storage_path);
-    setOpening(null);
-    if (url) window.open(url, '_blank', 'noopener,noreferrer'); else setProblem(`${d.file_name} could not be opened right now.`);
+    setBusy(d.id); setProblem(null);
+    // A new tab is opened on the click, before the wait, so the browser does not block it
+    const tab = opensInTab(d.mime_type) ? window.open('', '_blank') : null;
+    const blob = await downloadDealDocument(d.storage_path);
+    setBusy(null);
+    if (!blob) { tab?.close(); setProblem(`${d.file_name} could not be opened right now.`); return; }
+    const url = URL.createObjectURL(new Blob([blob], { type: d.mime_type ?? blob.type }));
+    if (opensInTab(d.mime_type)) { if (tab) tab.location.href = url; else window.location.assign(url); return; }
+    const a = document.createElement('a');
+    a.href = url; a.download = d.file_name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  if (docs === null) return null;
+  if (docs === null || docs.length === 0) return null;
   return (
     <section aria-label="Source documents" className="space-y-2">
       <h4 className="text-xs font-black uppercase tracking-wider text-slate-200">Source documents <span className="text-slate-500 font-semibold normal-case tracking-normal">({docs.length})</span></h4>
-      <p className="text-[11px] text-slate-400">The original files this property was underwritten from, kept privately with it. Only you can open them.</p>
-      {docs.length === 0 ? (
-        <p className="text-[11px] text-slate-500 italic">No original files are stored with this property.</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {docs.map((d) => (
-            <li key={d.id} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
-              <span className="font-bold text-slate-100 truncate max-w-[18rem]">{d.file_name}</span>
-              <span className="text-slate-500">{d.doc_type ? `${TYPE_LABEL[d.doc_type] ?? 'Document'} · ` : ''}{size(Number(d.size_bytes))} · added {new Date(d.uploaded_at).toLocaleDateString()}</span>
-              <button type="button" onClick={() => void open(d)} disabled={opening === d.id} className="ml-auto text-emerald-400 hover:text-emerald-300 underline disabled:opacity-50">{opening === d.id ? 'Opening…' : 'Open'}</button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="space-y-1.5">
+        {docs.map((d) => (
+          <li key={d.id} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
+            <span className="font-bold text-slate-100 truncate max-w-[18rem]">{d.file_name}</span>
+            <span className="text-slate-500">{size(Number(d.size_bytes))} · added {new Date(d.uploaded_at).toLocaleDateString()}</span>
+            <button type="button" onClick={() => void open(d)} disabled={busy === d.id} className="ml-auto text-emerald-400 hover:text-emerald-300 underline disabled:opacity-50">{busy === d.id ? 'Opening…' : 'Open'}</button>
+          </li>
+        ))}
+      </ul>
       {problem && <p role="alert" className="text-[11px] text-rose-300">{problem}</p>}
     </section>
   );
