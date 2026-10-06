@@ -15,6 +15,9 @@ export interface WizardDraft {
   seededBasis: Record<string, unknown>;
   assessor: unknown;
   parcels: unknown[];
+  /** What was read and decided so far, so the project's record of sources survives a reload. */
+  intake?: unknown;
+  answers?: Record<string, { label: string; decision: string }>;
 }
 
 interface Stored extends WizardDraft { savedAt: number }

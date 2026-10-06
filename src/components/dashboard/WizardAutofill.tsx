@@ -17,6 +17,8 @@ export interface Autofill {
   /** Every figure that does not replace one the owner typed. */
   ticked: Set<string>;
   docs: IntakeDocument[];
+  /** The documents that were read, for the record of where the figures came from. */
+  documents: Array<{ name: string; type: string }>;
 }
 
 /** A figure the owner's investor profile supplied, with the reason the owner gave for it. */
@@ -33,6 +35,8 @@ interface Props {
   assumedClosingWeeks: number | null;
   /** Changes one field of the form: an answer the owner gave to a question here (input key and value). */
   onSet: (key: string, value: string) => void;
+  /** The owner answered a question where the sources disagreed: what they decided, for the record. */
+  onAnswered: (key: string, label: string, decision: string) => void;
 }
 
 interface Source { id: number; name: string; text: string; type: 'auto' | Exclude<DocumentType, 'unknown'> }
@@ -69,7 +73,7 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' };
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profileFigures, assumedClosingWeeks }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, profileFigures, assumedClosingWeeks }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
@@ -123,7 +127,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
         const ticked = new Set(proposal.changes.filter((c) => !c.replaces).map((c) => c.key));
-        await onAutofill({ proposal, ticked, docs });
+        const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType }] : []));
+        await onAutofill({ proposal, ticked, docs, documents });
         setResult({ proposal, docs, filled: ticked.size });
       }
       setPicked({});
@@ -172,6 +177,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, profi
       said = `${c.current} (what you entered)`;
     }
     setResolved((r) => ({ ...r, [c.key]: said }));
+    onAnswered(c.key, c.label, said);
   };
   const reopen = (key: string) => setResolved((r) => { const n = { ...r }; delete n[key]; return n; });
   const openQuestionsLeft = questions.filter((q) => resolved[q.change.key] === undefined);

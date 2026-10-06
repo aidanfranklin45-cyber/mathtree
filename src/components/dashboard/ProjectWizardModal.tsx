@@ -8,6 +8,7 @@ import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
+import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
 import { WizardAutofill, type Autofill, type ProfileFilled } from './WizardAutofill';
 import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs, PROFILE_FIELD, profileFill } from '../../lib/ingestion/wizardMap';
@@ -130,6 +131,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const rootRef = useRef<HTMLDivElement>(null);
   // The form was put back from a draft kept by this tab (a reload or a stale-version refresh would otherwise have thrown it away)
   const [restored, setRestored] = useState(false);
+  // What was read from documents and what the owner decided, kept until the project is created and saved with it as the record of sources
+  const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
+  const [answers, setAnswers] = useState<Record<string, { label: string; decision: string }>>({});
   const [w, setW] = useState<W>(() => seed('commercial'));
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
@@ -155,10 +159,12 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       setW(draft.w as W); setFilledOnce(draft.filledOnce); setIsNameTouched(draft.isNameTouched); setError(null); setSubmitting(false);
       setAssessor(draft.assessor ?? null); setParcels((draft.parcels as any[]) ?? []); setCompanions(0); setAddrResults([]); setAddrOpen(false);
       setSeededBasis(draft.seededBasis as Record<string, InputBasis>); setSeedNote(null); setDocExtra(draft.docExtra); setRestored(true);
+      setIntake((draft.intake as IntakeSnapshot) ?? null); setAnswers(draft.answers ?? {});
     } else {
       setRestored(false);
       setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
       setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
+      setIntake(null); setAnswers({});
     };
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
@@ -216,6 +222,15 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const fill = applyToForm({ form: base, asset: nextAsset, proposal: a.proposal, ticked: a.ticked });
       form = fill.form;
       fromDocs = fill.basis;
+      setIntake({
+        documents: a.documents,
+        figures: a.proposal.changes.filter((c) => a.ticked.has(c.key)).map((c) => ({
+          key: c.key, label: c.label, text: c.proposed, how: c.how, reliability: c.reliability,
+          value: typeof c.value === 'number' || typeof c.value === 'string' ? c.value : undefined,
+        })),
+        claims: Object.values(a.proposal.patch.claims).map((c) => ({ how: c.how, value: c.value })),
+        notes: a.proposal.patch.notes,
+      });
       setDocExtra((e) => ({ ...(nextAsset === asset ? e : {}), ...fill.extra }));
     }
     const fromProfile = assumptionFill(form, nextAsset);
@@ -441,6 +456,22 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       };
       // Where each number came from: the owner's profile assumptions (with their reasons) or the owner's own entry
       inputs.assumptionBasis = reconcileBasis(seededBasis, inputs);
+      // The record of where the figures came from: the documents read, the reasoning for each figure, the seller's claims, the notes and the owner's decisions
+      const live = formAsInputs(w, asset) as Record<string, unknown>;
+      const currentFor = (key: string, value: unknown): number | string | undefined => {
+        if (key === 'address') return typeof value === 'string' && w.location.toLowerCase().startsWith(value.toLowerCase()) ? value : w.location || undefined;
+        const v = live[key];
+        return typeof v === 'number' || typeof v === 'string' ? v : undefined;
+      };
+      const record = buildIntakeRecord({
+        documents: intake?.documents ?? [],
+        documentFigures: (intake?.figures ?? []).map((f) => ({ ...f, current: currentFor(f.key, f.value) })),
+        profileFigures,
+        claims: intake?.claims ?? [],
+        notes: intake?.notes ?? [],
+        choices: Object.values(answers),
+      });
+      if (record) inputs.intakeRecord = record;
       // What was read from documents and has no field in the wizard (never overrides a figure the form or the county record supplied)
       for (const [k, v] of Object.entries(docExtra)) if (inputs[k] === undefined || inputs[k] === null) inputs[k] = v;
       Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
@@ -477,9 +508,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     if (!isOpen || submitting) return;
     const pristine = JSON.stringify(w) === JSON.stringify(withManager(seed(w.asset as Asset))) && !filledOnce;
     if (pristine) return;
-    const t = setTimeout(() => saveWizardDraft({ w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels }), 400);
+    const t = setTimeout(() => saveWizardDraft({ w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers }), 400);
     return () => clearTimeout(t);
-  }, [isOpen, submitting, w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels]);
+  }, [isOpen, submitting, w, filledOnce, isNameTouched, docExtra, seededBasis, assessor, parcels, intake, answers]);
 
   /** Closing on purpose (Cancel, the X, or after creating) throws the draft away. */
   const close = () => { clearWizardDraft(); setRestored(false); onClose(); };
@@ -489,6 +520,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     clearWizardDraft();
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
+    setIntake(null); setAnswers({});
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -525,7 +557,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       {/* Step 1 */}
       <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
         <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
-        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} profileFigures={profileFigures}
+        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} profileFigures={profileFigures}
           assumedClosingWeeks={w.closingDate.trim() ? null : (getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS)} />
 
         <div className="space-y-1.5">
