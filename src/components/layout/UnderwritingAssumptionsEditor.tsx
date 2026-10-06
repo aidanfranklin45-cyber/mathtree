@@ -65,6 +65,14 @@ export const UnderwritingAssumptionsEditor: React.FC<Props> = ({ value, onChange
         </div>
       )}
 
+      <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer">
+        <input type="checkbox" className="mt-0.5" checked={current.usesPropertyManager === true} onChange={(e) => writeAsset({ ...current, usesPropertyManager: e.target.checked })} />
+        <span>
+          <span className="text-xs font-bold text-slate-100 block">I hire a property manager for this kind of property</span>
+          <span className="text-[11px] text-slate-400 leading-relaxed block">New properties start with the management fee below charged on collected income. Leave it off if you manage them yourself: no fee is charged. Each property can differ.</span>
+        </span>
+      </label>
+
       <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800">
         <p className="text-[11px] text-slate-400 leading-relaxed">
           Blank something out? This refills any blank assumption with the common convention, labelled as a starting point.

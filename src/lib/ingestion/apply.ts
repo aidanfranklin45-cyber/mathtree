@@ -133,11 +133,11 @@ export interface Proposal {
 export function proposeChanges(
   docs: IntakeDocument[],
   deal: { asset_class?: string | null; purchase_price?: number | null; inputs?: Record<string, any> | null },
-  opts: { assetClass?: boolean } = {},
+  opts: { assetClass?: boolean; manager?: { uses: boolean | null; fee?: number } } = {},
 ): Proposal {
   const existing = (deal.inputs ?? {}) as Record<string, any>;
   const price = Number(deal.purchase_price) > 0 ? Number(deal.purchase_price) : Number(existing.purchasePrice) > 0 ? Number(existing.purchasePrice) : null;
-  const patch = buildDealPatch(docs, { purchasePrice: price, assetClass: deal.asset_class ?? undefined, existingInputs: existing });
+  const patch = buildDealPatch(docs, { purchasePrice: price, assetClass: deal.asset_class ?? undefined, existingInputs: existing, manager: opts.manager });
 
   const changes: ProposedChange[] = [];
   const unchanged: Proposal['unchanged'] = [];

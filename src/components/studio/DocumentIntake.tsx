@@ -5,7 +5,8 @@ import { validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import { applyChoices, attachVariances, proposeChanges, type Choice, type Expected, type Proposal } from '../../lib/ingestion/apply';
 import { missingInputsFor, resolveProfileAssumptions } from '../../lib/engine/compute';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
-import { useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
+import { getAssumptionDefaults, useAssumptionVersion } from '../../lib/engine/assumptionDefaults';
+import { managerChoice } from '@engine/underwritingAssumptions';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
 import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
 
@@ -57,6 +58,13 @@ const RELIABILITY_STYLE = {
 const btn = 'px-3 py-2 rounded-xl text-xs font-bold transition disabled:opacity-40';
 const sel = 'bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white';
 
+/** The owner's choice about a property manager for this property: its own setting if it has one, else their investor profile's for the asset class. */
+function managerForDeal(deal: Props['deal']): { uses: boolean | null; fee?: number } {
+  const own = (deal.inputs ?? {}) as Record<string, any>;
+  if (typeof own.manageProperty === 'boolean') return { uses: own.manageProperty, fee: Number(own.managementFeePercent) || undefined };
+  return managerChoice(getAssumptionDefaults().assumptions, deal.asset_class);
+}
+
 /** Add documents, read them, see what they say against what the property states, and tick what to accept. Saves nothing itself. */
 export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLabel, onApply, onCancel, appliedNote, proposeAssetClass, onProvide, onFillAssumptions }) => {
   const [sources, setSources] = useState<Source[]>([]);
@@ -74,7 +82,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const assumptionVersion = useAssumptionVersion();
 
   const docs = useMemo<IntakeDocument[]>(() => (reads ?? []).flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? [r.parsed.intake] : [])), [reads]);
-  const proposal = useMemo(() => (docs.length > 0 ? proposeChanges(docs, deal, { assetClass: proposeAssetClass }) : null), [docs, deal, proposeAssetClass]);
+  const proposal = useMemo(() => (docs.length > 0 ? proposeChanges(docs, deal, { assetClass: proposeAssetClass, manager: managerForDeal(deal) }) : null), [docs, deal, proposeAssetClass]);
   // What the owner's profile would use for this property, to compare the document's figures with: the size, price and lease structure come
   // from the documents where the form has none yet, and none of the assumption figures themselves are passed in
   const expected = useMemo<Expected | null>(() => {

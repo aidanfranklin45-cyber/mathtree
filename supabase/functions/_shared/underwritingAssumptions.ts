@@ -32,6 +32,8 @@ export interface AssetAssumptions {
   sellingCostPercent?: number; // % of sale price
   closingCostPercent?: number; // % of purchase price
   managementFeePercent?: number; // % of collected income, applied when the owner has a manager
+  /** Whether the owner hires a property manager for this kind of property. Their decision: a new property starts with it, and may differ. */
+  usesPropertyManager?: boolean;
   capexBasis?: CapexBasis;
   capexValue?: number; // $ per unit a year, $ per sq ft a year, % of income, or % of value, per capexBasis
   /** What the building costs to insure, as a % of its value (the purchase price, else the county assessed value) a year. */
@@ -60,7 +62,7 @@ export interface UnderwritingAssumptions {
   assumedClosingWeeks?: number;
 }
 
-export type AssumptionField = Exclude<keyof AssetAssumptions, 'rationale' | 'capexBasis'>;
+export type AssumptionField = Exclude<keyof AssetAssumptions, 'rationale' | 'capexBasis' | 'usesPropertyManager'>;
 
 export interface FieldSpec {
   key: AssumptionField;
@@ -134,6 +136,7 @@ export function sanitizeAssumptions(raw: unknown): UnderwritingAssumptions {
     }
     if (a.capexBasis === 'perUnit' || a.capexBasis === 'perSqFt' || a.capexBasis === 'percentOfIncome' || a.capexBasis === 'percentOfValue') clean.capexBasis = a.capexBasis;
     if (clean.capexValue !== undefined && !clean.capexBasis) delete clean.capexValue; // an amount with no basis means nothing
+    if (typeof a.usesPropertyManager === 'boolean') clean.usesPropertyManager = a.usesPropertyManager;
     const why: Partial<Record<AssumptionField, string>> = {};
     const rawWhy = (a.rationale && typeof a.rationale === 'object' ? a.rationale : {}) as Record<string, unknown>;
     for (const spec of FIELD_SPECS) {
@@ -152,6 +155,12 @@ export function normAssetKey(raw: unknown): AssetKey {
   if (s === 'multi-family' || s === 'multifamily' || s === 'multi-unit') return 'multi-unit';
   if (s === 'storage' || s === 'self-storage') return 'storage';
   return 'commercial';
+}
+
+/** Whether the owner hires a property manager for this kind of property (null when they have not said), and the fee they underwrite. */
+export function managerChoice(assumptions: UnderwritingAssumptions | null | undefined, assetClass: unknown): { uses: boolean | null; fee?: number } {
+  const a = assumptions?.assets?.[normAssetKey(assetClass)];
+  return { uses: typeof a?.usesPropertyManager === 'boolean' ? a.usesPropertyManager : null, fee: a?.managementFeePercent };
 }
 
 /** Where a figure on a deal came from. Stored on the deal as `assumptionBasis` so a lender can be shown the reason for each number. */

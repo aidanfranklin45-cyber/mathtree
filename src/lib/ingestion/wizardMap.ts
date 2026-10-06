@@ -100,6 +100,7 @@ export function formAsInputs(w: Form, asset: WizardAsset): Record<string, unknow
   const units = UNIT_FIELD[asset];
   if (units) put('unitCount', n(units));
   put('leaseType', has(w, 'leaseType') ? w.leaseType : undefined);
+  if (w.manageProperty !== undefined && w.manageProperty !== '') out.manageProperty = w.manageProperty === 'true';
   put('grossRentPerMonth', n('grossRent'));
   put('monthlyRent', n('grossRent'));
   put('grossRentAnnual', n('grossRent') === undefined ? undefined : (n('grossRent') as number) * 12);

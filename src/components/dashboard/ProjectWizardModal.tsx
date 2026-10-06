@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { AddressService } from '../../lib/services/addressService';
 
-import { seedFromAssumptions, reconcileBasis, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
@@ -102,9 +102,12 @@ const seed = (a: Asset): W => {
     multiUnits: '', multiSqft: '', multiRentPerUnit: '', multiGrossRent: '',
     commSqft: '', commAnnualRent: '', commGrossRent: '',
     sfrArv: '', sfrSqft: '', sfrGrossRent: '',
-    financingType: 'fixed', armInitial: '', armRate: '', armCap: '', ioYears: '',
+    financingType: 'fixed', armInitial: '', armRate: '', armCap: '', ioYears: '', manageProperty: 'false',
   };
 };
+
+/** A new project starts with the owner's own choice about hiring a property manager (from their investor profile); this property can differ. */
+const withManager = (w: W): W => ({ ...w, manageProperty: managerChoice(getProfile().underwritingAssumptions, w.asset).uses ? 'true' : 'false' });
 
 const inputBase = 'w-full bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500';
 const lbl = 'text-xs font-bold uppercase tracking-wider text-slate-300';
@@ -142,7 +145,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   useEffect(() => {
     if (!isOpen) return;
-    setStep(1); setW(seed('commercial')); setIsNameTouched(false); setError(null); setSubmitting(false);
+    setStep(1); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null); setSubmitting(false);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({}); setDocOpen(false);
     supabase.from('entities').select('id,name').order('name').then(({ data }) => setEntities((data as any[]) ?? []));
   }, [isOpen]);
@@ -157,7 +160,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const selectAsset = (a: Asset) => {
     // Identity and location carry across a change of asset class; everything else starts blank for the new class
     setW((prev) => ({
-      ...seed(a),
+      ...withManager(seed(a)),
       name: prev.name,
       location: prev.location,
       entity: prev.entity,
@@ -213,6 +216,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     const basis: Record<string, InputBasis> = {};
     for (const [key, value] of Object.entries(seeded.inputs)) {
       const field = target[key];
+      if (key === 'managementFeePercent' && w.manageProperty !== 'true') continue; // no manager, no fee
       if (!field || (w[field] ?? '').trim() !== '') continue;
       patch[field] = String(value);
       if (key === 'capexReserveAnnual') patch.capexKind = 'annual';
@@ -417,6 +421,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         // Commercial and storage are valued by capitalising income at exit; the rest by appreciation
         ...(isIncomeValued ? { targetCapRate: opt(w.exitCap), targetExitCapRate: opt(w.exitCap) } : { appreciationRate: opt(w.apprec) }),
         sellingCostPercent: opt(w.sellingCost),
+        manageProperty: w.manageProperty === 'true',
         managementFeePercent: opt(w.managementFee),
         payrollMarketingPercent: isStorage ? opt(w.payroll) : undefined,
         capexReserveAnnual: w.capexKind === 'percent' ? undefined : capex,
@@ -1010,6 +1015,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               </div>
             </div>
             <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer mb-1"><input type="checkbox" checked={w.manageProperty === 'true'} onChange={(e) => set({ manageProperty: e.target.checked ? 'true' : 'false' })} />I hire a property manager</label>
               <label htmlFor="wiz-mgmt" className={lbl}>Management Fee (%)</label>
               <input id="wiz-mgmt" type="number" min={0} max={30} step="any" value={w.managementFee} onChange={(e) => set({ managementFee: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
             </div>

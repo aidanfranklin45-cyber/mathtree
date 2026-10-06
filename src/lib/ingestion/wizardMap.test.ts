@@ -4,6 +4,7 @@ import { applyChoices, attachVariances, buildApplication, formatValue, proposeCh
 import { validateIntake } from './validate';
 import { applyToForm, assetFromDocs, deduceAsset, FORM_FIELD_FOR_KEY, formAsInputs } from './wizardMap';
 import { missingInputsFor } from '../engine/compute';
+import { managerChoice, sanitizeAssumptions } from '@engine/underwritingAssumptions';
 
 const box = (value: unknown) => ({ value, confidence: 1 });
 const rentRoll = coerceIntake('rent_roll', {
@@ -290,5 +291,34 @@ describe('what is still needed after the documents are applied', () => {
     expect(asked({ ...filled, down: '25', rate: '6.5', amort: '30' }).filter((m) => m.kind === 'fact')).toEqual([]);
     // every one of those answers has a form field to land in
     for (const k of ['downPaymentPercent', 'interestRate', 'amortizationYears', 'purchasePrice', 'closingDate']) expect(FORM_FIELD_FOR_KEY[k]).toBeTruthy();
+  });
+});
+
+describe('the investor profile decides whether a property manager is hired, and the review honors it', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  const om = coerceIntake('offering_memorandum', {
+    address: box('1 Main St'), assetClass: box('multi_family'), unitCount: box(66),
+    income: [line('GPR', 'rent', 1450800)], expenses: [line('Taxes', 'property_tax', 115670), line('Management', 'management', 53522)],
+  });
+  const notesFor = (manager?: { uses: boolean | null; fee?: number }) => proposeChanges([om], { asset_class: 'multi-unit', purchase_price: null, inputs: {} }, { manager }).patch.notes.join(' | ');
+
+  it('keeps the yes-or-no per asset class and reads it back', () => {
+    const saved = sanitizeAssumptions({ assets: { 'multi-unit': { usesPropertyManager: true, managementFeePercent: 6 }, commercial: { usesPropertyManager: false }, storage: { usesPropertyManager: 'yes' } } });
+    expect(managerChoice(saved, 'multi-unit')).toEqual({ uses: true, fee: 6 });
+    expect(managerChoice(saved, 'commercial').uses).toBe(false);
+    expect(managerChoice(saved, 'storage').uses).toBeNull(); // not a yes or no: not decided
+    expect(managerChoice(null, 'multi-unit').uses).toBeNull();
+  });
+
+  it('says what the owner decided about management, not a generic line', () => {
+    expect(notesFor({ uses: true, fee: 6 })).toContain('You hire a manager, so your own management fee (6% of income) is charged separately.');
+    expect(notesFor({ uses: false })).toContain('You manage it yourself, so no management fee is charged (a lender will usually add one).');
+    expect(notesFor()).toContain('Whether you hire a manager is your decision');
+    expect(notesFor({ uses: true })).toContain('management cost (53,522 a year'); // the seller\'s own cost is never what gets applied
+  });
+
+  it('the form tells the reader about this property\'s own setting', () => {
+    expect(formAsInputs({ manageProperty: 'true' }, 'multi-unit').manageProperty).toBe(true);
+    expect(formAsInputs({ manageProperty: 'false' }, 'multi-unit').manageProperty).toBe(false);
   });
 });

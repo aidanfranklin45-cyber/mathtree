@@ -46,6 +46,8 @@ export interface PatchContext {
   assetClass?: string;
   /** What the deal already states, so only what is genuinely still missing is reported. */
   existingInputs?: Record<string, unknown>;
+  /** Whether the owner hires a property manager for this property (their decision), and the fee they underwrite. Null when not decided. */
+  manager?: { uses: boolean | null; fee?: number };
 }
 
 const RANK: Record<Reliability, number> = { projected: 0, reported: 1, executed: 2 };
@@ -72,6 +74,8 @@ class Builder {
   notes: string[] = [];
   /** The asset class the documents are being read for: it decides which costs the engine charges separately from the expense ratio. */
   assetClass = 'commercial';
+  /** The owner's own choice about a property manager, which decides what the reader says about the seller's management cost. */
+  manager?: { uses: boolean | null; fee?: number };
 
   /** Set a key unless a more reliable document already set it. */
   set(key: string, value: unknown, doc: IntakeDocument, how: string): void {
@@ -234,7 +238,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   }
   if (management > 0) {
     const egi = t.income.rent + t.income.recoveries + t.income.other_income - t.income.vacancy_credit_loss;
-    b.notes.push(`The ${source === 'operating statement' ? 'statement' : 'seller'}'s management cost (${Math.round(management).toLocaleString()} a year${egi > 0 ? `, ${round2((management / egi) * 100)}% of income` : ''}) is not in the expense ratio. Whether you hire a manager is your decision: a management fee is charged separately, at your rate, only if you say you will.`);
+    b.notes.push(`The ${source === 'operating statement' ? 'statement' : 'seller'}'s management cost (${Math.round(management).toLocaleString()} a year${egi > 0 ? `, ${round2((management / egi) * 100)}% of income` : ''}) is not in the expense ratio. ${b.manager?.uses === true ? `You hire a manager, so your own management fee${b.manager.fee !== undefined ? ` (${b.manager.fee}% of income)` : ''} is charged separately.` : b.manager?.uses === false ? 'You manage it yourself, so no management fee is charged (a lender will usually add one).' : 'Whether you hire a manager is your decision: a management fee is charged separately, at your rate, only if you say you will.'}`);
   }
   if (onSiteCost > 0) b.notes.push(`On-site payroll and marketing (${Math.round(onSiteCost).toLocaleString()} a year) are not in the expense ratio: storage charges them separately as a share of income.`);
   // The reserve is its own input (listed above); debt service and depreciation are not operating expenses and are not applied at all
@@ -318,6 +322,7 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
   const omEarly = docs.find((d) => d.documentType === 'offering_memorandum');
   const omAsset = omEarly && omEarly.documentType === 'offering_memorandum' ? omEarly.assetClass.value : null;
   b.assetClass = String(ctx.assetClass ?? omAsset ?? 'commercial');
+  b.manager = ctx.manager;
 
   // Highest reliability first so a lower one can never overwrite a higher one, whatever order the files arrived in.
   const ordered = [...docs].sort((x, y) => RANK[reliabilityOf(y)] - RANK[reliabilityOf(x)]);
