@@ -55,7 +55,7 @@ import { getInitialBaseline, replaceBaseline } from '../lib/baselines/db';
 import { dealFromBaseline, dealWithScenario } from '../lib/compare/baselineColumn';
 import { useIsPhone } from '../hooks/useMediaQuery';
 import { RefreshCw, ArrowLeft } from 'lucide-react';
-import { InquiryCommandBar } from '../components/compare/guided/InquiryCommandBar';
+import { InquiryDecisionFlow } from '../components/compare/guided/InquiryDecisionFlow';
 import { ComparativeStoryCard } from '../components/compare/guided/ComparativeStoryCard';
 import { InquiryVisualizer } from '../components/compare/guided/InquiryVisualizer';
 import {
@@ -579,7 +579,7 @@ export const ComparePage: React.FC = () => {
                 </button>
               </div>
 
-              <InquiryCommandBar
+              <InquiryDecisionFlow
                 deals={deals}
                 activeDeal={selectedInquiryDeal}
                 activeQuestionId={activeQuestionId}
@@ -619,10 +619,9 @@ export const ComparePage: React.FC = () => {
                 readyMadeCount={BUILT_IN_PRESETS.length}
                 draftSummary={draftSummary}
                 onPickDeals={() => setPanel('add')}
-                onPickScenarioDeal={(d) => { void showScenarioSet(d); }}
+                onUnderwriteOneDeal={() => setInquiryOpen(true)}
                 onOpenSaved={() => setPanel('saved')}
                 onContinueDraft={() => { if (draft) void openConfig(draft, 'Last board'); }}
-                onOpenInquiry={() => setInquiryOpen(true)}
               />
             </>
           )
@@ -661,18 +660,19 @@ export const ComparePage: React.FC = () => {
 
             {inquiryOpen && (
               <div className="space-y-5 animate-in fade-in duration-200">
-                <InquiryCommandBar
+                <InquiryDecisionFlow
                   deals={deals}
                   activeDeal={selectedInquiryDeal}
                   activeQuestionId={activeQuestionId}
                   isCustomMode={isCustomConfigMode}
+                  questions={getGuidedQuestionsWithProfile(profile.comparisonAssumptions)}
                   onSelectDeal={setInquiryDealId}
-                  onSelectQuestion={(qId) => {
+                  onSelectQuestion={(qId: GuidedQuestionId) => {
                     setActiveQuestionId(qId);
                     setIsCustomConfigMode(false);
                   }}
                   onToggleCustomMode={setIsCustomConfigMode}
-                  onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
+                  onExecuteCustom={(cfg: CustomInquiryConfig) => setCustomInquiryConfig(cfg)}
                 />
 
                 {inquiryResult && (

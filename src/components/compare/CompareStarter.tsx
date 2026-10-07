@@ -1,25 +1,18 @@
-import React, { useState } from 'react';
-import { ArrowRight, Bookmark, Layers, Scale, Rows3 } from 'lucide-react';
+import React from 'react';
+import { ArrowRight, Bookmark, Layers, Building2, HelpCircle } from 'lucide-react';
 import type { DealRecord } from '../../lib/math/types';
-import { resolveDealDisplayName } from '../../lib/math/pointInTime';
-import { formatCurrency } from '../../lib/format';
-import { dealPrice } from '../../lib/compare/filters';
 
 interface CompareStarterProps {
   loading: boolean;
   deals: DealRecord[];
   savedCount: number;
   readyMadeCount: number;
-  /** The unsaved board from last time, if any. */
   draftSummary: string | null;
   onPickDeals: () => void;
-  onPickScenarioDeal: (deal: DealRecord) => void;
+  onUnderwriteOneDeal: () => void;
   onOpenSaved: () => void;
   onContinueDraft: () => void;
-  onOpenInquiry: () => void;
 }
-
-const card = 'text-left rounded-2xl border p-5 transition flex flex-col gap-3 min-h-[148px]';
 
 export const CompareStarter: React.FC<CompareStarterProps> = ({
   loading,
@@ -28,107 +21,121 @@ export const CompareStarter: React.FC<CompareStarterProps> = ({
   readyMadeCount,
   draftSummary,
   onPickDeals,
-  onPickScenarioDeal,
+  onUnderwriteOneDeal,
   onOpenSaved,
   onContinueDraft,
-  onOpenInquiry,
 }) => {
-  const [choosing, setChoosing] = useState(false);
   const noDeals = !loading && deals.length === 0;
 
   return (
-    <section className="rounded-3xl border border-slate-900 bg-gradient-to-b from-slate-900/70 to-slate-900/30 px-4 py-8 sm:px-8 sm:py-12 space-y-8">
+    <section className="rounded-3xl border border-slate-900 bg-gradient-to-b from-slate-900/60 to-slate-900/20 px-4 py-8 sm:px-8 sm:py-12 space-y-8">
       <div className="text-center space-y-2 max-w-xl mx-auto">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mx-auto flex items-center justify-center">
-          <Scale className="w-6 h-6" />
-        </div>
-        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">What do you want to compare?</h2>
-        <p className="text-sm text-slate-400">
-          Start with a guided underwriting inquiry to discover answers and comparative stories, or build a custom comparison board.
+        <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-3 py-1 rounded-full">
+          Progressive Underwriting
+        </span>
+        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+          What are you analyzing today?
+        </h2>
+        <p className="text-xs sm:text-sm text-slate-400">
+          Break down complex underwriting decisions into clear, bite-sized steps. Choose your path below:
         </p>
       </div>
 
       {noDeals ? (
-        <p className="text-center text-sm text-slate-400">You have no deals yet. Create a project from the portfolio page, then come back to compare.</p>
+        <div className="text-center py-8 text-sm text-slate-400 max-w-md mx-auto bg-slate-950/50 rounded-2xl border border-slate-800 p-6">
+          <p>You have no deals yet. Create a project from the portfolio page, then come back to compare.</p>
+        </div>
       ) : (
-        <div className="space-y-4 max-w-5xl mx-auto">
-          {/* Primary Featured Card: Guided Underwriting Inquiry */}
-          <button
-            type="button"
-            disabled={loading}
-            onClick={onOpenInquiry}
-            className="w-full text-left rounded-3xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/40 via-slate-900/80 to-cyan-950/30 p-6 sm:p-7 transition hover:border-emerald-400/70 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2.5 py-0.5 rounded-full">
-                  Recommended · Guided Inquiries
-                </span>
-                <span className="text-xs text-slate-400">First-Principles Question Playbook</span>
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* The Core 2-Way Fork */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {/* Fork Option A: Compare Different Properties */}
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onPickDeals}
+              className="text-left rounded-3xl border border-slate-800 bg-slate-900/80 hover:border-emerald-500/60 hover:bg-slate-900 p-6 sm:p-7 transition shadow-xl group flex flex-col justify-between cursor-pointer space-y-5"
+            >
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                    Pipeline Allocation
+                  </span>
+                  <h3 className="text-lg font-black text-white group-hover:text-emerald-300 transition">
+                    Compare Different Properties
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Pick two or more properties to rank side by side. See how they stack up on purchase price, stabilized NOI, cash yield, and IRR in a clean table.
+                </p>
               </div>
-              <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-emerald-300 transition">
-                Answer an Underwriting Question & Read the Comparative Story
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                Anticipate lender covenants, find the down payment that makes a deal bankable, solve for maximum offer strike prices, and evaluate positive vs. negative leverage spreads.
-              </p>
-            </div>
-            <div className="shrink-0 flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs group-hover:bg-emerald-400 transition">
-              <span>Explore Inquiries</span>
-              <ArrowRight className="w-4 h-4" />
-            </div>
-          </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-            <button type="button" disabled={loading} onClick={onPickDeals} className={`${card} border-slate-800 bg-slate-900/50 hover:border-emerald-600/60 disabled:opacity-50`}>
-              <Layers className="w-6 h-6 text-emerald-400" />
-              <span>
-                <span className="block text-base font-extrabold text-white">Deals side by side</span>
-                <span className="block text-xs text-slate-400 mt-1">Pick two or more properties and see their returns, financing and cash flow in one table.</span>
-              </span>
-              <span className="mt-auto text-xs font-bold text-emerald-400 flex items-center gap-1">Choose deals <ArrowRight className="w-3.5 h-3.5" /></span>
+              <div className="pt-2 flex items-center space-x-2 text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition-transform">
+                <span>Select Properties</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
             </button>
 
-            <div className={`${card} border-slate-800 bg-slate-900/50`}>
-              <Rows3 className="w-6 h-6 text-cyan-400" />
-              <span>
-                <span className="block text-base font-extrabold text-white">One deal, different scenarios</span>
-                <span className="block text-xs text-slate-400 mt-1">Live, bull and bear cases, saved runs, remodels and the acquisition baseline.</span>
-              </span>
-              {choosing ? (
-                <select
-                  autoFocus
-                  defaultValue=""
-                  onChange={(e) => { const d = deals.find((x) => x.id === e.target.value); if (d) onPickScenarioDeal(d); }}
-                  className="mt-auto w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500"
-                  aria-label="Choose a deal"
-                >
-                  <option value="" disabled>Choose a deal…</option>
-                  {deals.map((d) => <option key={d.id} value={d.id}>{resolveDealDisplayName(d)} · {formatCurrency(dealPrice(d))}</option>)}
-                </select>
-              ) : (
-                <button type="button" disabled={loading} onClick={() => setChoosing(true)} className="mt-auto text-xs font-bold text-cyan-400 flex items-center gap-1 disabled:opacity-50 text-left">Choose a deal <ArrowRight className="w-3.5 h-3.5" /></button>
-              )}
-            </div>
+            {/* Fork Option B: Underwrite One Property */}
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onUnderwriteOneDeal}
+              className="text-left rounded-3xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/30 to-slate-900/90 hover:border-emerald-400 hover:bg-slate-900 p-6 sm:p-7 transition shadow-2xl group flex flex-col justify-between cursor-pointer space-y-5"
+            >
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block">
+                    Defensible Inquiry & Covenants
+                  </span>
+                  <h3 className="text-lg font-black text-white group-hover:text-cyan-300 transition">
+                    Underwrite One Property
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Explore one specific deal in depth. Determine what down payment satisfies bank covenants, back-solve maximum offer price, and verify audit integrity.
+                </p>
+              </div>
 
-            <button type="button" onClick={onOpenSaved} className={`${card} border-slate-800 bg-slate-900/50 hover:border-violet-600/50`}>
-              <Bookmark className="w-6 h-6 text-violet-400" />
-              <span>
-                <span className="block text-base font-extrabold text-white">Open a saved comparison</span>
-                <span className="block text-xs text-slate-400 mt-1">
-                  {savedCount > 0 ? `${savedCount} saved, plus ` : ''}{readyMadeCount} ready-made {readyMadeCount === 1 ? 'view' : 'views'} like "Pipeline ranked by IRR".
-                </span>
-              </span>
-              <span className="mt-auto text-xs font-bold text-violet-400 flex items-center gap-1">Browse <ArrowRight className="w-3.5 h-3.5" /></span>
+              <div className="pt-2 flex items-center space-x-2 text-xs font-bold text-cyan-300 group-hover:translate-x-1 transition-transform">
+                <span>Solve Questions for a Property</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
             </button>
           </div>
-        </div>
-      )}
 
-      {draftSummary && (
-        <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3">
-          <span className="text-xs text-slate-300">Continue where you left off: <strong className="text-white">{draftSummary}</strong></span>
-          <button type="button" onClick={onContinueDraft} className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-100">Reopen</button>
+          {/* Secondary Options: Saved Boards / Recent Draft */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-400">
+            <button
+              type="button"
+              onClick={onOpenSaved}
+              className="hover:text-white flex items-center space-x-2 transition px-3 py-1.5 rounded-xl hover:bg-slate-800"
+            >
+              <Bookmark className="w-3.5 h-3.5 text-violet-400" />
+              <span>
+                Saved comparisons ({savedCount}) · Ready-made presets ({readyMadeCount})
+              </span>
+            </button>
+
+            {draftSummary && (
+              <div className="flex items-center space-x-2">
+                <span className="text-slate-500">Unsaved draft:</span>
+                <button
+                  type="button"
+                  onClick={onContinueDraft}
+                  className="font-bold text-emerald-400 hover:text-emerald-300 underline"
+                >
+                  Continue ({draftSummary})
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>
