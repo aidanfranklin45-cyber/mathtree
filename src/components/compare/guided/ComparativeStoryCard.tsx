@@ -59,16 +59,16 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
   const BadgeIcon = badgeConfig.Icon;
 
   return (
-    <div className="rounded-3xl border border-slate-800 bg-gradient-to-b from-slate-900/90 to-slate-950 p-5 sm:p-7 shadow-2xl space-y-6">
+    <div className="rounded-2xl border border-slate-850 bg-slate-900/90 p-5 sm:p-6 shadow-xl space-y-5">
       {/* Header with Badge & Promotion CTA */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-sm backdrop-blur-md uppercase tracking-wider">
-            <span className={`w-2 h-2 rounded-full ${badgeConfig.dot} animate-pulse`} />
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/60">
+        <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-sm uppercase tracking-wider">
+            <span className={`w-2 h-2 rounded-full ${badgeConfig.dot}`} />
             <span className={badgeConfig.bg.split(' ')[2]}>{verdictBadge.label}</span>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-cyan-400" /> Executive Underwriting Story
+          <span className="text-xs font-semibold text-slate-400">
+            Executive Underwriting Brief
           </span>
         </div>
 
@@ -79,7 +79,7 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition ${
               isPromoted
                 ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 cursor-default'
-                : 'bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 hover:text-white'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
             }`}
           >
             {isPromoted ? (
@@ -98,21 +98,21 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
       </div>
 
       {/* Headline */}
-      <div className="space-y-2">
-        <h3 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug">
+      <div className="space-y-1">
+        <h3 className="text-base sm:text-lg font-black text-white tracking-tight leading-snug">
           {headline}
         </h3>
       </div>
 
       {/* Key Takeaways Grid */}
       {keyTakeaways.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {keyTakeaways.map((takeaway, idx) => (
             <div
               key={idx}
-              className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3.5 text-xs text-slate-200 flex items-start space-x-2.5 shadow-sm"
+              className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-200 flex items-start space-x-2.5"
             >
-              <div className="w-5 h-5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-4 h-4 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                 <BadgeIcon className="w-3 h-3" />
               </div>
               <span className="leading-relaxed">{takeaway}</span>
@@ -123,7 +123,7 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
 
       {/* Narrative Synthesis Paragraphs */}
       {narrativeParagraphs.length > 0 && (
-        <div className="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed font-normal bg-slate-950/40 border border-slate-900 p-4 sm:p-5 rounded-2xl">
+        <div className="space-y-2.5 text-xs text-slate-300 leading-relaxed bg-slate-950/50 border border-slate-800/80 p-4 rounded-xl">
           {narrativeParagraphs.map((para, idx) => (
             <p key={idx}>{para}</p>
           ))}
@@ -132,13 +132,13 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
 
       {/* Action Recommendation Box */}
       {actionRecommendation && (
-        <div className="rounded-2xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-3.5 flex items-start space-x-3 text-xs text-cyan-200">
-          <div className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-4 py-3 flex items-start space-x-3 text-xs text-emerald-200">
+          <div className="w-5 h-5 rounded-md bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
             <ArrowRight className="w-3.5 h-3.5" />
           </div>
           <div className="space-y-0.5">
-            <span className="font-extrabold uppercase tracking-wider text-[10px] text-cyan-400">
-              Underwriting Verdict & Action Recommendation
+            <span className="font-extrabold uppercase tracking-wider text-[10px] text-emerald-400">
+              Action Recommendation
             </span>
             <p className="text-slate-200 leading-relaxed">{actionRecommendation}</p>
           </div>

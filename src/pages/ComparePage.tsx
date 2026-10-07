@@ -54,11 +54,10 @@ import {
 import { getInitialBaseline, replaceBaseline } from '../lib/baselines/db';
 import { dealFromBaseline, dealWithScenario } from '../lib/compare/baselineColumn';
 import { useIsPhone } from '../hooks/useMediaQuery';
-import { RefreshCw, ArrowLeft, Sparkles, HelpCircle } from 'lucide-react';
-import { GuidedQuestionBar } from '../components/compare/guided/GuidedQuestionBar';
+import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { InquiryCommandBar } from '../components/compare/guided/InquiryCommandBar';
 import { ComparativeStoryCard } from '../components/compare/guided/ComparativeStoryCard';
 import { InquiryVisualizer } from '../components/compare/guided/InquiryVisualizer';
-import { CustomInquiryBuilder } from '../components/compare/guided/CustomInquiryBuilder';
 import { GuidedQuestionId } from '../lib/compare/guidedQuestions';
 import {
   executeBankabilityInquiry,
@@ -535,7 +534,7 @@ export const ComparePage: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <ConnectedHeader active="compare" deals={deals} onDealsChanged={() => { void loadDeals(); }} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-5">
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5">
         <div className="flex items-baseline justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Compare</h1>
@@ -550,7 +549,7 @@ export const ComparePage: React.FC = () => {
               <p className="text-xs font-bold text-slate-300">Loading your properties…</p>
             </div>
           ) : inquiryOpen ? (
-            <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="space-y-5 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
                 <button
                   type="button"
@@ -562,30 +561,22 @@ export const ComparePage: React.FC = () => {
                 </button>
               </div>
 
-              <GuidedQuestionBar
+              <InquiryCommandBar
                 deals={deals}
-                activeDealId={selectedInquiryDeal?.id || ''}
+                activeDeal={selectedInquiryDeal}
                 activeQuestionId={activeQuestionId}
                 isCustomMode={isCustomConfigMode}
+                onSelectDeal={setInquiryDealId}
                 onSelectQuestion={(qId) => {
                   setActiveQuestionId(qId);
                   setIsCustomConfigMode(false);
                 }}
-                onSelectDeal={setInquiryDealId}
                 onToggleCustomMode={setIsCustomConfigMode}
+                onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
               />
 
-              {isCustomConfigMode && selectedInquiryDeal && (
-                <CustomInquiryBuilder
-                  deal={selectedInquiryDeal}
-                  onExecute={(cfg) => {
-                    setCustomInquiryConfig(cfg);
-                  }}
-                />
-              )}
-
               {inquiryResult && (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <ComparativeStoryCard
                     story={inquiryResult.story}
                     onPromoteToBoard={handlePromoteInquiryToBoard}
@@ -651,30 +642,22 @@ export const ComparePage: React.FC = () => {
 
             {inquiryOpen && (
               <div className="space-y-5 animate-in fade-in duration-200">
-                <GuidedQuestionBar
+                <InquiryCommandBar
                   deals={deals}
-                  activeDealId={selectedInquiryDeal?.id || ''}
+                  activeDeal={selectedInquiryDeal}
                   activeQuestionId={activeQuestionId}
                   isCustomMode={isCustomConfigMode}
+                  onSelectDeal={setInquiryDealId}
                   onSelectQuestion={(qId) => {
                     setActiveQuestionId(qId);
                     setIsCustomConfigMode(false);
                   }}
-                  onSelectDeal={setInquiryDealId}
                   onToggleCustomMode={setIsCustomConfigMode}
+                  onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
                 />
 
-                {isCustomConfigMode && selectedInquiryDeal && (
-                  <CustomInquiryBuilder
-                    deal={selectedInquiryDeal}
-                    onExecute={(cfg) => {
-                      setCustomInquiryConfig(cfg);
-                    }}
-                  />
-                )}
-
                 {inquiryResult && (
-                  <div className="space-y-5">
+                  <div className="space-y-4">
                     <ComparativeStoryCard
                       story={inquiryResult.story}
                       onPromoteToBoard={handlePromoteInquiryToBoard}

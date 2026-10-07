@@ -13,11 +13,11 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
   if (questionId === 'bankability_down_payment') {
     const { rows = [], baselinePercent, debtServicePer5PctDown, goingInCapRate, loanConstant } = rawResult;
     return (
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6 space-y-4 shadow-xl">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-4 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <ShieldCheck className="w-3.5 h-3.5" />
             </div>
             <h3 className="text-xs font-black text-white uppercase tracking-wider">
               Down Payment vs. Lender DSCR Covenant Ladder
@@ -108,11 +108,11 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
   if (questionId === 'expense_ratio_bankability' || rawResult?.points) {
     const { points = [], baselineValue, targetThreshold = 1.25 } = rawResult;
     return (
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6 space-y-4 shadow-xl">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-4 shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <ShieldCheck className="w-3.5 h-3.5" />
             </div>
             <h3 className="text-xs font-black text-white uppercase tracking-wider">
               Operating Expense Ratio vs. Bankability Covenant
@@ -205,10 +205,10 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
     const isDiscount = priceDelta < 0;
 
     return (
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6 space-y-5 shadow-xl">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-4 shadow-xl">
         <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
-            <Tag className="w-4 h-4" />
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Tag className="w-3.5 h-3.5" />
           </div>
           <h3 className="text-xs font-black text-white uppercase tracking-wider">
             Acquisition Basis Strike Price Comparison
@@ -217,7 +217,7 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Asking Price Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 space-y-3">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
             <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">
               Asking Listing Price
             </span>
@@ -237,7 +237,7 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
           </div>
 
           {/* Solved Strike Basis Card */}
-          <div className="rounded-2xl border border-emerald-800/60 bg-emerald-950/20 p-4 space-y-3">
+          <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/20 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase text-emerald-400 tracking-wider">
                 Target Strike Basis ({targetType === 'dscr' ? `${targetVal}x DSCR` : `${targetVal}% IRR`})
@@ -274,10 +274,10 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
   if (questionId === 'rate_and_vacancy_stress') {
     const { breakEvenOcc, rateShockBps, vacancyShockPct } = rawResult;
     return (
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6 space-y-4 shadow-xl">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-4 shadow-xl">
         <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center">
-            <Activity className="w-4 h-4" />
+          <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Activity className="w-3.5 h-3.5" />
           </div>
           <h3 className="text-xs font-black text-white uppercase tracking-wider">
             Downside Shock Stress Breakdown
@@ -285,7 +285,7 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 space-y-1.5">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-1.5">
             <span className="text-[10px] font-extrabold uppercase text-slate-400">
               Break-Even Occupancy
             </span>
@@ -295,7 +295,7 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 space-y-1.5">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-1.5">
             <span className="text-[10px] font-extrabold uppercase text-slate-400">
               Rate Hike Test
             </span>
@@ -305,11 +305,11 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 space-y-1.5">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-1.5">
             <span className="text-[10px] font-extrabold uppercase text-slate-400">
               Vacancy Shock Test
             </span>
-            <div className="text-xl font-black text-cyan-300 font-mono">+{vacancyShockPct}%</div>
+            <div className="text-xl font-black text-emerald-300 font-mono">+{vacancyShockPct}%</div>
             <p className="text-[10px] text-slate-400">
               Tests impact of unexpected tenant departure or leasing lag.
             </p>
