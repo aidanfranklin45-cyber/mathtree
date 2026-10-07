@@ -14,6 +14,10 @@ interface NoteProps {
   question: React.ReactNode;
   /** Name the field: when several notes share a row of the form, each says which field it is about. */
   named?: boolean;
+  /** Why the engine needs a figure nothing supplies: shown beside the Needed mark. */
+  neededWhy?: string;
+  /** The facts that bear on each decision with no figure of its own, by the decision's key. */
+  decisionNotes?: Record<string, string>;
   onDecide: (decision: { key: string }, option: Option) => void;
   onOwnFigure: (row: WorksheetRow, value: string, reason: string) => void;
 }
@@ -23,7 +27,7 @@ interface NoteProps {
  * full story is in the sources panel and in the record saved with the project). A field the engine needs is an empty circle. Only a field with an
  * open question shows more, and then only the question, answered where the figure is.
  */
-export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, onDecide, onOwnFigure }) => {
+export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWhy, decisionNotes, onDecide, onOwnFigure }) => {
   const [own, setOwn] = useState<{ value: string; reason: string }>({ value: '', reason: '' });
   const name = named ? <span className="text-slate-400">{r.label}</span> : null;
   if (r.state === 'optional' && !question && r.decisions.length === 0) return null;
@@ -40,6 +44,7 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, onDecide
     return (
       <p data-note={r.key} data-state={r.state} className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-rose-300">
         <span aria-hidden>○</span><span className="font-bold">{named ? `${r.label}: needed` : 'Needed'}</span>
+        {neededWhy && <span className="text-slate-500"> · {neededWhy}</span>}
       </p>
     );
   }
@@ -54,6 +59,7 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, onDecide
       {r.decisions.map((d) => (
         <div key={d.key} className="space-y-1.5">
           <p className="text-[11px] text-amber-200">{d.reasons[0]?.detail ?? d.label}</p>
+          {decisionNotes?.[d.key] && <p className="text-[11px] text-slate-400">{decisionNotes[d.key]}</p>}
           <span className="flex flex-wrap gap-2">
             {d.options.map((o) => <button key={o.id} type="button" onClick={() => onDecide(d, o)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:border-emerald-500/60 text-slate-100 text-[11px] font-bold">{o.label}</button>)}
           </span>
@@ -62,6 +68,7 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, onDecide
       {r.hint && <p className="text-[10px] text-slate-500">{r.hint}</p>}
       {r.state === 'unsupported' && (
         <div className="space-y-1.5">
+          {r.key === 'expenseRatio' && <p className="text-[10px] text-slate-500">The ratio counts taxes, insurance, upkeep, utilities and payroll. It leaves out management, the reserve and debt, and nets off tenant reimbursements.</p>}
           <span className="flex flex-wrap items-center gap-2">
             <input type="number" min="0" step="any" aria-label={`Your own ${r.label}`} placeholder="Your figure" value={own.value} onChange={(e) => setOwn({ ...own, value: e.target.value })} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
             {PERCENT_ROWS.has(r.key) && <span className="text-[11px] text-slate-400">%</span>}

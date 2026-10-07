@@ -7,7 +7,7 @@ import { setAssumptionDefaults } from '../../engine/assumptionDefaults';
 import { evaluateContracts, LINE_CONTRACTS } from '../contracts';
 import { openQuestions } from '../openQuestions';
 import { assess, CAP_COMPRESSION, THIN_DSCR } from '../readiness';
-import { buildWorksheet, DECISION_ROW, ROW_SPECS, unattachedDecisions, type WorksheetRow } from '../worksheet';
+import { buildWorksheet, DECISION_ROW, decisionNote, ROW_SPECS, unattachedDecisions, type WorksheetRow } from '../worksheet';
 import { underwrite } from './cowicheFlow';
 import modalSource from '../../../components/dashboard/ProjectWizardModal.tsx?raw';
 
@@ -226,5 +226,29 @@ describe('one rent question, not two', () => {
   it('asks for a confirmation after the rent is chosen only if the choice still disagrees with the average', () => {
     expect(row(worksheet({ rent: 120_900 }).rows, 'grossRentPerMonth').decisions).toEqual([]);
     expect(row(worksheet({ rent: 125_700 }).rows, 'grossRentPerMonth').decisions.map((d) => d.key)).toEqual(['rentAgreesWithStatedAverage']);
+  });
+});
+
+describe('what bears on a decision is said where it is made', () => {
+  const { proposal } = worksheet();
+
+  it('tells the owner what the seller\'s management cost is a share of, and what hiring a manager would charge', () => {
+    const n = decisionNote('managementFee', proposal.patch.notes, 4)!;
+    expect(n).toContain('3.48% of income');
+    expect(n).toContain('your profile\'s 4% of income');
+  });
+
+  it('says to enter a fee when the profile has none', () => {
+    expect(decisionNote('managementFee', proposal.patch.notes)).toMatch(/enter it in the form/);
+  });
+
+  it('tells the owner what the expense ratio would be without the reimbursements, and that a lender will ask', () => {
+    const n = decisionNote('utilityReimbursements', proposal.patch.notes)!;
+    expect(n).toContain('24.23%');
+    expect(n).toMatch(/lender will want/);
+  });
+
+  it('has nothing to add for a decision that needs nothing more', () => {
+    expect(decisionNote('unclassifiedIncome', proposal.patch.notes)).toBeNull();
   });
 });

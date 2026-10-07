@@ -5,7 +5,7 @@ import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/inge
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import { DocumentLineage } from '../studio/DocumentLineage';
 import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { buildWorksheet, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
+import { buildWorksheet, decisionNote, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
 import { assess, type Readiness } from '../../lib/ingestion/readiness';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
@@ -308,6 +308,18 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const sourceWord = (how: string): string =>
     /unit mix/i.test(how) ? 'unit mix' : /income table|income and expense/i.test(how) ? 'income table' : /operating statement/i.test(how) ? 'operating statement' : /rent roll/i.test(how) ? 'rent roll' : /lease/i.test(how) ? 'lease' : 'document';
   const pill = 'px-2.5 py-1.5 rounded-lg border text-left text-[11px] bg-slate-900 border-slate-700 hover:border-emerald-500/60 text-slate-100 transition';
+  const dollars = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
+  const unitsOf = Number(result?.proposal.patch.patch.unitCount) || Number(deal.inputs?.unitCount) || 0;
+  /** The page of the document a figure was read from, for the button that offers it. */
+  const pageOf = (how: string): string => {
+    const section = /unit mix/i.test(how) ? 'Unit mix' : /income table|income and expense/i.test(how) ? 'Income' : '';
+    const page = section ? (intake?.lineage ?? []).find((r) => r.section === section && r.found && (r.keys ?? []).includes('grossRentPerMonth'))?.page : null;
+    return page ? ' · p. ' + page : '';
+  };
+  /** A rent in the other forms the owner compares it in: a year, a unit. */
+  const rentForms = (c: ProposedChange, monthly: number): string | null => (c.key === 'grossRentPerMonth' ? dollars(monthly * 12) + ' a year' + (unitsOf > 0 ? ' · ' + dollars(monthly / unitsOf) + ' a unit' : '') : null);
+  /** A yearly reserve per unit, which is how reserves are usually compared. */
+  const perUnit = (c: ProposedChange, annual: number, text: string): string => (c.key === 'capexReserveAnnual' && unitsOf > 0 ? text + ' (' + dollars(annual / unitsOf) + ' a unit)' : text);
 
   /** The question for one figure, as short as it can be: the choices side by side, answered with one press. */
   const questionCard = ({ change: c, kind }: Question) => {
@@ -321,11 +333,17 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
             {options.map((o, k) => (
               <button key={k} type="button" onClick={() => settleUnsure(c, true, k === 0 ? undefined : { value: o.value, text: o.text })} className={pill}>
                 <span className="block font-bold text-emerald-300">{o.text.replace(/ \(.*$/, '')}</span>
-                <span className="block text-slate-500">{sourceWord(o.how)}</span>
+                {rentForms(c, o.value) && <span className="block text-slate-300">{rentForms(c, o.value)}</span>}
+                <span className="block text-slate-500">{sourceWord(o.how)}{pageOf(o.how)}</span>
               </button>
             ))}
             <button type="button" onClick={() => settleUnsure(c, false)} className={pill}>My own</button>
           </div>
+          {c.key === 'grossRentPerMonth' && options.length >= 2 && (() => {
+            const [a, b] = [options[0].value, options[1].value];
+            const low = Math.min(a, b);
+            return low > 0 ? <p className="text-[11px] text-slate-400">They differ by {dollars(Math.abs(a - b) * 12)} a year ({(Math.abs(a - b) / low * 100).toFixed(1)}%).</p> : null;
+          })()}
         </div>
       );
     }
@@ -352,9 +370,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       );
       return (
         <div key={c.key} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
-          {choice('doc', 'Document', docText(c))}
+          {choice('doc', 'Document', perUnit(c, Number(c.value), docText(c)))}
           {changedInForm(c) && choice('keep', 'Mine', assumptionText(c.key, inForm(c) as number))}
-          {choice('mine', 'Your standard', mineText(c))}
+          {choice('mine', 'Your standard', perUnit(c, c.variance.expected, mineText(c)))}
           <label className="flex items-center gap-1.5 cursor-pointer">
             <input type="radio" name={`q-${c.key}`} checked={which === 'own'} onChange={() => choose(c, 'own')} />
             <span className="text-slate-400">Own</span>
@@ -363,6 +381,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
               onKeyDown={(e) => { if (e.key === 'Enter') confirm(c, kind); }} />
           </label>
           <button type="button" onClick={() => confirm(c, kind)} disabled={which === 'own' && !(typed[c.key] ?? '').trim()} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-bold disabled:opacity-40">Use</button>
+          <p className="basis-full text-[10px] text-slate-500">Your standard: {c.variance.why || 'your investor profile'}. The document is {c.variance.percent}% {c.variance.higher ? 'above' : 'below'} it.</p>
         </div>
       );
     }
@@ -542,7 +561,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     const q = questions.find((x) => x.change.key === key);
     return (
       <RowNote
-        row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null}
+        row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null} neededWhy={neededAll.find((m) => m.key === key)?.why}
+        decisionNotes={Object.fromEntries(r.decisions.flatMap((d) => { const n = decisionNote(d.key, result?.proposal.patch.notes ?? [], managerFor(deal).fee); return n ? [[d.key, n]] : []; }))}
         onDecide={(d, o) => { const c = contracts.find((x) => x.key === d.key); if (c) settleLine(c, o); }}
         onOwnFigure={ownFigure}
       />

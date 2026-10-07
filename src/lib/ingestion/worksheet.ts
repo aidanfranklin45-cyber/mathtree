@@ -181,3 +181,22 @@ export function buildWorksheet(args: {
 export function unattachedDecisions(): string[] {
   return LINE_CONTRACTS.map((c) => c.key).filter((k) => !DECISION_ROW[k]);
 }
+
+/**
+ * What the owner needs to know to decide one of the decisions that has no figure of its own: the facts that bear on the choice, taken from the
+ * reading's own notes (which are built with the engine's definitions), never the machinery behind them.
+ */
+export function decisionNote(key: string, notes: string[], managerFeePercent?: number): string | null {
+  if (key === 'managementFee') {
+    const m = /management cost \(([^)]*)\)/.exec(notes.find((n) => /management cost \(/.test(n)) ?? '');
+    const fee = managerFeePercent !== undefined ? `Hiring one charges your profile's ${managerFeePercent}% of income on top.` : 'Hiring one charges a fee on top; enter it in the form.';
+    // The reading's note says "53,522 a year, 3.48% of income"; the card has said the amount already, so only the share is added
+    const share = m ? m[1].split(', ').slice(1).join(', ') : '';
+    return `${share ? `That is ${share}. ` : ''}${fee}`;
+  }
+  if (key === 'utilityReimbursements') {
+    const w = /without them the expense ratio would be ([\d.]+%)/.exec(notes.find((n) => /reimbursements/i.test(n)) ?? '');
+    return w ? `Netted off, they lower the expense ratio; without them it would be ${w[1]}. A lender will want to see them in an operating statement.` : null;
+  }
+  return null;
+}
