@@ -75,9 +75,9 @@ function run(profile: UnderwritingAssumptions): { proposal: Proposal; asks: stri
 }
 
 /** Every contract's outcome for a reader's answer, under a profile. */
-function contractsFor(answer: Record<string, unknown>, profile: UnderwritingAssumptions) {
+function contractsFor(answer: Record<string, unknown>, profile: UnderwritingAssumptions, text: string = COWICHE_TEXT) {
   setAssumptionDefaults({ assumptions: profile, discountRate: 8, exitYear: 10 });
-  const intake = groundIntake(coerceIntake('offering_memorandum', answer), COWICHE_TEXT);
+  const intake = groundIntake(coerceIntake('offering_memorandum', answer), text);
   const proposal = proposeChanges([intake], deal);
   attachVariances(proposal, expectedFor(proposal, deal));
   return evaluateContracts(proposal, [intake]);
@@ -98,9 +98,10 @@ describe('Cowiche Creek: what is asked whatever the owner\'s profile', () => {
     expect(proposal.changes.find((c) => c.key === 'expenseRatio')!.waitingOn).toBe('grossRentPerMonth');
   });
 
-  it("finds that the document does not add up to its own NOI, and says so (its net rental income is 5.5% off the rent, not the printed 5% vacancy)", () => {
+  it("ties the document's income and costs to its printed NOI on the basis it uses (after the 16,500 reserve), 0.7% apart", () => {
     const check = documentChecks(groundIntake(coerceIntake('offering_memorandum', READER_ANSWER), COWICHE_TEXT)).find((c) => c.label.startsWith('Income less costs'))!;
-    expect(check.ok).toBe(false);
+    expect(check.ok).toBe(true);
+    expect(check.detail).toContain('replacement reserve');
   });
 
   it("ties the printed cap rate to the price and NOI", () => {
@@ -190,5 +191,74 @@ describe('Contracts: governance (they hold when the reader slips or the document
   it('asks about nothing the document leaves unsaid: a clean answer with no such lines raises no line contracts', () => {
     const answer = { ...READER_ANSWER, expenses: READER_ANSWER.expenses.filter((l) => l.label.value !== 'Management'), income: READER_ANSWER.income.filter((l) => l.label.value !== 'RUBS') };
     expect(asked(answer)).toEqual(expect.not.arrayContaining(['managementFee', 'utilityReimbursements', 'unclassifiedIncome']));
+  });
+});
+
+describe('Contracts: mutation (change the document or the reading and the outcome may only move toward asking)', () => {
+  const run1 = (answer: Record<string, unknown>, text = COWICHE_TEXT) => contractsFor(answer, closeProfile(), text);
+  const outcome = (rs: ReturnType<typeof run1>, key: string) => rs.find((r) => r.key === key)?.outcome;
+  const base = run1(READER_ANSWER);
+  const set = (over: Record<string, unknown>) => ({ ...READER_ANSWER, ...over });
+  const dropPage = (n: number) => COWICHE_TEXT.split(/^(?=--- Page \d+ ---$)/m).map((p) => (p.startsWith(`--- Page ${n} ---`) ? `--- Page ${n} ---\n` : p)).join('');
+
+  it('starts from a baseline where the plain facts go in and the rent is the only figure asked on its own', () => {
+    expect(outcome(base, 'purchasePrice')).toBe('auto');
+    expect(outcome(base, 'grossRentPerMonth')).toBe('ask');
+  });
+
+  it('a price the reader returned that is not in the text is asked about', () => {
+    expect(outcome(run1(set({ askingPrice: box(1_840_000) })), 'purchasePrice')).toBe('ask');
+  });
+
+  it('a reader that quietly takes the market rent everywhere is caught by the stated average rent', () => {
+    const market = set({
+      unitMix: [mix('2 Bd / 2.5 Bth TH', 30, 1266, 1900), mix('3 Bd / 2.5 Bth TH', 36, 1268, 1910)],
+      income: READER_ANSWER.income.map((l) => (l.label.value === 'Gross Potential Rent' ? line('Gross Potential Rent', 'rent', 1_508_400) : l)),
+    });
+    const r = run1(market).find((x) => x.key === 'rentAgreesWithStatedAverage')!;
+    expect(r.outcome).toBe('ask');
+  });
+
+  it('does not complain about the rent against the average when the document is consistent', () => {
+    const consistent = set({ unitMix: [mix('2 Bd / 2.5 Bth TH', 30, 1266, 1800), mix('3 Bd / 2.5 Bth TH', 36, 1268, 1858.33)] });
+    expect(outcome(run1(consistent), 'rentAgreesWithStatedAverage')).toBe('auto');
+  });
+
+  it('a line the reader missed makes the document stop tying to its own NOI', () => {
+    const missed = set({ expenses: READER_ANSWER.expenses.filter((l) => l.label.value !== 'RE Taxes') });
+    const intake = groundIntake(coerceIntake('offering_memorandum', missed), COWICHE_TEXT);
+    expect(documentChecks(intake).find((c) => c.label.startsWith('Income less costs'))!.ok).toBe(false);
+  });
+
+  it('with the income and expense page removed, nothing the reader took from it goes in without a question', () => {
+    const rs = run1(READER_ANSWER, dropPage(9));
+    for (const key of ['vacancyRate', 'otherIncomeAnnual', 'expenseRatio', 'capexReserveAnnual']) {
+      const r = rs.find((x) => x.key === key);
+      if (r) expect(r.outcome, key).toBe('ask');
+    }
+  });
+
+  it('an expense line the reader was unsure of sends the ratio to the owner, with the reason', () => {
+    const unsure = set({ expenses: READER_ANSWER.expenses.map((l) => (l.label.value === 'Landscaping' ? { ...l, amount: box(27_189, 0.5, 'Landscaping (est.)') } : l)) });
+    const r = run1(unsure).find((x) => x.key === 'expenseRatio')!;
+    expect(r.outcome).toBe('ask');
+    expect(r.reasons.map((x) => x.check)).toContain('The reader was sure');
+  });
+
+  it('does not depend on the order the reader listed the lines in', () => {
+    const shuffled = set({ income: [...READER_ANSWER.income].reverse(), expenses: [...READER_ANSWER.expenses].reverse(), unitMix: [...READER_ANSWER.unitMix].reverse() });
+    const key = (rs: ReturnType<typeof run1>) => rs.map((r) => `${r.key}:${r.outcome}`).sort();
+    expect(key(run1(shuffled))).toEqual(key(base));
+  });
+
+  it('across every mutation, no figure that was asked about in the baseline becomes automatic', () => {
+    const mutations = [set({ askingPrice: box(1_840_000) }), set({ expenses: READER_ANSWER.expenses.filter((l) => l.label.value !== 'RE Taxes') }), set({ expenses: READER_ANSWER.expenses.map((l) => (l.label.value === 'Insurance' ? { ...l, amount: box(19_962, 0.4) } : l)) })];
+    for (const m of mutations) {
+      const rs = run1(m);
+      for (const b of base.filter((x) => x.outcome === 'ask' && !x.key.startsWith('rentAgrees'))) {
+        const now = rs.find((x) => x.key === b.key);
+        if (now) expect(now.outcome, b.key).toBe('ask');
+      }
+    }
   });
 });
