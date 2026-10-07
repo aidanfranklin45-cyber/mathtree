@@ -115,4 +115,27 @@ describe('Guided Underwriting Inquiries & Comparative Stories', () => {
     expect(res.story.headline).toContain('Comparing 2 candidate properties');
     expect(res.columns.length).toBe(2);
   });
+
+  it('parameterizes questions dynamically based on investor profile assumptions', async () => {
+    const { getGuidedQuestionsWithProfile } = await import('./guidedQuestions');
+    const customAssumptions = {
+      targetDscr: 1.35,
+      hurdleIrr: 18.0,
+      stressRateShockBps: 150,
+      stressVacancyShockPct: 8.0,
+    };
+    const questions = getGuidedQuestionsWithProfile(customAssumptions);
+
+    const bankabilityQ = questions.find((q) => q.id === 'bankability_down_payment');
+    expect(bankabilityQ?.shortPrompt).toContain('1.35x DSCR');
+    expect(bankabilityQ?.defaultParameters?.targetDscr).toBe(1.35);
+
+    const irrQ = questions.find((q) => q.id === 'max_offer_irr');
+    expect(irrQ?.shortPrompt).toContain('18% IRR hurdle');
+    expect(irrQ?.defaultParameters?.targetIrr).toBe(18);
+
+    const stressQ = questions.find((q) => q.id === 'rate_and_vacancy_stress');
+    expect(stressQ?.shortPrompt).toContain('+150 bps / +8%');
+  });
 });
+

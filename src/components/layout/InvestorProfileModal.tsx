@@ -38,6 +38,14 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
     leaseExpiryMode: f.leaseExpiryMode,
     leaseExpiryVacancyMonths: Math.min(60, Math.max(0, parseInt(String(f.leaseExpiryVacancyMonths), 10) || 0)),
     underwritingAssumptions: sanitizeAssumptions(f.underwritingAssumptions),
+    comparisonAssumptions: f.comparisonAssumptions ? {
+      targetDscr: parseFloat(String(f.comparisonAssumptions.targetDscr)) || 1.25,
+      hurdleIrr: parseFloat(String(f.comparisonAssumptions.hurdleIrr)) || 15.0,
+      targetCashOnCash: parseFloat(String(f.comparisonAssumptions.targetCashOnCash)) || 8.0,
+      stressRateShockBps: parseInt(String(f.comparisonAssumptions.stressRateShockBps), 10) || 100,
+      stressVacancyShockPct: parseFloat(String(f.comparisonAssumptions.stressVacancyShockPct)) || 5.0,
+      maxExpenseInflationPct: parseFloat(String(f.comparisonAssumptions.maxExpenseInflationPct)) || 10.0,
+    } : undefined,
     primaryEntityId: f.primaryEntityId || null,
     companyName: f.companyName,
   };
@@ -544,6 +552,155 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             value={form.underwritingAssumptions ?? { assets: {} }}
             onChange={(v) => set('underwritingAssumptions', v)}
           />
+
+          {/* Comparison & Underwriting Hurdle Benchmarks */}
+          <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-850 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-extrabold text-white block">Comparison & Underwriting Hurdle Benchmarks</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Governs target covenants, hurdle IRRs, and stress test shocks in the Compare tab inquiries.
+                </span>
+              </div>
+              <span className="text-[9px] uppercase font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded">
+                Compare Covenants
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+              <div className="space-y-1">
+                <label className={labelCls}>Target DSCR Covenant (x)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1.0}
+                    max={3.0}
+                    step={0.05}
+                    value={form.comparisonAssumptions?.targetDscr ?? 1.25}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      set('comparisonAssumptions', {
+                        ...(form.comparisonAssumptions || {}),
+                        targetDscr: isNaN(val) ? 1.25 : val,
+                      });
+                    }}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-500">x</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelCls}>Hurdle IRR Target (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={form.comparisonAssumptions?.hurdleIrr ?? 15.0}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      set('comparisonAssumptions', {
+                        ...(form.comparisonAssumptions || {}),
+                        hurdleIrr: isNaN(val) ? 15.0 : val,
+                      });
+                    }}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-500">%</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelCls}>Target Cash-on-Cash (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={40}
+                    step={0.5}
+                    value={form.comparisonAssumptions?.targetCashOnCash ?? 8.0}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      set('comparisonAssumptions', {
+                        ...(form.comparisonAssumptions || {}),
+                        targetCashOnCash: isNaN(val) ? 8.0 : val,
+                      });
+                    }}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-500">%</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelCls}>Stress Rate Shock (bps)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={1000}
+                    step={25}
+                    value={form.comparisonAssumptions?.stressRateShockBps ?? 100}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      set('comparisonAssumptions', {
+                        ...(form.comparisonAssumptions || {}),
+                        stressRateShockBps: isNaN(val) ? 100 : val,
+                      });
+                    }}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-500">bps</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelCls}>Stress Vacancy Shock (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={1.0}
+                    value={form.comparisonAssumptions?.stressVacancyShockPct ?? 5.0}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      set('comparisonAssumptions', {
+                        ...(form.comparisonAssumptions || {}),
+                        stressVacancyShockPct: isNaN(val) ? 5.0 : val,
+                      });
+                    }}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-500">%</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className={labelCls}>Max Opex Inflation Shock (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={1.0}
+                    value={form.comparisonAssumptions?.maxExpenseInflationPct ?? 10.0}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      set('comparisonAssumptions', {
+                        ...(form.comparisonAssumptions || {}),
+                        maxExpenseInflationPct: isNaN(val) ? 10.0 : val,
+                      });
+                    }}
+                    className={inputCls}
+                  />
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-500">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {error && <p role="alert" className="text-xs text-rose-400">{error}</p>}
 

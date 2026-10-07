@@ -39,6 +39,15 @@ export interface InvestorProfile {
   underwritingAssumptions?: UnderwritingAssumptions;
   notification_email?: string | null;
   alert_preferences?: Record<string, unknown> | null;
+  /** Custom thresholds governing comparison inquiries (target DSCR, hurdle IRR, target cash-on-cash, max opex shock). */
+  comparisonAssumptions?: {
+    targetDscr?: number;
+    hurdleIrr?: number;
+    targetCashOnCash?: number;
+    stressRateShockBps?: number;
+    stressVacancyShockPct?: number;
+    maxExpenseInflationPct?: number;
+  };
 }
 
 export const DEFAULT_PROFILE: InvestorProfile = {
@@ -54,6 +63,14 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   leaseExpiryMode: 'renew',   // 'renew' | 'relet' | 'vacant'
   leaseExpiryVacancyMonths: 6,
   underwritingAssumptions: { assets: {} },
+  comparisonAssumptions: {
+    targetDscr: 1.25,
+    hurdleIrr: 15.0,
+    targetCashOnCash: 8.0,
+    stressRateShockBps: 100,
+    stressVacancyShockPct: 5.0,
+    maxExpenseInflationPct: 10.0,
+  },
 };
 
 // In-memory runtime cache for the active session (not stored in localStorage)
@@ -97,6 +114,14 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     leaseExpiryMode: expiry.mode,
     leaseExpiryVacancyMonths: expiry.vacancyMonths,
     underwritingAssumptions,
+    comparisonAssumptions: raw.comparisonAssumptions ? {
+      targetDscr: typeof raw.comparisonAssumptions.targetDscr === 'number' ? raw.comparisonAssumptions.targetDscr : DEFAULT_PROFILE.comparisonAssumptions?.targetDscr,
+      hurdleIrr: typeof raw.comparisonAssumptions.hurdleIrr === 'number' ? raw.comparisonAssumptions.hurdleIrr : DEFAULT_PROFILE.comparisonAssumptions?.hurdleIrr,
+      targetCashOnCash: typeof raw.comparisonAssumptions.targetCashOnCash === 'number' ? raw.comparisonAssumptions.targetCashOnCash : DEFAULT_PROFILE.comparisonAssumptions?.targetCashOnCash,
+      stressRateShockBps: typeof raw.comparisonAssumptions.stressRateShockBps === 'number' ? raw.comparisonAssumptions.stressRateShockBps : DEFAULT_PROFILE.comparisonAssumptions?.stressRateShockBps,
+      stressVacancyShockPct: typeof raw.comparisonAssumptions.stressVacancyShockPct === 'number' ? raw.comparisonAssumptions.stressVacancyShockPct : DEFAULT_PROFILE.comparisonAssumptions?.stressVacancyShockPct,
+      maxExpenseInflationPct: typeof raw.comparisonAssumptions.maxExpenseInflationPct === 'number' ? raw.comparisonAssumptions.maxExpenseInflationPct : DEFAULT_PROFILE.comparisonAssumptions?.maxExpenseInflationPct,
+    } : DEFAULT_PROFILE.comparisonAssumptions,
     notification_email: raw.notification_email ?? null,
     alert_preferences: raw.alert_preferences ?? null,
   };

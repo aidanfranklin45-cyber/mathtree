@@ -130,3 +130,60 @@ export function questionsForFamily(familyId: QuestionFamilyId): GuidedQuestionDe
 export function questionsForScope(scope: 'single_deal' | 'multi_deal'): GuidedQuestionDef[] {
   return GUIDED_QUESTIONS.filter((q) => q.targetScope === scope);
 }
+
+export function getGuidedQuestionsWithProfile(comparisonAssumptions?: {
+  targetDscr?: number;
+  hurdleIrr?: number;
+  targetCashOnCash?: number;
+  stressRateShockBps?: number;
+  stressVacancyShockPct?: number;
+  maxExpenseInflationPct?: number;
+}): GuidedQuestionDef[] {
+  const dscr = comparisonAssumptions?.targetDscr ?? 1.25;
+  const irr = comparisonAssumptions?.hurdleIrr ?? 15;
+  const rateBps = comparisonAssumptions?.stressRateShockBps ?? 100;
+  const vacPct = comparisonAssumptions?.stressVacancyShockPct ?? 5;
+
+  return GUIDED_QUESTIONS.map((q) => {
+    if (q.id === 'bankability_down_payment') {
+      return {
+        ...q,
+        shortPrompt: `Down payment for ${dscr}x DSCR`,
+        question: `What down payment makes this deal bankable with lenders at ${dscr}x DSCR?`,
+        defaultParameters: { targetDscr: dscr },
+      };
+    }
+    if (q.id === 'expense_ratio_bankability') {
+      return {
+        ...q,
+        shortPrompt: `Expense inflation vs ${dscr}x DSCR`,
+        question: `How does bankability hold up if operating expenses inflate?`,
+        defaultParameters: { targetDscr: dscr, variableKey: 'expenseRatio' },
+      };
+    }
+    if (q.id === 'max_offer_dscr') {
+      return {
+        ...q,
+        shortPrompt: `Max bid for ${dscr}x DSCR`,
+        question: `What is the maximum purchase price to maintain a ${dscr}x DSCR covenant?`,
+        defaultParameters: { targetDscr: dscr },
+      };
+    }
+    if (q.id === 'max_offer_irr') {
+      return {
+        ...q,
+        shortPrompt: `Max bid for ${irr}% IRR hurdle`,
+        question: `What price can I pay to achieve our ${irr}% hurdle IRR?`,
+        defaultParameters: { targetIrr: irr },
+      };
+    }
+    if (q.id === 'rate_and_vacancy_stress') {
+      return {
+        ...q,
+        shortPrompt: `Stress resilience (+${rateBps} bps / +${vacPct}%)`,
+        defaultParameters: { rateShockBps: rateBps, vacancyShockPct: vacPct },
+      };
+    }
+    return q;
+  });
+}

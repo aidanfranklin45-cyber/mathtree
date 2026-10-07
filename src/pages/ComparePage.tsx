@@ -58,7 +58,11 @@ import { RefreshCw, ArrowLeft } from 'lucide-react';
 import { InquiryCommandBar } from '../components/compare/guided/InquiryCommandBar';
 import { ComparativeStoryCard } from '../components/compare/guided/ComparativeStoryCard';
 import { InquiryVisualizer } from '../components/compare/guided/InquiryVisualizer';
-import { GuidedQuestionId } from '../lib/compare/guidedQuestions';
+import {
+  GuidedQuestionId,
+  getGuidedQuestionsWithProfile,
+} from '../lib/compare/guidedQuestions';
+import { fetchProfile, InvestorProfile, DEFAULT_PROFILE } from '../lib/profile';
 import {
   executeBankabilityInquiry,
   executeExpenseRatioInquiry,
@@ -89,6 +93,7 @@ export const ComparePage: React.FC = () => {
   const isPhone = useIsPhone();
 
   const [deals, setDeals] = useState<DealRecord[]>([]);
+  const [profile, setProfile] = useState<InvestorProfile>(DEFAULT_PROFILE);
   const [loading, setLoading] = useState(true);
 
   // The board
@@ -148,6 +153,14 @@ export const ComparePage: React.FC = () => {
         list = publicDeals && publicDeals.length > 0 ? (publicDeals as any[]).map(mapSupabaseDeal) : [mapSupabaseDeal(BENCHMARK_DEAL)];
       }
       setDeals(list);
+
+      // Load active investor profile for comparison assumptions
+      try {
+        const prof = await fetchProfile(supabase, user);
+        setProfile(prof);
+      } catch (profErr) {
+        console.warn('[compare] Could not fetch profile, using defaults:', profErr);
+      }
     } catch (err) {
       console.error('[compare] Failed to load deals:', err);
     } finally {
@@ -471,23 +484,28 @@ export const ComparePage: React.FC = () => {
         };
       }
 
+      const userDscr = profile.comparisonAssumptions?.targetDscr ?? 1.25;
+      const userIrr = profile.comparisonAssumptions?.hurdleIrr ?? 15.0;
+      const userRateShockBps = profile.comparisonAssumptions?.stressRateShockBps ?? 100;
+      const userVacShockPct = profile.comparisonAssumptions?.stressVacancyShockPct ?? 5.0;
+
       switch (activeQuestionId) {
         case 'bankability_down_payment':
-          return executeBankabilityInquiry(selectedInquiryDeal);
+          return executeBankabilityInquiry(selectedInquiryDeal, userDscr);
         case 'expense_ratio_bankability':
-          return executeExpenseRatioInquiry(selectedInquiryDeal, 1.25);
+          return executeExpenseRatioInquiry(selectedInquiryDeal, userDscr);
         case 'financial_leverage':
           return executeLeverageInquiry(selectedInquiryDeal);
         case 'max_offer_dscr':
-          return executeStrikePriceInquiry(selectedInquiryDeal, 'dscr', 1.25);
+          return executeStrikePriceInquiry(selectedInquiryDeal, 'dscr', userDscr);
         case 'max_offer_irr':
-          return executeStrikePriceInquiry(selectedInquiryDeal, 'irr', 15);
+          return executeStrikePriceInquiry(selectedInquiryDeal, 'irr', userIrr);
         case 'rate_and_vacancy_stress':
-          return executeStressInquiry(selectedInquiryDeal);
+          return executeStressInquiry(selectedInquiryDeal, userRateShockBps, userVacShockPct);
         case 'pipeline_allocation':
           return executeAllocationInquiry(deals.slice(0, 5));
         default:
-          return executeBankabilityInquiry(selectedInquiryDeal);
+          return executeBankabilityInquiry(selectedInquiryDeal, userDscr);
       }
     } catch (err) {
       console.warn('[compare] Inquiry computation error:', err);
@@ -566,6 +584,7 @@ export const ComparePage: React.FC = () => {
                 activeDeal={selectedInquiryDeal}
                 activeQuestionId={activeQuestionId}
                 isCustomMode={isCustomConfigMode}
+                questions={getGuidedQuestionsWithProfile(profile.comparisonAssumptions)}
                 onSelectDeal={setInquiryDealId}
                 onSelectQuestion={(qId) => {
                   setActiveQuestionId(qId);
