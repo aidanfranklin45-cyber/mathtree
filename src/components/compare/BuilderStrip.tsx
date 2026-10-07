@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { BarChart3, Bookmark, FileDown, Link2, ListChecks, MoreHorizontal, Plus, SlidersHorizontal, Table as TableIcon, Trash2, LayoutList } from 'lucide-react';
+import { BarChart3, Bookmark, FileDown, Link2, ListChecks, MoreHorizontal, Plus, SlidersHorizontal, Table as TableIcon, Trash2, LayoutList, HelpCircle } from 'lucide-react';
 import type { CompareView } from '../../lib/compare/config';
 import { FilterChip } from '../../lib/compare/filters';
 
@@ -27,6 +27,8 @@ interface BuilderStripProps {
   onOpenMetrics: () => void;
   onOpenFilters: () => void;
   onOpenSaved: () => void;
+  onOpenInquiry?: () => void;
+  inquiryActive?: boolean;
   onSaveNew: (name: string) => void;
   onUpdateSaved: () => void;
   onExportCsv: () => void;
@@ -61,6 +63,15 @@ export const BuilderStrip: React.FC<BuilderStripProps> = (p) => {
             <Plus className="w-4 h-4" /> Add
             {p.columnsCount > 0 && <span className="px-1.5 rounded-full bg-black/20 text-[10px] font-mono">{p.columnsCount}</span>}
           </button>
+          {p.onOpenInquiry && (
+            <button
+              type="button"
+              onClick={p.onOpenInquiry}
+              className={`${chipBase} ${p.inquiryActive ? 'bg-emerald-950/80 border-emerald-500/80 text-emerald-300 ring-1 ring-emerald-500/30' : chipIdle}`}
+            >
+              <HelpCircle className="w-4 h-4 text-emerald-400" /> Inquiries
+            </button>
+          )}
           <button type="button" onClick={p.onOpenMetrics} className={`${chipBase} ${chipIdle}`}>
             <ListChecks className="w-4 h-4 text-cyan-400" /> Metrics: <span className="text-emerald-300">{p.metricsLabel}</span>
           </button>
