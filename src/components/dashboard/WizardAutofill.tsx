@@ -5,7 +5,7 @@ import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/inge
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import { DocumentLineage } from '../studio/DocumentLineage';
 import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { assumptionText, attachVariances, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
+import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
@@ -131,7 +131,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         const proposal = proposeChanges(docs, deal, { assetClass: true, manager: managerFor(deal) });
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
-        const ticked = new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure && !c.waitingOn).map((c) => c.key));
+        const ticked = defaultTicked(proposal);
         const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
         await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)), lineage: out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? traceDocument(r.parsed.intake, r.source.text, r.source.name) : [])) });
         setResult({ proposal, docs, filled: ticked.size });

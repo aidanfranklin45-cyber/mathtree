@@ -9,9 +9,9 @@ import { formatCurrency } from '../../lib/format';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { findParcels, isRealParcel } from '../../lib/services/parcelLookup';
 import { uploadDealDocuments } from '../../lib/documents/dealDocuments';
-import { VARIANCE_DISCLOSURE } from '../../lib/ingestion/apply';
+import { figureRows, VARIANCE_DISCLOSURE } from '../../lib/ingestion/apply';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
-import { buildIntakeRecord, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
+import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
 import { WizardAutofill, type Autofill, type ProfileFilled } from './WizardAutofill';
 import { applyToForm, assetFromDocs, FORM_FIELD_FOR_KEY, formAsInputs, PROFILE_FIELD, profileFill } from '../../lib/ingestion/wizardMap';
@@ -222,10 +222,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setW(fill.form);
     setDocExtra((e) => ({ ...e, ...fill.extra }));
     setSeededBasis((b) => ({ ...b, ...fill.basis }));
+    // A figure accepted from a question is a document figure too: it goes into the record of where the numbers came from
+    setIntake((prev) => (prev ? { ...prev, figures: [...prev.figures.filter((f) => !figureRows(proposal, new Set([key])).some((n) => n.key === f.key)), ...figureRows(proposal, new Set([key]))] } : prev));
   };
 
   const provide = (key: string, value: string) => {
     if (key === 'address') { set({ location: value }); return; }
+    if (key === 'manageProperty') { set({ manageProperty: value }); return; }
     const field = FORM_FIELD_FOR_KEY[key];
     if (!field) return;
     set(key === 'capexReserveAnnual' ? { [field]: value, capexKind: 'annual' } : { [field]: value });
@@ -258,10 +261,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       fromDocs = fill.basis;
       setIntake({
         documents: a.documents,
-        figures: a.proposal.changes.filter((c) => a.ticked.has(c.key)).map((c) => ({
-          key: c.key, label: c.label, text: c.proposed, how: c.how, reliability: c.reliability, documentType: (a.proposal.patch.provenance as Record<string, { documentType?: string }>)[c.key]?.documentType,
-          value: typeof c.value === 'number' || typeof c.value === 'string' ? c.value : undefined,
-        })),
+        figures: figureRows(a.proposal, a.ticked),
         claims: Object.values(a.proposal.patch.claims).map((c) => ({ how: c.how, value: c.value })),
         notes: a.proposal.patch.notes,
         checks: a.checks,
@@ -542,7 +542,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       const record = buildIntakeRecord({
         documents: intake?.documents ?? [],
         documentFigures: (intake?.figures ?? []).map((f) => ({ ...f, current: currentFor(f.key, f.value) })),
-        profileFigures,
+        profileFigures: [...profileFigures, ...(closingFilled && w.closingDate === closingFilled.date ? [closingFigure(closingFilled)].filter((x): x is NonNullable<typeof x> => x !== null) : [])],
         claims: intake?.claims ?? [],
         checks: intake?.checks,
         lineage: intake?.lineage,
