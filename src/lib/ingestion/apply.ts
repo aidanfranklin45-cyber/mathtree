@@ -7,6 +7,7 @@
  */
 
 import type { IntakeDocument } from './intake';
+import type { DocumentFigure } from './intakeRecord';
 import { buildDealPatch, type DealPatch } from './toDealInputs';
 import { reconcileBasis, TRACKED_INPUTS, type InputBasis } from '@engine/underwritingAssumptions';
 import { ASSET_LABEL, deduceAsset, type WizardAsset } from './wizardMap';
@@ -234,6 +235,20 @@ export function proposeChanges(
   const ratioNow = changes.find((c) => c.key === 'expenseRatio');
   if (rentNow?.unsure && ratioNow && ratioNow.netCosts !== undefined && !ratioNow.replaces) ratioNow.waitingOn = 'grossRentPerMonth';
   return { patch, changes, unchanged: unchanged.filter((u) => !DERIVED_QUIET.has(u.key)) };
+}
+
+/** What goes in the figures of the saved record for the rows that were applied: the figure, how it was read, and the kind of document it came from. */
+export function figureRows(proposal: Proposal, applied: Set<string>): Array<Omit<DocumentFigure, 'current'>> {
+  const provenance = proposal.patch.provenance as Record<string, { documentType?: string }>;
+  return proposal.changes.filter((c) => applied.has(c.key)).map((c) => ({
+    key: c.key, label: c.label, text: c.proposed, how: c.how, reliability: c.reliability, documentType: provenance[c.key]?.documentType,
+    value: typeof c.value === 'number' || typeof c.value === 'string' ? c.value : undefined,
+  }));
+}
+
+/** The rows that go into the form without a question: not replacing something the owner typed, not in doubt, not waiting on another figure. */
+export function defaultTicked(proposal: Proposal): Set<string> {
+  return new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure && !c.waitingOn).map((c) => c.key));
 }
 
 export interface Application {
