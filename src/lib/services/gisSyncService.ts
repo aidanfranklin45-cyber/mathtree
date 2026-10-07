@@ -100,7 +100,13 @@ export async function syncDealCountyGisInBackground(
       ...deal.inputs,
       gisSync: {
         status: 'active',
-        syncSource: String(county ?? '').toLowerCase().includes('spokane') ? 'spokane_arcgis' : 'yakima_arcgis',
+        syncSource: freshAssessor?.source || (String(county ?? '').toLowerCase().includes('spokane')
+          ? 'spokane_arcgis'
+          : String(county ?? '').toLowerCase().includes('king')
+            ? 'king_arcgis'
+            : String(county ?? '').toLowerCase().includes('pierce')
+              ? 'pierce_arcgis'
+              : 'yakima_arcgis'),
         lastSyncedAt: new Date().toISOString(),
         manualRefresh: false,
       },
