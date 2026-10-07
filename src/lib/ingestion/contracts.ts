@@ -19,6 +19,13 @@ export interface Reason {
   detail: string;
 }
 
+/** A way the owner can settle a question that has no number of its own. `set` writes one answer into the form. */
+export interface Option {
+  id: string;
+  label: string;
+  set?: { key: string; value: string };
+}
+
 export interface ContractResult {
   key: string;
   label: string;
@@ -27,6 +34,8 @@ export interface ContractResult {
   reasons: Reason[];
   /** The checks that were run, whether they passed or not, so the record shows what was tested. */
   checksRun: string[];
+  /** For a decision with no figure of its own: the ways to settle it. */
+  options?: Option[];
 }
 
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -45,6 +54,7 @@ interface LineContract {
   label: string;
   check: string;
   when: (docs: IntakeDocument[]) => string | null;
+  options: Option[];
 }
 
 const lines = (docs: IntakeDocument[], side: 'income' | 'expenses') =>
@@ -65,6 +75,10 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'managementFee',
     label: 'Management fee',
     check: 'A management charge in the document is your decision',
+    options: [
+      { id: 'self', label: 'I manage it myself: no management fee', set: { key: 'manageProperty', value: 'false' } },
+      { id: 'manager', label: 'I hire a manager: charge the fee from my profile', set: { key: 'manageProperty', value: 'true' } },
+    ],
     when: (docs) => {
       const m = lines(docs, 'expenses').filter((l) => (l.category === 'management' || MANAGEMENT_LABEL.test(l.label)) && l.amount > 0);
       return m.length ? `The document charges ${money(sum(m))} a year for management. The engine charges management separately, and only if you hire a manager: say whether this property has one and what it costs.` : null;
@@ -74,6 +88,10 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'utilityReimbursements',
     label: 'Utility reimbursements',
     check: 'Reimbursements need a stated treatment',
+    options: [
+      { id: 'netted', label: 'Take them off the costs, as the engine does' },
+      { id: 'own', label: 'I will set the expense ratio myself' },
+    ],
     when: (docs) => {
       const r = lines(docs, 'income').filter((l) => (l.category === 'recoveries' || REIMBURSEMENT_LABEL.test(l.label)) && l.amount > 0);
       return r.length ? `The document shows ${money(sum(r))} a year of reimbursements (${r.map((l) => l.label).join(', ')}). The engine takes them off the costs rather than counting them as income: confirm that is how you want them treated.` : null;
@@ -83,6 +101,10 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'rentAgreesWithStatedAverage',
     label: 'Rent against the stated average',
     check: 'The rent read agrees with the average rent the document states',
+    options: [
+      { id: 'checked', label: 'I checked the document: the rent I settled above is right' },
+      { id: 'own', label: 'I will enter the rent myself' },
+    ],
     when: (docs) => {
       for (const d of docs) {
         if (d.documentType !== 'offering_memorandum') continue;
@@ -105,6 +127,10 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'unclassifiedIncome',
     label: 'Income the reader could not classify',
     check: 'Every income line has a known kind',
+    options: [
+      { id: 'left', label: 'Leave it out' },
+      { id: 'own', label: 'I will enter other income myself' },
+    ],
     when: (docs) => {
       const o = lines(docs, 'income').filter((l) => l.category === 'other' && l.amount !== 0);
       return o.length ? `${o.map((l) => `${l.label} (${money(l.amount)})`).join(', ')}: the reader could not tell what kind of income this is, and it is left out until you say.` : null;
@@ -124,7 +150,7 @@ export function evaluateContracts(proposal: Proposal, docs: IntakeDocument[]): C
   }
   for (const lc of LINE_CONTRACTS) {
     const detail = lc.when(docs);
-    results.push({ key: lc.key, label: lc.label, outcome: detail ? 'ask' : 'auto', reasons: detail ? [{ check: lc.check, detail }] : [], checksRun: [lc.check] });
+    results.push({ key: lc.key, label: lc.label, outcome: detail ? 'ask' : 'auto', reasons: detail ? [{ check: lc.check, detail }] : [], checksRun: [lc.check], ...(detail ? { options: lc.options } : {}) });
   }
   return results;
 }
