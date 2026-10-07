@@ -47,7 +47,7 @@ const FIGURE_CHECKS: Array<{ name: string; because: string; run: (c: ProposedCha
   { name: 'The sources agree', because: 'the documents give more than one figure', run: (c) => (c.alternatives && c.alternatives.length > 0 ? `The documents give more than one figure: ${[c.proposed, ...c.alternatives.map((a) => a.text)].join(' or ')}` : null) },
   { name: 'The reader was sure', because: 'the reader was not sure of it', run: (c) => (c.confidence !== undefined && c.confidence < LOW_CONFIDENCE && !c.chosen ? `The reader was ${Math.round(c.confidence * 100)}% sure` : null) },
   { name: 'It is near your own standard', because: 'it is more than 5% from your own standard', run: (c) => (c.variance ? `${c.variance.percent}% ${c.variance.higher ? 'above' : 'below'} your standard of ${c.variance.expectedText}` : null) },
-  { name: 'The figures it depends on are settled', because: 'it depends on a figure you have not decided yet', run: (c) => (c.waitingOn ? `It depends on ${c.waitingOn}, which is still a question` : null) },
+  { name: 'The figures it depends on are settled', because: 'it depends on a figure you have not decided yet', run: (c) => (c.waitingOn ? `It depends on ${c.waitingOn === 'grossRentPerMonth' ? 'the rent' : c.waitingOn}, which is still a question` : null) },
 ];
 
 /** A decision that is the owner's even when the document states a figure. `when` finds it in the document; it returns what to tell the owner. */

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
@@ -8,7 +8,7 @@ import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib
 import { buildWorksheet, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
 import { assess, type Readiness } from '../../lib/ingestion/readiness';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
-import { PERCENT_ROWS, WizardWorksheet } from './WizardWorksheet';
+import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
 import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
@@ -60,6 +60,8 @@ interface Props {
   onWorksheet?: (rows: WorksheetRow[], readiness: Readiness) => void;
   /** The owner gave a reason for a figure of their own that needs evidence: saved with the figure. */
   onReason?: (key: string, reason: string) => void;
+  /** The form this belongs to: its fields show their own notes (`FieldNote`) and the documents panel sits where `WizardDocuments` is put. */
+  children?: React.ReactNode;
 }
 
 interface Source { id: number; name: string; text: string; type: 'auto' | Exclude<DocumentType, 'unknown'>; /** The original file, kept for the project (absent for pasted text). */ file?: File }
@@ -82,7 +84,7 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' | 'unsur
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing, children }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
@@ -424,7 +426,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   };
 
 
-  return (
+  const panel = (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -512,25 +514,52 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
           )}
         </div>
       )}
-      <WizardWorksheet
-        rows={rows} readiness={readiness}
-        renderQuestion={(key) => { const q = questions.find((x) => x.change.key === key); return q ? questionCard(q) : null; }}
-        renderMissing={(key) => { const m = neededAll.find((x) => x.key === key); return m ? missingCard(m) : null; }}
-        waiting={(key) => { const c = (result?.proposal.changes ?? []).find((x) => x.key === key && x.waitingOn); return c ? `This is the document's operating costs${c.netCosts !== undefined ? ` (${Math.round(c.netCosts).toLocaleString()} a year after tenant reimbursements)` : ''} divided by the rent you underwrite. It cannot be worked out until you decide the rent.` : null; }}
-        onDecide={(d, o) => { const c = contracts.find((x) => x.key === d.key); if (c) settleLine(c, o); }}
-        onOwnFigure={ownFigure}
-        onFocusField={focusField}
+      <ReadinessBanner
+        readiness={readiness}
+        onJump={(k) => { const spec = ROW_SPECS.find((s) => s.key === k); const field = spec?.field ?? (k ? FORM_FIELD_FOR_KEY[k] : undefined); if (field) focusField(field); }}
         acknowledged={acknowledged}
         onAcknowledge={(id, on) => setAcknowledged((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; })}
-        leftovers={(leftQuestions.length > 0 || leftMissing.length > 0) ? (
-          <div className="space-y-2 pt-1">
-            <h5 className="text-[10px] uppercase tracking-wider font-black text-slate-500">Also asked</h5>
-            {leftQuestions.map(questionCard)}
-            {leftMissing.map((m) => <React.Fragment key={m.key}>{missingCard(m)}</React.Fragment>)}
-          </div>
-        ) : null}
       />
-
+      {(leftQuestions.length > 0 || leftMissing.length > 0) && (
+        <div className="space-y-2 pt-1">
+          <h5 className="text-[10px] uppercase tracking-wider font-black text-slate-500">Also asked</h5>
+          {leftQuestions.map(questionCard)}
+          {leftMissing.map((m) => <React.Fragment key={m.key}>{missingCard(m)}</React.Fragment>)}
+        </div>
+      )}
     </div>
   );
+
+  /** What goes under a field of the form: where its figure came from and, when something is owed, the question to settle it. */
+  const noteFor = (key: string): React.ReactNode => {
+    const r = rows.find((x) => x.key === key);
+    if (!r) return null;
+    const q = questions.find((x) => x.change.key === key);
+    const waitingOn = (result?.proposal.changes ?? []).find((x) => x.key === key && x.waitingOn);
+    const waiting = waitingOn ? `This is the document's operating costs${waitingOn.netCosts !== undefined ? ` (${Math.round(waitingOn.netCosts).toLocaleString()} a year after tenant reimbursements)` : ''} divided by the rent you underwrite. It cannot be worked out until you decide the rent.` : null;
+    return (
+      <RowNote
+        row={r} question={q ? questionCard(q) : null} waiting={waiting} neededWhy={neededAll.find((m) => m.key === key)?.why}
+        onDecide={(d, o) => { const c = contracts.find((x) => x.key === d.key); if (c) settleLine(c, o); }}
+        onOwnFigure={ownFigure}
+      />
+    );
+  };
+
+  return <WorksheetContext.Provider value={{ panel, noteFor }}>{children}</WorksheetContext.Provider>;
+};
+
+interface WorksheetCtx { panel: React.ReactNode; noteFor: (rowKey: string) => React.ReactNode }
+const WorksheetContext = createContext<WorksheetCtx>({ panel: null, noteFor: () => null });
+
+/** The documents, the fill button and the check before confirming: one panel at the top of the form. */
+export const WizardDocuments: React.FC = () => <>{useContext(WorksheetContext).panel}</>;
+
+/** What sits under a field: its source and, when something is owed, its question. The field is where the owner settles it. */
+export const FieldNote: React.FC<{ k: string }> = ({ k }) => <>{useContext(WorksheetContext).noteFor(k)}</>;
+
+/** The notes of several fields that share a row of the form, stacked full width under it, each named. */
+export const FieldNotes: React.FC<{ keys: string[] }> = ({ keys }) => {
+  const { noteFor } = useContext(WorksheetContext);
+  return <div className="space-y-2">{keys.map((k) => <React.Fragment key={k}>{noteFor(k)}</React.Fragment>)}</div>;
 };
