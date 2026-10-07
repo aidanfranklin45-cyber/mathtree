@@ -42,7 +42,11 @@ describe('countyFromText', () => {
   it('tells the county from the address, and does not guess', () => {
     expect(countyFromText('1 Main St, Spokane, WA')).toBe('Spokane');
     expect(countyFromText('5101 W Powerhouse Rd, Yakima, WA')).toBe('Yakima');
-    expect(countyFromText('12 Oak St, Seattle, WA')).toBeNull();
+    expect(countyFromText('1201 3rd Ave, Seattle, WA 98101')).toBe('King');
+    expect(countyFromText('400 Kirkland Way, Kirkland, WA 98033')).toBe('King');
+    expect(countyFromText('950 Pacific Ave, Tacoma, WA 98402')).toBe('Pierce');
+    expect(countyFromText('110 9th Ave SW, Puyallup, WA 98371')).toBe('Pierce');
+    expect(countyFromText('12 Oak St, Portland, OR')).toBeNull();
   });
 });
 

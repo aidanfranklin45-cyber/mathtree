@@ -22,6 +22,8 @@ const factory = function () {
   const YAKIMA_ASCEND_PORTAL = 'https://yes.co.yakima.wa.us/ascend/';
   const SPOKANE_PARCELS_URL = 'https://services1.arcgis.com/ozNll27nt9ZtPWOn/arcgis/rest/services/Parcels/FeatureServer/0/query';
   const SPOKANE_SCOUT_SIMPLE_URL = 'https://gismo.spokanecounty.gov/arcgis/rest/services/Assessor/SCOUTSimple/MapServer/0/query';
+  const KING_PARCELS_URL = 'https://services.arcgis.com/Ej0PsM5Aw677QF1W/arcgis/rest/services/PARCEL_ADDRESS_PUB_AREA_3069/FeatureServer/0/query';
+  const PIERCE_PARCELS_URL = 'https://services2.arcgis.com/1UvBaQ5y1ubjUPmd/arcgis/rest/services/Tax_Parcels/FeatureServer/0/query';
   const WA_CADASTRE_URL = 'https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre_OpenData/MapServer/2/query';
   const WA_CADASTRE_FALLBACK_URL = 'https://services.arcgis.com/Ie0K5n4UyLAfvdiX/arcgis/rest/services/Washington_2024_DOR_Parcels/FeatureServer/0/query';
   const PHOTON_API_URL = 'https://photon.komoot.io/api/';
@@ -40,6 +42,19 @@ const factory = function () {
   const SPOKANE_CITIES = [
     'SPOKANE', 'SPOKANE VALLEY', 'LIBERTY LAKE', 'CHENEY',
     'AIRWAY HEIGHTS', 'DEER PARK', 'MEDICAL LAKE', 'MILLWOOD'
+  ];
+
+  const KING_CITIES = [
+    'SEATTLE', 'BELLEVUE', 'KIRKLAND', 'REDMOND', 'RENTON',
+    'KENT', 'AUBURN', 'FEDERAL WAY', 'BOTHELL', 'SHORELINE',
+    'BURIEN', 'SAMMAMISH', 'MERCER ISLAND', 'ISSAQUAH', 'WOODINVILLE',
+    'DES MOINES', 'SEA-TAC', 'SEATAC', 'TUKWILA', 'MAPLE VALLEY', 'SNOQUALMIE'
+  ];
+
+  const PIERCE_CITIES = [
+    'TACOMA', 'PUYALLUP', 'LAKEWOOD', 'UNIVERSITY PLACE', 'BONNEY LAKE',
+    'SPANAWAY', 'GIG HARBOR', 'FIFE', 'SUMNER', 'STEILACOOM',
+    'MILTON', 'PACIFIC', 'EATONVILLE', 'ORTING', 'DU PONT', 'DUPONT'
   ];
 
   const DIR_MAP = {
@@ -115,6 +130,28 @@ const factory = function () {
         if (regex.test(text)) {
           detectedCity = c;
           detectedCounty = 'Spokane';
+          text = text.replace(regex, ' ');
+          break;
+        }
+      }
+    }
+    if (!detectedCity) {
+      for (const c of KING_CITIES) {
+        const regex = new RegExp('\\b' + c + '\\b', 'i');
+        if (regex.test(text)) {
+          detectedCity = c;
+          detectedCounty = 'King';
+          text = text.replace(regex, ' ');
+          break;
+        }
+      }
+    }
+    if (!detectedCity) {
+      for (const c of PIERCE_CITIES) {
+        const regex = new RegExp('\\b' + c + '\\b', 'i');
+        if (regex.test(text)) {
+          detectedCity = c;
+          detectedCounty = 'Pierce';
           text = text.replace(regex, ' ');
           break;
         }
@@ -271,6 +308,146 @@ const factory = function () {
       isYakimaCounty: false,
       isSpokaneCounty: true,
       assessorPortalUrl: cleanApn ? ('https://cp.spokanecounty.org/scout/SCOUTDashboard/?ParcelNumber=' + cleanApn.replace(/[^0-9]/g, '')) : 'https://cp.spokanecounty.org/scout/'
+    };
+  }
+
+  /**
+   * Helper: Map raw ESRI attributes from King County GIS FeatureServer
+   */
+  function mapKingFeature(f) {
+    if (!f) return null;
+    const attr = f.attributes || {};
+    const rawApn = attr.PIN || (attr.MAJOR && attr.MINOR ? String(attr.MAJOR).trim() + String(attr.MINOR).trim() : '');
+    const cleanApn = String(rawApn).trim() || null;
+
+    const street = (attr.ADDR_FULL || '').trim();
+    const city = (attr.CTYNAME || attr.POSTALCTYNAME || 'Seattle').trim();
+    const state = 'WA';
+    const zip = (attr.ZIP5 || '').trim();
+    const formattedAddress = street ? (street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '')) : ('Parcel ' + (cleanApn || '') + ', King County, WA');
+
+    let acres = parseFloat(attr.KCA_ACRES) || 0;
+    let sqft = parseInt(attr.LOTSQFT, 10) || 0;
+    if (!acres && sqft > 0) acres = sqft / 43560;
+    if (!sqft && acres > 0) sqft = Math.round(acres * 43560);
+    acres = Math.round(acres * 1000) / 1000;
+
+    const landVal = parseFloat(attr.APPRLNDVAL || attr.TAX_LNDVAL) || 0;
+    const impVal = parseFloat(attr.APPR_IMPR || attr.TAX_IMPR) || 0;
+    const totalVal = landVal + impVal;
+    const taxableVal = parseFloat(attr.TAX_LNDVAL && attr.TAX_IMPR ? attr.TAX_LNDVAL + attr.TAX_IMPR : totalVal) || null;
+
+    const rawOwner = (attr.PROP_NAME || attr.KCTP_ATTN || '').trim();
+    const owner = (rawOwner && !PLACEHOLDER_OWNER.test(rawOwner)) ? rawOwner : 'Owner of Record';
+    const taxpayer = (attr.KCTP_ATTN || '').trim() || null;
+    const ownerAddress = [attr.KCTP_ADDR, attr.KCTP_CTYST, attr.KCTP_ZIP].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join(', ') || null;
+    const legal = (attr.LEGALDESC || '').trim();
+    const zoning = (attr.KCA_ZONING || 'King County GIS').trim();
+    const useCode = (attr.PREUSE_DESC || '').trim();
+
+    return {
+      apn: cleanApn,
+      formattedApn: cleanApn,
+      address: formattedAddress,
+      formattedAddress: formattedAddress,
+      street,
+      city,
+      state,
+      zip,
+      county: 'King',
+      acres,
+      sqft,
+      lotSqft: sqft,
+      marketLandValue: landVal,
+      marketImprovementValue: impVal,
+      totalAssessedValue: totalVal,
+      taxYear: parseInt(attr.KCTP_TAXYR, 10) || new Date().getFullYear(),
+      taxableValue: taxableVal,
+      taxCodeArea: attr.LEVYCODE ? String(attr.LEVYCODE).trim() : null,
+      zoning,
+      useCode,
+      owner,
+      taxpayer,
+      ownerAddress,
+      legalDescription: legal || undefined,
+      source: 'king_county_gis',
+      isYakimaCounty: false,
+      isSpokaneCounty: false,
+      isKingCounty: true,
+      assessorPortalUrl: cleanApn ? ('https://blue.kingcounty.com/Assessor/eRealProperty/Detail.aspx?ParcelNbr=' + cleanApn.replace(/[^0-9]/g, '')) : 'https://blue.kingcounty.com/Assessor/eRealProperty/'
+    };
+  }
+
+  /**
+   * Helper: Map raw ESRI attributes from Pierce County GIS FeatureServer
+   */
+  function mapPierceFeature(f) {
+    if (!f) return null;
+    const attr = f.attributes || {};
+    const rawApn = attr.TaxParcelNumber || '';
+    const cleanApn = String(rawApn).trim() || null;
+
+    const street = (attr.Site_Address || '').trim();
+    let city = 'Tacoma';
+    let state = 'WA';
+    if (attr.City_State) {
+      const cs = String(attr.City_State).trim();
+      const match = cs.match(/^(.+?)(?:,\s*|\s+)([A-Z]{2})$/i);
+      if (match) {
+        city = match[1].trim();
+        state = match[2].toUpperCase();
+      } else {
+        city = cs;
+      }
+    }
+    const zip = (attr.Zipcode || '').trim();
+    const formattedAddress = street ? (street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '')) : ('Parcel ' + (cleanApn || '') + ', Pierce County, WA');
+
+    let acres = parseFloat(attr.Land_Gross_Acres || attr.Land_Acres) || 0;
+    acres = Math.round(acres * 1000) / 1000;
+    const sqft = Math.round(acres * 43560);
+
+    const landVal = parseFloat(attr.Land_Value) || 0;
+    const impVal = parseFloat(attr.Improvement_Value) || 0;
+    const totalVal = parseFloat(attr.Taxable_Value) || (landVal + impVal);
+
+    const rawOwner = (attr.Business_Name || '').trim();
+    const owner = (rawOwner && !PLACEHOLDER_OWNER.test(rawOwner)) ? rawOwner : 'Owner of Record';
+    const ownerAddress = [attr.Delivery_Address, attr.City_State, attr.Zipcode].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join(', ') || null;
+    const legal = (attr.Legal_Description || '').trim();
+    const zoning = (attr.Landuse_Description || 'Pierce County GIS').trim();
+    const useCode = (attr.Use_Code || '').trim();
+
+    return {
+      apn: cleanApn,
+      formattedApn: cleanApn,
+      address: formattedAddress,
+      formattedAddress: formattedAddress,
+      street,
+      city,
+      state,
+      zip,
+      county: 'Pierce',
+      acres,
+      sqft,
+      lotSqft: sqft,
+      marketLandValue: landVal,
+      marketImprovementValue: impVal,
+      totalAssessedValue: totalVal,
+      taxYear: new Date().getFullYear(),
+      taxableValue: parseFloat(attr.Taxable_Value) || null,
+      taxCodeArea: attr.Tax_Area_Code ? String(attr.Tax_Area_Code).trim() : null,
+      zoning,
+      useCode,
+      owner,
+      taxpayer: rawOwner || null,
+      ownerAddress,
+      legalDescription: legal || undefined,
+      source: 'pierce_county_gis',
+      isYakimaCounty: false,
+      isSpokaneCounty: false,
+      isPierceCounty: true,
+      assessorPortalUrl: cleanApn ? ('https://atip.piercecountywa.gov/app/parcelInfo?parcelNumber=' + cleanApn.replace(/[^0-9]/g, '')) : 'https://atip.piercecountywa.gov/app/parcelInfo'
     };
   }
 
@@ -833,6 +1010,156 @@ const factory = function () {
   }
 
   /**
+   * Fetch official King County Assessor Record by APN (PIN)
+   */
+  async function fetchKingAssessorData(assessorNumber) {
+    if (!assessorNumber) return null;
+    const clean = String(assessorNumber).trim().replace(/[^0-9]/g, '');
+    if (clean.length < 6) return null;
+
+    try {
+      const where = "PIN = '" + clean + "' OR PIN LIKE '%" + clean + "%' OR ACCNT_NUM LIKE '%" + clean + "%'";
+      const params = new URLSearchParams({
+        where,
+        outFields: '*',
+        f: 'json',
+        resultRecordCount: '1'
+      });
+      const res = await fetch(KING_PARCELS_URL + '?' + params.toString());
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.features) && data.features.length > 0) {
+          return mapKingFeature(data.features[0]);
+        }
+      }
+    } catch (e) {
+      console.warn('fetchKingAssessorData error:', e);
+    }
+    return null;
+  }
+
+  /**
+   * Fetch official Pierce County Assessor Record by APN (TaxParcelNumber)
+   */
+  async function fetchPierceAssessorData(assessorNumber) {
+    if (!assessorNumber) return null;
+    const clean = String(assessorNumber).trim().replace(/[^0-9]/g, '');
+    if (clean.length < 6) return null;
+
+    try {
+      const where = "TaxParcelNumber = '" + clean + "' OR TaxParcelNumber LIKE '%" + clean + "%'";
+      const params = new URLSearchParams({
+        where,
+        outFields: '*',
+        f: 'json',
+        resultRecordCount: '1'
+      });
+      const res = await fetch(PIERCE_PARCELS_URL + '?' + params.toString());
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.features) && data.features.length > 0) {
+          return mapPierceFeature(data.features[0]);
+        }
+      }
+    } catch (e) {
+      console.warn('fetchPierceAssessorData error:', e);
+    }
+    return null;
+  }
+
+  /**
+   * Search King County Official GIS
+   */
+  async function searchKingAddresses(query, limit = 8) {
+    if (!query || query.trim().length < 2) return [];
+    const parsed = parseAddressInput(query);
+    const cleanDigits = query.replace(/[^0-9]/g, '');
+
+    if (cleanDigits.length >= 6) {
+      try {
+        const apnWhere = "PIN LIKE '%" + cleanDigits + "%' OR ACCNT_NUM LIKE '%" + cleanDigits + "%'";
+        const res = await fetch(KING_PARCELS_URL + '?' + new URLSearchParams({
+          where: apnWhere,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        }));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapKingFeature).filter(Boolean);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    if (parsed.houseNumber && parsed.coreTokens.length > 0) {
+      try {
+        const where = "ADDR_FULL LIKE '" + parsed.houseNumber + "%" + parsed.coreTokens[0] + "%'";
+        const res = await fetch(KING_PARCELS_URL + '?' + new URLSearchParams({
+          where,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        }));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapKingFeature).filter(Boolean);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    return [];
+  }
+
+  /**
+   * Search Pierce County Official GIS
+   */
+  async function searchPierceAddresses(query, limit = 8) {
+    if (!query || query.trim().length < 2) return [];
+    const parsed = parseAddressInput(query);
+    const cleanDigits = query.replace(/[^0-9]/g, '');
+
+    if (cleanDigits.length >= 6) {
+      try {
+        const apnWhere = "TaxParcelNumber LIKE '%" + cleanDigits + "%'";
+        const res = await fetch(PIERCE_PARCELS_URL + '?' + new URLSearchParams({
+          where: apnWhere,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        }));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapPierceFeature).filter(Boolean);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    if (parsed.houseNumber && parsed.coreTokens.length > 0) {
+      try {
+        const where = "Site_Address LIKE '" + parsed.houseNumber + "%" + parsed.coreTokens[0] + "%'";
+        const res = await fetch(PIERCE_PARCELS_URL + '?' + new URLSearchParams({
+          where,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        }));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapPierceFeature).filter(Boolean);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    return [];
+  }
+
+  /**
    * Fetch parcel record via ESRI Point-in-Polygon spatial query (WGS84 Lat/Lon)
    */
   async function fetchParcelByCoordinates(lat, lon) {
@@ -907,30 +1234,45 @@ const factory = function () {
     // The county lists every apartment at a street number. Ask for enough to see past them, and show one entry per property.
     const shown = options.limit || 8;
     const parsed = parseAddressInput(query);
-    const isSpokaneQuery = parsed.county === 'Spokane' || /spokane/i.test(query);
+    const isSpokaneQuery = parsed.county === 'Spokane' || /spokane|cheney|liberty lake/i.test(query);
     const isYakimaQuery = parsed.county === 'Yakima' || /yakima|selah|union gap|sunnyside|grandview|toppenish|wapato|zillah|moxee|naches/i.test(query);
+    const isKingQuery = parsed.county === 'King' || /king|seattle|bellevue|kirkland|redmond|renton|kent|auburn|federal way|bothell/i.test(query);
+    const isPierceQuery = parsed.county === 'Pierce' || /pierce|tacoma|puyallup|lakewood|university place|bonney lake|spanaway/i.test(query);
 
     let yakimaResults = [];
     let spokaneResults = [];
+    let kingResults = [];
+    let pierceResults = [];
 
     if (isYakimaQuery) {
       yakimaResults = await searchYakimaAddresses(query, shown * 6);
     } else if (isSpokaneQuery) {
       spokaneResults = await searchSpokaneAddresses(query, shown * 6);
+    } else if (isKingQuery) {
+      kingResults = await searchKingAddresses(query, shown * 6);
+    } else if (isPierceQuery) {
+      pierceResults = await searchPierceAddresses(query, shown * 6);
     } else {
-      [yakimaResults, spokaneResults] = await Promise.all([
-        searchYakimaAddresses(query, 30),
-        searchSpokaneAddresses(query, 30)
+      [yakimaResults, spokaneResults, kingResults, pierceResults] = await Promise.all([
+        searchYakimaAddresses(query, 15),
+        searchSpokaneAddresses(query, 15),
+        searchKingAddresses(query, 15),
+        searchPierceAddresses(query, 15)
       ]);
     }
 
-    // If official Yakima GIS matches with real APNs are found, return them directly
+    // If official County GIS matches with real APNs are found, return them directly
     if (yakimaResults.length > 0 && yakimaResults.some(r => r.apn)) {
       return collapseUnits(yakimaResults, shown);
     }
-    // If official Spokane GIS matches with real APNs are found, return them directly
     if (spokaneResults.length > 0 && spokaneResults.some(r => r.apn)) {
       return collapseUnits(spokaneResults, shown);
+    }
+    if (kingResults.length > 0 && kingResults.some(r => r.apn)) {
+      return collapseUnits(kingResults, shown);
+    }
+    if (pierceResults.length > 0 && pierceResults.some(r => r.apn)) {
+      return collapseUnits(pierceResults, shown);
     }
 
     // WA Statewide Cadastre backup
@@ -954,6 +1296,8 @@ const factory = function () {
 
     addItems(spokaneResults);
     addItems(yakimaResults);
+    addItems(kingResults);
+    addItems(pierceResults);
     addItems(waCadastreResults);
     addItems(nationResults);
 
@@ -962,7 +1306,7 @@ const factory = function () {
 
   /**
    * Unified Resolver: Resolves rich parcel & assessor details for any selected address item
-   * (Direct APN, Yakima 3-layer GIS, Spokane GIS, or spatial point-in-polygon coordinates)
+   * (Direct APN, Yakima 3-layer GIS, Spokane GIS, King GIS, Pierce GIS, or spatial point-in-polygon coordinates)
    */
   async function resolveParcelDetails(addressItem) {
     if (!addressItem) return null;
@@ -979,7 +1323,19 @@ const factory = function () {
       if (data) return data;
     }
 
-    // 3. If item has an APN from another WA county
+    // 3. If item has APN and is King
+    if (addressItem.apn && (/king/i.test(addressItem.county || '') || addressItem.source === 'king_county_gis')) {
+      const data = await fetchKingAssessorData(addressItem.apn);
+      if (data) return data;
+    }
+
+    // 4. If item has APN and is Pierce
+    if (addressItem.apn && (/pierce/i.test(addressItem.county || '') || addressItem.source === 'pierce_county_gis')) {
+      const data = await fetchPierceAssessorData(addressItem.apn);
+      if (data) return data;
+    }
+
+    // 5. If item has an APN from another WA county
     if (addressItem.apn) {
       const data = await fetchWaCadastreData(addressItem.apn);
       if (data) return data;
@@ -1611,16 +1967,23 @@ const factory = function () {
     YAKIMA_COMM_URL,
     YAKIMA_ASCEND_PORTAL,
     SPOKANE_PARCELS_URL,
+    SPOKANE_SCOUT_SIMPLE_URL,
+    KING_PARCELS_URL,
+    PIERCE_PARCELS_URL,
     WA_CADASTRE_URL,
     buildSqlLikeTerm,
     parseAddressInput,
     searchYakimaAddresses,
     searchSpokaneAddresses,
+    searchKingAddresses,
+    searchPierceAddresses,
     searchNationwideAddresses,
     searchWaCadastreAddresses,
     searchAddresses,
     fetchYakimaAssessorData,
     fetchSpokaneAssessorData,
+    fetchKingAssessorData,
+    fetchPierceAssessorData,
     fetchWaCadastreData,
     fetchParcelByCoordinates,
     resolveParcelDetails,

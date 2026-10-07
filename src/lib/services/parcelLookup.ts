@@ -20,9 +20,11 @@ export function isRealParcel(data: any): boolean {
 }
 
 /** The county an address is in, when it can be told from the address itself; null otherwise (never a guess). */
-export function countyFromText(text: string): 'Yakima' | 'Spokane' | null {
+export function countyFromText(text: string): 'Yakima' | 'Spokane' | 'King' | 'Pierce' | null {
   if (/spokane/i.test(text)) return 'Spokane';
   if (/yakima|selah|union gap|sunnyside|grandview|toppenish|wapato|zillah|moxee|naches/i.test(text)) return 'Yakima';
+  if (/king county|seattle|bellevue|kent|renton|federal way|kirkland|auburn|redmond|sammamish|shoreline|burien|bothell|sea tac|seatac|des moines|maple valley|mercer island|kenmore|tukwila|covington|woodinville/i.test(text)) return 'King';
+  if (/pierce county|tacoma|lakewood|puyallup|university place|bonney lake|spanaway|south hill|parkland|gig harbor|steilacoom|fife|edgewood|milton|orting|dupont/i.test(text)) return 'Pierce';
   return null;
 }
 
