@@ -10,6 +10,9 @@ import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { findParcels, isRealParcel } from '../../lib/services/parcelLookup';
 import { uploadDealDocuments } from '../../lib/documents/dealDocuments';
 import { figureRows, VARIANCE_DISCLOSURE } from '../../lib/ingestion/apply';
+import type { WorksheetRow } from '../../lib/ingestion/worksheet';
+import type { Readiness } from '../../lib/ingestion/readiness';
+import { ROW_STATE } from './WizardWorksheet';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from '../../lib/wizardDraft';
 import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import type { DealRecord } from '../../lib/math/types';
@@ -148,6 +151,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   // The closing date the investor profile filled in (and the weeks it used), so it can be told apart from a date the owner entered
   const [closingFilled, setClosingFilled] = useState<{ date: string; weeks: number } | null>(null);
   const [answers, setAnswers] = useState<Record<string, { label: string; decision: string }>>({});
+  // The worksheet WizardAutofill builds (one row per assumption) and the check before confirming; the project is not created until it says ready
+  const [sheet, setSheet] = useState<{ rows: WorksheetRow[]; readiness: Readiness } | null>(null);
+  const [sheetNudge, setSheetNudge] = useState(false);
+  // The reasons the owner gave for figures of their own that needed evidence (an expense ratio), saved with each figure's basis
+  const [ownerReasons, setOwnerReasons] = useState<Record<string, string>>({});
   const [w, setW] = useState<W>(() => seed('commercial'));
   const [isNameTouched, setIsNameTouched] = useState(false);
   const [entities, setEntities] = useState<{ id: string; name: string }[]>([]);
@@ -525,6 +533,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       };
       // Where each number came from: the owner's profile assumptions (with their reasons) or the owner's own entry
       inputs.assumptionBasis = reconcileBasis(seededBasis, inputs);
+      // The reason the owner gave for a figure of their own that needed evidence goes with it, for a lender who asks
+      for (const [k, reason] of Object.entries(ownerReasons)) {
+        const b = (inputs.assumptionBasis as Record<string, InputBasis>)[k];
+        if (b && b.source === 'owner') b.rationale = reason;
+      }
       // What was read from documents and has no field in the wizard (never overrides a figure the form or the county record supplied)
       for (const [k, v] of Object.entries(docExtra)) if (inputs[k] === undefined || inputs[k] === null) inputs[k] = v;
       Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
@@ -631,6 +644,15 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   // Anything read from a document or filled from the investor profile has to be confirmed by the owner before the project is created
   const needsVerification = filledOnce && (intake !== null || profileFigures.length > 0);
+  // The check before confirming: every assumption has a source, every question is answered, and the figures sit together
+  const sheetBlocks = sheet !== null && sheet.readiness.verdict !== 'ready';
+  const caption = (key: string) => {
+    const r = sheet?.rows.find((x) => x.key === key);
+    if (!r || r.state === 'optional') return null;
+    const st = ROW_STATE[r.state];
+    const text = r.basis.length > 150 ? `${r.basis.slice(0, 149)}…` : r.basis;
+    return <p data-basis={key} className={`text-[10px] leading-snug mt-0.5 ${st.tone}`}><span className="font-black uppercase tracking-wider">{st.word}</span>{r.state === 'needed' ? '' : ` · ${text}`}</p>;
+  };
 
   // The facts and assumptions the engine still has nobody's answer for, as the form fields they belong to (the closing date is assumed at creation)
   const emptyFields = useMemo(() => {
@@ -655,7 +677,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
       {/* Step 1 */}
       <div className={`space-y-5 ${submitting ? 'hidden' : ''}`}>
         <h4 className="text-[11px] uppercase tracking-wider font-black text-slate-300 border-b border-slate-800 pb-1.5">1 · Property and documents</h4>
-        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
+        <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
           intake={intake}
           closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)} />
 
@@ -978,6 +1000,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-purchase-price" className={lbl}>Purchase Price ($)</label>
             <input id="wiz-purchase-price" type="number" data-field="price" value={w.price} onChange={(e) => set({ price: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+              {caption('purchasePrice')}
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -991,12 +1014,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               </span>
             </div>
             <input id="wiz-down-payment" type="number" step="0.5" data-field="down" value={w.down} onChange={(e) => set({ down: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+              {caption('downPaymentPercent')}
           </div>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="wiz-closing-date" className={lbl}>Expected Closing Date (optional)</label>
           <input id="wiz-closing-date" type="date" data-field="closingDate" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('closingDate')}
           <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (your investor profile's setting). The loan schedule starts then.</p>
         </div>
 
@@ -1004,6 +1029,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-closing-costs" className={lbl}>Closing Costs ($)</label>
             <input id="wiz-closing-costs" type="number" data-field="closing" value={w.closing} onChange={(e) => set({ closing: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('closingCosts')}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-rehab-costs" className={lbl}>Initial Rehab / CapEx ($)</label>
@@ -1130,25 +1156,30 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-other-income" className={lbl}>Other Income Besides Rent ($ a year)</label>
             <input id="wiz-other-income" type="number" data-field="other" value={w.other} onChange={(e) => set({ other: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm`} />
+              {caption('otherIncomeAnnual')}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label htmlFor="wiz-vacancy-rate" className={lbl}>Vacancy Rate (%)</label>
               <input id="wiz-vacancy-rate" type="number" step="0.5" data-field="vacancy" value={w.vacancy} onChange={(e) => set({ vacancy: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('vacancyRate')}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="wiz-rent-growth" className={lbl}>Annual Rent Growth (%)</label>
               <input id="wiz-rent-growth" type="number" step="0.1" data-field="rentGrowth" value={w.rentGrowth} onChange={(e) => set({ rentGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('rentGrowth')}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label htmlFor="wiz-opex-ratio" className={lbl}>Operating Expense Ratio (%)</label>
               <input id="wiz-opex-ratio" type="number" step="1.0" data-field="opexRatio" value={w.opexRatio} onChange={(e) => set({ opexRatio: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('expenseRatio')}
             </div>
             <div className="space-y-1.5">
               <label htmlFor="wiz-expense-growth" className={lbl}>Expense Inflation (%)</label>
               <input id="wiz-expense-growth" type="number" step="0.1" data-field="expenseGrowth" value={w.expenseGrowth} onChange={(e) => set({ expenseGrowth: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('expenseGrowth')}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:col-span-2">
@@ -1156,6 +1187,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <label htmlFor="wiz-capex" className={lbl}>Replacement Reserve</label>
               <div className="flex gap-2">
                 <input id="wiz-capex" type="number" min={0} step="any" data-field="capexValue" value={w.capexValue} onChange={(e) => set({ capexValue: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('capexReserveAnnual')}
                 <select aria-label="Reserve basis" data-field="capexKind" value={w.capexKind} onChange={(e) => set({ capexKind: e.target.value })} className="bg-slate-900 border border-slate-800 rounded-xl px-2 text-[11px] text-white">
                   <option value="annual">$ a year</option>
                   <option value="percent">% of income</option>
@@ -1234,10 +1266,12 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-interest-rate" className={lbl}>Senior Debt Interest Rate (%)</label>
             <input id="wiz-interest-rate" type="number" step="0.125" data-field="rate" value={w.rate} onChange={(e) => set({ rate: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+              {caption('interestRate')}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-amortization" className={lbl}>Loan Term (Years)</label>
             <input id="wiz-amortization" type="number" data-field="amort" value={w.amort} onChange={(e) => set({ amort: e.target.value })} className={`${inputBase} py-2.5 px-3.5 text-sm font-bold`} />
+              {caption('amortizationYears')}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-maturity" className={lbl}>Balloon Due (Years, optional)</label>
@@ -1251,6 +1285,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-exit-cap" className={lbl}>Exit Cap Rate (%)</label>
             <input id="wiz-exit-cap" type="number" step="0.1" data-field="exitCap" value={w.exitCap} onChange={(e) => set({ exitCap: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('targetCapRate')}
           </div>
           )}
           {asset === 'single-family' && (
@@ -1262,14 +1297,17 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="space-y-1.5">
             <label htmlFor="wiz-selling" className={lbl}>Selling Costs at Exit (%)</label>
             <input id="wiz-selling" type="number" min={0} max={20} step="any" data-field="sellingCost" value={w.sellingCost} onChange={(e) => set({ sellingCost: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('sellingCostPercent')}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-hold" className={lbl}>Hold Period (Years)</label>
             <input id="wiz-hold" type="number" min={1} max={30} data-field="exitYear" value={w.exitYear} onChange={(e) => set({ exitYear: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('exitYear')}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="wiz-discount" className={lbl}>Discount Rate (%)</label>
             <input id="wiz-discount" type="number" min={0} max={50} step="any" data-field="discountRate" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+              {caption('discountRate')}
           </div>
         </div>
 
@@ -1332,12 +1370,16 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           {error && <p className="text-xs text-rose-400 font-semibold">{error}</p>}
         </div>
 
+        {sheetNudge && sheetBlocks && sheet && (
+          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Not yet. {sheet.readiness.summary} The worksheet shows what is left.</p>
+        )}
         {verifyNudge && needsVerification && !verified && (
           <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Almost there. Please scroll down to the bottom of the page and confirm that you have read and checked everything, then create the project.</p>
         )}
         <div className="p-5 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
           <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 transition">Cancel</button>
           <button onClick={() => {
+            if (sheetBlocks) { setSheetNudge(true); document.getElementById('wiz-worksheet')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
             if (needsVerification && !verified) { setVerifyNudge(true); verifyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
             void submit();
           }} disabled={submitting} title={needsVerification && !verified ? 'Please scroll to the bottom of the page and confirm you have reviewed everything first' : undefined}

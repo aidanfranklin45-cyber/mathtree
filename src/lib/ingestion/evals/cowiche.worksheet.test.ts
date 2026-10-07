@@ -158,3 +158,23 @@ describe('the check before confirming', () => {
     expect(w.detail).toMatch(/leaves out/);
   });
 });
+
+describe('a question never disappears into a blank row', () => {
+  it('shows the rent as a decision while the documents disagree and the form holds none', () => {
+    const { rows } = worksheet({ rent: null });
+    const rent = row(rows, 'grossRentPerMonth');
+    expect(rent.value).toBeNull();
+    expect(rent.state).toBe('decide');
+    expect(assess({ rows }).blockers.map((b) => b.id)).toContain('decide:grossRentPerMonth');
+  });
+
+  it('puts the line a figure is read from before the lines it is only measured against', () => {
+    const { rows } = worksheet();
+    expect(row(rows, 'vacancyRate').basis).toMatch(/Vacancy/);
+  });
+
+  it('says what the profile supplied without a stray full stop', () => {
+    const { rows } = worksheet();
+    expect(row(rows, 'closingDate').basis).toBe('Your investor profile: set to close 6 weeks after the project is created');
+  });
+});
