@@ -79,7 +79,7 @@ export const CompareStarter: React.FC<CompareStarterProps> = ({
               </div>
             </button>
 
-            {/* Fork Option B: Underwrite One Property */}
+            {/* Fork Option B: Scenario Lab (Explore One Property) */}
             <button
               type="button"
               disabled={loading}
@@ -92,19 +92,19 @@ export const CompareStarter: React.FC<CompareStarterProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block">
-                    Defensible Inquiry & Covenants
+                    Scenario Lab · Sensitivity & Drivers
                   </span>
                   <h3 className="text-lg font-black text-white group-hover:text-cyan-300 transition">
-                    Underwrite One Property
+                    Scenario Lab (Explore One Property)
                   </h3>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Explore one specific deal in depth. Determine what down payment satisfies bank covenants, back-solve maximum offer price, and verify audit integrity.
+                  Explore how different market shifts and financing decisions impact this deal. Test lender bankability and equity investor returns side by side with real-time levers.
                 </p>
               </div>
 
               <div className="pt-2 flex items-center space-x-2 text-xs font-bold text-cyan-300 group-hover:translate-x-1 transition-transform">
-                <span>Solve Questions for a Property</span>
+                <span>Enter Scenario Lab</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </button>

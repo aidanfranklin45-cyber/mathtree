@@ -55,6 +55,7 @@ import { getInitialBaseline, replaceBaseline } from '../lib/baselines/db';
 import { dealFromBaseline, dealWithScenario } from '../lib/compare/baselineColumn';
 import { useIsPhone } from '../hooks/useMediaQuery';
 import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { ScenarioLab } from '../components/compare/guided/ScenarioLab';
 import { InquiryDecisionFlow } from '../components/compare/guided/InquiryDecisionFlow';
 import { ComparativeStoryCard } from '../components/compare/guided/ComparativeStoryCard';
 import { InquiryVisualizer } from '../components/compare/guided/InquiryVisualizer';
@@ -581,24 +582,15 @@ export const ComparePage: React.FC = () => {
                 </button>
               </div>
 
-              <InquiryDecisionFlow
+              <ScenarioLab
                 deals={deals}
                 activeDeal={selectedInquiryDeal}
-                activeQuestionId={activeQuestionId}
                 selectedDealId={inquiryDealId}
-                selectedQuestionId={selectedQuestionId}
-                isCustomMode={isCustomConfigMode}
-                questions={getGuidedQuestionsWithProfile(profile.comparisonAssumptions)}
-                onSelectDeal={(dealId) => {
-                  setInquiryDealId(dealId || null);
-                  if (!dealId) setSelectedQuestionId(null);
+                onSelectDeal={(dealId) => setInquiryDealId(dealId || null)}
+                onPromoteScenariosToBoard={(cols) => {
+                  setColumns(cols);
+                  setInquiryOpen(false);
                 }}
-                onSelectQuestion={(qId) => {
-                  setSelectedQuestionId(qId);
-                  setIsCustomConfigMode(false);
-                }}
-                onToggleCustomMode={setIsCustomConfigMode}
-                onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
                 onOpenCustomCompareBoard={() => {
                   setInquiryOpen(false);
                   if (selectedInquiryDeal) {
@@ -606,17 +598,6 @@ export const ComparePage: React.FC = () => {
                   }
                 }}
               />
-
-              {inquiryResult && (
-                <div className="space-y-4">
-                  <ComparativeStoryCard
-                    story={inquiryResult.story}
-                    onPromoteToBoard={handlePromoteInquiryToBoard}
-                    isPromoted={isCurrentInquiryPromoted}
-                  />
-                  <InquiryVisualizer inquiryResult={inquiryResult} />
-                </div>
-              )}
             </div>
           ) : (
             <>
@@ -673,24 +654,15 @@ export const ComparePage: React.FC = () => {
 
             {inquiryOpen && (
               <div className="space-y-5 animate-in fade-in duration-200">
-                <InquiryDecisionFlow
+                <ScenarioLab
                   deals={deals}
                   activeDeal={selectedInquiryDeal}
-                  activeQuestionId={activeQuestionId}
                   selectedDealId={inquiryDealId}
-                  selectedQuestionId={selectedQuestionId}
-                  isCustomMode={isCustomConfigMode}
-                  questions={getGuidedQuestionsWithProfile(profile.comparisonAssumptions)}
-                  onSelectDeal={(dealId) => {
-                    setInquiryDealId(dealId || null);
-                    if (!dealId) setSelectedQuestionId(null);
+                  onSelectDeal={(dealId) => setInquiryDealId(dealId || null)}
+                  onPromoteScenariosToBoard={(cols) => {
+                    setColumns(cols);
+                    setInquiryOpen(false);
                   }}
-                  onSelectQuestion={(qId: GuidedQuestionId) => {
-                    setSelectedQuestionId(qId);
-                    setIsCustomConfigMode(false);
-                  }}
-                  onToggleCustomMode={setIsCustomConfigMode}
-                  onExecuteCustom={(cfg: CustomInquiryConfig) => setCustomInquiryConfig(cfg)}
                   onOpenCustomCompareBoard={() => {
                     setInquiryOpen(false);
                     if (selectedInquiryDeal) {
@@ -698,17 +670,6 @@ export const ComparePage: React.FC = () => {
                     }
                   }}
                 />
-
-                {inquiryResult && (
-                  <div className="space-y-4">
-                    <ComparativeStoryCard
-                      story={inquiryResult.story}
-                      onPromoteToBoard={handlePromoteInquiryToBoard}
-                      isPromoted={isCurrentInquiryPromoted}
-                    />
-                    <InquiryVisualizer inquiryResult={inquiryResult} />
-                  </div>
-                )}
               </div>
             )}
 
