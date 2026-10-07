@@ -119,3 +119,41 @@ describe('a document is read by the same model every time', () => {
     expect(firsts.size).toBeGreaterThan(1);
   });
 });
+
+describe('what each request asks of the model', () => {
+  const base = { base: 'https://gateway.ai.cloudflare.com/v1/acct/gw', token: 't', model: 'm', system: 's', user: 'u' };
+
+  it('caps the length of the answer', async () => {
+    const { buildRequest, MAX_OUTPUT_TOKENS } = await import('@engine/aiGateway');
+    expect(JSON.parse(buildRequest(base).body).generationConfig.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
+    expect(JSON.parse(buildRequest({ ...base, base: 'https://api.cloudflare.com/client/v4/accounts/a/ai/run' }).body).max_tokens).toBe(MAX_OUTPUT_TOKENS);
+  });
+
+  it('sets a thinking budget only when the owner has set one', async () => {
+    const { buildRequest } = await import('@engine/aiGateway');
+    expect(JSON.parse(buildRequest(base).body).generationConfig.thinkingConfig).toBeUndefined();
+    expect(JSON.parse(buildRequest({ ...base, thinkingBudget: 0 }).body).generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+  });
+});
+
+describe('a model the service does not know', () => {
+  beforeEach(() => { vi.useFakeTimers(); resetCooldowns(); (globalThis as any).Deno = { env: { get: (k: string) => ENV[k] } }; });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); delete (globalThis as any).Deno; });
+
+  it('is not asked again on the next call, so a name that does not exist costs one request, not one per call', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => { calls.push(/models\/([^:]+):/.exec(url)?.[1] ?? ''); return /m-one/.test(url) ? fail(404, 'model not found') : ok('{"a":1}'); }));
+    const go = async () => { const p = generateJsonDetailed({ system: 's', user: 'u' }); await vi.advanceTimersByTimeAsync(30_000); return p; };
+    await go();
+    calls.length = 0;
+    await go();
+    expect(calls).not.toContain('m-one');
+  });
+});
+
+describe('how long a model is waited on', () => {
+  it('is 30 seconds at most, so an overloaded model that holds a request is not waited on for a minute', async () => {
+    const { ATTEMPT_TIMEOUT_MS } = await import('@engine/aiGateway');
+    expect(ATTEMPT_TIMEOUT_MS).toBe(30_000);
+  });
+});

@@ -27,6 +27,11 @@ export function readerErrorMessage(message: string | undefined, status: number):
 
 /** Sends one document's text to the parse-document edge function. Throws an Error with a message fit to show the owner. */
 export async function readDocument(args: { text: string; filename?: string; documentType?: Exclude<DocumentType, 'unknown'>; knownNames?: string[] }): Promise<ParsedDocument> {
+  // Development only: a stand-in for the reader, so the flow can be tried while the real one is unavailable (see devReader.ts)
+  if (import.meta.env.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('stubReader')) {
+    const { devReadDocument } = await import('./devReader');
+    return devReadDocument(args.text);
+  }
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error('Sign in to read a document.');

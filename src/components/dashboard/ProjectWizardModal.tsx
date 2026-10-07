@@ -1340,7 +1340,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         <div ref={rootRef} className="p-4 sm:p-6 overflow-y-auto space-y-8 flex-grow">
-          <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
+          <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} reveal={sheetNudge} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
           intake={intake}
           closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)}>
           {restored && (

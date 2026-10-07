@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coerceIntake, parseModelJson, buildExtractionPrompt } from '@engine/intakeParse';
+import { buildExtractionPrompt, buildSystemPrompt, coerceIntake, parseModelJson } from '@engine/intakeParse';
 import { gatewayEndpoint } from '@engine/aiGateway';
 
 describe('coerceIntake', () => {
@@ -73,5 +73,63 @@ describe('both Cloudflare address forms', () => {
     expect(replyText({ choices: [{ message: { content: '{"a":1}' } }] })).toBe('{"a":1}');
     expect(replyText({ result: { choices: [{ message: { content: 'x' } }] } })).toBe('x');
     expect(replyText({ candidates: [{ content: { parts: [{ text: 'y' }] } }] })).toBe('y');
+  });
+});
+
+describe('the lean reading: plain values and a short list of doubts', () => {
+  const plain = {
+    askingPrice: 18_400_000, unitCount: 66, address: '5101 W Powerhouse Rd',
+    income: [{ label: 'Gross Potential Rent', category: 'rent', amount: 1_450_800 }, { label: 'Vacancy', category: 'vacancy_credit_loss', amount: -72_540 }],
+    expenses: [{ label: 'RE Taxes', category: 'property_tax', amount: 115_670 }],
+    doubts: [{ field: 'income[1].amount', why: 'Printed in two columns: 72,540 and 75,420' }, { field: 'unitCount', why: 'the text also says 30 buildings' }],
+  };
+
+  it('takes a plain value as the reader\'s reading, sure unless it listed the field in its doubts', () => {
+    const doc = coerceIntake('offering_memorandum', plain) as any;
+    expect(doc.askingPrice).toMatchObject({ value: 18_400_000, confidence: 1 });
+    expect(doc.income[0].amount).toMatchObject({ value: 1_450_800, confidence: 1 });
+    expect(doc.address.evidence).toBeUndefined();
+  });
+
+  it('gives a doubted reading a low confidence and the reader\'s own words as the reason, by list position', () => {
+    const doc = coerceIntake('offering_memorandum', plain) as any;
+    expect(doc.income[1].amount).toMatchObject({ value: -72_540, confidence: 0.5, evidence: 'Printed in two columns: 72,540 and 75,420' });
+    expect(doc.unitCount).toMatchObject({ confidence: 0.5, evidence: 'the text also says 30 buildings' });
+    expect(doc.income[0].label.confidence).toBe(1);
+  });
+
+  it('still reads an answer in the older boxed shape, with its own score', () => {
+    const doc = coerceIntake('offering_memorandum', { askingPrice: { value: 5, confidence: 0.3, evidence: 'x' } }) as any;
+    expect(doc.askingPrice).toMatchObject({ value: 5, confidence: 0.3, evidence: 'x' });
+  });
+
+  it('asks the reader for plain values and doubts, not a score and a quote for every field', () => {
+    const prompt = buildExtractionPrompt('offering_memorandum', 'text');
+    expect(prompt).not.toMatch(/"confidence"|"evidence"/);
+    expect(prompt).toContain('"doubts"');
+    expect(buildSystemPrompt()).toMatch(/plain values/i);
+  });
+
+  it('is a much shorter answer to produce: the shape asks for a value per field, not a box of three', () => {
+    const shape = buildExtractionPrompt('offering_memorandum', '');
+    expect(shape.length).toBeLessThan(4000);
+  });
+});
+
+describe('the request is the same for every document', () => {
+  it('differs between two documents only inside the <document> block: nothing of either is in the instructions', () => {
+    const a = buildExtractionPrompt('offering_memorandum', 'COWICHE CREEK TOWNHOMES, Yakima. 66 units.');
+    const b = buildExtractionPrompt('offering_memorandum', 'A different building entirely. 12 units.');
+    const instructions = (p: string) => p.slice(0, p.indexOf('<document>'));
+    expect(instructions(a)).toBe(instructions(b));
+    expect(instructions(a)).not.toMatch(/cowiche|yakima|powerhouse/i);
+    expect(buildSystemPrompt()).not.toMatch(/cowiche|yakima|powerhouse/i);
+  });
+
+  it('asks for a different shape per kind of document, never for a particular property', () => {
+    const lease = buildExtractionPrompt('lease', 'x');
+    const memo = buildExtractionPrompt('offering_memorandum', 'x');
+    expect(lease).not.toBe(memo);
+    expect(`${lease}${memo}`).not.toMatch(/\d{2,3}[ -]unit|\$\d/);
   });
 });
