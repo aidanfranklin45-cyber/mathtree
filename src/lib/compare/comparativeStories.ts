@@ -86,7 +86,7 @@ export function generateBankabilityStory(
 
   // Narrative Paragraph 1: Present state
   paragraphs.push(
-    `At a purchase price of ${formatCurrency(purchasePrice)}, ${dealTitle} generates $${formatCurrency(baselineRow.netOperatingIncome)} in stabilized Year-1 NOI. ` +
+    `At a purchase price of ${formatCurrency(purchasePrice)}, ${dealTitle} generates ${formatCurrency(baselineRow.netOperatingIncome)} in stabilized Year-1 NOI. ` +
     `Under your stated financing terms with a ${fmtPct(baselinePercent, 0)} down payment (${formatCurrency(baselineRow.downPaymentAmount)} equity), ` +
     `annual debt service of ${formatCurrency(baselineRow.annualDebtService)} results in a ${fmtX(baselineDscr)} debt service coverage ratio (DSCR).`
   );
@@ -102,7 +102,7 @@ export function generateBankabilityStory(
       `To satisfy a standard lender covenant of ${fmtX(targetDscr)} DSCR, the down payment must increase to ${fmtPct(bankableRow.downPaymentPercent, 0)} ` +
       `(${formatCurrency(bankableRow.downPaymentAmount)} total equity, requiring an additional ${formatCurrency(addedCash)}). ` +
       `This reduces the loan amount to ${formatCurrency(bankableRow.loanAmount)} and lowers annual debt service to ${formatCurrency(bankableRow.annualDebtService)}, ` +
-      `delivering a compliant ${fmtX(bankableRow.dscr)} DSCR and $${formatCurrency(bankableRow.netCashFlow)} in annual net cash flow (${fmtPct(bankableRow.cashOnCash)} cash-on-cash).`
+      `delivering a compliant ${fmtX(bankableRow.dscr)} DSCR and ${formatCurrency(bankableRow.netCashFlow)} in annual net cash flow (${fmtPct(bankableRow.cashOnCash)} cash-on-cash).`
     );
   } else {
     paragraphs.push(
