@@ -122,10 +122,10 @@ export const ComparePage: React.FC = () => {
   const [recents, setRecents] = useState<RecentBoard[]>(() => loadRecents());
   const [draft] = useState<CompareConfig | null>(() => loadDraft());
 
-  // Guided Underwriting Inquiries
+  // Guided Underwriting Inquiries (Progressive Workflow)
   const [inquiryOpen, setInquiryOpen] = useState(false);
-  const [activeQuestionId, setActiveQuestionId] = useState<GuidedQuestionId>('bankability_down_payment');
   const [inquiryDealId, setInquiryDealId] = useState<string | null>(null);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<GuidedQuestionId | null>(null);
   const [isCustomConfigMode, setIsCustomConfigMode] = useState(false);
   const [customInquiryConfig, setCustomInquiryConfig] = useState<CustomInquiryConfig | null>(null);
 
@@ -194,7 +194,7 @@ export const ComparePage: React.FC = () => {
     const inq = searchParams.get('inquiry') as GuidedQuestionId;
     if (inq) {
       setInquiryOpen(true);
-      setActiveQuestionId(inq);
+      setSelectedQuestionId(inq);
       if (dealId) setInquiryDealId(dealId);
     }
     const hasSeed = !!shared || ids.length > 0 || !!dealId;
@@ -462,12 +462,14 @@ export const ComparePage: React.FC = () => {
   // --- Render ---------------------------------------------------------------------------
 
   const selectedInquiryDeal = useMemo(() => {
-    if (deals.length === 0) return null;
-    return (inquiryDealId ? deals.find((d) => d.id === inquiryDealId) : null) || deals[0];
+    if (deals.length === 0 || !inquiryDealId) return null;
+    return deals.find((d) => d.id === inquiryDealId) || null;
   }, [deals, inquiryDealId]);
 
+  const activeQuestionId: GuidedQuestionId = selectedQuestionId || 'bankability_down_payment';
+
   const inquiryResult = useMemo<InquiryExecutionResult | null>(() => {
-    if (!selectedInquiryDeal) return null;
+    if (!selectedInquiryDeal || !selectedQuestionId) return null;
     try {
       if (isCustomConfigMode && customInquiryConfig) {
         const customRes = executeConfiguredInquiry(selectedInquiryDeal, customInquiryConfig);
@@ -489,7 +491,7 @@ export const ComparePage: React.FC = () => {
       const userRateShockBps = profile.comparisonAssumptions?.stressRateShockBps ?? 100;
       const userVacShockPct = profile.comparisonAssumptions?.stressVacancyShockPct ?? 5.0;
 
-      switch (activeQuestionId) {
+      switch (selectedQuestionId) {
         case 'bankability_down_payment':
           return executeBankabilityInquiry(selectedInquiryDeal, userDscr);
         case 'expense_ratio_bankability':
@@ -511,7 +513,7 @@ export const ComparePage: React.FC = () => {
       console.warn('[compare] Inquiry computation error:', err);
       return null;
     }
-  }, [selectedInquiryDeal, activeQuestionId, deals, isCustomConfigMode, customInquiryConfig]);
+  }, [selectedInquiryDeal, selectedQuestionId, deals, isCustomConfigMode, customInquiryConfig, profile]);
 
   const isCurrentInquiryPromoted = useMemo(() => {
     if (!inquiryResult || columns.length === 0) return false;
@@ -583,15 +585,26 @@ export const ComparePage: React.FC = () => {
                 deals={deals}
                 activeDeal={selectedInquiryDeal}
                 activeQuestionId={activeQuestionId}
+                selectedDealId={inquiryDealId}
+                selectedQuestionId={selectedQuestionId}
                 isCustomMode={isCustomConfigMode}
                 questions={getGuidedQuestionsWithProfile(profile.comparisonAssumptions)}
-                onSelectDeal={setInquiryDealId}
+                onSelectDeal={(dealId) => {
+                  setInquiryDealId(dealId || null);
+                  if (!dealId) setSelectedQuestionId(null);
+                }}
                 onSelectQuestion={(qId) => {
-                  setActiveQuestionId(qId);
+                  setSelectedQuestionId(qId);
                   setIsCustomConfigMode(false);
                 }}
                 onToggleCustomMode={setIsCustomConfigMode}
                 onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
+                onOpenCustomCompareBoard={() => {
+                  setInquiryOpen(false);
+                  if (selectedInquiryDeal) {
+                    setColumns([buildColumn(selectedInquiryDeal, 'live', undefined, undefined, true, 'live')]);
+                  }
+                }}
               />
 
               {inquiryResult && (
@@ -664,15 +677,26 @@ export const ComparePage: React.FC = () => {
                   deals={deals}
                   activeDeal={selectedInquiryDeal}
                   activeQuestionId={activeQuestionId}
+                  selectedDealId={inquiryDealId}
+                  selectedQuestionId={selectedQuestionId}
                   isCustomMode={isCustomConfigMode}
                   questions={getGuidedQuestionsWithProfile(profile.comparisonAssumptions)}
-                  onSelectDeal={setInquiryDealId}
+                  onSelectDeal={(dealId) => {
+                    setInquiryDealId(dealId || null);
+                    if (!dealId) setSelectedQuestionId(null);
+                  }}
                   onSelectQuestion={(qId: GuidedQuestionId) => {
-                    setActiveQuestionId(qId);
+                    setSelectedQuestionId(qId);
                     setIsCustomConfigMode(false);
                   }}
                   onToggleCustomMode={setIsCustomConfigMode}
                   onExecuteCustom={(cfg: CustomInquiryConfig) => setCustomInquiryConfig(cfg)}
+                  onOpenCustomCompareBoard={() => {
+                    setInquiryOpen(false);
+                    if (selectedInquiryDeal) {
+                      setColumns([buildColumn(selectedInquiryDeal, 'live', undefined, undefined, true, 'live')]);
+                    }
+                  }}
                 />
 
                 {inquiryResult && (

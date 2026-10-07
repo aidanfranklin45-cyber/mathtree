@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { DealRecord } from '../../../lib/math/types';
 import { resolveDealDisplayName } from '../../../lib/math/pointInTime';
 import { formatCurrency } from '../../../lib/format';
+import { dealPrice } from '../../../lib/compare/filters';
 import { GUIDED_QUESTIONS, GuidedQuestionId } from '../../../lib/compare/guidedQuestions';
 import {
   SENSITIVITY_VARIABLES,
@@ -18,7 +19,9 @@ import {
   CheckCircle2,
   Building2,
   ChevronRight,
-  TrendingUp,
+  ArrowRight,
+  HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 
 interface InquiryDecisionFlowProps {
@@ -26,11 +29,14 @@ interface InquiryDecisionFlowProps {
   activeDeal: DealRecord | null;
   activeQuestionId: GuidedQuestionId;
   isCustomMode: boolean;
+  selectedDealId: string | null;
+  selectedQuestionId: GuidedQuestionId | null;
   questions: typeof GUIDED_QUESTIONS;
   onSelectDeal: (dealId: string) => void;
   onSelectQuestion: (questionId: GuidedQuestionId) => void;
   onToggleCustomMode: (custom: boolean) => void;
   onExecuteCustom: (config: CustomInquiryConfig) => void;
+  onOpenCustomCompareBoard: () => void;
 }
 
 export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
@@ -38,11 +44,14 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
   activeDeal,
   activeQuestionId,
   isCustomMode,
+  selectedDealId,
+  selectedQuestionId,
   questions,
   onSelectDeal,
   onSelectQuestion,
   onToggleCustomMode,
   onExecuteCustom,
+  onOpenCustomCompareBoard,
 }) => {
   // Custom sensitivity builder state
   const [variableKey, setVariableKey] = useState<SensitivityVariableKey>('expenseRatio');
@@ -71,13 +80,6 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
     });
   };
 
-  // Group questions into 3 plain-English inquiry goals
-  const bankabilityQ = questions.find((q) => q.id === 'bankability_down_payment');
-  const expenseQ = questions.find((q) => q.id === 'expense_ratio_bankability');
-  const offerPriceQ = questions.find((q) => q.id === 'max_offer_irr') || questions.find((q) => q.id === 'max_offer_dscr');
-  const leverageQ = questions.find((q) => q.id === 'financial_leverage');
-  const stressQ = questions.find((q) => q.id === 'rate_and_vacancy_stress');
-
   const inquiryGoals = [
     {
       id: 'bankability_down_payment' as GuidedQuestionId,
@@ -85,7 +87,6 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
       badge: 'Lender Financing',
       title: 'Will a bank lend on this property?',
       description: 'Finds the exact down payment needed to satisfy the 1.25x debt coverage (DSCR) covenant.',
-      accent: 'border-emerald-500/40 text-emerald-400 bg-emerald-950/20',
       activeRing: 'ring-emerald-500/50 bg-emerald-950/40 border-emerald-500',
     },
     {
@@ -94,7 +95,6 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
       badge: 'Offer Price & Return',
       title: 'What price can I afford to pay?',
       description: 'Back-solves the maximum purchase price to guarantee your target hurdle return.',
-      accent: 'border-cyan-500/40 text-cyan-400 bg-cyan-950/20',
       activeRing: 'ring-cyan-500/50 bg-cyan-950/40 border-cyan-500',
     },
     {
@@ -103,7 +103,6 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
       badge: 'Downside Defense',
       title: 'Can it survive a market shock?',
       description: 'Stress-tests interest rate hikes and vacant units to determine break-even occupancy.',
-      accent: 'border-amber-500/40 text-amber-400 bg-amber-950/20',
       activeRing: 'ring-amber-500/50 bg-amber-950/40 border-amber-500',
     },
   ];
@@ -123,75 +122,108 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
     },
   ];
 
+  // Stage 1: Ask which property they want to look at
+  if (!selectedDealId) {
+    return (
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/95 shadow-2xl p-6 sm:p-8 space-y-6 max-w-4xl mx-auto">
+        <div className="space-y-1.5 text-center sm:text-left">
+          <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-3 py-0.5 rounded-full">
+            Underwrite One Property · Step 1
+          </span>
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Which property do you want to look at?
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-400">
+            Select the property you want to underwrite from your active deals:
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2">
+          {deals.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => onSelectDeal(d.id)}
+              className="p-5 rounded-2xl border border-slate-800 bg-slate-950/60 hover:border-emerald-500/60 hover:bg-slate-950 transition text-left flex flex-col justify-between space-y-3 group cursor-pointer"
+            >
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block">
+                  {d.status || 'Active Project'} · {d.asset_class || d.assetType || 'Commercial'}
+                </span>
+                <h4 className="text-sm font-black text-white group-hover:text-emerald-300 transition truncate">
+                  {resolveDealDisplayName(d)}
+                </h4>
+                <p className="text-xs font-mono font-bold text-slate-300">
+                  Basis: {formatCurrency(dealPrice(d))}
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-1 text-xs font-bold text-emerald-400 group-hover:translate-x-1 transition-transform pt-1">
+                <span>Select this property</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Stage 2: What question are you trying to ask yourself?
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-900/95 shadow-2xl p-5 sm:p-6 space-y-6">
-      {/* Step 1 in Single Deal Underwriting: Select the Property */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+      {/* Property banner with change button */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
         <div className="flex items-center space-x-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <Building2 className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-              Step 1: Property Underwritten
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+              Property Underwritten:
             </span>
-            <div className="flex items-center space-x-2 pt-0.5">
-              <select
-                value={activeDeal?.id || ''}
-                onChange={(e) => onSelectDeal(e.target.value)}
-                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-sm font-black text-white hover:border-emerald-500 focus:outline-none cursor-pointer max-w-[280px] sm:max-w-[400px] truncate"
-                aria-label="Select property being underwritten"
-              >
-                {deals.map((d) => (
-                  <option key={d.id} value={d.id} className="bg-slate-900 text-white">
-                    {resolveDealDisplayName(d)}
-                  </option>
-                ))}
-              </select>
+            <div className="text-sm font-black text-white truncate max-w-[280px] sm:max-w-[420px]">
+              {activeDeal ? resolveDealDisplayName(activeDeal) : 'Select Property'}
             </div>
           </div>
         </div>
 
-        {/* Mode Toggle: Standard Discovery vs Advanced Custom Config */}
-        <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 self-start sm:self-center">
-          <button
-            type="button"
-            onClick={() => onToggleCustomMode(false)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-              !isCustomMode ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span>Underwriting Inquiries</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onToggleCustomMode(true)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-              isCustomMode ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Custom Math Solver</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onSelectDeal('')}
+          className="text-xs font-bold text-slate-400 hover:text-white px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-950 transition cursor-pointer"
+        >
+          Change Property
+        </button>
       </div>
 
-      {/* Step 2: What are you trying to find out? */}
+      {/* The Question Selector */}
       {!isCustomMode ? (
         <div className="space-y-4">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-              Step 2: What are you trying to find out?
-            </span>
-            <h3 className="text-base font-extrabold text-white mt-0.5">
-              Choose your underwriting objective:
-            </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block">
+                Step 2: Underwriting Query
+              </span>
+              <h3 className="text-base font-extrabold text-white mt-0.5">
+                What question are you trying to ask yourself?
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onToggleCustomMode(true)}
+              className="text-xs font-bold text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 transition cursor-pointer"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Sensitivity Solver</span>
+            </button>
           </div>
 
-          {/* The 3 Core Primary Questions (Human Language) */}
+          {/* 3 Core Primary Questions */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {inquiryGoals.map((goal) => {
-              const isSelected = activeQuestionId === goal.id;
+              const isSelected = activeQuestionId === goal.id && selectedQuestionId !== null;
               const Icon = goal.icon;
               return (
                 <button
@@ -216,7 +248,7 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
                   </div>
 
                   <div className="text-[11px] font-bold text-emerald-400 flex items-center space-x-1 pt-1">
-                    <span>{isSelected ? 'Currently Analyzing' : 'Analyze This Question'}</span>
+                    <span>{isSelected ? 'Currently Viewing' : 'Select Question'}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </div>
                 </button>
@@ -224,41 +256,62 @@ export const InquiryDecisionFlow: React.FC<InquiryDecisionFlowProps> = ({
             })}
           </div>
 
-          {/* Secondary Specific Inquiries Strip */}
-          <div className="pt-2 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">
-              Specific Inquiries:
-            </span>
-            {secondaryInquiries.map((sec) => {
-              const isSelected = activeQuestionId === sec.id;
-              return (
-                <button
-                  key={sec.id}
-                  type="button"
-                  onClick={() => onSelectQuestion(sec.id)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center space-x-1.5 ${
-                    isSelected
-                      ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200'
-                      : 'bg-slate-950/40 border-slate-850 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-                  }`}
-                >
-                  {isSelected && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-                  <span>{sec.label}</span>
-                </button>
-              );
-            })}
+          {/* Secondary Inquiries & Custom Compare Escape Hatch */}
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">
+                Other inquiries:
+              </span>
+              {secondaryInquiries.map((sec) => {
+                const isSelected = activeQuestionId === sec.id && selectedQuestionId !== null;
+                return (
+                  <button
+                    key={sec.id}
+                    type="button"
+                    onClick={() => onSelectQuestion(sec.id)}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer flex items-center space-x-1.5 ${
+                      isSelected
+                        ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200'
+                        : 'bg-slate-950/40 border-slate-850 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }`}
+                  >
+                    {isSelected && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                    <span>{sec.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom compare escape hatch if query doesn't fit */}
+            <button
+              type="button"
+              onClick={onOpenCustomCompareBoard}
+              className="text-xs font-semibold text-slate-400 hover:text-white flex items-center space-x-1.5 transition underline cursor-pointer"
+            >
+              <span>Question doesn't fit? Build custom comparison board</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
           </div>
         </div>
       ) : (
-        /* Advanced Custom Sensitivity Solver */
+        /* Advanced Sensitivity Solver */
         <div className="space-y-4 pt-1">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-              Step 2: Configure Custom Hypothesis
-            </span>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Target a specific loan covenant or return hurdle against any deal variable.
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                Custom Sensitivity Solver
+              </span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Stress-test any variable against a loan covenant or hurdle return.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onToggleCustomMode(false)}
+              className="text-xs font-bold text-slate-400 hover:text-white px-3 py-1 rounded-lg border border-slate-800 bg-slate-950"
+            >
+              Back to Standard Questions
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
