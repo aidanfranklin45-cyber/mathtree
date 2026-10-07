@@ -28,7 +28,12 @@ export interface DocumentFigure {
   current: number | string | undefined;
 }
 
-export interface ProfileFigure { key: string; label: string; value: number; why?: string }
+export interface ProfileFigure { key: string; label: string; value: number | string; why?: string }
+
+/** The closing date the investor profile supplied, as a figure of the record: the date, and the setting it came from. Null when the owner entered their own. */
+export function closingFigure(closing: { date: string; weeks: number } | null | undefined): ProfileFigure | null {
+  return closing?.date ? { key: 'closingDate', label: 'Closing date', value: closing.date, why: `set to close ${closing.weeks} weeks after the project is created` } : null;
+}
 
 export interface RecordedFigure {
   key: string;

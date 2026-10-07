@@ -185,7 +185,7 @@ describe('buildDealPatch', () => {
   it('uses the list price as a starting price, but keeps the NOI and cap rate the seller claims out of the inputs', () => {
     const om = (): IntakeDocument => ({
       documentType: 'offering_memorandum', address: f('1 Main St'), city: missing(), state: missing(), zip: missing(), apn: missing(), assetClass: missing(),
-      askingPrice: f(2000000), squareFeet: f(10000), lotAcres: missing(), yearBuilt: missing(), unitCount: missing(), occupancyPercent: f(100),
+      askingPrice: f(2000000), squareFeet: f(10000), lotAcres: missing(), yearBuilt: missing(), unitCount: missing(), occupancyPercent: f(100), expenseStructure: missing(),
       claimedNoi: f(150000), claimedCapRatePercent: f(7.5), tenantSummaries: missing(),
       lotSqFt: missing(), averageCurrentRent: missing(), averageMarketRent: missing(), unitMix: [], income: [], expenses: [],
     });

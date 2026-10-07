@@ -9,7 +9,7 @@
 
 import type { ExpenseCategory, IncomeCategory, IntakeDocument, OfferingMemorandumIntake, OperatingStatementIntake, Sourced } from './intake';
 import { val } from './intake';
-import { NON_OPERATING } from './normalize';
+import { NON_OPERATING, statementTotals } from './normalize';
 
 /** The marker the extractor puts at the top of every PDF page, so a figure can be traced to its page. */
 export const PAGE_MARKER = /^--- Page (\d+) ---$/;
@@ -28,6 +28,10 @@ export interface TraceRow {
   line: number | null;
   /** The line of the document it was found on. */
   snippet: string | null;
+  /** The deal inputs this line feeds, so a figure can be traced back to the lines it was built from. */
+  keys?: string[];
+  /** For a line of a statement that covers part of a year: what to multiply it by to make a year, as the ratio does. */
+  annualFactor?: number;
   /** The number appears in the document text. False means the reader cannot have read it as printed. */
   found: boolean;
   /** How many lines of the document carry the number (more than one means the match is a best guess). */
@@ -78,6 +82,22 @@ export function locate(lines: DocLine[], amount: number, label = ''): { page: nu
   return { page: best.page, line: best.line, snippet: best.text.length > 160 ? `${best.text.slice(0, 159)}…` : best.text, matches: carrying.length };
 }
 
+/** The deal inputs each kind of income line feeds. Rent is also the base the vacancy and the expense ratio are measured against. */
+const INCOME_KEYS: Record<IncomeCategory, string[]> = {
+  rent: ['grossRentPerMonth', 'vacancyRate', 'expenseRatio'],
+  recoveries: ['expenseRatio'],
+  other_income: ['otherIncomeAnnual'],
+  vacancy_credit_loss: ['vacancyRate'],
+  other: [],
+};
+
+/** The deal inputs an expense line feeds: the reserve has its own input, management is the owner's decision, the rest make up the expense ratio. */
+export function expenseKeys(category: ExpenseCategory | null, assetClass: string | null): string[] {
+  if (category === null || category === 'management' || NON_OPERATING.has(category)) return category === 'reserves_capex' ? ['capexReserveAnnual'] : [];
+  if (assetClass === 'storage' && (category === 'payroll' || category === 'marketing')) return [];
+  return ['expenseRatio'];
+}
+
 const INCOME_FEEDS: Record<IncomeCategory, string> = {
   rent: 'Rent',
   recoveries: 'Taken off the costs (tenant reimbursements)',
@@ -105,10 +125,11 @@ export function traceDocument(doc: IntakeDocument, text: string, documentName = 
   if (doc.documentType !== 'offering_memorandum' && doc.documentType !== 'operating_statement') return [];
   const lines = documentLines(text);
   const rows: TraceRow[] = [];
-  const add = (section: TraceRow['section'], label: string, amount: number | null, category: string | null, feeds: string) => {
+  const factor = doc.documentType === 'operating_statement' ? statementTotals(doc).annualFactor : null;
+  const add = (section: TraceRow['section'], label: string, amount: number | null, category: string | null, feeds: string, keys: string[] = []) => {
     const where = amount === null ? null : locate(lines, amount, label);
     rows.push({
-      document: documentName, section, label, amount, category, feeds,
+      document: documentName, section, label, amount, category, feeds, keys, ...(factor !== null && factor !== 1 ? { annualFactor: factor } : {}),
       page: where?.page ?? null, line: where?.line ?? null, snippet: where?.snippet ?? null, found: amount === null ? true : where !== null, matches: where?.matches ?? 0,
     });
   };
@@ -117,28 +138,49 @@ export function traceDocument(doc: IntakeDocument, text: string, documentName = 
   const expenses: LineLike<ExpenseCategory>[] = doc.expenses;
   for (const l of income) {
     const category = val(l.category) as IncomeCategory | null;
-    add('Income', val(l.label) ?? '(no label)', val(l.amount), category, incomeFeeds(category));
+    add('Income', val(l.label) ?? '(no label)', val(l.amount), category, incomeFeeds(category), category ? INCOME_KEYS[category] : []);
   }
   for (const l of expenses) {
     const category = val(l.category) as ExpenseCategory | null;
-    add('Expense', val(l.label) ?? '(no label)', val(l.amount), category, expenseFeeds(category, assetClass));
+    add('Expense', val(l.label) ?? '(no label)', val(l.amount), category, expenseFeeds(category, assetClass), expenseKeys(category, assetClass));
   }
   if (doc.documentType === 'offering_memorandum') {
     const om: OfferingMemorandumIntake = doc;
     for (const r of om.unitMix) {
       const rent = val(r.currentMonthlyRent);
       if (rent === null) continue;
-      add('Unit mix', `${val(r.unitType) ?? 'Unit type'} (${val(r.unitCount) ?? '?'} units), current rent a month`, rent, null, 'Rent (units times current rent)');
+      add('Unit mix', `${val(r.unitType) ?? 'Unit type'} (${val(r.unitCount) ?? '?'} units), current rent a month`, rent, null, 'Rent (units times current rent)', ['grossRentPerMonth']);
     }
-    const figure = (label: string, field: Sourced<number>, feeds: string) => { const v = val(field); if (v !== null) add('Figure', label, v, null, feeds); };
-    figure('Asking price', om.askingPrice, 'Purchase price');
-    figure('Square feet', om.squareFeet, 'Square feet');
-    figure('Unit count', om.unitCount, 'Unit count');
-    figure('Year built', om.yearBuilt, 'Year built');
+    const figure = (label: string, field: Sourced<number>, feeds: string, keys: string[] = []) => { const v = val(field); if (v !== null) add('Figure', label, v, null, feeds, keys); };
+    const text = (label: string, field: Sourced<string>, keys: string[]) => {
+      const v = val(field);
+      if (v === null || String(v).trim() === '') return;
+      const where = locateText(lines, String(v));
+      rows.push({ document: documentName, section: 'Figure', label, amount: null, category: null, feeds: label, keys, page: where?.page ?? null, line: where?.line ?? null, snippet: where?.snippet ?? null, found: where !== null, matches: where ? 1 : 0 });
+    };
+    figure('Asking price', om.askingPrice, 'Purchase price', ['purchasePrice']);
+    figure('Square feet', om.squareFeet, 'Square feet', ['squareFeet']);
+    // A house is one unit whether or not the document says so
+    if (!(val(om.assetClass) === 'residential' && val(om.unitCount) === 1)) figure('Unit count', om.unitCount, 'Unit count', ['unitCount']);
+    figure('Year built', om.yearBuilt, 'Year built', ['yearBuilt']);
+    figure('Land area (acres)', om.lotAcres, 'Acres', ['acres']);
+    figure('Land area (square feet)', om.lotSqFt, 'Acres (converted from square feet)', ['acres']);
+    text('Address', om.address, ['address']);
+    text('Parcel number (APN)', om.apn, ['primaryApn']);
+    text('Lease structure', om.expenseStructure as Sourced<string>, ['leaseType']);
     figure('Seller\'s stated NOI', om.claimedNoi, 'Shown for comparison, never used');
     figure('Seller\'s stated cap rate', om.claimedCapRatePercent, 'Shown for comparison, never used');
   }
   return rows;
+}
+
+/** Where a piece of text is in the document: the first line that carries it, ignoring case and spacing. */
+export function locateText(lines: DocLine[], text: string): { page: number | null; line: number; snippet: string } | null {
+  const norm = (x: string) => x.toLowerCase().replace(/[s,]+/g, ' ').trim();
+  const want = norm(text);
+  if (!want) return null;
+  const hit = lines.find((l) => norm(l.text).includes(want));
+  return hit ? { page: hit.page, line: hit.line, snippet: hit.text.length > 160 ? `${hit.text.slice(0, 159)}…` : hit.text } : null;
 }
 
 /** A confidence this low sends the figure to the owner as one the reader could not have read as printed. */
@@ -166,7 +208,9 @@ export function groundIntake<T extends IntakeDocument>(doc: T, text: string): T 
   if (copy.documentType === 'offering_memorandum') {
     const om = copy as unknown as OfferingMemorandumIntake;
     for (const r of om.unitMix ?? []) { check(r.unitCount); check(r.currentMonthlyRent); }
-    for (const f of [om.askingPrice, om.squareFeet, om.unitCount, om.yearBuilt, om.lotAcres, om.lotSqFt, om.claimedNoi, om.claimedCapRatePercent]) check(f);
+    // A house is one unit whether or not the document says so: the reader answering 1 is not a figure that has to be found in the text
+    const impliedOne = val(om.assetClass) === 'residential' && val(om.unitCount) === 1;
+    for (const f of [om.askingPrice, om.squareFeet, impliedOne ? undefined : om.unitCount, om.yearBuilt, om.lotAcres, om.lotSqFt, om.claimedNoi, om.claimedCapRatePercent]) check(f as Sourced<number> | undefined);
   }
   return copy;
 }

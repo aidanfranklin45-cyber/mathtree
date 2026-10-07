@@ -41,12 +41,14 @@ const num = (n: number): string => Math.round(n).toLocaleString('en-US');
  */
 export function documentChecks(doc: IntakeDocument): DocumentCheck[] {
   const checks: DocumentCheck[] = [];
-  if (doc.documentType !== 'offering_memorandum') return checks;
-  const claimedNoi = val(doc.claimedNoi);
-  const cap = val(doc.claimedCapRatePercent);
-  const price = val(doc.askingPrice);
+  if (doc.documentType !== 'offering_memorandum' && doc.documentType !== 'operating_statement') return checks;
+  const isMemo = doc.documentType === 'offering_memorandum';
+  const subject = isMemo ? 'memorandum' : 'statement';
+  const claimedNoi = isMemo ? val(doc.claimedNoi) : val(doc.reportedNoi);
+  const cap = isMemo ? val(doc.claimedCapRatePercent) : null;
+  const price = isMemo ? val(doc.askingPrice) : null;
   if (doc.income.length > 0 && doc.expenses.length > 0 && claimedNoi !== null && claimedNoi > 0) {
-    let income = 0; let vacancy = 0; let costs = 0;
+    let income = 0; let vacancy = 0; let costs = 0; let reserves = 0;
     for (const l of doc.income) {
       const a = val(l.amount);
       if (a === null) continue;
@@ -54,15 +56,22 @@ export function documentChecks(doc: IntakeDocument): DocumentCheck[] {
     }
     for (const l of doc.expenses) {
       const a = val(l.amount);
-      if (a === null || NON_OPERATING.has(val(l.category) ?? 'other')) continue;
-      costs += Math.abs(a);
+      if (a === null) continue;
+      if (val(l.category) === 'reserves_capex') reserves += Math.abs(a);
+      else if (!NON_OPERATING.has(val(l.category) ?? 'other')) costs += Math.abs(a);
     }
-    const implied = income - vacancy - costs;
-    const gap = Math.abs(implied - claimedNoi) / claimedNoi;
+    // Sellers differ on whether their NOI is before or after the replacement reserve, so the document is held to whichever it follows
+    const before = income - vacancy - costs;
+    const after = before - reserves;
+    const gapBefore = Math.abs(before - claimedNoi) / claimedNoi;
+    const gapAfter = Math.abs(after - claimedNoi) / claimedNoi;
+    const afterReserves = reserves > 0 && gapAfter < gapBefore;
+    const implied = afterReserves ? after : before;
+    const gap = afterReserves ? gapAfter : gapBefore;
     checks.push({
-      label: 'Income less costs equals the memorandum\'s NOI',
+      label: `Income less costs equals the ${subject}'s NOI`,
       ok: gap <= NOI_TIE_TOLERANCE,
-      detail: `The income and operating costs we read give an NOI of ${num(implied)}; the memorandum prints ${num(claimedNoi)} (${(gap * 100).toFixed(1)}% apart). ${gap <= NOI_TIE_TOLERANCE ? 'They tie.' : 'They do not tie: a line may have been missed or misread, so check the income and expense table in the document.'}`,
+      detail: `The income and operating costs we read give an NOI of ${num(implied)}${afterReserves ? ' (after the ' + num(reserves) + ' replacement reserve, as the ' + subject + ' counts it)' : ''}; the ${subject} prints ${num(claimedNoi)} (${(gap * 100).toFixed(1)}% apart). ${gap <= NOI_TIE_TOLERANCE ? 'They tie.' : 'They do not tie: a line may have been missed or misread, so check the income and expense table in the document.'}`,
     });
   }
   if (claimedNoi !== null && cap !== null && price !== null && price > 0) {
@@ -134,8 +143,11 @@ export function validateIntake(doc: IntakeDocument): IntakeIssue[] {
       const printedExpenses = val(doc.reportedTotalExpenses);
       if (printedExpenses !== null && t.annualFactor !== null) {
         // Compare in the statement's own period, so annualisation cannot cause a false alarm.
-        const ours = (t.operatingExpenses + t.excludedExpenses) / t.annualFactor;
-        if (off(ours, printedExpenses)) warn('reportedTotalExpenses', `Expense lines add to ${Math.round(ours).toLocaleString()} but the statement prints ${Math.round(printedExpenses).toLocaleString()}.`);
+        // A statement may print its total with or without the reserve and the lines below its NOI (debt service, depreciation): it only does not add up if none of those fits
+        const reserves = doc.expenses.filter((l) => val(l.category) === 'reserves_capex').reduce((s2, l) => s2 + Math.abs(val(l.amount) ?? 0), 0);
+        const operating = t.operatingExpenses / t.annualFactor;
+        const fits = [operating, operating + reserves, (t.operatingExpenses + t.excludedExpenses) / t.annualFactor].some((c) => !off(c, printedExpenses));
+        if (!fits) warn('reportedTotalExpenses', `Expense lines add to ${Math.round(operating).toLocaleString()} but the statement prints ${Math.round(printedExpenses).toLocaleString()}.`);
       }
       const printedNoi = val(doc.reportedNoi);
       const printedEgi = val(doc.reportedEffectiveGrossIncome);

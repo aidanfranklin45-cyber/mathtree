@@ -1,0 +1,41 @@
+--- Page 1 ---
+SELAH SELF STORAGE
+OFFERING MEMORANDUM
+812 S 1st St, Selah, WA 98942
+--- Page 2 ---
+FACILITY SUMMARY
+Asking price	$3,900,000
+Total units	312
+Rentable area	41,500 SF
+Year built	2006
+Physical occupancy	88%
+Average in-place rent	$118 per unit per month
+Current street rate (average)	$131 per unit per month
+Climate-controlled units	40
+Management	Off-site, third party
+--- Page 3 ---
+UNIT MIX	Units	In-place rent
+5x5	48	$62
+5x10	96	$88
+10x10	88	$135
+10x15	44	$178
+10x20	32	$215
+--- Page 4 ---
+ANNUAL INCOME AND EXPENSES	Trailing 12 months
+Gross potential rent	$441,800
+Vacancy (12%)	($53,000)
+Fees (administration, late, tenant insurance)	$31,200
+Merchandise and retail	$6,400
+Effective gross income	$426,400
+Real estate taxes	$27,400
+Insurance	$9,100
+Utilities	$14,800
+Repairs and maintenance	$12,600
+Payroll (on-site manager)	$58,000
+Marketing	$12,000
+Management (off-site, 5%)	$21,300
+Software and card fees	$9,700
+Reserves	$6,200
+Total expenses	$171,100
+Net operating income	$255,300
+Cap rate	6.55%

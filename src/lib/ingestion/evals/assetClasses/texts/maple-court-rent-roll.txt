@@ -1,0 +1,30 @@
+--- Page 1 ---
+MAPLE COURT APARTMENTS
+RENT ROLL as of September 1, 2026
+--- Page 2 ---
+Unit	Tenant	Monthly rent	Status
+101	[TENANT_1]	$1,240	Occupied
+102	[TENANT_2]	$1,260	Occupied
+103	[TENANT_3]	$1,280	Occupied
+104	[TENANT_4]	$1,300	Occupied
+105	(vacant)		Vacant
+106	[TENANT_6]	$1,340	Occupied
+107	[TENANT_7]	$1,360	Occupied
+108	[TENANT_8]	$1,380	Occupied
+201	[TENANT_9]	$1,240	Occupied
+202	[TENANT_10]	$1,260	Occupied
+203	[TENANT_11]	$1,280	Occupied
+204	[TENANT_12]	$1,300	Occupied
+205	[TENANT_13]	$1,320	Occupied
+206	(vacant)		Vacant
+207	[TENANT_15]	$1,360	Occupied
+208	[TENANT_16]	$1,380	Occupied
+301	[TENANT_17]	$1,240	Occupied
+302	[TENANT_18]	$1,260	Occupied
+303	[TENANT_19]	$1,280	Occupied
+304	[TENANT_20]	$1,300	Occupied
+305	[TENANT_21]	$1,320	Occupied
+306	(vacant)		Vacant
+307	[TENANT_23]	$1,360	Occupied
+308	[TENANT_24]	$1,380	Occupied
+Total		$27,440	21 of 24 occupied

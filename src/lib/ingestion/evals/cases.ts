@@ -30,7 +30,7 @@ const box = (value: unknown, confidence = 1, evidence?: string) => ({ value, con
 const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
 const mix = (type: string, count: number, rent: number) => ({ unitType: box(type), unitCount: box(count), avgSqFt: box(900), currentMonthlyRent: box(rent), marketMonthlyRent: box(null) });
 
-const pageOne = ['--- Page 1 ---', 'Riverside Townhomes', 'Asking price\t$18,400,000', 'Units\t66'];
+const pageOne = ['--- Page 1 ---', 'Riverside Townhomes', '1 Riverside Dr', 'Asking price\t$18,400,000', 'Units\t66'];
 const unitMix = ['--- Page 3 ---', 'Unit mix\tUnits\tCurrent rent', '2 Bed 2 Bath\t30\t1,800', '3 Bed 2 Bath\t36\t2,000'];
 const incomeTable = (rent: string, vacancy: string, noi = '1,228,132', cap = '6.67%') => [
   '--- Page 4 ---', 'Income\tCurrent',

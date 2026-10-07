@@ -1,13 +1,21 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { DocumentType, IntakeDocument } from '../../lib/ingestion/intake';
 import { DOCUMENT_PROFILES, DOCUMENT_TYPES } from '../../lib/ingestion/documentTypes';
 import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/ingestion/validate';
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import { DocumentLineage } from '../studio/DocumentLineage';
-import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { assumptionText, attachVariances, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
+import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
+import { buildWorksheet, decisionNote, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
+import { assess, issueFindings, type Readiness } from '../../lib/ingestion/readiness';
+import { tryComputeDealMetrics } from '../../lib/engine/compute';
+import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
+import { RatioBreakdownView } from './RatioBreakdownView';
+import { checkTitle, expectedCosts, ratioBreakdown, ratioChecks, type RatioCheck } from '../../lib/ingestion/ratioBreakdown';
+import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
+import { evaluateContracts, type ContractResult, type Option } from '../../lib/ingestion/contracts';
+import { receiptsFor, receiptText } from '../../lib/ingestion/receipts';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
 import { managerChoice } from '@engine/underwritingAssumptions';
@@ -50,6 +58,14 @@ interface Props {
   onAccept: (proposal: Proposal, key: string) => void;
   /** The original files the owner added (and what each was read as), so the project can keep them. Called when the documents are read. */
   onFiles?: (files: Array<{ file: File; type?: string }>) => void;
+  /** The worksheet and the check before confirming, whenever either changes: the wizard holds the Create button until it says ready. */
+  onWorksheet?: (rows: WorksheetRow[], readiness: Readiness) => void;
+  /** The owner gave a reason for a figure of their own that needs evidence: saved with the figure. */
+  onReason?: (key: string, reason: string) => void;
+  /** The form this belongs to: its fields show their own notes (`FieldNote`) and the documents panel sits where `WizardDocuments` is put. */
+  children?: React.ReactNode;
+  /** Show what is owed even before a reading: the owner pressed Create. */
+  reveal?: boolean;
 }
 
 interface Source { id: number; name: string; text: string; type: 'auto' | Exclude<DocumentType, 'unknown'>; /** The original file, kept for the project (absent for pasted text). */ file?: File }
@@ -72,13 +88,13 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' | 'unsur
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, profileFigures, intake, closing }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing, children, reveal }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
   const [result, setResult] = useState<{ proposal: Proposal; docs: IntakeDocument[]; filled: number } | null>(null);
   const [open, setOpen] = useState(true);
-  const [details, setDetails] = useState(true); // the disclosures are on show: the owner is here to check the reader's work
+  const [details, setDetails] = useState(false); // the sources behind each row are in the worksheet; the full reading of the documents is one click away
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -131,7 +147,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
         const proposal = proposeChanges(docs, deal, { assetClass: true, manager: managerFor(deal) });
         attachVariances(proposal, expectedFor(proposal, deal));
         // Everything goes in except what would replace a figure the owner typed: that is asked below, and their figure stays meanwhile
-        const ticked = new Set(proposal.changes.filter((c) => !c.replaces && !c.unsure && !c.waitingOn).map((c) => c.key));
+        const ticked = defaultTicked(proposal);
         const documents = out.flatMap((r) => (r.parsed && r.parsed.documentType !== 'unknown' ? [{ name: r.source.name, type: r.parsed.documentType, model: r.parsed.model }] : []));
         await onAutofill({ proposal, ticked, docs, documents, checks: docs.flatMap((d) => documentChecks(d)), lineage: out.flatMap((r) => (r.parsed && r.parsed.intake.documentType !== 'unknown' ? traceDocument(r.parsed.intake, r.source.text, r.source.name) : [])) });
         setResult({ proposal, docs, filled: ticked.size });
@@ -156,6 +172,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       return [];
     });
   }, [result]);
+
+  // The contract behind every question: what was checked and what failed. A decision with no figure of its own (a management charge, reimbursements,
+  // a rent that disagrees with the document's own average) is asked here too, and what the owner says is recorded with the reason it was asked.
+  const contracts: ContractResult[] = useMemo(() => (result ? evaluateContracts(result.proposal, result.docs) : []), [result]);
+  const lineAsks = contracts.filter((c) => c.outcome === 'ask' && c.options);
+  const whyFor = (key: string) => contracts.find((c) => c.key === key)?.reasons ?? [];
+  const receipts = useMemo(() => (intake ? receiptsFor({ figures: intake.figures.map((f) => ({ key: f.key, label: f.label, value: f.value ?? null, source: 'document' as const, how: f.how })), lineage: intake.lineage }) : []), [intake]);
 
   // What the property still needs once the owner's assumptions are taken into account: the facts only the property can state
   const missing = useMemo(() => {
@@ -199,8 +222,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const defaultPick = (c: ProposedChange, kind: Question['kind']): string => (kind === 'variance' ? (changedInForm(c) ? 'keep' : 'doc') : 'keep');
 
   /** Applies the owner's pick to the form and closes the question. A figure typed for this property needs a number. */
-  const confirm = (c: ProposedChange, kind: Question['kind']) => {
-    const which = picked[c.key] ?? defaultPick(c, kind);
+  const confirm = (c: ProposedChange, kind: Question['kind'], chosen?: string) => {
+    const which = chosen ?? picked[c.key] ?? defaultPick(c, kind);
     const unit = (v: number) => assumptionText(c.key, v);
     let said: string;
     if (which === 'own') {
@@ -221,8 +244,16 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     setResolved((r) => ({ ...r, [c.key]: said }));
     onAnswered(c.key, c.label, said);
   };
+  /** The owner settles a decision that has no figure of its own. The answer goes into the form when it has a field, and into the record with the reason it was asked. */
+  const settleLine = (c: ContractResult, o: Option) => {
+    if (o.set) onSet(o.set.key, o.set.value);
+    const said = `${o.label} (asked because: ${c.reasons.map((r) => r.because).join('; ')})`;
+    setResolved((r) => ({ ...r, [c.key]: said }));
+    onAnswered(c.key, c.label, said);
+  };
   const reopen = (key: string) => setResolved((r) => { const n = { ...r }; delete n[key]; return n; });
   const openQuestionsLeft = questions.filter((q) => resolved[q.change.key] === undefined);
+  const lineLeft = lineAsks.filter((c) => resolved[c.key] === undefined);
 
   const done = result !== null || reads.length > 0;
   const manager = managerFor(deal);
@@ -235,7 +266,214 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const hidden = reads.flatMap((r) => (r.parsed ? [r.parsed.redaction] : []));
   const sum = (k: 'names' | 'phones' | 'emails') => hidden.reduce((s, h) => s + h[k], 0);
 
-  return (
+  // ---- The worksheet: one row per assumption, built from the form, the receipts of what was read and the contracts ----
+  const [ownerReasons, setOwnerReasons] = useState<Record<string, string>>({});
+  const [acknowledged, setAcknowledged] = useState<Set<string>>(new Set());
+  const formInputs = (deal.inputs ?? {}) as Record<string, unknown>;
+  const neededAll = useMemo(() => { try { return openQuestions(deal); } catch { return []; } }, [deal]);
+  const preview = useMemo(() => {
+    const current = (key: string, value: unknown): number | string | undefined => {
+      const held = formInputs[key];
+      if (key === 'address') return typeof value === 'string' && typeof held === 'string' && held.toLowerCase().startsWith(value.toLowerCase()) ? value : (typeof held === 'string' ? held : undefined);
+      return typeof held === 'number' || typeof held === 'string' ? held : undefined;
+    };
+    const closingFig = closing?.date ? closingFigure({ date: closing.date, weeks: closing.weeks }) : null;
+    return buildIntakeRecord({
+      documents: intake?.documents ?? [],
+      documentFigures: (intake?.figures ?? []).map((f) => ({ ...f, current: current(f.key, f.value) })),
+      profileFigures: [...profileFigures, ...(closingFig ? [closingFig] : [])],
+      claims: intake?.claims ?? [], notes: [], checks: intake?.checks, lineage: intake?.lineage, choices: [],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intake, profileFigures, closing, deal.inputs]);
+  const rows: WorksheetRow[] = useMemo(
+    () => buildWorksheet({ inputs: formInputs, receipts: receiptsFor(preview), contracts, resolved, needed: neededAll, ownerReasons }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preview, contracts, resolved, neededAll, ownerReasons],
+  );
+  const outcome = useMemo(() => {
+    if (neededAll.length > 0) return null;
+    try {
+      const m = tryComputeDealMetrics({ asset_class: deal.asset_class, purchase_price: deal.purchase_price, inputs: deal.inputs } as never);
+      return m ? { noi: m.noi, capRate: m.capRate, dscr: m.dscr } : null;
+    } catch { return null; }
+  }, [deal, neededAll.length]);
+  const claimOf = (re: RegExp): number | null => intake?.claims.find((c) => re.test(c.how))?.value ?? null;
+  // The questions asked of the lines an expense ratio is built from (read once: shown in the card, and the failures read in the check before confirming)
+  const ratioType = (result?.proposal.patch.provenance as Record<string, { documentType?: string }> | undefined)?.expenseRatio?.documentType;
+  const ratioFrom = useMemo(() => (intake?.documents ?? []).filter((d) => d.type === ratioType).map((d) => d.name), [ratioType, intake]);
+  const ratioCheckList: RatioCheck[] = useMemo(
+    () => (intake?.lineage?.length && result ? ratioChecks({ rows: intake.lineage, usedDocuments: ratioFrom, checks: intake.checks ?? [], expected: expectedCosts(deal.asset_class, deal.inputs?.leaseType as string | undefined), usedType: ratioType }) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intake, result, ratioFrom, deal.asset_class],
+  );
+  const readiness = assess({
+    netLease: formInputs.leaseType === 'NNN' || formInputs.leaseType === 'Absolute Net',
+    extraWarnings: [...issueFindings(reads.flatMap((r) => r.issues)), ...ratioCheckList.filter((c) => !c.ok).map((c) => ({ id: 'ratio:' + c.id, severity: 'warning' as const, title: checkTitle(c), detail: c.text, rowKey: 'expenseRatio' }))],
+    rows, engineMissing: neededAll, outcome, claims: { noi: claimOf(/NOI claimed/i), managementCost: claimOf(/management cost/i) },
+    selfManaged: formInputs.manageProperty !== true, checks: intake?.checks, exitCap: Number(formInputs.targetCapRate) || null, acknowledged,
+  });
+  const readinessKey = `${rows.map((r) => `${r.key}:${r.state}`).join(',')}|${readiness.verdict}|${readiness.unacknowledged.length}|${readiness.blockers.length}`;
+  useEffect(() => { onWorksheet?.(rows, readiness); }, [readinessKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** A short name for where a figure was read, for the button that offers it. */
+  const sourceWord = (how: string): string =>
+    /unit mix/i.test(how) ? 'unit mix' : /income table|income and expense/i.test(how) ? 'income table' : /operating statement/i.test(how) ? 'operating statement' : /rent roll/i.test(how) ? 'rent roll' : /lease/i.test(how) ? 'lease' : 'document';
+  const pill = 'px-2.5 py-1.5 rounded-lg border text-left text-[11px] bg-slate-900 border-slate-700 hover:border-emerald-500/60 text-slate-100 transition';
+  const dollars = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
+  const unitsOf = Number(result?.proposal.patch.patch.unitCount) || Number(deal.inputs?.unitCount) || 0;
+  /** The page of the document a figure was read from, for the button that offers it. */
+  const pageOf = (how: string): string => {
+    const section = /unit mix/i.test(how) ? 'Unit mix' : /income table|income and expense/i.test(how) ? 'Income' : '';
+    const page = section ? (intake?.lineage ?? []).find((r) => r.section === section && r.found && (r.keys ?? []).includes('grossRentPerMonth'))?.page : null;
+    return page ? ' · p. ' + page : '';
+  };
+  /** A rent in the other forms the owner compares it in: a year, a unit. */
+  const rentForms = (c: ProposedChange, monthly: number): string | null => (c.key === 'grossRentPerMonth' ? dollars(monthly * 12) + ' a year' + (unitsOf > 0 ? ' · ' + dollars(monthly / unitsOf) + ' a unit' : '') : null);
+  /** A yearly reserve per unit, which is how reserves are usually compared. */
+  const perUnit = (c: ProposedChange, annual: number, text: string): string => (c.key === 'capexReserveAnnual' && unitsOf > 0 ? text + ' (' + dollars(annual / unitsOf) + ' a unit)' : text);
+
+  /** The question for one figure, as short as it can be: the choices side by side, answered with one press. */
+  const questionCard = ({ change: c, kind }: Question) => {
+    // Several figures for the same thing (the rent in the unit mix and in the income table): pick one
+    if (kind === 'unsure' && c.alternatives && c.alternatives.length > 0) {
+      const options = [{ value: Number(c.value), text: c.proposed, how: c.how }, ...c.alternatives];
+      return (
+        <div key={c.key} className="space-y-1.5">
+          <p className="text-xs font-bold text-slate-100">Which {c.label.toLowerCase()}?</p>
+          <div className="flex flex-wrap gap-2">
+            {options.map((o, k) => (
+              <button key={k} type="button" onClick={() => settleUnsure(c, true, k === 0 ? undefined : { value: o.value, text: o.text })} className={pill}>
+                <span className="block font-bold text-emerald-300">{o.text.replace(/ \(.*$/, '')}</span>
+                {rentForms(c, o.value) && <span className="block text-slate-300">{rentForms(c, o.value)}</span>}
+                <span className="block text-slate-500">{sourceWord(o.how)}{pageOf(o.how)}</span>
+              </button>
+            ))}
+            <button type="button" onClick={() => settleUnsure(c, false)} className={pill}>My own</button>
+          </div>
+          {c.key === 'grossRentPerMonth' && options.length >= 2 && (() => {
+            const [a, b] = [options[0].value, options[1].value];
+            const low = Math.min(a, b);
+            return low > 0 ? <p className="text-[11px] text-slate-400">They differ by {dollars(Math.abs(a - b) * 12)} a year ({(Math.abs(a - b) / low * 100).toFixed(1)}%).</p> : null;
+          })()}
+        </div>
+      );
+    }
+    // The reader was not sure of one figure
+    if (kind === 'unsure') {
+      return (
+        <div key={c.key} className="space-y-1.5">
+          <p className="text-xs text-slate-200">Read as <span className="font-bold text-emerald-300">{c.proposed}</span>, not sure.{c.evidence ? <span className="text-slate-500"> “{c.evidence}”</span> : null}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => settleUnsure(c, true)} className={pill}>Use it</button>
+            <button type="button" onClick={() => settleUnsure(c, false)} className={pill}>My own</button>
+          </div>
+        </div>
+      );
+    }
+    // The document and your own standard differ by more than 5%: the three figures side by side
+    if (kind === 'variance' && c.variance) {
+      const which = picked[c.key] ?? defaultPick(c, kind);
+      const choice = (id: string, label: string, text: string) => (
+        <label key={id} className="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name={`q-${c.key}`} checked={which === id} onChange={() => choose(c, id)} />
+          <span className="text-slate-400">{label}</span> <span className="font-bold text-slate-100">{text}</span>
+        </label>
+      );
+      return (
+        <div key={c.key} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
+          {choice('doc', 'Document', perUnit(c, Number(c.value), docText(c)))}
+          {changedInForm(c) && choice('keep', 'Mine', assumptionText(c.key, inForm(c) as number))}
+          {choice('mine', 'Your standard', perUnit(c, c.variance.expected, mineText(c)))}
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" name={`q-${c.key}`} checked={which === 'own'} onChange={() => choose(c, 'own')} />
+            <span className="text-slate-400">Own</span>
+            <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-slate-100"
+              onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); choose(c, 'own'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirm(c, kind); }} />
+          </label>
+          <button type="button" onClick={() => confirm(c, kind)} disabled={which === 'own' && !(typed[c.key] ?? '').trim()} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-bold disabled:opacity-40">Use</button>
+          <p className="basis-full text-[10px] text-slate-500">Your standard: {c.variance.why || 'your investor profile'}. The document is {c.variance.percent}% {c.variance.higher ? 'above' : 'below'} it.</p>
+        </div>
+      );
+    }
+    // The document says something different from what you entered
+    return (
+      <div key={c.key} className="space-y-1.5">
+        <p className="text-xs text-slate-200">You entered <span className="font-bold">{c.current}</span>; the document says <span className="font-bold text-emerald-300">{c.proposed}</span>.</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => confirm(c, kind, 'keep')} className={pill}>Keep mine</button>
+          <button type="button" onClick={() => confirm(c, kind, 'doc')} className={pill}>Use the document's</button>
+        </div>
+      </div>
+    );
+  };
+  const missingCard = (m: { key: string; label: string; why: string }) => {
+              const settable = Boolean(FORM_FIELD_FOR_KEY[m.key]);
+              const done = provided[m.key];
+              if (done && !done.editing) {
+                return (
+                  <div key={m.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
+                    <span className="text-emerald-400">✓</span>
+                    <span className="font-bold text-slate-200">{m.label}:</span>
+                    <span className="text-slate-300">{done.value} (your own number)</span>
+                    <button type="button" onClick={() => { setAsked((a) => ({ ...a, [m.key]: done.value })); setProvided((pr) => ({ ...pr, [m.key]: { ...done, editing: true } })); }} className="text-slate-500 hover:text-white underline">Change</button>
+                  </div>
+                );
+              }
+              const add = () => {
+                const v = (asked[m.key] ?? '').trim();
+                if (!v) return;
+                onSet(m.key, v);
+                setProvided((pr) => ({ ...pr, [m.key]: { label: m.label, value: v, editing: false } }));
+                setAsked((a) => { const n = { ...a }; delete n[m.key]; return n; });
+              };
+              return (
+                <div key={m.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-xs font-bold text-slate-100 block">{m.label}</span>
+                  {m.why && <span className="text-[11px] text-slate-400 block">{m.why}</span>}
+                  {settable && (
+                    <span className="flex items-center gap-2 mt-1.5">
+                      <input type={m.key === 'closingDate' ? 'date' : 'number'} step="any" aria-label={m.label} value={asked[m.key] ?? ''} onChange={(e) => setAsked((a) => ({ ...a, [m.key]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+                      <button type="button" disabled={!(asked[m.key] ?? '').trim()} onClick={add} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
+                    </span>
+                  )}
+                </div>
+              );
+  };
+  // Nothing is shown as owed until a reading has finished: first the facts from the documents, then what is left
+  const engaged = (done && !busy) || !!reveal;
+  const rowKeys = new Set(ROW_SPECS.map((s) => s.key));
+  const leftQuestions = questions.filter((q) => !rowKeys.has(q.change.key));
+  const leftMissing = [...Object.keys(provided).map((key) => ({ key, label: provided[key].label, why: '' })), ...neededAll.filter((m) => !provided[m.key])].filter((m) => !rowKeys.has(m.key));
+  /** Take the owner to a row: its note when it has one on screen (the form's field names differ by asset class), else its field. */
+  const goToRow = (rowKey: string | undefined) => {
+    const note = rowKey ? (document.querySelector('[data-note="' + rowKey + '"]') as HTMLElement | null) : null;
+    if (note) {
+      note.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (note.querySelector('button, input') as HTMLElement | null)?.focus?.();
+      return;
+    }
+    const spec = ROW_SPECS.find((x) => x.key === rowKey);
+    const field = spec?.field ?? (rowKey ? FORM_FIELD_FOR_KEY[rowKey] : undefined);
+    if (field) focusField(field);
+  };
+  const focusField = (field: string) => {
+    const el = document.querySelector(`[data-field="${field}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el?.focus?.();
+  };
+  const ownFigure = (r: WorksheetRow, value: string, reason: string) => {
+    onSet(r.key, value);
+    setOwnerReasons((p) => ({ ...p, [r.key]: reason }));
+    onReason?.(r.key, reason);
+    const said = `${value}${PERCENT_ROWS.has(r.key) ? '%' : ''} (your own figure: ${reason})`;
+    setResolved((p) => ({ ...p, [r.key]: said }));
+    onAnswered(r.key, r.label, said);
+  };
+
+
+  const panel = (
     <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -289,12 +527,12 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
 
       {(done || profileFigures.length > 0 || intake !== null) && (
         <div>
-          <button type="button" onClick={() => setDetails((d) => !d)} className="text-[11px] font-bold text-slate-400 hover:text-white">{details ? 'Hide' : 'Show'} what was found and what was filled in</button>
+          <button type="button" onClick={() => setDetails((d) => !d)} className="text-[11px] font-bold text-slate-400 hover:text-white">{details ? 'Hide' : 'Show'} what was read from the documents (pages and quotes)</button>
           {details && (
             <div className="mt-2 space-y-4">
               {intake && (
                 <section className="space-y-2">
-                  <h5 className="text-[11px] uppercase tracking-wider font-black text-sky-300">1 · Found in your documents ({intake.figures.length})</h5>
+                  <h5 className="text-[11px] uppercase tracking-wider font-black text-sky-300">What was read from your documents ({intake.figures.length})</h5>
                   <p className="text-[11px] text-slate-500">
                     Read from {intake.documents.length > 0 ? intake.documents.map((d) => d.name).join(', ') : 'the documents you added'}.
                     {result ? ` Hidden from the reader: ${sum('names')} names, ${sum('phones')} phone numbers, ${sum('emails')} emails.` : ' The documents themselves are not kept: add them again to read them again.'}
@@ -302,7 +540,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                   {reads.flatMap((r) => r.issues).map((i, n) => <p key={n} className={`text-[11px] ${i.severity === 'error' ? 'text-rose-300' : 'text-amber-300'}`}>{i.severity === 'error' ? 'Check: ' : 'Note: '}{i.message}</p>)}
                   <ul className="space-y-1">
                     {intake.figures.map((f) => (
-                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{f.text}</span> <span className="text-slate-500 italic">({f.reliability}) {f.how}</span></li>
+                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{f.text}</span> <span className="text-slate-500 italic">({f.reliability}) {f.how}</span>{(() => { const r = receipts.find((x) => x.key === f.key); return r ? <span className={`block pl-3 ${r.traced ? 'text-sky-300/80' : 'text-amber-300'}`}>Source: {receiptText(r)}</span> : null; })()}</li>
                     ))}
                   </ul>
                   {result && result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
@@ -319,153 +557,69 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                 </section>
               )}
 
-              {(
-                <section className="space-y-2">
-                  <h5 className="text-[11px] uppercase tracking-wider font-black text-violet-300">2 · Using your investor profile ({profileFigures.length})</h5>
-                  <p className="text-[11px] text-slate-500">Not in any document: these are your own standards for this kind of property, filled in wherever the documents were silent. Change any of them in the form below for this property.</p>
-                  <ul className="space-y-1">
-                    <li className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">Property manager (this property):</span>{' '}
-                      {manager.uses === true ? <span className="text-emerald-400">{`you hire one. Their fee (${manager.fee !== undefined ? `${manager.fee}%` : 'not set yet'} of collected income) is charged on top of the expense ratio.`}</span>
-                        : manager.uses === false ? <span className="text-emerald-400">you manage it yourself, so no management fee is charged (a lender will usually add one).</span>
-                        : <span className="text-amber-300">your profile does not say, so no management fee is charged. Tick "I hire a property manager" below, or set it in your investor profile.</span>}
-                    </li>
-                    {closing !== null && (
-                      <li className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">Closing date:</span>{' '}
-                        <span className="text-emerald-400">{closing.date ? `${closing.date}. ` : ''}Your investor profile is set to close {closing.weeks} weeks after the project is created.</span>{' '}
-                        <span className="text-slate-500 italic">Change the date in the form below to replace it.</span></li>
-                    )}
-                    {profileFigures.map((f) => (
-                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{assumptionText(f.key, f.value)}</span> <span className="text-slate-500 italic">{f.why ? `Your reason: ${f.why}` : 'Your investor profile'}</span></li>
-                    ))}
-                  </ul>
-                </section>
-              )}
             </div>
           )}
         </div>
       )}
-      {done && (questions.length > 0 || missing.length > 0 || Object.keys(provided).length > 0) && (
-        <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
-          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + missing.length})</h4>
-          <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below. {VARIANCE_DISCLOSURE}</p>
-
-          {(result?.proposal.changes ?? []).filter((c) => c.waitingOn).map((c) => (
-            <div key={`waiting-${c.key}`} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1">
-              <span className="text-xs font-bold text-slate-100 block">{c.label}: waiting on the rent</span>
-              <span className="block text-slate-400">The expense ratio is the document's operating costs{c.netCosts !== undefined ? ` (${Math.round(c.netCosts).toLocaleString()} a year after tenant reimbursements)` : ''} divided by the rent you underwrite. It cannot be worked out until you decide the rent above.</span>
-            </div>
-          ))}
-
-          {questions.map(({ change: c, kind }) => (
-            resolved[c.key] !== undefined ? (
-              <div key={c.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
-                <span className="text-emerald-400">✓</span>
-                <span className="font-bold text-slate-200">{c.label}:</span>
-                <span className="text-slate-300">{resolved[c.key]}</span>
-                <button type="button" onClick={() => reopen(c.key)} className="text-slate-500 hover:text-white underline">Change</button>
-              </div>
-            ) : (
-              <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
-                <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
-                {kind === 'unsure' ? (
-                  c.alternatives && c.alternatives.length > 0 ? (
-                    <>
-                      <span className="block text-amber-200">The documents give more than one figure for this. Which is right?</span>
-                      <span className="block space-y-1.5 pt-1">
-                        {[{ value: Number(c.value), text: c.proposed, how: c.how }, ...c.alternatives].map((o, k) => (
-                          <span key={k} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-900 border border-slate-800">
-                            <span className="font-bold text-emerald-300">{o.text}</span>
-                            <span className="text-slate-500 italic flex-1 min-w-[10rem]">{o.how}</span>
-                            <button type="button" onClick={() => settleUnsure(c, true, k === 0 ? undefined : { value: o.value, text: o.text })} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold">Use this one</button>
-                          </span>
-                        ))}
-                      </span>
-                      <span className="block text-slate-400">Check the document at these spots. Which one to underwrite is a judgment only you can make.</span>
-                      <span className="flex flex-wrap gap-2 pt-1">
-                        <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
-                      </span>
-                    </>
-                  ) : (
-                  <>
-                    <span className="block text-amber-200">The reader was not sure of this figure ({Math.round((c.confidence ?? 0) * 100)}% sure): it read <span className="font-bold">{c.proposed}</span>.{c.evidence ? <> From the document: <span className="italic">"{c.evidence}"</span></> : null}</span>
-                    <span className="block text-slate-400">Please check the document at this spot. If several figures could be the one, this is a judgment only you can make.</span>
-                    <span className="flex flex-wrap gap-2 pt-1">
-                      <button type="button" onClick={() => settleUnsure(c, true)} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold">I checked it: use what was read</button>
-                      <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
-                    </span>
-                  </>
-                  )
-                ) : kind === 'variance' && c.variance ? (
-                  <>
-                    <span className="block text-amber-200">The document says {docText(c)}; your assumption is {mineText(c)}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
-                    <span className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'doc'} onChange={() => choose(c, 'doc')} />Document's ({docText(c)})</label>
-                      {changedInForm(c) && <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'keep'} onChange={() => choose(c, 'keep')} />What I entered ({assumptionText(c.key, inForm(c) as number)})</label>}
-                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'mine'} onChange={() => choose(c, 'mine')} />My assumption ({mineText(c)})</label>
-                      <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'own'} onChange={() => choose(c, 'own')} />
-                        My own
-                        <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} className="w-20 bg-slate-950 border border-amber-500/30 rounded px-1.5 py-0.5 text-amber-100"
-                          onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); choose(c, 'own'); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter') confirm(c, kind); }} />
-                      </label>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="block text-amber-200">You entered {c.current}; the document says {c.proposed}.</span>
-                    <span className="flex flex-wrap items-center gap-3">
-                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? 'keep') === 'keep'} onChange={() => choose(c, 'keep')} />Keep mine ({c.current})</label>
-                      <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'doc'} onChange={() => choose(c, 'doc')} />Use the document's ({c.proposed})</label>
-                    </span>
-                  </>
-                )}
-                <span className="block text-slate-500 italic">{c.how}</span>
-                {kind !== 'unsure' && (
-                  <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
-                )}
-              </div>
-            )
-          ))}
-
-          {[...Object.keys(provided).map((key) => ({ key, label: provided[key].label, why: '' })), ...missing.filter((m) => !provided[m.key])].map((m) => {
-            const settable = Boolean(FORM_FIELD_FOR_KEY[m.key]);
-            const done = provided[m.key];
-            if (done && !done.editing) {
-              return (
-                <div key={m.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
-                  <span className="text-emerald-400">✓</span>
-                  <span className="font-bold text-slate-200">{m.label}:</span>
-                  <span className="text-slate-300">{done.value} (your own number)</span>
-                  <button type="button" onClick={() => { setAsked((a) => ({ ...a, [m.key]: done.value })); setProvided((pr) => ({ ...pr, [m.key]: { ...done, editing: true } })); }} className="text-slate-500 hover:text-white underline">Change</button>
-                </div>
-              );
-            }
-            const add = () => {
-              const v = (asked[m.key] ?? '').trim();
-              if (!v) return;
-              onSet(m.key, v);
-              setProvided((pr) => ({ ...pr, [m.key]: { label: m.label, value: v, editing: false } }));
-              setAsked((a) => { const n = { ...a }; delete n[m.key]; return n; });
-            };
-            return (
-              <div key={m.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                <span className="text-xs font-bold text-slate-100 block">{m.label}</span>
-                {m.why && <span className="text-[11px] text-slate-400 block">{m.why}</span>}
-                {settable && (
-                  <span className="flex items-center gap-2 mt-1.5">
-                    <input type={m.key === 'closingDate' ? 'date' : 'number'} step="any" aria-label={m.label} value={asked[m.key] ?? ''} onChange={(e) => setAsked((a) => ({ ...a, [m.key]: e.target.value }))} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} className="w-32 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
-                    <button type="button" disabled={!(asked[m.key] ?? '').trim()} onClick={add} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
-                  </span>
-                )}
-              </div>
-            );
-          })}
+      {!engaged ? <p className="text-[11px] text-slate-500">{busy ? 'Reading the documents…' : 'Add your documents and press Fill, or fill in the form yourself. What still needs an answer shows up after that.'}</p> : (
+      <ReadinessBanner
+        readiness={readiness}
+        onNext={() => goToRow(readiness.blockers[0]?.rowKey)}
+        acknowledged={acknowledged}
+        onAcknowledge={(id, on) => setAcknowledged((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; })}
+      />)}
+      {engaged && (leftQuestions.length > 0 || leftMissing.length > 0) && (
+        <div className="space-y-2 pt-1">
+          <h5 className="text-[10px] uppercase tracking-wider font-black text-slate-500">Also asked</h5>
+          {leftQuestions.map(questionCard)}
+          {leftMissing.map((m) => <React.Fragment key={m.key}>{missingCard(m)}</React.Fragment>)}
         </div>
       )}
-      {done && openQuestionsLeft.length === 0 && missing.length === 0 && <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property. Check the form below, then create it.</p>}
-
     </div>
   );
+
+  /** What goes under a field of the form: where its figure came from and, when something is owed, the question to settle it. */
+  /** How the document's expense ratio is built: its costs, what is netted off and what is left out, from the lines the reader took. */
+  const breakdownFor = (): React.ReactNode => {
+    const names = ratioFrom;
+    const lines = (intake?.lineage ?? []).filter((r) => names.length === 0 || names.includes(r.document));
+    const monthly = Number(deal.inputs?.grossRentPerMonth);
+    const b = ratioBreakdown(lines, Number.isFinite(monthly) && monthly > 0 ? monthly * 12 : null);
+    if (!b) return null;
+    const held = Number(deal.inputs?.expenseRatio);
+    return <RatioBreakdownView breakdown={b} entered={Number.isFinite(held) ? held : null} checks={ratioCheckList} />;
+  };
+
+  const noteFor = (key: string, named = false): React.ReactNode => {
+    const r = rows.find((x) => x.key === key);
+    if (!r || !engaged) return null;
+    const q = questions.find((x) => x.change.key === key);
+    return (
+      <RowNote
+        row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null} neededWhy={neededAll.find((m) => m.key === key)?.why}
+        extra={key === 'expenseRatio' ? breakdownFor() : null}
+        decisionNotes={Object.fromEntries(r.decisions.flatMap((d) => { const n = decisionNote(d.key, result?.proposal.patch.notes ?? [], managerFor(deal).fee); return n ? [[d.key, n]] : []; }))}
+        onGo={(k) => goToRow(k)}
+        onDecide={(d, o) => { const c = contracts.find((x) => x.key === d.key); if (c) settleLine(c, o); }}
+        onOwnFigure={ownFigure}
+      />
+    );
+  };
+
+  return <WorksheetContext.Provider value={{ panel, noteFor }}>{children}</WorksheetContext.Provider>;
+};
+
+interface WorksheetCtx { panel: React.ReactNode; noteFor: (rowKey: string, named?: boolean) => React.ReactNode }
+const WorksheetContext = createContext<WorksheetCtx>({ panel: null, noteFor: () => null });
+
+/** The documents, the fill button and the check before confirming: one panel at the top of the form. */
+export const WizardDocuments: React.FC = () => <>{useContext(WorksheetContext).panel}</>;
+
+/** What sits under a field: its source and, when something is owed, its question. The field is where the owner settles it. */
+export const FieldNote: React.FC<{ k: string }> = ({ k }) => <>{useContext(WorksheetContext).noteFor(k)}</>;
+
+/** The notes of several fields that share a row of the form, stacked full width under it, each named. */
+export const FieldNotes: React.FC<{ keys: string[] }> = ({ keys }) => {
+  const { noteFor } = useContext(WorksheetContext);
+  return <div className="col-span-full flex flex-wrap gap-x-5 gap-y-1.5">{keys.map((k) => <React.Fragment key={k}>{noteFor(k, true)}</React.Fragment>)}</div>;
 };

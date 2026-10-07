@@ -185,6 +185,8 @@ export interface OfferingMemorandumIntake {
   yearBuilt: S<number>;
   unitCount: S<number>;
   occupancyPercent: S<number>;
+  /** Who pays the building's costs, when the memorandum says (net, gross). */
+  expenseStructure: S<ExpenseStructure>;
   /** The broker's figures. Kept apart from the engine's inputs on purpose: they are claims. */
   claimedNoi: S<number>;
   claimedCapRatePercent: S<number>;

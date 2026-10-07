@@ -1,0 +1,27 @@
+--- Page 1 ---
+MAPLE COURT APARTMENTS
+OFFERING MEMORANDUM
+902 W Maple St, Yakima, WA 98902
+--- Page 2 ---
+Asking price	$3,150,000
+Units	24
+Net rentable area	18,600 SF
+Year built	1987
+Average in-place rent	$1,290 per unit per month
+Parcel number	181312-22014
+--- Page 3 ---
+ANNUAL INCOME AND EXPENSES	Seller pro forma
+Gross potential rent	$371,500
+Vacancy (5%)	($18,600)
+Other income	$14,400
+Effective gross income	$367,300
+Real estate taxes	$33,800
+Insurance	$11,200
+Utilities	$36,500
+Repairs and maintenance	$24,000
+Payroll	$18,000
+Management (5%)	$18,400
+Reserves	$6,000
+Total expenses	$147,900
+Net operating income	$219,400
+Cap rate	6.97%
