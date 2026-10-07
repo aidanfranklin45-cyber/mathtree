@@ -233,7 +233,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   /** The owner settles a decision that has no figure of its own. The answer goes into the form when it has a field, and into the record with the reason it was asked. */
   const settleLine = (c: ContractResult, o: Option) => {
     if (o.set) onSet(o.set.key, o.set.value);
-    const said = `${o.label} (asked because: ${c.reasons.map((r) => r.check.toLowerCase()).join('; ')})`;
+    const said = `${o.label} (asked because: ${c.reasons.map((r) => r.because).join('; ')})`;
     setResolved((r) => ({ ...r, [c.key]: said }));
     onAnswered(c.key, c.label, said);
   };
@@ -438,7 +438,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                   </>
                 )}
                 <span className="block text-slate-500 italic">{c.how}</span>
-                {whyFor(c.key).length > 0 && <span className="block text-slate-500">Why you are asked: {whyFor(c.key).map((r) => r.check.toLowerCase()).join('; ')}.</span>}
+                {whyFor(c.key).length > 0 && <span className="block text-slate-500">Why you are asked: {whyFor(c.key).map((r) => r.because).join('; ')}.</span>}
                 {kind !== 'unsure' && (
                   <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
                     className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
@@ -462,7 +462,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                 <span className="flex flex-wrap gap-2 pt-1">
                   {(c.options ?? []).map((o) => <button key={o.id} type="button" onClick={() => settleLine(c, o)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:border-emerald-500/60 text-slate-100 text-[11px] font-bold">{o.label}</button>)}
                 </span>
-                <span className="block text-slate-500">Why you are asked: {c.reasons.map((r) => r.check.toLowerCase()).join('; ')}.</span>
+                <span className="block text-slate-500">Why you are asked: {c.reasons.map((r) => r.because).join('; ')}.</span>
               </div>
             )
           ))}

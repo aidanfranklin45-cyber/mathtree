@@ -16,6 +16,8 @@ export type Outcome = 'auto' | 'ask';
 export interface Reason {
   /** The check that failed, in a few words. */
   check: string;
+  /** Why this check failing means the owner is asked, in a few plain words. */
+  because: string;
   detail: string;
 }
 
@@ -41,11 +43,11 @@ export interface ContractResult {
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
 /** Checks on a figure `proposeChanges` produced. Each returns a reason when it fails. */
-const FIGURE_CHECKS: Array<{ name: string; run: (c: ProposedChange) => string | null }> = [
-  { name: 'The sources agree', run: (c) => (c.alternatives && c.alternatives.length > 0 ? `The documents give more than one figure: ${[c.proposed, ...c.alternatives.map((a) => a.text)].join(' or ')}` : null) },
-  { name: 'The reader was sure', run: (c) => (c.confidence !== undefined && c.confidence < LOW_CONFIDENCE && !c.chosen ? `The reader was ${Math.round(c.confidence * 100)}% sure` : null) },
-  { name: 'It is near your own standard', run: (c) => (c.variance ? `${c.variance.percent}% ${c.variance.higher ? 'above' : 'below'} your standard of ${c.variance.expectedText}` : null) },
-  { name: 'The figures it depends on are settled', run: (c) => (c.waitingOn ? `It depends on ${c.waitingOn}, which is still a question` : null) },
+const FIGURE_CHECKS: Array<{ name: string; because: string; run: (c: ProposedChange) => string | null }> = [
+  { name: 'The sources agree', because: 'the documents give more than one figure', run: (c) => (c.alternatives && c.alternatives.length > 0 ? `The documents give more than one figure: ${[c.proposed, ...c.alternatives.map((a) => a.text)].join(' or ')}` : null) },
+  { name: 'The reader was sure', because: 'the reader was not sure of it', run: (c) => (c.confidence !== undefined && c.confidence < LOW_CONFIDENCE && !c.chosen ? `The reader was ${Math.round(c.confidence * 100)}% sure` : null) },
+  { name: 'It is near your own standard', because: 'it is more than 5% from your own standard', run: (c) => (c.variance ? `${c.variance.percent}% ${c.variance.higher ? 'above' : 'below'} your standard of ${c.variance.expectedText}` : null) },
+  { name: 'The figures it depends on are settled', because: 'it depends on a figure you have not decided yet', run: (c) => (c.waitingOn ? `It depends on ${c.waitingOn}, which is still a question` : null) },
 ];
 
 /** A decision that is the owner's even when the document states a figure. `when` finds it in the document; it returns what to tell the owner. */
@@ -53,7 +55,8 @@ interface LineContract {
   key: string;
   label: string;
   check: string;
-  when: (docs: IntakeDocument[]) => string | null;
+  because: string;
+  when: (docs: IntakeDocument[], proposal: Proposal) => string | null;
   options: Option[];
 }
 
@@ -75,6 +78,7 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'managementFee',
     label: 'Management fee',
     check: 'A management charge in the document is your decision',
+    because: 'the document charges for management, which is your decision',
     options: [
       { id: 'self', label: 'I manage it myself: no management fee', set: { key: 'manageProperty', value: 'false' } },
       { id: 'manager', label: 'I hire a manager: charge the fee from my profile', set: { key: 'manageProperty', value: 'true' } },
@@ -88,6 +92,7 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'utilityReimbursements',
     label: 'Utility reimbursements',
     check: 'Reimbursements need a stated treatment',
+    because: 'the document shows tenant reimbursements, and how they are treated is your decision',
     options: [
       { id: 'netted', label: 'Take them off the costs, as the engine does' },
       { id: 'own', label: 'I will set the expense ratio myself' },
@@ -101,11 +106,14 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'rentAgreesWithStatedAverage',
     label: 'Rent against the stated average',
     check: 'The rent read agrees with the average rent the document states',
+    because: 'the rent read does not match the average rent the document states',
     options: [
       { id: 'checked', label: 'I checked the document: the rent I settled above is right' },
       { id: 'own', label: 'I will enter the rent myself' },
     ],
-    when: (docs) => {
+    when: (docs, proposal) => {
+      // What is held to the average is the rent that will be underwritten: what the owner settled on, or the figure on offer while it is still a question
+      const underwritten = Number(proposal.changes.find((c) => c.key === 'grossRentPerMonth')?.value) * 12;
       for (const d of docs) {
         if (d.documentType !== 'offering_memorandum') continue;
         const units = Number(val(d.unitCount));
@@ -117,6 +125,11 @@ export const LINE_CONTRACTS: LineContract[] = [
         if (table > 0) reads.push({ from: 'the income table', annual: table });
         const mix = d.unitMix.reduce((s, r) => s + (Number(val(r.unitCount)) || 0) * (Number(val(r.currentMonthlyRent)) || 0) * 12, 0);
         if (mix > 0) reads.push({ from: 'the unit mix', annual: mix });
+        if (Number.isFinite(underwritten) && underwritten > 0) {
+          return Math.abs(underwritten - stated) / stated > RENT_AVERAGE_TOLERANCE
+            ? `The document states an average rent of ${money(avg)} a unit (${money(stated)} a year over ${units} units), but the rent being underwritten is ${money(underwritten)} a year.`
+            : null;
+        }
         const off = reads.filter((r) => Math.abs(r.annual - stated) / stated > RENT_AVERAGE_TOLERANCE);
         if (off.length) return `The document states an average rent of ${money(avg)} a unit (${money(stated)} a year over ${units} units), but ${off.map((r) => `${r.from} gives ${money(r.annual)}`).join(' and ')}.`;
       }
@@ -127,6 +140,7 @@ export const LINE_CONTRACTS: LineContract[] = [
     key: 'unclassifiedIncome',
     label: 'Income the reader could not classify',
     check: 'Every income line has a known kind',
+    because: 'the reader could not tell what kind of income a line is',
     options: [
       { id: 'left', label: 'Leave it out' },
       { id: 'own', label: 'I will enter other income myself' },
@@ -144,13 +158,13 @@ export function evaluateContracts(proposal: Proposal, docs: IntakeDocument[]): C
     const reasons: Reason[] = [];
     for (const check of FIGURE_CHECKS) {
       const detail = check.run(c);
-      if (detail) reasons.push({ check: check.name, detail });
+      if (detail) reasons.push({ check: check.name, because: check.because, detail });
     }
     results.push({ key: c.key, label: c.label, outcome: reasons.length ? 'ask' : 'auto', reasons, checksRun: FIGURE_CHECKS.map((k) => k.name) });
   }
   for (const lc of LINE_CONTRACTS) {
-    const detail = lc.when(docs);
-    results.push({ key: lc.key, label: lc.label, outcome: detail ? 'ask' : 'auto', reasons: detail ? [{ check: lc.check, detail }] : [], checksRun: [lc.check], ...(detail ? { options: lc.options } : {}) });
+    const detail = lc.when(docs, proposal);
+    results.push({ key: lc.key, label: lc.label, outcome: detail ? 'ask' : 'auto', reasons: detail ? [{ check: lc.check, because: lc.because, detail }] : [], checksRun: [lc.check], ...(detail ? { options: lc.options } : {}) });
   }
   return results;
 }

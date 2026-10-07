@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
 import { suggestedStartingPoints, type UnderwritingAssumptions } from '@engine/underwritingAssumptions';
 import { setAssumptionDefaults } from '../../engine/assumptionDefaults';
-import { attachVariances, proposeChanges, type Proposal } from '../apply';
+import { attachVariances, proposeChanges, releaseDependents, withChosenValue, type Proposal } from '../apply';
 import { expectedFor } from '../expected';
 import { groundIntake, traceDocument } from '../lineage';
 import { documentChecks } from '../validate';
@@ -241,5 +241,26 @@ describe('Contracts: mutation (change the document or the reading and the outcom
         if (now) expect(now.outcome, b.key).toBe('ask');
       }
     }
+  });
+});
+
+describe('Contracts: they follow the owner\'s decisions', () => {
+  function afterRentChoice(rent: number) {
+    setAssumptionDefaults({ assumptions: closeProfile(), discountRate: 8, exitYear: 10 });
+    const intake = groundIntake(coerceIntake('offering_memorandum', READER_ANSWER), COWICHE_TEXT);
+    const proposal = releaseDependents(withChosenValue(proposeChanges([intake], deal), 'grossRentPerMonth', rent), 'grossRentPerMonth');
+    return evaluateContracts(proposal, [intake]);
+  }
+
+  it('stops asking about the rent against the average once the owner settles on the figure that agrees with it', () => {
+    expect(afterRentChoice(120_900).find((r) => r.key === 'rentAgreesWithStatedAverage')!.outcome).toBe('auto');
+  });
+
+  it('keeps asking when the owner settles on the figure that does not agree', () => {
+    expect(afterRentChoice(125_700).find((r) => r.key === 'rentAgreesWithStatedAverage')!.outcome).toBe('ask');
+  });
+
+  it('puts the reason for every question in plain words', () => {
+    for (const r of contractsFor(READER_ANSWER, farProfile())) for (const reason of r.reasons) expect(reason.because.length, r.key).toBeGreaterThan(10);
   });
 });
