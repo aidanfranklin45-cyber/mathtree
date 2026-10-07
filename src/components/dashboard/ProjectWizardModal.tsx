@@ -218,8 +218,10 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   /** A figure typed by the owner in answer to a question: it goes into the form field it belongs to. */
   /** Applies one figure the reader was unsure of, after the owner checked the document and chose to use it. */
   const acceptChange = (proposal: Parameters<typeof applyToForm>[0]['proposal'], key: string) => {
-    const fill = applyToForm({ form: w, asset, proposal, ticked: new Set([key]) });
-    setW(fill.form);
+    const ticked = new Set([key]);
+    const fill = applyToForm({ form: w, asset, proposal, ticked });
+    // Applied to the latest form, not the one this render saw: two figures accepted back to back (the rent, then the expense ratio that waited on it) must both land
+    setW((prev) => applyToForm({ form: prev, asset, proposal, ticked }).form);
     setDocExtra((e) => ({ ...e, ...fill.extra }));
     setSeededBasis((b) => ({ ...b, ...fill.basis }));
     // A figure accepted from a question is a document figure too: it goes into the record of where the numbers came from
