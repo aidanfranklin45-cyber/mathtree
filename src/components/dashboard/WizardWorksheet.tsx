@@ -18,6 +18,10 @@ interface NoteProps {
   neededWhy?: string;
   /** The facts that bear on each decision with no figure of its own, by the decision's key. */
   decisionNotes?: Record<string, string>;
+  /** More that bears on this field, closed until asked for (how an expense ratio is built). */
+  extra?: React.ReactNode;
+  /** Go to another row's field (the rent, for a ratio that waits for it). */
+  onGo?: (rowKey: string) => void;
   onDecide: (decision: { key: string }, option: Option) => void;
   onOwnFigure: (row: WorksheetRow, value: string, reason: string) => void;
 }
@@ -27,7 +31,7 @@ interface NoteProps {
  * full story is in the sources panel and in the record saved with the project). A field the engine needs is an empty circle. Only a field with an
  * open question shows more, and then only the question, answered where the figure is.
  */
-export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWhy, decisionNotes, onDecide, onOwnFigure }) => {
+export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWhy, decisionNotes, extra, onGo, onDecide, onOwnFigure }) => {
   const [own, setOwn] = useState<{ value: string; reason: string }>({ value: '', reason: '' });
   const name = named ? <span className="text-slate-400">{r.label}</span> : null;
   if (r.state === 'optional' && !question && r.decisions.length === 0) return null;
@@ -35,9 +39,12 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
   if (r.state === 'ready' || r.state === 'assumed') {
     const profile = r.source === 'profile';
     return (
-      <p data-note={r.key} data-state={r.state} title={`${SOURCE[r.source]}. ${r.basis}`} className={`mt-1 inline-flex items-center gap-1.5 text-[11px] ${profile ? 'text-violet-300' : 'text-emerald-400'}`}>
-        <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}
-      </p>
+      <div data-note={r.key} data-state={r.state}>
+        <p title={`${SOURCE[r.source]}. ${r.basis}`} className={`mt-1 inline-flex items-center gap-1.5 text-[11px] ${profile ? 'text-violet-300' : 'text-emerald-400'}`}>
+          <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}
+        </p>
+        {extra}
+      </div>
     );
   }
   if (r.state === 'needed') {
@@ -46,6 +53,19 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
         <span aria-hidden>○</span><span className="font-bold">{named ? `${r.label}: needed` : 'Needed'}</span>
         {neededWhy && <span className="text-slate-500"> · {neededWhy}</span>}
       </p>
+    );
+  }
+
+  // Waiting on another figure: say which, and take the owner to it
+  if (r.locked) {
+    return (
+      <div data-note={r.key} data-state="decide" data-locked={r.locked.key} className="mt-1 w-full space-y-1.5 p-2 rounded-lg border border-slate-700 bg-slate-900/60 text-[11px]">
+        <p className="flex flex-wrap items-center gap-2 text-slate-300">
+          <span>{name}{name ? ': ' : ''}Decide the {r.locked.label} first. This is costs over {r.locked.label}.</span>
+          <button type="button" onClick={() => onGo?.(r.locked!.key)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 hover:border-emerald-500/60 text-slate-100 font-bold">Go to the {r.locked.label}</button>
+        </p>
+        {extra}
+      </div>
     );
   }
 
@@ -66,6 +86,7 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
         </div>
       ))}
       {r.hint && <p className="text-[10px] text-slate-500">{r.hint}</p>}
+      {extra}
       {r.state === 'unsupported' && (
         <div className="space-y-1.5">
           {r.key === 'expenseRatio' && <p className="text-[10px] text-slate-500">The ratio counts taxes, insurance, upkeep, utilities and payroll. It leaves out management, the reserve and debt, and nets off tenant reimbursements.</p>}

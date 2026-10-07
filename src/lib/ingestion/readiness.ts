@@ -73,6 +73,8 @@ export function assess(args: {
   exitCap?: number | null;
   /** The ids of the warnings the owner has said they have read. */
   acknowledged?: Set<string>;
+  /** Warnings from checks made elsewhere (the lines an expense ratio is built from), read and acknowledged like the others. */
+  extraWarnings?: Finding[];
 }): Readiness {
   const blockers: Finding[] = [];
   const warnings: Finding[] = [];
@@ -121,6 +123,8 @@ export function assess(args: {
   if (vacancy && typeof vacancy.value === 'number' && vacancy.value < LOW_VACANCY) {
     warnings.push({ id: 'vacancy-low', severity: 'warning', rowKey: 'vacancyRate', title: `Vacancy of ${vacancy.value}% is very low`, detail: 'Check it against how the property has leased.' });
   }
+
+  warnings.push(...(args.extraWarnings ?? []));
 
   const acknowledged = args.acknowledged ?? new Set<string>();
   const unacknowledged = warnings.filter((w) => !acknowledged.has(w.id));

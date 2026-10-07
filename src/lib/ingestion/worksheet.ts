@@ -79,6 +79,8 @@ export interface WorksheetRow {
   decided?: string;
   /** A fact from the document that bears on the open question of this row, shown beside it. */
   hint?: string;
+  /** This row cannot be decided until another is: the expense ratio waits for the rent. */
+  locked?: { key: string; label: string };
 }
 
 export interface Decision {
@@ -133,7 +135,7 @@ export function buildWorksheet(args: {
     };
   };
 
-  return ROW_SPECS.map((spec): WorksheetRow => {
+  const rows = ROW_SPECS.map((spec): WorksheetRow => {
     const value = present(inputs[spec.key]) ? (inputs[spec.key] as number | string | boolean) : null;
     const receipt = receipts.find((r) => r.key === spec.key);
     const base = { key: spec.key, field: spec.field, label: spec.label, group: spec.group, value };
@@ -175,6 +177,13 @@ export function buildWorksheet(args: {
     if (source === 'document' && receipt && !receipt.traced) return { ...base, state: 'decide', source, basis, reasons: [{ check: 'It is found in the document', because: 'the line it was read from could not be found in the text of the document', detail: 'The reader returned a figure that does not appear as printed. Check the document, or enter your own.' }], decisions: [] };
     return { ...base, state: source === 'profile' ? 'assumed' : 'ready', source, basis, reasons: [], decisions: [], decided: own ?? decided };
   });
+
+  // An expense ratio is costs over the rent, so it cannot be decided before the rent is: until the rent is settled the ratio's questions stay shut
+  const rent = rows.find((r) => r.key === 'grossRentPerMonth');
+  const rentSettled = !!rent && (rent.state === 'ready' || rent.state === 'assumed');
+  return rows.map((r) => (r.key === 'expenseRatio' && !rentSettled && r.state !== 'optional'
+    ? { ...r, state: 'decide' as const, reasons: [], decisions: [], hint: undefined, locked: { key: 'grossRentPerMonth', label: 'rent' } }
+    : r));
 }
 
 /** Every decision with no figure of its own has a row to sit on: a contract added without one would be asked nowhere. */

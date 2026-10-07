@@ -9,6 +9,8 @@ import { buildWorksheet, decisionNote, ROW_SPECS, type WorksheetRow } from '../.
 import { assess, type Readiness } from '../../lib/ingestion/readiness';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
+import { RatioBreakdownView } from './RatioBreakdownView';
+import { checkTitle, expectedCosts, ratioBreakdown, ratioChecks, type RatioCheck } from '../../lib/ingestion/ratioBreakdown';
 import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
@@ -297,7 +299,18 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     } catch { return null; }
   }, [deal, neededAll.length]);
   const claimOf = (re: RegExp): number | null => intake?.claims.find((c) => re.test(c.how))?.value ?? null;
+  // The questions asked of the lines an expense ratio is built from (read once: shown in the card, and the failures read in the check before confirming)
+  const ratioFrom = useMemo(() => {
+    const type = (result?.proposal.patch.provenance as Record<string, { documentType?: string }> | undefined)?.expenseRatio?.documentType;
+    return (intake?.documents ?? []).filter((d) => d.type === type).map((d) => d.name);
+  }, [result, intake]);
+  const ratioCheckList: RatioCheck[] = useMemo(
+    () => (intake?.lineage?.length && result ? ratioChecks({ rows: intake.lineage, usedDocuments: ratioFrom, checks: intake.checks ?? [], expected: expectedCosts(deal.asset_class, deal.inputs?.leaseType as string | undefined) }) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intake, result, ratioFrom, deal.asset_class],
+  );
   const readiness = assess({
+    extraWarnings: ratioCheckList.filter((c) => !c.ok).map((c) => ({ id: 'ratio:' + c.id, severity: 'warning' as const, title: checkTitle(c), detail: c.text, rowKey: 'expenseRatio' })),
     rows, engineMissing: neededAll, outcome, claims: { noi: claimOf(/NOI claimed/i), managementCost: claimOf(/management cost/i) },
     selfManaged: formInputs.manageProperty !== true, checks: intake?.checks, exitCap: Number(formInputs.targetCapRate) || null, acknowledged,
   });
@@ -434,6 +447,18 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const rowKeys = new Set(ROW_SPECS.map((s) => s.key));
   const leftQuestions = questions.filter((q) => !rowKeys.has(q.change.key));
   const leftMissing = [...Object.keys(provided).map((key) => ({ key, label: provided[key].label, why: '' })), ...neededAll.filter((m) => !provided[m.key])].filter((m) => !rowKeys.has(m.key));
+  /** Take the owner to a row: its note when it has one on screen (the form's field names differ by asset class), else its field. */
+  const goToRow = (rowKey: string | undefined) => {
+    const note = rowKey ? (document.querySelector('[data-note="' + rowKey + '"]') as HTMLElement | null) : null;
+    if (note) {
+      note.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (note.querySelector('button, input') as HTMLElement | null)?.focus?.();
+      return;
+    }
+    const spec = ROW_SPECS.find((x) => x.key === rowKey);
+    const field = spec?.field ?? (rowKey ? FORM_FIELD_FOR_KEY[rowKey] : undefined);
+    if (field) focusField(field);
+  };
   const focusField = (field: string) => {
     const el = document.querySelector(`[data-field="${field}"]`) as HTMLElement | null;
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -540,7 +565,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       {!engaged ? <p className="text-[11px] text-slate-500">{busy ? 'Reading the documents…' : 'Add your documents and press Fill, or fill in the form yourself. What still needs an answer shows up after that.'}</p> : (
       <ReadinessBanner
         readiness={readiness}
-        onNext={() => { const k = readiness.blockers[0]?.rowKey; const spec = ROW_SPECS.find((x) => x.key === k); const field = spec?.field ?? (k ? FORM_FIELD_FOR_KEY[k] : undefined); if (field) focusField(field); }}
+        onNext={() => goToRow(readiness.blockers[0]?.rowKey)}
         acknowledged={acknowledged}
         onAcknowledge={(id, on) => setAcknowledged((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; })}
       />)}
@@ -555,6 +580,17 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   );
 
   /** What goes under a field of the form: where its figure came from and, when something is owed, the question to settle it. */
+  /** How the document's expense ratio is built: its costs, what is netted off and what is left out, from the lines the reader took. */
+  const breakdownFor = (): React.ReactNode => {
+    const names = ratioFrom;
+    const lines = (intake?.lineage ?? []).filter((r) => names.length === 0 || names.includes(r.document));
+    const monthly = Number(deal.inputs?.grossRentPerMonth);
+    const b = ratioBreakdown(lines, Number.isFinite(monthly) && monthly > 0 ? monthly * 12 : null);
+    if (!b) return null;
+    const held = Number(deal.inputs?.expenseRatio);
+    return <RatioBreakdownView breakdown={b} entered={Number.isFinite(held) ? held : null} checks={ratioCheckList} />;
+  };
+
   const noteFor = (key: string, named = false): React.ReactNode => {
     const r = rows.find((x) => x.key === key);
     if (!r || !engaged) return null;
@@ -562,7 +598,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     return (
       <RowNote
         row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null} neededWhy={neededAll.find((m) => m.key === key)?.why}
+        extra={key === 'expenseRatio' ? breakdownFor() : null}
         decisionNotes={Object.fromEntries(r.decisions.flatMap((d) => { const n = decisionNote(d.key, result?.proposal.patch.notes ?? [], managerFor(deal).fee); return n ? [[d.key, n]] : []; }))}
+        onGo={(k) => goToRow(k)}
         onDecide={(d, o) => { const c = contracts.find((x) => x.key === d.key); if (c) settleLine(c, o); }}
         onOwnFigure={ownFigure}
       />
@@ -584,5 +622,5 @@ export const FieldNote: React.FC<{ k: string }> = ({ k }) => <>{useContext(Works
 /** The notes of several fields that share a row of the form, stacked full width under it, each named. */
 export const FieldNotes: React.FC<{ keys: string[] }> = ({ keys }) => {
   const { noteFor } = useContext(WorksheetContext);
-  return <div className="flex flex-wrap gap-x-5 gap-y-1.5">{keys.map((k) => <React.Fragment key={k}>{noteFor(k, true)}</React.Fragment>)}</div>;
+  return <div className="col-span-full flex flex-wrap gap-x-5 gap-y-1.5">{keys.map((k) => <React.Fragment key={k}>{noteFor(k, true)}</React.Fragment>)}</div>;
 };

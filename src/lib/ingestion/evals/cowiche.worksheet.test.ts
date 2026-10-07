@@ -69,8 +69,10 @@ describe('the worksheet gives every assumption one state and says where it came 
 });
 
 describe('a convention is not evidence for an expense ratio', () => {
-  it('marks the profile\'s blanket ratio unsupported while the document\'s is waiting on the rent', () => {
-    const { rows } = worksheet({ rent: null });
+  it('marks the profile\'s blanket ratio unsupported once the rent is settled', () => {
+    const base = worksheet({ rent: 120_900 });
+    const receipts = base.receipts.map((r) => (r.key === 'expenseRatio' ? { ...r, source: 'profile' as const, how: 'Your investor profile: Common underwriting convention', from: [], traced: true } : r));
+    const rows = buildWorksheet({ inputs: { ...base.inputs, expenseRatio: 35 }, receipts, contracts: base.contracts, resolved: { utilityReimbursements: 'ok' }, needed: base.needed });
     const ratio = row(rows, 'expenseRatio');
     expect(ratio.source).toBe('profile');
     expect(ratio.state).toBe('unsupported');
@@ -110,7 +112,9 @@ describe('the check before confirming', () => {
   });
 
   it('is not ready on a convention alone, even when everything else is answered', () => {
-    const { rows } = worksheet({ rent: null, ownerChanges: loan, resolved: answered() });
+    const base = worksheet({ rent: 120_900, ownerChanges: loan, resolved: answered() });
+    const receipts = base.receipts.map((x) => (x.key === 'expenseRatio' ? { ...x, source: 'profile' as const, how: 'Your investor profile: Common underwriting convention', from: [], traced: true } : x));
+    const rows = buildWorksheet({ inputs: { ...base.inputs, expenseRatio: 35 }, receipts, contracts: base.contracts, resolved: answered(), needed: base.needed });
     const r = assess({ rows });
     expect(r.blockers.map((b) => b.id)).toContain('unsupported:expenseRatio');
     expect(r.verdict).toBe('not_ready');
@@ -250,5 +254,39 @@ describe('what bears on a decision is said where it is made', () => {
 
   it('has nothing to add for a decision that needs nothing more', () => {
     expect(decisionNote('unclassifiedIncome', proposal.patch.notes)).toBeNull();
+  });
+});
+
+describe('the expense ratio waits for the rent', () => {
+  it('stays shut while the rent is undecided: no questions, no figure to choose, a way to the rent', () => {
+    const { rows } = worksheet({ rent: null });
+    const ratio = row(rows, 'expenseRatio');
+    expect(ratio.locked).toEqual({ key: 'grossRentPerMonth', label: 'rent' });
+    expect(ratio.decisions).toEqual([]);
+    expect(ratio.reasons).toEqual([]);
+  });
+
+  it('opens once the rent is settled, and then asks its own questions', () => {
+    const { rows } = worksheet({ rent: 120_900 });
+    const ratio = row(rows, 'expenseRatio');
+    expect(ratio.locked).toBeUndefined();
+    expect(ratio.decisions.map((d) => d.key)).toContain('utilityReimbursements');
+  });
+
+  it('stays shut when there is no rent at all, even for a ratio the profile filled in', () => {
+    const { rows } = worksheet({ rent: null });
+    expect(row(rows, 'grossRentPerMonth').state).toBe('decide');
+    expect(row(rows, 'expenseRatio').locked).toBeDefined();
+  });
+});
+
+describe('the lines of an expense ratio reach the check before confirming', () => {
+  it('reads each failed check as a warning to acknowledge', () => {
+    const { rows } = worksheet({ ownerChanges: { down: '30', rate: '6.5', amort: '30' }, resolved: { ...ALL_ANSWERED, expenseRatio: 'Document' } });
+    const extra = [{ id: 'ratio:missing:insurance', severity: 'warning' as const, title: 'A usual cost has no line', detail: 'No insurance line found. Is it missing, or charged to tenants?', rowKey: 'expenseRatio' }];
+    const first = assess({ rows, extraWarnings: extra });
+    expect(first.warnings.map((w) => w.id)).toContain('ratio:missing:insurance');
+    expect(first.verdict).toBe('review');
+    expect(assess({ rows, extraWarnings: extra, acknowledged: new Set(first.warnings.map((w) => w.id)) }).verdict).toBe('ready');
   });
 });
