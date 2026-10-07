@@ -62,6 +62,8 @@ interface Props {
   onReason?: (key: string, reason: string) => void;
   /** The form this belongs to: its fields show their own notes (`FieldNote`) and the documents panel sits where `WizardDocuments` is put. */
   children?: React.ReactNode;
+  /** Show what is owed even before a reading: the owner pressed Create. */
+  reveal?: boolean;
 }
 
 interface Source { id: number; name: string; text: string; type: 'auto' | Exclude<DocumentType, 'unknown'>; /** The original file, kept for the project (absent for pasted text). */ file?: File }
@@ -84,7 +86,7 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' | 'unsur
  * The wizard's one action: read the documents, bring in the owner's assumptions, fill the form. What is left is only what needs the owner:
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
-export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing, children }) => {
+export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing, children, reveal }) => {
   const [sources, setSources] = useState<Source[]>([]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
@@ -408,6 +410,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                 </div>
               );
   };
+  // Nothing is shown as owed until a reading has finished: first the facts from the documents, then what is left
+  const engaged = (done && !busy) || !!reveal;
   const rowKeys = new Set(ROW_SPECS.map((s) => s.key));
   const leftQuestions = questions.filter((q) => !rowKeys.has(q.change.key));
   const leftMissing = [...Object.keys(provided).map((key) => ({ key, label: provided[key].label, why: '' })), ...neededAll.filter((m) => !provided[m.key])].filter((m) => !rowKeys.has(m.key));
@@ -514,13 +518,14 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
           )}
         </div>
       )}
+      {!engaged ? <p className="text-[11px] text-slate-500">{busy ? 'Reading the documents…' : 'Add your documents and press Fill, or fill in the form yourself. What still needs an answer shows up after that.'}</p> : (
       <ReadinessBanner
         readiness={readiness}
         onJump={(k) => { const spec = ROW_SPECS.find((s) => s.key === k); const field = spec?.field ?? (k ? FORM_FIELD_FOR_KEY[k] : undefined); if (field) focusField(field); }}
         acknowledged={acknowledged}
         onAcknowledge={(id, on) => setAcknowledged((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; })}
-      />
-      {(leftQuestions.length > 0 || leftMissing.length > 0) && (
+      />)}
+      {engaged && (leftQuestions.length > 0 || leftMissing.length > 0) && (
         <div className="space-y-2 pt-1">
           <h5 className="text-[10px] uppercase tracking-wider font-black text-slate-500">Also asked</h5>
           {leftQuestions.map(questionCard)}
@@ -533,7 +538,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   /** What goes under a field of the form: where its figure came from and, when something is owed, the question to settle it. */
   const noteFor = (key: string): React.ReactNode => {
     const r = rows.find((x) => x.key === key);
-    if (!r) return null;
+    if (!r || !engaged) return null;
     const q = questions.find((x) => x.change.key === key);
     const waitingOn = (result?.proposal.changes ?? []).find((x) => x.key === key && x.waitingOn);
     const waiting = waitingOn ? `This is the document's operating costs${waitingOn.netCosts !== undefined ? ` (${Math.round(waitingOn.netCosts).toLocaleString()} a year after tenant reimbursements)` : ''} divided by the rent you underwrite. It cannot be worked out until you decide the rent.` : null;

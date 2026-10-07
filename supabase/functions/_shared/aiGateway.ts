@@ -87,7 +87,10 @@ export interface ModelRequest {
 }
 
 /** The request for either form of address. Pure, so it can be tested without a network. */
-export function buildRequest(args: { base: string; token: string; model: string; system: string; user: string; providerKey?: string; gatewayId?: string; byokAlias?: string }): ModelRequest {
+/** The longest answer asked for. The reader's answer is a plain JSON of facts and is a few thousand tokens at most; this stops a runaway one. */
+export const MAX_OUTPUT_TOKENS = 8192;
+
+export function buildRequest(args: { base: string; token: string; model: string; system: string; user: string; providerKey?: string; gatewayId?: string; byokAlias?: string; /** Tokens the model may spend thinking before it answers (Gemini). Left out unless set: a reading task rarely needs it, but a model that does not accept the setting refuses it. */ thinkingBudget?: number }): ModelRequest {
   const mode = gatewayMode(args.base);
   if (mode === 'account-api') {
     return {
@@ -98,6 +101,7 @@ export function buildRequest(args: { base: string; token: string; model: string;
         model: accountApiModel(args.model),
         messages: [{ role: 'system', content: args.system }, { role: 'user', content: args.user }],
         temperature: 0,
+        max_tokens: MAX_OUTPUT_TOKENS,
         response_format: { type: 'json_object' },
       }),
     };
@@ -113,7 +117,10 @@ export function buildRequest(args: { base: string; token: string; model: string;
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: args.system }] },
       contents: [{ role: 'user', parts: [{ text: args.user }] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0, responseMimeType: 'application/json', maxOutputTokens: MAX_OUTPUT_TOKENS,
+        ...(args.thinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget: args.thinkingBudget } } : {}),
+      },
     }),
   };
 }
@@ -150,12 +157,19 @@ const BUSY_STATUS = new Set([429, 500, 502, 503, 504]);
 export const MAX_MODELS_PER_CALL = 4;
 /** The whole call must finish inside the platform's request limit (150 seconds on the free plan). */
 export const CALL_DEADLINE_MS = 100_000;
+/**
+ * How long one model is given. The answer is a plain JSON of facts (a few thousand tokens at most), so a healthy model is done in seconds. A model that
+ * is overloaded can hold a request for 40 seconds and then refuse it (seen in the gateway logs), so a model is not waited on for longer than this.
+ */
+export const ATTEMPT_TIMEOUT_MS = 30_000;
 
 /**
  * Models that just ran out of quota, and until when (this process only). Free-tier limits are per model, per minute and per day, so a
  * model that answered 429 is left alone for a minute, or for half an hour when the reply says its daily allowance is gone.
  */
 const coolingUntil = new Map<string, number>();
+/** How long a model the service says it does not know is left alone (this process only). */
+export const NOT_FOUND_REST_MS = 6 * 60 * 60_000;
 
 export function resetCooldowns(): void {
   coolingUntil.clear();
@@ -245,6 +259,8 @@ export async function generateJsonDetailed(args: { system: string; user: string;
   const providerKey = clean(env('GEMINI_API_KEY')) || undefined;
   const gatewayId = clean(env('AI_GATEWAY_ID')) || undefined;
   const byokAlias = clean(env('AI_BYOK_ALIAS')) || undefined;
+  const budget = Number(clean(env('AI_THINKING_BUDGET')));
+  const thinkingBudget = clean(env('AI_THINKING_BUDGET')) !== '' && Number.isFinite(budget) && budget >= 0 ? Math.floor(budget) : undefined;
 
   const pool = modelPool();
   const queue = orderModels(pool, args.orderSeed ? { random: seededRandom(args.orderSeed) } : {});
@@ -257,10 +273,10 @@ export async function generateJsonDetailed(args: { system: string; user: string;
   for (let i = 0; i < attempts.length; i++) {
     const model = attempts[i];
     if (left() < 5_000) break;
-    const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey, gatewayId, byokAlias });
+    const req = buildRequest({ base, token, model, system: args.system, user: args.user, providerKey, gatewayId, byokAlias, thinkingBudget });
     let res: Response;
     try {
-      res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(Math.min(args.timeoutMs ?? 55_000, left())), body: req.body });
+      res = await fetch(req.url, { method: 'POST', headers: req.headers, signal: AbortSignal.timeout(Math.min(args.timeoutMs ?? ATTEMPT_TIMEOUT_MS, left())), body: req.body });
     } catch (e) {
       last = new GatewayError(e instanceof Error && e.name === 'TimeoutError' ? 'The model took too long to answer.' : 'Could not reach the AI gateway.', 504, true);
       if (pool.length === 1 && i === 0 && left() > 8_000) await sleep(2_500);
@@ -275,6 +291,8 @@ export async function generateJsonDetailed(args: { system: string; user: string;
     const { error, reason } = await failure(res, req, model);
     last = error;
     if (res.status === 429) coolingUntil.set(model, Date.now() + (/day/i.test(reason) ? 30 * 60_000 : 60_000));
+    // A name the service does not know will not become known in a few minutes: leave it for hours rather than spend a request on it every call
+    if (res.status === 404) coolingUntil.set(model, Date.now() + NOT_FOUND_REST_MS);
     if (!TRY_NEXT.has(res.status)) throw error; // credentials, billing, size: another model will not help
     if (pool.length === 1 && i === 0 && left() > 8_000) await sleep(2_500);
   }
