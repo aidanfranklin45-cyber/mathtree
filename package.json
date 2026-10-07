@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && node scripts/postbuild.js",
+    "test:gis": "vitest run tests/integration/gisLiveFeeds.test.ts",
     "deploy:hosting": "npx firebase deploy --only hosting",
     "ship": "npm run build && npx firebase deploy --only hosting",
     "preview": "vite preview"
