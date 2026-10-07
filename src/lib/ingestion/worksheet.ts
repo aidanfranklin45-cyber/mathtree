@@ -77,6 +77,8 @@ export interface WorksheetRow {
   decisions: Decision[];
   /** What the owner said when they settled one. */
   decided?: string;
+  /** A fact from the document that bears on the open question of this row, shown beside it. */
+  hint?: string;
 }
 
 export interface Decision {
@@ -95,7 +97,7 @@ export const DECISION_ROW: Record<string, string> = {
 };
 
 /** The sentence shown when an expense ratio rests on a convention alone. */
-export const UNSUPPORTED_EXPENSE_RATIO = 'This is the convention in your investor profile, not evidence about this property. Many costs go into an expense ratio (taxes, insurance, upkeep, utilities, payroll). Read an operating statement or the memorandum\'s expense table, or enter your own figure and say why.';
+export const UNSUPPORTED_EXPENSE_RATIO = "Your profile's number isn't evidence for this property. Add an operating statement, or enter your own figure and why.";
 
 const present = (v: unknown): v is number | string | boolean => v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '') && !(typeof v === 'number' && !Number.isFinite(v));
 
@@ -116,12 +118,18 @@ export function buildWorksheet(args: {
   const neededKeys = new Set(needed.map((m) => m.key));
   const ask = (key: string) => contracts.find((c) => c.key === key && c.outcome === 'ask');
   /** The decisions for a row still waiting for an answer, and the answers already given. */
-  const decisionsFor = (rowKey: string): { open: Decision[]; said: string[] } => {
+  const decisionsFor = (rowKey: string): { open: Decision[]; said: string[]; hint?: string } => {
     const keys = Object.entries(DECISION_ROW).filter(([, row]) => row === rowKey).map(([k]) => k);
     const asked = keys.map((k) => ask(k)).filter((c): c is ContractResult => !!c && !!c.options);
+    // While the rent itself is still a question, the document's own average rent is a hint to that one question, not a second one: choosing a rent
+    // re-checks it, and it asks again only if the rent chosen still disagrees
+    const rentOpen = rowKey === 'grossRentPerMonth' && !!ask('grossRentPerMonth') && resolved.grossRentPerMonth === undefined;
+    const average = rentOpen ? asked.find((c) => c.key === 'rentAgreesWithStatedAverage') : undefined;
+    const live = asked.filter((c) => c !== average);
     return {
-      open: asked.filter((c) => resolved[c.key] === undefined).map((c) => ({ key: c.key, label: c.label, reasons: c.reasons, options: c.options ?? [] })),
-      said: asked.filter((c) => resolved[c.key] !== undefined).map((c) => resolved[c.key]),
+      hint: average?.reasons[0]?.detail,
+      open: live.filter((c) => resolved[c.key] === undefined).map((c) => ({ key: c.key, label: c.label, reasons: c.reasons, options: c.options ?? [] })),
+      said: live.filter((c) => resolved[c.key] !== undefined).map((c) => resolved[c.key]),
     };
   };
 
@@ -129,12 +137,13 @@ export function buildWorksheet(args: {
     const value = present(inputs[spec.key]) ? (inputs[spec.key] as number | string | boolean) : null;
     const receipt = receipts.find((r) => r.key === spec.key);
     const base = { key: spec.key, field: spec.field, label: spec.label, group: spec.group, value };
-    const { open, said } = decisionsFor(spec.key);
+    const withHint = <T extends object>(r: T): T & { hint?: string } => (hint ? { ...r, hint } : r);
+    const { open, said, hint } = decisionsFor(spec.key);
     const decided = said.length ? said.join(' ') : undefined;
 
     // The property manager is a decision, not a figure: the profile's choice stands unless the document makes the owner say
     if (spec.key === 'manageProperty') {
-      if (open.length) return { ...base, state: 'decide', source: 'profile', basis: 'Your investor profile decides this, but the document charges for management.', reasons: [], decisions: open };
+      if (open.length) return { ...base, state: 'decide' as const, source: 'profile' as const, basis: 'Your investor profile decides this, but the document charges for management.', reasons: [], decisions: open };
       const manages = value === true;
       return {
         ...base, state: decided !== undefined ? 'ready' : 'assumed', source: decided !== undefined ? 'owner' : 'profile', reasons: [], decisions: [], decided,
@@ -145,7 +154,7 @@ export function buildWorksheet(args: {
     if (value === null) {
       // Blank because a question is open (the rent the documents disagree on, a ratio waiting on it): the question belongs here, not nowhere
       const pending = ask(spec.key);
-      if ((pending && resolved[spec.key] === undefined) || open.length) return { ...base, state: 'decide', source: 'missing', basis: 'Waiting for your answer below.', reasons: pending ? pending.reasons : [], decisions: open };
+      if ((pending && resolved[spec.key] === undefined) || open.length) return withHint({ ...base, state: 'decide' as const, source: 'missing' as const, basis: 'Waiting for your answer below.', reasons: pending ? pending.reasons : [], decisions: open });
       return { ...base, state: neededKeys.has(spec.key) ? 'needed' : 'optional', source: 'missing', basis: neededKeys.has(spec.key) ? 'Nothing supplies this yet.' : 'Not required.', reasons: [], decisions: open };
     }
 
@@ -159,7 +168,7 @@ export function buildWorksheet(args: {
       const ownersReason = (ownerReasons[spec.key] ?? '').trim();
       const owed = c && own === undefined ? c.reasons : [];
       if (source === 'profile') return { ...base, state: 'unsupported', source, basis, reasons: [{ check: 'It rests on evidence', because: 'it is a convention, not evidence about this property', detail: UNSUPPORTED_EXPENSE_RATIO }, ...owed], decisions: open };
-      if (source === 'owner' && ownersReason === '') return { ...base, state: 'unsupported', source, basis, reasons: [{ check: 'It rests on evidence', because: 'your own figure needs the reason for it', detail: 'You entered this figure. Say why: which costs it is built from, or what the statements for this property show.' }, ...owed], decisions: open };
+      if (source === 'owner' && ownersReason === '') return { ...base, state: 'unsupported', source, basis, reasons: [{ check: 'It rests on evidence', because: 'your own figure needs the reason for it', detail: 'Say why you chose this figure.' }, ...owed], decisions: open };
       if (owed.length === 0 && source === 'owner') return { ...base, state: 'ready', source, basis: `Your own entry: ${ownersReason}`, reasons: [], decisions: [] };
     }
     if ((c && own === undefined) || open.length) return { ...base, state: 'decide', source, basis, reasons: c && own === undefined ? c.reasons : [], decisions: open };

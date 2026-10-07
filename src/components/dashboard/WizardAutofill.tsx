@@ -220,8 +220,8 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const defaultPick = (c: ProposedChange, kind: Question['kind']): string => (kind === 'variance' ? (changedInForm(c) ? 'keep' : 'doc') : 'keep');
 
   /** Applies the owner's pick to the form and closes the question. A figure typed for this property needs a number. */
-  const confirm = (c: ProposedChange, kind: Question['kind']) => {
-    const which = picked[c.key] ?? defaultPick(c, kind);
+  const confirm = (c: ProposedChange, kind: Question['kind'], chosen?: string) => {
+    const which = chosen ?? picked[c.key] ?? defaultPick(c, kind);
     const unit = (v: number) => assumptionText(c.key, v);
     let said: string;
     if (which === 'own') {
@@ -304,79 +304,79 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const readinessKey = `${rows.map((r) => `${r.key}:${r.state}`).join(',')}|${readiness.verdict}|${readiness.unacknowledged.length}|${readiness.blockers.length}`;
   useEffect(() => { onWorksheet?.(rows, readiness); }, [readinessKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const questionCard = ({ change: c, kind }: Question) => (
-              resolved[c.key] !== undefined ? (
-                <div key={c.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
-                  <span className="text-emerald-400">✓</span>
-                  <span className="font-bold text-slate-200">{c.label}:</span>
-                  <span className="text-slate-300">{resolved[c.key]}</span>
-                  <button type="button" onClick={() => reopen(c.key)} className="text-slate-500 hover:text-white underline">Change</button>
-                </div>
-              ) : (
-                <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
-                  <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
-                  {kind === 'unsure' ? (
-                    c.alternatives && c.alternatives.length > 0 ? (
-                      <>
-                        <span className="block text-amber-200">The documents give more than one figure for this. Which is right?</span>
-                        <span className="block space-y-1.5 pt-1">
-                          {[{ value: Number(c.value), text: c.proposed, how: c.how }, ...c.alternatives].map((o, k) => (
-                            <span key={k} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-900 border border-slate-800">
-                              <span className="font-bold text-emerald-300">{o.text}</span>
-                              <span className="text-slate-500 italic flex-1 min-w-[10rem]">{o.how}</span>
-                              <button type="button" onClick={() => settleUnsure(c, true, k === 0 ? undefined : { value: o.value, text: o.text })} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold">Use this one</button>
-                            </span>
-                          ))}
-                        </span>
-                        <span className="block text-slate-400">Check the document at these spots. Which one to underwrite is a judgment only you can make.</span>
-                        <span className="flex flex-wrap gap-2 pt-1">
-                          <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
-                        </span>
-                      </>
-                    ) : (
-                    <>
-                      <span className="block text-amber-200">The reader was not sure of this figure ({Math.round((c.confidence ?? 0) * 100)}% sure): it read <span className="font-bold">{c.proposed}</span>.{c.evidence ? <> From the document: <span className="italic">"{c.evidence}"</span></> : null}</span>
-                      <span className="block text-slate-400">Please check the document at this spot. If several figures could be the one, this is a judgment only you can make.</span>
-                      <span className="flex flex-wrap gap-2 pt-1">
-                        <button type="button" onClick={() => settleUnsure(c, true)} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold">I checked it: use what was read</button>
-                        <button type="button" onClick={() => settleUnsure(c, false)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-bold">I will enter it myself</button>
-                      </span>
-                    </>
-                    )
-                  ) : kind === 'variance' && c.variance ? (
-                    <>
-                      <span className="block text-amber-200">The document says {docText(c)}; your assumption is {mineText(c)}. The document is {c.variance.percent}% {c.variance.higher ? 'higher' : 'lower'}.{c.variance.why ? ` Your reason: ${c.variance.why}` : ''}</span>
-                      <span className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'doc'} onChange={() => choose(c, 'doc')} />Document's ({docText(c)})</label>
-                        {changedInForm(c) && <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? defaultPick(c, kind)) === 'keep'} onChange={() => choose(c, 'keep')} />What I entered ({assumptionText(c.key, inForm(c) as number)})</label>}
-                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'mine'} onChange={() => choose(c, 'mine')} />My assumption ({mineText(c)})</label>
-                        <label className="flex items-center gap-1.5 cursor-pointer">
-                          <input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'own'} onChange={() => choose(c, 'own')} />
-                          My own
-                          <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} className="w-20 bg-slate-950 border border-amber-500/30 rounded px-1.5 py-0.5 text-amber-100"
-                            onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); choose(c, 'own'); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') confirm(c, kind); }} />
-                        </label>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="block text-amber-200">You entered {c.current}; the document says {c.proposed}.</span>
-                      <span className="flex flex-wrap items-center gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={(picked[c.key] ?? 'keep') === 'keep'} onChange={() => choose(c, 'keep')} />Keep mine ({c.current})</label>
-                        <label className="flex items-center gap-1.5 cursor-pointer"><input type="radio" name={`q-${c.key}`} checked={picked[c.key] === 'doc'} onChange={() => choose(c, 'doc')} />Use the document's ({c.proposed})</label>
-                      </span>
-                    </>
-                  )}
-                  <span className="block text-slate-500 italic">{c.how}</span>
-                  {whyFor(c.key).length > 0 && <span className="block text-slate-500">Why you are asked: {whyFor(c.key).map((r) => r.because).join('; ')}.</span>}
-                  {kind !== 'unsure' && (
-                    <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
-                  )}
-                </div>
-              )
-  );
+  /** A short name for where a figure was read, for the button that offers it. */
+  const sourceWord = (how: string): string =>
+    /unit mix/i.test(how) ? 'unit mix' : /income table|income and expense/i.test(how) ? 'income table' : /operating statement/i.test(how) ? 'operating statement' : /rent roll/i.test(how) ? 'rent roll' : /lease/i.test(how) ? 'lease' : 'document';
+  const pill = 'px-2.5 py-1.5 rounded-lg border text-left text-[11px] bg-slate-900 border-slate-700 hover:border-emerald-500/60 text-slate-100 transition';
+
+  /** The question for one figure, as short as it can be: the choices side by side, answered with one press. */
+  const questionCard = ({ change: c, kind }: Question) => {
+    // Several figures for the same thing (the rent in the unit mix and in the income table): pick one
+    if (kind === 'unsure' && c.alternatives && c.alternatives.length > 0) {
+      const options = [{ value: Number(c.value), text: c.proposed, how: c.how }, ...c.alternatives];
+      return (
+        <div key={c.key} className="space-y-1.5">
+          <p className="text-xs font-bold text-slate-100">Which {c.label.toLowerCase()}?</p>
+          <div className="flex flex-wrap gap-2">
+            {options.map((o, k) => (
+              <button key={k} type="button" onClick={() => settleUnsure(c, true, k === 0 ? undefined : { value: o.value, text: o.text })} className={pill}>
+                <span className="block font-bold text-emerald-300">{o.text.replace(/ \(.*$/, '')}</span>
+                <span className="block text-slate-500">{sourceWord(o.how)}</span>
+              </button>
+            ))}
+            <button type="button" onClick={() => settleUnsure(c, false)} className={pill}>My own</button>
+          </div>
+        </div>
+      );
+    }
+    // The reader was not sure of one figure
+    if (kind === 'unsure') {
+      return (
+        <div key={c.key} className="space-y-1.5">
+          <p className="text-xs text-slate-200">Read as <span className="font-bold text-emerald-300">{c.proposed}</span>, not sure.{c.evidence ? <span className="text-slate-500"> “{c.evidence}”</span> : null}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => settleUnsure(c, true)} className={pill}>Use it</button>
+            <button type="button" onClick={() => settleUnsure(c, false)} className={pill}>My own</button>
+          </div>
+        </div>
+      );
+    }
+    // The document and your own standard differ by more than 5%: the three figures side by side
+    if (kind === 'variance' && c.variance) {
+      const which = picked[c.key] ?? defaultPick(c, kind);
+      const choice = (id: string, label: string, text: string) => (
+        <label key={id} className="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name={`q-${c.key}`} checked={which === id} onChange={() => choose(c, id)} />
+          <span className="text-slate-400">{label}</span> <span className="font-bold text-slate-100">{text}</span>
+        </label>
+      );
+      return (
+        <div key={c.key} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
+          {choice('doc', 'Document', docText(c))}
+          {changedInForm(c) && choice('keep', 'Mine', assumptionText(c.key, inForm(c) as number))}
+          {choice('mine', 'Your standard', mineText(c))}
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" name={`q-${c.key}`} checked={which === 'own'} onChange={() => choose(c, 'own')} />
+            <span className="text-slate-400">Own</span>
+            <input type="number" min="0" step="any" aria-label={`Your own ${c.label}`} value={typed[c.key] ?? ''} className="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-slate-100"
+              onChange={(e) => { const v = e.target.value; setTyped((t) => ({ ...t, [c.key]: v })); choose(c, 'own'); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirm(c, kind); }} />
+          </label>
+          <button type="button" onClick={() => confirm(c, kind)} disabled={which === 'own' && !(typed[c.key] ?? '').trim()} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-bold disabled:opacity-40">Use</button>
+        </div>
+      );
+    }
+    // The document says something different from what you entered
+    return (
+      <div key={c.key} className="space-y-1.5">
+        <p className="text-xs text-slate-200">You entered <span className="font-bold">{c.current}</span>; the document says <span className="font-bold text-emerald-300">{c.proposed}</span>.</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => confirm(c, kind, 'keep')} className={pill}>Keep mine</button>
+          <button type="button" onClick={() => confirm(c, kind, 'doc')} className={pill}>Use the document's</button>
+        </div>
+      </div>
+    );
+  };
   const missingCard = (m: { key: string; label: string; why: string }) => {
               const settable = Boolean(FORM_FIELD_FOR_KEY[m.key]);
               const done = provided[m.key];
@@ -521,7 +521,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       {!engaged ? <p className="text-[11px] text-slate-500">{busy ? 'Reading the documents…' : 'Add your documents and press Fill, or fill in the form yourself. What still needs an answer shows up after that.'}</p> : (
       <ReadinessBanner
         readiness={readiness}
-        onJump={(k) => { const spec = ROW_SPECS.find((s) => s.key === k); const field = spec?.field ?? (k ? FORM_FIELD_FOR_KEY[k] : undefined); if (field) focusField(field); }}
+        onNext={() => { const k = readiness.blockers[0]?.rowKey; const spec = ROW_SPECS.find((x) => x.key === k); const field = spec?.field ?? (k ? FORM_FIELD_FOR_KEY[k] : undefined); if (field) focusField(field); }}
         acknowledged={acknowledged}
         onAcknowledge={(id, on) => setAcknowledged((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; })}
       />)}
@@ -536,15 +536,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   );
 
   /** What goes under a field of the form: where its figure came from and, when something is owed, the question to settle it. */
-  const noteFor = (key: string): React.ReactNode => {
+  const noteFor = (key: string, named = false): React.ReactNode => {
     const r = rows.find((x) => x.key === key);
     if (!r || !engaged) return null;
     const q = questions.find((x) => x.change.key === key);
-    const waitingOn = (result?.proposal.changes ?? []).find((x) => x.key === key && x.waitingOn);
-    const waiting = waitingOn ? `This is the document's operating costs${waitingOn.netCosts !== undefined ? ` (${Math.round(waitingOn.netCosts).toLocaleString()} a year after tenant reimbursements)` : ''} divided by the rent you underwrite. It cannot be worked out until you decide the rent.` : null;
     return (
       <RowNote
-        row={r} question={q ? questionCard(q) : null} waiting={waiting} neededWhy={neededAll.find((m) => m.key === key)?.why}
+        row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null}
         onDecide={(d, o) => { const c = contracts.find((x) => x.key === d.key); if (c) settleLine(c, o); }}
         onOwnFigure={ownFigure}
       />
@@ -554,7 +552,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   return <WorksheetContext.Provider value={{ panel, noteFor }}>{children}</WorksheetContext.Provider>;
 };
 
-interface WorksheetCtx { panel: React.ReactNode; noteFor: (rowKey: string) => React.ReactNode }
+interface WorksheetCtx { panel: React.ReactNode; noteFor: (rowKey: string, named?: boolean) => React.ReactNode }
 const WorksheetContext = createContext<WorksheetCtx>({ panel: null, noteFor: () => null });
 
 /** The documents, the fill button and the check before confirming: one panel at the top of the form. */
@@ -566,5 +564,5 @@ export const FieldNote: React.FC<{ k: string }> = ({ k }) => <>{useContext(Works
 /** The notes of several fields that share a row of the form, stacked full width under it, each named. */
 export const FieldNotes: React.FC<{ keys: string[] }> = ({ keys }) => {
   const { noteFor } = useContext(WorksheetContext);
-  return <div className="space-y-2">{keys.map((k) => <React.Fragment key={k}>{noteFor(k)}</React.Fragment>)}</div>;
+  return <div className="flex flex-wrap gap-x-5 gap-y-1.5">{keys.map((k) => <React.Fragment key={k}>{noteFor(k, true)}</React.Fragment>)}</div>;
 };

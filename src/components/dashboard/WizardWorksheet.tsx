@@ -1,79 +1,73 @@
 import React, { useState } from 'react';
 import type { Option } from '../../lib/ingestion/contracts';
 import type { Readiness } from '../../lib/ingestion/readiness';
-import type { RowState, WorksheetRow } from '../../lib/ingestion/worksheet';
+import type { WorksheetRow } from '../../lib/ingestion/worksheet';
 
 /** The inputs shown as percentages. */
 export const PERCENT_ROWS = new Set(['vacancyRate', 'rentGrowth', 'expenseRatio', 'expenseGrowth', 'targetCapRate', 'sellingCostPercent', 'discountRate', 'downPaymentPercent', 'interestRate']);
 
-export const ROW_STATE: Record<RowState, { dot: string; word: string; tone: string }> = {
-  ready: { dot: 'bg-emerald-400', word: 'Ready', tone: 'text-emerald-300' },
-  assumed: { dot: 'bg-violet-400', word: 'Your standard', tone: 'text-violet-300' },
-  decide: { dot: 'bg-amber-400', word: 'Decide', tone: 'text-amber-300' },
-  unsupported: { dot: 'bg-rose-400', word: 'Needs evidence', tone: 'text-rose-300' },
-  needed: { dot: 'bg-rose-400', word: 'Needed', tone: 'text-rose-300' },
-  optional: { dot: 'bg-slate-600', word: 'Optional', tone: 'text-slate-500' },
-};
-
-const SOURCE: Record<WorksheetRow['source'], string> = { document: 'Document', profile: 'Investor profile', owner: 'You', missing: '' };
+const SOURCE: Record<WorksheetRow['source'], string> = { document: 'From the document', profile: 'From your investor profile', owner: 'Your entry', missing: '' };
 
 interface NoteProps {
   row: WorksheetRow;
   /** The question for this figure, if there is one (the sources disagree, or it is far from your standard); also its answered line. */
   question: React.ReactNode;
-  /** Why a figure cannot be stated yet, when it waits on another. */
-  waiting: string | null;
-  /** Why the engine needs a figure nothing supplies. */
-  neededWhy?: string;
+  /** Name the field: when several notes share a row of the form, each says which field it is about. */
+  named?: boolean;
   onDecide: (decision: { key: string }, option: Option) => void;
   onOwnFigure: (row: WorksheetRow, value: string, reason: string) => void;
 }
 
 /**
- * What belongs under a field: where its figure came from, and, only when something is owed, the question to settle it, right where the figure is
- * used. A settled field is one quiet line. There is no separate list of what is owed: the field is the place.
+ * What belongs under a field. A settled field is a check mark: this assumption has been dealt with, move on (hover for where it came from; the
+ * full story is in the sources panel and in the record saved with the project). A field the engine needs is an empty circle. Only a field with an
+ * open question shows more, and then only the question, answered where the figure is.
  */
-export const RowNote: React.FC<NoteProps> = ({ row: r, question, waiting, neededWhy, onDecide, onOwnFigure }) => {
+export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, onDecide, onOwnFigure }) => {
   const [own, setOwn] = useState<{ value: string; reason: string }>({ value: '', reason: '' });
-  const s = ROW_STATE[r.state];
+  const name = named ? <span className="text-slate-400">{r.label}</span> : null;
   if (r.state === 'optional' && !question && r.decisions.length === 0) return null;
-  const open = r.state === 'decide' || r.state === 'unsupported';
-  const source = r.source !== 'missing' && SOURCE[r.source] ? ` · ${SOURCE[r.source]}` : '';
-  const line = r.state === 'needed' ? neededWhy ?? '' : r.basis;
-  return (
-    <div data-note={r.key} data-state={r.state} className="mt-1 space-y-1.5">
-      <p className={`text-[11px] leading-snug ${s.tone}`}>
-        <span className="font-bold text-slate-200 text-xs">{r.label}</span> <span className="font-black uppercase tracking-wider text-[10px]">{s.word}{r.state === 'needed' ? '' : source}</span>
-        {line ? <span className="text-slate-400"> · {line}</span> : null}
+
+  if (r.state === 'ready' || r.state === 'assumed') {
+    const profile = r.source === 'profile';
+    return (
+      <p data-note={r.key} data-state={r.state} title={`${SOURCE[r.source]}. ${r.basis}`} className={`mt-1 inline-flex items-center gap-1.5 text-[11px] ${profile ? 'text-violet-300' : 'text-emerald-400'}`}>
+        <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}
       </p>
-      {r.state === 'assumed' && <p className="text-[10px] text-slate-500 italic">Stands for this deal unless you change it here.</p>}
-      {r.decided && r.state === 'ready' && <p className="text-[10px] text-slate-500 italic">You said: {r.decided}</p>}
-      {open && (
-        <div className="space-y-1.5 p-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
-          {r.reasons.filter((x) => !(waiting && x.check === 'The figures it depends on are settled')).map((x, i) => <p key={i} className="text-[11px] text-amber-200">{x.detail}</p>)}
-          {waiting && <p className="text-[11px] text-slate-400">{waiting}</p>}
-          {question}
-          {r.decisions.map((d) => (
-            <div key={d.key} className="space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-100 block">{d.label}</span>
-              {d.reasons.map((x, i) => <span key={i} className="block text-[11px] text-amber-200">{x.detail}</span>)}
-              <span className="flex flex-wrap gap-2">
-                {d.options.map((o) => <button key={o.id} type="button" onClick={() => onDecide(d, o)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:border-emerald-500/60 text-slate-100 text-[11px] font-bold">{o.label}</button>)}
-              </span>
-              <span className="block text-slate-500 text-[11px]">Why you are asked: {d.reasons.map((x) => x.because).join('; ')}.</span>
-            </div>
-          ))}
-          {r.state === 'unsupported' && (
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-100 block">Use your own figure for {r.label.toLowerCase()}</span>
-              <span className="flex flex-wrap items-center gap-2">
-                <input type="number" min="0" step="any" aria-label={`Your own ${r.label}`} value={own.value} onChange={(e) => setOwn({ ...own, value: e.target.value })} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
-                {PERCENT_ROWS.has(r.key) && <span className="text-[11px] text-slate-400">%</span>}
-              </span>
-              <textarea rows={2} aria-label={`Why ${r.label.toLowerCase()}`} value={own.reason} onChange={(e) => setOwn({ ...own, reason: e.target.value })} placeholder="Why this number? For example, which costs it is built from, or what the statements for this property show." className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-[11px] text-white" />
-              <button type="button" disabled={!own.value.trim() || !own.reason.trim()} onClick={() => onOwnFigure(r, own.value.trim(), own.reason.trim())} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Use my figure</button>
-            </div>
-          )}
+    );
+  }
+  if (r.state === 'needed') {
+    return (
+      <p data-note={r.key} data-state={r.state} className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-rose-300">
+        <span aria-hidden>○</span><span className="font-bold">{named ? `${r.label}: needed` : 'Needed'}</span>
+      </p>
+    );
+  }
+
+  // decide / unsupported: one card, one line of ask, the choices as buttons
+  const asks = r.decisions.length === 0 && !question ? r.reasons.slice(0, 1) : [];
+  return (
+    <div data-note={r.key} data-state={r.state} className="mt-1 w-full space-y-1.5 p-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
+      {name && <p className="text-[11px] font-bold text-slate-200">{r.label}</p>}
+      {asks.map((x, i) => <p key={i} className="text-[11px] text-amber-200">{x.detail}</p>)}
+      {question}
+      {r.decisions.map((d) => (
+        <div key={d.key} className="space-y-1.5">
+          <p className="text-[11px] text-amber-200">{d.reasons[0]?.detail ?? d.label}</p>
+          <span className="flex flex-wrap gap-2">
+            {d.options.map((o) => <button key={o.id} type="button" onClick={() => onDecide(d, o)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:border-emerald-500/60 text-slate-100 text-[11px] font-bold">{o.label}</button>)}
+          </span>
+        </div>
+      ))}
+      {r.hint && <p className="text-[10px] text-slate-500">{r.hint}</p>}
+      {r.state === 'unsupported' && (
+        <div className="space-y-1.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <input type="number" min="0" step="any" aria-label={`Your own ${r.label}`} placeholder="Your figure" value={own.value} onChange={(e) => setOwn({ ...own, value: e.target.value })} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+            {PERCENT_ROWS.has(r.key) && <span className="text-[11px] text-slate-400">%</span>}
+            <input type="text" aria-label={`Why ${r.label.toLowerCase()}`} placeholder="Why this number?" value={own.reason} onChange={(e) => setOwn({ ...own, reason: e.target.value })} className="flex-1 min-w-[10rem] bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white" />
+            <button type="button" disabled={!own.value.trim() || !own.reason.trim()} onClick={() => onOwnFigure(r, own.value.trim(), own.reason.trim())} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Use</button>
+          </span>
         </div>
       )}
     </div>
@@ -82,35 +76,31 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, waiting, needed
 
 interface BannerProps {
   readiness: Readiness;
-  onJump: (rowKey: string | undefined) => void;
+  /** Jump to the first thing still to settle. A shortcut, not an order: the form can be done in any order. */
+  onNext: () => void;
   acknowledged: Set<string>;
   onAcknowledge: (id: string, on: boolean) => void;
 }
 
-/**
- * The check before confirming, in a few lines: what is still owed (each a link to its field) and what to read. It does not hold any question:
- * the questions are under the fields they are about.
- */
-export const ReadinessBanner: React.FC<BannerProps> = ({ readiness, onJump, acknowledged, onAcknowledge }) => {
-  const tone = readiness.verdict === 'ready' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : readiness.verdict === 'review' ? 'border-amber-500/40 bg-amber-500/10 text-amber-200' : 'border-rose-500/40 bg-rose-500/10 text-rose-200';
+/** One line at the top: how many things are left, and a way to the next one; the warnings to read, each with its own tick. */
+export const ReadinessBanner: React.FC<BannerProps> = ({ readiness, onNext, acknowledged, onAcknowledge }) => {
+  const left = readiness.blockers.length;
+  const tone = readiness.verdict === 'ready' ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : readiness.verdict === 'review' ? 'border-amber-500/40 bg-amber-500/10 text-amber-200' : 'border-slate-700 bg-slate-900/60 text-slate-200';
   return (
     <div id="wiz-readiness" className={`p-2.5 rounded-xl border text-[11px] ${tone}`} role="status" data-verdict={readiness.verdict}>
-      <span className="text-xs font-black uppercase tracking-wider block">{readiness.verdict === 'ready' ? 'Ready to confirm' : readiness.verdict === 'review' ? 'Read these, then confirm' : 'Not ready to confirm'}</span>
-      <span className="block mt-0.5">{readiness.summary}</span>
-      {readiness.blockers.length > 0 && (
-        <ul className="mt-1 space-y-0.5">
-          {readiness.blockers.map((b) => (
-            <li key={b.id}><button type="button" onClick={() => onJump(b.rowKey)} className="text-left underline decoration-dotted underline-offset-2 hover:text-white">{b.title}</button></li>
-          ))}
-        </ul>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-black">
+          {readiness.verdict === 'ready' ? '✓ Ready to confirm' : readiness.verdict === 'review' ? 'Read these, then confirm' : `${left} to settle`}
+        </span>
+        {left > 0 && <button type="button" onClick={onNext} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 hover:border-emerald-500/60 text-slate-100 font-bold">Next ›</button>}
+      </div>
       {readiness.warnings.length > 0 && (
         <ul className="mt-1.5 space-y-1.5">
           {readiness.warnings.map((w) => (
-            <li key={w.id} className="p-2 rounded-lg bg-slate-950/50 border border-amber-500/30 text-amber-100">
-              <label className="flex items-start gap-2 cursor-pointer">
+            <li key={w.id}>
+              <label className="flex items-start gap-2 cursor-pointer text-amber-100">
                 <input type="checkbox" className="mt-0.5" checked={acknowledged.has(w.id)} onChange={(e) => onAcknowledge(w.id, e.target.checked)} />
-                <span><span className="font-bold block">{w.title}</span><span className="block text-slate-300">{w.detail}</span><span className="block text-slate-500 italic">I have read this.</span></span>
+                <span><span className="font-bold">{w.title}.</span> <span className="text-slate-300">{w.detail}</span></span>
               </label>
             </li>
           ))}

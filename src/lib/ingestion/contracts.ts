@@ -80,12 +80,12 @@ export const LINE_CONTRACTS: LineContract[] = [
     check: 'A management charge in the document is your decision',
     because: 'the document charges for management, which is your decision',
     options: [
-      { id: 'self', label: 'I manage it myself: no management fee', set: { key: 'manageProperty', value: 'false' } },
-      { id: 'manager', label: 'I hire a manager: charge the fee from my profile', set: { key: 'manageProperty', value: 'true' } },
+      { id: 'self', label: 'I manage it', set: { key: 'manageProperty', value: 'false' } },
+      { id: 'manager', label: 'I hire a manager', set: { key: 'manageProperty', value: 'true' } },
     ],
     when: (docs) => {
       const m = lines(docs, 'expenses').filter((l) => (l.category === 'management' || MANAGEMENT_LABEL.test(l.label)) && l.amount > 0);
-      return m.length ? `The document charges ${money(sum(m))} a year for management. The engine charges management separately, and only if you hire a manager: say whether this property has one and what it costs.` : null;
+      return m.length ? `The document charges ${money(sum(m))} a year for management.` : null;
     },
   },
   {
@@ -94,26 +94,28 @@ export const LINE_CONTRACTS: LineContract[] = [
     check: 'Reimbursements need a stated treatment',
     because: 'the document shows tenant reimbursements, and how they are treated is your decision',
     options: [
-      { id: 'netted', label: 'Take them off the costs, as the engine does' },
-      { id: 'own', label: 'I will set the expense ratio myself' },
+      { id: 'netted', label: 'Net them off' },
+      { id: 'own', label: "I'll set the ratio" },
     ],
     when: (docs) => {
       const r = lines(docs, 'income').filter((l) => (l.category === 'recoveries' || REIMBURSEMENT_LABEL.test(l.label)) && l.amount > 0);
-      return r.length ? `The document shows ${money(sum(r))} a year of reimbursements (${r.map((l) => l.label).join(', ')}). The engine takes them off the costs rather than counting them as income: confirm that is how you want them treated.` : null;
+      return r.length ? `The document shows ${money(sum(r))} a year of tenant reimbursements (${r.map((l) => l.label).join(', ')}).` : null;
     },
   },
   {
     key: 'rentAgreesWithStatedAverage',
-    label: 'Rent against the stated average',
+    label: 'Stated average rent',
     check: 'The rent read agrees with the average rent the document states',
     because: 'the rent read does not match the average rent the document states',
     options: [
-      { id: 'checked', label: 'I checked the document: the rent I settled above is right' },
-      { id: 'own', label: 'I will enter the rent myself' },
+      { id: 'checked', label: 'Keep my rent' },
+      { id: 'own', label: "I'll enter the rent" },
     ],
     when: (docs, proposal) => {
       // What is held to the average is the rent that will be underwritten: what the owner settled on, or the figure on offer while it is still a question
-      const underwritten = Number(proposal.changes.find((c) => c.key === 'grossRentPerMonth')?.value) * 12;
+      const rentRow = proposal.changes.find((c) => c.key === 'grossRentPerMonth');
+      // While the rent is still a question there is no rent being underwritten yet: the document's own figures are all there is to compare
+      const underwritten = rentRow?.unsure ? NaN : Number(rentRow?.value) * 12;
       for (const d of docs) {
         if (d.documentType !== 'offering_memorandum') continue;
         const units = Number(val(d.unitCount));
@@ -127,11 +129,11 @@ export const LINE_CONTRACTS: LineContract[] = [
         if (mix > 0) reads.push({ from: 'the unit mix', annual: mix });
         if (Number.isFinite(underwritten) && underwritten > 0) {
           return Math.abs(underwritten - stated) / stated > RENT_AVERAGE_TOLERANCE
-            ? `The document states an average rent of ${money(avg)} a unit (${money(stated)} a year over ${units} units), but the rent being underwritten is ${money(underwritten)} a year.`
+            ? `The document's average rent is ${money(avg)} a unit, ${money(stated / 12)} a month over ${units} units. You are underwriting ${money(underwritten / 12)} a month.`
             : null;
         }
         const off = reads.filter((r) => Math.abs(r.annual - stated) / stated > RENT_AVERAGE_TOLERANCE);
-        if (off.length) return `The document states an average rent of ${money(avg)} a unit (${money(stated)} a year over ${units} units), but ${off.map((r) => `${r.from} gives ${money(r.annual)}`).join(' and ')}.`;
+        if (off.length) return `The document's average rent is ${money(avg)} a unit, ${money(stated / 12)} a month over ${units} units.`;
       }
       return null;
     },
@@ -143,11 +145,11 @@ export const LINE_CONTRACTS: LineContract[] = [
     because: 'the reader could not tell what kind of income a line is',
     options: [
       { id: 'left', label: 'Leave it out' },
-      { id: 'own', label: 'I will enter other income myself' },
+      { id: 'own', label: "I'll enter it" },
     ],
     when: (docs) => {
       const o = lines(docs, 'income').filter((l) => l.category === 'other' && l.amount !== 0);
-      return o.length ? `${o.map((l) => `${l.label} (${money(l.amount)})`).join(', ')}: the reader could not tell what kind of income this is, and it is left out until you say.` : null;
+      return o.length ? `${o.map((l) => `${l.label} (${money(l.amount)})`).join(', ')}: income the reader could not classify. It is left out unless you say otherwise.` : null;
     },
   },
 ];

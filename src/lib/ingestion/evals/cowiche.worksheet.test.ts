@@ -74,7 +74,7 @@ describe('a convention is not evidence for an expense ratio', () => {
     const ratio = row(rows, 'expenseRatio');
     expect(ratio.source).toBe('profile');
     expect(ratio.state).toBe('unsupported');
-    expect(ratio.reasons[0].detail).toMatch(/not evidence about this property/);
+    expect(ratio.reasons[0].detail).toMatch(/isn't evidence for this property/);
   });
 
   it('accepts the document\'s ratio, traced to the cost lines it was built from', () => {
@@ -153,10 +153,10 @@ describe('the check before confirming', () => {
     expect(r.verdict).toBe('review');
   });
 
-  it('names an unusual expense ratio and says what it leaves out', () => {
+  it('names an unusual expense ratio and the range most properties run in', () => {
     const { rows } = worksheet({ ownerChanges: { ...loan, opexRatio: '12' }, resolved: answered({ expenseRatio: 'x' }), ownerReasons: { expenseRatio: 'Our statements' } });
     const w = assess({ rows }).warnings.find((x) => x.id === 'expense-ratio-range')!;
-    expect(w.detail).toMatch(/leaves out/);
+    expect(w.detail).toMatch(/run 20% to 60%/);
   });
 });
 
@@ -187,5 +187,44 @@ describe('every row has a place in the form', () => {
     const placed = new Set([...[...modal.matchAll(/<FieldNote k="([A-Za-z]+)"/g)].map((m) => m[1]), ...grouped]);
     const missing = ROW_SPECS.map((s) => s.key).filter((k) => !placed.has(k));
     expect(missing).toEqual([]);
+  });
+});
+
+describe('the screen asks in few words', () => {
+  const words = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
+  it('keeps every choice to four words or fewer', () => {
+    for (const c of LINE_CONTRACTS) for (const o of c.options) expect(words(o.label), `${c.key}: ${o.label}`).toBeLessThanOrEqual(4);
+  });
+
+  it('says each open decision in one sentence of twenty words or fewer', () => {
+    const { rows } = worksheet();
+    for (const r of rows) for (const d of r.decisions) for (const x of d.reasons) expect(words(x.detail), `${d.key}: ${x.detail}`).toBeLessThanOrEqual(20);
+  });
+
+  it('says what is wrong with an expense ratio in twenty words or fewer', () => {
+    const { rows } = worksheet({ rent: null });
+    for (const x of row(rows, 'expenseRatio').reasons) expect(words(x.detail), x.detail).toBeLessThanOrEqual(20);
+  });
+
+  it('says each warning in a title and one short sentence', () => {
+    const { rows } = worksheet({ ownerChanges: { down: '30', rate: '6.5', amort: '30', opexRatio: '12' }, resolved: { ...ALL_ANSWERED, expenseRatio: 'x' }, ownerReasons: { expenseRatio: 'Our statements' } });
+    const r = assess({ rows, outcome: { noi: 1_300_000, capRate: 5.5, dscr: 1.1 }, claims: { noi: 1_093_745, managementCost: 53_522 }, selfManaged: true, exitCap: 4.5 });
+    expect(r.warnings.length).toBeGreaterThan(3);
+    for (const w of r.warnings) { expect(words(w.title), w.title).toBeLessThanOrEqual(8); expect(words(w.detail), w.detail).toBeLessThanOrEqual(20); }
+  });
+});
+
+describe('one rent question, not two', () => {
+  it('shows the document\'s average rent as a hint to the rent question, with no second decision beside it', () => {
+    const { rows } = worksheet({ rent: null });
+    const rent = row(rows, 'grossRentPerMonth');
+    expect(rent.decisions.map((d) => d.key)).not.toContain('rentAgreesWithStatedAverage');
+    expect(rent.hint).toMatch(/average rent is \$1,832/);
+  });
+
+  it('asks for a confirmation after the rent is chosen only if the choice still disagrees with the average', () => {
+    expect(row(worksheet({ rent: 120_900 }).rows, 'grossRentPerMonth').decisions).toEqual([]);
+    expect(row(worksheet({ rent: 125_700 }).rows, 'grossRentPerMonth').decisions.map((d) => d.key)).toEqual(['rentAgreesWithStatedAverage']);
   });
 });

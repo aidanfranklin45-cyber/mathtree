@@ -88,7 +88,7 @@ export function assess(args: {
   }
 
   for (const c of args.checks ?? []) {
-    if (!c.ok) warnings.push({ id: `check:${c.label}`, severity: 'warning', title: c.label, detail: c.detail });
+    if (!c.ok) warnings.push({ id: `check:${c.label}`, severity: 'warning', title: c.label, detail: c.detail.split('. ')[0] });
   }
 
   const o = args.outcome;
@@ -100,26 +100,26 @@ export function assess(args: {
       const comparable = sellerNoi + addBack;
       const gap = Math.abs(o.noi - comparable) / comparable;
       if (gap > NOI_TIE_TOLERANCE) {
-        warnings.push({ id: 'noi-gap', severity: 'warning', title: 'Your NOI is far from the seller\'s', detail: `This underwriting arrives at ${money(o.noi)}; the seller states ${money(sellerNoi)}${addBack ? `, ${money(comparable)} before the seller's own management cost` : ''}. They are ${(gap * 100).toFixed(1)}% apart. Differences you chose (your vacancy, costs, manager) explain some; check that they explain all of it.` });
+        warnings.push({ id: 'noi-gap', severity: 'warning', title: "Your NOI is far from the seller's", detail: `You ${money(o.noi)}, seller ${money(comparable)}${addBack ? ' (before their management cost)' : ''}: ${(gap * 100).toFixed(0)}% apart.` });
       }
     }
     const dscr = typeof o.dscr === 'number' ? o.dscr : null;
     if (dscr !== null && dscr > 0 && dscr < THIN_DSCR) {
-      warnings.push({ id: 'dscr-thin', severity: 'warning', title: 'The debt is thinly covered', detail: `The first full year's income covers the loan payments ${dscr.toFixed(2)} times. Lenders commonly ask for about ${THIN_DSCR}.` });
+      warnings.push({ id: 'dscr-thin', severity: 'warning', title: 'Debt is thinly covered', detail: `Income covers the payments ${dscr.toFixed(2)} times; lenders commonly want about ${THIN_DSCR}.` });
     }
     const exit = args.exitCap;
     if (exit !== null && exit !== undefined && o.capRate > 0 && exit < o.capRate - CAP_COMPRESSION) {
-      warnings.push({ id: 'cap-compression', severity: 'warning', title: 'The exit cap rate is below the cap rate paid', detail: `You buy at about a ${o.capRate.toFixed(2)}% cap rate and sell at ${exit}%, so the property is assumed to be worth more on the same income. Say so if that is what you expect.` });
+      warnings.push({ id: 'cap-compression', severity: 'warning', title: 'Exit cap is below the cap paid', detail: `You buy at a ${o.capRate.toFixed(2)}% cap and sell at ${exit}%.` });
     }
   }
 
   const ratio = args.rows.find((r) => r.key === 'expenseRatio');
   if (ratio && typeof ratio.value === 'number' && ratio.state !== 'unsupported' && (ratio.value < EXPENSE_RATIO_RANGE.low || ratio.value > EXPENSE_RATIO_RANGE.high)) {
-    warnings.push({ id: 'expense-ratio-range', severity: 'warning', rowKey: 'expenseRatio', title: `An expense ratio of ${ratio.value}% is unusual`, detail: `Most properties fall between ${EXPENSE_RATIO_RANGE.low}% and ${EXPENSE_RATIO_RANGE.high}%. Remember what this ratio leaves out (management, the reserve, debt) and what it nets off (tenant reimbursements), so it is not comparable with a seller's total.` });
+    warnings.push({ id: 'expense-ratio-range', severity: 'warning', rowKey: 'expenseRatio', title: `Expense ratio of ${ratio.value}% is unusual`, detail: `Most properties run ${EXPENSE_RATIO_RANGE.low}% to ${EXPENSE_RATIO_RANGE.high}%.` });
   }
   const vacancy = args.rows.find((r) => r.key === 'vacancyRate');
   if (vacancy && typeof vacancy.value === 'number' && vacancy.value < LOW_VACANCY) {
-    warnings.push({ id: 'vacancy-low', severity: 'warning', rowKey: 'vacancyRate', title: `A vacancy of ${vacancy.value}% assumes the property is almost never empty`, detail: 'Check it against how the property has actually leased.' });
+    warnings.push({ id: 'vacancy-low', severity: 'warning', rowKey: 'vacancyRate', title: `Vacancy of ${vacancy.value}% is very low`, detail: 'Check it against how the property has leased.' });
   }
 
   const acknowledged = args.acknowledged ?? new Set<string>();
