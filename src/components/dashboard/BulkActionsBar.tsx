@@ -9,6 +9,8 @@ interface BulkActionsBarProps {
   onBulkMarkOwned: () => void;
   onBulkMovePipeline: () => void;
   onBulkExportCsv: () => void;
+  canMarkOwned?: boolean;
+  canMovePipeline?: boolean;
 }
 
 export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
@@ -19,6 +21,8 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onBulkMarkOwned,
   onBulkMovePipeline,
   onBulkExportCsv,
+  canMarkOwned = true,
+  canMovePipeline = true,
 }) => {
   if (selectedCount === 0) return null;
 
@@ -43,25 +47,29 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       <div className="h-4 w-px bg-slate-800 hidden sm:block shrink-0" />
 
       <div className="flex items-center space-x-2 overflow-x-auto">
-        <button
-          type="button"
-          onClick={onBulkMarkOwned}
-          className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition whitespace-nowrap flex items-center space-x-1 border border-slate-700"
-          title="Mark selected deals as Owned"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span>Mark Owned</span>
-        </button>
+        {canMarkOwned && (
+          <button
+            type="button"
+            onClick={onBulkMarkOwned}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition whitespace-nowrap flex items-center space-x-1 border border-slate-700"
+            title="Mark selected deals as Owned"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>Mark Owned</span>
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={onBulkMovePipeline}
-          className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition whitespace-nowrap flex items-center space-x-1 border border-slate-700"
-          title="Move selected deals to Pipeline"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-          <span>Move Pipeline</span>
-        </button>
+        {canMovePipeline && (
+          <button
+            type="button"
+            onClick={onBulkMovePipeline}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition whitespace-nowrap flex items-center space-x-1 border border-slate-700"
+            title="Move selected deals to Pipeline"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span>Move Pipeline</span>
+          </button>
+        )}
 
         <button
           type="button"

@@ -11,6 +11,7 @@ import { attachPropertyFacts } from '../lib/property/loadFacts';
 import { DealCard } from '../components/dashboard/DealCard';
 import { DealTableView, SortField } from '../components/dashboard/DealTableView';
 import { BulkActionsBar } from '../components/dashboard/BulkActionsBar';
+import { canBulkMarkOwned, canBulkMovePipeline } from '../lib/dashboard/bulkActions';
 import { PortfolioEquityChart } from '../components/dashboard/PortfolioEquityChart';
 import { ConnectedHeader } from '../components/layout/ConnectedHeader';
 import { ShareDealModal } from '../components/collaboration/ShareDealModal';
@@ -563,6 +564,21 @@ export const DashboardPage: React.FC = () => {
   const handleClearSelection = useCallback(() => {
     setSelectedDealIds(new Set());
   }, []);
+
+  const selectedDeals = useMemo(
+    () => deals.filter((d) => selectedDealIds.has(d.id)),
+    [deals, selectedDealIds]
+  );
+
+  const canMarkOwned = useMemo(
+    () => canBulkMarkOwned(statusFilter, selectedDeals),
+    [statusFilter, selectedDeals]
+  );
+
+  const canMovePipeline = useMemo(
+    () => canBulkMovePipeline(statusFilter, selectedDeals),
+    [statusFilter, selectedDeals]
+  );
 
   const handleBulkMarkOwned = async () => {
     const ids = Array.from(selectedDealIds);
@@ -1223,6 +1239,8 @@ export const DashboardPage: React.FC = () => {
         onBulkMarkOwned={handleBulkMarkOwned}
         onBulkMovePipeline={handleBulkMovePipeline}
         onBulkExportCsv={handleBulkExportCsv}
+        canMarkOwned={canMarkOwned}
+        canMovePipeline={canMovePipeline}
       />
 
       {/* Creation Wizard Modal */}
