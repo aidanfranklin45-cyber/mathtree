@@ -42,6 +42,70 @@ describe('same-owner companion parcel rule', () => {
   });
 });
 
+describe('Spokane County Assessor mapping', () => {
+  it('maps real owner and taxpayer names from SCOUT records instead of placeholder', async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async (url: any) => {
+      const u = String(url);
+      if (u.includes('SCOUTSimple')) {
+        return {
+          ok: true,
+          json: async () => ({
+            features: [{
+              attributes: {
+                PID_NUM: '01014.9005',
+                owner_name: 'HARRIS, ROBERT W / JOHN M',
+                taxpayer_name: 'HARRIS, ROBERT W & JOHN M',
+                owner_address1: '36309 S MULLINIX RD',
+                owner_city: 'CHENEY',
+                owner_state: 'WA',
+                owner_zip: '99004',
+                site_address: '36603 S MULLINIX RD',
+                site_city: 'CHENEY',
+                land_value: 150550,
+                acreage: 136.86,
+                prop_use_desc: 'Cur - Use - Ag'
+              }
+            }]
+          })
+        } as any;
+      }
+      if (u.includes('Parcels/FeatureServer')) {
+        return {
+          ok: true,
+          json: async () => ({
+            features: [{
+              attributes: {
+                PID_NUM: '01014.9005',
+                assessed_amt: 32480,
+                taxable_amt: 32480,
+                tax_code_area: '1880',
+                prop_use_code: '83'
+              }
+            }]
+          })
+        } as any;
+      }
+      return { ok: true, json: async () => ({ features: [] }) } as any;
+    }) as any;
+
+    try {
+      const result: any = await (AddressService as any).fetchSpokaneAssessorData('01014.9005');
+      expect(result).toBeTruthy();
+      expect(result.owner).toBe('HARRIS, ROBERT W / JOHN M');
+      expect(result.taxpayer).toBe('HARRIS, ROBERT W & JOHN M');
+      expect(result.ownerAddress).toBe('36309 S MULLINIX RD, CHENEY, WA, 99004');
+      expect(result.totalAssessedValue).toBe(32480);
+      expect(result.marketLandValue).toBe(150550);
+      expect(result.taxCodeArea).toBe('1880');
+      expect(result.isSpokaneCounty).toBe(true);
+      expect(result.assessorPortalUrl).toContain('010149005');
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+});
+
 describe('address search SQL safety', () => {
   it('escapes apostrophes so a street like O\'Brien does not break the GIS where clause', async () => {
     const wheres: string[] = [];
@@ -59,3 +123,5 @@ describe('address search SQL safety', () => {
     for (const w of withQuote) expect(w).toContain("O''");
   });
 });
+
+

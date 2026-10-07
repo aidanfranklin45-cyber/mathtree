@@ -21,6 +21,7 @@ const factory = function () {
   const YAKIMA_COMM_URL = YAKIMA_GIS_BASE + '/Assessor/Taxlots/FeatureServer/70/query';
   const YAKIMA_ASCEND_PORTAL = 'https://yes.co.yakima.wa.us/ascend/';
   const SPOKANE_PARCELS_URL = 'https://services1.arcgis.com/ozNll27nt9ZtPWOn/arcgis/rest/services/Parcels/FeatureServer/0/query';
+  const SPOKANE_SCOUT_SIMPLE_URL = 'https://gismo.spokanecounty.gov/arcgis/rest/services/Assessor/SCOUTSimple/MapServer/0/query';
   const WA_CADASTRE_URL = 'https://gis.dnr.wa.gov/site3/rest/services/Public_Boundaries/WADNR_PUBLIC_Cadastre_OpenData/MapServer/2/query';
   const WA_CADASTRE_FALLBACK_URL = 'https://services.arcgis.com/Ie0K5n4UyLAfvdiX/arcgis/rest/services/Washington_2024_DOR_Parcels/FeatureServer/0/query';
   const PHOTON_API_URL = 'https://photon.komoot.io/api/';
@@ -60,6 +61,8 @@ const factory = function () {
     'ELEVENTH': '11TH', 'TWELFTH': '12TH', 'THIRTEENTH': '13TH', 'FOURTEENTH': '14TH',
     'FIFTEENTH': '15TH', 'SIXTEENTH': '16TH'
   };
+
+  const PLACEHOLDER_OWNER = /^(owner of record|same owner of record|spokane county parcel of record|unknown)?$/i;
 
   function toOrdinal(numStr) {
     const n = parseInt(numStr, 10);
@@ -220,7 +223,7 @@ const factory = function () {
     const street = (attr.site_address || '').trim();
     const city = (attr.site_city || 'Spokane').trim();
     const state = (attr.site_state || 'WA').trim();
-    const zip = (attr.site_zip || '').trim();
+    const zip = (attr.site_zip || attr.ZipCode || '').trim();
     const formattedAddress = street ? (street + ', ' + city + ', ' + state + (zip ? ' ' + zip : '')) : ('Parcel ' + apn + ', Spokane, WA');
 
     const acres = parseFloat(attr.acreage) || 0;
@@ -231,6 +234,12 @@ const factory = function () {
     const useDesc = (attr.prop_use_desc || '').trim();
     const useCode = (attr.prop_use_code || '').trim();
     const zoning = useDesc ? (useDesc + (useCode ? ' (' + useCode + ')' : '')) : 'Spokane County GIS';
+
+    const rawOwner = (attr.owner_name || attr.taxpayer_name || '').trim();
+    const owner = (rawOwner && !PLACEHOLDER_OWNER.test(rawOwner)) ? rawOwner : 'Owner of Record';
+    const taxpayer = (attr.taxpayer_name || '').trim() || null;
+    const ownerAddress = [attr.owner_address1, attr.owner_city, attr.owner_state, attr.owner_zip].filter(Boolean).join(', ') || null;
+    const legal = (attr.legal || attr.legal_desc || attr.Legal_Description || '').trim();
 
     return {
       apn: cleanApn,
@@ -247,14 +256,17 @@ const factory = function () {
       lotSqft: sqft,
       marketLandValue: landVal,
       marketImprovementValue: impVal,
-      totalAssessedValue: totalVal,
+      totalAssessedValue: totalVal || landVal,
       taxYear: attr.tax_year || new Date().getFullYear(),
       // What the county taxes (after exemptions) and which levy applies: the inputs to a tax estimate
       taxableValue: parseFloat(attr.taxable_amt) || null,
       taxCodeArea: attr.tax_code_area ? String(attr.tax_code_area) : null,
       zoning,
       useCode: useDesc || (attr.res_com_flag === 'C' ? 'Commercial' : 'Residential'),
-      owner: 'Spokane County Parcel of Record',
+      owner,
+      taxpayer,
+      ownerAddress,
+      legalDescription: legal || undefined,
       source: 'spokane_county_gis',
       isYakimaCounty: false,
       isSpokaneCounty: true,
@@ -510,6 +522,25 @@ const factory = function () {
 
     // APN direct lookup
     if (cleanDigits.length >= 6) {
+      const dotted = (cleanDigits.length === 9) ? (cleanDigits.slice(0, 5) + '.' + cleanDigits.slice(5)) : cleanDigits;
+      try {
+        const scoutApnWhere = "PID_NUM = '" + dotted + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
+        const sRes = await fetch(SPOKANE_SCOUT_SIMPLE_URL + '?' + new URLSearchParams({
+          where: scoutApnWhere,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        }));
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          if (sData && Array.isArray(sData.features) && sData.features.length > 0) {
+            return sData.features.map(mapSpokaneFeature).filter(Boolean);
+          }
+        }
+      } catch (e) {
+        // Fall through
+      }
+
       try {
         const apnWhere = "parcel LIKE '%" + cleanDigits + "%' OR PID_NUM LIKE '%" + cleanDigits + "%'";
         const params = new URLSearchParams({
@@ -527,6 +558,27 @@ const factory = function () {
         }
       } catch (e) {
         console.warn('Spokane APN direct lookup error:', e);
+      }
+    }
+
+    // Try SCOUTSimple address search first for real owner data
+    if (parsed.houseNumber && parsed.coreTokens.length > 0) {
+      try {
+        const scoutWhere = "site_address LIKE '" + parsed.houseNumber + "%" + parsed.coreTokens[0] + "%'";
+        const res = await fetch(SPOKANE_SCOUT_SIMPLE_URL + '?' + new URLSearchParams({
+          where: scoutWhere,
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: String(limit)
+        }));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.features) && data.features.length > 0) {
+            return data.features.map(mapSpokaneFeature).filter(Boolean);
+          }
+        }
+      } catch (e) {
+        // Fall through to public Parcels FeatureServer
       }
     }
 
@@ -727,22 +779,53 @@ const factory = function () {
     if (!assessorNumber) return null;
     const clean = String(assessorNumber).trim();
     const cleanDigits = clean.replace(/[^0-9]/g, '');
+    const dotted = (cleanDigits.length === 9) ? (cleanDigits.slice(0, 5) + '.' + cleanDigits.slice(5)) : clean;
+
+    const scoutWhere = "PID_NUM = '" + dotted + "' OR PID_NUM = '" + clean + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
+    const pubWhere = "parcel = '" + dotted + "' OR parcel = '" + clean + "' OR PID_NUM = '" + dotted + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
 
     try {
-      const where = "parcel = '" + clean + "' OR parcel = '" + cleanDigits + "' OR PID_NUM = '" + clean + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
-      const params = new URLSearchParams({
-        where,
+      const scoutPromise = fetch(SPOKANE_SCOUT_SIMPLE_URL + '?' + new URLSearchParams({
+        where: scoutWhere,
         outFields: '*',
         f: 'json',
         resultRecordCount: '1'
-      });
-      const res = await fetch(SPOKANE_PARCELS_URL + '?' + params.toString());
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.features) && data.features.length > 0) {
-          return mapSpokaneFeature(data.features[0]);
-        }
+      })).then(r => r.ok ? r.json() : null).catch(() => null);
+
+      const pubPromise = fetch(SPOKANE_PARCELS_URL + '?' + new URLSearchParams({
+        where: pubWhere,
+        outFields: '*',
+        f: 'json',
+        resultRecordCount: '1'
+      })).then(r => r.ok ? r.json() : null).catch(() => null);
+
+      const [scoutData, pubData] = await Promise.all([scoutPromise, pubPromise]);
+
+      const scoutFeature = scoutData?.features?.[0];
+      const pubFeature = pubData?.features?.[0];
+
+      if (!scoutFeature && !pubFeature) return null;
+
+      // Merge: public GIS provides assessed/taxable values & tax code area; SCOUT provides owner, taxpayer, and mailing address
+      const mergedAttr = {
+        ...(pubFeature?.attributes || {}),
+        ...(scoutFeature?.attributes || {})
+      };
+
+      if (pubFeature?.attributes?.assessed_amt) {
+        mergedAttr.assessed_amt = pubFeature.attributes.assessed_amt;
       }
+      if (pubFeature?.attributes?.taxable_amt) {
+        mergedAttr.taxable_amt = pubFeature.attributes.taxable_amt;
+      }
+      if (pubFeature?.attributes?.tax_code_area) {
+        mergedAttr.tax_code_area = pubFeature.attributes.tax_code_area;
+      }
+
+      return mapSpokaneFeature({
+        attributes: mergedAttr,
+        geometry: scoutFeature?.geometry || pubFeature?.geometry
+      });
     } catch (e) {
       console.warn('fetchSpokaneAssessorData error:', e);
     }
@@ -1258,10 +1341,12 @@ const factory = function () {
       const a = f.attributes || {};
       const apn = a.parcel ? String(a.parcel).trim() : (a.PID_NUM ? String(a.PID_NUM).trim() : '');
       const acres = Number(a.acreage) || 0;
-      const totalVal = Number(a.assessed_amt) || 0;
+      const totalVal = Number(a.assessed_amt) || Number(a.taxable_amt) || Number(a.land_value) || 0;
       const landVal = Number(a.land_value) || 0;
       const impVal = Math.max(0, totalVal - landVal);
       const addr = a.site_address ? (a.site_address + (a.site_city ? ', ' + a.site_city : '') + ', WA') : 'Spokane Property';
+      const rawOwner = (a.owner_name || a.taxpayer_name || '').trim();
+      const owner = (rawOwner && !PLACEHOLDER_OWNER.test(rawOwner)) ? rawOwner : 'Owner of Record';
 
       return {
         apn: apn,
@@ -1270,20 +1355,22 @@ const factory = function () {
         street: a.site_address || '',
         city: a.site_city || 'SPOKANE',
         state: 'WA',
-        zip: '',
+        zip: a.site_zip || a.ZipCode || '',
         county: 'Spokane',
         acres: Number(acres.toFixed(3)),
         sqft: Math.round(acres * 43560),
         lotSqft: Math.round(acres * 43560),
         marketLandValue: landVal,
         marketImprovementValue: impVal,
-        totalAssessedValue: totalVal,
+        totalAssessedValue: totalVal || landVal,
         taxYear: a.tax_year || 2026,
         taxableValue: Number(a.taxable_amt) || null,
         taxCodeArea: a.tax_code_area ? String(a.tax_code_area) : null,
         zoning: (a.prop_use_desc || 'Commercial') + (a.prop_use_code ? ' (' + a.prop_use_code + ')' : ''),
         useCode: a.prop_use_desc || '',
-        owner: 'Spokane County Parcel of Record',
+        owner,
+        taxpayer: (a.taxpayer_name || '').trim() || null,
+        ownerAddress: [a.owner_address1, a.owner_city, a.owner_state, a.owner_zip].filter(Boolean).join(', ') || null,
         source: 'spokane_county_gis',
         isSpokaneCounty: true,
         assessorPortalUrl: getAssessorPortalUrl(apn, 'Spokane')
@@ -1292,7 +1379,6 @@ const factory = function () {
   }
 
   const OWNER_STOPWORDS = new Set(['LLC', 'INC', 'INCORPORATED', 'CORP', 'CORPORATION', 'CO', 'COMPANY', 'LP', 'LLP', 'LTD', 'THE', 'AND', 'OF', 'ETAL', 'ET', 'AL', 'TRUST', 'TRUSTEE', 'TR']);
-  const PLACEHOLDER_OWNER = /^(owner of record|same owner of record|spokane county parcel of record|unknown)?$/i;
 
   /** Normalize an owner string to a sorted token key so "SMITH JOHN LLC" == "John Smith". */
   function ownerKey(name) {
@@ -1324,14 +1410,73 @@ const factory = function () {
   async function detectNearbySameOwnerParcels(primaryApn, ownerName, parcelContext) {
     if (!primaryApn) return [];
     if (ownerCandidates(ownerName).length === 0) return [];
-    const isSpokane = parcelContext?.isSpokaneCounty || (parcelContext?.county && /spokane/i.test(parcelContext.county));
-
-    // Spokane's parcel layer exposes no owner name (mapSpokaneFeature uses a placeholder), so the
-    // same-owner rule cannot be verified there. Do not attach by APN prefix, which is not adjacency.
-    if (isSpokane) return [];
 
     const cleanApn = String(primaryApn).trim().replace(/[^0-9]/g, '');
     if (cleanApn.length < 6) return [];
+
+    const isSpokane = parcelContext?.isSpokaneCounty || (parcelContext?.county && /spokane/i.test(parcelContext.county));
+
+    if (isSpokane) {
+      const dotted = (cleanApn.length === 9) ? (cleanApn.slice(0, 5) + '.' + cleanApn.slice(5)) : cleanApn;
+      try {
+        const primaryGeomParams = new URLSearchParams({
+          where: "PID_NUM = '" + dotted + "' OR PID_NUM = '" + cleanApn + "'",
+          outFields: 'PID_NUM',
+          returnGeometry: 'true',
+          f: 'json'
+        });
+        const primaryRes = await fetch(SPOKANE_SCOUT_SIMPLE_URL + '?' + primaryGeomParams.toString());
+        if (!primaryRes.ok) return [];
+        const primaryData = await primaryRes.json();
+        const primaryFeature = primaryData?.features?.[0];
+        const rings = primaryFeature?.geometry?.rings;
+        if (!Array.isArray(rings) || rings.length === 0) return [];
+
+        let xmin = Infinity, ymin = Infinity, xmax = -Infinity, ymax = -Infinity;
+        for (const ring of rings) {
+          for (const [x, y] of ring) {
+            if (x < xmin) xmin = x;
+            if (x > xmax) xmax = x;
+            if (y < ymin) ymin = y;
+            if (y > ymax) ymax = y;
+          }
+        }
+        if (xmin === Infinity || ymin === Infinity) return [];
+
+        // Buffer envelope by 20 meters (Web Mercator WKID 3857 / 102100) to capture adjacent/touching parcels
+        const buffer = 20;
+        const envelope = {
+          xmin: xmin - buffer,
+          ymin: ymin - buffer,
+          xmax: xmax + buffer,
+          ymax: ymax + buffer,
+          spatialReference: primaryFeature.geometry.spatialReference || primaryData.spatialReference || { wkid: 102100, latestWkid: 3857 }
+        };
+
+        const spatialParams = new URLSearchParams({
+          geometry: JSON.stringify(envelope),
+          geometryType: 'esriGeometryEnvelope',
+          spatialRel: 'esriSpatialRelIntersects',
+          where: "PID_NUM <> '" + dotted + "' AND PID_NUM <> '" + cleanApn + "'",
+          outFields: '*',
+          f: 'json',
+          resultRecordCount: '100'
+        });
+        const spatialRes = await fetch(SPOKANE_SCOUT_SIMPLE_URL + '?' + spatialParams.toString());
+        if (!spatialRes.ok) return [];
+        const spatialData = await spatialRes.json();
+        if (!Array.isArray(spatialData?.features)) return [];
+
+        const sameOwner = spatialData.features.filter(f => {
+          const a = f.attributes || {};
+          return ownersMatch(ownerName, a.owner_name) || ownersMatch(ownerName, a.taxpayer_name);
+        });
+        return mapSpokaneCompanionFeatures(sameOwner);
+      } catch (err) {
+        console.warn('Spokane same-owner adjacent parcel query failed:', err);
+        return [];
+      }
+    }
 
     const outFields = 'ASSESSOR_N,SITUS_ADDR,SITUS_CITY,SITUS_ZIP,ACRES,MKT_LAND,MKT_IMPVT,USE_CODE,ORG_NAME,FIRST_NAME,LAST_NAME,LEGAL';
 
