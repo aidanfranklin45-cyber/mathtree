@@ -40,7 +40,9 @@ export function receiptsFor(record: Pick<IntakeRecord, 'figures' | 'lineage'> | 
   const rows = record.lineage ?? [];
   return record.figures.map((f) => {
     if (f.source === 'document') {
-      const from = rows.filter((r) => r.found && r.snippet && (r.keys ?? []).includes(f.key)).map(toRef);
+      // The lines that are this figure come before the lines it is only measured against (the rent line also feeds the vacancy rate)
+      const feeds = rows.filter((r) => r.found && r.snippet && (r.keys ?? []).includes(f.key));
+      const from = [...feeds.filter((r) => r.keys?.[0] === f.key), ...feeds.filter((r) => r.keys?.[0] !== f.key)].map(toRef);
       return { key: f.key, label: f.label, value: f.value, source: f.source, how: f.how, from, traced: from.length > 0 };
     }
     // A profile figure is traced by the standard it is (and the reason the owner gave); an owner's figure by the fact that it is theirs
@@ -55,11 +57,16 @@ export function untraced(receipts: Receipt[]): Receipt[] {
 
 /** One line for a person: where the figure came from, in words. */
 export function receiptText(r: Receipt): string {
-  if (r.source === 'profile') return `Your investor profile. ${r.how.replace(/^Your investor profile:?\s*/, '')}`.trim();
+  if (r.source === 'profile') {
+    const reason = r.how.replace(/^Your investor profile:?\s*/, '').replace(/^Your reason:\s*/i, '').trim();
+    return reason ? `Your investor profile: ${reason}` : 'Your investor profile.';
+  }
   if (r.source === 'owner') return `Your own entry. ${r.how}`.trim();
   if (r.from.length === 0) return 'Read from a document, but the line could not be found in its text.';
   const first = r.from[0];
   const where = `${first.document}${first.page !== null ? `, page ${first.page}` : ''}`;
   const more = r.from.length > 1 ? ` and ${r.from.length - 1} more line${r.from.length === 2 ? '' : 's'}` : '';
-  return `${where}: "${first.snippet}"${more}`;
+  // The columns of a table were separated by tabs; on a line of prose they read as gaps
+  const quote = String(first.snippet).replace(/\t+/g, '  |  ');
+  return `${where}: "${quote}"${more}`;
 }

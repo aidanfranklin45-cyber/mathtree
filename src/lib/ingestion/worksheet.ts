@@ -144,6 +144,9 @@ export function buildWorksheet(args: {
     }
 
     if (value === null) {
+      // Blank because a question is open (the rent the documents disagree on, a ratio waiting on it): the question belongs here, not nowhere
+      const pending = ask(spec.key);
+      if ((pending && resolved[spec.key] === undefined) || open.length) return { ...base, state: 'decide', source: 'missing', basis: 'Waiting for your answer below.', reasons: [...(pending ? pending.reasons : []), ...openReasons], decisions: open };
       return { ...base, state: neededKeys.has(spec.key) ? 'needed' : 'optional', source: 'missing', basis: neededKeys.has(spec.key) ? 'Nothing supplies this yet.' : 'Not required.', reasons: [], decisions: open };
     }
 
@@ -158,7 +161,7 @@ export function buildWorksheet(args: {
       const owed = [...(c && own === undefined ? c.reasons : []), ...openReasons];
       if (source === 'profile') return { ...base, state: 'unsupported', source, basis, reasons: [{ check: 'It rests on evidence', because: 'it is a convention, not evidence about this property', detail: UNSUPPORTED_EXPENSE_RATIO }, ...owed], decisions: open };
       if (source === 'owner' && ownersReason === '') return { ...base, state: 'unsupported', source, basis, reasons: [{ check: 'It rests on evidence', because: 'your own figure needs the reason for it', detail: 'You entered this figure. Say why: which costs it is built from, or what the statements for this property show.' }, ...owed], decisions: open };
-      if (owed.length === 0 && source === 'owner') return { ...base, state: 'ready', source, basis: `Your own entry: ${ownersReason}`, reasons: [], decisions: [], decided: own ?? decided };
+      if (owed.length === 0 && source === 'owner') return { ...base, state: 'ready', source, basis: `Your own entry: ${ownersReason}`, reasons: [], decisions: [] };
     }
     if ((c && own === undefined) || open.length) return { ...base, state: 'decide', source, basis, reasons: [...(c && own === undefined ? c.reasons : []), ...openReasons], decisions: open };
     if (source === 'document' && receipt && !receipt.traced) return { ...base, state: 'decide', source, basis, reasons: [{ check: 'It is found in the document', because: 'the line it was read from could not be found in the text of the document', detail: 'The reader returned a figure that does not appear as printed. Check the document, or enter your own.' }], decisions: [] };
