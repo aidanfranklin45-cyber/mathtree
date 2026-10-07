@@ -958,7 +958,7 @@ const factory = function () {
     const cleanDigits = clean.replace(/[^0-9]/g, '');
     const dotted = (cleanDigits.length === 9) ? (cleanDigits.slice(0, 5) + '.' + cleanDigits.slice(5)) : clean;
 
-    const scoutWhere = "PID_NUM = '" + dotted + "' OR PID_NUM = '" + clean + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
+    const scoutWhere = "PID_NUM = '" + dotted + "' OR PID_NUM = '" + cleanDigits + "'";
     const pubWhere = "parcel = '" + dotted + "' OR parcel = '" + clean + "' OR PID_NUM = '" + dotted + "' OR PID_NUM LIKE '%" + cleanDigits + "%'";
 
     try {
@@ -1094,21 +1094,37 @@ const factory = function () {
     }
 
     if (parsed.houseNumber && parsed.coreTokens.length > 0) {
-      try {
-        const where = "ADDR_FULL LIKE '" + parsed.houseNumber + "%" + parsed.coreTokens[0] + "%'";
-        const res = await fetch(KING_PARCELS_URL + '?' + new URLSearchParams({
-          where,
-          outFields: '*',
-          f: 'json',
-          resultRecordCount: String(limit)
-        }));
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.features) && data.features.length > 0) {
-            return data.features.map(mapKingFeature).filter(Boolean);
+      const candidates = [];
+      const coreJoin = parsed.coreTokens.join(' ');
+      if (parsed.normalizedStreet && parsed.city) {
+        candidates.push("ADDR_FULL LIKE '" + parsed.normalizedStreet + "%' AND CTYNAME = '" + parsed.city + "'");
+      }
+      if (parsed.normalizedStreet) {
+        candidates.push("ADDR_FULL LIKE '" + parsed.normalizedStreet + "%'");
+      }
+      if (parsed.city) {
+        candidates.push("ADDR_FULL LIKE '" + parsed.houseNumber + " %" + coreJoin + "%' AND CTYNAME = '" + parsed.city + "'");
+      }
+      candidates.push("ADDR_FULL LIKE '" + parsed.houseNumber + " %" + coreJoin + "%'");
+      candidates.push("ADDR_FULL LIKE '" + parsed.houseNumber + " %'");
+
+      for (const where of candidates) {
+        try {
+          const res = await fetch(KING_PARCELS_URL + '?' + new URLSearchParams({
+            where,
+            outFields: '*',
+            f: 'json',
+            resultRecordCount: String(limit)
+          }));
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.features) && data.features.length > 0) {
+              const mapped = data.features.map(mapKingFeature).filter(Boolean);
+              if (mapped.length > 0) return mapped;
+            }
           }
-        }
-      } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore */ }
+      }
     }
     return [];
   }
@@ -1140,21 +1156,31 @@ const factory = function () {
     }
 
     if (parsed.houseNumber && parsed.coreTokens.length > 0) {
-      try {
-        const where = "Site_Address LIKE '" + parsed.houseNumber + "%" + parsed.coreTokens[0] + "%'";
-        const res = await fetch(PIERCE_PARCELS_URL + '?' + new URLSearchParams({
-          where,
-          outFields: '*',
-          f: 'json',
-          resultRecordCount: String(limit)
-        }));
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.features) && data.features.length > 0) {
-            return data.features.map(mapPierceFeature).filter(Boolean);
+      const candidates = [];
+      const coreJoin = parsed.coreTokens.join(' ');
+      if (parsed.normalizedStreet) {
+        candidates.push("Site_Address LIKE '" + parsed.normalizedStreet + "%'");
+      }
+      candidates.push("Site_Address LIKE '" + parsed.houseNumber + " %" + coreJoin + "%'");
+      candidates.push("Site_Address LIKE '" + parsed.houseNumber + " %'");
+
+      for (const where of candidates) {
+        try {
+          const res = await fetch(PIERCE_PARCELS_URL + '?' + new URLSearchParams({
+            where,
+            outFields: '*',
+            f: 'json',
+            resultRecordCount: String(limit)
+          }));
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.features) && data.features.length > 0) {
+              const mapped = data.features.map(mapPierceFeature).filter(Boolean);
+              if (mapped.length > 0) return mapped;
+            }
           }
-        }
-      } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore */ }
+      }
     }
     return [];
   }
