@@ -38,6 +38,7 @@ export const QUESTION_FAMILIES: QuestionFamily[] = [
 
 export type GuidedQuestionId =
   | 'bankability_down_payment'
+  | 'expense_ratio_bankability'
   | 'financial_leverage'
   | 'max_offer_dscr'
   | 'max_offer_irr'
@@ -63,6 +64,15 @@ export const GUIDED_QUESTIONS: GuidedQuestionDef[] = [
     explanation: 'Sizes mortgage debt against Year-1 stabilized NOI to identify the exact equity check needed to clear commercial bank covenants.',
     targetScope: 'single_deal',
     defaultParameters: { targetDscr: 1.25 },
+  },
+  {
+    id: 'expense_ratio_bankability',
+    familyId: 'financing',
+    question: 'How does the bankability of this deal differ if the expense ratio is higher?',
+    shortPrompt: 'Expense ratio impact on bankability',
+    explanation: 'Stress-tests debt service coverage (DSCR) against operational cost inflation (+3%, +6%, +10%) to pinpoint where lender covenants break.',
+    targetScope: 'single_deal',
+    defaultParameters: { targetDscr: 1.25, variableKey: 'expenseRatio' },
   },
   {
     id: 'financial_leverage',

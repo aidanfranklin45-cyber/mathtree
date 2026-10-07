@@ -58,15 +58,21 @@ import { RefreshCw, ArrowLeft, Sparkles, HelpCircle } from 'lucide-react';
 import { GuidedQuestionBar } from '../components/compare/guided/GuidedQuestionBar';
 import { ComparativeStoryCard } from '../components/compare/guided/ComparativeStoryCard';
 import { InquiryVisualizer } from '../components/compare/guided/InquiryVisualizer';
+import { CustomInquiryBuilder } from '../components/compare/guided/CustomInquiryBuilder';
 import { GuidedQuestionId } from '../lib/compare/guidedQuestions';
 import {
   executeBankabilityInquiry,
+  executeExpenseRatioInquiry,
   executeLeverageInquiry,
   executeStrikePriceInquiry,
   executeStressInquiry,
   executeAllocationInquiry,
   InquiryExecutionResult,
 } from '../lib/compare/inquiries';
+import {
+  executeConfiguredInquiry,
+  CustomInquiryConfig,
+} from '../lib/compare/inquiryConfigurator';
 
 /** What the page needs to know about the focus deal's recorded acquisition baseline. */
 interface BaselineInfo {
@@ -116,6 +122,8 @@ export const ComparePage: React.FC = () => {
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [activeQuestionId, setActiveQuestionId] = useState<GuidedQuestionId>('bankability_down_payment');
   const [inquiryDealId, setInquiryDealId] = useState<string | null>(null);
+  const [isCustomConfigMode, setIsCustomConfigMode] = useState(false);
+  const [customInquiryConfig, setCustomInquiryConfig] = useState<CustomInquiryConfig | null>(null);
 
   // Baseline (owned deal, single-property board)
   const [baselineInfo, setBaselineInfo] = useState<BaselineInfo | null>(null);
@@ -449,9 +457,26 @@ export const ComparePage: React.FC = () => {
   const inquiryResult = useMemo<InquiryExecutionResult | null>(() => {
     if (!selectedInquiryDeal) return null;
     try {
+      if (isCustomConfigMode && customInquiryConfig) {
+        const customRes = executeConfiguredInquiry(selectedInquiryDeal, customInquiryConfig);
+        return {
+          questionId: 'expense_ratio_bankability',
+          story: customRes.story,
+          columns: customRes.columns,
+          rawResult: {
+            points: customRes.points,
+            baselineValue: customRes.baselineValue,
+            targetThreshold: customInquiryConfig.targetThreshold ?? 1.25,
+            variableKey: customInquiryConfig.variableKey,
+          },
+        };
+      }
+
       switch (activeQuestionId) {
         case 'bankability_down_payment':
           return executeBankabilityInquiry(selectedInquiryDeal);
+        case 'expense_ratio_bankability':
+          return executeExpenseRatioInquiry(selectedInquiryDeal, 1.25);
         case 'financial_leverage':
           return executeLeverageInquiry(selectedInquiryDeal);
         case 'max_offer_dscr':
@@ -469,7 +494,7 @@ export const ComparePage: React.FC = () => {
       console.warn('[compare] Inquiry computation error:', err);
       return null;
     }
-  }, [selectedInquiryDeal, activeQuestionId, deals]);
+  }, [selectedInquiryDeal, activeQuestionId, deals, isCustomConfigMode, customInquiryConfig]);
 
   const isCurrentInquiryPromoted = useMemo(() => {
     if (!inquiryResult || columns.length === 0) return false;
@@ -541,9 +566,23 @@ export const ComparePage: React.FC = () => {
                 deals={deals}
                 activeDealId={selectedInquiryDeal?.id || ''}
                 activeQuestionId={activeQuestionId}
-                onSelectQuestion={setActiveQuestionId}
+                isCustomMode={isCustomConfigMode}
+                onSelectQuestion={(qId) => {
+                  setActiveQuestionId(qId);
+                  setIsCustomConfigMode(false);
+                }}
                 onSelectDeal={setInquiryDealId}
+                onToggleCustomMode={setIsCustomConfigMode}
               />
+
+              {isCustomConfigMode && selectedInquiryDeal && (
+                <CustomInquiryBuilder
+                  deal={selectedInquiryDeal}
+                  onExecute={(cfg) => {
+                    setCustomInquiryConfig(cfg);
+                  }}
+                />
+              )}
 
               {inquiryResult && (
                 <div className="space-y-5">
@@ -616,9 +655,23 @@ export const ComparePage: React.FC = () => {
                   deals={deals}
                   activeDealId={selectedInquiryDeal?.id || ''}
                   activeQuestionId={activeQuestionId}
-                  onSelectQuestion={setActiveQuestionId}
+                  isCustomMode={isCustomConfigMode}
+                  onSelectQuestion={(qId) => {
+                    setActiveQuestionId(qId);
+                    setIsCustomConfigMode(false);
+                  }}
                   onSelectDeal={setInquiryDealId}
+                  onToggleCustomMode={setIsCustomConfigMode}
                 />
+
+                {isCustomConfigMode && selectedInquiryDeal && (
+                  <CustomInquiryBuilder
+                    deal={selectedInquiryDeal}
+                    onExecute={(cfg) => {
+                      setCustomInquiryConfig(cfg);
+                    }}
+                  />
+                )}
 
                 {inquiryResult && (
                   <div className="space-y-5">

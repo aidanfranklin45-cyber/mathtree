@@ -105,6 +105,100 @@ export const InquiryVisualizer: React.FC<InquiryVisualizerProps> = ({ inquiryRes
     );
   }
 
+  if (questionId === 'expense_ratio_bankability' || rawResult?.points) {
+    const { points = [], baselineValue, targetThreshold = 1.25 } = rawResult;
+    return (
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 sm:p-6 space-y-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <h3 className="text-xs font-black text-white uppercase tracking-wider">
+              Operating Expense Ratio vs. Bankability Covenant
+            </h3>
+          </div>
+          <span className="text-[11px] font-bold text-slate-300 bg-slate-800/80 border border-slate-700 px-2.5 py-1 rounded-xl">
+            Lender Covenant: &ge; {targetThreshold.toFixed(2)}x DSCR
+          </span>
+        </div>
+
+        {/* Expense Sensitivity Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400">
+                <th className="py-2.5 px-3">Expense Ratio</th>
+                <th className="py-2.5 px-3">Annual Opex</th>
+                <th className="py-2.5 px-3">Stabilized NOI</th>
+                <th className="py-2.5 px-3 text-center">DSCR Coverage</th>
+                <th className="py-2.5 px-3 text-right">Cash Flow</th>
+                <th className="py-2.5 px-3 text-right">Cash-on-Cash</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 font-mono">
+              {points.map((p: any, idx: number) => {
+                const isBase = p.isBaseline;
+                const isBankable = p.status === 'bankable';
+                const isTight = p.status === 'tight';
+
+                return (
+                  <tr
+                    key={idx}
+                    className={`transition ${
+                      isBase
+                        ? 'bg-slate-800/60 font-bold text-white'
+                        : isBankable
+                          ? 'hover:bg-emerald-950/20 text-slate-200'
+                          : isTight
+                            ? 'hover:bg-amber-950/20 text-slate-300'
+                            : 'hover:bg-rose-950/20 text-slate-400'
+                    }`}
+                  >
+                    <td className="py-3 px-3 flex items-center space-x-2">
+                      <span>{p.testValue.toFixed(1)}%</span>
+                      {isBase && (
+                        <span className="text-[9px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-sans uppercase">
+                          Baseline
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-slate-300">{formatCurrency(p.operatingExpenses)}</td>
+                    <td className="py-3 px-3 font-semibold text-slate-200">{formatCurrency(p.noi)}</td>
+                    <td className="py-3 px-3 text-center">
+                      <span
+                        className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          isBankable
+                            ? 'bg-emerald-950/80 border border-emerald-800/80 text-emerald-300'
+                            : isTight
+                              ? 'bg-amber-950/80 border border-amber-800/80 text-amber-300'
+                              : 'bg-rose-950/80 border border-rose-800/80 text-rose-300'
+                        }`}
+                      >
+                        {isBankable ? (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        ) : (
+                          <XCircle className="w-3 h-3 text-rose-400" />
+                        )}
+                        <span>{p.dscr !== null ? `${p.dscr.toFixed(2)}x` : 'N/A'}</span>
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-300">
+                      ${formatCurrency(p.cashFlow)}
+                    </td>
+                    <td className="py-3 px-3 text-right font-semibold text-slate-200">
+                      {p.cashOnCash ? `${p.cashOnCash.toFixed(1)}%` : '0.0%'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   if (questionId === 'max_offer_dscr' || questionId === 'max_offer_irr') {
     const { askingPrice, solvedPrice, priceDelta, targetType, targetVal, baselineSummary, solvedSummary } =
       rawResult;

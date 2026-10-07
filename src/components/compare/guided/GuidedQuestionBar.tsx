@@ -22,8 +22,10 @@ interface GuidedQuestionBarProps {
   deals: DealRecord[];
   activeDealId: string;
   activeQuestionId: GuidedQuestionId;
+  isCustomMode?: boolean;
   onSelectQuestion: (questionId: GuidedQuestionId) => void;
   onSelectDeal: (dealId: string) => void;
+  onToggleCustomMode?: (enabled: boolean) => void;
 }
 
 const familyIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -37,8 +39,10 @@ export const GuidedQuestionBar: React.FC<GuidedQuestionBarProps> = ({
   deals,
   activeDealId,
   activeQuestionId,
+  isCustomMode = false,
   onSelectQuestion,
   onSelectDeal,
+  onToggleCustomMode,
 }) => {
   const currentQuestion = GUIDED_QUESTIONS.find((q) => q.id === activeQuestionId);
   const [activeFamily, setActiveFamily] = useState<QuestionFamilyId>(
@@ -50,7 +54,7 @@ export const GuidedQuestionBar: React.FC<GuidedQuestionBarProps> = ({
 
   return (
     <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-4 sm:p-6 space-y-5 shadow-xl">
-      {/* Top Bar: Inquiry Mode Title + Deal Selector */}
+      {/* Top Bar: Inquiry Mode Title + Deal Selector + Custom Config Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
         <div className="flex items-center space-x-2.5">
           <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -69,24 +73,41 @@ export const GuidedQuestionBar: React.FC<GuidedQuestionBarProps> = ({
           </div>
         </div>
 
-        {/* Deal Picker */}
-        {deals.length > 0 && currentQuestion?.targetScope !== 'multi_deal' && (
-          <div className="flex items-center space-x-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Property:</span>
-            <select
-              value={activeDeal?.id || ''}
-              onChange={(e) => onSelectDeal(e.target.value)}
-              className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-semibold focus:outline-none focus:border-emerald-500 transition max-w-[220px] truncate"
-              aria-label="Select target property for underwriting inquiry"
+        <div className="flex flex-wrap items-center gap-2">
+          {onToggleCustomMode && (
+            <button
+              type="button"
+              onClick={() => onToggleCustomMode(!isCustomMode)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 ${
+                isCustomMode
+                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-950/50'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-violet-300 border border-violet-500/30'
+              }`}
             >
-              {deals.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {resolveDealDisplayName(d)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{isCustomMode ? 'Playbook Mode' : 'Custom Configurator'}</span>
+            </button>
+          )}
+
+          {/* Deal Picker */}
+          {deals.length > 0 && currentQuestion?.targetScope !== 'multi_deal' && (
+            <div className="flex items-center space-x-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Property:</span>
+              <select
+                value={activeDeal?.id || ''}
+                onChange={(e) => onSelectDeal(e.target.value)}
+                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-semibold focus:outline-none focus:border-emerald-500 transition max-w-[200px] truncate"
+                aria-label="Select target property for underwriting inquiry"
+              >
+                {deals.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {resolveDealDisplayName(d)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Decision Families Tabs */}

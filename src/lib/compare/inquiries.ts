@@ -20,6 +20,7 @@ import {
 } from './comparativeStories';
 import type { GuidedQuestionId } from './guidedQuestions';
 import { buildAssumptionAuditTrail } from './assumptionAudit';
+import { executeConfiguredInquiry } from './inquiryConfigurator';
 
 export interface InquiryExecutionResult {
   questionId: GuidedQuestionId;
@@ -68,7 +69,35 @@ export function executeBankabilityInquiry(
 }
 
 /**
- * 2. Financial Leverage Inquiry:
+ * 2. Expense Ratio on Bankability Inquiry:
+ * Evaluates how operational cost inflation degrades stabilized NOI, DSCR covenants, and annual cash flow.
+ */
+export function executeExpenseRatioInquiry(
+  deal: DealRecord,
+  targetDscr = 1.25
+): InquiryExecutionResult {
+  const configured = executeConfiguredInquiry(deal, {
+    dealId: deal.id,
+    variableKey: 'expenseRatio',
+    targetMetric: 'dscr',
+    targetThreshold: targetDscr,
+  });
+
+  return {
+    questionId: 'expense_ratio_bankability',
+    story: configured.story,
+    columns: configured.columns,
+    rawResult: {
+      points: configured.points,
+      baselineValue: configured.baselineValue,
+      targetThreshold: targetDscr,
+      variableKey: 'expenseRatio',
+    },
+  };
+}
+
+/**
+ * 3. Financial Leverage Inquiry:
  * Analyzes whether borrowing expands (positive) or dilutes (negative) equity returns.
  */
 export function executeLeverageInquiry(deal: DealRecord): InquiryExecutionResult {

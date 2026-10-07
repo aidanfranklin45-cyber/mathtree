@@ -3,6 +3,7 @@ import { BENCHMARK_DEAL } from '../supabase/client';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import {
   executeBankabilityInquiry,
+  executeExpenseRatioInquiry,
   executeLeverageInquiry,
   executeStrikePriceInquiry,
   executeStressInquiry,
@@ -83,6 +84,27 @@ describe('Guided Underwriting Inquiries & Comparative Stories', () => {
     expect(res.rawResult.breakEvenOcc).toBeGreaterThan(0);
     expect(res.rawResult.breakEvenOcc).toBeLessThanOrEqual(100);
     expect(res.columns.length).toBe(3);
+  });
+
+  it('executes Expense Ratio on Bankability Inquiry: evaluates opex inflation on DSCR covenants', () => {
+    const res = executeExpenseRatioInquiry(benchmarkDeal, 1.25);
+
+    expect(res.questionId).toBe('expense_ratio_bankability');
+    expect(res.story).toBeDefined();
+    expect(res.story.headline).toContain('expense ratio');
+    expect(res.story.keyTakeaways.length).toBeGreaterThan(0);
+    expect(res.columns.length).toBeGreaterThanOrEqual(4);
+    expect(res.rawResult.points.length).toBeGreaterThanOrEqual(4);
+
+    // Verify first column has valid summary numbers
+    expect(res.columns[0].summary.operatingExpenses).toBeGreaterThan(0);
+    expect(res.columns[0].summary.noi).toBeGreaterThan(0);
+
+    // Verify Assumption Audit Trail
+    expect(res.story.assumptionAuditTrail).toBeDefined();
+    expect(res.story.assumptionAuditTrail!.length).toBeGreaterThan(0);
+    const expEntry = res.story.assumptionAuditTrail!.find((a) => a.key === 'expenseRatio');
+    expect(expEntry).toBeDefined();
   });
 
   it('executes Pipeline Capital Allocation Inquiry across multiple candidate deals', () => {
