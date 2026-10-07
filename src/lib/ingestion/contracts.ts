@@ -70,6 +70,8 @@ const sum = (ls: Array<{ amount: number }>) => ls.reduce((s, l) => s + l.amount,
 /** The reader sorts lines by what it thinks they are; a slip must not hide a decision, so the line's own name counts as well. */
 /** A document's own average rent is rounded to the dollar, so the rent it implies is compared to within this share. */
 const RENT_AVERAGE_TOLERANCE = 0.01;
+/** Physical occupancy and the vacancy line differ by more than this many points before the owner is asked (credit loss and concessions explain a little). */
+const OCCUPANCY_TOLERANCE_POINTS = 3;
 const MANAGEMENT_LABEL = /manage|mgmt|mgt/i;
 const REIMBURSEMENT_LABEL = /rubs|reimburs|utility billing|recover/i;
 
@@ -134,6 +136,28 @@ export const LINE_CONTRACTS: LineContract[] = [
         }
         const off = reads.filter((r) => Math.abs(r.annual - stated) / stated > RENT_AVERAGE_TOLERANCE);
         if (off.length) return `The document's average rent is ${money(avg)} a unit, ${money(stated / 12)} a month over ${units} units.`;
+      }
+      return null;
+    },
+  },
+  {
+    key: 'vacancyAgreesWithOccupancy',
+    label: 'Stated occupancy',
+    check: 'The vacancy line agrees with the occupancy the document states',
+    because: 'the stated occupancy and the vacancy line disagree',
+    options: [
+      { id: 'line', label: 'Keep the vacancy line' },
+      { id: 'own', label: "I'll enter vacancy" },
+    ],
+    when: (docs) => {
+      for (const d of docs) {
+        if (d.documentType !== 'offering_memorandum') continue;
+        const occupancy = Number(val(d.occupancyPercent));
+        const rent = sum(lines([d], 'income').filter((l) => l.category === 'rent'));
+        const loss = sum(lines([d], 'income').filter((l) => l.category === 'vacancy_credit_loss').map((l) => ({ amount: Math.abs(l.amount) })));
+        if (!(occupancy > 0 && occupancy <= 100) || !(rent > 0) || loss === 0) continue;
+        const lineShare = (loss / rent) * 100;
+        if (Math.abs(100 - occupancy - lineShare) > OCCUPANCY_TOLERANCE_POINTS) return `The document states ${occupancy}% occupancy, but its vacancy line is ${lineShare.toFixed(1)}% of rent.`;
       }
       return null;
     },

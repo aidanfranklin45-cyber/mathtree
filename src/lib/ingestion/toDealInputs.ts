@@ -251,7 +251,9 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   const netCosts = costs - reimbursed;
   // The engine charges the ratio against the rent that is underwritten, so that is the rent the costs are divided by. The income table can print a
   // different rent (a total possible rent, say) from the one the unit mix or leases gave.
-  const rentUnderwritten = typeof b.patch.grossRentAnnual === 'number' && (b.patch.grossRentAnnual as number) > 0 ? (b.patch.grossRentAnnual as number) : t.income.rent;
+  // With leases (a rent roll) the engine charges the ratio against what the leases pay, so that is the rent the costs are divided by
+  const leaseRentAnnual = Array.isArray(b.patch.leases) ? (b.patch.leases as Array<{ monthlyRent?: number }>).reduce((sum, l) => sum + (Number(l.monthlyRent) || 0), 0) * 12 : 0;
+  const rentUnderwritten = typeof b.patch.grossRentAnnual === 'number' && (b.patch.grossRentAnnual as number) > 0 ? (b.patch.grossRentAnnual as number) : leaseRentAnnual > 0 ? leaseRentAnnual : t.income.rent;
   if (netCosts > 0 && rentUnderwritten > 0) {
     const ratio = round2((netCosts / rentUnderwritten) * 100);
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
@@ -265,6 +267,13 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
       .join(', ');
     b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(rentUnderwritten).toLocaleString()}${rentUnderwritten !== t.income.rent ? ` (the rent underwritten; the income table shows ${Math.round(t.income.rent).toLocaleString()})` : ''}${span}`, [...rentReadings, ...stmt.expenses.flatMap((l) => [l.amount, l.category])]);
     if (b.provenance.expenseRatio && b.patch.expenseRatio === ratio) b.provenance.expenseRatio.netCosts = netCosts;
+  }
+  // Storage charges on-site payroll and marketing as a share of the rent, from its own input: the document's own dollars are that share
+  if (onSiteCost > 0 && rentUnderwritten > 0) {
+    const pct = round2((onSiteCost / rentUnderwritten) * 100);
+    const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
+    b.set('payrollMarketingPercent', pct, doc, `On-site payroll and marketing ${Math.round(onSiteCost).toLocaleString()}, over rent ${Math.round(rentUnderwritten).toLocaleString()}${span}`, stmt.expenses.filter((l) => onSite.includes(val(l.category) as ExpenseCategory)).flatMap((l) => [l.amount, l.category]));
+    if (b.provenance.payrollMarketingPercent && b.patch.payrollMarketingPercent === pct) b.provenance.payrollMarketingPercent.netCosts = onSiteCost;
   }
   // The reimbursement is an assumption in its own right: it lowers the ratio only for as long as tenants keep paying it back
   if (reimbursed > 0 && costs > 0 && rentUnderwritten > 0) {
@@ -429,6 +438,8 @@ export function buildDealPatch(docs: IntakeDocument[], ctx: PatchContext = {}): 
         b.set('squareFeet', val(doc.squareFeet), doc, 'Offering memorandum', [doc.squareFeet]);
         b.set('unitCount', val(doc.unitCount), doc, 'Offering memorandum', [doc.unitCount]);
         b.set('yearBuilt', val(doc.yearBuilt), doc, 'Year built in the offering memorandum', [doc.yearBuilt]);
+        // Who pays the building's costs, when the memorandum says (a lease's own terms, read from the leases, are stronger and set it first)
+        if (leases.length === 0) b.set('leaseType', val(doc.expenseStructure), doc, 'Lease structure in the offering memorandum', [doc.expenseStructure]);
         const lotSf = val(doc.lotSqFt);
         b.set('acres', val(doc.lotAcres) ?? (lotSf !== null && lotSf > 0 ? round2(lotSf / 43560) : null), doc, 'Land area in the offering memorandum', [val(doc.lotAcres) !== null ? doc.lotAcres : doc.lotSqFt]);
         // The list price is the natural starting price for a prospect, but it is the seller's number: it is offered, not assumed, and a

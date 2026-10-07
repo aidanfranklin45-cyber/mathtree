@@ -1,0 +1,23 @@
+--- Page 1 ---
+MAPLE COURT APARTMENTS
+OPERATING STATEMENT
+Ten months, November 1, 2025 to August 31, 2026
+--- Page 2 ---
+INCOME	Ten months
+Gross potential rent	$296,300
+Vacancy	($21,400)
+Other income	$10,900
+Effective gross income	$285,800
+OPERATING EXPENSES
+Real estate taxes	$28,200
+Insurance	$10,300
+Utilities	$33,100
+Repairs and maintenance	$26,800
+Payroll	$15,000
+Management	$14,800
+Total operating expenses	$128,200
+Net operating income	$157,600
+BELOW THE LINE
+Mortgage interest	$41,500
+Depreciation	$22,000
+Net income	$94,100

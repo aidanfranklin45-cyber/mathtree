@@ -52,12 +52,35 @@ const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
 /** An expense ratio outside this range is not impossible, but is far enough from most properties that the owner should see it said. */
 export const EXPENSE_RATIO_RANGE = { low: 20, high: 60 };
+/** The same for a net-leased property, whose tenants pay most costs. */
+export const NET_LEASE_RATIO_RANGE = { low: 0, high: 30 };
 /** Debt service coverage under which the owner is told. Lenders commonly ask for about this much. */
 export const THIN_DSCR = 1.25;
 /** Vacancy under which the owner is told: a figure that low assumes the property is never empty. */
 export const LOW_VACANCY = 3;
 /** An exit cap this many points under the cap paid assumes the property sells for more on the same income. */
 export const CAP_COMPRESSION = 0.5;
+
+/** A short title for a warning a document's own checks raised, by the field it is about. */
+const ISSUE_TITLE: Record<string, string> = {
+  unitMix: "Unit mix doesn't match the unit count",
+  periodEnd: 'Statement covers part of a year',
+  reportedTotalExpenses: "Statement's costs don't add up",
+  reportedNoi: "Statement's figures don't agree",
+  reportedTotalRent: "Rent roll total doesn't add up",
+  reportedUnitCount: 'Rent roll unit count differs',
+  claimedCapRatePercent: "Cap rate doesn't match the NOI",
+};
+
+/** What the documents' own checks warned about, as warnings to acknowledge: one title and the first sentence of the message. */
+export function issueFindings(issues: Array<{ severity: 'error' | 'warning'; field: string; message: string }>): Finding[] {
+  return issues.filter((i) => i.severity === 'warning').map((i) => ({
+    id: `doc:${i.field}:${i.message.slice(0, 24)}`,
+    severity: 'warning' as const,
+    title: ISSUE_TITLE[i.field.split('[')[0]] ?? 'A figure in a document looks off',
+    detail: i.message.split('. ')[0].replace(/\.$/, '') + '.',
+  }));
+}
 
 export function assess(args: {
   rows: WorksheetRow[];
@@ -71,6 +94,8 @@ export function assess(args: {
   checks?: RecordedCheck[];
   /** The exit cap rate the deal is underwritten with, in percent. */
   exitCap?: number | null;
+  /** A net-leased property: its tenants pay the costs, so a low expense ratio is normal. */
+  netLease?: boolean;
   /** The ids of the warnings the owner has said they have read. */
   acknowledged?: Set<string>;
   /** Warnings from checks made elsewhere (the lines an expense ratio is built from), read and acknowledged like the others. */
@@ -116,8 +141,9 @@ export function assess(args: {
   }
 
   const ratio = args.rows.find((r) => r.key === 'expenseRatio');
-  if (ratio && typeof ratio.value === 'number' && ratio.state !== 'unsupported' && (ratio.value < EXPENSE_RATIO_RANGE.low || ratio.value > EXPENSE_RATIO_RANGE.high)) {
-    warnings.push({ id: 'expense-ratio-range', severity: 'warning', rowKey: 'expenseRatio', title: `Expense ratio of ${ratio.value}% is unusual`, detail: `Most properties run ${EXPENSE_RATIO_RANGE.low}% to ${EXPENSE_RATIO_RANGE.high}%.` });
+  const range = args.netLease ? NET_LEASE_RATIO_RANGE : EXPENSE_RATIO_RANGE;
+  if (ratio && typeof ratio.value === 'number' && ratio.state !== 'unsupported' && (ratio.value < range.low || ratio.value > range.high)) {
+    warnings.push({ id: 'expense-ratio-range', severity: 'warning', rowKey: 'expenseRatio', title: `Expense ratio of ${ratio.value}% is unusual`, detail: `${args.netLease ? 'Net-leased properties run' : 'Most properties run'} ${range.low}% to ${range.high}%.` });
   }
   const vacancy = args.rows.find((r) => r.key === 'vacancyRate');
   if (vacancy && typeof vacancy.value === 'number' && vacancy.value < LOW_VACANCY) {

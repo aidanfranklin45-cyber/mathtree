@@ -55,7 +55,7 @@ export const SPECS: Record<Exclude<DocumentType, 'unknown'>, Spec> = {
     fields: {
       address: 'string', city: 'string', state: 'string', zip: 'string', apn: 'string',
       assetClass: ['commercial', 'multi_family', 'residential', 'storage'], askingPrice: 'number', squareFeet: 'number', lotAcres: 'number', lotSqFt: 'number', averageCurrentRent: 'number', averageMarketRent: 'number',
-      yearBuilt: 'number', unitCount: 'number', occupancyPercent: 'number', claimedNoi: 'number', claimedCapRatePercent: 'number', tenantSummaries: 'string',
+      yearBuilt: 'number', unitCount: 'number', occupancyPercent: 'number', expenseStructure: ['NNN', 'Gross', 'Modified Gross', 'Full Service'], claimedNoi: 'number', claimedCapRatePercent: 'number', tenantSummaries: 'string',
     },
     lists: {
       unitMix: { unitType: 'string', unitCount: 'number', avgSqFt: 'number', currentMonthlyRent: 'number', marketMonthlyRent: 'number' },

@@ -1214,9 +1214,10 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               </div>
             )}
             {asset === 'storage' && (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <label htmlFor="wiz-payroll" className={lbl}>Payroll &amp; Marketing (%)</label>
                 <input id="wiz-payroll" type="number" min={0} max={60} step="any" data-field="payroll" value={w.payroll} onChange={(e) => set({ payroll: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
+                <FieldNote k="payrollMarketingPercent" />
               </div>
             )}
           </div>

@@ -29,6 +29,8 @@ export interface RatioBreakdown {
   /** Charged separately, so not in the ratio: the seller's management, the replacement reserve. */
   leftOut: BreakdownGroup[];
   rentAnnual: number | null;
+  /** 1 for a year; more for a statement of part of a year, whose amounts were made a year the way the ratio does. */
+  annualFactor: number;
   /** Net costs over the rent, in percent; null while the rent is undecided. */
   ratioPercent: number | null;
 }
@@ -44,7 +46,7 @@ const LEFT_OUT_NAME: Record<string, string> = {
 const share = (amount: number, rent: number | null): number | null => (rent !== null && rent > 0 ? Math.round((amount / rent) * 1000) / 10 : null);
 
 function group(name: string, rows: TraceRow[], rent: number | null): BreakdownGroup {
-  const lines = rows.map((r) => ({ label: r.label, amount: Math.abs(r.amount ?? 0), page: r.page }));
+  const lines = rows.map((r) => ({ label: r.label, amount: Math.abs(r.amount ?? 0) * (r.annualFactor ?? 1), page: r.page }));
   const amount = lines.reduce((s, l) => s + l.amount, 0);
   return { name, amount, percentOfRent: share(amount, rent), lines };
 }
@@ -74,7 +76,8 @@ export function ratioBreakdown(rows: TraceRow[], rentAnnual: number | null): Rat
   const leftOutRows = costRows.filter((r) => !(r.keys ?? []).includes('expenseRatio') && r.category !== null);
   const leftOut = [...bucket(leftOutRows, LEFT_OUT_NAME)].map(([name, rs]) => group(name, rs, rent)).sort((a, b) => b.amount - a.amount);
 
-  return { counted: countedGroups, grossCosts, reimbursements, netCosts, leftOut, rentAnnual: rent, ratioPercent: share(netCosts, rent) === null ? null : Math.round((netCosts / (rent as number)) * 10000) / 100 };
+  const annualFactor = counted.find((r) => r.annualFactor)?.annualFactor ?? 1;
+  return { counted: countedGroups, grossCosts, reimbursements, netCosts, leftOut, rentAnnual: rent, annualFactor, ratioPercent: share(netCosts, rent) === null ? null : Math.round((netCosts / (rent as number)) * 10000) / 100 };
 }
 
 // ---------------------------------------------------------------------------
@@ -95,10 +98,12 @@ const money = (n: number): string => '$' + Math.round(n).toLocaleString('en-US')
 export function expectedCosts(assetClass: string | null | undefined, leaseType?: string | null): string[] {
   const cls = String(assetClass ?? '');
   if (cls === 'commercial') return leaseType === 'NNN' ? [] : ['property_tax', 'insurance', 'repairs_maintenance'];
-  if (cls === 'storage') return ['property_tax', 'insurance', 'repairs_maintenance'];
+  // A house's tenant pays the utilities, and a storage facility's are small and sometimes not separate
+  if (cls === 'storage' || cls === 'single-family') return ['property_tax', 'insurance', 'repairs_maintenance'];
   return ['property_tax', 'insurance', 'utilities', 'repairs_maintenance'];
 }
 
+const yearly = (r: TraceRow): number => Math.abs(r.amount ?? 0) * (r.annualFactor ?? 1);
 const counted = (rows: TraceRow[]): TraceRow[] => rows.filter((r) => r.section === 'Expense' && (r.keys ?? []).includes('expenseRatio') && r.amount !== null && r.amount !== undefined);
 
 /**
@@ -106,13 +111,14 @@ const counted = (rows: TraceRow[]): TraceRow[] => rows.filter((r) => r.section =
  * (nothing missing, nothing counted twice), is a usual cost absent, does any line appear twice, and does another document say something different.
  * `usedDocuments` are the documents the ratio was built from (all of them when empty); `checks` are the document's own arithmetic.
  */
-export function ratioChecks(args: { rows: TraceRow[]; usedDocuments: string[]; checks: Array<{ label: string; ok: boolean; detail: string }>; expected: string[] }): RatioCheck[] {
+export function ratioChecks(args: { rows: TraceRow[]; usedDocuments: string[]; checks: Array<{ label: string; ok: boolean; detail: string }>; expected: string[]; /** The kind of document the ratio was built from, so the arithmetic checked is that document's own. */ usedType?: string }): RatioCheck[] {
   const out: RatioCheck[] = [];
   const used = args.usedDocuments.length ? args.rows.filter((r) => args.usedDocuments.includes(r.document)) : args.rows;
   const lines = counted(used);
 
   // Do the lines add up to the document's own NOI?
-  const tie = args.checks.find((c) => /^Income less costs/i.test(c.label));
+  const own = args.usedType === 'operating_statement' ? /statement/i : args.usedType === 'offering_memorandum' ? /memorandum/i : /./;
+  const tie = args.checks.find((c) => /^Income less costs/i.test(c.label) && own.test(c.label));
   if (tie) {
     const gap = /\(([\d.]+)% apart\)/.exec(tie.detail)?.[1];
     out.push(tie.ok
@@ -139,10 +145,10 @@ export function ratioChecks(args: { rows: TraceRow[]; usedDocuments: string[]; c
   }
 
   // Another document with costs of its own: which is used, and whether it agrees
-  const usedTotal = lines.reduce((s, r) => s + Math.abs(r.amount ?? 0), 0);
+  const usedTotal = lines.reduce((s, r) => s + yearly(r), 0);
   const others = [...new Set(args.rows.map((r) => r.document))].filter((d) => args.usedDocuments.length > 0 && !args.usedDocuments.includes(d));
   for (const doc of others) {
-    const total = counted(args.rows.filter((r) => r.document === doc)).reduce((s, r) => s + Math.abs(r.amount ?? 0), 0);
+    const total = counted(args.rows.filter((r) => r.document === doc)).reduce((s, r) => s + yearly(r), 0);
     if (total <= 0) continue;
     const off = usedTotal > 0 ? Math.abs(total - usedTotal) / usedTotal : 0;
     out.push(off > 0.05

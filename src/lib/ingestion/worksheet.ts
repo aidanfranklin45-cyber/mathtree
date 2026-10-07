@@ -53,6 +53,7 @@ export const ROW_SPECS: RowSpec[] = [
   { key: 'expenseRatio', field: 'opexRatio', label: 'Expense ratio', group: 'Expenses', evidenceRequired: true },
   { key: 'expenseGrowth', field: 'expenseGrowth', label: 'Expense growth', group: 'Expenses' },
   { key: 'capexReserveAnnual', field: 'capexValue', label: 'Replacement reserve', group: 'Expenses' },
+  { key: 'payrollMarketingPercent', field: 'payroll', label: 'Payroll and marketing', group: 'Expenses' },
   { key: 'manageProperty', field: 'manageProperty', label: 'Property manager', group: 'Expenses' },
   { key: 'targetCapRate', field: 'exitCap', label: 'Exit cap rate', group: 'Exit and hold' },
   { key: 'sellingCostPercent', field: 'sellingCost', label: 'Selling costs', group: 'Exit and hold' },
@@ -96,6 +97,7 @@ export const DECISION_ROW: Record<string, string> = {
   utilityReimbursements: 'expenseRatio',
   rentAgreesWithStatedAverage: 'grossRentPerMonth',
   unclassifiedIncome: 'otherIncomeAnnual',
+  vacancyAgreesWithOccupancy: 'vacancyRate',
 };
 
 /** The sentence shown when an expense ratio rests on a convention alone. */

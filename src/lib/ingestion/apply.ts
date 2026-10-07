@@ -162,7 +162,10 @@ export function proposeChanges(
 ): Proposal {
   const existing = (deal.inputs ?? {}) as Record<string, any>;
   const price = Number(deal.purchase_price) > 0 ? Number(deal.purchase_price) : Number(existing.purchasePrice) > 0 ? Number(existing.purchasePrice) : null;
-  const patch = buildDealPatch(docs, { purchasePrice: price, assetClass: deal.asset_class ?? undefined, existingInputs: existing, manager: opts.manager });
+  // A new project's form starts on a default class (commercial) and switches to the one the documents point to. The figures are built for the class
+  // the documents describe, not the one the form happened to start on: a storage facility's payroll and marketing are split out of its expense ratio.
+  const buildFor = (opts.assetClass ? deduceAsset(docs)?.asset : undefined) ?? deal.asset_class ?? undefined;
+  const patch = buildDealPatch(docs, { purchasePrice: price, assetClass: buildFor, existingInputs: existing, manager: opts.manager });
 
   const changes: ProposedChange[] = [];
   const unchanged: Proposal['unchanged'] = [];
@@ -232,8 +235,10 @@ export function proposeChanges(
   }
   // The expense ratio is the costs over the rent that is underwritten. While the rent is still a question, the ratio cannot be stated yet.
   const rentNow = changes.find((c) => c.key === 'grossRentPerMonth');
-  const ratioNow = changes.find((c) => c.key === 'expenseRatio');
-  if (rentNow?.unsure && ratioNow && ratioNow.netCosts !== undefined && !ratioNow.replaces) ratioNow.waitingOn = 'grossRentPerMonth';
+  for (const k of RATIOS_OVER_RENT) {
+    const over = changes.find((c) => c.key === k);
+    if (rentNow?.unsure && over && over.netCosts !== undefined && !over.replaces) over.waitingOn = 'grossRentPerMonth';
+  }
   return { patch, changes, unchanged: unchanged.filter((u) => !DERIVED_QUIET.has(u.key)) };
 }
 
@@ -257,18 +262,25 @@ export interface Application {
 }
 
 /** What to save for the ticked rows. A figure read from a document is recorded as such; the rest of the deal is untouched. */
+/** The figures that are dollars over the rent that is underwritten, so they wait for it and follow it. */
+const RATIOS_OVER_RENT = ['expenseRatio', 'payrollMarketingPercent'];
+
 /**
  * The proposal with one figure set to the value the owner chose from those the documents gave. A rent is one figure in three forms (a month, a
  * year, per unit), so choosing it sets all three.
  */
 export function withChosenValue(proposal: Proposal, key: string, value: number): Proposal {
   const units = Number(proposal.patch.patch.unitCount);
-  const netCosts = proposal.patch.provenance.expenseRatio?.netCosts;
-  const rederived = key === 'grossRentPerMonth' && typeof netCosts === 'number' && value > 0 ? Math.round((netCosts / (value * 12)) * 10000) / 100 : null;
+  // Costs over the rent that is underwritten: the expense ratio, and for storage the on-site payroll and marketing. A different rent gives a
+  // different percentage from the same dollars.
+  const overRent = (k: string): number | null => {
+    const dollars = proposal.patch.provenance[k]?.netCosts;
+    return key === 'grossRentPerMonth' && typeof dollars === 'number' && value > 0 ? Math.round((dollars / (value * 12)) * 10000) / 100 : null;
+  };
   const changes = proposal.changes.map((c) => {
-    // The expense ratio is the costs over the rent that is underwritten, so a different rent gives a different ratio from the same costs
-    if (c.key === 'expenseRatio' && rederived !== null) {
-      return { ...c, value: rederived, proposed: formatValue('expenseRatio', rederived), variance: undefined, waitingOn: undefined, how: c.how.replace(/divided by rent [\d,]+( \(the rent underwritten; the income table shows [\d,]+\))?/, `divided by rent ${Math.round(value * 12).toLocaleString()} (the rent you chose)`) };
+    const rederived = RATIOS_OVER_RENT.includes(c.key) ? overRent(c.key) : null;
+    if (rederived !== null) {
+      return { ...c, value: rederived, proposed: formatValue(c.key, rederived), variance: undefined, waitingOn: undefined, how: c.how.replace(/(divided by|over) rent [\d,]+( \(the rent underwritten; the income table shows [\d,]+\))?/, (_m, word: string) => `${word} rent ${Math.round(value * 12).toLocaleString()} (the rent you chose)`) };
     }
     if (c.key !== key) return c;
     const chosen: ProposedChange = { ...c, value, how: 'The figure you chose from those the documents gave', reliability: 'executed', unsure: false, chosen: true, alternatives: undefined };
@@ -279,7 +291,8 @@ export function withChosenValue(proposal: Proposal, key: string, value: number):
     } else chosen.proposed = formatValue(key, value);
     return chosen;
   });
-  const patched = rederived === null ? proposal.patch : { ...proposal.patch, patch: { ...proposal.patch.patch, expenseRatio: rederived } };
+  const derived = Object.fromEntries(RATIOS_OVER_RENT.flatMap((k) => { const v = overRent(k); return v === null ? [] : [[k, v]]; }));
+  const patched = Object.keys(derived).length === 0 ? proposal.patch : { ...proposal.patch, patch: { ...proposal.patch.patch, ...derived } };
   return { ...proposal, changes, patch: patched };
 }
 

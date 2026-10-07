@@ -1,0 +1,28 @@
+--- Page 1 ---
+INVESTMENT SUMMARY
+4417 E Sunnyside Ave, Spokane Valley, WA 99212
+Single-family rental house
+--- Page 2 ---
+PROPERTY
+Asking price	$415,000
+Year built	1998
+Living area	1,860 SF
+Lot	0.21 acres
+Bedrooms / baths	4 / 2.5
+Parcel number	45123.0917
+LEASE
+Current rent	$2,650 per month (lease through 8/31/2027)
+Market rent	$2,800 per month
+--- Page 3 ---
+ANNUAL INCOME AND EXPENSES	In place	Pro forma
+Gross rent	$31,800	$33,600
+Vacancy (none, leased)	$0	($1,680)
+Total income	$31,800	$31,920
+Property taxes	$3,980	$4,100
+Insurance	$1,420	$1,500
+Maintenance (estimated)	$1,800	$1,800
+Property management (8%)	$2,544	$2,554
+Reserves	$1,200	$1,200
+Total expenses	$10,944	$11,154
+Net operating income	$20,856	$20,766
+Cap rate	5.03%	5.00%

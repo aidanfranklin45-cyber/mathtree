@@ -9,7 +9,7 @@
 
 import type { ExpenseCategory, IncomeCategory, IntakeDocument, OfferingMemorandumIntake, OperatingStatementIntake, Sourced } from './intake';
 import { val } from './intake';
-import { NON_OPERATING } from './normalize';
+import { NON_OPERATING, statementTotals } from './normalize';
 
 /** The marker the extractor puts at the top of every PDF page, so a figure can be traced to its page. */
 export const PAGE_MARKER = /^--- Page (\d+) ---$/;
@@ -30,6 +30,8 @@ export interface TraceRow {
   snippet: string | null;
   /** The deal inputs this line feeds, so a figure can be traced back to the lines it was built from. */
   keys?: string[];
+  /** For a line of a statement that covers part of a year: what to multiply it by to make a year, as the ratio does. */
+  annualFactor?: number;
   /** The number appears in the document text. False means the reader cannot have read it as printed. */
   found: boolean;
   /** How many lines of the document carry the number (more than one means the match is a best guess). */
@@ -123,10 +125,11 @@ export function traceDocument(doc: IntakeDocument, text: string, documentName = 
   if (doc.documentType !== 'offering_memorandum' && doc.documentType !== 'operating_statement') return [];
   const lines = documentLines(text);
   const rows: TraceRow[] = [];
+  const factor = doc.documentType === 'operating_statement' ? statementTotals(doc).annualFactor : null;
   const add = (section: TraceRow['section'], label: string, amount: number | null, category: string | null, feeds: string, keys: string[] = []) => {
     const where = amount === null ? null : locate(lines, amount, label);
     rows.push({
-      document: documentName, section, label, amount, category, feeds, keys,
+      document: documentName, section, label, amount, category, feeds, keys, ...(factor !== null && factor !== 1 ? { annualFactor: factor } : {}),
       page: where?.page ?? null, line: where?.line ?? null, snippet: where?.snippet ?? null, found: amount === null ? true : where !== null, matches: where?.matches ?? 0,
     });
   };
@@ -157,12 +160,14 @@ export function traceDocument(doc: IntakeDocument, text: string, documentName = 
     };
     figure('Asking price', om.askingPrice, 'Purchase price', ['purchasePrice']);
     figure('Square feet', om.squareFeet, 'Square feet', ['squareFeet']);
-    figure('Unit count', om.unitCount, 'Unit count', ['unitCount']);
+    // A house is one unit whether or not the document says so
+    if (!(val(om.assetClass) === 'residential' && val(om.unitCount) === 1)) figure('Unit count', om.unitCount, 'Unit count', ['unitCount']);
     figure('Year built', om.yearBuilt, 'Year built', ['yearBuilt']);
     figure('Land area (acres)', om.lotAcres, 'Acres', ['acres']);
     figure('Land area (square feet)', om.lotSqFt, 'Acres (converted from square feet)', ['acres']);
     text('Address', om.address, ['address']);
     text('Parcel number (APN)', om.apn, ['primaryApn']);
+    text('Lease structure', om.expenseStructure as Sourced<string>, ['leaseType']);
     figure('Seller\'s stated NOI', om.claimedNoi, 'Shown for comparison, never used');
     figure('Seller\'s stated cap rate', om.claimedCapRatePercent, 'Shown for comparison, never used');
   }
@@ -203,7 +208,9 @@ export function groundIntake<T extends IntakeDocument>(doc: T, text: string): T 
   if (copy.documentType === 'offering_memorandum') {
     const om = copy as unknown as OfferingMemorandumIntake;
     for (const r of om.unitMix ?? []) { check(r.unitCount); check(r.currentMonthlyRent); }
-    for (const f of [om.askingPrice, om.squareFeet, om.unitCount, om.yearBuilt, om.lotAcres, om.lotSqFt, om.claimedNoi, om.claimedCapRatePercent]) check(f);
+    // A house is one unit whether or not the document says so: the reader answering 1 is not a figure that has to be found in the text
+    const impliedOne = val(om.assetClass) === 'residential' && val(om.unitCount) === 1;
+    for (const f of [om.askingPrice, om.squareFeet, impliedOne ? undefined : om.unitCount, om.yearBuilt, om.lotAcres, om.lotSqFt, om.claimedNoi, om.claimedCapRatePercent]) check(f as Sourced<number> | undefined);
   }
   return copy;
 }

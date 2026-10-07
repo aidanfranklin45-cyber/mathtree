@@ -6,7 +6,7 @@ import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/
 import { DocumentLineage } from '../studio/DocumentLineage';
 import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { buildWorksheet, decisionNote, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
-import { assess, type Readiness } from '../../lib/ingestion/readiness';
+import { assess, issueFindings, type Readiness } from '../../lib/ingestion/readiness';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
 import { RatioBreakdownView } from './RatioBreakdownView';
@@ -300,17 +300,16 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   }, [deal, neededAll.length]);
   const claimOf = (re: RegExp): number | null => intake?.claims.find((c) => re.test(c.how))?.value ?? null;
   // The questions asked of the lines an expense ratio is built from (read once: shown in the card, and the failures read in the check before confirming)
-  const ratioFrom = useMemo(() => {
-    const type = (result?.proposal.patch.provenance as Record<string, { documentType?: string }> | undefined)?.expenseRatio?.documentType;
-    return (intake?.documents ?? []).filter((d) => d.type === type).map((d) => d.name);
-  }, [result, intake]);
+  const ratioType = (result?.proposal.patch.provenance as Record<string, { documentType?: string }> | undefined)?.expenseRatio?.documentType;
+  const ratioFrom = useMemo(() => (intake?.documents ?? []).filter((d) => d.type === ratioType).map((d) => d.name), [ratioType, intake]);
   const ratioCheckList: RatioCheck[] = useMemo(
-    () => (intake?.lineage?.length && result ? ratioChecks({ rows: intake.lineage, usedDocuments: ratioFrom, checks: intake.checks ?? [], expected: expectedCosts(deal.asset_class, deal.inputs?.leaseType as string | undefined) }) : []),
+    () => (intake?.lineage?.length && result ? ratioChecks({ rows: intake.lineage, usedDocuments: ratioFrom, checks: intake.checks ?? [], expected: expectedCosts(deal.asset_class, deal.inputs?.leaseType as string | undefined), usedType: ratioType }) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [intake, result, ratioFrom, deal.asset_class],
   );
   const readiness = assess({
-    extraWarnings: ratioCheckList.filter((c) => !c.ok).map((c) => ({ id: 'ratio:' + c.id, severity: 'warning' as const, title: checkTitle(c), detail: c.text, rowKey: 'expenseRatio' })),
+    netLease: formInputs.leaseType === 'NNN' || formInputs.leaseType === 'Absolute Net',
+    extraWarnings: [...issueFindings(reads.flatMap((r) => r.issues)), ...ratioCheckList.filter((c) => !c.ok).map((c) => ({ id: 'ratio:' + c.id, severity: 'warning' as const, title: checkTitle(c), detail: c.text, rowKey: 'expenseRatio' }))],
     rows, engineMissing: neededAll, outcome, claims: { noi: claimOf(/NOI claimed/i), managementCost: claimOf(/management cost/i) },
     selfManaged: formInputs.manageProperty !== true, checks: intake?.checks, exitCap: Number(formInputs.targetCapRate) || null, acknowledged,
   });
