@@ -9,6 +9,7 @@ import { openQuestions } from '../openQuestions';
 import { assess, CAP_COMPRESSION, THIN_DSCR } from '../readiness';
 import { buildWorksheet, DECISION_ROW, ROW_SPECS, unattachedDecisions, type WorksheetRow } from '../worksheet';
 import { underwrite } from './cowicheFlow';
+import modalSource from '../../../components/dashboard/ProjectWizardModal.tsx?raw';
 
 afterEach(() => setAssumptionDefaults({ assumptions: { assets: {} }, discountRate: undefined, exitYear: undefined } as never));
 
@@ -176,5 +177,15 @@ describe('a question never disappears into a blank row', () => {
   it('says what the profile supplied without a stray full stop', () => {
     const { rows } = worksheet();
     expect(row(rows, 'closingDate').basis).toBe('Your investor profile: set to close 6 weeks after the project is created');
+  });
+});
+
+describe('every row has a place in the form', () => {
+  it('puts a note under a field for every assumption of the worksheet, so nothing owed is hidden', () => {
+    const modal: string = modalSource;
+    const grouped = [...modal.matchAll(/<FieldNotes keys=\{\[([^\]]*)\]\}/g)].flatMap((m) => [...m[1].matchAll(/'([A-Za-z]+)'/g)].map((x) => x[1]));
+    const placed = new Set([...[...modal.matchAll(/<FieldNote k="([A-Za-z]+)"/g)].map((m) => m[1]), ...grouped]);
+    const missing = ROW_SPECS.map((s) => s.key).filter((k) => !placed.has(k));
+    expect(missing).toEqual([]);
   });
 });

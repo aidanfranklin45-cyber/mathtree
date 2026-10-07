@@ -80,7 +80,7 @@ export function assess(args: {
 
   for (const r of args.rows) {
     if (r.state === 'needed') blockers.push({ id: `needed:${r.key}`, severity: 'blocker', title: `${r.label} is needed`, detail: 'The engine cannot run without it and nothing in your documents or investor profile supplies it.', rowKey: r.key });
-    else if (r.state === 'decide') blockers.push({ id: `decide:${r.key}`, severity: 'blocker', title: `${r.label}: a decision is waiting`, detail: r.reasons.map((x) => x.detail).join(' '), rowKey: r.key });
+    else if (r.state === 'decide') blockers.push({ id: `decide:${r.key}`, severity: 'blocker', title: `${r.label}: a decision is waiting`, detail: [...r.reasons, ...r.decisions.flatMap((d) => d.reasons)].map((x) => x.detail).join(' '), rowKey: r.key });
     else if (r.state === 'unsupported') blockers.push({ id: `unsupported:${r.key}`, severity: 'blocker', title: `${r.label} has no evidence behind it`, detail: r.reasons.map((x) => x.detail).join(' '), rowKey: r.key });
   }
   for (const m of args.engineMissing ?? []) {
