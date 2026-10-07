@@ -73,7 +73,7 @@ export const PropertyTab: React.FC<PropertyTabProps> = ({ deal, onPatchDeal }) =
     if (!incomplete) return;
     autoFetchedApn.current = propApn;
     let live = true;
-    (AddressService as any).fetchYakimaAssessorData(propApn).then((data: any) => {
+    (AddressService as any).resolveParcelDetails({ apn: propApn, county: inputs.county }).then((data: any) => {
       if (live && data) void onPatchDeal(parcelToInputsPatch({ ...data, apn: propApn, county: inputs.county ? String(inputs.county).replace(/\s*County.*/i, '') : data.county }));
     }).catch((e: unknown) => console.warn('County auto-fetch warning:', e));
     return () => { live = false; };
@@ -174,25 +174,25 @@ export const PropertyTab: React.FC<PropertyTabProps> = ({ deal, onPatchDeal }) =
     if (!propApn) {
       if (propAddress && /\d+/.test(propAddress)) {
         setStatus({ kind: 'info', text: 'Searching address in County GIS...' });
-        const found = await (AddressService as any).searchYakimaAddresses(propAddress);
+        const found = await (AddressService as any).searchAddresses(propAddress);
         if (found && found.length > 0 && found[0].apn) {
-          await linkParcel(found[0].apn, found[0].formattedAddress);
+          await linkParcel(found[0], found[0].formattedAddress);
           return;
         }
       }
       openSearch(true);
-      return setStatus({ kind: 'err', text: `This property is set to a general location ('${propAddress || 'Yakima, WA'}') without a specific parcel. Search a specific address or APN to link one.` });
+      return setStatus({ kind: 'err', text: `This property is set to a general location ('${propAddress || 'Washington'}') without a specific parcel. Search a specific address or APN to link one.` });
     }
     setBusy(true);
     setStatus({ kind: 'info', text: 'Querying County...' });
     try {
-      const data = await (AddressService as any).fetchYakimaAssessorData(propApn);
+      const data = await (AddressService as any).resolveParcelDetails({ apn: propApn, county: inputs.county });
       if (data) {
         await onPatchDeal({
           assessorData: data,
           totalAssessedValue: data.totalAssessedValue,
           acreage: data.acres,
-          gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: 'yakima_arcgis', status: 'active', manualRefresh: true },
+          gisSync: { lastSyncedAt: new Date().toISOString(), syncSource: data.source || 'gis_service', status: 'active', manualRefresh: true },
         } as Partial<DealInputs>);
         setStatus({ kind: 'ok', text: `Refreshed from the County Assessor. Assessed value: $${Number(data.totalAssessedValue).toLocaleString()}` });
       }

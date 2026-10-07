@@ -16,6 +16,14 @@ export function getAssessorPortalUrl(county: string | undefined | null, apn: str
 
 /** "Yakima APN: 181302-14439 (2 Parcels)" style label for the header badge. */
 export function apnBadgeLabel(county: string | undefined | null, apn: string, parcelCount: number): string {
-  const prefix = /spokane/i.test(String(county)) ? 'Spokane APN: ' : /yakima/i.test(String(county)) ? 'Yakima APN: ' : 'APN: ';
+  const prefix = /spokane/i.test(String(county))
+    ? 'Spokane APN: '
+    : /yakima/i.test(String(county))
+      ? 'Yakima APN: '
+      : /king/i.test(String(county))
+        ? 'King APN: '
+        : /pierce/i.test(String(county))
+          ? 'Pierce APN: '
+          : 'APN: ';
   return prefix + apn + (parcelCount > 1 ? ` (${parcelCount} Parcels)` : '');
 }
