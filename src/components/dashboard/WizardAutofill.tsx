@@ -8,6 +8,8 @@ import type { IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
 import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
+import { evaluateContracts, type ContractResult, type Option } from '../../lib/ingestion/contracts';
+import { receiptsFor, receiptText } from '../../lib/ingestion/receipts';
 import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
 import { managerChoice } from '@engine/underwritingAssumptions';
@@ -157,6 +159,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     });
   }, [result]);
 
+  // The contract behind every question: what was checked and what failed. A decision with no figure of its own (a management charge, reimbursements,
+  // a rent that disagrees with the document's own average) is asked here too, and what the owner says is recorded with the reason it was asked.
+  const contracts: ContractResult[] = useMemo(() => (result ? evaluateContracts(result.proposal, result.docs) : []), [result]);
+  const lineAsks = contracts.filter((c) => c.outcome === 'ask' && c.options);
+  const whyFor = (key: string) => contracts.find((c) => c.key === key)?.reasons ?? [];
+  const receipts = useMemo(() => (intake ? receiptsFor({ figures: intake.figures.map((f) => ({ key: f.key, label: f.label, value: f.value ?? null, source: 'document' as const, how: f.how })), lineage: intake.lineage }) : []), [intake]);
+
   // What the property still needs once the owner's assumptions are taken into account: the facts only the property can state
   const missing = useMemo(() => {
     if (!result && reads.length === 0 && open) return [];
@@ -221,8 +230,16 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     setResolved((r) => ({ ...r, [c.key]: said }));
     onAnswered(c.key, c.label, said);
   };
+  /** The owner settles a decision that has no figure of its own. The answer goes into the form when it has a field, and into the record with the reason it was asked. */
+  const settleLine = (c: ContractResult, o: Option) => {
+    if (o.set) onSet(o.set.key, o.set.value);
+    const said = `${o.label} (asked because: ${c.reasons.map((r) => r.check.toLowerCase()).join('; ')})`;
+    setResolved((r) => ({ ...r, [c.key]: said }));
+    onAnswered(c.key, c.label, said);
+  };
   const reopen = (key: string) => setResolved((r) => { const n = { ...r }; delete n[key]; return n; });
   const openQuestionsLeft = questions.filter((q) => resolved[q.change.key] === undefined);
+  const lineLeft = lineAsks.filter((c) => resolved[c.key] === undefined);
 
   const done = result !== null || reads.length > 0;
   const manager = managerFor(deal);
@@ -302,7 +319,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                   {reads.flatMap((r) => r.issues).map((i, n) => <p key={n} className={`text-[11px] ${i.severity === 'error' ? 'text-rose-300' : 'text-amber-300'}`}>{i.severity === 'error' ? 'Check: ' : 'Note: '}{i.message}</p>)}
                   <ul className="space-y-1">
                     {intake.figures.map((f) => (
-                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{f.text}</span> <span className="text-slate-500 italic">({f.reliability}) {f.how}</span></li>
+                      <li key={f.key} className="text-[11px] text-slate-300"><span className="font-bold text-slate-100">{f.label}:</span> <span className="text-emerald-400">{f.text}</span> <span className="text-slate-500 italic">({f.reliability}) {f.how}</span>{(() => { const r = receipts.find((x) => x.key === f.key); return r ? <span className={`block pl-3 ${r.traced ? 'text-sky-300/80' : 'text-amber-300'}`}>Source: {receiptText(r)}</span> : null; })()}</li>
                     ))}
                   </ul>
                   {result && result.proposal.unchanged.length > 0 && <p className="text-[11px] text-slate-500">Already in the form and matching: {result.proposal.unchanged.map((u) => `${u.label} (${u.value})`).join(', ')}.</p>}
@@ -344,9 +361,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
           )}
         </div>
       )}
-      {done && (questions.length > 0 || missing.length > 0 || Object.keys(provided).length > 0) && (
+      {done && (questions.length > 0 || lineAsks.length > 0 || missing.length > 0 || Object.keys(provided).length > 0) && (
         <div className="space-y-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
-          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + missing.length})</h4>
+          <h4 className="text-[11px] uppercase tracking-wider font-black text-amber-200">3 · Still needed from you ({openQuestionsLeft.length + lineLeft.length + missing.length})</h4>
           <p className="text-[11px] text-slate-400">Check the choices where the sources disagree, and fill the empty ones. The empty fields are also marked in the form below. {VARIANCE_DISCLOSURE}</p>
 
           {(result?.proposal.changes ?? []).filter((c) => c.waitingOn).map((c) => (
@@ -421,10 +438,31 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
                   </>
                 )}
                 <span className="block text-slate-500 italic">{c.how}</span>
+                {whyFor(c.key).length > 0 && <span className="block text-slate-500">Why you are asked: {whyFor(c.key).map((r) => r.check.toLowerCase()).join('; ')}.</span>}
                 {kind !== 'unsure' && (
                   <button type="button" onClick={() => confirm(c, kind)} disabled={picked[c.key] === 'own' && !(typed[c.key] ?? '').trim()}
                     className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Add</button>
                 )}
+              </div>
+            )
+          ))}
+
+          {lineAsks.map((c) => (
+            resolved[c.key] !== undefined ? (
+              <div key={c.key} className="flex flex-wrap items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-950/50 border border-slate-800 text-[11px]">
+                <span className="text-emerald-400">✓</span>
+                <span className="font-bold text-slate-200">{c.label}:</span>
+                <span className="text-slate-300">{resolved[c.key]}</span>
+                <button type="button" onClick={() => reopen(c.key)} className="text-slate-500 hover:text-white underline">Change</button>
+              </div>
+            ) : (
+              <div key={c.key} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
+                <span className="text-xs font-bold text-slate-100 block">{c.label}</span>
+                {c.reasons.map((r, k) => <span key={k} className="block text-amber-200">{r.detail}</span>)}
+                <span className="flex flex-wrap gap-2 pt-1">
+                  {(c.options ?? []).map((o) => <button key={o.id} type="button" onClick={() => settleLine(c, o)} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:border-emerald-500/60 text-slate-100 text-[11px] font-bold">{o.label}</button>)}
+                </span>
+                <span className="block text-slate-500">Why you are asked: {c.reasons.map((r) => r.check.toLowerCase()).join('; ')}.</span>
               </div>
             )
           ))}
@@ -464,7 +502,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
           })}
         </div>
       )}
-      {done && openQuestionsLeft.length === 0 && missing.length === 0 && <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property. Check the form below, then create it.</p>}
+      {done && openQuestionsLeft.length === 0 && lineLeft.length === 0 && missing.length === 0 && <p className="text-[11px] text-emerald-300">Nothing else is needed to underwrite this property. Check the form below, then create it.</p>}
 
     </div>
   );
