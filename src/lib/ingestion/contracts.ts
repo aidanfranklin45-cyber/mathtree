@@ -55,6 +55,8 @@ const lines = (docs: IntakeDocument[], side: 'income' | 'expenses') =>
 const sum = (ls: Array<{ amount: number }>) => ls.reduce((s, l) => s + l.amount, 0);
 
 /** The reader sorts lines by what it thinks they are; a slip must not hide a decision, so the line's own name counts as well. */
+/** A document's own average rent is rounded to the dollar, so the rent it implies is compared to within this share. */
+const RENT_AVERAGE_TOLERANCE = 0.01;
 const MANAGEMENT_LABEL = /manage|mgmt|mgt/i;
 const REIMBURSEMENT_LABEL = /rubs|reimburs|utility billing|recover/i;
 
@@ -75,6 +77,28 @@ export const LINE_CONTRACTS: LineContract[] = [
     when: (docs) => {
       const r = lines(docs, 'income').filter((l) => (l.category === 'recoveries' || REIMBURSEMENT_LABEL.test(l.label)) && l.amount > 0);
       return r.length ? `The document shows ${money(sum(r))} a year of reimbursements (${r.map((l) => l.label).join(', ')}). The engine takes them off the costs rather than counting them as income: confirm that is how you want them treated.` : null;
+    },
+  },
+  {
+    key: 'rentAgreesWithStatedAverage',
+    label: 'Rent against the stated average',
+    check: 'The rent read agrees with the average rent the document states',
+    when: (docs) => {
+      for (const d of docs) {
+        if (d.documentType !== 'offering_memorandum') continue;
+        const units = Number(val(d.unitCount));
+        const avg = Number(val(d.averageCurrentRent));
+        if (!(units > 0) || !(avg > 0)) continue;
+        const stated = avg * units * 12;
+        const reads: Array<{ from: string; annual: number }> = [];
+        const table = sum(lines([d], 'income').filter((l) => l.category === 'rent'));
+        if (table > 0) reads.push({ from: 'the income table', annual: table });
+        const mix = d.unitMix.reduce((s, r) => s + (Number(val(r.unitCount)) || 0) * (Number(val(r.currentMonthlyRent)) || 0) * 12, 0);
+        if (mix > 0) reads.push({ from: 'the unit mix', annual: mix });
+        const off = reads.filter((r) => Math.abs(r.annual - stated) / stated > RENT_AVERAGE_TOLERANCE);
+        if (off.length) return `The document states an average rent of ${money(avg)} a unit (${money(stated)} a year over ${units} units), but ${off.map((r) => `${r.from} gives ${money(r.annual)}`).join(' and ')}.`;
+      }
+      return null;
     },
   },
   {

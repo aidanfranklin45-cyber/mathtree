@@ -232,7 +232,7 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
     const lines = stmt.expenses.filter((l) => val(l.category) === category && val(l.amount) !== null);
     if (lines.length === 0) continue;
     const total = lines.reduce((s, l) => s + Math.abs(val(l.amount) as number), 0) * (t.annualFactor ?? 1);
-    if (total > 0) b.set(key, round2(total), doc, `${label} on the ${source}${t.months && t.months !== 12 ? `, annualised from ${t.months} months` : ''}`);
+    if (total > 0) b.set(key, round2(total), doc, `${label} on the ${source}${t.months && t.months !== 12 ? `, annualised from ${t.months} months` : ''}`, lines.flatMap((l) => [l.amount, l.category]));
   }
   // The expense ratio is built the way the engine uses it. The engine charges `ratio x gross rent (before vacancy)` and adds on top, each from
   // its own input: the management fee (only if the owner hires a manager), on-site payroll and marketing (storage), the replacement reserve,

@@ -46,7 +46,7 @@ export function documentChecks(doc: IntakeDocument): DocumentCheck[] {
   const cap = val(doc.claimedCapRatePercent);
   const price = val(doc.askingPrice);
   if (doc.income.length > 0 && doc.expenses.length > 0 && claimedNoi !== null && claimedNoi > 0) {
-    let income = 0; let vacancy = 0; let costs = 0;
+    let income = 0; let vacancy = 0; let costs = 0; let reserves = 0;
     for (const l of doc.income) {
       const a = val(l.amount);
       if (a === null) continue;
@@ -54,15 +54,22 @@ export function documentChecks(doc: IntakeDocument): DocumentCheck[] {
     }
     for (const l of doc.expenses) {
       const a = val(l.amount);
-      if (a === null || NON_OPERATING.has(val(l.category) ?? 'other')) continue;
-      costs += Math.abs(a);
+      if (a === null) continue;
+      if (val(l.category) === 'reserves_capex') reserves += Math.abs(a);
+      else if (!NON_OPERATING.has(val(l.category) ?? 'other')) costs += Math.abs(a);
     }
-    const implied = income - vacancy - costs;
-    const gap = Math.abs(implied - claimedNoi) / claimedNoi;
+    // Sellers differ on whether their NOI is before or after the replacement reserve, so the document is held to whichever it follows
+    const before = income - vacancy - costs;
+    const after = before - reserves;
+    const gapBefore = Math.abs(before - claimedNoi) / claimedNoi;
+    const gapAfter = Math.abs(after - claimedNoi) / claimedNoi;
+    const afterReserves = reserves > 0 && gapAfter < gapBefore;
+    const implied = afterReserves ? after : before;
+    const gap = afterReserves ? gapAfter : gapBefore;
     checks.push({
       label: 'Income less costs equals the memorandum\'s NOI',
       ok: gap <= NOI_TIE_TOLERANCE,
-      detail: `The income and operating costs we read give an NOI of ${num(implied)}; the memorandum prints ${num(claimedNoi)} (${(gap * 100).toFixed(1)}% apart). ${gap <= NOI_TIE_TOLERANCE ? 'They tie.' : 'They do not tie: a line may have been missed or misread, so check the income and expense table in the document.'}`,
+      detail: `The income and operating costs we read give an NOI of ${num(implied)}${afterReserves ? ' (after the ' + num(reserves) + ' replacement reserve, as the memorandum counts it)' : ''}; the memorandum prints ${num(claimedNoi)} (${(gap * 100).toFixed(1)}% apart). ${gap <= NOI_TIE_TOLERANCE ? 'They tie.' : 'They do not tie: a line may have been missed or misread, so check the income and expense table in the document.'}`,
     });
   }
   if (claimedNoi !== null && cap !== null && price !== null && price > 0) {
