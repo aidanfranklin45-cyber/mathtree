@@ -92,10 +92,10 @@ export const CompareStarter: React.FC<CompareStarterProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block">
-                    Scenario Lab · Sensitivity & Drivers
+                    Single Property
                   </span>
                   <h3 className="text-lg font-black text-white group-hover:text-cyan-300 transition">
-                    Scenario Lab (Explore One Property)
+                    Scenario Lab
                   </h3>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
