@@ -54,7 +54,24 @@ import {
 import { getInitialBaseline, replaceBaseline } from '../lib/baselines/db';
 import { dealFromBaseline, dealWithScenario } from '../lib/compare/baselineColumn';
 import { useIsPhone } from '../hooks/useMediaQuery';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { InquiryCommandBar } from '../components/compare/guided/InquiryCommandBar';
+import { ComparativeStoryCard } from '../components/compare/guided/ComparativeStoryCard';
+import { InquiryVisualizer } from '../components/compare/guided/InquiryVisualizer';
+import { GuidedQuestionId } from '../lib/compare/guidedQuestions';
+import {
+  executeBankabilityInquiry,
+  executeExpenseRatioInquiry,
+  executeLeverageInquiry,
+  executeStrikePriceInquiry,
+  executeStressInquiry,
+  executeAllocationInquiry,
+  InquiryExecutionResult,
+} from '../lib/compare/inquiries';
+import {
+  executeConfiguredInquiry,
+  CustomInquiryConfig,
+} from '../lib/compare/inquiryConfigurator';
 
 /** What the page needs to know about the focus deal's recorded acquisition baseline. */
 interface BaselineInfo {
@@ -99,6 +116,13 @@ export const ComparePage: React.FC = () => {
   const [saveBusy, setSaveBusy] = useState(false);
   const [recents, setRecents] = useState<RecentBoard[]>(() => loadRecents());
   const [draft] = useState<CompareConfig | null>(() => loadDraft());
+
+  // Guided Underwriting Inquiries
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [activeQuestionId, setActiveQuestionId] = useState<GuidedQuestionId>('bankability_down_payment');
+  const [inquiryDealId, setInquiryDealId] = useState<string | null>(null);
+  const [isCustomConfigMode, setIsCustomConfigMode] = useState(false);
+  const [customInquiryConfig, setCustomInquiryConfig] = useState<CustomInquiryConfig | null>(null);
 
   // Baseline (owned deal, single-property board)
   const [baselineInfo, setBaselineInfo] = useState<BaselineInfo | null>(null);
@@ -154,6 +178,12 @@ export const ComparePage: React.FC = () => {
     const dealId = searchParams.get('dealId');
     const scope = searchParams.get('scope');
     if (scope === 'pipeline' || scope === 'owned') setFilters((f) => ({ ...f, status: scope }));
+    const inq = searchParams.get('inquiry') as GuidedQuestionId;
+    if (inq) {
+      setInquiryOpen(true);
+      setActiveQuestionId(inq);
+      if (dealId) setInquiryDealId(dealId);
+    }
     const hasSeed = !!shared || ids.length > 0 || !!dealId;
     if (!hasSeed) return;
     setSearchParams({}, { replace: true });
@@ -418,6 +448,66 @@ export const ComparePage: React.FC = () => {
 
   // --- Render ---------------------------------------------------------------------------
 
+  const selectedInquiryDeal = useMemo(() => {
+    if (deals.length === 0) return null;
+    return (inquiryDealId ? deals.find((d) => d.id === inquiryDealId) : null) || deals[0];
+  }, [deals, inquiryDealId]);
+
+  const inquiryResult = useMemo<InquiryExecutionResult | null>(() => {
+    if (!selectedInquiryDeal) return null;
+    try {
+      if (isCustomConfigMode && customInquiryConfig) {
+        const customRes = executeConfiguredInquiry(selectedInquiryDeal, customInquiryConfig);
+        return {
+          questionId: 'expense_ratio_bankability',
+          story: customRes.story,
+          columns: customRes.columns,
+          rawResult: {
+            points: customRes.points,
+            baselineValue: customRes.baselineValue,
+            targetThreshold: customInquiryConfig.targetThreshold ?? 1.25,
+            variableKey: customInquiryConfig.variableKey,
+          },
+        };
+      }
+
+      switch (activeQuestionId) {
+        case 'bankability_down_payment':
+          return executeBankabilityInquiry(selectedInquiryDeal);
+        case 'expense_ratio_bankability':
+          return executeExpenseRatioInquiry(selectedInquiryDeal, 1.25);
+        case 'financial_leverage':
+          return executeLeverageInquiry(selectedInquiryDeal);
+        case 'max_offer_dscr':
+          return executeStrikePriceInquiry(selectedInquiryDeal, 'dscr', 1.25);
+        case 'max_offer_irr':
+          return executeStrikePriceInquiry(selectedInquiryDeal, 'irr', 15);
+        case 'rate_and_vacancy_stress':
+          return executeStressInquiry(selectedInquiryDeal);
+        case 'pipeline_allocation':
+          return executeAllocationInquiry(deals.slice(0, 5));
+        default:
+          return executeBankabilityInquiry(selectedInquiryDeal);
+      }
+    } catch (err) {
+      console.warn('[compare] Inquiry computation error:', err);
+      return null;
+    }
+  }, [selectedInquiryDeal, activeQuestionId, deals, isCustomConfigMode, customInquiryConfig]);
+
+  const isCurrentInquiryPromoted = useMemo(() => {
+    if (!inquiryResult || columns.length === 0) return false;
+    return inquiryResult.columns.every((c) =>
+      columns.some((b) => b.dealId === c.dealId && (b.scenarioKey === c.scenarioKey || b.scenarioName === c.scenarioName))
+    );
+  }, [inquiryResult, columns]);
+
+  const handlePromoteInquiryToBoard = () => {
+    if (!inquiryResult) return;
+    setColumns(inquiryResult.columns);
+    setInquiryOpen(false);
+  };
+
   const winners = useMemo(() => evaluateWinners(columns), [columns]);
   const displayColumns = useMemo(() => {
     const m = sort ? getMetric(sort.key) : undefined;
@@ -444,7 +534,7 @@ export const ComparePage: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <ConnectedHeader active="compare" deals={deals} onDealsChanged={() => { void loadDeals(); }} />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-5">
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5">
         <div className="flex items-baseline justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Compare</h1>
@@ -457,6 +547,44 @@ export const ComparePage: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin mb-3" />
               <p className="text-xs font-bold text-slate-300">Loading your properties…</p>
+            </div>
+          ) : inquiryOpen ? (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setInquiryOpen(false)}
+                  className="text-xs font-bold text-slate-400 hover:text-white flex items-center space-x-1.5 transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Comparison Starters</span>
+                </button>
+              </div>
+
+              <InquiryCommandBar
+                deals={deals}
+                activeDeal={selectedInquiryDeal}
+                activeQuestionId={activeQuestionId}
+                isCustomMode={isCustomConfigMode}
+                onSelectDeal={setInquiryDealId}
+                onSelectQuestion={(qId) => {
+                  setActiveQuestionId(qId);
+                  setIsCustomConfigMode(false);
+                }}
+                onToggleCustomMode={setIsCustomConfigMode}
+                onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
+              />
+
+              {inquiryResult && (
+                <div className="space-y-4">
+                  <ComparativeStoryCard
+                    story={inquiryResult.story}
+                    onPromoteToBoard={handlePromoteInquiryToBoard}
+                    isPromoted={isCurrentInquiryPromoted}
+                  />
+                  <InquiryVisualizer inquiryResult={inquiryResult} />
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -475,6 +603,7 @@ export const ComparePage: React.FC = () => {
                 onPickScenarioDeal={(d) => { void showScenarioSet(d); }}
                 onOpenSaved={() => setPanel('saved')}
                 onContinueDraft={() => { if (draft) void openConfig(draft, 'Last board'); }}
+                onOpenInquiry={() => setInquiryOpen(true)}
               />
             </>
           )
@@ -502,12 +631,43 @@ export const ComparePage: React.FC = () => {
               onOpenMetrics={() => setPanel('metrics')}
               onOpenFilters={() => { setFiltersReturnTo(null); setPanel('filters'); }}
               onOpenSaved={() => setPanel('saved')}
+              onOpenInquiry={() => setInquiryOpen((v) => !v)}
+              inquiryActive={inquiryOpen}
               onSaveNew={(name) => { void handleSaveNew(name); }}
               onUpdateSaved={() => { void handleUpdateSaved(); }}
               onExportCsv={() => exportComparisonCSV(displayColumns, metrics)}
               onCopyLink={() => { void handleCopyLink(); }}
               onClearBoard={handleClearBoard}
             />
+
+            {inquiryOpen && (
+              <div className="space-y-5 animate-in fade-in duration-200">
+                <InquiryCommandBar
+                  deals={deals}
+                  activeDeal={selectedInquiryDeal}
+                  activeQuestionId={activeQuestionId}
+                  isCustomMode={isCustomConfigMode}
+                  onSelectDeal={setInquiryDealId}
+                  onSelectQuestion={(qId) => {
+                    setActiveQuestionId(qId);
+                    setIsCustomConfigMode(false);
+                  }}
+                  onToggleCustomMode={setIsCustomConfigMode}
+                  onExecuteCustom={(cfg) => setCustomInquiryConfig(cfg)}
+                />
+
+                {inquiryResult && (
+                  <div className="space-y-4">
+                    <ComparativeStoryCard
+                      story={inquiryResult.story}
+                      onPromoteToBoard={handlePromoteInquiryToBoard}
+                      isPromoted={isCurrentInquiryPromoted}
+                    />
+                    <InquiryVisualizer inquiryResult={inquiryResult} />
+                  </div>
+                )}
+              </div>
+            )}
 
             {focusDeal && (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-xs text-slate-300">
