@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ComparativeStory } from '../../../lib/compare/comparativeStories';
 import {
   ShieldCheck,
@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Sparkles,
   CheckCircle2,
+  FileCheck,
 } from 'lucide-react';
 
 interface ComparativeStoryCardProps {
@@ -23,6 +24,7 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
   onPromoteToBoard,
   isPromoted = false,
 }) => {
+  const [showAudit, setShowAudit] = useState(false);
   const { verdictBadge, headline, keyTakeaways, narrativeParagraphs, actionRecommendation } = story;
 
   // Status visual mapping
@@ -140,6 +142,79 @@ export const ComparativeStoryCard: React.FC<ComparativeStoryCardProps> = ({
             </span>
             <p className="text-slate-200 leading-relaxed">{actionRecommendation}</p>
           </div>
+        </div>
+      )}
+
+      {/* Assumption Provenance & Audit Trail */}
+      {story.assumptionAuditTrail && story.assumptionAuditTrail.length > 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/60 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowAudit(!showAudit)}
+            className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-900/60 transition select-none"
+          >
+            <div className="flex items-center space-x-2.5">
+              <div className="w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center">
+                <FileCheck className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white block">
+                  Assumption Audit & Provenance Trail
+                </span>
+                <span className="text-[10px] text-slate-400 block">
+                  {story.assumptionAuditTrail.length} inputs verified · Ground-truth sources & hypothesis justifications
+                </span>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
+              {showAudit ? 'Hide Audit ▴' : 'View Audit ▾'}
+            </span>
+          </button>
+
+          {showAudit && (
+            <div className="p-4 border-t border-slate-800 space-y-2.5 animate-in fade-in duration-150">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {story.assumptionAuditTrail.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-slate-800/80 bg-slate-900/80 p-3 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-slate-200">{item.label}</span>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                          item.source === 'hypothesis'
+                            ? 'bg-sky-950/80 border-sky-800/80 text-sky-300'
+                            : item.source === 'document'
+                              ? 'bg-cyan-950/80 border-cyan-800/80 text-cyan-300'
+                              : item.source === 'profile'
+                                ? 'bg-violet-950/80 border-violet-800/80 text-violet-300'
+                                : item.source === 'county'
+                                  ? 'bg-amber-950/80 border-amber-800/80 text-amber-300'
+                                  : 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300'
+                        }`}
+                      >
+                        {item.sourceBadge}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline space-x-2 font-mono">
+                      <span className="text-sm font-bold text-white">{item.currentValue}</span>
+                      {item.baselineValue && (
+                        <span className="text-[10px] text-slate-500 line-through">
+                          Baseline: {item.baselineValue}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 leading-normal font-sans">
+                      {item.rationale}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

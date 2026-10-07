@@ -19,6 +19,7 @@ import {
   generateStressStory,
 } from './comparativeStories';
 import type { GuidedQuestionId } from './guidedQuestions';
+import { buildAssumptionAuditTrail } from './assumptionAudit';
 
 export interface InquiryExecutionResult {
   questionId: GuidedQuestionId;
@@ -42,6 +43,12 @@ export function executeBankabilityInquiry(
 
   const matrixResult = calculateDownPaymentMatrix(assetClass, inputs, customPercentages);
   const story = generateBankabilityStory(title, matrixResult, targetDscr);
+  const bankableRow = matrixResult.rows.find((r) => (r.dscr ?? 0) >= targetDscr);
+  story.assumptionAuditTrail = buildAssumptionAuditTrail(
+    deal,
+    bankableRow ? { downPaymentPercent: bankableRow.downPaymentPercent } : undefined,
+    { questionId: 'bankability_down_payment', targetDscr }
+  );
 
   // Generate comparison columns for the down payment spectrum
   const columns: ComparisonColumn[] = matrixResult.rows.map((row, idx) => {
@@ -71,6 +78,9 @@ export function executeLeverageInquiry(deal: DealRecord): InquiryExecutionResult
 
   const matrixResult = calculateDownPaymentMatrix(assetClass, inputs, [20, 25, 35, 50, 100]);
   const story = generateLeverageStory(title, matrixResult);
+  story.assumptionAuditTrail = buildAssumptionAuditTrail(deal, undefined, {
+    questionId: 'financial_leverage',
+  });
 
   // Comparison columns: Unlevered All-Cash vs Baseline Financed vs High Leverage
   const baselinePct = matrixResult.baselinePercent;
@@ -172,6 +182,15 @@ export function executeStrikePriceInquiry(
     solvedSummary,
     baselineSummary
   );
+  story.assumptionAuditTrail = buildAssumptionAuditTrail(
+    deal,
+    { purchasePrice: solvedPrice },
+    {
+      questionId: targetType === 'dscr' ? 'max_offer_dscr' : 'max_offer_irr',
+      targetDscr: targetVal,
+      targetIrr: targetVal,
+    }
+  );
 
   // Comparison columns: Asking Price vs Solved Strike Basis
   const columns: ComparisonColumn[] = [
@@ -241,6 +260,14 @@ export function executeStressInquiry(
     Number(vacY1.cashFlow ?? 0),
     breakEvenOcc
   );
+  story.assumptionAuditTrail = buildAssumptionAuditTrail(
+    deal,
+    {
+      interestRate: +(baseRate + rateShockBps / 100).toFixed(2),
+      vacancyRate: +(baseVac + vacancyShockPct).toFixed(1),
+    },
+    { questionId: 'rate_and_vacancy_stress', rateShockBps, vacancyShockPct }
+  );
 
   const columns: ComparisonColumn[] = [
     buildColumn(deal, 'live', `Baseline Case`, undefined, true, 'stress:base'),
@@ -308,6 +335,9 @@ export function executeAllocationInquiry(deals: DealRecord[]): InquiryExecutionR
       topCoCId: topCoC?.dealId,
       topSafetyId: topSafety?.dealId,
     },
+    assumptionAuditTrail: deals[0]
+      ? buildAssumptionAuditTrail(deals[0], undefined, { questionId: 'pipeline_allocation' })
+      : undefined,
   };
 
   return {

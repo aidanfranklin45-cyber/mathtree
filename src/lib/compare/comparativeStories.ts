@@ -1,5 +1,6 @@
 import { formatCurrency } from '../format';
 import type { DownPaymentMatrixResult, DownPaymentMatrixRow } from '../engine';
+import type { AssumptionAuditEntry } from './assumptionAudit';
 
 export type StoryVerdictStatus = 'bankable' | 'tight' | 'unbankable' | 'accretive' | 'dilutive' | 'resilient' | 'vulnerable';
 
@@ -16,6 +17,7 @@ export interface ComparativeStory {
   narrativeParagraphs: string[];
   actionRecommendation: string;
   covenantData?: Record<string, any>;
+  assumptionAuditTrail?: AssumptionAuditEntry[];
 }
 
 const fmtPct = (val: number | null | undefined, decimals = 1): string => {

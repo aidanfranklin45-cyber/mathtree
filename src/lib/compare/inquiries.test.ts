@@ -37,6 +37,14 @@ describe('Guided Underwriting Inquiries & Comparative Stories', () => {
     // Verify first column has valid summary numbers
     expect(res.columns[0].summary.purchasePrice).toBeGreaterThan(0);
     expect(res.columns[0].summary.dscr).not.toBeNull();
+
+    // Verify Assumption Audit Trail
+    expect(res.story.assumptionAuditTrail).toBeDefined();
+    expect(res.story.assumptionAuditTrail!.length).toBeGreaterThan(0);
+    const priceEntry = res.story.assumptionAuditTrail!.find((a) => a.key === 'purchasePrice');
+    expect(priceEntry).toBeDefined();
+    expect(priceEntry?.sourceBadge).toBeTruthy();
+    expect(priceEntry?.rationale).toBeTruthy();
   });
 
   it('executes Financial Leverage Inquiry: evaluates loan constant spread', () => {
