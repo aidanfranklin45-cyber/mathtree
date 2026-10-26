@@ -374,13 +374,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   // ---- Bidirectional income sync ----
   const syncStorage = (from: 'rpu' | 'tot', v: string) => {
-    const u = int(w.storageUnits, 20) || 20;
-    if (from === 'rpu') { const tot = num(v) * u; set({ storageRentPerUnit: v, storageGrossRent: String(tot), grossRent: String(tot) }); }
+    const u = int(w.storageUnits, 0);
+    if (from === 'rpu') { if (u > 0) { const tot = num(v) * u; set({ storageRentPerUnit: v, storageGrossRent: String(tot), grossRent: String(tot) }); } else set({ storageRentPerUnit: v }); }
     else { set({ storageGrossRent: v, storageRentPerUnit: String(u > 0 ? Math.round(num(v) / u) : 0), grossRent: v }); }
   };
   const syncMulti = (from: 'rpu' | 'tot', v: string) => {
-    const u = int(w.multiUnits, 12) || 12;
-    if (from === 'rpu') { const tot = num(v) * u; set({ multiRentPerUnit: v, multiGrossRent: String(tot), grossRent: String(tot) }); }
+    const u = int(w.multiUnits, 0);
+    if (from === 'rpu') { if (u > 0) { const tot = num(v) * u; set({ multiRentPerUnit: v, multiGrossRent: String(tot), grossRent: String(tot) }); } else set({ multiRentPerUnit: v }); }
     else { set({ multiGrossRent: v, multiRentPerUnit: String(u > 0 ? Math.round(num(v) / u) : 0), grossRent: v }); }
   };
   const syncComm = (from: 'ann' | 'mo', v: string) => {
@@ -775,13 +775,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Total Storage Units</label>
-                  <input type="number" min={1} placeholder="e.g. 20" data-field="storageUnits" value={w.storageUnits} onChange={(e) => set({ storageUnits: e.target.value })} className={inputSm} />
+                  <input type="number" min={1} placeholder="How many units?" data-field="storageUnits" value={w.storageUnits} onChange={(e) => { const u = int(e.target.value, 0); const rpu = num(w.storageRentPerUnit); set(u > 0 && rpu > 0 ? { storageUnits: e.target.value, storageGrossRent: String(rpu * u), grossRent: String(rpu * u) } : { storageUnits: e.target.value }); }} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl2}>Rentable Facility Area (Sq Ft)</label>
                   <input type="number" min={100} placeholder="e.g. 2000" data-field="storageSqft" value={w.storageSqft} onChange={(e) => set({ storageSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
+              <FieldNotes keys={['unitCount', 'squareFeet']} />
               <label className="flex items-center space-x-2.5 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
                 <input type="checkbox" checked={w.storageAutomated === 'true'} onChange={(e) => set({ storageAutomated: String(e.target.checked) })}
                   className="w-4 h-4 rounded text-brand-500 bg-slate-950 border-slate-700 focus:ring-brand-500 cursor-pointer" />
@@ -798,7 +799,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Total Apartment Units</label>
-                  <input type="number" min={1} placeholder="e.g. 12" data-field="multiUnits" value={w.multiUnits} onChange={(e) => set({ multiUnits: e.target.value })} className={inputSm} />
+                  <input type="number" min={1} placeholder="How many units?" data-field="multiUnits" value={w.multiUnits} onChange={(e) => { const u = int(e.target.value, 0); const rpu = num(w.multiRentPerUnit); set(u > 0 && rpu > 0 ? { multiUnits: e.target.value, multiGrossRent: String(rpu * u), grossRent: String(rpu * u) } : { multiUnits: e.target.value }); }} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
@@ -1075,7 +1076,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <FieldNote k="grossRentPerMonth" />
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-400">Gross Potential Revenue:</span>
-              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.storageGrossRent) * 12)} / yr ({int(w.storageUnits, 20) || 20} units @ {num(w.storageRentPerUnit)}/mo)</span>
+              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.storageGrossRent) * 12)} / yr ({int(w.storageUnits, 0) || 'unknown number of'} units @ {num(w.storageRentPerUnit)}/mo)</span>
             </div>
           </div>
         )}
@@ -1098,7 +1099,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <FieldNote k="grossRentPerMonth" />
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-400">Gross Potential Revenue:</span>
-              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.multiGrossRent) * 12)} / yr ({int(w.multiUnits, 12) || 12} units @ {formatCurrency(num(w.multiRentPerUnit))}/mo)</span>
+              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.multiGrossRent) * 12)} / yr ({int(w.multiUnits, 0) || 'unknown number of'} units @ {formatCurrency(num(w.multiRentPerUnit))}/mo)</span>
             </div>
           </div>
         )}

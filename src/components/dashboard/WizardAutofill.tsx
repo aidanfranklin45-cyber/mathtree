@@ -126,7 +126,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     setNote(null);
     try {
       const out: Read[] = [];
-      for (const source of sources) {
+      // Text left in the paste box is a document too: no separate "add" step
+      const waiting: Source[] = pasted.trim().length >= 20 ? [{ id: nextId.current++, name: "Pasted text", text: pasted, type: "auto" }] : [];
+      if (waiting.length) { setSources((s) => [...s, ...waiting]); setPasted(""); }
+      for (const source of [...sources, ...waiting]) {
         try {
           const read = await readDocument({ text: source.text, filename: source.name, documentType: source.type === 'auto' ? undefined : source.type });
           // A number the reader returned that is not in the document text cannot have been read as printed: it goes to the owner as unsure
@@ -516,7 +519,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={run} disabled={busy} className={`${btn} bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4`}>
-          {busy ? 'Working…' : done ? 'Fill again' : sources.length > 0 ? `Read ${sources.length} document${sources.length === 1 ? '' : 's'} and fill everything I can` : 'Fill everything I can from my assumptions'}
+          {busy ? 'Working…' : done ? 'Fill again' : sources.length + (pasted.trim().length >= 20 ? 1 : 0) > 0 ? `Read ${sources.length + (pasted.trim().length >= 20 ? 1 : 0)} document${sources.length + (pasted.trim().length >= 20 ? 1 : 0) === 1 ? '' : 's'} and fill everything I can` : 'Fill everything I can from my assumptions'}
         </button>
         {done && !busy && result && <span role="status" className="text-[11px] text-emerald-300">Filled {result.filled} figures from {result.docs.length} document{result.docs.length === 1 ? '' : 's'}, and the rest from your assumptions.</span>}
         {done && !busy && !result && <span role="status" className="text-[11px] text-emerald-300">Filled from your assumptions.</span>}
