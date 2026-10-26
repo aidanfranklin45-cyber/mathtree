@@ -87,7 +87,7 @@ describe('printed briefs (public sample deal)', () => {
     const r = await render('/demo-brief', 'What the simulation varied', 'investor');
     console.log(`investor brief PDF: ${join(outDir, 'investor.pdf')} (${r.sheets} sheets)`);
     // The story, in the order a lender reads it
-    const order = ['beats your opportunity cost|close to your opportunity cost|below your opportunity cost', '10-year pro-forma forecast', 'where the numbers come from', 'down payment & leverage sensitivity', 'monte carlo simulation'];
+    const order = ['projected to be profitable|projected to be marginal|not projected to be profitable', '10-year pro-forma forecast', 'where the numbers come from', 'down payment & leverage sensitivity', 'monte carlo simulation'];
     let at = -1;
     for (const alt of order) {
       const i = Math.min(...alt.split('|').map((t) => { const k = r.text.indexOf(t); return k < 0 ? Infinity : k; }));
@@ -190,14 +190,14 @@ describe('page 1 tells the napkin story for each kind of deal', () => {
   const common = { downPaymentPercent: 25, interestRate: 6.5, loanTerm: 30, exitYear: 10, closingDate: '2026-12-02', vacancyRate: 5, rentGrowth: 3, discountRate: 6, targetCapRate: 6.5, closingCosts: 5000 };
   const cases: Array<{ name: string; asset: string; inputs: Record<string, any>; verdict: string; mustHave: string[]; mustNot?: string[] }> = [
     {
-      name: 'a 12-unit storage deal that cannot pay its loan', asset: 'storage',
+      name: 'a 12-unit storage deal whose income does not cover its loan', asset: 'storage',
       inputs: { ...common, purchasePrice: 200_000, downPaymentPercent: 10, interestRate: 6.53, closingCosts: 2500, rehabCosts: 2500, expenseRatio: 35, payrollMarketingPercent: 8, unitCount: 12, storageRentPerUnit: 150, storageUnitCount: 12 },
-      verdict: 'does not make money', mustHave: ['units', 'average rent per unit', 'what the loan costs', 'cannot pay for itself'],
+      verdict: 'not projected to be profitable', mustHave: ['units', 'average rent per unit', 'what the loan costs', 'not projected to pay for itself'],
     },
     {
       name: 'a 10-unit apartment building that clears the bar', asset: 'multi-unit',
       inputs: { ...common, purchasePrice: 900_000, expenseRatio: 38, unitCount: 10, monthlyRentPerUnit: 1700 },
-      verdict: 'makes money', mustHave: ['units', 'yield on cost', 'covers the loan at'],
+      verdict: 'projected to be profitable', mustHave: ['units', 'yield on cost', 'covers the loan at'], mustNot: ['not projected'],
     },
     {
       name: 'a single-family house', asset: 'single-family',

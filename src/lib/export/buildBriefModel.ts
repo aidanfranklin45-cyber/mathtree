@@ -239,7 +239,7 @@ export interface BriefModel {
   stoplight: StoplightResult;
   /** The back-of-the-napkin math (units, rent, expenses, NOI, total cost, yield, loan) for the first full year. */
   napkin: Napkin;
-  /** "Does it make money?": the napkin's yield against the opportunity cost, capped by whether the income covers the loan. */
+  /** "Is it projected to be profitable?": the napkin's yield against the opportunity cost, capped by whether the income covers the loan. */
   napkinVerdict: NapkinVerdict;
   /** Owned properties have a rent roll worth printing; a prospect's rent comes from its underwriting. */
   isPipeline: boolean;
@@ -247,7 +247,301 @@ export interface BriefModel {
   leverageMarks: { best: { downPaymentPercent: number; cashOnCash: number } | null; firstNonNegativePercent: number | null };
 }
 
-const money = (n: number): string => '$' + Math.round(n).toLocaleString('en-US');
+const money = (n: number): string => (n < 0 ? '-' : '') + '
+const pct1 = (n: number): string => (Math.abs(n - Math.round(n)) < 0.005 ? n.toFixed(0) : n.toFixed(1));
+
+export function buildBriefModel(
+  deal: DealRecord,
+  leaseRows: LeaseRow[] = [],
+  parcelRows: ParcelRow[] = [],
+  now: Date = new Date(),
+): BriefModel {
+  const metrics = computeDealMetrics(deal);
+  const raw = metrics as unknown as Record<string, any>;
+  const inputs = prepareEngineInputs(deal) as Record<string, any>;
+  const assetClass = normalizeBriefAssetClass(deal.asset_class ?? deal.assetType);
+  const isResidential = assetClass === 'residential';
+  const isMultiFamily = assetClass === 'multi_family';
+  const isStorage = assetClass === 'storage';
+  const status = String(deal.status || 'prospect').toLowerCase();
+
+  const downPaymentMatrix = calculateDownPaymentMatrix(assetClass, inputs);
+
+  const proj = (metrics.projections ?? []) as ProFormaYear[];
+  const p0 = (proj[0] ?? {}) as Record<string, any>;
+  const firstFull = (firstFullYear(proj as any[]) ?? p0) as Record<string, any>;
+  const isProrated = Boolean(raw.isProratedFirstYear || (p0.operatingMonths !== undefined && p0.operatingMonths < 12));
+  const months = num(p0.operatingMonths) || 12;
+
+  // Capital structure: engine results only (mirrors math-engine.ts: downPaymentPercent defaults to 0, not 25)
+  const price = num(raw.purchasePrice);
+  const rehabCosts = num(raw.rehabCosts);
+  const closingCosts = num(inputs.closingCosts);
+  const arv = raw.arv ? num(raw.arv) : null;
+  const rehabMode: BriefModel['rehabMode'] =
+    (inputs.rehabFinancingMode || (inputs.financeRehabAndClosingCosts ? 'roll_into_loan' : 'out_of_pocket')) === 'roll_into_loan'
+      ? 'roll_into_loan'
+      : 'out_of_pocket';
+  const totalFinancedBasis = rehabMode === 'roll_into_loan' ? price + rehabCosts + closingCosts : price;
+  const downPaymentAmt = num(raw.downPaymentAmount);
+  const downPaymentPct = totalFinancedBasis > 0 ? (downPaymentAmt / totalFinancedBasis) * 100 : 0;
+  const loanAmt = num(raw.loanAmount);
+  const equity = num(raw.initialCashInvested);
+  const ltvPct = totalFinancedBasis > 0 ? (loanAmt / totalFinancedBasis) * 100 : 0;
+
+  const interestRate = p0.appliedInterestRate !== undefined ? num(p0.appliedInterestRate) : num(inputs.interestRate);
+  const loanTerm = parseInt(String(inputs.loanTerm || inputs.loanTermYears || inputs.amortizationYears || 30), 10) || 30;
+  const rawHold = parseInt(String(inputs.holdingPeriod || inputs.exitYear || inputs.holdYears || 10), 10);
+  const holdYears = Math.max(1, Math.min(30, Number.isNaN(rawHold) ? 10 : rawHold));
+  const discountRate = num(inputs.discountRate);
+  const exitCapRate = num(inputs.targetCapRate) || num(inputs.targetExitCapRate) || num(inputs.exitCapRate) || 6.5;
+
+  const noi = num(p0.netOperatingIncome);
+  const debtService = num(p0.debtService ?? p0.annualDebtService);
+  const monthlyDebtService = num(raw.monthlyMortgagePayment);
+  const principalPerMonth = num(p0.principalPaid) / months;
+  const interestPerMonth = num(p0.interestPaid) / months;
+  const cashFlow = num(p0.cashFlow);
+  const dscr = metrics.dscr === null || metrics.dscr === undefined || metrics.dscr === '' || Number.isNaN(Number(metrics.dscr)) ? null : Number(metrics.dscr);
+  const dscrFormatted = dscr !== null && debtService > 0 ? `${dscr.toFixed(2)}x` : 'N/A';
+  const dscrNum = dscr ?? 0;
+
+  // Revenue and expenses from the first FULL operating year. A closing mid-year makes Year 1 a stub holding only a few
+  // months of rent, so dividing it by 12 would understate the monthly rent (6 months of $2,600 is $15,600, not $1,300/mo).
+  const fy = firstFull;
+  const annualRent = num(fy.grossPotentialIncome ?? fy.grossPotentialRent);
+  const monthlyRent = annualRent / 12;
+  const vacancyLossAnnual = num(fy.vacancyLoss);
+  const vacancyPct = annualRent > 0 ? (vacancyLossAnnual / annualRent) * 100 : 0;
+  const opExAnnual = num(fy.operatingExpenses);
+  const expenseRatioPct = annualRent > 0 ? (opExAnnual / annualRent) * 100 : 0;
+
+  // Leases: underwriting leases (what the engine ran) and the live rent roll (what is actually in place)
+  const underwritingLeases = (Array.isArray(inputs.leases) ? inputs.leases : []).map(
+    (l: any): BriefLease => ({
+      tenant: text(l.tenantName),
+      unit: text(l.unitNumber),
+      type: text(l.leaseType),
+      monthlyRent: num(l.monthlyRent) || num(l.annualRent) / 12,
+      start: text(l.leaseStartDate),
+      end: text(l.leaseEndDate),
+      escalation: present(l.escalationRate) ? `${num(l.escalationRate)}% ${text(l.escalationFrequency) ?? ''}`.trim() : null,
+      nextEscalation: text(l.nextEscalationDate),
+    }),
+  );
+  const rentRoll = leaseRows.filter((l) => l.is_active !== false).map(mapLease);
+  const rentRollMonthly = rentRoll.reduce((s, l) => s + l.monthlyRent, 0);
+  const rentVarianceMonthly = rentRoll.length > 0 ? rentRollMonthly - monthlyRent : null;
+
+  // Assessor records
+  const parcels = resolveParcels(parcelRows, inputs);
+  const parcelTotals = parcels.reduce(
+    (t, p) => ({ assessed: t.assessed + p.assessed, land: t.land + p.land, improvement: t.improvement + p.improvement, acres: t.acres + p.acres, sqft: t.sqft + p.sqft }),
+    { assessed: 0, land: 0, improvement: 0, acres: 0, sqft: 0 },
+  );
+  const assessor = (inputs.assessorData ?? {}) as Record<string, any>;
+  const primary = parcels[0];
+  const gisSyncDate = assessor.lastSyncedAt ?? inputs.gisSync?.lastSyncedAt;
+  const hasApn = !!primary && primary.apn !== 'Pending Link';
+  const hasCountyFigures = parcels.some((p) => p.assessed > 0 || p.acres > 0) || num(assessor.totalAssessedValue) > 0;
+  const gisBadge = gisSyncDate && hasCountyFigures
+    ? `Live GIS Verified (${new Date(gisSyncDate).toLocaleDateString()})`
+    : hasApn ? 'Verified County Parcel' : 'Manual Underwriting Record';
+  const buildingSqFt = num(assessor.buildingSqFt ?? inputs.buildingSqFt ?? inputs.gla ?? inputs.totalSqFt);
+
+  const closingDate = text(inputs.closingDate) ?? text(deal.closing_date);
+  // The first projection year is authoritative for the table, so the header must agree with it
+  const parsedYear = closingDate ? new Date(closingDate).getFullYear() : NaN;
+  const startYear = num(p0.calendarYear) > 2000 ? num(p0.calendarYear) : parsedYear > 2000 && parsedYear < 2100 ? parsedYear : now.getFullYear();
+
+  // Narrative, built only from the numbers above
+  let dscrEvaluation: string;
+  if (dscrNum >= 1.25 && cashFlow > 0) {
+    dscrEvaluation = `Calibrated to lending terms. ${isProrated ? 'Stabilized debt' : 'Debt'} service coverage of ${dscrNum.toFixed(2)}x confirms resilient cash flow cushion (${money(isProrated ? num(firstFull.cashFlow ?? cashFlow) : cashFlow)}/yr) comfortably exceeding standard 1.25x covenant floor.${isProrated && p0.dscr ? ` Note: Year 1 partial stub coverage is ${Number(p0.dscr).toFixed(2)}x (${months} mos) before full-year stabilization.` : ''}`;
+  } else if (dscrNum >= 1.0 && cashFlow > 0) {
+    dscrEvaluation = `Moderate coverage. Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}DSCR of ${dscrNum.toFixed(2)}x yields positive cash flow (${money(cashFlow)}/yr) but sits below preferred 1.25x bank covenant buffer; sensitive to vacancy spikes or debt rate increases.`;
+  } else {
+    dscrEvaluation = `Underwriting Deficit Flag: Projected ${isProrated ? 'Stabilized ' : 'Year 1 '}operating cash flow is ${cashFlow < 0 ? 'negative' : 'thin'} (${money(cashFlow)}/yr, DSCR: ${dscrNum > 0 ? dscrNum.toFixed(2) + 'x' : 'N/A'}). Requires operating interest reserve or debt restructuring to service senior debt until stabilization.`;
+  }
+
+  const debtProvenance = rehabMode === 'roll_into_loan'
+    ? `Structured on Total Project Basis (LTC): Purchase (${money(price)}) + Rehab (${money(rehabCosts)}) + Closing (${money(closingCosts)}) = Total Financed Basis (${money(totalFinancedBasis)}). Senior debt of ${money(loanAmt)} finances ${pct1(ltvPct)}% of total basis, requiring ${money(equity)} (${pct1(downPaymentPct)}%) initial sponsor equity down payment.`
+    : `Structured on Acquisition Price (LTV): Senior loan of ${money(loanAmt)} (${pct1(ltvPct)}% LTV) finances purchase price (${money(price)}). Rehab scope (${money(rehabCosts)}) and closing settlement (${money(closingCosts)}) are paid 100% upfront out of pocket by sponsor, requiring ${money(equity)} total upfront cash outlay (${money(downPaymentAmt)} acquisition down payment + ${money(rehabCosts + closingCosts)} rehab & closing).`;
+
+  const leaseKind = isResidential ? 'Residential Gross Lease' : (underwritingLeases[0]?.type ?? text(inputs.leaseType) ?? 'commercial');
+  let revenueProvenance: string;
+  if (isResidential) {
+    revenueProvenance = `Underwritten from in-place residential tenancy (${money(monthlyRent)}/mo, ${money(annualRent)}/yr gross).`;
+  } else if (isMultiFamily) {
+    const units = parseInt(String(inputs.unitCount || inputs.numUnits || 0), 10);
+    revenueProvenance = units > 0
+      ? `Derived from ${units} residential multi-family doors at an average of ${money(monthlyRent / units)}/mo per unit (${money(monthlyRent)}/mo combined, ${money(annualRent)}/yr gross potential income).`
+      : `Derived from the multi-family rent roll (${money(monthlyRent)}/mo, ${money(annualRent)}/yr gross potential income).`;
+  } else if (isStorage) {
+    const sf = num(inputs.storageSqFt ?? inputs.gla) || buildingSqFt;
+    revenueProvenance = sf > 0
+      ? `Derived from ${sf.toLocaleString()} net rentable self-storage square feet (${money(monthlyRent)}/mo, $${(annualRent / sf).toFixed(2)}/sq ft annual gross revenue).`
+      : `Derived from the self-storage rent schedule (${money(monthlyRent)}/mo, ${money(annualRent)}/yr).`;
+  } else {
+    const l0 = underwritingLeases[0];
+    revenueProvenance = l0 && l0.start && l0.monthlyRent > 0
+      ? `Contractual ${leaseKind} lease commences ${l0.start}${l0.tenant ? ` with ${l0.tenant}` : ''} at ${money(l0.monthlyRent)}/mo (${money(l0.monthlyRent * 12)}/yr base rate)${l0.escalation ? ` with ${l0.escalation} escalation` : ''}. Calendar-year pro-forma revenues reflect exact active months and compounding adjustments.`
+      : `Derived from contractual ${leaseKind} lease agreements (${money(monthlyRent)}/mo, ${money(annualRent)}/yr).`;
+  }
+
+  const expGrowthVal = inputs.expenseGrowth ?? inputs.expenseInflation ?? inputs.expenseGrowthRate ?? inputs.expenseGrowthPercent;
+  const expInflationText = expGrowthVal !== undefined ? ` with ${pct1(num(expGrowthVal))}% annual expense inflation` : '';
+  const opexProvenance = isResidential
+    ? `Underwritten at ${pct1(expenseRatioPct)}% of gross revenue (${money(opExAnnual)}/yr)${expInflationText} to cover residential property management, county real estate taxes, hazard insurance, and maintenance reserves.`
+    : `Underwritten under ${leaseKind} structure at ${pct1(expenseRatioPct)}% of gross income (${money(opExAnnual)}/yr)${expInflationText}.`;
+
+  const warnings: Array<{ title: string; description: string }> = [];
+  const stub = isProrated ? 'Stabilized ' : 'Year 1 ';
+  if (cashFlow < 0) warnings.push({ title: 'Negative Operating Cash Flow', description: `${isProrated ? 'Stub ' : 'Year 1 '}underwritten cash flow is ${money(cashFlow)}. Operating deficit requires debt restructuring or cash reserve.` });
+  if (!hasApn) warnings.push({ title: 'Unlinked Assessor Parcel', description: 'Property is not tied to an active county parcel number; official assessment and boundary lines unverified.' });
+  if (dscrFormatted !== 'N/A' && dscrNum < 1.25) warnings.push({ title: `${stub}DSCR Below 1.25x Covenant Floor`, description: `Projected ${stub}DSCR of ${dscrNum.toFixed(2)}x is below the underwriting threshold of 1.25x.` });
+  if (rentVarianceMonthly !== null && monthlyRent > 0 && Math.abs(rentVarianceMonthly) / monthlyRent >= 0.05) {
+    warnings.push({ title: 'Rent Roll Differs From Underwriting', description: `In-place rent roll is ${money(rentRollMonthly)}/mo versus ${money(monthlyRent)}/mo underwritten (${rentVarianceMonthly >= 0 ? '+' : '-'}${money(Math.abs(rentVarianceMonthly))}/mo).` });
+  }
+
+  // Value growth that comes from a lower cap rate at sale, not from income, is the first thing a reader should be told
+  if (exitCapRate > 0 && num(raw.capRate) > 0 && exitCapRate < num(raw.capRate) - 0.005) {
+    warnings.push({ title: 'Exit Cap Rate Below Going-In Cap Rate', description: `The sale is underwritten at a ${exitCapRate}% cap rate against ${num(raw.capRate).toFixed(2)}% going in, so part of the projected value growth comes from cap-rate compression rather than income growth.` });
+  }
+
+  const memoTypeLabel = isResidential
+    ? 'Single-Family Residential Investment Memo'
+    : isMultiFamily ? 'Multi-Family Residential Memo' : isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo';
+
+  const napkin = calculateNapkin(assetClass, inputs);
+  const defaults = getAssumptionDefaults();
+  const napkinVerdict = classifyNapkin({
+    yieldOnCostPct: napkin.yieldOnCostPct, opportunityCost: discountRate, dscr: napkin.dscr,
+    minDscr: defaults.minDscr ?? 1.25, bandPoints: defaults.stoplightBandPoints ?? STOPLIGHT_BAND_POINTS,
+  });
+  const stoplight = classifyAgainstOpportunityCost(num(raw.irr), discountRate, getAssumptionDefaults().stoplightBandPoints ?? STOPLIGHT_BAND_POINTS);
+
+  const matrixRows = downPaymentMatrix?.rows ?? [];
+  const bestRow = matrixRows.reduce<(typeof matrixRows)[number] | null>((b, r) => (b === null || r.cashOnCash > b.cashOnCash ? r : b), null);
+  const firstNonNeg = matrixRows.find((r) => r.cashOnCash >= 0);
+  const leverageMarks = {
+    best: bestRow ? { downPaymentPercent: bestRow.downPaymentPercent, cashOnCash: bestRow.cashOnCash } : null,
+    firstNonNegativePercent: firstNonNeg ? firstNonNeg.downPaymentPercent : null,
+  };
+
+  const { filled, basis } = resolveProfileAssumptions(deal);
+  const figureSources = buildAssumptionLedger({
+    stored: (deal.inputs ?? {}) as Record<string, any>, prepared: inputs, filled, filledBasis: basis, assetClass: String(deal.asset_class ?? 'commercial'), metrics,
+    assumedClosingWeeks: getAssumptionDefaults().assumptions.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS,
+  }).map((r) => ({ label: r.label, value: r.value, source: r.source, reason: r.reason, group: r.group }));
+
+  // Tie the sources back to the pro forma: the table above states the inputs, the pro forma prints what they became
+  const enteredRentAnnual = num(inputs.grossRentAnnual);
+  if (annualRent > 0 && enteredRentAnnual > 0 && Math.abs(annualRent - enteredRentAnnual) >= 1) {
+    const g = num(inputs.rentGrowth);
+    figureSources.push({
+      label: 'Rent in the pro forma', value: `${money(annualRent)} a year (first full year)`, group: 'project',
+      source: 'The pro forma',
+      reason: `Your ${money(enteredRentAnnual)} a year grown ${pct1(g)}% a year to the first full year of operation`,
+    });
+  }
+  const parts = [
+    { name: 'operating expenses', v: num(inputs.expenseRatio ?? inputs.operatingExpenseRatio) },
+    { name: 'management', v: inputs.manageProperty ? num(inputs.managementFeePercent) : 0 },
+    { name: 'payroll and marketing', v: isStorage ? num(inputs.payrollMarketingPercent) : 0 },
+  ].filter((x) => x.v > 0);
+  if (opExAnnual > 0 && annualRent > 0) {
+    const sum = parts.reduce((t, x) => t + x.v, 0);
+    figureSources.push({
+      label: 'All-in operating expenses', value: `${pct1(expenseRatioPct)}% of gross rent`, group: 'project',
+      source: 'The pro forma',
+      reason: parts.length > 1 && Math.abs(sum - expenseRatioPct) < 0.5 ? parts.map((x) => `${pct1(x.v)}% ${x.name}`).join(' + ') : 'Everything the pro forma charges to operations, before the replacement reserve',
+    });
+  }
+
+  return {
+    title: titleCase(String(deal.title || deal.name || 'Investment Underwriting Brief')),
+    location: text(deal.location) ?? text(deal.address),
+    status,
+    assetClass,
+    isResidential,
+    isMultiFamily,
+    isStorage,
+    memoTypeLabel,
+    dateStr: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+    startYear,
+    closingDate,
+    metrics,
+    proj,
+    p0,
+    isProrated,
+    price,
+    rehabCosts,
+    closingCosts,
+    arv,
+    rehabMode,
+    totalFinancedBasis,
+    downPaymentAmt,
+    downPaymentPct,
+    loanAmt,
+    equity,
+    ltvPct,
+    interestRate,
+    loanTerm,
+    holdYears,
+    discountRate,
+    exitCapRate,
+    capexReservePct: present(inputs.capexReserve) ? num(inputs.capexReserve) : null,
+    noi,
+    debtService,
+    monthlyDebtService,
+    principalPerMonth,
+    interestPerMonth,
+    cashFlow,
+    monthlyCashFlow: cashFlow / months,
+    cashOnCash: num(raw.cashOnCash),
+    irr: num(raw.irr),
+    equityMultiple: num(raw.equityMultiplier),
+    capRate: num(raw.capRate),
+    dscr,
+    dscrFormatted,
+    annualRent,
+    monthlyRent,
+    vacancyPct,
+    vacancyLossAnnual,
+    expenseRatioPct,
+    opExAnnual,
+    parcels,
+    parcelTotals,
+    county: text(inputs.county) ?? text(assessor.county),
+    owner: text(assessor.owner) ?? text(inputs.owner),
+    zoning: primary?.zoning ?? text(assessor.zoning) ?? text(inputs.zoning),
+    useCode: primary?.useCode ?? text(assessor.useCode) ?? text(inputs.useCode),
+    yearBuilt: text(assessor.yearBuilt) ?? text(inputs.yearBuilt),
+    stories: text(assessor.stories) ?? text(inputs.stories),
+    construction: text(assessor.constructionType) ?? text(inputs.constructionType),
+    buildingSqFt,
+    gisBadge,
+    figureSources,
+    rentRoll,
+    rentRollMonthly,
+    rentVarianceMonthly,
+    underwritingLeases,
+    dscrEvaluation,
+    debtProvenance,
+    revenueProvenance,
+    opexProvenance,
+    warnings,
+    monteCarloInputs: inputs,
+    downPaymentMatrix,
+    stoplight,
+    napkin,
+    napkinVerdict,
+    isPipeline: status !== 'owned',
+    leverageMarks,
+  };
+}
+ + Math.round(Math.abs(n)).toLocaleString('en-US');
 const pct1 = (n: number): string => (Math.abs(n - Math.round(n)) < 0.005 ? n.toFixed(0) : n.toFixed(1));
 
 export function buildBriefModel(

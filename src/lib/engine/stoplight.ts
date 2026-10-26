@@ -36,12 +36,12 @@ export function classifyAgainstOpportunityCost(irr: number, opportunityCost: num
   const light: Light = spread >= bandPoints ? 'green' : spread < -bandPoints ? 'red' : 'yellow';
   const rate = `${opportunityCost.toFixed(1)}%`;
   const own = `${irr.toFixed(2)}% annualized IRR`;
-  const verdict = light === 'green' ? 'Beats your opportunity cost' : light === 'yellow' ? 'Close to your opportunity cost' : 'Below your opportunity cost';
+  const verdict = light === 'green' ? 'Projected to beat your opportunity cost' : light === 'yellow' ? 'Projected close to your opportunity cost' : 'Projected below your opportunity cost';
   const headline = light === 'green'
-    ? `The ${own} is ${pts(spread)} above your ${rate} opportunity cost: it should out-earn your money elsewhere.`
+    ? `The ${own} is ${pts(spread)} above your ${rate} opportunity cost: projected to out-earn your money elsewhere.`
     : light === 'yellow'
-      ? `The ${own} is ${spread >= 0 ? `${pts(spread)} above` : `${pts(spread)} below`} your ${rate} opportunity cost, within the ${bandPoints}-point band: about what your money earns elsewhere.`
-      : `The ${own} is ${pts(spread)} below your ${rate} opportunity cost: it should earn less than your money does elsewhere.`;
+      ? `The ${own} is ${spread >= 0 ? `${pts(spread)} above` : `${pts(spread)} below`} your ${rate} opportunity cost, within the ${bandPoints}-point band: projected to be about what your money earns elsewhere.`
+      : `The ${own} is ${pts(spread)} below your ${rate} opportunity cost: projected to earn less than your money does elsewhere.`;
   return { light, irr, opportunityCost, spreadPoints: spread, bandPoints, headline, verdict };
 }
 
@@ -58,7 +58,7 @@ export interface NapkinVerdict {
 }
 
 /**
- * "Does it make money?": the first full year's yield on the whole cost of acquisition against the owner's opportunity cost, with the same
+ * "Is it projected to be profitable?": the first full year's yield on the whole cost of acquisition against the owner's opportunity cost, with the same
  * band as the IRR light. The loan can only make it worse: income that does not cover the loan payment (DSCR under 1.00x) is red whatever
  * the yield, and income that covers it but below the lender's minimum cannot be green.
  */
@@ -80,9 +80,9 @@ export function classifyNapkin(a: {
   const rate = `${a.opportunityCost.toFixed(1)}%`;
   const lead = `Earns a ${y} yield on its total cost, `;
   const rel = spread >= 0 ? `${pts(spread)} above` : `${pts(spread)} below`;
-  const verdict = light === 'green' ? 'Makes money' : light === 'yellow' ? 'Borderline' : 'Does not make money';
+  const verdict = light === 'green' ? 'Projected to be profitable' : light === 'yellow' ? 'Projected to be marginal' : 'Not projected to be profitable';
   let headline: string;
-  if (cap === 'does-not-cover-loan') headline = `${lead}${spread === 0 ? 'level with' : rel} your ${rate} opportunity cost, but its income covers only ${d!.toFixed(2)}x of the loan payment, so it cannot pay for itself.`;
+  if (cap === 'does-not-cover-loan') headline = `${lead}${spread === 0 ? 'level with' : rel} your ${rate} opportunity cost, but its income covers only ${d!.toFixed(2)}x of the loan payment, so it is not projected to pay for itself.`;
   else if (cap === 'below-minimum') headline = `${lead}${rel} your ${rate} opportunity cost, but its income covers the loan at only ${d!.toFixed(2)}x, below the ${a.minDscr.toFixed(2)}x a lender asks.`;
   else if (light === 'green') headline = `${lead}${rel} your ${rate} opportunity cost${d !== null ? ` and covers the loan at ${d.toFixed(2)}x` : ''}.`;
   else if (light === 'yellow') headline = `${lead}within ${band} point${band === 1 ? '' : 's'} of your ${rate} opportunity cost (${spread >= 0 ? '+' : '-'}${Math.abs(spread).toFixed(2)} pts).`;

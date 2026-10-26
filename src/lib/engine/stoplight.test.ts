@@ -34,7 +34,7 @@ describe('classifyAgainstOpportunityCost', () => {
   });
 });
 
-describe('classifyNapkin (does it make money?)', () => {
+describe('classifyNapkin (is it projected to be profitable?)', () => {
   const v = (yieldOnCostPct: number | null, dscr: number | null, over: Record<string, number> = {}) =>
     classifyNapkin({ yieldOnCostPct, opportunityCost: 6, dscr, minDscr: 1.25, ...over });
 
@@ -60,9 +60,9 @@ describe('classifyNapkin (does it make money?)', () => {
     expect(v(6.2, 1.1).cap).toBe('none'); // already yellow: nothing was capped
   });
 
-  it('describes the 5.64% yield against 6.0% with a 0.84x loan cover as not making money', () => {
+  it('describes the 5.64% yield against 6.0% with a 0.84x loan cover as not projected to be profitable', () => {
     const r = v(5.64, 0.84);
-    expect(r.verdict).toBe('Does not make money');
+    expect(r.verdict).toBe('Not projected to be profitable');
     expect(r.headline).toContain('5.64% yield');
   });
 

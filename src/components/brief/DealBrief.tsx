@@ -707,13 +707,13 @@ const LIGHT_STYLE: Record<'green' | 'yellow' | 'red', { fg: string; bg: string; 
   red: { fg: '#e11d48', bg: '#fff1f2', border: '#fecdd3', word: 'RED' },
 };
 
-/** "Does it make money?": the yield on the whole cost against the owner's opportunity cost, capped by whether the income covers the loan. */
+/** "Is it projected to be profitable?": the yield on the whole cost against the owner's opportunity cost, capped by whether the income covers the loan. */
 const StoplightBanner: React.FC<{ m: BriefModel }> = ({ m }) => {
   const v = m.napkinVerdict;
   const c = LIGHT_STYLE[v.light];
   const lamps: Array<['red' | 'yellow' | 'green', string]> = [['red', '#e11d48'], ['yellow', '#f59e0b'], ['green', '#10b981']];
   return (
-    <div className="stop" style={{ background: c.bg, borderColor: c.border }} role="group" aria-label={`Does it make money: ${c.word.toLowerCase()}. ${v.verdict}`}>
+    <div className="stop" style={{ background: c.bg, borderColor: c.border }} role="group" aria-label={`Projected profitability: ${c.word.toLowerCase()}. ${v.verdict}`}>
       <svg width="34" height="80" viewBox="0 0 44 104" aria-hidden="true" style={{ flex: 'none' }}>
         <rect x="2" y="2" width="40" height="100" rx="10" fill="#0f172a" />
         {lamps.map(([name, col], i) => (
