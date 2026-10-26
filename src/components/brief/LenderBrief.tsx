@@ -1,5 +1,5 @@
 import React from 'react';
-import { BRIEF_CSS, NP, cur, pct } from './DealBrief';
+import { BRIEF_CSS, NP, NapkinMath, cur, pct } from './DealBrief';
 import type { LenderModel } from '../../lib/export/buildLenderModel';
 import type { LenderMetrics } from '../../lib/engine';
 
@@ -63,7 +63,6 @@ const StressTable: React.FC<{ rows: LenderMetrics['stress']; min: number }> = ({
 
 export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; onClose?: () => void }> = ({ model: lm, onPrint, onClose }) => {
   const b = lm.brief;
-  const primary = b.parcels[0];
   const m = lm.metrics;
   const verdictColor = lm.coverage.status === 'meets' ? { fg: '#059669', bg: '#ecfdf5', bd: '#a7f3d0', ico: '✓', word: 'Meets the coverage test' }
     : lm.coverage.status === 'below' ? { fg: '#e11d48', bg: '#fff1f2', bd: '#fecdd3', ico: '!', word: 'Below the coverage minimum' }
@@ -83,12 +82,10 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
       {/* PAGE 1: the request, the coverage test, the borrower, the collateral */}
       <div className="hdr">
         <div>
-          <div className="row"><span className="logo">MathTree</span><span className="pill pill-blue">Lender Summary</span><span className="pill pill-slate">{b.memoTypeLabel}</span></div>
+          <div className="row"><span className="logo">MathTree</span><span className="pill pill-blue">Lender Summary</span></div>
           <h1>{b.title}</h1>
           <div className="row hmeta">
-            <span>📍 <strong>{orNP(b.location)}</strong></span><span>•</span>
-            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}</span><span>•</span>
-            <span>🏛️ {orNP(b.county)}</span>
+            <span>📍 <strong>{orNP(b.location)}</strong></span>
           </div>
         </div>
         <div className="hside">
@@ -216,8 +213,10 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
         </div>
       </div>
 
-      {/* PAGE 3: what would worry a lender, and the tenancy behind the income */}
-      <div className="box pg">
+      {/* PAGE 3: how the income is built, what would worry a lender, and the tenancy behind it */}
+      <div className="pg"><NapkinMath m={b} lender /></div>
+
+      <div className="box">
         <div className="bh"><span>Risks &amp; underwriting flags</span><span className="sub">Stated, not hidden</span></div>
         {lm.flags.length > 0
           ? lm.flags.map((f, i) => <div key={i} className="lv-flag"><strong>{f.title}:</strong> {f.description}</div>)

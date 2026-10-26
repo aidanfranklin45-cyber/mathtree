@@ -223,6 +223,11 @@ Owner decisions carried over from the retired plan docs (still in git history). 
   from, then leverage, then the Monte Carlo. The stoplight (`engine/stoplight.ts`) compares the annualized IRR with the investor profile's
   discount rate (the opportunity cost, also the Monte Carlo hurdle): green at 1 point or more above, red more than 1 point below, yellow between.
   The 1-point band is the owner's decision and lives as `STOPLIGHT_BAND_POINTS`; making it a profile field needs an edge-function and SQL change.
+  Page 1 leads with the napkin (`_shared/napkin.ts`): units x average rent, less vacancy and expenses, is NOI; NOI over the whole cost to buy is the
+  yield on cost, set against what the loan costs and whether NOI covers the loan payment. The first light (`classifyNapkin`) is that yield against the
+  opportunity cost, forced red when DSCR is under 1.00x and capped at yellow when under the lender's minimum; the slim second line is the 10-year IRR
+  against the same rate. All figures are the pro forma's first full year, so the page foots to the table. The lender summary reuses it. Print
+  layout is checked by `npm run test:brief`.
 
 ## 8. Assumptions, the investor profile, and intake
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyAgainstOpportunityCost } from './stoplight';
+import { classifyAgainstOpportunityCost, classifyNapkin } from './stoplight';
 
 describe('classifyAgainstOpportunityCost', () => {
   it.each([
@@ -31,5 +31,42 @@ describe('classifyAgainstOpportunityCost', () => {
   it('honors a different band when one is given', () => {
     expect(classifyAgainstOpportunityCost(5.2, 6, 0.5).light).toBe('red');
     expect(classifyAgainstOpportunityCost(6.5, 6, 0.5).light).toBe('green');
+  });
+});
+
+describe('classifyNapkin (is it projected to be profitable?)', () => {
+  const v = (yieldOnCostPct: number | null, dscr: number | null, over: Record<string, number> = {}) =>
+    classifyNapkin({ yieldOnCostPct, opportunityCost: 6, dscr, minDscr: 1.25, ...over });
+
+  it('follows the yield against the opportunity cost when the loan is covered', () => {
+    expect(v(8, 1.6).light).toBe('green');
+    expect(v(6.5, 1.6).light).toBe('yellow');
+    expect(v(4.5, 1.6).light).toBe('red');
+    expect(v(8, null).light).toBe('green'); // no debt: nothing to cover
+  });
+
+  it('is red when the income does not cover the loan, whatever the yield', () => {
+    const r = v(9, 0.84);
+    expect(r.light).toBe('red');
+    expect(r.cap).toBe('does-not-cover-loan');
+    expect(r.headline).toContain('0.84x of the loan payment');
+  });
+
+  it('cannot be green when the loan is covered below the lender minimum', () => {
+    const r = v(8, 1.1);
+    expect(r.light).toBe('yellow');
+    expect(r.cap).toBe('below-minimum');
+    expect(r.headline).toContain('below the 1.25x');
+    expect(v(6.2, 1.1).cap).toBe('none'); // already yellow: nothing was capped
+  });
+
+  it('describes the 5.64% yield against 6.0% with a 0.84x loan cover as not projected to be profitable', () => {
+    const r = v(5.64, 0.84);
+    expect(r.verdict).toBe('Not projected to be profitable');
+    expect(r.headline).toContain('5.64% yield');
+  });
+
+  it('refuses to guess without a yield', () => {
+    expect(() => v(null, 1.5)).toThrow();
   });
 });

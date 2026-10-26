@@ -3,8 +3,9 @@ import { computeDealMetrics, prepareEngineInputs, resolveProfileAssumptions } fr
 import { buildAssumptionLedger } from '../assumptions/ledger';
 import { getAssumptionDefaults } from '../engine/assumptionDefaults';
 import { DEFAULT_CLOSING_WEEKS } from '@engine/underwritingAssumptions';
-import { firstFullYear, calculateDownPaymentMatrix, type DownPaymentMatrixResult } from '../engine';
-import { classifyAgainstOpportunityCost, STOPLIGHT_BAND_POINTS, type StoplightResult } from '../engine/stoplight';
+import { firstFullYear, calculateDownPaymentMatrix, calculateNapkin, type DownPaymentMatrixResult, type Napkin } from '../engine';
+import { titleCase } from './titleCase';
+import { classifyAgainstOpportunityCost, classifyNapkin, STOPLIGHT_BAND_POINTS, type StoplightResult, type NapkinVerdict } from '../engine/stoplight';
 
 /**
  * The single source for the deal brief. Every figure comes from ONE engine run (`computeDealMetrics`, the same call the
@@ -236,13 +237,17 @@ export interface BriefModel {
   downPaymentMatrix: DownPaymentMatrixResult;
   /** The executive-summary light: the deal's annualized IRR against the owner's opportunity cost. */
   stoplight: StoplightResult;
+  /** The back-of-the-napkin math (units, rent, expenses, NOI, total cost, yield, loan) for the first full year. */
+  napkin: Napkin;
+  /** "Does it make money?": the napkin's yield against the opportunity cost, capped by whether the income covers the loan. */
+  napkinVerdict: NapkinVerdict;
   /** Owned properties have a rent roll worth printing; a prospect's rent comes from its underwriting. */
   isPipeline: boolean;
   /** The down payment tier with the highest cash-on-cash, and the first tier where it is not negative (both read from the matrix). */
   leverageMarks: { best: { downPaymentPercent: number; cashOnCash: number } | null; firstNonNegativePercent: number | null };
 }
 
-const money = (n: number): string => '$' + Math.round(n).toLocaleString('en-US');
+const money = (n: number): string => (n < 0 ? '-' : '') + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
 const pct1 = (n: number): string => (Math.abs(n - Math.round(n)) < 0.005 ? n.toFixed(0) : n.toFixed(1));
 
 export function buildBriefModel(
@@ -408,6 +413,12 @@ export function buildBriefModel(
     ? 'Single-Family Residential Investment Memo'
     : isMultiFamily ? 'Multi-Family Residential Memo' : isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo';
 
+  const napkin = calculateNapkin(assetClass, inputs);
+  const defaults = getAssumptionDefaults();
+  const napkinVerdict = classifyNapkin({
+    yieldOnCostPct: napkin.yieldOnCostPct, opportunityCost: discountRate, dscr: napkin.dscr,
+    minDscr: defaults.minDscr ?? 1.25, bandPoints: defaults.stoplightBandPoints ?? STOPLIGHT_BAND_POINTS,
+  });
   const stoplight = classifyAgainstOpportunityCost(num(raw.irr), discountRate, getAssumptionDefaults().stoplightBandPoints ?? STOPLIGHT_BAND_POINTS);
 
   const matrixRows = downPaymentMatrix?.rows ?? [];
@@ -449,7 +460,7 @@ export function buildBriefModel(
   }
 
   return {
-    title: String(deal.title || deal.name || 'Investment Underwriting Brief'),
+    title: titleCase(String(deal.title || deal.name || 'Investment Underwriting Brief')),
     location: text(deal.location) ?? text(deal.address),
     status,
     assetClass,
@@ -524,6 +535,8 @@ export function buildBriefModel(
     monteCarloInputs: inputs,
     downPaymentMatrix,
     stoplight,
+    napkin,
+    napkinVerdict,
     isPipeline: status !== 'owned',
     leverageMarks,
   };

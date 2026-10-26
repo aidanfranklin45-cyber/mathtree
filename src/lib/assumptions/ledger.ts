@@ -67,6 +67,14 @@ const DEFS: Def[] = [
   { id: 'discount', label: 'Opportunity cost (discount rate)', fmt: 'pct', aliases: KEYS.discountRate, fills: ['discountRate'] },
 ];
 
+/** "Your lease schedule for Acme LLC": named for its tenant when every lease has one. A count of lease records is never shown (a renewal is not a second tenant). */
+function leaseScheduleSource(leases: any[]): string {
+  const names = leases.map((l) => String(l?.tenantName ?? '').trim());
+  if (names.some((n) => !n)) return 'Your lease schedule';
+  const distinct = Array.from(new Set(names.map((n) => n.toLowerCase().replace(/\s+/g, ' '))));
+  return distinct.length === 1 ? `Your lease schedule for ${names[0]}` : 'Your lease schedule';
+}
+
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
 function show(v: number, fmt: Fmt, key?: string): string {
@@ -218,7 +226,7 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
   const perUnit = Number(a.prepared.monthlyRentPerUnit ?? a.prepared.storageRentPerUnit ?? 0);
   const fromUnits = units > 0 && perUnit > 0 && Math.abs(units * perUnit * 12 - Number(a.prepared.grossRentAnnual)) < 1;
   const rentValue = fromUnits ? `${units} units × ${money(perUnit)}/mo average = ${money(Number(a.prepared.grossRentAnnual))} a year` : `${money(Number(a.prepared.grossRentAnnual))} a year`;
-  if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: rentValue, group: 'project', mode: rentRecorded?.mode ?? 'entered', reason: rentRecorded?.reason, source: rentRecorded ? rentRecorded.source : fromUnits ? 'Your entry: number of units and average rent' : Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? `${a.stored.leases.length} lease${a.stored.leases.length === 1 ? '' : 's'} on this property` : 'Your entry for this property' });
+  if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: rentValue, group: 'project', mode: rentRecorded?.mode ?? 'entered', reason: rentRecorded?.reason, source: rentRecorded ? rentRecorded.source : fromUnits ? 'Your entry: number of units and average rent' : Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? leaseScheduleSource(a.stored.leases) : 'Your entry for this property' });
 
   // Where the address and the county parcel came from, so the owner can see how this property was identified
   const rec: any = a.stored.intakeRecord;
