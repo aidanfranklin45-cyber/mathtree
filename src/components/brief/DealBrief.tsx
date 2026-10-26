@@ -101,6 +101,21 @@ div.notes { padding-left: 10px; }
 .brief .mc table { font-size: 10.5px; }
 .brief .mc th, .brief .mc td { padding: 2px 6px; }
 .brief .mc .mct { margin-bottom: 6px; }
+.brief .lrb { display: flex; align-items: center; gap: 8px; border: 1px solid; border-radius: 6px; padding: 5px 10px; margin-bottom: 10px; font-size: 11.5px; line-height: 1.35; break-inside: avoid; }
+.brief .lrb .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.brief .napkin { break-inside: avoid; }
+.brief .eqwrap { padding: 6px 10px 4px 10px; border-bottom: 1px solid #f1f5f9; }
+.brief .eqwrap:last-child { border-bottom: 0; }
+.brief .eqt { font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; }
+.brief .eqrow { display: flex; align-items: stretch; gap: 5px; }
+.brief .eqb { flex: 1 1 0; min-width: 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 8px; }
+.brief .eqb.strong { background: #ecfdf5; border-color: #a7f3d0; }
+.brief .eqb .l { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+.brief .eqb .v { font-size: 15.5px; font-weight: 800; margin-top: 1px; white-space: nowrap; }
+.brief .eqb .s { font-size: 9px; color: #64748b; margin-top: 1px; line-height: 1.25; }
+.brief .op { flex: none; align-self: center; font-size: 16px; font-weight: 800; color: #94a3b8; width: 14px; text-align: center; }
+.brief .eqn { font-size: 10.5px; color: #92400e; margin-top: 3px; font-weight: 600; }
+.brief .score.k5 { grid-template-columns: repeat(5, 1fr); }
 @media print { .brief { padding: 0; max-width: none; } .brief .toolbar { display: none; } }
 @media screen and (max-width: 900px) { .brief .score { grid-template-columns: repeat(3, 1fr); } .brief .cards { grid-template-columns: 1fr; } .brief .mcg { grid-template-columns: repeat(2, 1fr); } .brief { overflow-x: auto; } .brief .fine ol { columns: 1; } }
 `;
@@ -675,31 +690,121 @@ const LIGHT_STYLE: Record<'green' | 'yellow' | 'red', { fg: string; bg: string; 
   red: { fg: '#e11d48', bg: '#fff1f2', border: '#fecdd3', word: 'RED' },
 };
 
-/** The executive-summary light: annualized IRR against the owner's opportunity cost. */
-const StoplightBanner: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }> = ({ m, mc }) => {
-  const s = m.stoplight;
-  const c = LIGHT_STYLE[s.light];
+/** "Does it make money?": the yield on the whole cost against the owner's opportunity cost, capped by whether the income covers the loan. */
+const StoplightBanner: React.FC<{ m: BriefModel }> = ({ m }) => {
+  const v = m.napkinVerdict;
+  const c = LIGHT_STYLE[v.light];
   const lamps: Array<['red' | 'yellow' | 'green', string]> = [['red', '#e11d48'], ['yellow', '#f59e0b'], ['green', '#10b981']];
   return (
-    <div className="stop" style={{ background: c.bg, borderColor: c.border }} role="group" aria-label={`Stoplight: ${c.word.toLowerCase()}. ${s.verdict}`}>
+    <div className="stop" style={{ background: c.bg, borderColor: c.border }} role="group" aria-label={`Does it make money: ${c.word.toLowerCase()}. ${v.verdict}`}>
       <svg width="34" height="80" viewBox="0 0 44 104" aria-hidden="true" style={{ flex: 'none' }}>
         <rect x="2" y="2" width="40" height="100" rx="10" fill="#0f172a" />
         {lamps.map(([name, col], i) => (
-          <circle key={name} cx="22" cy={20 + i * 32} r="11" fill={name === s.light ? col : '#334155'} opacity={name === s.light ? 1 : 0.55} />
+          <circle key={name} cx="22" cy={20 + i * 32} r="11" fill={name === v.light ? col : '#334155'} opacity={name === v.light ? 1 : 0.55} />
         ))}
       </svg>
       <div style={{ flex: 1 }}>
-        <div className="stopv" style={{ color: c.fg }}>{c.word}: {s.verdict}</div>
-        <div className="stopt">{s.headline}</div>
+        <div className="stopv" style={{ color: c.fg }}>{v.verdict}</div>
+        <div className="stopt">{v.headline}</div>
         <div className="stopm">
-          Annualized IRR <strong>{pct(s.irr)}</strong> vs. opportunity cost <strong>{s.opportunityCost.toFixed(1)}%</strong> ({s.spreadPoints >= 0 ? '+' : '-'}{Math.abs(s.spreadPoints).toFixed(2)} pts).
-          {' '}Green: {s.bandPoints}+ point above. Yellow: within {s.bandPoints} point. Red: more than {s.bandPoints} point below.
-          {mc ? ` Stress test: ${mc.probAboveHurdle}% of ${mc.runs.toLocaleString()} random runs beat your opportunity cost (Monte Carlo page).` : ''}
+          Green: yield {v.bandPoints}+ point above your opportunity cost. Yellow: within {v.bandPoints} point. Red: more than {v.bandPoints} point below, or the income does not cover the loan payment.
         </div>
       </div>
     </div>
   );
 };
+
+/** The 10-year view, one slim line: the annualized IRR against the opportunity cost, and how often the stress test agrees. */
+const LongRunBar: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }> = ({ m, mc }) => {
+  const s = m.stoplight;
+  const c = LIGHT_STYLE[s.light];
+  return (
+    <div className="lrb" style={{ background: c.bg, borderColor: c.border }}>
+      <span className="dot" style={{ background: c.fg }} aria-hidden="true" />
+      <span><strong style={{ color: c.fg }}>Over {m.holdYears} years: {s.verdict.toLowerCase()}.</strong> {pct(s.irr)} annualized IRR against your {s.opportunityCost.toFixed(1)}% opportunity cost ({s.spreadPoints >= 0 ? '+' : '-'}{Math.abs(s.spreadPoints).toFixed(2)} pts, band ±{s.bandPoints}).
+        {mc ? ` ${mc.probAboveHurdle}% of ${mc.runs.toLocaleString()} stress-test runs beat it.` : ''}</span>
+    </div>
+  );
+};
+
+type EqItem = { kind: 'box'; label: string; value: string; sub?: string; color?: string; strong?: boolean } | { kind: 'op'; text: string };
+
+const EqRow: React.FC<{ title: string; items: EqItem[]; note?: string }> = ({ title, items, note }) => (
+  <div className="eqwrap">
+    <div className="eqt">{title}</div>
+    <div className="eqrow">
+      {items.map((it, i) => it.kind === 'op'
+        ? <div key={i} className="op">{it.text}</div>
+        : (
+          <div key={i} className={`eqb${it.strong ? ' strong' : ''}`}>
+            <div className="l">{it.label}</div>
+            <div className="v" style={{ color: it.color }}>{it.value}</div>
+            {it.sub && <div className="s">{it.sub}</div>}
+          </div>
+        ))}
+    </div>
+    {note && <div className="eqn">{note}</div>}
+  </div>
+);
+
+/** The back-of-the-napkin math every investor starts with, in the order they do it. Every figure is the pro forma's first full year. */
+export const NapkinMath: React.FC<{ m: BriefModel; lender?: boolean }> = ({ m, lender = false }) => {
+  const k = m.napkin;
+  const v = m.napkinVerdict;
+  const light = LIGHT_STYLE[v.light].fg;
+  const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`;
+  const earns: EqItem[] = [
+    ...(k.units && k.avgRentMonthly !== null
+      ? [
+        { kind: 'box', label: k.units.label === 'tenant' ? 'Tenants' : k.units.label === 'home' ? 'Home' : 'Units', value: plural(k.units.count, k.units.label === 'home' ? 'home' : k.units.label), sub: 'in the rent' } as EqItem,
+        { kind: 'op', text: '×' } as EqItem,
+        { kind: 'box', label: 'Average rent', value: `${cur(k.avgRentMonthly)}/mo`, sub: 'each, × 12 months' } as EqItem,
+        { kind: 'op', text: '=' } as EqItem,
+      ]
+      : []),
+    { kind: 'box', label: 'Gross rent', value: `${cur(k.grossRentAnnual)}/yr`, sub: `${m.startYear === k.basisYear ? 'year 1' : `${k.basisYear}, first full year`}` },
+    { kind: 'op', text: '−' },
+    { kind: 'box', label: 'Vacancy', value: cur(k.vacancyLoss), sub: `${pctShort(m.vacancyPct)}% of rent`, color: '#e11d48' },
+    { kind: 'op', text: '−' },
+    { kind: 'box', label: 'Operating expenses', value: cur(k.operatingExpenses), sub: `${pctShort(m.expenseRatioPct)}% of rent`, color: '#64748b' },
+    { kind: 'op', text: '=' },
+    { kind: 'box', label: 'Net operating income', value: cur(k.noi), sub: 'what is left', strong: true },
+  ];
+  const costs: EqItem[] = [
+    { kind: 'box', label: 'Net operating income', value: cur(k.noi) },
+    { kind: 'op', text: '÷' },
+    { kind: 'box', label: 'Total cost to buy', value: cur(k.totalCost), sub: k.rehabCosts + k.closingCosts > 0 ? `${cur(k.purchasePrice)} price + ${cur(k.rehabCosts + k.closingCosts)} rehab & closing` : 'the purchase price' },
+    { kind: 'op', text: '=' },
+    { kind: 'box', label: 'Yield on cost', value: k.yieldOnCostPct !== null ? pct(k.yieldOnCostPct) : 'N/A', sub: lender ? undefined : `your opportunity cost: ${v.opportunityCost.toFixed(1)}%`, color: lender ? '#0f172a' : light, strong: true },
+    ...(k.loanConstantPct !== null
+      ? [
+        { kind: 'op', text: 'vs' } as EqItem,
+        { kind: 'box', label: 'What the loan costs', value: pct(k.loanConstantPct), sub: `${m.interestRate}%, ${m.loanTerm} yrs, ${cur(k.loanAmount)} borrowed`, color: k.leverage === 'negative' ? '#e11d48' : '#0f172a' } as EqItem,
+      ]
+      : []),
+  ];
+  const pays: EqItem[] = [
+    { kind: 'box', label: 'Net operating income', value: cur(k.noi) },
+    ...(k.debtService > 0 ? [{ kind: 'op', text: '−' } as EqItem, { kind: 'box', label: 'Loan payments', value: cur(k.debtService), sub: `${cur(k.debtService / 12)}/mo`, color: '#64748b' } as EqItem] : []),
+    ...(k.replacementReserve > 0 ? [{ kind: 'op', text: '−' } as EqItem, { kind: 'box', label: 'Reserves', value: cur(k.replacementReserve), sub: 'set aside for repairs', color: '#64748b' } as EqItem] : []),
+    ...(k.otherCash !== 0 ? [{ kind: 'op', text: '−' } as EqItem, { kind: 'box', label: 'Renovation paid in cash', value: cur(k.otherCash), color: '#64748b' } as EqItem] : []),
+    { kind: 'op', text: '=' },
+    { kind: 'box', label: 'Cash flow a year', value: cur(k.cashFlow), sub: `${cur(k.cashFlow / 12)}/mo`, color: k.cashFlow >= 0 ? '#059669' : '#e11d48', strong: true },
+    ...(k.dscr !== null ? [{ kind: 'op', text: '·' } as EqItem, { kind: 'box', label: 'Loan coverage', value: `${k.dscr.toFixed(2)}x`, sub: 'income ÷ loan payments', color: dscrColor(k.dscr) } as EqItem] : []),
+  ];
+  const leverageNote = k.leverage === 'negative'
+    ? 'Borrowing costs more than the property yields, so each borrowed dollar lowers the return.'
+    : k.leverage === 'positive' ? 'The property yields more than the loan costs, so borrowing raises the return.' : undefined;
+  return (
+    <div className="box napkin">
+      <div className="bh"><span>The back-of-the-napkin math</span><span className="sub">First full year{k.basisYear ? `, ${k.basisYear}` : ''}: the same figures as the pro forma</span></div>
+      <EqRow title="1. What it earns" items={earns} />
+      <EqRow title="2. What it cost, and the yield" items={costs} note={leverageNote} />
+      <EqRow title="3. Whether it pays for itself" items={pays} />
+    </div>
+  );
+};
+
 
 interface Series { name: string; color: string; values: number[]; kind: 'bar' | 'line'; barColors?: string[] }
 
@@ -900,23 +1005,17 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         </div>
       </div>
 
-      <StoplightBanner m={m} mc={monteCarlo} />
+      <StoplightBanner m={m} />
 
-      <div className="score">
+      <NapkinMath m={m} />
+
+      <LongRunBar m={m} mc={monteCarlo} />
+
+      <div className="score keyt k5">
         <div className="tile"><p className="tl">{m.holdYears}-Yr IRR, annualized</p><p className="tv" style={{ color: LIGHT_STYLE[m.stoplight.light].fg }}>{pct(m.irr)}</p></div>
-        <div className="tile"><p className="tl">Your Opportunity Cost</p><p className="tv">{m.discountRate.toFixed(1)}%<small>/yr</small></p></div>
-        <div className="tile"><p className="tl">Year 1 Net Cash Flow</p><p className="tv" style={{ color: m.cashFlow >= 0 ? '#059669' : '#e11d48' }}>{cur(m.cashFlow)}<small> ({cur(m.monthlyCashFlow)}/mo)</small></p></div>
-        <div className="tile"><p className="tl">Equity Multiplier</p><p className="tv">{m.equityMultiple.toFixed(2)}x</p></div>
-        <div className="tile"><p className="tl">{stab} Cap Rate</p><p className="tv">{pct(m.capRate)}</p></div>
-        <div className="tile"><p className="tl">{dscrLabel}</p><p className="tv" style={{ color: dscrColor(m.dscr) }}>{m.dscrFormatted}</p></div>
-      </div>
-
-      <div className="score keyt">
-        <div className="tile"><p className="tl">Purchase Price</p><p className="tv">{cur(m.price)}</p><div className="meta">{m.buildingSqFt > 0 ? `$${(m.price / m.buildingSqFt).toFixed(0)}/sq ft • ` : ''}{m.parcelTotals.assessed > 0 ? `County assessed ${cur(m.parcelTotals.assessed)}` : 'County assessment: Not provided'}</div></div>
+        <div className="tile"><p className="tl">Equity Multiplier</p><p className="tv">{m.equityMultiple.toFixed(2)}x</p><div className="meta">{cur(m.equity)} in, over {m.holdYears} years</div></div>
         <div className="tile"><p className="tl">Cash Required</p><p className="tv" style={{ color: '#0284c7' }}>{cur(m.equity)}</p><div className="meta">{dpLine}</div></div>
-        <div className="tile"><p className="tl">Senior Loan</p><p className="tv">{cur(m.loanAmt)}</p><div className="meta">{pctShort(m.ltvPct)}% {m.rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'}</div></div>
-        <div className="tile"><p className="tl">Rate &amp; Term</p><p className="tv">{m.interestRate}%<small> • {m.loanTerm} yrs</small></p><div className="meta">{cur(m.monthlyDebtService)}/mo principal &amp; interest</div></div>
-        <div className="tile"><p className="tl">Gross Rent</p><p className="tv">{cur(showEnteredRent ? enteredRent : m.monthlyRent)}<small>/mo</small></p><div className="meta">{pctShort(m.vacancyPct)}% vacancy • {pctShort(m.expenseRatioPct)}% expenses</div></div>
+        <div className="tile"><p className="tl">Financing</p><p className="tv">{cur(m.loanAmt)}</p><div className="meta">{pctShort(m.ltvPct)}% {m.rehabMode === 'roll_into_loan' ? 'LTC' : 'LTV'} • {m.interestRate}% • {m.loanTerm} yrs</div></div>
         <div className="tile"><p className="tl">Hold &amp; Exit</p><p className="tv">{m.holdYears}<small> yrs • {m.exitCapRate}% exit cap</small></p><div className="meta">{m.closingDate ? `Closing ${m.closingDate}` : `Full calendar year ${m.startYear}`}</div></div>
       </div>
 

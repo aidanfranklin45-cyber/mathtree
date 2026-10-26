@@ -1,5 +1,5 @@
 import React from 'react';
-import { BRIEF_CSS, NP, cur, pct } from './DealBrief';
+import { BRIEF_CSS, NP, NapkinMath, cur, pct } from './DealBrief';
 import type { LenderModel } from '../../lib/export/buildLenderModel';
 import type { LenderMetrics } from '../../lib/engine';
 
@@ -215,8 +215,10 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
         </div>
       </div>
 
-      {/* PAGE 3: what would worry a lender, and the tenancy behind the income */}
-      <div className="box pg">
+      {/* PAGE 3: how the income is built, what would worry a lender, and the tenancy behind it */}
+      <div className="pg"><NapkinMath m={b} lender /></div>
+
+      <div className="box">
         <div className="bh"><span>Risks &amp; underwriting flags</span><span className="sub">Stated, not hidden</span></div>
         {lm.flags.length > 0
           ? lm.flags.map((f, i) => <div key={i} className="lv-flag"><strong>{f.title}:</strong> {f.description}</div>)

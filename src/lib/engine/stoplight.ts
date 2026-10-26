@@ -44,3 +44,48 @@ export function classifyAgainstOpportunityCost(irr: number, opportunityCost: num
       : `The ${own} is ${pts(spread)} below your ${rate} opportunity cost: it should earn less than your money does elsewhere.`;
   return { light, irr, opportunityCost, spreadPoints: spread, bandPoints, headline, verdict };
 }
+
+export interface NapkinVerdict {
+  light: Light;
+  yieldOnCostPct: number;
+  opportunityCost: number;
+  spreadPoints: number;
+  bandPoints: number;
+  /** Why the light is not what the yield alone would give: the income does not cover the loan (red), or covers it below the lender's minimum (capped at yellow). */
+  cap: 'none' | 'does-not-cover-loan' | 'below-minimum';
+  headline: string;
+  verdict: string;
+}
+
+/**
+ * "Does it make money?": the first full year's yield on the whole cost of acquisition against the owner's opportunity cost, with the same
+ * band as the IRR light. The loan can only make it worse: income that does not cover the loan payment (DSCR under 1.00x) is red whatever
+ * the yield, and income that covers it but below the lender's minimum cannot be green.
+ */
+export function classifyNapkin(a: {
+  yieldOnCostPct: number | null; opportunityCost: number; dscr: number | null; minDscr: number; bandPoints?: number;
+}): NapkinVerdict {
+  const band = a.bandPoints ?? STOPLIGHT_BAND_POINTS;
+  if (a.yieldOnCostPct === null || !Number.isFinite(a.yieldOnCostPct) || !Number.isFinite(a.opportunityCost)) {
+    throw new Error('The verdict needs the yield on cost and the opportunity cost (discount rate).');
+  }
+  const spread = Math.round((a.yieldOnCostPct - a.opportunityCost) * 100) / 100;
+  let light: Light = spread >= band ? 'green' : spread < -band ? 'red' : 'yellow';
+  const d = a.dscr === null ? null : Math.round(a.dscr * 100) / 100;
+  let cap: NapkinVerdict['cap'] = 'none';
+  if (d !== null && d < 1) { light = 'red'; cap = 'does-not-cover-loan'; }
+  else if (d !== null && d < a.minDscr && light === 'green') { light = 'yellow'; cap = 'below-minimum'; }
+
+  const y = `${a.yieldOnCostPct.toFixed(2)}%`;
+  const rate = `${a.opportunityCost.toFixed(1)}%`;
+  const lead = `Earns a ${y} yield on its total cost, `;
+  const rel = spread >= 0 ? `${pts(spread)} above` : `${pts(spread)} below`;
+  const verdict = light === 'green' ? 'Makes money' : light === 'yellow' ? 'Borderline' : 'Does not make money';
+  let headline: string;
+  if (cap === 'does-not-cover-loan') headline = `${lead}${spread === 0 ? 'level with' : rel} your ${rate} opportunity cost, but its income covers only ${d!.toFixed(2)}x of the loan payment, so it cannot pay for itself.`;
+  else if (cap === 'below-minimum') headline = `${lead}${rel} your ${rate} opportunity cost, but its income covers the loan at only ${d!.toFixed(2)}x, below the ${a.minDscr.toFixed(2)}x a lender asks.`;
+  else if (light === 'green') headline = `${lead}${rel} your ${rate} opportunity cost${d !== null ? ` and covers the loan at ${d.toFixed(2)}x` : ''}.`;
+  else if (light === 'yellow') headline = `${lead}within ${band} point${band === 1 ? '' : 's'} of your ${rate} opportunity cost (${spread >= 0 ? '+' : '-'}${Math.abs(spread).toFixed(2)} pts).`;
+  else headline = `${lead}${rel} your ${rate} opportunity cost.`;
+  return { light, yieldOnCostPct: a.yieldOnCostPct, opportunityCost: a.opportunityCost, spreadPoints: spread, bandPoints: band, cap, headline, verdict };
+}

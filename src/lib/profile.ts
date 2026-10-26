@@ -99,7 +99,7 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   // Blanks are filled with the labelled convention for them (the owner's own figures are never touched), so a standard added later
   // never leaves a property asking for something the owner would expect to be assumed
   const underwritingAssumptions = suggestedStartingPoints(stored);
-  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear, stoplightBandPoints });
+  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear, stoplightBandPoints, minDscr });
 
   return {
     id: raw.id ?? null,

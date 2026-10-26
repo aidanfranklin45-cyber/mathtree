@@ -16,6 +16,8 @@ export interface AssumptionDefaults {
   exitYear?: number;
   /** How close to the opportunity cost still counts as "close" (the stoplight's yellow), in percentage points. */
   stoplightBandPoints?: number;
+  /** The lender's minimum debt service coverage, from the profile. */
+  minDscr?: number;
 }
 
 /** No assumption has been saved yet: the labelled starting points apply until the owner sets their own. */
@@ -23,7 +25,7 @@ export const isEmptyAssumptions = (a: UnderwritingAssumptions | null | undefined
   !a || (Object.keys(a.assets ?? {}).length === 0 && a.taxRate === undefined && a.propertyTaxRatePercent === undefined && a.assumedClosingWeeks === undefined);
 
 // Before the profile has loaded, the starting points apply, with the same hurdle rate and hold the profile itself shows by default
-let current: AssumptionDefaults = { assumptions: suggestedStartingPoints(null), discountRate: 8, exitYear: 10, stoplightBandPoints: 1 };
+let current: AssumptionDefaults = { assumptions: suggestedStartingPoints(null), discountRate: 8, exitYear: 10, stoplightBandPoints: 1, minDscr: 1.25 };
 let version = 0;
 const listeners = new Set<() => void>();
 

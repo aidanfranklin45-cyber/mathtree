@@ -171,3 +171,51 @@ describe('a long pipeline deal (15-year hold, partial first year, two parcels)',
     }
   }, 120_000);
 });
+
+describe('page 1 tells the napkin story for each kind of deal', () => {
+  const common = { downPaymentPercent: 25, interestRate: 6.5, loanTerm: 30, exitYear: 10, closingDate: '2026-12-02', vacancyRate: 5, rentGrowth: 3, discountRate: 6, targetCapRate: 6.5, closingCosts: 5000 };
+  const cases: Array<{ name: string; asset: string; inputs: Record<string, any>; verdict: string; mustHave: string[] }> = [
+    {
+      name: 'a 12-unit storage deal that cannot pay its loan', asset: 'storage',
+      inputs: { ...common, purchasePrice: 200_000, downPaymentPercent: 10, interestRate: 6.53, closingCosts: 2500, rehabCosts: 2500, expenseRatio: 35, payrollMarketingPercent: 8, unitCount: 12, storageRentPerUnit: 150, storageUnitCount: 12 },
+      verdict: 'does not make money', mustHave: ['12 units', 'average rent', 'what the loan costs', 'cannot pay for itself'],
+    },
+    {
+      name: 'a 10-unit apartment building that clears the bar', asset: 'multi-unit',
+      inputs: { ...common, purchasePrice: 900_000, expenseRatio: 38, unitCount: 10, monthlyRentPerUnit: 1700 },
+      verdict: 'makes money', mustHave: ['10 units', 'yield on cost', 'covers the loan at'],
+    },
+    {
+      name: 'a single-family house', asset: 'single-family',
+      inputs: { ...common, purchasePrice: 300_000, expenseRatio: 30, monthlyRent: 2600, appreciationRate: 3 },
+      verdict: '', mustHave: ['1 home', 'net operating income'],
+    },
+  ];
+  it.each(cases)('$name', async ({ asset, inputs, verdict, mustHave }) => {
+    const React = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { DealBrief } = await import('../../src/components/brief/DealBrief');
+    const deal: any = { id: 'f', title: 'fixture deal', asset_class: asset, status: 'prospect', inputs: withLegacyDefaults(asset as any, inputs) };
+    const m = buildBriefModel(deal, [], []);
+    const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: null }));
+    const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    try {
+      await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><title>t</title></head><body style="margin:0">${html}</body></html>`);
+      await page.emulateMedia({ media: 'print' });
+      const pdf = await page.pdf({ format: 'Letter', landscape: true, printBackground: true, preferCSSPageSize: true });
+      writeFileSync(join(outDir, `napkin-${asset}.pdf`), pdf);
+      const pages = (await pageTexts(pdf)).map((t) => t.toLowerCase());
+      // Page 1 is the overview and fits one sheet: the pro forma starts on page 2
+      expect(pages[0]).toContain('the back-of-the-napkin math');
+      expect(pages[0]).not.toContain('10-year pro-forma forecast');
+      expect(pages[1]).toContain('pro-forma forecast');
+      if (verdict) expect(pages[0]).toContain(verdict);
+      for (const t of mustHave) expect(pages[0], `page 1 is missing "${t}"`).toContain(t);
+      // The story reads in order: earns, then the yield, then whether it pays for itself
+      const at = ['1. what it earns', '2. what it cost, and the yield', '3. whether it pays for itself'].map((t) => pages[0].indexOf(t));
+      expect(at.every((i) => i >= 0) && at[0] < at[1] && at[1] < at[2]).toBe(true);
+    } finally {
+      await page.close();
+    }
+  }, 120_000);
+});

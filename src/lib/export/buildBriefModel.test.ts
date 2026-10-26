@@ -161,7 +161,10 @@ describe('executive summary', () => {
     const m = buildBriefModel(prospect, [], []);
     expect(m.isPipeline).toBe(true);
     const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: null }));
-    expect(html).toContain(m.stoplight.verdict);
+    expect(html).toContain(m.napkinVerdict.verdict);
+    expect(html).toContain('The back-of-the-napkin math');
+    expect(html).toContain('Net operating income');
+    expect(html).toContain('Yield on cost');
     expect(html).toContain('annualized');
     expect(html).toContain('Where the numbers come from');
     expect(html).not.toContain('In-Place Rent Roll');
