@@ -64,6 +64,7 @@ export const BRIEF_CSS = `
 .brief .fine h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #475569; margin: 0 0 4px 0; letter-spacing: 0.3px; }
 .brief .fine ol { margin: 0; padding-left: 16px; columns: 2; column-gap: 24px; font-size: 9.5px; color: #475569; line-height: 1.45; }
 .brief .fine li { break-inside: avoid; margin-bottom: 4px; }
+.brief .fine ul { margin: 0 0 0 0; padding-left: 16px; font-size: 9.5px; color: #475569; line-height: 1.45; }
 .brief .fine p { font-size: 9px; color: #64748b; margin: 4px 0 0 0; line-height: 1.4; }
 .brief .mc { padding: 10px 12px; }
 .brief .mcg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 8px; }
@@ -334,9 +335,9 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
   const usableW = W - padL - padR;
   const usableH = H - padT - padB;
 
-  const stepX = rows.length > 1 ? usableW / (rows.length - 1) : usableW / 2;
+  const stepX = usableW / rows.length; // each tier owns a slot, so bars never sit on the axis labels
   const pts = rows.map((r, i) => {
-    const x = padL + i * stepX;
+    const x = padL + (i + 0.5) * stepX;
     const barH = Math.max(0, (r.annualDebtService / maxDs) * usableH);
     const barY = padT + usableH - barH;
     const cocFrac = (r.cashOnCash - minCoc) / cocRange;
@@ -415,7 +416,7 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
               Annual Debt Service ($) vs. Cash-on-Cash Return (%)
             </span>
             <div style={{ display: 'flex', gap: 14, fontSize: 11, fontWeight: 700 }}>
-              <span style={{ color: '#0284c7' }}>■ Annual Debt Service ($)</span>
+              <span style={{ color: '#64748b' }}>■ Annual Debt Service ($)</span>
               <span style={{ color: '#059669' }}>● Cash-on-Cash Return (%)</span>
               <span style={{ color: '#1d4ed8' }}>┆ Underwritten Baseline ({m.downPaymentPct.toFixed(0)}%)</span>
             </div>
@@ -479,7 +480,7 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
             {/* Debt Service Bars */}
             {pts.map((pt) => {
               const barW = Math.max(16, Math.min(42, stepX * 0.44));
-              const barFill = pt.isBaseline ? '#0284c7' : '#0f766e';
+              const barFill = pt.isBaseline ? '#60a5fa' : '#cbd5e1';
               return (
                 <g key={`bar-${pt.downPaymentPercent}`}>
                   <rect
@@ -489,7 +490,7 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
                     height={pt.barH}
                     rx="3"
                     fill={barFill}
-                    opacity="0.85"
+                    opacity="0.9"
                   />
                   <text
                     x={pt.x}
@@ -546,12 +547,13 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
                   )}
                   <text
                     x={pt.x}
-                    y={pt.lineY - 7}
+                    y={pt === bestPt ? pt.lineY - 15 : pt.lineY - 7}
                     fill={ptColor}
                     fontSize="9.5"
                     fontWeight="bold"
                     textAnchor="middle"
                     fontFamily="sans-serif"
+                    stroke="#ffffff" strokeWidth="3" paintOrder="stroke"
                   >
                     {pt.cashOnCash.toFixed(1)}%
                   </text>
