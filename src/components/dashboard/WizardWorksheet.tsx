@@ -8,6 +8,22 @@ export const PERCENT_ROWS = new Set(['vacancyRate', 'rentGrowth', 'expenseRatio'
 
 const SOURCE: Record<WorksheetRow['source'], string> = { document: 'From the document', profile: 'From your investor profile', owner: 'Your entry', missing: '' };
 
+/** The few words a check mark carries: where the figure came from. The full line stays in the tooltip. */
+export function whereFrom(r: WorksheetRow): string {
+  const basis = typeof r.basis === 'string' ? r.basis : String(r.basis ?? '');
+  const clip = (t: string) => (t.length > 70 ? `${t.slice(0, 67).trimEnd()}...` : t);
+  if (r.source === 'document') {
+    const at = basis.indexOf(': "');
+    return `Document${basis ? ` · ${clip(at > 0 ? basis.slice(0, at) : basis)}` : ''}`;
+  }
+  if (r.source === 'profile') {
+    const why = basis.replace(/^Your investor profile:?\s*/, '').replace(/\.$/, '');
+    return `Your profile${why ? ` · ${clip(why)}` : ''}`;
+  }
+  if (r.source === 'owner') return 'Your entry';
+  return '';
+}
+
 interface NoteProps {
   row: WorksheetRow;
   /** The question for this figure, if there is one (the sources disagree, or it is far from your standard); also its answered line. */
@@ -41,7 +57,7 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
     return (
       <div data-note={r.key} data-state={r.state}>
         <p title={`${SOURCE[r.source]}. ${r.basis}`} className={`mt-1 inline-flex items-center gap-1.5 text-[11px] ${profile ? 'text-violet-300' : 'text-emerald-400'}`}>
-          <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}
+          <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}<span className="text-slate-400">{whereFrom(r)}</span>
         </p>
         {extra}
       </div>
