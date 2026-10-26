@@ -80,7 +80,7 @@ export function rowApplies(key: string, asset: string | null | undefined): boole
 export function labelFor(key: string, label: string, asset: string | null | undefined): string {
   if (key === 'unitCount' && asset === 'storage') return 'Storage units';
   if (key === 'unitCount' && asset === 'multi-unit') return 'Apartment units';
-  if (key === 'squareFeet') return asset === 'storage' ? 'Rentable area' : asset === 'single-family' ? 'Living area' : 'Gross leasable area';
+  if (key === 'squareFeet') return asset === 'storage' || asset === 'multi-unit' ? 'Rentable area' : asset === 'single-family' ? 'Living area' : 'Gross leasable area';
   return label;
 }
 

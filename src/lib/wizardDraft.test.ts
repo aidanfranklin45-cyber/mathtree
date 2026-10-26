@@ -35,3 +35,20 @@ describe('the new-project draft', () => {
     expect(takeReopenOnLoad()).toBe(false); // visiting the dashboard again does not pop the form open
   });
 });
+
+import { loadDraftDocuments, saveDraftDocuments } from './wizardDraft';
+
+describe('the documents a draft was filled from', () => {
+  it('come back with the draft, and go when it goes', () => {
+    saveWizardDraft({ w: { price: '1' }, filledOnce: true, isNameTouched: false, docExtra: {}, seededBasis: {}, assessor: null, parcels: [] });
+    saveDraftDocuments([{ id: 3, name: 'Pasted text', text: 'SELAH SELF STORAGE', type: 'auto' }]);
+    expect(loadDraftDocuments()).toEqual([{ id: 3, name: 'Pasted text', text: 'SELAH SELF STORAGE', type: 'auto' }]);
+    clearWizardDraft();
+    expect(loadDraftDocuments()).toEqual([]);
+  });
+  it('are not kept without a draft of the form', () => {
+    clearWizardDraft();
+    saveDraftDocuments([{ id: 1, name: 'x', text: 'y', type: 'auto' }]);
+    expect(loadDraftDocuments()).toEqual([]);
+  });
+});

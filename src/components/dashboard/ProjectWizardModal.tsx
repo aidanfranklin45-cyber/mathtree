@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { AddressService } from '../../lib/services/addressService';
 
-import { seedFromAssumptions, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, suggestedStartingPoints, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
@@ -136,6 +136,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const rootRef = useRef<HTMLDivElement>(null);
   // The form was put back from a draft kept by this tab (a reload or a stale-version refresh would otherwise have thrown it away)
   const [restored, setRestored] = useState(false);
+  const [panelKey, setPanelKey] = useState(0);
   // What was read from documents and what the owner decided, kept until the project is created and saved with it as the record of sources
   const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
   // The owner confirms they reviewed what was read from documents and filled from their profile. Not kept in the draft: after a reload they confirm again.
@@ -247,7 +248,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const assumptionFill = (base: W, assetKey: Asset) => {
     const profile = getProfile();
     return profileFill({
-      assumptions: profile.underwritingAssumptions, discountRate: profile.discountRate, exitYear: profile.exitYear, base, asset: assetKey,
+      // What the owner saved, and for every figure they have not, the labelled starting point: the same set the engine applies live
+      assumptions: suggestedStartingPoints(profile.underwritingAssumptions), discountRate: profile.discountRate, exitYear: profile.exitYear, base, asset: assetKey,
       assessedValue: Number(assessor?.taxableValue) || Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
     });
   };
@@ -626,6 +628,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
     setIntake(null); setAnswers({}); setVerified(false); setVerifyNudge(false); setClosingFilled(null); setDocFiles([]);
+    setOwnerReasons({}); setSheet(null);
+    // The documents panel keeps its own list and decisions: a new key makes it start empty too
+    setPanelKey((k) => k + 1);
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -802,7 +807,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                   <input type="number" min={1} placeholder="How many units?" data-field="multiUnits" value={w.multiUnits} onChange={(e) => { const u = int(e.target.value, 0); const rpu = num(w.multiRentPerUnit); set(u > 0 && rpu > 0 ? { multiUnits: e.target.value, multiGrossRent: String(rpu * u), grossRent: String(rpu * u) } : { multiUnits: e.target.value }); }} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
+                  <label className={lbl2}>Rentable Area (Sq Ft)</label>
                   <input type="number" min={100} placeholder="e.g. 11000" data-field="multiSqft" value={w.multiSqft} onChange={(e) => set({ multiSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
@@ -1343,7 +1348,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         <div ref={rootRef} className="p-4 sm:p-6 overflow-y-auto space-y-8 flex-grow">
-          <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} reveal={sheetNudge} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
+          <WizardAutofill key={panelKey} deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} reveal={sheetNudge} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
           intake={intake}
           closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)}>
           {restored && (

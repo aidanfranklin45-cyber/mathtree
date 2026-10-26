@@ -4,6 +4,7 @@
  * blank field that quietly has a number behind it. Read from the same function the engine uses, so what is shown is what is applied.
  */
 
+import { isStartingPointReason } from '@engine/underwritingAssumptions';
 import { resolveProfileAssumptions } from '../engine/compute';
 
 /** The percentage assumptions the engine can fill from the profile, by the worksheet row they belong to. */
@@ -20,5 +21,5 @@ export function liveAssumption(deal: Deal, key: string): LiveAssumption | null {
   const value = resolved.filled[key];
   if (value === undefined) return null;
   const why = resolved.basis[key]?.rationale;
-  return { value, text: `Not entered here, so ${value}% applies. Source: ${why ? why.replace(/\.$/, '') : 'your investor profile'}. Enter a figure to use your own for this property.` };
+  return { value, text: `Not entered here, so ${value}% applies. Source: ${why ? `${isStartingPointReason(why) ? 'starting point, ' : ''}${why.replace(/\.$/, '')}` : 'your investor profile'}. Enter a figure to use your own for this property.` };
 }

@@ -13,6 +13,7 @@ import { RatioBreakdownView } from './RatioBreakdownView';
 import { checkTitle, expectedCosts, ratioBreakdown, ratioChecks, type RatioCheck } from '../../lib/ingestion/ratioBreakdown';
 import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
+import { loadDraftDocuments, saveDraftDocuments } from '../../lib/wizardDraft';
 import { liveAssumption } from '../../lib/ingestion/liveAssumptions';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { evaluateContracts, type ContractResult, type Option } from '../../lib/ingestion/contracts';
@@ -90,7 +91,8 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' | 'unsur
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
 export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing, children, reveal }) => {
-  const [sources, setSources] = useState<Source[]>([]);
+  const [sources, setSources] = useState<Source[]>(() => loadDraftDocuments().map((d) => ({ id: d.id, name: d.name, text: d.text, type: d.type as Source['type'] })));
+  useEffect(() => { saveDraftDocuments(sources.map((s) => ({ id: s.id, name: s.name, text: s.text, type: s.type }))); }, [sources]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
   const [result, setResult] = useState<{ proposal: Proposal; docs: IntakeDocument[]; filled: number } | null>(null);
@@ -105,7 +107,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const [asked, setAsked] = useState<Record<string, string>>({});
   // What the owner supplied for a missing figure stays on screen as a checked line they can change, instead of disappearing
   const [provided, setProvided] = useState<Record<string, { label: string; value: string; editing: boolean }>>({});
-  const nextId = useRef(1);
+  const nextId = useRef(Math.max(0, ...sources.map((s) => s.id)) + 1);
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;

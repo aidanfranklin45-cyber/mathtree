@@ -47,3 +47,19 @@ describe('a blank field that the profile fills is said out loud', () => {
     expect(liveAssumption(house, 'expenseRatio')).toBeNull();
   });
 });
+
+import { isStartingPointReason } from '@engine/underwritingAssumptions';
+
+describe('a starting point is told apart from the owner\'s own setting', () => {
+  it('knows the labels the starting points carry', () => {
+    expect(isStartingPointReason('Common underwriting convention')).toBe(true);
+    expect(isStartingPointReason('Set near market cap rates for the type; adjust per property')).toBe(true);
+  });
+  it('does not mistake the owner\'s reason for one', () => {
+    expect(isStartingPointReason('My lender requires 1.30 coverage')).toBe(false);
+    expect(isStartingPointReason(undefined)).toBe(false);
+  });
+  it('labels the area of an apartment building as rentable', () => {
+    expect(labelFor('squareFeet', 'Square feet', 'multi-unit')).toBe('Rentable area');
+  });
+});
