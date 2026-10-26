@@ -83,12 +83,11 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
       {/* PAGE 1: the request, the coverage test, the borrower, the collateral */}
       <div className="hdr">
         <div>
-          <div className="row"><span className="logo">MathTree</span><span className="pill pill-blue">Lender Summary</span><span className="pill pill-slate">{b.memoTypeLabel}</span></div>
+          <div className="row"><span className="logo">MathTree</span><span className="pill pill-blue">Lender Summary</span></div>
           <h1>{b.title}</h1>
           <div className="row hmeta">
             <span>📍 <strong>{orNP(b.location)}</strong></span><span>•</span>
-            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}</span><span>•</span>
-            <span>🏛️ {orNP(b.county)}</span>
+            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}</span>
           </div>
         </div>
         <div className="hside">

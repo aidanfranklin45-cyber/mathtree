@@ -87,11 +87,12 @@ describe('printed briefs (public sample deal)', () => {
       at = i;
     }
     expect(r.overflowX).toBe(false);
-    // Page 1 is the overview, page 2 the pro forma with its charts: both must fit one sheet. Page 3 is the supporting records
-    // (sources, county parcels, rent roll, notes), which grow with the deal and may run on.
-    r.groups.forEach((h, i) => { if (i !== 2) expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT); });
-    // The overview stays at the front: the county parcel table and rent roll are behind the pro forma, not before it
-    expect(r.text.indexOf('official county assessor')).toBeGreaterThan(r.text.indexOf('10-year pro-forma forecast'));
+    // The overview, the pro forma with its charts, leverage and the Monte Carlo must each fit one sheet. The sources-and-notes page and
+    // the county-records page grow with the deal and may run on.
+    r.groups.forEach((h, i) => { if (i !== 2 && i !== r.groups.length - 1) expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT); });
+    // The county parcel table is a record at the back, behind the Monte Carlo and ahead of the disclosures
+    expect(r.text.indexOf('official county assessor')).toBeGreaterThan(r.text.indexOf('monte carlo simulation'));
+    expect(r.text.indexOf('official county assessor')).toBeLessThan(r.text.indexOf('methodology, diligence'));
     expect(r.sheets).toBeGreaterThanOrEqual(5);
     expect(r.sheets).toBeLessThanOrEqual(7);
   }, 180_000);
@@ -157,8 +158,12 @@ describe('a long pipeline deal (15-year hold, partial first year, two parcels)',
       expect(where('net operating income covers the loan payment') === titles[0] || where('net operating income first covers') === titles[0], 'a chart is on a different page from its title').toBe(true);
       // The overview comes first, with the stoplight; the parcel table and rent roll come after the pro forma
       expect(where('opportunity cost')).toBe(0);
-      expect(where('official county assessor')).toBeGreaterThan(where('pro-forma forecast'));
+      expect(where('official county assessor')).toBeGreaterThan(where('monte carlo simulation'));
       expect(pages[0]).not.toContain('official county assessor');
+      // The header carries the name, status and closing: no memo-type label, county or GIS badge
+      expect(pages[0]).not.toContain('underwriting memo');
+      expect(pages[0]).not.toContain('verified county parcel');
+      expect(pages[0]).toContain('Burger Pad'.toLowerCase());
       // Pipeline prospect with no rent roll: that box is not printed at all
       expect(pages.join(' ')).not.toContain('no rent roll on file');
     } finally {

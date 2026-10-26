@@ -4,6 +4,7 @@ import { buildAssumptionLedger } from '../assumptions/ledger';
 import { getAssumptionDefaults } from '../engine/assumptionDefaults';
 import { DEFAULT_CLOSING_WEEKS } from '@engine/underwritingAssumptions';
 import { firstFullYear, calculateDownPaymentMatrix, type DownPaymentMatrixResult } from '../engine';
+import { titleCase } from './titleCase';
 import { classifyAgainstOpportunityCost, STOPLIGHT_BAND_POINTS, type StoplightResult } from '../engine/stoplight';
 
 /**
@@ -449,7 +450,7 @@ export function buildBriefModel(
   }
 
   return {
-    title: String(deal.title || deal.name || 'Investment Underwriting Brief'),
+    title: titleCase(String(deal.title || deal.name || 'Investment Underwriting Brief')),
     location: text(deal.location) ?? text(deal.address),
     status,
     assetClass,

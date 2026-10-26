@@ -884,15 +884,12 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         <div>
           <div className="row">
             <span className="logo">MathTree</span>
-            <span className="pill pill-green">{m.memoTypeLabel}</span>
             <span className={`pill ${m.status === 'owned' ? 'pill-green' : 'pill-blue'}`}>{m.status === 'owned' ? '🏛️ Owned Operating Asset' : '🎯 Pipeline Prospect'}</span>
           </div>
           <h1>{m.title}</h1>
           <div className="row hmeta">
             <span>📍 <strong>{orNP(m.location)}</strong></span><span>•</span>
-            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}{multi ? ` (+${m.parcels.length - 1} Adjacent)` : ''}</span><span>•</span>
-            <span>🏛️ {orNP(m.county)}</span><span>•</span>
-            <span className="pill pill-slate">{m.gisBadge}</span>
+            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}{multi ? ` (+${m.parcels.length - 1} Adjacent)` : ''}</span>
             {multi && <span className="pill pill-green">📦 {m.parcels.length}-Parcel Package</span>}
           </div>
         </div>
@@ -908,7 +905,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
       <div className="score">
         <div className="tile"><p className="tl">{m.holdYears}-Yr IRR, annualized</p><p className="tv" style={{ color: LIGHT_STYLE[m.stoplight.light].fg }}>{pct(m.irr)}</p></div>
         <div className="tile"><p className="tl">Your Opportunity Cost</p><p className="tv">{m.discountRate.toFixed(1)}%<small>/yr</small></p></div>
-        <div className="tile"><p className="tl">Year 1 Net Cash Flow{m.isProrated ? ` (${Number(m.p0.operatingMonths)} mo.)` : ''}</p><p className="tv" style={{ color: m.cashFlow >= 0 ? '#059669' : '#e11d48' }}>{cur(m.cashFlow)}<small> ({cur(m.monthlyCashFlow)}/mo)</small></p></div>
+        <div className="tile"><p className="tl">Year 1 Net Cash Flow</p><p className="tv" style={{ color: m.cashFlow >= 0 ? '#059669' : '#e11d48' }}>{cur(m.cashFlow)}<small> ({cur(m.monthlyCashFlow)}/mo)</small></p></div>
         <div className="tile"><p className="tl">Equity Multiplier</p><p className="tv">{m.equityMultiple.toFixed(2)}x</p></div>
         <div className="tile"><p className="tl">{stab} Cap Rate</p><p className="tv">{pct(m.capRate)}</p></div>
         <div className="tile"><p className="tl">{dscrLabel}</p><p className="tv" style={{ color: dscrColor(m.dscr) }}>{m.dscrFormatted}</p></div>
@@ -929,14 +926,6 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
           <ul>{m.warnings.map((w, i) => <li key={i}><strong>{w.title}:</strong> {w.description}</li>)}</ul>
         </div>
       )}
-
-      {/* The property at a glance: the full parcel table and rent roll are supporting records at the back */}
-      <div className="strip">
-        <div><span className="k">Owner of record</span><strong>{orNP(m.owner)}</strong></div>
-        <div><span className="k">Zoning &amp; use</span><strong>{orNP(m.zoning)} • {orNP(m.useCode)}</strong></div>
-        <div><span className="k">Structure</span><strong>{[m.yearBuilt ? `Built ${m.yearBuilt}` : null, m.buildingSqFt > 0 ? `${m.buildingSqFt.toLocaleString()} sq ft` : null, m.stories ? `${m.stories} story` : null, m.construction].filter(Boolean).join(' • ') || NP}</strong></div>
-        <div><span className="k">County record</span><strong>{m.parcels.length > 0 ? `${m.parcels.length} parcel${m.parcels.length === 1 ? '' : 's'} • ${m.parcelTotals.assessed > 0 ? `${cur(m.parcelTotals.assessed)} assessed` : 'assessment pending'}` : 'No parcel linked'}</strong></div>
-      </div>
 
       {/* PAGE 2: pro-forma, the figures that defend it, then where every number came from */}
       <div className="box split pf pg">
@@ -975,9 +964,20 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         <ProFormaCharts m={m} />
       </div>
 
-      {/* PAGE 3: supporting records, behind the numbers */}
+      {/* PAGE 3: where the numbers come from, and the notes on how the pro forma was built */}
       <div className="pg">
         <SourcesTable m={m} />
+        <NotesBox m={m} />
+      </div>
+
+      {/* PAGE 3: where cash-on-cash is maximized */}
+      <DownPaymentSection m={m} />
+
+      {/* PAGE 4: Monte Carlo */}
+      <MonteCarloSection m={m} mc={monteCarlo} />
+
+      {/* LAST PAGES: the records behind the numbers, then the disclosures */}
+      <div className="pg">
       <div className="box">
           <div className="bh">
             <span>🏛️ Official County Assessor &amp; Parcel Records</span>
@@ -1065,15 +1065,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             )}
           </div>
         )}
-
-        <NotesBox m={m} />
       </div>
-
-      {/* PAGE 3: where cash-on-cash is maximized */}
-      <DownPaymentSection m={m} />
-
-      {/* PAGE 4: Monte Carlo */}
-      <MonteCarloSection m={m} mc={monteCarlo} />
 
       {/* LAST: methodology and diligence provenance, as fine print */}
       <div className="fine">
