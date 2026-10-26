@@ -28,6 +28,8 @@ export interface InvestorProfile {
   associatedCompanies?: AssociatedCompany[];
   formationState?: string;
   discountRate: number;         // Hurdle Rate (%/yr opportunity cost)
+  /** The brief's stoplight: within this many points of the discount rate is yellow, beyond it green or red. */
+  stoplightBandPoints: number;
   exitYear: number;             // Default Hold Period (Years)
   exitCapTiming: 'amortized' | 'day1';
   marketTier: string;
@@ -47,6 +49,7 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   primaryEntityId: null,
   associatedCompanies: [],
   discountRate: 8.0,          // Target Hurdle Rate (%/yr opportunity cost)
+  stoplightBandPoints: 1,     // Percentage points either side of the hurdle that read as "close"
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: 'amortized', // 'amortized' | 'day1'
   marketTier: 'Tier 2',       // 'Tier 1' | 'Tier 2' | 'Tier 3'
@@ -64,6 +67,9 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   const discountRateRaw = parseFloat(String(raw.discountRate ?? ''));
   const discountRate = isNaN(discountRateRaw) ? DEFAULT_PROFILE.discountRate : Math.max(0, Math.min(100, discountRateRaw));
 
+  const bandRaw = parseFloat(String(raw.stoplightBandPoints ?? ''));
+  const stoplightBandPoints = isNaN(bandRaw) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, bandRaw));
+
   const exitYearRaw = parseInt(String(raw.exitYear ?? ''), 10);
   const exitYear = isNaN(exitYearRaw) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, exitYearRaw));
 
@@ -77,7 +83,7 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   // Blanks are filled with the labelled convention for them (the owner's own figures are never touched), so a standard added later
   // never leaves a property asking for something the owner would expect to be assumed
   const underwritingAssumptions = suggestedStartingPoints(stored);
-  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear });
+  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear, stoplightBandPoints });
 
   return {
     id: raw.id ?? null,
@@ -90,6 +96,7 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
       : (Array.isArray((raw as any).associated_companies) ? (raw as any).associated_companies : []),
     formationState: raw.formationState ? String(raw.formationState).trim() : undefined,
     discountRate,
+    stoplightBandPoints,
     exitYear,
     exitCapTiming,
     marketTier: String(raw.marketTier || DEFAULT_PROFILE.marketTier).trim(),
@@ -240,14 +247,16 @@ export async function saveProfile(
       if (data?.profile) {
         const wanted = JSON.stringify(merged.underwritingAssumptions ?? { assets: {} });
         const echoed = JSON.stringify(sanitizeAssumptions(data.profile.underwritingAssumptions));
-        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions });
+        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints });
         savedSuccessfully = true;
         // An edge function deployed before assumptions existed saves the rest and drops them: write them directly so they are never lost
-        if (wanted !== echoed && supabaseClient && currentUser?.id) {
+        const bandEchoed = Number(data.profile.stoplightBandPoints);
+        const bandLost = !(Math.abs(bandEchoed - merged.stoplightBandPoints) < 1e-9);
+        if ((wanted !== echoed || bandLost) && supabaseClient && currentUser?.id) {
           try {
             const { data: row } = await supabaseClient.from('profiles').select('preferences').eq('id', currentUser.id).maybeSingle();
             const prefs = row?.preferences && typeof row.preferences === 'object' ? row.preferences : {};
-            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions } }).eq('id', currentUser.id);
+            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints } }).eq('id', currentUser.id);
             if (error) throw error;
           } catch (e) {
             console.warn('[profile] Could not store underwriting assumptions directly:', e);
@@ -275,6 +284,7 @@ export async function saveProfile(
         property_class: merged.propertyClass,
         preferences: {
           discountRate: merged.discountRate,
+          stoplightBandPoints: merged.stoplightBandPoints,
           exitYear: merged.exitYear,
           exitCapTiming: merged.exitCapTiming,
           marketTier: merged.marketTier,

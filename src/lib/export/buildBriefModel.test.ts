@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildBriefModel, type LeaseRow, type ParcelRow } from './buildBriefModel';
 import { computeDealMetrics } from '../engine/testEngine';
 import { withLegacyDefaults } from '../engine/testInputs';
+import { getAssumptionDefaults, setAssumptionDefaults } from '../engine/assumptionDefaults';
 
 const baseInputs = {
   purchasePrice: 1_000_000, downPaymentPercent: 30, interestRate: 6.5, loanTerm: 25,
@@ -135,6 +136,15 @@ describe('executive summary', () => {
     expect(high.stoplight.light).toBe('green');
     expect(high.stoplight.irr).toBe(high.irr);
     expect(high.stoplight.opportunityCost).toBe(high.discountRate);
+  });
+
+  it('uses the band from the investor profile', () => {
+    const before = getAssumptionDefaults();
+    try {
+      expect(buildBriefModel(mkDeal(baseInputs), [], []).stoplight.bandPoints).toBe(1);
+      setAssumptionDefaults({ ...before, stoplightBandPoints: 2.5 });
+      expect(buildBriefModel(mkDeal(baseInputs), [], []).stoplight.bandPoints).toBe(2.5);
+    } finally { setAssumptionDefaults(before); }
   });
 
   it('marks the highest cash-on-cash tier from the matrix rows', () => {

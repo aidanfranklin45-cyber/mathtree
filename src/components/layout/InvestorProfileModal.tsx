@@ -31,6 +31,7 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
   return {
     fullName: f.fullName.trim() || 'Investor',
     discountRate: parseFloat(String(f.discountRate)) || 8.0,
+    stoplightBandPoints: parseFloat(String(f.stoplightBandPoints)) || 1,
     exitYear: parseInt(String(f.exitYear), 10) || 10,
     marketTier: f.marketTier,
     propertyClass: f.propertyClass,
@@ -45,7 +46,7 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
 
 /** A half-typed number (empty or NaN) must not be saved as its default. */
 function isSavable(f: InvestorProfile): boolean {
-  return !isNaN(parseFloat(String(f.discountRate))) && !isNaN(parseInt(String(f.exitYear), 10));
+  return !isNaN(parseFloat(String(f.discountRate))) && !isNaN(parseInt(String(f.exitYear), 10)) && !isNaN(parseFloat(String(f.stoplightBandPoints)));
 }
 
 function readDraft(userId: string | undefined): InvestorProfile | null {
@@ -475,6 +476,22 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                     {rate}% ({label})
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+              <label className="text-[11px] font-extrabold text-emerald-400" htmlFor="stoplight-band">Stoplight band (points)</label>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                On page 1 of the brief, a deal within this many points of your hurdle shows <strong>yellow</strong>; further above is green, further below is red.
+              </p>
+              <div className="relative w-32">
+                <input
+                  id="stoplight-band" type="number" min={0.1} max={10} step={0.1}
+                  value={form.stoplightBandPoints}
+                  onChange={(e) => set('stoplightBandPoints', e.target.value as unknown as number)}
+                  className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400 pr-12"
+                />
+                <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-500">pts</span>
               </div>
             </div>
 

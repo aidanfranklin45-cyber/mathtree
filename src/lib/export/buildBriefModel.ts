@@ -4,7 +4,7 @@ import { buildAssumptionLedger } from '../assumptions/ledger';
 import { getAssumptionDefaults } from '../engine/assumptionDefaults';
 import { DEFAULT_CLOSING_WEEKS } from '@engine/underwritingAssumptions';
 import { firstFullYear, calculateDownPaymentMatrix, type DownPaymentMatrixResult } from '../engine';
-import { classifyAgainstOpportunityCost, type StoplightResult } from '../engine/stoplight';
+import { classifyAgainstOpportunityCost, STOPLIGHT_BAND_POINTS, type StoplightResult } from '../engine/stoplight';
 
 /**
  * The single source for the deal brief. Every figure comes from ONE engine run (`computeDealMetrics`, the same call the
@@ -403,7 +403,7 @@ export function buildBriefModel(
     ? 'Single-Family Residential Investment Memo'
     : isMultiFamily ? 'Multi-Family Residential Memo' : isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo';
 
-  const stoplight = classifyAgainstOpportunityCost(num(raw.irr), discountRate);
+  const stoplight = classifyAgainstOpportunityCost(num(raw.irr), discountRate, getAssumptionDefaults().stoplightBandPoints ?? STOPLIGHT_BAND_POINTS);
 
   const matrixRows = downPaymentMatrix?.rows ?? [];
   const bestRow = matrixRows.reduce<(typeof matrixRows)[number] | null>((b, r) => (b === null || r.cashOnCash > b.cashOnCash ? r : b), null);
