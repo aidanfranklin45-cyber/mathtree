@@ -17,6 +17,18 @@ const stored = {
 const rows = (over: Record<string, any> = {}) => buildAssumptionLedger({ stored: { ...stored, ...over }, prepared: { ...stored, ...over }, filled: {}, filledBasis: {}, assetClass: 'multi-unit', metrics: {} });
 const row = (id: string, over?: Record<string, any>) => rows(over).find((r) => r.id === id)!;
 
+describe('rent entered as units and an average', () => {
+  const plain = { purchasePrice: 200_000, downPaymentPercent: 10, interestRate: 6.53, amortizationYears: 30, unitCount: 12, monthlyRentPerUnit: 150, grossRentAnnual: 21_600 };
+  const one = (over: Record<string, any> = {}) => buildAssumptionLedger({ stored: { ...plain, ...over }, prepared: { ...plain, ...over }, filled: {}, filledBasis: {}, assetClass: 'storage', metrics: {} }).find((r) => r.id === 'rent')!;
+  it('says the rent is units times an average, since that is what the owner entered', () => {
+    expect(one().value).toBe('12 units × $150/mo average = $21,600 a year');
+    expect(one().source).toBe('Your entry: number of units and average rent');
+  });
+  it('does not claim a unit build-up that does not add up', () => {
+    expect(one({ grossRentAnnual: 25_000 }).value).toBe('$25,000 a year');
+  });
+});
+
 describe('where each figure came from', () => {
   it('attributes a figure that is still the document\'s to the document, with its file name', () => {
     expect(row('price')).toMatchObject({ mode: 'document', source: 'From Quail Ridge OM.pdf' });

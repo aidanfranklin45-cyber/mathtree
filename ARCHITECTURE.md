@@ -219,6 +219,10 @@ Owner decisions carried over from the retired plan docs (still in git history). 
   plan is committed. The engine supports capex plus a rent step mid-hold, optional new-loan financing, downtime rent
   percentage, extra opex, and value by cap rate or a typed ARV.
 - **PDF brief.** Computed from facts with the shared engine; no stored metrics.
+  One story, in the order a lender asks: page 1 the stoplight and key terms, then the pro forma with its charts and where each number came
+  from, then leverage, then the Monte Carlo. The stoplight (`engine/stoplight.ts`) compares the annualized IRR with the investor profile's
+  discount rate (the opportunity cost, also the Monte Carlo hurdle): green at 1 point or more above, red more than 1 point below, yellow between.
+  The 1-point band is the owner's decision and lives as `STOPLIGHT_BAND_POINTS`; making it a profile field needs an edge-function and SQL change.
 
 ## 8. Assumptions, the investor profile, and intake
 

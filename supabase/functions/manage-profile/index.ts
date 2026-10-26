@@ -34,6 +34,7 @@ export const DEFAULT_PROFILE = {
   primaryEntityId: null as string | null,
   associatedCompanies: [] as Array<Record<string, unknown>>,
   discountRate: 8.0,          // Target Hurdle Rate (%/yr)
+  stoplightBandPoints: 1,     // Points either side of the hurdle that read as "close" in the brief's stoplight
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: "amortized", // 'amortized' | 'day1'
   marketTier: "Tier 2",       // 'Tier 1' | 'Tier 2' | 'Tier 3'
@@ -151,6 +152,7 @@ export async function handleRequest(req: Request): Promise<Response> {
         discountRate: row?.discount_rate !== null && row?.discount_rate !== undefined && !isNaN(parseFloat(String(row.discount_rate)))
           ? parseFloat(String(row.discount_rate))
           : (isNaN(parseFloat(prefs.discountRate)) ? DEFAULT_PROFILE.discountRate : parseFloat(prefs.discountRate)),
+        stoplightBandPoints: isNaN(parseFloat(String(prefs.stoplightBandPoints))) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, parseFloat(String(prefs.stoplightBandPoints)))),
         exitYear: row?.exit_year !== null && row?.exit_year !== undefined && !isNaN(parseInt(String(row.exit_year), 10))
           ? parseInt(String(row.exit_year), 10)
           : (isNaN(parseInt(prefs.exitYear, 10)) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, parseInt(prefs.exitYear, 10)))),
@@ -190,6 +192,9 @@ export async function handleRequest(req: Request): Promise<Response> {
     // Sanitize values
     const discountRateRaw = parseFloat(String(payload.discountRate ?? ""));
     const discountRate = isNaN(discountRateRaw) ? DEFAULT_PROFILE.discountRate : Math.max(0, Math.min(100, discountRateRaw));
+
+    const bandRaw = parseFloat(String(payload.stoplightBandPoints ?? ""));
+    const stoplightBandPoints = isNaN(bandRaw) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, bandRaw));
 
     const exitYearRaw = parseInt(String(payload.exitYear ?? ""), 10);
     const exitYear = isNaN(exitYearRaw) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, exitYearRaw));
@@ -284,6 +289,7 @@ export async function handleRequest(req: Request): Promise<Response> {
       leaseExpiryMode: expiry.mode,
       leaseExpiryVacancyMonths: expiry.vacancyMonths,
       discountRate,
+      stoplightBandPoints,
       exitYear,
       exitCapTiming,
       marketTier,

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildBriefModel, type LeaseRow, type ParcelRow } from './buildBriefModel';
 import { computeDealMetrics } from '../engine/testEngine';
 import { withLegacyDefaults } from '../engine/testInputs';
+import { getAssumptionDefaults, setAssumptionDefaults } from '../engine/assumptionDefaults';
 
 const baseInputs = {
   purchasePrice: 1_000_000, downPaymentPercent: 30, interestRate: 6.5, loanTerm: 25,
@@ -124,6 +125,50 @@ describe('DealBrief render', () => {
     expect(html).toContain('Exit cap rate');
     expect(html).toContain('Tenant default');
     expect(mc.telemetry.volatility.holdYears).toBe(10);
+  });
+});
+
+describe('executive summary', () => {
+  it('lights the stoplight from the IRR against the profile opportunity cost', () => {
+    const low = buildBriefModel(mkDeal({ ...baseInputs, discountRate: 40 }), [], []);
+    expect(low.stoplight.light).toBe('red');
+    const high = buildBriefModel(mkDeal({ ...baseInputs, discountRate: 0 }), [], []);
+    expect(high.stoplight.light).toBe('green');
+    expect(high.stoplight.irr).toBe(high.irr);
+    expect(high.stoplight.opportunityCost).toBe(high.discountRate);
+  });
+
+  it('uses the band from the investor profile', () => {
+    const before = getAssumptionDefaults();
+    try {
+      expect(buildBriefModel(mkDeal(baseInputs), [], []).stoplight.bandPoints).toBe(1);
+      setAssumptionDefaults({ ...before, stoplightBandPoints: 2.5 });
+      expect(buildBriefModel(mkDeal(baseInputs), [], []).stoplight.bandPoints).toBe(2.5);
+    } finally { setAssumptionDefaults(before); }
+  });
+
+  it('marks the highest cash-on-cash tier from the matrix rows', () => {
+    const m = buildBriefModel(mkDeal(baseInputs), [], []);
+    const best = Math.max(...m.downPaymentMatrix.rows.map((r) => r.cashOnCash));
+    expect(m.leverageMarks.best?.cashOnCash).toBe(best);
+  });
+
+  it('prints the light, says the IRR is annualized, and hides the empty rent roll for a prospect', async () => {
+    const React = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { DealBrief } = await import('../../components/brief/DealBrief');
+    const prospect = { ...mkDeal(baseInputs), status: 'prospect' };
+    const m = buildBriefModel(prospect, [], []);
+    expect(m.isPipeline).toBe(true);
+    const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: null }));
+    expect(html).toContain(m.stoplight.verdict);
+    expect(html).toContain('(annualized)');
+    expect(html).toContain('Where the numbers come from');
+    expect(html).not.toContain('In-Place Rent Roll');
+    expect(html).not.toContain('Core Underwriting Assumptions');
+    // an owned property still shows its rent roll
+    const owned = renderToStaticMarkup(React.createElement(DealBrief, { model: buildBriefModel(mkDeal(baseInputs), leases, parcels), monteCarlo: null }));
+    expect(owned).toContain('In-Place Rent Roll');
   });
 });
 
