@@ -21,6 +21,12 @@ function getEnv(key: string): string {
   }
 }
 
+/** A dollar figure the owner typed, or null when blank or not a number. */
+function sponsorMoney(v: unknown): number | null {
+  const x = parseFloat(String(v ?? "").replace(/[$,\s]/g, ""));
+  return Number.isFinite(x) && x >= 0 ? x : null;
+}
+
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -34,6 +40,7 @@ export const DEFAULT_PROFILE = {
   primaryEntityId: null as string | null,
   associatedCompanies: [] as Array<Record<string, unknown>>,
   discountRate: 8.0,          // Target Hurdle Rate (%/yr)
+  minDscr: 1.25,
   stoplightBandPoints: 1,     // Points either side of the hurdle that read as "close" in the brief's stoplight
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: "amortized", // 'amortized' | 'day1'
@@ -153,6 +160,10 @@ export async function handleRequest(req: Request): Promise<Response> {
           ? parseFloat(String(row.discount_rate))
           : (isNaN(parseFloat(prefs.discountRate)) ? DEFAULT_PROFILE.discountRate : parseFloat(prefs.discountRate)),
         stoplightBandPoints: isNaN(parseFloat(String(prefs.stoplightBandPoints))) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, parseFloat(String(prefs.stoplightBandPoints)))),
+        minDscr: isNaN(parseFloat(String(prefs.minDscr))) ? DEFAULT_PROFILE.minDscr : Math.max(1, Math.min(3, parseFloat(String(prefs.minDscr)))),
+        sponsorExperience: String(prefs.sponsorExperience ?? "").trim().slice(0, 600),
+        sponsorLiquidity: sponsorMoney(prefs.sponsorLiquidity),
+        sponsorNetWorth: sponsorMoney(prefs.sponsorNetWorth),
         exitYear: row?.exit_year !== null && row?.exit_year !== undefined && !isNaN(parseInt(String(row.exit_year), 10))
           ? parseInt(String(row.exit_year), 10)
           : (isNaN(parseInt(prefs.exitYear, 10)) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, parseInt(prefs.exitYear, 10)))),
@@ -195,6 +206,12 @@ export async function handleRequest(req: Request): Promise<Response> {
 
     const bandRaw = parseFloat(String(payload.stoplightBandPoints ?? ""));
     const stoplightBandPoints = isNaN(bandRaw) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, bandRaw));
+
+    const minDscrRaw = parseFloat(String(payload.minDscr ?? ""));
+    const minDscr = isNaN(minDscrRaw) ? DEFAULT_PROFILE.minDscr : Math.max(1, Math.min(3, minDscrRaw));
+    const sponsorExperience = String(payload.sponsorExperience ?? "").trim().slice(0, 600);
+    const sponsorLiquidity = sponsorMoney(payload.sponsorLiquidity);
+    const sponsorNetWorth = sponsorMoney(payload.sponsorNetWorth);
 
     const exitYearRaw = parseInt(String(payload.exitYear ?? ""), 10);
     const exitYear = isNaN(exitYearRaw) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, exitYearRaw));
@@ -290,6 +307,10 @@ export async function handleRequest(req: Request): Promise<Response> {
       leaseExpiryVacancyMonths: expiry.vacancyMonths,
       discountRate,
       stoplightBandPoints,
+      minDscr,
+      sponsorExperience,
+      sponsorLiquidity,
+      sponsorNetWorth,
       exitYear,
       exitCapTiming,
       marketTier,

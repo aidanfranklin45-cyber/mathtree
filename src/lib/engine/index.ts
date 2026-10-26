@@ -41,6 +41,8 @@ export type {
   LeaseScheduleCache,
   MissingInput,
 } from '@engine/math-engine.ts';
+export { calculateLenderMetrics, LENDER_STRESS } from '@engine/lender.ts';
+export type { LenderMetrics, LenderStressRow, StressId } from '@engine/lender.ts';
 export { runMonteCarlo, createMonteCarloRunner, buildFixedHistogram, seededRandom, seedFromText, DEFAULT_TENANT_DEFAULT, DEFAULT_TURNOVER } from '@engine/monte-carlo.ts';
 export type { MonteCarloOptions, MonteCarloResult, MonteCarloHistogramBin, MonteCarloRunner, ProfitSummary } from '@engine/monte-carlo.ts';
 
