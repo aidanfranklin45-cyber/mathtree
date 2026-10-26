@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase/client';
 import { mapSupabaseDeal } from '../stores/useDealStore';
-import { fetchProfile } from '../lib/profile';
+import { fetchProfile, getProfile } from '../lib/profile';
 import { buildBriefModel, type LeaseRow, type ParcelRow } from '../lib/export/buildBriefModel';
 import { DealBrief, useBriefMonteCarlo } from '../components/brief/DealBrief';
+import { LenderBrief } from '../components/brief/LenderBrief';
+import { buildLenderModel, lenderProfileFrom } from '../lib/export/buildLenderModel';
 import type { DealRecord } from '../lib/math/types';
 
 interface Facts { deal: DealRecord; leases: LeaseRow[]; parcels: ParcelRow[] }
@@ -15,7 +17,7 @@ const DEMO_DEAL_ID = '6b7a86af-ce7c-442e-805e-83b57d0f5b37';
 const shell = 'min-h-screen bg-white text-slate-700 flex items-center justify-center p-6 text-center';
 
 /** Print-ready deal brief, rendered in the browser from the same deal, leases and parcels the app already uses. */
-export const DealBriefPage: React.FC<{ publicDemo?: boolean }> = ({ publicDemo = false }) => {
+export const DealBriefPage: React.FC<{ publicDemo?: boolean; variant?: 'investor' | 'lender' }> = ({ publicDemo = false, variant = 'investor' }) => {
   const [params] = useSearchParams();
   // Public demo mode (no sign-in): only deals flagged is_demo can load, whatever id is asked for
   const dealId = params.get('id') ?? (publicDemo ? DEMO_DEAL_ID : null);
@@ -57,15 +59,25 @@ export const DealBriefPage: React.FC<{ publicDemo?: boolean }> = ({ publicDemo =
     try { return buildBriefModel(facts.deal, facts.leases, facts.parcels); } catch (e) { console.error('[brief] model failed', e); return null; }
   }, [facts]);
 
-  const mc = useBriefMonteCarlo(model?.assetClass ?? 'commercial', model?.monteCarloInputs ?? {}, model?.discountRate ?? 8, String(facts?.deal.id ?? 'mathtree'));
+  const lender = useMemo(() => {
+    if (variant !== 'lender' || !model) return null;
+    try { return buildLenderModel(model, lenderProfileFrom(getProfile())); } catch (e) { console.error('[lender brief] model failed', e); return null; }
+  }, [variant, model]);
+
+  const mc = useBriefMonteCarlo(model?.assetClass ?? 'commercial', variant === 'lender' ? {} : (model?.monteCarloInputs ?? {}), model?.discountRate ?? 8, String(facts?.deal.id ?? 'mathtree'));
 
   useEffect(() => {
-    if (model) document.title = `MathTree Underwriting Brief - ${model.title}`;
+    if (model) document.title = `MathTree ${variant === 'lender' ? 'Lender Summary' : 'Underwriting Brief'} - ${model.title}`;
   }, [model]);
 
   if (error) return <div className={shell}><div><h3 className="font-bold text-rose-600">Failed to generate brief</h3><p className="text-sm mt-2">{error}</p></div></div>;
   if (!facts) return <div className={shell}><div className="w-8 h-8 rounded-full border-2 border-emerald-500/30 border-t-emerald-500 animate-spin" /></div>;
   if (!model) return <div className={shell}><p className="text-sm">This deal could not be computed. Check its underwriting inputs.</p></div>;
+
+  if (variant === 'lender') {
+    if (!lender) return <div className={shell}><p className="text-sm">The lender summary could not be computed for this deal.</p></div>;
+    return <div className="bg-white min-h-screen"><LenderBrief model={lender} onPrint={() => window.print()} onClose={() => window.close()} /></div>;
+  }
 
   return (
     <div className="bg-white min-h-screen">
