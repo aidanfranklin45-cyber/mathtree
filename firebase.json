@@ -56,7 +56,7 @@
     ],
     "rewrites": [
       {
-        "source": "/{login,login.html,signin,dashboard,dashboard.html,app,app.html,project,project.html,operations,operations.html,compare,compare.html,reconcile,reconcile.html,brief,demo-brief,portfolio-brief}",
+        "source": "/{login,login.html,signin,dashboard,dashboard.html,app,app.html,project,project.html,operations,operations.html,compare,compare.html,reconcile,reconcile.html,brief,demo-brief,lender-brief,demo-lender-brief,portfolio-brief}",
         "destination": "/app.html"
       },
       {
