@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase/client';
 import { AddressService } from '../../lib/services/addressService';
 
-import { seedFromAssumptions, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
+import { seedFromAssumptions, suggestedStartingPoints, reconcileBasis, managerChoice, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../supabase/functions/_shared/underwritingAssumptions';
 import { getProfile } from '../../lib/profile';
 import { mapSupabaseDeal } from '../../stores/useDealStore';
 import { formatCurrency } from '../../lib/format';
@@ -136,6 +136,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const rootRef = useRef<HTMLDivElement>(null);
   // The form was put back from a draft kept by this tab (a reload or a stale-version refresh would otherwise have thrown it away)
   const [restored, setRestored] = useState(false);
+  const [panelKey, setPanelKey] = useState(0);
   // What was read from documents and what the owner decided, kept until the project is created and saved with it as the record of sources
   const [intake, setIntake] = useState<IntakeSnapshot | null>(null);
   // The owner confirms they reviewed what was read from documents and filled from their profile. Not kept in the draft: after a reload they confirm again.
@@ -247,7 +248,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
   const assumptionFill = (base: W, assetKey: Asset) => {
     const profile = getProfile();
     return profileFill({
-      assumptions: profile.underwritingAssumptions, discountRate: profile.discountRate, exitYear: profile.exitYear, base, asset: assetKey,
+      // What the owner saved, and for every figure they have not, the labelled starting point: the same set the engine applies live
+      assumptions: suggestedStartingPoints(profile.underwritingAssumptions), discountRate: profile.discountRate, exitYear: profile.exitYear, base, asset: assetKey,
       assessedValue: Number(assessor?.taxableValue) || Number(pkg.totalAssessedValue || assessor?.totalAssessedValue) || null,
     });
   };
@@ -374,13 +376,13 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
   // ---- Bidirectional income sync ----
   const syncStorage = (from: 'rpu' | 'tot', v: string) => {
-    const u = int(w.storageUnits, 20) || 20;
-    if (from === 'rpu') { const tot = num(v) * u; set({ storageRentPerUnit: v, storageGrossRent: String(tot), grossRent: String(tot) }); }
+    const u = int(w.storageUnits, 0);
+    if (from === 'rpu') { if (u > 0) { const tot = num(v) * u; set({ storageRentPerUnit: v, storageGrossRent: String(tot), grossRent: String(tot) }); } else set({ storageRentPerUnit: v }); }
     else { set({ storageGrossRent: v, storageRentPerUnit: String(u > 0 ? Math.round(num(v) / u) : 0), grossRent: v }); }
   };
   const syncMulti = (from: 'rpu' | 'tot', v: string) => {
-    const u = int(w.multiUnits, 12) || 12;
-    if (from === 'rpu') { const tot = num(v) * u; set({ multiRentPerUnit: v, multiGrossRent: String(tot), grossRent: String(tot) }); }
+    const u = int(w.multiUnits, 0);
+    if (from === 'rpu') { if (u > 0) { const tot = num(v) * u; set({ multiRentPerUnit: v, multiGrossRent: String(tot), grossRent: String(tot) }); } else set({ multiRentPerUnit: v }); }
     else { set({ multiGrossRent: v, multiRentPerUnit: String(u > 0 ? Math.round(num(v) / u) : 0), grossRent: v }); }
   };
   const syncComm = (from: 'ann' | 'mo', v: string) => {
@@ -491,7 +493,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         isAutomated: isStorage ? isAutomated : undefined,
         storageRentPerUnit: isStorage ? rentPerUnit : undefined,
         monthlyRentPerUnit: isStorage || asset === 'multi-unit' ? rentPerUnit : undefined,
-        leaseType: w.leaseType || undefined,
+        leaseType: asset === 'commercial' ? (w.leaseType || undefined) : undefined,
         arv: asset === 'single-family' ? arv : undefined,
         vacancyRate: opt(w.vacancy),
         otherIncomeAnnual: opt(w.other),
@@ -626,6 +628,9 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
     setRestored(false); setFilledOnce(false); setW(withManager(seed('commercial'))); setIsNameTouched(false); setError(null);
     setAssessor(null); setParcels([]); setCompanions(0); setAddrResults([]); setAddrOpen(false); setSeededBasis({}); setSeedNote(null); setDocExtra({});
     setIntake(null); setAnswers({}); setVerified(false); setVerifyNudge(false); setClosingFilled(null); setDocFiles([]);
+    setOwnerReasons({}); setSheet(null);
+    // The documents panel keeps its own list and decisions: a new key makes it start empty too
+    setPanelKey((k) => k + 1);
   };
 
   // What the form holds from the owner's investor profile: recorded per figure when it was filled, and kept only while the field still holds that
@@ -775,13 +780,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Total Storage Units</label>
-                  <input type="number" min={1} placeholder="e.g. 20" data-field="storageUnits" value={w.storageUnits} onChange={(e) => set({ storageUnits: e.target.value })} className={inputSm} />
+                  <input type="number" min={1} placeholder="How many units?" data-field="storageUnits" value={w.storageUnits} onChange={(e) => { const u = int(e.target.value, 0); const rpu = num(w.storageRentPerUnit); set(u > 0 && rpu > 0 ? { storageUnits: e.target.value, storageGrossRent: String(rpu * u), grossRent: String(rpu * u) } : { storageUnits: e.target.value }); }} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl2}>Rentable Facility Area (Sq Ft)</label>
                   <input type="number" min={100} placeholder="e.g. 2000" data-field="storageSqft" value={w.storageSqft} onChange={(e) => set({ storageSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
+              <FieldNotes keys={['unitCount', 'squareFeet']} />
               <label className="flex items-center space-x-2.5 cursor-pointer p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
                 <input type="checkbox" checked={w.storageAutomated === 'true'} onChange={(e) => set({ storageAutomated: String(e.target.checked) })}
                   className="w-4 h-4 rounded text-brand-500 bg-slate-950 border-slate-700 focus:ring-brand-500 cursor-pointer" />
@@ -798,10 +804,10 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className={lbl2}>Total Apartment Units</label>
-                  <input type="number" min={1} placeholder="e.g. 12" data-field="multiUnits" value={w.multiUnits} onChange={(e) => set({ multiUnits: e.target.value })} className={inputSm} />
+                  <input type="number" min={1} placeholder="How many units?" data-field="multiUnits" value={w.multiUnits} onChange={(e) => { const u = int(e.target.value, 0); const rpu = num(w.multiRentPerUnit); set(u > 0 && rpu > 0 ? { multiUnits: e.target.value, multiGrossRent: String(rpu * u), grossRent: String(rpu * u) } : { multiUnits: e.target.value }); }} className={inputSm} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
+                  <label className={lbl2}>Rentable Area (Sq Ft)</label>
                   <input type="number" min={100} placeholder="e.g. 11000" data-field="multiSqft" value={w.multiSqft} onChange={(e) => set({ multiSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
@@ -809,7 +815,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             </div>
           )}
 
-          <div className="space-y-1.5 pb-1 border-b border-slate-800/60">
+          {asset === 'commercial' && <div className="space-y-1.5 pb-1 border-b border-slate-800/60">
             <div className="flex items-center justify-between">
               <label htmlFor="wiz-lease-type" className={lbl2}>Primary Lease Structure</label>
               <span className="text-[10px] text-slate-400">{LEASE_HINT[w.leaseType] || ''}</span>
@@ -822,7 +828,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <option value="NNN">Triple Net (NNN) • Tenant reimburses taxes, insurance &amp; CAM</option>
               <option value="Absolute Net">Absolute Net (Bond Lease) • Zero landlord capital obligation</option>
             </select>
-          </div>
+          </div>}
 
           {asset === 'commercial' && (
             <div className="space-y-3">
@@ -830,6 +836,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
                 <input type="number" min={100} placeholder="e.g. 15000" data-field="commSqft" value={w.commSqft} onChange={(e) => set({ commSqft: e.target.value })} className={inputSm} />
               </div>
+              <FieldNotes keys={['squareFeet']} />
             </div>
           )}
 
@@ -845,6 +852,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                   <input type="number" min={100} placeholder="e.g. 2400" data-field="sfrSqft" value={w.sfrSqft} onChange={(e) => set({ sfrSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
+              <FieldNotes keys={['squareFeet']} />
             </div>
           )}
         </div>
@@ -1011,9 +1019,11 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
 
         <div className="space-y-1.5">
           <label htmlFor="wiz-closing-date" className={lbl}>Expected Closing Date (optional)</label>
-          <input id="wiz-closing-date" type="date" data-field="closingDate" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
-              <FieldNote k="closingDate" />
-          <p className="text-[10px] text-slate-500">Leave blank to assume closing {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks from today (your investor profile's setting). The loan schedule starts then.</p>
+          <div className="flex flex-wrap items-center gap-x-3">
+            <input id="wiz-closing-date" type="date" data-field="closingDate" value={w.closingDate} onChange={(e) => set({ closingDate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs !w-auto`} />
+            <FieldNote k="closingDate" />
+          </div>
+          {w.closingDate.trim() === '' && <p className="text-[10px] text-slate-500">Blank: your profile closes {getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS} weeks after you create the project, and the loan starts then.</p>}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1059,7 +1069,6 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">📦 Self-Storage Revenue Schedule</span>
-              <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Live Bidirectional Sync</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -1067,14 +1076,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 <input type="number" data-field="storageRentPerUnit" value={w.storageRentPerUnit} onChange={(e) => syncStorage('rpu', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
-                <label className={lbl}>Total Monthly Facility Rent ($)</label>
-                <input type="number" data-field="storageGrossRent" value={w.storageGrossRent} onChange={(e) => syncStorage('tot', e.target.value)} className={inputLg} />
+                <label className={lbl}>Total Monthly Facility Rent ($) · worked out</label>
+                <input type="number" data-field="storageGrossRent" value={w.storageGrossRent} readOnly tabIndex={-1} className={`${inputLg} opacity-70 cursor-default`} />
               </div>
             </div>
             <FieldNote k="grossRentPerMonth" />
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-400">Gross Potential Revenue:</span>
-              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.storageGrossRent) * 12)} / yr ({int(w.storageUnits, 20) || 20} units @ {num(w.storageRentPerUnit)}/mo)</span>
+              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.storageGrossRent) * 12)} / yr ({int(w.storageUnits, 0) || 'unknown number of'} units @ {num(w.storageRentPerUnit)}/mo)</span>
             </div>
           </div>
         )}
@@ -1083,7 +1092,6 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">🏢 Multifamily Revenue Schedule</span>
-              <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Live Bidirectional Sync</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -1091,14 +1099,14 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 <input type="number" step="any" data-field="multiRentPerUnit" value={w.multiRentPerUnit} onChange={(e) => syncMulti('rpu', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
-                <label className={lbl}>Total Monthly Property Rent ($)</label>
-                <input type="number" step="any" data-field="multiGrossRent" value={w.multiGrossRent} onChange={(e) => syncMulti('tot', e.target.value)} className={inputLg} />
+                <label className={lbl}>Total Monthly Property Rent ($) · worked out</label>
+                <input type="number" step="any" data-field="multiGrossRent" value={w.multiGrossRent} readOnly tabIndex={-1} className={`${inputLg} opacity-70 cursor-default`} />
               </div>
             </div>
             <FieldNote k="grossRentPerMonth" />
             <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-400">Gross Potential Revenue:</span>
-              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.multiGrossRent) * 12)} / yr ({int(w.multiUnits, 12) || 12} units @ {formatCurrency(num(w.multiRentPerUnit))}/mo)</span>
+              <span className="font-extrabold text-emerald-400">{formatCurrency(num(w.multiGrossRent) * 12)} / yr ({int(w.multiUnits, 0) || 'unknown number of'} units @ {formatCurrency(num(w.multiRentPerUnit))}/mo)</span>
             </div>
           </div>
         )}
@@ -1107,7 +1115,6 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
           <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-800/90 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">🏬 Commercial Revenue Schedule</span>
-              <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">Annual / Monthly Sync</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -1115,8 +1122,8 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 <input type="number" data-field="commAnnualRent" value={w.commAnnualRent} onChange={(e) => syncComm('ann', e.target.value)} className={inputLg} />
               </div>
               <div className="space-y-1.5">
-                <label className={lbl}>Monthly Rent Equivalent ($/mo)</label>
-                <input type="number" data-field="commGrossRent" value={w.commGrossRent} onChange={(e) => syncComm('mo', e.target.value)} className={inputLg} />
+                <label className={lbl}>Monthly Rent Equivalent ($/mo) · worked out</label>
+                <input type="number" data-field="commGrossRent" value={w.commGrossRent} readOnly tabIndex={-1} className={`${inputLg} opacity-70 cursor-default`} />
               </div>
             </div>
             <FieldNote k="grossRentPerMonth" />
@@ -1299,7 +1306,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <input id="wiz-discount" type="number" min={0} max={50} step="any" data-field="discountRate" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
         </div>
-        <FieldNotes keys={['targetCapRate', 'sellingCostPercent', 'exitYear', 'discountRate']} />
+        <FieldNotes keys={['targetCapRate', 'appreciationRate', 'sellingCostPercent', 'exitYear', 'discountRate']} />
 
         <div className="p-4 bg-brand-950/30 border border-brand-800/60 rounded-2xl space-y-2">
           <div className="flex items-center space-x-2 text-xs font-bold text-brand-300"><span>🏛️ Underwriting Engine Ready</span></div>
@@ -1341,7 +1348,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         <div ref={rootRef} className="p-4 sm:p-6 overflow-y-auto space-y-8 flex-grow">
-          <WizardAutofill deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} reveal={sheetNudge} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
+          <WizardAutofill key={panelKey} deal={{ asset_class: asset, purchase_price: num(w.price) || null, inputs: formAsInputs(w, asset) }} onAutofill={autofill} onSet={provide} onAccept={acceptChange} onAnswered={(key, label, decision) => setAnswers((a) => ({ ...a, [key]: { label, decision } }))} onWorksheet={(rows, readiness) => setSheet({ rows, readiness })} reveal={sheetNudge} onReason={(key, reason) => setOwnerReasons((p) => ({ ...p, [key]: reason }))} onFiles={(files) => setDocFiles((prev) => [...prev.filter((p) => !files.some((f) => f.file.name === p.file.name && f.file.size === p.file.size)), ...files])} profileFigures={profileFigures}
           intake={intake}
           closing={w.closingDate.trim() === '' ? { weeks: getProfile().underwritingAssumptions?.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS, date: null } : (closingFilled && w.closingDate === closingFilled.date ? closingFilled : null)}>
           {restored && (

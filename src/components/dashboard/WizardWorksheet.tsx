@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isStartingPointReason } from '@engine/underwritingAssumptions';
 import type { Option } from '../../lib/ingestion/contracts';
 import type { Readiness } from '../../lib/ingestion/readiness';
 import type { WorksheetRow } from '../../lib/ingestion/worksheet';
@@ -7,6 +8,25 @@ import type { WorksheetRow } from '../../lib/ingestion/worksheet';
 export const PERCENT_ROWS = new Set(['vacancyRate', 'rentGrowth', 'expenseRatio', 'expenseGrowth', 'targetCapRate', 'sellingCostPercent', 'discountRate', 'downPaymentPercent', 'interestRate']);
 
 const SOURCE: Record<WorksheetRow['source'], string> = { document: 'From the document', profile: 'From your investor profile', owner: 'Your entry', missing: '' };
+
+const profileReason = (r: WorksheetRow): string => String(r.basis ?? '').replace(/^Your investor profile:?\s*/, '').replace(/\.$/, '');
+const isStartingPoint = (r: WorksheetRow): boolean => r.source === 'profile' && isStartingPointReason(profileReason(r));
+
+/** The few words a check mark carries: where the figure came from. The full line stays in the tooltip. */
+export function whereFrom(r: WorksheetRow): string {
+  const basis = typeof r.basis === 'string' ? r.basis : String(r.basis ?? '');
+  const clip = (t: string) => (t.length > 70 ? `${t.slice(0, 67).trimEnd()}...` : t);
+  if (r.source === 'document') {
+    const at = basis.indexOf(': "');
+    return `Document${basis ? ` · ${clip(at > 0 ? basis.slice(0, at) : basis)}` : ''}`;
+  }
+  if (r.source === 'profile') {
+    const why = basis.replace(/^Your investor profile:?\s*/, '').replace(/\.$/, '');
+    return isStartingPointReason(why) ? `Starting point · ${clip(why)}` : `Your profile${why ? ` · ${clip(why)}` : ''}`;
+  }
+  if (r.source === 'owner') return 'Your entry';
+  return '';
+}
 
 interface NoteProps {
   row: WorksheetRow;
@@ -40,8 +60,8 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
     const profile = r.source === 'profile';
     return (
       <div data-note={r.key} data-state={r.state}>
-        <p title={`${SOURCE[r.source]}. ${r.basis}`} className={`mt-1 inline-flex items-center gap-1.5 text-[11px] ${profile ? 'text-violet-300' : 'text-emerald-400'}`}>
-          <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}
+        <p title={`${SOURCE[r.source]}. ${r.basis}${isStartingPoint(r) ? ' This is a labelled starting point, not a figure you set yourself: replace it in your profile or in this form.' : ''}`} className={`mt-1 inline-flex items-center gap-1.5 text-[11px] ${profile ? 'text-violet-300' : 'text-emerald-400'}`}>
+          <span aria-label={profile ? 'Settled by your profile' : 'Settled'} role="img" className="font-black">✓</span>{name}<span className="text-slate-400">{whereFrom(r)}</span>
         </p>
         {extra}
       </div>

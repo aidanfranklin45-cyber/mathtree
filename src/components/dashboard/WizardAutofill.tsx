@@ -5,7 +5,7 @@ import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/inge
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import { DocumentLineage } from '../studio/DocumentLineage';
 import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { buildWorksheet, decisionNote, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
+import { buildWorksheet, decisionNote, labelFor, ROW_SPECS, rowApplies, type WorksheetRow } from '../../lib/ingestion/worksheet';
 import { assess, issueFindings, type Readiness } from '../../lib/ingestion/readiness';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
@@ -13,6 +13,8 @@ import { RatioBreakdownView } from './RatioBreakdownView';
 import { checkTitle, expectedCosts, ratioBreakdown, ratioChecks, type RatioCheck } from '../../lib/ingestion/ratioBreakdown';
 import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
+import { loadDraftDocuments, saveDraftDocuments } from '../../lib/wizardDraft';
+import { liveAssumption } from '../../lib/ingestion/liveAssumptions';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { evaluateContracts, type ContractResult, type Option } from '../../lib/ingestion/contracts';
 import { receiptsFor, receiptText } from '../../lib/ingestion/receipts';
@@ -89,7 +91,8 @@ type Question = { change: ProposedChange; kind: 'variance' | 'replaces' | 'unsur
  * figures where the sources disagree, and the facts nobody has supplied. Everything else is already in the form.
  */
 export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAnswered, onAccept, onFiles, onWorksheet, onReason, profileFigures, intake, closing, children, reveal }) => {
-  const [sources, setSources] = useState<Source[]>([]);
+  const [sources, setSources] = useState<Source[]>(() => loadDraftDocuments().map((d) => ({ id: d.id, name: d.name, text: d.text, type: d.type as Source['type'] })));
+  useEffect(() => { saveDraftDocuments(sources.map((s) => ({ id: s.id, name: s.name, text: s.text, type: s.type }))); }, [sources]);
   const [pasted, setPasted] = useState('');
   const [reads, setReads] = useState<Read[]>([]);
   const [result, setResult] = useState<{ proposal: Proposal; docs: IntakeDocument[]; filled: number } | null>(null);
@@ -104,7 +107,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const [asked, setAsked] = useState<Record<string, string>>({});
   // What the owner supplied for a missing figure stays on screen as a checked line they can change, instead of disappearing
   const [provided, setProvided] = useState<Record<string, { label: string; value: string; editing: boolean }>>({});
-  const nextId = useRef(1);
+  const nextId = useRef(Math.max(0, ...sources.map((s) => s.id)) + 1);
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
@@ -126,7 +129,10 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     setNote(null);
     try {
       const out: Read[] = [];
-      for (const source of sources) {
+      // Text left in the paste box is a document too: no separate "add" step
+      const waiting: Source[] = pasted.trim().length >= 20 ? [{ id: nextId.current++, name: "Pasted text", text: pasted, type: "auto" }] : [];
+      if (waiting.length) { setSources((s) => [...s, ...waiting]); setPasted(""); }
+      for (const source of [...sources, ...waiting]) {
         try {
           const read = await readDocument({ text: source.text, filename: source.name, documentType: source.type === 'auto' ? undefined : source.type });
           // A number the reader returned that is not in the document text cannot have been read as printed: it goes to the owner as unsure
@@ -516,7 +522,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={run} disabled={busy} className={`${btn} bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4`}>
-          {busy ? 'Working…' : done ? 'Fill again' : sources.length > 0 ? `Read ${sources.length} document${sources.length === 1 ? '' : 's'} and fill everything I can` : 'Fill everything I can from my assumptions'}
+          {busy ? 'Working…' : done ? 'Fill again' : sources.length + (pasted.trim().length >= 20 ? 1 : 0) > 0 ? `Read ${sources.length + (pasted.trim().length >= 20 ? 1 : 0)} document${sources.length + (pasted.trim().length >= 20 ? 1 : 0) === 1 ? '' : 's'} and fill everything I can` : 'Fill everything I can from my assumptions'}
         </button>
         {done && !busy && result && <span role="status" className="text-[11px] text-emerald-300">Filled {result.filled} figures from {result.docs.length} document{result.docs.length === 1 ? '' : 's'}, and the rest from your assumptions.</span>}
         {done && !busy && !result && <span role="status" className="text-[11px] text-emerald-300">Filled from your assumptions.</span>}
@@ -591,9 +597,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   };
 
   const noteFor = (key: string, named = false): React.ReactNode => {
-    const r = rows.find((x) => x.key === key);
-    if (!r || !engaged) return null;
+    const found = rows.find((x) => x.key === key);
+    if (!found || !engaged || !rowApplies(key, deal.asset_class)) return null;
+    const r = { ...found, label: labelFor(key, found.label, deal.asset_class) };
     const q = questions.find((x) => x.change.key === key);
+    // Blank in the form, but the profile fills it live: say so, with the figure and its source
+    const live = r.state === 'optional' && !q ? liveAssumption(deal, key) : null;
+    if (live) return <p data-note={key} data-state="live" className="mt-1 text-[11px] text-violet-300"><span aria-hidden>○</span> <span className="text-slate-300">{r.label}:</span> {live.text}</p>;
     return (
       <RowNote
         row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null} neededWhy={neededAll.find((m) => m.key === key)?.why}

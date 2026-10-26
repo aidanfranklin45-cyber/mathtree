@@ -338,6 +338,14 @@ export function suggestedStartingPoints(current: UnderwritingAssumptions | null 
   return out;
 }
 
+/** True when a rationale is one of the starting points' own labels, so a figure can be told apart from one the owner set and explained. */
+export function isStartingPointReason(reason: string | undefined | null): boolean {
+  if (!reason) return false;
+  const given = suggestedStartingPoints(null);
+  if (reason === given.propertyTaxRateRationale) return true;
+  return Object.values(given.assets).some((a) => Object.values(a?.rationale ?? {}).includes(reason));
+}
+
 /** The inputs whose origin a lender may ask about, and what to call each. */
 export const TRACKED_INPUTS: Record<string, string> = {
   vacancyRate: 'Vacancy',

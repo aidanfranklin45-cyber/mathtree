@@ -55,11 +55,34 @@ export const ROW_SPECS: RowSpec[] = [
   { key: 'capexReserveAnnual', field: 'capexValue', label: 'Replacement reserve', group: 'Expenses' },
   { key: 'payrollMarketingPercent', field: 'payroll', label: 'Payroll and marketing', group: 'Expenses' },
   { key: 'manageProperty', field: 'manageProperty', label: 'Property manager', group: 'Expenses' },
+  { key: 'appreciationRate', field: 'apprec', label: 'Appreciation (% a year)', group: 'Exit and hold' },
   { key: 'targetCapRate', field: 'exitCap', label: 'Exit cap rate', group: 'Exit and hold' },
   { key: 'sellingCostPercent', field: 'sellingCost', label: 'Selling costs', group: 'Exit and hold' },
   { key: 'exitYear', field: 'exitYear', label: 'Hold period', group: 'Exit and hold' },
   { key: 'discountRate', field: 'discountRate', label: 'Discount rate', group: 'Exit and hold' },
 ];
+
+/** The classes a figure belongs to; a figure not listed belongs to every class. A row for a figure the class does not use is never shown or asked. */
+const ONLY_FOR: Record<string, string[]> = {
+  unitCount: ['multi-unit', 'storage'],
+  payrollMarketingPercent: ['storage'],
+  appreciationRate: ['single-family'],
+};
+const NOT_FOR: Record<string, string[]> = { targetCapRate: ['single-family'] };
+
+export function rowApplies(key: string, asset: string | null | undefined): boolean {
+  if (!asset) return true;
+  if (ONLY_FOR[key] && !ONLY_FOR[key].includes(asset)) return false;
+  return !NOT_FOR[key]?.includes(asset);
+}
+
+/** The name the owner knows a figure by in this class of property. */
+export function labelFor(key: string, label: string, asset: string | null | undefined): string {
+  if (key === 'unitCount' && asset === 'storage') return 'Storage units';
+  if (key === 'unitCount' && asset === 'multi-unit') return 'Apartment units';
+  if (key === 'squareFeet') return asset === 'storage' || asset === 'multi-unit' ? 'Rentable area' : asset === 'single-family' ? 'Living area' : 'Gross leasable area';
+  return label;
+}
 
 export interface WorksheetRow {
   key: string;

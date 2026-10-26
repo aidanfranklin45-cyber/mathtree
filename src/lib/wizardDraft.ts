@@ -56,5 +56,29 @@ export function takeReopenOnLoad(): boolean {
 }
 
 export function clearWizardDraft(): void {
-  try { sessionStorage.removeItem(KEY); } catch { /* nothing to clear */ }
+  try { sessionStorage.removeItem(KEY); sessionStorage.removeItem(DOCS_KEY); } catch { /* nothing to clear */ }
+}
+
+/**
+ * The documents a draft was filled from. The figures in a restored form came from them, so they come back too: otherwise the form would show
+ * numbers whose source is gone. Text only; an original file (a PDF) is not kept across a reload and has to be added again to be saved with the project.
+ */
+const DOCS_KEY = 'mathtree_wizard_docs_v1';
+export interface DraftDocument { id: number; name: string; text: string; type: string }
+
+export function saveDraftDocuments(docs: DraftDocument[]): void {
+  try {
+    if (docs.length === 0) sessionStorage.removeItem(DOCS_KEY);
+    else sessionStorage.setItem(DOCS_KEY, JSON.stringify(docs));
+  } catch { /* too large or unavailable: the form still works */ }
+}
+
+/** Only while a draft of the form exists: documents never outlive the form they were read into. */
+export function loadDraftDocuments(): DraftDocument[] {
+  try {
+    if (!hasWizardDraft()) return [];
+    const raw = sessionStorage.getItem(DOCS_KEY);
+    const docs = raw ? JSON.parse(raw) : [];
+    return Array.isArray(docs) ? docs.filter((d) => d && typeof d.text === 'string' && typeof d.name === 'string') : [];
+  } catch { return []; }
 }
