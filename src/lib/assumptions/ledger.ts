@@ -64,7 +64,7 @@ const DEFS: Def[] = [
   { id: 'insurance', label: 'Insurance', fmt: 'usd', aliases: KEYS.insurance, fills: ['annualInsurance'] },
   { id: 'maintenance', label: 'Maintenance and upkeep', fmt: 'usd', aliases: KEYS.maintenance, fills: ['annualMaintenance'] },
   { id: 'utilities', label: 'Utilities (power, water, sewer, garbage)', fmt: 'usd', aliases: KEYS.utilities, fills: ['annualUtilities'] },
-  { id: 'discount', label: 'Discount rate', fmt: 'pct', aliases: KEYS.discountRate, fills: ['discountRate'] },
+  { id: 'discount', label: 'Opportunity cost (discount rate)', fmt: 'pct', aliases: KEYS.discountRate, fills: ['discountRate'] },
 ];
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
@@ -213,7 +213,12 @@ export function buildAssumptionLedger(a: Args): LedgerRow[] {
   // The lease structure and the rent, which are facts about this property
   if (a.stored.leaseType) rows.push({ id: 'lease', label: 'Lease structure', value: String(a.stored.leaseType), effect: nnn ? 'Tenants pay the building\'s costs, so the landlord\'s expense ratio is small' : undefined, group: 'project', mode: 'entered', source: 'Your entry for this property' });
   const rentRecorded = fromRecord(['grossRentPerMonth', 'monthlyRent', 'grossRentAnnual', 'monthlyRentPerUnit'], Number(a.prepared.grossRentAnnual));
-  if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: `${money(Number(a.prepared.grossRentAnnual))} a year`, group: 'project', mode: rentRecorded?.mode ?? 'entered', reason: rentRecorded?.reason, source: rentRecorded ? rentRecorded.source : Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? `${a.stored.leases.length} lease${a.stored.leases.length === 1 ? '' : 's'} on this property` : 'Your entry for this property' });
+  // Rent built from a unit count and an average rent says so, since that is what the owner entered
+  const units = Math.round(Number(a.prepared.unitCount ?? a.prepared.numUnits ?? 0));
+  const perUnit = Number(a.prepared.monthlyRentPerUnit ?? a.prepared.storageRentPerUnit ?? 0);
+  const fromUnits = units > 0 && perUnit > 0 && Math.abs(units * perUnit * 12 - Number(a.prepared.grossRentAnnual)) < 1;
+  const rentValue = fromUnits ? `${units} units × ${money(perUnit)}/mo average = ${money(Number(a.prepared.grossRentAnnual))} a year` : `${money(Number(a.prepared.grossRentAnnual))} a year`;
+  if (Number(a.prepared.grossRentAnnual) > 0) rows.push({ id: 'rent', label: 'Gross rent', value: rentValue, group: 'project', mode: rentRecorded?.mode ?? 'entered', reason: rentRecorded?.reason, source: rentRecorded ? rentRecorded.source : fromUnits ? 'Your entry: number of units and average rent' : Array.isArray(a.stored.leases) && a.stored.leases.length > 0 ? `${a.stored.leases.length} lease${a.stored.leases.length === 1 ? '' : 's'} on this property` : 'Your entry for this property' });
 
   // Where the address and the county parcel came from, so the owner can see how this property was identified
   const rec: any = a.stored.intakeRecord;

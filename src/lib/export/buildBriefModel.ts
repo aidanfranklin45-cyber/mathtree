@@ -4,6 +4,7 @@ import { buildAssumptionLedger } from '../assumptions/ledger';
 import { getAssumptionDefaults } from '../engine/assumptionDefaults';
 import { DEFAULT_CLOSING_WEEKS } from '@engine/underwritingAssumptions';
 import { firstFullYear, calculateDownPaymentMatrix, type DownPaymentMatrixResult } from '../engine';
+import { classifyAgainstOpportunityCost, type StoplightResult } from '../engine/stoplight';
 
 /**
  * The single source for the deal brief. Every figure comes from ONE engine run (`computeDealMetrics`, the same call the
@@ -233,6 +234,12 @@ export interface BriefModel {
   /** Inputs for the on-demand Monte Carlo (same preparation the Sensitivity tab uses). */
   monteCarloInputs: Record<string, any>;
   downPaymentMatrix: DownPaymentMatrixResult;
+  /** The executive-summary light: the deal's annualized IRR against the owner's opportunity cost. */
+  stoplight: StoplightResult;
+  /** Owned properties have a rent roll worth printing; a prospect's rent comes from its underwriting. */
+  isPipeline: boolean;
+  /** The down payment tier with the highest cash-on-cash, and the first tier where it is not negative (both read from the matrix). */
+  leverageMarks: { best: { downPaymentPercent: number; cashOnCash: number } | null; firstNonNegativePercent: number | null };
 }
 
 const money = (n: number): string => '$' + Math.round(n).toLocaleString('en-US');
@@ -396,11 +403,45 @@ export function buildBriefModel(
     ? 'Single-Family Residential Investment Memo'
     : isMultiFamily ? 'Multi-Family Residential Memo' : isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo';
 
+  const stoplight = classifyAgainstOpportunityCost(num(raw.irr), discountRate);
+
+  const matrixRows = downPaymentMatrix?.rows ?? [];
+  const bestRow = matrixRows.reduce<(typeof matrixRows)[number] | null>((b, r) => (b === null || r.cashOnCash > b.cashOnCash ? r : b), null);
+  const firstNonNeg = matrixRows.find((r) => r.cashOnCash >= 0);
+  const leverageMarks = {
+    best: bestRow ? { downPaymentPercent: bestRow.downPaymentPercent, cashOnCash: bestRow.cashOnCash } : null,
+    firstNonNegativePercent: firstNonNeg ? firstNonNeg.downPaymentPercent : null,
+  };
+
   const { filled, basis } = resolveProfileAssumptions(deal);
   const figureSources = buildAssumptionLedger({
     stored: (deal.inputs ?? {}) as Record<string, any>, prepared: inputs, filled, filledBasis: basis, assetClass: String(deal.asset_class ?? 'commercial'), metrics,
     assumedClosingWeeks: getAssumptionDefaults().assumptions.assumedClosingWeeks ?? DEFAULT_CLOSING_WEEKS,
   }).map((r) => ({ label: r.label, value: r.value, source: r.source, reason: r.reason, group: r.group }));
+
+  // Tie the sources back to the pro forma: the table above states the inputs, the pro forma prints what they became
+  const enteredRentAnnual = num(inputs.grossRentAnnual);
+  if (annualRent > 0 && enteredRentAnnual > 0 && Math.abs(annualRent - enteredRentAnnual) >= 1) {
+    const g = num(inputs.rentGrowth);
+    figureSources.push({
+      label: 'Rent in the pro forma', value: `${money(annualRent)} a year (first full year)`, group: 'project',
+      source: 'The pro forma',
+      reason: `Your ${money(enteredRentAnnual)} a year grown ${pct1(g)}% a year to the first full year of operation`,
+    });
+  }
+  const parts = [
+    { name: 'operating expenses', v: num(inputs.expenseRatio ?? inputs.operatingExpenseRatio) },
+    { name: 'management', v: inputs.manageProperty ? num(inputs.managementFeePercent) : 0 },
+    { name: 'payroll and marketing', v: isStorage ? num(inputs.payrollMarketingPercent) : 0 },
+  ].filter((x) => x.v > 0);
+  if (opExAnnual > 0 && annualRent > 0) {
+    const sum = parts.reduce((t, x) => t + x.v, 0);
+    figureSources.push({
+      label: 'All-in operating expenses', value: `${pct1(expenseRatioPct)}% of gross rent`, group: 'project',
+      source: 'The pro forma',
+      reason: parts.length > 1 && Math.abs(sum - expenseRatioPct) < 0.5 ? parts.map((x) => `${pct1(x.v)}% ${x.name}`).join(' + ') : 'Everything the pro forma charges to operations, before the replacement reserve',
+    });
+  }
 
   return {
     title: String(deal.title || deal.name || 'Investment Underwriting Brief'),
@@ -477,5 +518,8 @@ export function buildBriefModel(
     warnings,
     monteCarloInputs: inputs,
     downPaymentMatrix,
+    stoplight,
+    isPipeline: status !== 'owned',
+    leverageMarks,
   };
 }
