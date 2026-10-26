@@ -30,6 +30,11 @@ export interface InvestorProfile {
   discountRate: number;         // Hurdle Rate (%/yr opportunity cost)
   /** The brief's stoplight: within this many points of the discount rate is yellow, beyond it green or red. */
   stoplightBandPoints: number;
+  /** The lender view: the coverage a lender requires (DSCR), and the sponsor facts a loan package states. Blank means not provided. */
+  minDscr: number;
+  sponsorExperience: string;
+  sponsorLiquidity: number | null;
+  sponsorNetWorth: number | null;
   exitYear: number;             // Default Hold Period (Years)
   exitCapTiming: 'amortized' | 'day1';
   marketTier: string;
@@ -50,6 +55,10 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   associatedCompanies: [],
   discountRate: 8.0,          // Target Hurdle Rate (%/yr opportunity cost)
   stoplightBandPoints: 1,     // Percentage points either side of the hurdle that read as "close"
+  minDscr: 1.25,              // Common lender covenant minimum; lenders differ
+  sponsorExperience: '',
+  sponsorLiquidity: null,
+  sponsorNetWorth: null,
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: 'amortized', // 'amortized' | 'day1'
   marketTier: 'Tier 2',       // 'Tier 1' | 'Tier 2' | 'Tier 3'
@@ -69,6 +78,13 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
 
   const bandRaw = parseFloat(String(raw.stoplightBandPoints ?? ''));
   const stoplightBandPoints = isNaN(bandRaw) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, bandRaw));
+
+  const minDscrRaw = parseFloat(String(raw.minDscr ?? ''));
+  const minDscr = isNaN(minDscrRaw) ? DEFAULT_PROFILE.minDscr : Math.max(1, Math.min(3, minDscrRaw));
+  const sponsorExperience = String(raw.sponsorExperience ?? '').trim().slice(0, 600);
+  const money = (v: unknown): number | null => { const x = parseFloat(String(v ?? '').replace(/[$,\s]/g, '')); return Number.isFinite(x) && x >= 0 ? x : null; };
+  const sponsorLiquidity = money(raw.sponsorLiquidity);
+  const sponsorNetWorth = money(raw.sponsorNetWorth);
 
   const exitYearRaw = parseInt(String(raw.exitYear ?? ''), 10);
   const exitYear = isNaN(exitYearRaw) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, exitYearRaw));
@@ -97,6 +113,10 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     formationState: raw.formationState ? String(raw.formationState).trim() : undefined,
     discountRate,
     stoplightBandPoints,
+    minDscr,
+    sponsorExperience,
+    sponsorLiquidity,
+    sponsorNetWorth,
     exitYear,
     exitCapTiming,
     marketTier: String(raw.marketTier || DEFAULT_PROFILE.marketTier).trim(),
@@ -247,16 +267,20 @@ export async function saveProfile(
       if (data?.profile) {
         const wanted = JSON.stringify(merged.underwritingAssumptions ?? { assets: {} });
         const echoed = JSON.stringify(sanitizeAssumptions(data.profile.underwritingAssumptions));
-        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints });
+        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints, minDscr: merged.minDscr, sponsorExperience: merged.sponsorExperience, sponsorLiquidity: merged.sponsorLiquidity, sponsorNetWorth: merged.sponsorNetWorth });
         savedSuccessfully = true;
         // An edge function deployed before assumptions existed saves the rest and drops them: write them directly so they are never lost
         const bandEchoed = Number(data.profile.stoplightBandPoints);
-        const bandLost = !(Math.abs(bandEchoed - merged.stoplightBandPoints) < 1e-9);
+        const bandLost = !(Math.abs(bandEchoed - merged.stoplightBandPoints) < 1e-9)
+          || !(Math.abs(Number(data.profile.minDscr) - merged.minDscr) < 1e-9)
+          || String(data.profile.sponsorExperience ?? '') !== merged.sponsorExperience
+          || (data.profile.sponsorLiquidity ?? null) !== merged.sponsorLiquidity
+          || (data.profile.sponsorNetWorth ?? null) !== merged.sponsorNetWorth;
         if ((wanted !== echoed || bandLost) && supabaseClient && currentUser?.id) {
           try {
             const { data: row } = await supabaseClient.from('profiles').select('preferences').eq('id', currentUser.id).maybeSingle();
             const prefs = row?.preferences && typeof row.preferences === 'object' ? row.preferences : {};
-            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints } }).eq('id', currentUser.id);
+            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints, minDscr: merged.minDscr, sponsorExperience: merged.sponsorExperience, sponsorLiquidity: merged.sponsorLiquidity, sponsorNetWorth: merged.sponsorNetWorth } }).eq('id', currentUser.id);
             if (error) throw error;
           } catch (e) {
             console.warn('[profile] Could not store underwriting assumptions directly:', e);
@@ -285,6 +309,10 @@ export async function saveProfile(
         preferences: {
           discountRate: merged.discountRate,
           stoplightBandPoints: merged.stoplightBandPoints,
+          minDscr: merged.minDscr,
+          sponsorExperience: merged.sponsorExperience,
+          sponsorLiquidity: merged.sponsorLiquidity,
+          sponsorNetWorth: merged.sponsorNetWorth,
           exitYear: merged.exitYear,
           exitCapTiming: merged.exitCapTiming,
           marketTier: merged.marketTier,
