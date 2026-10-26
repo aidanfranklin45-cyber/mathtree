@@ -5,7 +5,7 @@ import { documentChecks, validateIntake, type IntakeIssue } from '../../lib/inge
 import { groundIntake, traceDocument, type TraceRow } from '../../lib/ingestion/lineage';
 import { DocumentLineage } from '../studio/DocumentLineage';
 import { buildIntakeRecord, closingFigure, type IntakeSnapshot } from '../../lib/ingestion/intakeRecord';
-import { buildWorksheet, decisionNote, ROW_SPECS, type WorksheetRow } from '../../lib/ingestion/worksheet';
+import { buildWorksheet, decisionNote, labelFor, ROW_SPECS, rowApplies, type WorksheetRow } from '../../lib/ingestion/worksheet';
 import { assess, issueFindings, type Readiness } from '../../lib/ingestion/readiness';
 import { tryComputeDealMetrics } from '../../lib/engine/compute';
 import { PERCENT_ROWS, ReadinessBanner, RowNote } from './WizardWorksheet';
@@ -13,6 +13,7 @@ import { RatioBreakdownView } from './RatioBreakdownView';
 import { checkTitle, expectedCosts, ratioBreakdown, ratioChecks, type RatioCheck } from '../../lib/ingestion/ratioBreakdown';
 import { assumptionText, attachVariances, defaultTicked, proposeChanges, releaseDependents, VARIANCE_DISCLOSURE, withChosenValue, type Expected, type ProposedChange, type Proposal } from '../../lib/ingestion/apply';
 import { expectedFor } from '../../lib/ingestion/expected';
+import { liveAssumption } from '../../lib/ingestion/liveAssumptions';
 import { openQuestions } from '../../lib/ingestion/openQuestions';
 import { evaluateContracts, type ContractResult, type Option } from '../../lib/ingestion/contracts';
 import { receiptsFor, receiptText } from '../../lib/ingestion/receipts';
@@ -594,9 +595,13 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   };
 
   const noteFor = (key: string, named = false): React.ReactNode => {
-    const r = rows.find((x) => x.key === key);
-    if (!r || !engaged) return null;
+    const found = rows.find((x) => x.key === key);
+    if (!found || !engaged || !rowApplies(key, deal.asset_class)) return null;
+    const r = { ...found, label: labelFor(key, found.label, deal.asset_class) };
     const q = questions.find((x) => x.change.key === key);
+    // Blank in the form, but the profile fills it live: say so, with the figure and its source
+    const live = r.state === 'optional' && !q ? liveAssumption(deal, key) : null;
+    if (live) return <p data-note={key} data-state="live" className="mt-1 text-[11px] text-violet-300"><span aria-hidden>○</span> <span className="text-slate-300">{r.label}:</span> {live.text}</p>;
     return (
       <RowNote
         row={r} named={named} question={q && r.state !== 'unsupported' ? questionCard(q) : null} neededWhy={neededAll.find((m) => m.key === key)?.why}

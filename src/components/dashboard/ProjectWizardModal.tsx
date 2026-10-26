@@ -831,6 +831,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                 <label className={lbl2}>Gross Leasable Area (GLA Sq Ft)</label>
                 <input type="number" min={100} placeholder="e.g. 15000" data-field="commSqft" value={w.commSqft} onChange={(e) => set({ commSqft: e.target.value })} className={inputSm} />
               </div>
+              <FieldNotes keys={['squareFeet']} />
             </div>
           )}
 
@@ -846,6 +847,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
                   <input type="number" min={100} placeholder="e.g. 2400" data-field="sfrSqft" value={w.sfrSqft} onChange={(e) => set({ sfrSqft: e.target.value })} className={inputSm} />
                 </div>
               </div>
+              <FieldNotes keys={['squareFeet']} />
             </div>
           )}
         </div>
@@ -1299,7 +1301,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <input id="wiz-discount" type="number" min={0} max={50} step="any" data-field="discountRate" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
         </div>
-        <FieldNotes keys={['targetCapRate', 'sellingCostPercent', 'exitYear', 'discountRate']} />
+        <FieldNotes keys={['targetCapRate', 'appreciationRate', 'sellingCostPercent', 'exitYear', 'discountRate']} />
 
         <div className="p-4 bg-brand-950/30 border border-brand-800/60 rounded-2xl space-y-2">
           <div className="flex items-center space-x-2 text-xs font-bold text-brand-300"><span>🏛️ Underwriting Engine Ready</span></div>
