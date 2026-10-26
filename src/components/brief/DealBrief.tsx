@@ -73,9 +73,9 @@ export const BRIEF_CSS = `
 .brief .mct .l { font-size: 9.5px; color: #64748b; font-weight: 700; text-transform: uppercase; }
 .brief .mct .v { font-size: 17px; font-weight: 800; margin-top: 2px; }
 .brief .mcp { font-size: 10.5px; color: #334155; line-height: 1.4; margin: 0 0 6px 0; }
-.brief .warn { border: 1px solid #fde68a; background: #fffbeb; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; break-inside: avoid; }
-.brief .warn p { font-size: 11.5px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 3px 0; }
-.brief .warn ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: #78350f; line-height: 1.45; }
+.brief .warn { border: 1px solid #fde68a; background: #fffbeb; border-radius: 6px; padding: 5px 12px; margin-bottom: 10px; break-inside: avoid; }
+.brief .warn p { font-size: 10.5px; font-weight: 800; color: #92400e; text-transform: uppercase; margin: 0 0 1px 0; }
+.brief .warn ul { margin: 0; padding-left: 16px; font-size: 10.5px; color: #78350f; line-height: 1.4; }
 .brief .foot { border-top: 1px solid #cbd5e1; padding-top: 5px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-top: 10px; gap: 12px; }
 .brief .toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
 .brief .btn { background: #059669; color: #fff; border: 0; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -86,9 +86,18 @@ export const BRIEF_CSS = `
 .brief .stopm { font-size: 10px; color: #475569; margin-top: 3px; line-height: 1.45; }
 .brief .keyt .tv { font-size: 17px; }
 .brief .keyt .meta { font-size: 10px; margin-top: 2px; }
+.brief .strip { display: grid; grid-template-columns: 1fr 1.3fr 1.5fr 1.4fr; gap: 0; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 10px; break-inside: avoid; }
+.brief .strip > div { padding: 5px 10px; border-right: 1px solid #e2e8f0; font-size: 11px; line-height: 1.35; }
+.brief .strip > div:last-child { border-right: 0; }
+.brief .strip .k { display: block; font-size: 9px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.2px; }
+.brief .notes { margin: 0; padding: 6px 10px 6px 26px; font-size: 10px; color: #334155; line-height: 1.45; }
+div.notes { padding-left: 10px; }
+.brief .notes ul.cols { margin: 0; padding-left: 14px; columns: 2; column-gap: 22px; font-size: 9px; color: #475569; }
+.brief .notes ul.cols li { break-inside: avoid; margin-bottom: 2px; }
+.brief .mcg > .mct, .brief .pf tr { break-inside: avoid; page-break-inside: avoid; }
 .brief .src { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-.brief .src table { font-size: 10px; }
-.brief .src td { padding: 3px 6px; vertical-align: top; }
+.brief .src table { font-size: 9.5px; line-height: 1.3; }
+.brief .src td { padding: 2px 5px; vertical-align: top; }
 .brief .mc table { font-size: 10.5px; }
 .brief .mc th, .brief .mc td { padding: 2px 6px; }
 .brief .mc .mct { margin-bottom: 6px; }
@@ -179,6 +188,8 @@ export function useBriefMonteCarlo(assetClass: string, inputs: Record<string, an
     let cancelled = false;
     let handle = 0;
     setResult(null);
+    // No inputs yet (the deal is still loading) or a page that does not show the simulation: nothing to run
+    if (Object.keys(inputs).length === 0) return undefined;
     const start = window.setTimeout(() => {
       try {
         const runner = createMonteCarloRunner(assetClass, inputs, { runs: 1000, hurdleRatePct: hurdle, seed: seedFromText(seedText) });
@@ -762,7 +773,7 @@ const ProFormaCharts: React.FC<{ m: BriefModel }> = ({ m }) => {
   const loan = rows.map((p) => num(p.loanBalanceRemaining ?? p.endingLoanBalance));
   const last = rows.length - 1;
   return (
-    <div className="mcg" style={{ gridTemplateColumns: 'repeat(3, 1fr)', padding: '10px 10px 2px 10px', marginBottom: 0 }}>
+    <div className="mcg" style={{ gridTemplateColumns: 'repeat(3, 1fr)', padding: '10px 10px 2px 10px', marginBottom: 0, breakInside: 'avoid', pageBreakInside: 'avoid' }}>
       <YearChart
         title="Does the income cover the loan?" years={years} fmt={compact}
         series={[{ name: 'Net operating income', color: '#059669', values: noi, kind: 'bar' }, { name: 'Debt service', color: '#0f172a', values: ds, kind: 'line' }]}
@@ -779,6 +790,28 @@ const ProFormaCharts: React.FC<{ m: BriefModel }> = ({ m }) => {
         series={[{ name: 'Property value', color: '#64748b', values: value, kind: 'line' }, { name: 'Loan balance', color: '#e11d48', values: loan, kind: 'line' }, { name: 'Your equity', color: '#059669', values: eq, kind: 'line' }]}
         takeaway={`Equity grows from ${cur(eq[0])} in ${years[0]} to ${cur(eq[last])} in ${years[last]} as the loan is paid down and the property appreciates.`}
       />
+    </div>
+  );
+};
+
+/** What a reader should know that does not belong in the headline: how the pro forma was built, and what the records show. */
+const NotesBox: React.FC<{ m: BriefModel }> = ({ m }) => {
+  const foot = (m.proj as any[]).filter((p) => p.methodologyFootnote);
+  const notes: Array<{ title: string; text: string }> = [];
+  if (m.parcels.length > 1) notes.push({ title: 'Multi-parcel package', text: `${m.parcels.length} county parcels are underwritten together with ${cur(m.parcelTotals.assessed)} of combined assessed value on ${m.parcelTotals.acres.toFixed(2)} acres.` });
+  if (m.rentVarianceMonthly !== null && Math.abs(m.rentVarianceMonthly) >= 0.5) notes.push({ title: 'Rent roll against underwriting', text: `The in-place rent roll is ${cur(m.rentRollMonthly)}/mo against ${cur(m.monthlyRent)}/mo underwritten (${m.rentVarianceMonthly >= 0 ? '+' : '-'}${cur(Math.abs(m.rentVarianceMonthly))}/mo).` });
+  if (m.isProrated) notes.push({ title: 'Partial first year', text: `Year 1 holds ${Number(m.p0.operatingMonths)} months of operation. Cap rate and coverage on page 1 are read from the first full year.` });
+  if (notes.length === 0 && foot.length === 0) return null;
+  return (
+    <div className="box split">
+      <div className="bh"><span>Notes</span><span className="sub">How the pro forma was built, and what the records show</span></div>
+      {notes.length > 0 && <ul className="notes">{notes.map((n) => <li key={n.title}><strong>{n.title}.</strong> {n.text}</li>)}</ul>}
+      {foot.length > 0 && (
+        <div className="notes" style={{ borderTop: notes.length ? '1px solid #e2e8f0' : undefined }}>
+          <p style={{ fontWeight: 800, color: '#047857', textTransform: 'uppercase', fontSize: 9.5, margin: '0 0 2px 0' }}>Contractual lease &amp; calendar provenance</p>
+          <ul className="cols">{foot.map((p, i) => <li key={i}><strong>Yr {p.year} ({p.calendarYear || m.startYear + p.year - 1}):</strong> {p.methodologyFootnote}</li>)}</ul>
+        </div>
+      )}
     </div>
   );
 };
@@ -817,8 +850,8 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
   const stab = m.isProrated ? 'Stabilized' : 'Year 1';
   const dscrLabel = m.isProrated ? 'Stabilized DSCR' : 'Senior DSCR';
   const dpLine = m.rehabMode === 'roll_into_loan'
-    ? `${cur(m.downPaymentAmt)} Down Payment (${pctShort(m.downPaymentPct)}% LTC) • ${cur(m.rehabCosts)} Rehab + ${cur(m.closingCosts)} Closing Financed`
-    : `${cur(m.downPaymentAmt)} Down (${pctShort(m.downPaymentPct)}%) + ${cur(m.rehabCosts)} Rehab + ${cur(m.closingCosts)} Closing`;
+    ? `${cur(m.downPaymentAmt)} Down Payment (${pctShort(m.downPaymentPct)}% LTC); ${cur(m.rehabCosts + m.closingCosts)} rehab & closing financed`
+    : `${cur(m.downPaymentAmt)} Down (${pctShort(m.downPaymentPct)}%) + ${cur(m.rehabCosts + m.closingCosts)} rehab & closing`;
   // The headline is the rent the user entered; the model's annual figure is a first-full-year average that includes escalations
   const enteredRent = m.underwritingLeases.reduce((s, l) => s + l.monthlyRent, 0);
   const showEnteredRent = enteredRent > 0 && Math.abs(enteredRent - m.monthlyRent) >= 0.5;
@@ -873,9 +906,9 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
       <StoplightBanner m={m} mc={monteCarlo} />
 
       <div className="score">
-        <div className="tile"><p className="tl">{m.holdYears}-Yr Levered IRR (annualized)</p><p className="tv" style={{ color: LIGHT_STYLE[m.stoplight.light].fg }}>{pct(m.irr)}</p></div>
+        <div className="tile"><p className="tl">{m.holdYears}-Yr IRR, annualized</p><p className="tv" style={{ color: LIGHT_STYLE[m.stoplight.light].fg }}>{pct(m.irr)}</p></div>
         <div className="tile"><p className="tl">Your Opportunity Cost</p><p className="tv">{m.discountRate.toFixed(1)}%<small>/yr</small></p></div>
-        <div className="tile"><p className="tl">Year 1 Net Cash Flow</p><p className="tv" style={{ color: m.cashFlow >= 0 ? '#059669' : '#e11d48' }}>{cur(m.cashFlow)}<small> ({cur(m.monthlyCashFlow)}/mo)</small></p></div>
+        <div className="tile"><p className="tl">Year 1 Net Cash Flow{m.isProrated ? ` (${Number(m.p0.operatingMonths)} mo.)` : ''}</p><p className="tv" style={{ color: m.cashFlow >= 0 ? '#059669' : '#e11d48' }}>{cur(m.cashFlow)}<small> ({cur(m.monthlyCashFlow)}/mo)</small></p></div>
         <div className="tile"><p className="tl">Equity Multiplier</p><p className="tv">{m.equityMultiple.toFixed(2)}x</p></div>
         <div className="tile"><p className="tl">{stab} Cap Rate</p><p className="tv">{pct(m.capRate)}</p></div>
         <div className="tile"><p className="tl">{dscrLabel}</p><p className="tv" style={{ color: dscrColor(m.dscr) }}>{m.dscrFormatted}</p></div>
@@ -897,97 +930,13 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         </div>
       )}
 
-      <div className="box">
-        <div className="bh">
-          <span>🏛️ Official County Assessor &amp; Parcel Records</span>
-          <span className="sub">{multi ? `Multi-Parcel Package (${m.parcels.length} APNs • Tax Roll Audit)` : 'Tax Roll & Boundary Audit'}</span>
-        </div>
-        {m.parcels.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: '15%' }}>APN / Parcel</th><th style={{ width: '27%' }}>Address</th>
-                <th className="num">Assessed</th><th className="num">Land</th><th className="num">Improvements</th>
-                <th className="num">Acres</th><th className="num">Sq Ft</th>
-              </tr>
-            </thead>
-            <tbody>
-              {m.parcels.map((p) => (
-                <tr key={p.apn}>
-                  <td className="mono">{p.apn}{p.isPrimary && <span style={{ color: '#64748b', fontSize: 9, marginLeft: 4 }}>(PRIMARY)</span>}</td>
-                  <td>{orNP(p.address)}</td>
-                  <td className="num">{p.assessed > 0 ? cur(p.assessed) : 'Pending'}</td>
-                  <td className="num">{cur(p.land)}</td><td className="num">{cur(p.improvement)}</td>
-                  <td className="num">{p.acres.toFixed(2)}</td><td className="num">{Math.round(p.sqft).toLocaleString()}</td>
-                </tr>
-              ))}
-              {multi && (
-                <tr className="tot">
-                  <td colSpan={2}>Combined Package ({m.parcels.length} parcels)</td>
-                  <td className="num">{cur(m.parcelTotals.assessed)}</td><td className="num">{cur(m.parcelTotals.land)}</td><td className="num">{cur(m.parcelTotals.improvement)}</td>
-                  <td className="num">{m.parcelTotals.acres.toFixed(2)}</td><td className="num">{Math.round(m.parcelTotals.sqft).toLocaleString()}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        ) : (
-          <div style={{ padding: '8px 10px', fontSize: 11.5, color: '#64748b' }}>No county parcel is linked to this deal. Assessment and boundary data: {NP}.</div>
-        )}
-        <table>
-          <tbody>
-            <tr>
-              <td className="k" style={{ width: '14%' }}>Property Address</td><td style={{ width: '22%', fontWeight: 700 }}>{orNP(m.location)}</td>
-              <td className="k" style={{ width: '14%' }}>County Jurisdiction</td><td style={{ width: '18%', fontWeight: 700 }}>{orNP(m.county)}</td>
-              <td className="k" style={{ width: '14%' }}>Owner of Record</td><td style={{ width: '18%', fontWeight: 700 }}>{orNP(m.owner)}</td>
-            </tr>
-            <tr>
-              <td className="k">Zoning &amp; Land Use</td><td style={{ fontWeight: 600 }}>{orNP(m.zoning)} • {orNP(m.useCode)}</td>
-              <td className="k">Structural Specs</td>
-              <td colSpan={3} style={{ fontWeight: 600 }}>
-                {[m.yearBuilt ? `Built ${m.yearBuilt}` : null, m.buildingSqFt > 0 ? `${m.buildingSqFt.toLocaleString()} Sq Ft` : null, m.stories ? `${m.stories} Story` : null, m.construction].filter(Boolean).join(' • ') || NP}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      {/* The property at a glance: the full parcel table and rent roll are supporting records at the back */}
+      <div className="strip">
+        <div><span className="k">Owner of record</span><strong>{orNP(m.owner)}</strong></div>
+        <div><span className="k">Zoning &amp; use</span><strong>{orNP(m.zoning)} • {orNP(m.useCode)}</strong></div>
+        <div><span className="k">Structure</span><strong>{[m.yearBuilt ? `Built ${m.yearBuilt}` : null, m.buildingSqFt > 0 ? `${m.buildingSqFt.toLocaleString()} sq ft` : null, m.stories ? `${m.stories} story` : null, m.construction].filter(Boolean).join(' • ') || NP}</strong></div>
+        <div><span className="k">County record</span><strong>{m.parcels.length > 0 ? `${m.parcels.length} parcel${m.parcels.length === 1 ? '' : 's'} • ${m.parcelTotals.assessed > 0 ? `${cur(m.parcelTotals.assessed)} assessed` : 'assessment pending'}` : 'No parcel linked'}</strong></div>
       </div>
-
-      {/* A prospect has no operating rent roll to show; an owned property does */}
-      {(!m.isPipeline || m.rentRoll.length > 0) && (
-        <div className="box">
-          <div className="bh">
-            <span>📋 In-Place Rent Roll</span>
-            <span className="sub">{m.rentRoll.length > 0 ? `${m.rentRoll.length} active lease${m.rentRoll.length === 1 ? '' : 's'} • Operations rent roll` : 'No rent roll on file'}</span>
-          </div>
-          {m.rentRoll.length > 0 ? (
-            <table>
-              <thead>
-                <tr><th>Tenant</th><th>Unit</th><th>Type</th><th className="num">Monthly Rent</th><th>Lease Start</th><th>Lease End</th><th>Escalation</th><th>Next Escalation</th></tr>
-              </thead>
-              <tbody>
-                {m.rentRoll.map((l, i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 700 }}>{orNP(l.tenant)}</td><td>{orNP(l.unit)}</td><td>{orNP(l.type)}</td>
-                    <td className="num">{cur(l.monthlyRent)}</td><td>{orNP(l.start)}</td><td>{l.end ?? 'No end date'}</td>
-                    <td>{orNP(l.escalation)}</td><td>{orNP(l.nextEscalation)}</td>
-                  </tr>
-                ))}
-                <tr className="tot">
-                  <td colSpan={3}>Total in-place rent roll</td>
-                  <td className="num">{cur(m.rentRollMonthly)}/mo</td>
-                  <td colSpan={4}>
-                    {cur(m.rentRollMonthly * 12)}/yr • Underwritten: {cur(m.monthlyRent)}/mo
-                    {m.rentVarianceMonthly !== null && ` • Variance ${m.rentVarianceMonthly >= 0 ? '+' : '-'}${cur(Math.abs(m.rentVarianceMonthly))}/mo`}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          ) : (
-            <div style={{ padding: '8px 10px', fontSize: 11.5, color: '#64748b' }}>
-              No active leases are recorded in Operations. Underwritten rent of {cur(m.monthlyRent)}/mo comes from the deal's underwriting inputs.
-            </div>
-          )}
-        </div>
-      )}
 
       {/* PAGE 2: pro-forma, the figures that defend it, then where every number came from */}
       <div className="box split pf pg">
@@ -1023,20 +972,102 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
             })}
           </tbody>
         </table>
-        {m.proj.some((p: any) => p.methodologyFootnote) && (
-          <div style={{ fontSize: 9.5, color: '#475569', padding: '6px 10px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', lineHeight: 1.45 }}>
-            <span style={{ fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>Contractual lease &amp; calendar provenance footnotes</span>
-            <ul style={{ margin: '3px 0 0 0', paddingLeft: 16 }}>
-              {m.proj.filter((p: any) => p.methodologyFootnote).map((p: any, i) => (
-                <li key={i}><strong>Yr {p.year} ({p.calendarYear || m.startYear + p.year - 1}):</strong> {p.methodologyFootnote}</li>
-              ))}
-            </ul>
-          </div>
-        )}
         <ProFormaCharts m={m} />
       </div>
 
-      <SourcesTable m={m} />
+      {/* PAGE 3: supporting records, behind the numbers */}
+      <div className="pg">
+        <SourcesTable m={m} />
+      <div className="box">
+          <div className="bh">
+            <span>🏛️ Official County Assessor &amp; Parcel Records</span>
+            <span className="sub">{multi ? `Multi-Parcel Package (${m.parcels.length} APNs • Tax Roll Audit)` : 'Tax Roll & Boundary Audit'}</span>
+          </div>
+          {m.parcels.length > 0 ? (
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '15%' }}>APN / Parcel</th><th style={{ width: '27%' }}>Address</th>
+                  <th className="num">Assessed</th><th className="num">Land</th><th className="num">Improvements</th>
+                  <th className="num">Acres</th><th className="num">Sq Ft</th>
+                </tr>
+              </thead>
+              <tbody>
+                {m.parcels.map((p) => (
+                  <tr key={p.apn}>
+                    <td className="mono">{p.apn}{p.isPrimary && <span style={{ color: '#64748b', fontSize: 9, marginLeft: 4 }}>(PRIMARY)</span>}</td>
+                    <td>{orNP(p.address)}</td>
+                    <td className="num">{p.assessed > 0 ? cur(p.assessed) : 'Pending'}</td>
+                    <td className="num">{cur(p.land)}</td><td className="num">{cur(p.improvement)}</td>
+                    <td className="num">{p.acres.toFixed(2)}</td><td className="num">{Math.round(p.sqft).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {multi && (
+                  <tr className="tot">
+                    <td colSpan={2}>Combined Package ({m.parcels.length} parcels)</td>
+                    <td className="num">{cur(m.parcelTotals.assessed)}</td><td className="num">{cur(m.parcelTotals.land)}</td><td className="num">{cur(m.parcelTotals.improvement)}</td>
+                    <td className="num">{m.parcelTotals.acres.toFixed(2)}</td><td className="num">{Math.round(m.parcelTotals.sqft).toLocaleString()}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ padding: '8px 10px', fontSize: 11.5, color: '#64748b' }}>No county parcel is linked to this deal. Assessment and boundary data: {NP}.</div>
+          )}
+          <table>
+            <tbody>
+              <tr>
+                <td className="k" style={{ width: '12%' }}>Owner of Record</td><td style={{ width: '20%', fontWeight: 700 }}>{orNP(m.owner)}</td>
+                <td className="k" style={{ width: '12%' }}>Zoning &amp; Land Use</td><td style={{ width: '24%', fontWeight: 600 }}>{orNP(m.zoning)} • {orNP(m.useCode)}</td>
+                <td className="k" style={{ width: '12%' }}>Structural Specs</td>
+                <td style={{ fontWeight: 600 }}>
+                  {[m.yearBuilt ? `Built ${m.yearBuilt}` : null, m.buildingSqFt > 0 ? `${m.buildingSqFt.toLocaleString()} Sq Ft` : null, m.stories ? `${m.stories} Story` : null, m.construction].filter(Boolean).join(' • ') || NP}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* A prospect has no operating rent roll to show; an owned property does */}
+        {(!m.isPipeline || m.rentRoll.length > 0) && (
+          <div className="box">
+            <div className="bh">
+              <span>📋 In-Place Rent Roll</span>
+              <span className="sub">{m.rentRoll.length > 0 ? `${m.rentRoll.length} active lease${m.rentRoll.length === 1 ? '' : 's'} • Operations rent roll` : 'No rent roll on file'}</span>
+            </div>
+            {m.rentRoll.length > 0 ? (
+              <table>
+                <thead>
+                  <tr><th>Tenant</th><th>Unit</th><th>Type</th><th className="num">Monthly Rent</th><th>Lease Start</th><th>Lease End</th><th>Escalation</th><th>Next Escalation</th></tr>
+                </thead>
+                <tbody>
+                  {m.rentRoll.map((l, i) => (
+                    <tr key={i}>
+                      <td style={{ fontWeight: 700 }}>{orNP(l.tenant)}</td><td>{orNP(l.unit)}</td><td>{orNP(l.type)}</td>
+                      <td className="num">{cur(l.monthlyRent)}</td><td>{orNP(l.start)}</td><td>{l.end ?? 'No end date'}</td>
+                      <td>{orNP(l.escalation)}</td><td>{orNP(l.nextEscalation)}</td>
+                    </tr>
+                  ))}
+                  <tr className="tot">
+                    <td colSpan={3}>Total in-place rent roll</td>
+                    <td className="num">{cur(m.rentRollMonthly)}/mo</td>
+                    <td colSpan={4}>
+                      {cur(m.rentRollMonthly * 12)}/yr • Underwritten: {cur(m.monthlyRent)}/mo
+                      {m.rentVarianceMonthly !== null && ` • Variance ${m.rentVarianceMonthly >= 0 ? '+' : '-'}${cur(Math.abs(m.rentVarianceMonthly))}/mo`}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: '8px 10px', fontSize: 11.5, color: '#64748b' }}>
+                No active leases are recorded in Operations. Underwritten rent of {cur(m.monthlyRent)}/mo comes from the deal's underwriting inputs.
+              </div>
+            )}
+          </div>
+        )}
+
+        <NotesBox m={m} />
+      </div>
 
       {/* PAGE 3: where cash-on-cash is maximized */}
       <DownPaymentSection m={m} />

@@ -32,6 +32,10 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
     fullName: f.fullName.trim() || 'Investor',
     discountRate: parseFloat(String(f.discountRate)) || 8.0,
     stoplightBandPoints: parseFloat(String(f.stoplightBandPoints)) || 1,
+    minDscr: parseFloat(String(f.minDscr)) || 1.25,
+    sponsorExperience: String(f.sponsorExperience ?? ''),
+    sponsorLiquidity: f.sponsorLiquidity ?? null,
+    sponsorNetWorth: f.sponsorNetWorth ?? null,
     exitYear: parseInt(String(f.exitYear), 10) || 10,
     marketTier: f.marketTier,
     propertyClass: f.propertyClass,
@@ -493,6 +497,42 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 />
                 <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-500">pts</span>
               </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-emerald-400">Lender view</span>
+                <span className="text-[10px] uppercase font-bold text-slate-500">Printed only on the lender brief</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                What a loan package states about you. Leave a field blank and the lender brief prints "Not provided" for it; nothing is guessed.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <label className="text-[11px] font-bold text-slate-300 space-y-1 block">
+                  <span>Lender's minimum DSCR</span>
+                  <input type="number" min={1} max={3} step={0.01} value={form.minDscr}
+                    onChange={(e) => set('minDscr', e.target.value as unknown as number)}
+                    className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400" />
+                </label>
+                <label className="text-[11px] font-bold text-slate-300 space-y-1 block">
+                  <span>Liquid assets ($)</span>
+                  <input type="number" min={0} step={1000} placeholder="Not provided" value={form.sponsorLiquidity ?? ''}
+                    onChange={(e) => set('sponsorLiquidity', (e.target.value === '' ? null : Number(e.target.value)) as unknown as number)}
+                    className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400" />
+                </label>
+                <label className="text-[11px] font-bold text-slate-300 space-y-1 block">
+                  <span>Net worth ($)</span>
+                  <input type="number" min={0} step={1000} placeholder="Not provided" value={form.sponsorNetWorth ?? ''}
+                    onChange={(e) => set('sponsorNetWorth', (e.target.value === '' ? null : Number(e.target.value)) as unknown as number)}
+                    className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400" />
+                </label>
+              </div>
+              <label className="text-[11px] font-bold text-slate-300 space-y-1 block">
+                <span>Real estate experience (years, holdings, track record)</span>
+                <textarea rows={2} maxLength={600} value={form.sponsorExperience ?? ''}
+                  onChange={(e) => set('sponsorExperience', e.target.value)}
+                  className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-400" />
+              </label>
             </div>
 
             {npvPreview && (

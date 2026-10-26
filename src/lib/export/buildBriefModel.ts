@@ -399,6 +399,11 @@ export function buildBriefModel(
     warnings.push({ title: 'Rent Roll Differs From Underwriting', description: `In-place rent roll is ${money(rentRollMonthly)}/mo versus ${money(monthlyRent)}/mo underwritten (${rentVarianceMonthly >= 0 ? '+' : '-'}${money(Math.abs(rentVarianceMonthly))}/mo).` });
   }
 
+  // Value growth that comes from a lower cap rate at sale, not from income, is the first thing a reader should be told
+  if (exitCapRate > 0 && num(raw.capRate) > 0 && exitCapRate < num(raw.capRate) - 0.005) {
+    warnings.push({ title: 'Exit Cap Rate Below Going-In Cap Rate', description: `The sale is underwritten at a ${exitCapRate}% cap rate against ${num(raw.capRate).toFixed(2)}% going in, so part of the projected value growth comes from cap-rate compression rather than income growth.` });
+  }
+
   const memoTypeLabel = isResidential
     ? 'Single-Family Residential Investment Memo'
     : isMultiFamily ? 'Multi-Family Residential Memo' : isStorage ? 'Self-Storage Facility Memo' : 'Commercial Underwriting Memo';

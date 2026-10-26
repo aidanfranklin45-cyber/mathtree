@@ -38,9 +38,9 @@ export function classifyAgainstOpportunityCost(irr: number, opportunityCost: num
   const own = `${irr.toFixed(2)}% annualized IRR`;
   const verdict = light === 'green' ? 'Beats your opportunity cost' : light === 'yellow' ? 'Close to your opportunity cost' : 'Below your opportunity cost';
   const headline = light === 'green'
-    ? `The ${own} is ${pts(spread)} above your ${rate} opportunity cost, so this deal is expected to earn more than your money earns elsewhere.`
+    ? `The ${own} is ${pts(spread)} above your ${rate} opportunity cost: it should out-earn your money elsewhere.`
     : light === 'yellow'
-      ? `The ${own} is ${spread >= 0 ? `${pts(spread)} above` : `${pts(spread)} below`} your ${rate} opportunity cost, within the ${bandPoints}-point band, so this deal roughly matches what your money earns elsewhere.`
-      : `The ${own} is ${pts(spread)} below your ${rate} opportunity cost, so this deal is expected to earn less than your money earns elsewhere.`;
+      ? `The ${own} is ${spread >= 0 ? `${pts(spread)} above` : `${pts(spread)} below`} your ${rate} opportunity cost, within the ${bandPoints}-point band: about what your money earns elsewhere.`
+      : `The ${own} is ${pts(spread)} below your ${rate} opportunity cost: it should earn less than your money does elsewhere.`;
   return { light, irr, opportunityCost, spreadPoints: spread, bandPoints, headline, verdict };
 }

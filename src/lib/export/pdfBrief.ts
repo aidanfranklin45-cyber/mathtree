@@ -5,6 +5,11 @@ export function openDealBrief(dealId: string): void {
   window.open(`/brief?id=${encodeURIComponent(dealId)}`, '_blank');
 }
 
+/** Opens the lender summary (loan request, coverage, sources and uses, stress) in a new tab. */
+export function openLenderBrief(dealId: string): void {
+  window.open(`/lender-brief?id=${encodeURIComponent(dealId)}`, '_blank');
+}
+
 /** Opens the portfolio and pipeline brief in a new tab. */
 export function openPortfolioBrief(): void {
   window.open('/portfolio-brief', '_blank');

@@ -162,7 +162,7 @@ describe('executive summary', () => {
     expect(m.isPipeline).toBe(true);
     const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: null }));
     expect(html).toContain(m.stoplight.verdict);
-    expect(html).toContain('(annualized)');
+    expect(html).toContain('annualized');
     expect(html).toContain('Where the numbers come from');
     expect(html).not.toContain('In-Place Rent Roll');
     expect(html).not.toContain('Core Underwriting Assumptions');
