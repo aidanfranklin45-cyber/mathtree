@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,6 +38,28 @@ afterAll(async () => {
   await server?.close();
 });
 
+/** Heights of each printed page's blocks at the sheet's own width. A page starts at the first block and at each block marked `.pg`; the fine print flows and is not measured. */
+async function measureGroups(page: Page): Promise<number[]> {
+  return page.evaluate((w) => {
+    const el = document.querySelector('#printable-brief') as HTMLElement;
+    el.style.width = `${w}px`; el.style.maxWidth = `${w}px`; el.style.padding = '0';
+    const out: number[] = [];
+    let cur = 0;
+    for (const c of Array.from(el.children) as HTMLElement[]) {
+      if (c.tagName === 'STYLE' || c.classList.contains('toolbar') || c.classList.contains('foot') || c.classList.contains('fine')) continue;
+      if (c.classList.contains('pg') && cur > 0) { out.push(cur); cur = 0; }
+      cur += c.getBoundingClientRect().height + 10;
+    }
+    out.push(cur);
+    return out;
+  }, PRINT_WIDTH);
+}
+
+/** A sheet with a few stray lines on it is a layout failure: every sheet but the last must carry real content. */
+function expectNoOrphanSheets(pages: string[]) {
+  pages.slice(0, -1).forEach((t, i) => expect(t.replace(/\s+/g, ' ').trim().length, `sheet ${i + 1} is almost empty`).toBeGreaterThan(350));
+}
+
 /** Opens a brief, waits until it is fully drawn, prints it to PDF and measures its blocks at print width. */
 async function render(path: string, ready: string, name: string) {
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
@@ -51,23 +73,10 @@ async function render(path: string, ready: string, name: string) {
     // Sheets in the PDF: Chromium writes each as a "/Type /Page" object
     const sheets = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
 
-    // Heights of each printed page's blocks at the sheet's own width: a page starts at the first block and at each block marked `.pg`
-    const groups: number[] = await page.evaluate((w) => {
-      const el = document.querySelector('#printable-brief') as HTMLElement;
-      el.style.width = `${w}px`; el.style.maxWidth = `${w}px`; el.style.padding = '0';
-      const out: number[] = [];
-      let cur = 0;
-      for (const c of Array.from(el.children) as HTMLElement[]) {
-        if (c.tagName === 'STYLE' || c.classList.contains('toolbar') || c.classList.contains('foot') || c.classList.contains('fine')) continue;
-        if (c.classList.contains('pg') && cur > 0) { out.push(cur); cur = 0; }
-        cur += c.getBoundingClientRect().height + 10;
-      }
-      out.push(cur);
-      return out;
-    }, PRINT_WIDTH);
+    const groups = await measureGroups(page);
     const overflowX = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     const text = (await page.innerText('#printable-brief')).toLowerCase();
-    return { sheets, groups, overflowX, text };
+    return { sheets, groups, overflowX, text, pdf };
   } finally {
     await page.close();
   }
@@ -87,9 +96,9 @@ describe('printed briefs (public sample deal)', () => {
       at = i;
     }
     expect(r.overflowX).toBe(false);
-    // The overview, the pro forma with its charts, leverage and the Monte Carlo must each fit one sheet. The sources-and-notes page and
-    // the county-records page grow with the deal and may run on.
-    r.groups.forEach((h, i) => { if (i !== 2 && i !== r.groups.length - 1) expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT); });
+    // Every structured page (overview, pro forma, sources, leverage, Monte Carlo, records) fits one sheet; only the fine print flows
+    r.groups.forEach((h, i) => expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT));
+    expectNoOrphanSheets(await pageTexts(r.pdf));
     // The county parcel table is a record at the back, behind the Monte Carlo and ahead of the disclosures
     expect(r.text.indexOf('official county assessor')).toBeGreaterThan(r.text.indexOf('monte carlo simulation'));
     expect(r.text.indexOf('official county assessor')).toBeLessThan(r.text.indexOf('methodology, diligence'));
@@ -106,6 +115,7 @@ describe('printed briefs (public sample deal)', () => {
     expect(r.text).not.toContain('opportunity cost');
     expect(r.overflowX).toBe(false);
     r.groups.forEach((h, i) => expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT));
+    expectNoOrphanSheets(await pageTexts(r.pdf));
     expect(r.sheets).toBe(3);
   }, 180_000);
 });
@@ -141,7 +151,9 @@ describe('a long pipeline deal (15-year hold, partial first year, two parcels)',
     ];
     const m = buildBriefModel(deal, [], parcels as any);
     expect(m.proj.filter((p: any) => p.methodologyFootnote).length).toBeGreaterThan(5);
-    const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: null }));
+    const { runMonteCarlo } = await import('../../src/lib/engine');
+    const mc = runMonteCarlo('commercial', m.monteCarloInputs, { runs: 200, seed: 7 });
+    const html = renderToStaticMarkup(React.createElement(DealBrief, { model: m, monteCarlo: mc }));
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
     try {
       await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><title>t</title></head><body style="margin:0">${html}</body></html>`);
@@ -149,6 +161,8 @@ describe('a long pipeline deal (15-year hold, partial first year, two parcels)',
       const pdf = await page.pdf({ format: 'Letter', landscape: true, printBackground: true, preferCSSPageSize: true });
       writeFileSync(join(outDir, 'long-pipeline.pdf'), pdf);
       console.log(`long pipeline PDF: ${join(outDir, 'long-pipeline.pdf')}`);
+      (await measureGroups(page)).forEach((h, i) => expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT));
+      expectNoOrphanSheets(await pageTexts(pdf));
       const pages = (await pageTexts(pdf)).map((t) => t.toLowerCase());
       const where = (needle: string) => pages.findIndex((t) => t.includes(needle));
       // The three chart titles and the first chart's takeaway share one page
@@ -174,24 +188,37 @@ describe('a long pipeline deal (15-year hold, partial first year, two parcels)',
 
 describe('page 1 tells the napkin story for each kind of deal', () => {
   const common = { downPaymentPercent: 25, interestRate: 6.5, loanTerm: 30, exitYear: 10, closingDate: '2026-12-02', vacancyRate: 5, rentGrowth: 3, discountRate: 6, targetCapRate: 6.5, closingCosts: 5000 };
-  const cases: Array<{ name: string; asset: string; inputs: Record<string, any>; verdict: string; mustHave: string[] }> = [
+  const cases: Array<{ name: string; asset: string; inputs: Record<string, any>; verdict: string; mustHave: string[]; mustNot?: string[] }> = [
     {
       name: 'a 12-unit storage deal that cannot pay its loan', asset: 'storage',
       inputs: { ...common, purchasePrice: 200_000, downPaymentPercent: 10, interestRate: 6.53, closingCosts: 2500, rehabCosts: 2500, expenseRatio: 35, payrollMarketingPercent: 8, unitCount: 12, storageRentPerUnit: 150, storageUnitCount: 12 },
-      verdict: 'does not make money', mustHave: ['12 units', 'average rent', 'what the loan costs', 'cannot pay for itself'],
+      verdict: 'does not make money', mustHave: ['units', 'average rent per unit', 'what the loan costs', 'cannot pay for itself'],
     },
     {
       name: 'a 10-unit apartment building that clears the bar', asset: 'multi-unit',
       inputs: { ...common, purchasePrice: 900_000, expenseRatio: 38, unitCount: 10, monthlyRentPerUnit: 1700 },
-      verdict: 'makes money', mustHave: ['10 units', 'yield on cost', 'covers the loan at'],
+      verdict: 'makes money', mustHave: ['units', 'yield on cost', 'covers the loan at'],
     },
     {
       name: 'a single-family house', asset: 'single-family',
       inputs: { ...common, purchasePrice: 300_000, expenseRatio: 30, monthlyRent: 2600, appreciationRate: 3 },
-      verdict: '', mustHave: ['1 home', 'net operating income'],
+      verdict: '', mustHave: ['monthly rent', 'net operating income'],
+    },
+    {
+      name: 'a lease-built deal states the engine\'s rent, not a reading of its lease records', asset: 'commercial',
+      inputs: { ...common, downPaymentPercent: 0, purchasePrice: 300_000, closingDate: '2025-07-15', leaseType: 'NNN', expenseRatio: 1, leases: [{ tenantName: 'Stop and Go Burgers Operating LLC', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2025-07-15', leaseEndDate: '2036-08-03', escalationRate: 3 }] },
+      verdict: '', mustHave: ['rent for the year', 'on average'], mustNot: ['stop and go burgers', 'as signed', 'tenant', 'average rent per unit'],
+    },
+    {
+      name: 'extra lease records, such as a pre-lease or intercompany one, never change the story', asset: 'commercial',
+      inputs: { ...common, downPaymentPercent: 0, purchasePrice: 300_000, closingDate: '2025-07-15', leaseType: 'NNN', expenseRatio: 1, leases: [
+        { tenantName: 'Stop and Go Burgers Operating LLC', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2025-08-03', leaseEndDate: '2036-08-03', escalationRate: 3 },
+        { tenantName: 'Stop and Go Burgers Operating LLC (intercompany rent before the lease)', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2025-07-15', leaseEndDate: '2036-08-03', escalationRate: 3 },
+      ] },
+      verdict: '', mustHave: ['rent for the year'], mustNot: ['2 tenants', 'tenant', 'as signed', 'intercompany'],
     },
   ];
-  it.each(cases)('$name', async ({ asset, inputs, verdict, mustHave }) => {
+  it.each(cases)('$name', async ({ asset, inputs, verdict, mustHave, mustNot }) => {
     const React = await import('react');
     const { renderToStaticMarkup } = await import('react-dom/server');
     const { DealBrief } = await import('../../src/components/brief/DealBrief');
@@ -211,6 +238,10 @@ describe('page 1 tells the napkin story for each kind of deal', () => {
       expect(pages[1]).toContain('pro-forma forecast');
       if (verdict) expect(pages[0]).toContain(verdict);
       for (const t of mustHave) expect(pages[0], `page 1 is missing "${t}"`).toContain(t);
+      for (const t of mustNot ?? []) expect(pages[0], `page 1 must not say "${t}"`).not.toContain(t);
+      expect(pages[0]).not.toContain(' tenants');
+      // The header carries no parcel number
+      expect(pages[0]).not.toContain('apn');
       // The story reads in order: earns, then the yield, then whether it pays for itself
       const at = ['1. what it earns', '2. what it cost, and the yield', '3. whether it pays for itself'].map((t) => pages[0].indexOf(t));
       expect(at.every((i) => i >= 0) && at[0] < at[1] && at[1] < at[2]).toBe(true);

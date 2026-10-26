@@ -99,7 +99,8 @@ describe('DealBrief render', () => {
     expect(html).toContain('10-0001');
     expect(html).toContain('10-0002');
     expect(html).not.toContain('10-0003');
-    expect(html).toContain('2-Parcel Package');
+    // the parcel number and package label are county detail: they live on the records page, not in the header
+    expect(html).not.toContain('2-Parcel Package');
     expect(html).toContain('Total in-place rent roll');
     expect(html).not.toContain('Old');
     expect(html).toContain('$300,000 Down (30%)');

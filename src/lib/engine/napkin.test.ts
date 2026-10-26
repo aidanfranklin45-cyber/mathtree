@@ -38,14 +38,35 @@ describe('calculateNapkin', () => {
     expect(k.dscr).toBeCloseTo(k.noi / k.debtService, 10);
   });
 
-  it('counts a home as one unit, and a lease-only commercial deal by its tenants', () => {
+  it('counts a home as one unit', () => {
     const house = calculateNapkin('single-family', withLegacyDefaults('single-family', { purchasePrice: 300_000, downPaymentPercent: 20, interestRate: 6.5, loanTerm: 30, closingCosts: 6000, exitYear: 10, vacancyRate: 5, expenseRatio: 30, monthlyRent: 2400 }));
     expect(house.units).toEqual({ count: 1, label: 'home' });
-    const comm = calculateNapkin('commercial', withLegacyDefaults('commercial', {
-      purchasePrice: 900_000, downPaymentPercent: 30, interestRate: 6.5, loanTerm: 25, closingCosts: 9000, exitYear: 10, closingDate: '2026-01-01',
-      leases: [{ tenantName: 'A', monthlyRent: 5000, leaseType: 'NNN', leaseStartDate: '2026-01-01', leaseEndDate: '2033-12-31' }, { tenantName: 'B', monthlyRent: 4000, leaseType: 'NNN', leaseStartDate: '2026-01-01', leaseEndDate: '2033-12-31' }],
-    }));
-    expect(comm.units).toEqual({ count: 2, label: 'tenant' });
+  });
+
+  describe('a lease-built deal states only the rent the engine produced', () => {
+    const lease = (over: Record<string, any> = {}) => ({ tenantName: 'Stop and Go Burgers Operating LLC', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2025-08-03', leaseEndDate: '2036-08-03', escalationRate: 3, ...over });
+    const inputs = (leases: any[]) => withLegacyDefaults('commercial', {
+      purchasePrice: 300_000, downPaymentPercent: 0, interestRate: 4.53, loanTerm: 20, closingCosts: 12_000, exitYear: 15, closingDate: '2025-07-15', leaseType: 'NNN', leases,
+    });
+
+    it('gives the first full year\'s rent and its monthly average, and no tenant or unit count', () => {
+      const k = calculateNapkin('commercial', inputs([lease()]));
+      const y: any = firstFullYear(calculateProjections('commercial', inputs([lease()])).projections as any[]);
+      expect(k.units).toBeNull();
+      expect(k.avgRentMonthly).toBeNull();
+      expect(k.grossRentAnnual).toBe(y.grossPotentialIncome ?? y.grossPotentialRent);
+      expect(k.grossRentMonthly).toBeCloseTo(k.grossRentAnnual / 12, 8);
+    });
+
+    it('is not misled by a second record for the same tenant (a pre-lease or intercompany record)', () => {
+      // The deal this was reported on: a second record, named differently, for rent before the lease began
+      const both = [lease(), lease({ tenantName: 'Stop and Go Burgers Operating LLC (intercompany rent before the lease)', leaseStartDate: '2025-07-15', leaseEndDate: '2025-08-02' })];
+      const k = calculateNapkin('commercial', inputs(both));
+      const direct: any = firstFullYear(calculateProjections('commercial', inputs(both)).projections as any[]);
+      expect(k.units).toBeNull();
+      expect(k.grossRentAnnual).toBe(direct.grossPotentialIncome ?? direct.grossPotentialRent);
+      expect(k).not.toHaveProperty('lease');
+    });
   });
 
   it('has no unit story when the deal does not give one, and no loan figures with no debt', () => {

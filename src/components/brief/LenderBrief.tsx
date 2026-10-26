@@ -63,7 +63,6 @@ const StressTable: React.FC<{ rows: LenderMetrics['stress']; min: number }> = ({
 
 export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; onClose?: () => void }> = ({ model: lm, onPrint, onClose }) => {
   const b = lm.brief;
-  const primary = b.parcels[0];
   const m = lm.metrics;
   const verdictColor = lm.coverage.status === 'meets' ? { fg: '#059669', bg: '#ecfdf5', bd: '#a7f3d0', ico: '✓', word: 'Meets the coverage test' }
     : lm.coverage.status === 'below' ? { fg: '#e11d48', bg: '#fff1f2', bd: '#fecdd3', ico: '!', word: 'Below the coverage minimum' }
@@ -86,8 +85,7 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
           <div className="row"><span className="logo">MathTree</span><span className="pill pill-blue">Lender Summary</span></div>
           <h1>{b.title}</h1>
           <div className="row hmeta">
-            <span>📍 <strong>{orNP(b.location)}</strong></span><span>•</span>
-            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}</span>
+            <span>📍 <strong>{orNP(b.location)}</strong></span>
           </div>
         </div>
         <div className="hside">

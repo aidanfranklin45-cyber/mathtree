@@ -11,10 +11,14 @@ import { calculateProjections, firstFullYear, normalizeAssetClass } from './math
 export interface Napkin {
   /** Calendar year of the first full operating year, the year every figure is read from. */
   basisYear: number;
-  /** How many units (or tenants, or homes) the rent is built from; null when the deal does not say. */
-  units: { count: number; label: 'unit' | 'tenant' | 'home' } | null;
-  /** Gross rent per unit per month in the first full year; null without a unit count. */
+  /** How many units (or homes) the rent is built from, as the owner entered them; null when the deal does not say. */
+  units: { count: number; label: 'unit' | 'home' } | null;
+  /** Gross rent per unit per month in the first full year (after rent growth); null without a unit count. */
   avgRentMonthly: number | null;
+  /** The rent per unit the owner entered, before growth; null when the deal states rent another way. */
+  enteredRentMonthly: number | null;
+  /** The first full year's gross rent over twelve months: the engine's own number, divided. Always available, whatever the rent is built from. */
+  grossRentMonthly: number;
   grossRentAnnual: number;
   vacancyLoss: number;
   operatingExpenses: number;
@@ -62,16 +66,18 @@ export function calculateNapkin(rawAssetType: string, inputs: Record<string, any
   const closing = n(inputs.closingCosts);
   const totalCost = price + rehab + closing;
 
-  // Units: facts the owner entered, never guessed. A home is one unit; a lease-only commercial deal counts its tenants.
+  // Units are a fact the owner entered, never guessed: a home is one unit. A deal built from a lease schedule states no unit count and no tenant
+  // here: lease records can overlap, repeat or describe earlier periods, so page 1 reports only the rent the engine itself produced.
+  const basisYear = n(y.calendarYear);
+  const hasLeases = Array.isArray(inputs.leases) && inputs.leases.length > 0;
   let units: Napkin['units'] = null;
   if (assetType === 'single-family') units = { count: 1, label: 'home' };
-  else {
+  else if (!hasLeases) {
     const entered = whole(inputs.unitCount ?? inputs.numUnits ?? inputs.totalUnits ?? inputs.storageUnitCount);
-    const leases = Array.isArray(inputs.leases) ? inputs.leases.length : 0;
-    if (entered > 0 && assetType !== 'commercial') units = { count: entered, label: 'unit' };
-    else if (leases > 0) units = { count: leases, label: 'tenant' };
-    else if (entered > 0) units = { count: entered, label: 'unit' };
+    if (entered > 0) units = { count: entered, label: 'unit' };
   }
+  const perUnit = n(inputs.monthlyRentPerUnit ?? inputs.storageRentPerUnit ?? inputs.storageRent);
+  const enteredRent = units && perUnit > 0 ? perUnit : units?.label === 'home' && n(inputs.monthlyRent) > 0 ? n(inputs.monthlyRent) : null;
 
   const constant = loan > 0 && ds > 0 ? (ds / loan) * 100 : null;
   const yieldPct = totalCost > 0 ? (noi / totalCost) * 100 : null;
@@ -83,8 +89,10 @@ export function calculateNapkin(rawAssetType: string, inputs: Record<string, any
   const residual = noi - ds - reserve - cashFlow;
 
   return {
-    basisYear: n(y.calendarYear),
+    basisYear,
     units,
+    enteredRentMonthly: enteredRent,
+    grossRentMonthly: gross / 12,
     avgRentMonthly: units && gross > 0 ? gross / units.count / 12 : null,
     grossRentAnnual: gross,
     vacancyLoss: n(y.vacancyLoss),

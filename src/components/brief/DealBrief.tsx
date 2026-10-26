@@ -116,6 +116,23 @@ div.notes { padding-left: 10px; }
 .brief .op { flex: none; align-self: center; font-size: 16px; font-weight: 800; color: #94a3b8; width: 14px; text-align: center; }
 .brief .eqn { font-size: 10.5px; color: #92400e; margin-top: 3px; font-weight: 600; }
 .brief .score.k5 { grid-template-columns: repeat(5, 1fr); }
+.brief .nk { display: grid; grid-template-columns: repeat(3, 1fr); }
+.brief .nkc { padding: 6px 12px 8px 12px; border-right: 1px solid #e2e8f0; }
+.brief .nkc:last-child { border-right: 0; }
+.brief .nkt { font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+.brief .nkr { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 3px 0; border-bottom: 1px solid #f1f5f9; }
+.brief .nkr .l { font-size: 11px; color: #334155; line-height: 1.25; }
+.brief .nkr .n { font-size: 9px; color: #64748b; line-height: 1.25; }
+.brief .nkr .v { font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+.brief .nkr.strong { border-bottom: 0; border-top: 1px solid #94a3b8; background: #f8fafc; margin-top: 1px; padding: 4px 4px; }
+.brief .nkr.strong .l { font-weight: 800; color: #0f172a; }
+.brief .nkr.strong .v { font-size: 14px; }
+.brief .nkf { font-size: 10px; color: #92400e; font-weight: 600; margin-top: 4px; line-height: 1.35; }
+.brief .clamp3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.brief .fine { break-inside: auto; page-break-inside: auto; }
+.brief .fine ul.cols { columns: 2; column-gap: 24px; font-size: 9px; color: #475569; margin: 0 0 6px 0; padding-left: 16px; line-height: 1.4; }
+.brief .fine ul.cols li { break-inside: avoid; margin-bottom: 2px; }
+.brief .pf.dense th, .brief .pf.dense td { padding: 2px 5px; font-size: 9.5px; }
 @media print { .brief { padding: 0; max-width: none; } .brief .toolbar { display: none; } }
 @media screen and (max-width: 900px) { .brief .score { grid-template-columns: repeat(3, 1fr); } .brief .cards { grid-template-columns: 1fr; } .brief .mcg { grid-template-columns: repeat(2, 1fr); } .brief { overflow-x: auto; } .brief .fine ol { columns: 1; } }
 `;
@@ -573,7 +590,7 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
                   )}
                   <text
                     x={pt.x}
-                    y={pt === bestPt ? pt.lineY - 15 : pt.lineY - 7}
+                    y={pt.lineY < padT + 24 ? pt.lineY + 17 : pt === bestPt ? pt.lineY - 15 : pt.lineY - 7}
                     fill={ptColor}
                     fontSize="9.5"
                     fontWeight="bold"
@@ -600,8 +617,8 @@ const DownPaymentSection: React.FC<{ m: BriefModel }> = ({ m }) => {
             {bestPt && (
               <g>
                 <circle cx={bestPt.x} cy={bestPt.lineY} r="10" fill="none" stroke="#f59e0b" strokeWidth="2.5" />
-                <rect x={Math.min(bestPt.x, W - 58) - 52} y={bestPt.lineY + 14} width="104" height="14" rx="3" fill="#fffbeb" stroke="#f59e0b" strokeWidth="1" />
-                <text x={Math.min(bestPt.x, W - 58)} y={bestPt.lineY + 24} fill="#b45309" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
+                <rect x={Math.min(bestPt.x, W - 58) - 52} y={bestPt.lineY + (bestPt.lineY < padT + 24 ? 24 : 14)} width="104" height="14" rx="3" fill="#fffbeb" stroke="#f59e0b" strokeWidth="1" />
+                <text x={Math.min(bestPt.x, W - 58)} y={bestPt.lineY + (bestPt.lineY < padT + 24 ? 34 : 24)} fill="#b45309" fontSize="9" fontWeight="bold" textAnchor="middle" fontFamily="sans-serif">
                   Highest: {bestPt.cashOnCash.toFixed(1)}% at {bestPt.downPaymentPercent}%
                 </text>
               </g>
@@ -727,84 +744,76 @@ const LongRunBar: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }> = ({ 
   );
 };
 
-type EqItem = { kind: 'box'; label: string; value: string; sub?: string; color?: string; strong?: boolean } | { kind: 'op'; text: string };
+type NkRow = { label: string; value: string; note?: string; color?: string; strong?: boolean };
 
-const EqRow: React.FC<{ title: string; items: EqItem[]; note?: string }> = ({ title, items, note }) => (
-  <div className="eqwrap">
-    <div className="eqt">{title}</div>
-    <div className="eqrow">
-      {items.map((it, i) => it.kind === 'op'
-        ? <div key={i} className="op">{it.text}</div>
-        : (
-          <div key={i} className={`eqb${it.strong ? ' strong' : ''}`}>
-            <div className="l">{it.label}</div>
-            <div className="v" style={{ color: it.color }}>{it.value}</div>
-            {it.sub && <div className="s">{it.sub}</div>}
-          </div>
-        ))}
-    </div>
-    {note && <div className="eqn">{note}</div>}
+const NkCard: React.FC<{ title: string; rows: NkRow[]; foot?: string }> = ({ title, rows, foot }) => (
+  <div className="nkc">
+    <div className="nkt">{title}</div>
+    {rows.map((row, i) => (
+      <div key={i} className={`nkr${row.strong ? ' strong' : ''}`}>
+        <div className="lbl"><div className="l">{row.label}</div>{row.note && <div className="n">{row.note}</div>}</div>
+        <div className="v" style={{ color: row.color }}>{row.value}</div>
+      </div>
+    ))}
+    {foot && <div className="nkf">{foot}</div>}
   </div>
 );
 
-/** The back-of-the-napkin math every investor starts with, in the order they do it. Every figure is the pro forma's first full year. */
+/**
+ * The back-of-the-napkin math every investor starts with, as a plain statement in three columns: what it earns, what it cost, and whether it pays
+ * for itself. Every figure is the pro forma's first full year, and every fact stated (units, tenant, rent as signed) is one the deal itself states.
+ */
 export const NapkinMath: React.FC<{ m: BriefModel; lender?: boolean }> = ({ m, lender = false }) => {
   const k = m.napkin;
   const v = m.napkinVerdict;
   const light = LIGHT_STYLE[v.light].fg;
-  const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`;
-  const earns: EqItem[] = [
-    ...(k.units && k.avgRentMonthly !== null
-      ? [
-        { kind: 'box', label: k.units.label === 'tenant' ? 'Tenants' : k.units.label === 'home' ? 'Home' : 'Units', value: plural(k.units.count, k.units.label === 'home' ? 'home' : k.units.label), sub: 'in the rent' } as EqItem,
-        { kind: 'op', text: '×' } as EqItem,
-        { kind: 'box', label: 'Average rent', value: `${cur(k.avgRentMonthly)}/mo`, sub: 'each, × 12 months' } as EqItem,
-        { kind: 'op', text: '=' } as EqItem,
-      ]
-      : []),
-    { kind: 'box', label: 'Gross rent', value: `${cur(k.grossRentAnnual)}/yr`, sub: `${m.startYear === k.basisYear ? 'year 1' : `${k.basisYear}, first full year`}` },
-    { kind: 'op', text: '−' },
-    { kind: 'box', label: 'Vacancy', value: cur(k.vacancyLoss), sub: `${pctShort(m.vacancyPct)}% of rent`, color: '#e11d48' },
-    { kind: 'op', text: '−' },
-    { kind: 'box', label: 'Operating expenses', value: cur(k.operatingExpenses), sub: `${pctShort(m.expenseRatioPct)}% of rent`, color: '#64748b' },
-    { kind: 'op', text: '=' },
-    { kind: 'box', label: 'Net operating income', value: cur(k.noi), sub: 'what is left', strong: true },
-  ];
-  const costs: EqItem[] = [
-    { kind: 'box', label: 'Net operating income', value: cur(k.noi) },
-    { kind: 'op', text: '÷' },
-    { kind: 'box', label: 'Total cost to buy', value: cur(k.totalCost), sub: k.rehabCosts + k.closingCosts > 0 ? `${cur(k.purchasePrice)} price + ${cur(k.rehabCosts + k.closingCosts)} rehab & closing` : 'the purchase price' },
-    { kind: 'op', text: '=' },
-    { kind: 'box', label: 'Yield on cost', value: k.yieldOnCostPct !== null ? pct(k.yieldOnCostPct) : 'N/A', sub: lender ? undefined : `your opportunity cost: ${v.opportunityCost.toFixed(1)}%`, color: lender ? '#0f172a' : light, strong: true },
-    ...(k.loanConstantPct !== null
-      ? [
-        { kind: 'op', text: 'vs' } as EqItem,
-        { kind: 'box', label: 'What the loan costs', value: pct(k.loanConstantPct), sub: `${m.interestRate}%, ${m.loanTerm} yrs, ${cur(k.loanAmount)} borrowed`, color: k.leverage === 'negative' ? '#e11d48' : '#0f172a' } as EqItem,
-      ]
-      : []),
-  ];
-  const pays: EqItem[] = [
-    { kind: 'box', label: 'Net operating income', value: cur(k.noi) },
-    ...(k.debtService > 0 ? [{ kind: 'op', text: '−' } as EqItem, { kind: 'box', label: 'Loan payments', value: cur(k.debtService), sub: `${cur(k.debtService / 12)}/mo`, color: '#64748b' } as EqItem] : []),
-    ...(k.replacementReserve > 0 ? [{ kind: 'op', text: '−' } as EqItem, { kind: 'box', label: 'Reserves', value: cur(k.replacementReserve), sub: 'set aside for repairs', color: '#64748b' } as EqItem] : []),
-    ...(k.otherCash !== 0 ? [{ kind: 'op', text: '−' } as EqItem, { kind: 'box', label: 'Renovation paid in cash', value: cur(k.otherCash), color: '#64748b' } as EqItem] : []),
-    { kind: 'op', text: '=' },
-    { kind: 'box', label: 'Cash flow a year', value: cur(k.cashFlow), sub: `${cur(k.cashFlow / 12)}/mo`, color: k.cashFlow >= 0 ? '#059669' : '#e11d48', strong: true },
-    ...(k.dscr !== null ? [{ kind: 'op', text: '·' } as EqItem, { kind: 'box', label: 'Loan coverage', value: `${k.dscr.toFixed(2)}x`, sub: 'income ÷ loan payments', color: dscrColor(k.dscr) } as EqItem] : []),
-  ];
+  const monthly = (n: number) => `${cur(n)}/mo`;
+
+  const earns: NkRow[] = [];
+  if (k.units && k.avgRentMonthly !== null) {
+    if (k.units.label === 'unit') earns.push({ label: 'Units', value: k.units.count.toLocaleString() });
+    const grew = k.enteredRentMonthly !== null && Math.abs(k.enteredRentMonthly - k.avgRentMonthly) >= 0.5;
+    earns.push({
+      label: k.units.label === 'home' ? 'Monthly rent' : 'Average rent per unit',
+      note: grew ? `You entered ${cur(k.enteredRentMonthly!)}; ${k.basisYear} is after rent growth` : undefined,
+      value: monthly(k.avgRentMonthly),
+    });
+  }
+  earns.push(
+    { label: 'Rent for the year', note: k.units ? `${k.basisYear}, the first full year` : `${monthly(k.grossRentMonthly)} on average, ${k.basisYear}, the first full year`, value: cur(k.grossRentAnnual) },
+    { label: 'Less vacancy', note: `${pctShort(m.vacancyPct)}% of rent`, value: cur(k.vacancyLoss), color: '#e11d48' },
+    { label: 'Less operating expenses', note: `${pctShort(m.expenseRatioPct)}% of rent`, value: cur(k.operatingExpenses), color: '#64748b' },
+    { label: 'Net operating income', note: 'what is left', value: cur(k.noi), strong: true },
+  );
+
+  const cost: NkRow[] = [{ label: 'Purchase price', value: cur(k.purchasePrice) }];
+  if (k.rehabCosts + k.closingCosts > 0) cost.push({ label: 'Rehab and closing', value: cur(k.rehabCosts + k.closingCosts) });
+  cost.push({ label: 'Total cost to buy', value: cur(k.totalCost), strong: true });
+  cost.push({ label: 'Yield on cost', note: 'net operating income over total cost', value: k.yieldOnCostPct !== null ? pct(k.yieldOnCostPct) : 'N/A', color: lender ? undefined : light, strong: true });
+  if (!lender) cost.push({ label: 'Your opportunity cost', value: `${v.opportunityCost.toFixed(1)}%`, color: '#64748b' });
+  if (k.loanConstantPct !== null) cost.push({ label: 'What the loan costs', note: `${m.interestRate}% over ${m.loanTerm} years, ${cur(k.loanAmount)} borrowed`, value: pct(k.loanConstantPct), color: k.leverage === 'negative' ? '#e11d48' : undefined });
   const leverageNote = k.leverage === 'negative'
-    ? 'Borrowing costs more than the property yields, so each borrowed dollar lowers the return.'
+    ? 'The loan costs more than the property yields, so borrowing lowers the return.'
     : k.leverage === 'positive' ? 'The property yields more than the loan costs, so borrowing raises the return.' : undefined;
+
+  const pays: NkRow[] = [{ label: 'Net operating income', value: cur(k.noi) }];
+  if (k.debtService > 0) pays.push({ label: 'Less loan payments', note: monthly(k.debtService / 12), value: cur(k.debtService), color: '#64748b' });
+  if (k.replacementReserve > 0) pays.push({ label: 'Less reserves', note: 'set aside for repairs', value: cur(k.replacementReserve), color: '#64748b' });
+  if (k.otherCash !== 0) pays.push({ label: 'Less renovation paid in cash', value: cur(k.otherCash), color: '#64748b' });
+  pays.push({ label: 'Cash flow a year', note: monthly(k.cashFlow / 12), value: cur(k.cashFlow), color: k.cashFlow >= 0 ? '#059669' : '#e11d48', strong: true });
+  if (k.dscr !== null) pays.push({ label: 'Loan coverage', note: 'income over loan payments', value: `${k.dscr.toFixed(2)}x`, color: dscrColor(k.dscr) });
+
   return (
     <div className="box napkin">
       <div className="bh"><span>The back-of-the-napkin math</span><span className="sub">First full year{k.basisYear ? `, ${k.basisYear}` : ''}: the same figures as the pro forma</span></div>
-      <EqRow title="1. What it earns" items={earns} />
-      <EqRow title="2. What it cost, and the yield" items={costs} note={leverageNote} />
-      <EqRow title="3. Whether it pays for itself" items={pays} />
+      <div className="nk">
+        <NkCard title="1. What it earns" rows={earns} />
+        <NkCard title="2. What it cost, and the yield" rows={cost} foot={leverageNote} />
+        <NkCard title="3. Whether it pays for itself" rows={pays} />
+      </div>
     </div>
   );
 };
-
 
 interface Series { name: string; color: string; values: number[]; kind: 'bar' | 'line'; barColors?: string[] }
 
@@ -901,22 +910,15 @@ const ProFormaCharts: React.FC<{ m: BriefModel }> = ({ m }) => {
 
 /** What a reader should know that does not belong in the headline: how the pro forma was built, and what the records show. */
 const NotesBox: React.FC<{ m: BriefModel }> = ({ m }) => {
-  const foot = (m.proj as any[]).filter((p) => p.methodologyFootnote);
   const notes: Array<{ title: string; text: string }> = [];
   if (m.parcels.length > 1) notes.push({ title: 'Multi-parcel package', text: `${m.parcels.length} county parcels are underwritten together with ${cur(m.parcelTotals.assessed)} of combined assessed value on ${m.parcelTotals.acres.toFixed(2)} acres.` });
   if (m.rentVarianceMonthly !== null && Math.abs(m.rentVarianceMonthly) >= 0.5) notes.push({ title: 'Rent roll against underwriting', text: `The in-place rent roll is ${cur(m.rentRollMonthly)}/mo against ${cur(m.monthlyRent)}/mo underwritten (${m.rentVarianceMonthly >= 0 ? '+' : '-'}${cur(Math.abs(m.rentVarianceMonthly))}/mo).` });
   if (m.isProrated) notes.push({ title: 'Partial first year', text: `Year 1 holds ${Number(m.p0.operatingMonths)} months of operation. Cap rate and coverage on page 1 are read from the first full year.` });
-  if (notes.length === 0 && foot.length === 0) return null;
+  if (notes.length === 0) return null;
   return (
     <div className="box split">
-      <div className="bh"><span>Notes</span><span className="sub">How the pro forma was built, and what the records show</span></div>
+      <div className="bh"><span>Notes</span><span className="sub">What the records show</span></div>
       {notes.length > 0 && <ul className="notes">{notes.map((n) => <li key={n.title}><strong>{n.title}.</strong> {n.text}</li>)}</ul>}
-      {foot.length > 0 && (
-        <div className="notes" style={{ borderTop: notes.length ? '1px solid #e2e8f0' : undefined }}>
-          <p style={{ fontWeight: 800, color: '#047857', textTransform: 'uppercase', fontSize: 9.5, margin: '0 0 2px 0' }}>Contractual lease &amp; calendar provenance</p>
-          <ul className="cols">{foot.map((p, i) => <li key={i}><strong>Yr {p.year} ({p.calendarYear || m.startYear + p.year - 1}):</strong> {p.methodologyFootnote}</li>)}</ul>
-        </div>
-      )}
     </div>
   );
 };
@@ -951,7 +953,6 @@ const SourcesTable: React.FC<{ m: BriefModel }> = ({ m }) => {
 
 export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResult | null; onPrint?: () => void; onClose?: () => void }> = ({ model: m, monteCarlo, onPrint, onClose }) => {
   const multi = m.parcels.length > 1;
-  const primary = m.parcels[0];
   const stab = m.isProrated ? 'Stabilized' : 'Year 1';
   const dscrLabel = m.isProrated ? 'Stabilized DSCR' : 'Senior DSCR';
   const dpLine = m.rehabMode === 'roll_into_loan'
@@ -960,6 +961,8 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
   // The headline is the rent the user entered; the model's annual figure is a first-full-year average that includes escalations
   const enteredRent = m.underwritingLeases.reduce((s, l) => s + l.monthlyRent, 0);
   const showEnteredRent = enteredRent > 0 && Math.abs(enteredRent - m.monthlyRent) >= 0.5;
+
+  const rentBuild = (m.proj as any[]).filter((p) => p.methodologyFootnote);
 
   // Methodology and diligence provenance are disclosures: they close the document in fine print
   const disclosures: Array<{ title: string; text: string }> = [
@@ -993,9 +996,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
           </div>
           <h1>{m.title}</h1>
           <div className="row hmeta">
-            <span>📍 <strong>{orNP(m.location)}</strong></span><span>•</span>
-            <span className="mono">APN: {primary ? primary.apn : 'Pending Link'}{multi ? ` (+${m.parcels.length - 1} Adjacent)` : ''}</span>
-            {multi && <span className="pill pill-green">📦 {m.parcels.length}-Parcel Package</span>}
+            <span>📍 <strong>{orNP(m.location)}</strong></span>
           </div>
         </div>
         <div className="hside">
@@ -1027,7 +1028,7 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
       )}
 
       {/* PAGE 2: pro-forma, the figures that defend it, then where every number came from */}
-      <div className="box split pf pg">
+      <div className={`box split pf pg${m.proj.length > 18 ? ' dense' : ''}`}>
         <div className="bh"><span>📊 {m.holdYears}-Year Pro-Forma Forecast</span><span className="sub">Calendar-Year Cash Flow Waterfall</span></div>
         <table>
           <thead>
@@ -1172,6 +1173,12 @@ export const DealBrief: React.FC<{ model: BriefModel; monteCarlo: MonteCarloResu
         <ol>
           {disclosures.map((d) => <li key={d.title}><strong>{d.title}.</strong> {d.text}</li>)}
         </ol>
+        {rentBuild.length > 0 && (
+          <>
+            <h3>How the rent schedule was built, year by year</h3>
+            <ul className="cols">{rentBuild.map((p: any, i: number) => <li key={i}><strong>Yr {p.year} ({p.calendarYear || m.startYear + p.year - 1}):</strong> {p.methodologyFootnote}</li>)}</ul>
+          </>
+        )}
         <h3>How the assumptions work</h3>
         <ul>
           {HOW_ASSUMPTIONS_WORK.map((s) => <li key={s.title}><strong>{s.title}.</strong> {s.points.join(' ')}</li>)}
