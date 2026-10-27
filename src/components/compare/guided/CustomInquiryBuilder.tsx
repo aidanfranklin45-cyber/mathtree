@@ -149,7 +149,7 @@ export const CustomInquiryBuilder: React.FC<CustomInquiryBuilderProps> = ({
         {/* 3. Covenant Threshold */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            3. Target Hurdle Threshold
+            3. Target Threshold
           </label>
           <div className="flex items-center space-x-2">
             <input
@@ -166,7 +166,7 @@ export const CustomInquiryBuilder: React.FC<CustomInquiryBuilderProps> = ({
           <p className="text-[10px] text-slate-400 leading-tight">
             {targetMetric === 'dscr'
               ? 'Institutional lenders typically require 1.20x - 1.25x'
-              : 'Target hurdle for equity underwriting'}
+              : 'Target for equity underwriting'}
           </p>
         </div>
       </div>

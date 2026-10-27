@@ -291,7 +291,7 @@ const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }
       <div className="mc">
         <p className="mcp">
           <strong>How sure is the light on page 1?</strong> The deal is re-run {mc.runs.toLocaleString()} times with the factors in the table below drawn at random around this deal's own inputs.
-          {' '}{mc.probAboveHurdle}% of runs beat your {hurdle.toFixed(1)}% opportunity cost. P10 means 10% of runs did worse than this value, P50 is the middle run, P90 means only 10% did better.
+          {' '}{mc.probAboveHurdle}% of runs beat your {hurdle.toFixed(1)}% target rate. P10 means 10% of runs did worse than this value, P50 is the middle run, P90 means only 10% did better.
           The page 1 return is the plan; the median here is the middle of the random runs, so the two can differ.
         </p>
 
@@ -299,7 +299,7 @@ const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }
           <div className="mct"><p className="l">P10 IRR (Downside)</p><p className="v" style={{ color: mc.p10Irr >= 0 ? '#d97706' : '#e11d48' }}>{mc.p10Irr.toFixed(1)}%</p></div>
           <div className="mct"><p className="l">P50 IRR (Median)</p><p className="v">{mc.p50Irr.toFixed(1)}%</p></div>
           <div className="mct"><p className="l">P90 IRR (Upside)</p><p className="v" style={{ color: '#059669' }}>{mc.p90Irr.toFixed(1)}%</p></div>
-          <div className="mct"><p className="l">Runs Clearing {hurdle.toFixed(1)}% Hurdle</p><p className="v" style={{ color: '#047857' }}>{mc.probAboveHurdle}%</p></div>
+          <div className="mct"><p className="l">Runs Clearing {hurdle.toFixed(1)}% Target</p><p className="v" style={{ color: '#047857' }}>{mc.probAboveHurdle}%</p></div>
           <div className="mct"><p className="l">Runs That Lose Money</p><p className="v" style={{ color: mc.profit.probLoss > 0 ? '#e11d48' : '#059669' }}>{mc.profit.probLoss}%</p></div>
         </div>
 
@@ -318,7 +318,7 @@ const MonteCarloSection: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }
               { value: mc.p10Irr, label: `P10 ${fmtIrr(mc.p10Irr)}`, color: '#b45309' },
               { value: mc.p50Irr, label: `P50 ${fmtIrr(mc.p50Irr)}`, color: '#0f172a' },
               { value: mc.p90Irr, label: `P90 ${fmtIrr(mc.p90Irr)}`, color: '#047857' },
-              { value: hurdle, label: `Hurdle ${hurdle.toFixed(1)}%`, color: '#7c3aed', dash: true },
+              { value: hurdle, label: `Target ${hurdle.toFixed(1)}%`, color: '#7c3aed', dash: true },
             ]}
           />
         </div>
@@ -707,7 +707,7 @@ const LIGHT_STYLE: Record<'green' | 'yellow' | 'red', { fg: string; bg: string; 
   red: { fg: '#e11d48', bg: '#fff1f2', border: '#fecdd3', word: 'RED' },
 };
 
-/** "Is it projected to be profitable?": the yield on the whole cost against the owner's opportunity cost, capped by whether the income covers the loan. */
+/** "Is it projected to be profitable?": the yield on the whole cost against the owner's target rate, capped by whether the income covers the loan. */
 const StoplightBanner: React.FC<{ m: BriefModel }> = ({ m }) => {
   const v = m.napkinVerdict;
   const c = LIGHT_STYLE[v.light];
@@ -724,21 +724,21 @@ const StoplightBanner: React.FC<{ m: BriefModel }> = ({ m }) => {
         <div className="stopv" style={{ color: c.fg }}>{v.verdict}</div>
         <div className="stopt">{v.headline}</div>
         <div className="stopm">
-          Green: yield {v.bandPoints}+ point above your opportunity cost. Yellow: within {v.bandPoints} point. Red: more than {v.bandPoints} point below, or the income does not cover the loan payment.
+          Green: yield {v.bandPoints}+ point{v.bandPoints === 1 ? '' : 's'} above your target rate, with the loan covered to the lender's minimum. Yellow: in between. Red: more than {v.redPoints} points below your target rate, or income paying under {Math.round(v.coverageFloor * 100)}% of the loan payment.
         </div>
       </div>
     </div>
   );
 };
 
-/** The 10-year view, one slim line: the annualized IRR against the opportunity cost, and how often the stress test agrees. */
+/** The 10-year view, one slim line: the annualized IRR against the target rate, and how often the stress test agrees. */
 const LongRunBar: React.FC<{ m: BriefModel; mc: MonteCarloResult | null }> = ({ m, mc }) => {
   const s = m.stoplight;
   const c = LIGHT_STYLE[s.light];
   return (
     <div className="lrb" style={{ background: c.bg, borderColor: c.border }}>
       <span className="dot" style={{ background: c.fg }} aria-hidden="true" />
-      <span><strong style={{ color: c.fg }}>Over {m.holdYears} years: {s.verdict.toLowerCase()}.</strong> {pct(s.irr)} annualized IRR against your {s.opportunityCost.toFixed(1)}% opportunity cost ({s.spreadPoints >= 0 ? '+' : '-'}{Math.abs(s.spreadPoints).toFixed(2)} pts, band ±{s.bandPoints}).
+      <span><strong style={{ color: c.fg }}>Over {m.holdYears} years: {s.verdict.toLowerCase()}.</strong> {pct(s.irr)} annualized IRR against your {s.targetRate.toFixed(1)}% target rate ({s.spreadPoints >= 0 ? '+' : '-'}{Math.abs(s.spreadPoints).toFixed(2)} pts).
         {mc ? ` ${mc.probAboveHurdle}% of ${mc.runs.toLocaleString()} stress-test runs beat it.` : ''}</span>
     </div>
   );
@@ -790,7 +790,7 @@ export const NapkinMath: React.FC<{ m: BriefModel; lender?: boolean }> = ({ m, l
   if (k.rehabCosts + k.closingCosts > 0) cost.push({ label: 'Rehab and closing', value: cur(k.rehabCosts + k.closingCosts) });
   cost.push({ label: 'Total cost to buy', value: cur(k.totalCost), strong: true });
   cost.push({ label: 'Yield on cost', note: 'net operating income over total cost', value: k.yieldOnCostPct !== null ? pct(k.yieldOnCostPct) : 'N/A', color: lender ? undefined : light, strong: true });
-  if (!lender) cost.push({ label: 'Your opportunity cost', value: `${v.opportunityCost.toFixed(1)}%`, color: '#64748b' });
+  if (!lender) cost.push({ label: 'Your target rate', value: `${v.targetRate.toFixed(1)}%`, color: '#64748b' });
   if (k.loanConstantPct !== null) cost.push({ label: 'What the loan costs', note: `${m.interestRate}% over ${m.loanTerm} years, ${cur(k.loanAmount)} borrowed`, value: pct(k.loanConstantPct), color: k.leverage === 'negative' ? '#e11d48' : undefined });
   const leverageNote = k.leverage === 'negative'
     ? 'The loan costs more than the property yields, so borrowing lowers the return.'

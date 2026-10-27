@@ -64,7 +64,7 @@ const DEFS: Def[] = [
   { id: 'insurance', label: 'Insurance', fmt: 'usd', aliases: KEYS.insurance, fills: ['annualInsurance'] },
   { id: 'maintenance', label: 'Maintenance and upkeep', fmt: 'usd', aliases: KEYS.maintenance, fills: ['annualMaintenance'] },
   { id: 'utilities', label: 'Utilities (power, water, sewer, garbage)', fmt: 'usd', aliases: KEYS.utilities, fills: ['annualUtilities'] },
-  { id: 'discount', label: 'Opportunity cost (discount rate)', fmt: 'pct', aliases: KEYS.discountRate, fills: ['discountRate'] },
+  { id: 'discount', label: 'Target rate', fmt: 'pct', aliases: KEYS.discountRate, fills: ['discountRate'] },
 ];
 
 /** "Your lease schedule for Acme LLC": named for its tenant when every lease has one. A count of lease records is never shown (a renewal is not a second tenant). */

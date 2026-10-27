@@ -87,6 +87,6 @@ describe('LenderBrief render', () => {
     expect(html).toContain('Both: NOI down 10% and rate up 100 bps');
     expect(html).toContain('Not provided');
     expect(html).toContain('not a lender quote');
-    expect(html).not.toContain('opportunity cost');
+    expect(html).not.toContain('target rate');
   });
 });

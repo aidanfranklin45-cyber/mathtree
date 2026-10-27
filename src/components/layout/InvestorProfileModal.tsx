@@ -32,6 +32,8 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
     fullName: f.fullName.trim() || 'Investor',
     discountRate: parseFloat(String(f.discountRate)) || 8.0,
     stoplightBandPoints: parseFloat(String(f.stoplightBandPoints)) || 1,
+    stoplightRedPoints: parseFloat(String(f.stoplightRedPoints)) || 3,
+    stoplightCoverageFloor: parseFloat(String(f.stoplightCoverageFloor)) || 0.8,
     minDscr: parseFloat(String(f.minDscr)) || 1.25,
     sponsorExperience: String(f.sponsorExperience ?? ''),
     sponsorLiquidity: f.sponsorLiquidity ?? null,
@@ -50,7 +52,7 @@ function buildPayload(f: InvestorProfile): Partial<InvestorProfile> {
 
 /** A half-typed number (empty or NaN) must not be saved as its default. */
 function isSavable(f: InvestorProfile): boolean {
-  return !isNaN(parseFloat(String(f.discountRate))) && !isNaN(parseInt(String(f.exitYear), 10)) && !isNaN(parseFloat(String(f.stoplightBandPoints)));
+  return !isNaN(parseFloat(String(f.discountRate))) && !isNaN(parseInt(String(f.exitYear), 10)) && !isNaN(parseFloat(String(f.stoplightBandPoints))) && !isNaN(parseFloat(String(f.stoplightRedPoints))) && !isNaN(parseFloat(String(f.stoplightCoverageFloor)));
 }
 
 function readDraft(userId: string | undefined): InvestorProfile | null {
@@ -262,7 +264,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
   };
 
   const set = <K extends keyof InvestorProfile>(k: K, v: InvestorProfile[K]) => setForm({ ...form, [k]: v });
-  const hurdle = Number(form.discountRate) || 0;
+  const targetRateNow = Number(form.discountRate) || 0;
 
   const submit = (e: React.FormEvent) => { e.preventDefault(); void finish(); };
 
@@ -283,7 +285,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
             <div>
               <h3 className="text-base font-extrabold text-white">Investor Profile &amp; Settings</h3>
-              <p className="text-xs text-slate-400">Global underwriting benchmarks &amp; opportunity cost parameters</p>
+              <p className="text-xs text-slate-400">Global underwriting benchmarks &amp; target rate</p>
             </div>
           </div>
           <button onClick={() => void finish()} className="text-slate-500 hover:text-white p-1 rounded-lg" aria-label="Close">✕</button>
@@ -454,11 +456,11 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
 
           <div className="p-3.5 bg-slate-950/70 rounded-2xl border border-emerald-900/40 space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-extrabold text-emerald-400">Target Discount Rate / Hurdle Rate (%)</label>
-              <span className="text-[10px] uppercase font-bold text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Opportunity Cost</span>
+              <label className="text-xs font-extrabold text-emerald-400">Target Rate (%)</label>
+              <span className="text-[10px] uppercase font-bold text-emerald-500/80 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Target Rate</span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Your personal required annual return. This opportunity cost rate is used to discount future cash flows into{' '}
+              Your personal required annual return. This target rate is used to discount future cash flows into{' '}
               <strong>Net Present Value (NPV)</strong>. Deals with an IRR above this rate yield positive NPV.
             </p>
             <div className="flex items-center space-x-3 pt-1">
@@ -475,7 +477,7 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                 {([[8, 'Core'], [10, 'Growth'], [12, 'Opportunistic']] as const).map(([rate, label]) => (
                   <button
                     key={label} type="button" onClick={() => set('discountRate', rate)}
-                    className={`text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border ${hurdle === rate ? 'border-emerald-500/60 text-emerald-300' : 'border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'}`}
+                    className={`text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-900 border ${targetRateNow === rate ? 'border-emerald-500/60 text-emerald-300' : 'border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'}`}
                   >
                     {rate}% ({label})
                   </button>
@@ -484,18 +486,45 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
             </div>
 
             <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
-              <label className="text-[11px] font-extrabold text-emerald-400" htmlFor="stoplight-band">Stoplight band (points)</label>
+              <div className="text-[11px] font-extrabold text-emerald-400">Stoplight ratings</div>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                On page 1 of the brief, a deal within this many points of your hurdle shows <strong>yellow</strong>; further above is green, further below is red.
+                Most deals land on <strong>yellow</strong>. Green needs a deal this far above your target rate. Use the sliders to set how lenient the ratings are: the further right, the more weak deals are called yellow instead of red.
               </p>
-              <div className="relative w-32">
-                <input
-                  id="stoplight-band" type="number" min={0.1} max={10} step={0.1}
-                  value={form.stoplightBandPoints}
-                  onChange={(e) => set('stoplightBandPoints', e.target.value as unknown as number)}
-                  className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400 pr-12"
-                />
-                <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-500">pts</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className="text-[11px] font-bold text-slate-300 space-y-1 block" htmlFor="stoplight-band">
+                  <span>Green when above target by (points)</span>
+                  <div className="relative">
+                    <input
+                      id="stoplight-band" type="number" min={0.1} max={10} step={0.1}
+                      value={form.stoplightBandPoints}
+                      onChange={(e) => set('stoplightBandPoints', e.target.value as unknown as number)}
+                      className="w-full bg-slate-900 border border-emerald-900/80 rounded-xl px-3 py-2 text-sm font-black text-emerald-300 focus:outline-none focus:border-emerald-400 pr-12"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-500">pts</span>
+                  </div>
+                </label>
+              </div>
+              <div className="space-y-3 pt-1">
+                <label className="block text-[11px] font-bold text-slate-300 space-y-1" htmlFor="stoplight-red">
+                  <span className="flex items-center justify-between">
+                    <span>How far below target before red</span>
+                    <span className="font-black text-emerald-300">{Number(form.stoplightRedPoints).toFixed(1)} pts</span>
+                  </span>
+                  <input id="stoplight-red" type="range" min={1} max={8} step={0.5} value={form.stoplightRedPoints}
+                    onChange={(e) => set('stoplightRedPoints', e.target.value as unknown as number)} className="w-full accent-emerald-500" />
+                  <span className="flex justify-between text-[10px] text-slate-500 font-normal"><span>Strict: red sooner</span><span>Lenient: red only when far below</span></span>
+                  <span className="block text-[10px] text-slate-400 font-normal">A deal more than {Number(form.stoplightRedPoints).toFixed(1)} points under your target rate is rated red; closer than that is yellow.</span>
+                </label>
+                <label className="block text-[11px] font-bold text-slate-300 space-y-1" htmlFor="stoplight-floor">
+                  <span className="flex items-center justify-between">
+                    <span>Loan coverage that is always red</span>
+                    <span className="font-black text-emerald-300">{Number(form.stoplightCoverageFloor).toFixed(2)}x</span>
+                  </span>
+                  <input id="stoplight-floor" type="range" min={0.5} max={1} step={0.05} value={form.stoplightCoverageFloor}
+                    onChange={(e) => set('stoplightCoverageFloor', e.target.value as unknown as number)} className="w-full accent-emerald-500" />
+                  <span className="flex justify-between text-[10px] text-slate-500 font-normal"><span>Lenient: 0.50x</span><span>Strict: 1.00x</span></span>
+                  <span className="block text-[10px] text-slate-400 font-normal">If a property's income pays less than {Math.round(Number(form.stoplightCoverageFloor) * 100)} cents of every dollar of loan payments, it is rated red whatever its yield. Above that, a shortfall is yellow.</span>
+                </label>
               </div>
             </div>
 
@@ -542,13 +571,13 @@ export const InvestorProfileModal: React.FC<Props> = ({ isOpen, onClose, onSaved
                   <span className={`text-base font-black font-mono ${npvPreview.npv >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{formatCurrency(npvPreview.npv)}</span>
                 </div>
                 <div className="text-center px-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Hurdle Spread</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Spread to Target</span>
                   <span className={`text-xs font-bold font-mono ${npvPreview.spread >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{npvPreview.spread >= 0 ? '+' : ''}{npvPreview.spread.toFixed(1)}%</span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider mb-0.5">Decision Rule</span>
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${npvPreview.npv >= 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
-                    {npvPreview.npv >= 0 ? 'Clears Hurdle (Positive NPV)' : 'Below Hurdle (Negative NPV)'}
+                    {npvPreview.npv >= 0 ? 'Clears Target (Positive NPV)' : 'Below Target (Negative NPV)'}
                   </span>
                 </div>
               </div>

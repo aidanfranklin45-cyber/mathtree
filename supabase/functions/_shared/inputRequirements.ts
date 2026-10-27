@@ -113,7 +113,7 @@ export function checkEngineInputs(rawAssetType: string, inputs: Record<string, a
   }
 
   if (stated(inputs, ...KEYS.hold) === undefined) need('holdingPeriod', 'Hold period (years)', 'assumption', 'The exit, and so the IRR, happens at the end of the hold.');
-  if (stated(inputs, ...KEYS.discountRate) === undefined) need('discountRate', 'Discount rate (%)', 'assumption', 'NPV discounts cash flows at the owner\'s required return.');
+  if (stated(inputs, ...KEYS.discountRate) === undefined) need('discountRate', 'Target rate (%)', 'assumption', 'NPV discounts cash flows at the owner\'s required return.');
 
   if (stated(inputs, 'closingCosts') === undefined) {
     need('closingCosts', 'Buyer closing costs ($)', 'fact', 'Every purchase has closing costs; enter 0 if there are none. A lender quote or settlement statement replaces an estimate.');

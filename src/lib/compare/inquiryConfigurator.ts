@@ -301,7 +301,7 @@ function synthesizeCustomInquiryStory(
     }
   } else {
     verdictStatus = base.status === 'optimal' ? 'accretive' : 'dilutive';
-    verdictLabel = base.status === 'optimal' ? 'Hurdle Satisfied' : 'Sub-Hurdle';
+    verdictLabel = base.status === 'optimal' ? 'Target Met' : 'Below Target';
   }
 
   // Specific reasoning for Operating Expense Ratio (user priority inquiry)

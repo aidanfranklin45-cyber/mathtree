@@ -1302,7 +1302,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
             <input id="wiz-hold" type="number" min={1} max={30} data-field="exitYear" value={w.exitYear} onChange={(e) => set({ exitYear: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
           <div className="space-y-1.5">
-            <label htmlFor="wiz-discount" className={lbl}>Discount Rate (%)</label>
+            <label htmlFor="wiz-discount" className={lbl}>Target Rate (%)</label>
             <input id="wiz-discount" type="number" min={0} max={50} step="any" data-field="discountRate" value={w.discountRate} onChange={(e) => set({ discountRate: e.target.value })} className={`${inputBase} py-2 px-3 text-xs`} />
           </div>
         </div>

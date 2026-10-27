@@ -1,5 +1,5 @@
 // manage-profile/index.ts
-// Edge function to securely load and update investor profiles & hurdle rate preferences
+// Edge function to securely load and update investor profiles & target rate preferences
 // directly in the PostgreSQL database with zero dependency on client-side caching.
 
 import { serve } from "std/http/server.ts";
@@ -39,9 +39,11 @@ export const DEFAULT_PROFILE = {
   companyName: "MathTree Capital",
   primaryEntityId: null as string | null,
   associatedCompanies: [] as Array<Record<string, unknown>>,
-  discountRate: 8.0,          // Target Hurdle Rate (%/yr)
+  discountRate: 8.0,          // Target rate (%/yr)
   minDscr: 1.25,
-  stoplightBandPoints: 1,     // Points either side of the hurdle that read as "close" in the brief's stoplight
+  stoplightBandPoints: 1,     // Points above the target rate that read as green in the briefs' stoplights
+  stoplightRedPoints: 3,      // Points below the target rate beyond which they read as red
+  stoplightCoverageFloor: 0.8, // Income under this share of the loan payment reads as red
   exitYear: 10,               // Default Hold Period (Years)
   exitCapTiming: "amortized", // 'amortized' | 'day1'
   marketTier: "Tier 2",       // 'Tier 1' | 'Tier 2' | 'Tier 3'
@@ -164,6 +166,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         sponsorExperience: String(prefs.sponsorExperience ?? "").trim().slice(0, 600),
         sponsorLiquidity: sponsorMoney(prefs.sponsorLiquidity),
         sponsorNetWorth: sponsorMoney(prefs.sponsorNetWorth),
+        stoplightRedPoints: isNaN(parseFloat(String(prefs.stoplightRedPoints))) ? DEFAULT_PROFILE.stoplightRedPoints : Math.max(0.5, Math.min(20, parseFloat(String(prefs.stoplightRedPoints)))),
+        stoplightCoverageFloor: isNaN(parseFloat(String(prefs.stoplightCoverageFloor))) ? DEFAULT_PROFILE.stoplightCoverageFloor : Math.max(0.5, Math.min(1, parseFloat(String(prefs.stoplightCoverageFloor)))),
         exitYear: row?.exit_year !== null && row?.exit_year !== undefined && !isNaN(parseInt(String(row.exit_year), 10))
           ? parseInt(String(row.exit_year), 10)
           : (isNaN(parseInt(prefs.exitYear, 10)) ? DEFAULT_PROFILE.exitYear : Math.max(1, Math.min(50, parseInt(prefs.exitYear, 10)))),
@@ -207,6 +211,10 @@ export async function handleRequest(req: Request): Promise<Response> {
     const bandRaw = parseFloat(String(payload.stoplightBandPoints ?? ""));
     const stoplightBandPoints = isNaN(bandRaw) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, bandRaw));
 
+    const redRaw = parseFloat(String(payload.stoplightRedPoints ?? ""));
+    const stoplightRedPoints = isNaN(redRaw) ? DEFAULT_PROFILE.stoplightRedPoints : Math.max(0.5, Math.min(20, redRaw));
+    const floorRaw = parseFloat(String(payload.stoplightCoverageFloor ?? ""));
+    const stoplightCoverageFloor = isNaN(floorRaw) ? DEFAULT_PROFILE.stoplightCoverageFloor : Math.max(0.5, Math.min(1, floorRaw));
     const minDscrRaw = parseFloat(String(payload.minDscr ?? ""));
     const minDscr = isNaN(minDscrRaw) ? DEFAULT_PROFILE.minDscr : Math.max(1, Math.min(3, minDscrRaw));
     const sponsorExperience = String(payload.sponsorExperience ?? "").trim().slice(0, 600);
@@ -307,6 +315,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       leaseExpiryVacancyMonths: expiry.vacancyMonths,
       discountRate,
       stoplightBandPoints,
+      stoplightRedPoints,
+      stoplightCoverageFloor,
       minDscr,
       sponsorExperience,
       sponsorLiquidity,

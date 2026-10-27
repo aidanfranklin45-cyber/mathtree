@@ -11,11 +11,15 @@ import { suggestedStartingPoints, type UnderwritingAssumptions } from '../../../
 
 export interface AssumptionDefaults {
   assumptions: UnderwritingAssumptions;
-  /** The profile's hurdle rate and hold, which sit beside the assumptions in the profile. */
+  /** The profile's target rate and hold, which sit beside the assumptions in the profile. */
   discountRate?: number;
   exitYear?: number;
-  /** How close to the opportunity cost still counts as "close" (the stoplight's yellow), in percentage points. */
+  /** How far above the target rate before the light is green, in percentage points. */
   stoplightBandPoints?: number;
+  /** How far below the target rate before the light is red, in percentage points. */
+  stoplightRedPoints?: number;
+  /** Coverage (income over loan payments) below which the first light is red whatever the yield. */
+  stoplightCoverageFloor?: number;
   /** The lender's minimum debt service coverage, from the profile. */
   minDscr?: number;
 }
@@ -24,8 +28,8 @@ export interface AssumptionDefaults {
 export const isEmptyAssumptions = (a: UnderwritingAssumptions | null | undefined): boolean =>
   !a || (Object.keys(a.assets ?? {}).length === 0 && a.taxRate === undefined && a.propertyTaxRatePercent === undefined && a.assumedClosingWeeks === undefined);
 
-// Before the profile has loaded, the starting points apply, with the same hurdle rate and hold the profile itself shows by default
-let current: AssumptionDefaults = { assumptions: suggestedStartingPoints(null), discountRate: 8, exitYear: 10, stoplightBandPoints: 1, minDscr: 1.25 };
+// Before the profile has loaded, the starting points apply, with the same target rate and hold the profile itself shows by default
+let current: AssumptionDefaults = { assumptions: suggestedStartingPoints(null), discountRate: 8, exitYear: 10, stoplightBandPoints: 1, stoplightRedPoints: 3, stoplightCoverageFloor: 0.8, minDscr: 1.25 };
 let version = 0;
 const listeners = new Set<() => void>();
 

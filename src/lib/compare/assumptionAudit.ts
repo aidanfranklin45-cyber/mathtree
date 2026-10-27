@@ -101,7 +101,7 @@ export function buildAssumptionAuditTrail(
         if (inquiryContext?.questionId === 'max_offer_dscr') {
           rationale = `Back-solved strike price to maintain debt service compliance at a 1.25x DSCR without requiring cash subsidies.`;
         } else if (inquiryContext?.questionId === 'max_offer_irr') {
-          rationale = `Back-solved acquisition strike price to satisfy your ${inquiryContext?.targetIrr ?? 15}% hurdle IRR over the hold.`;
+          rationale = `Back-solved acquisition strike price to satisfy your ${inquiryContext?.targetIrr ?? 15}% target IRR over the hold.`;
         } else {
           rationale = `Hypothesis tested to evaluate valuation sensitivity against baseline asking price.`;
         }

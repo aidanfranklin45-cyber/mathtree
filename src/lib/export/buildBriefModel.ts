@@ -5,7 +5,7 @@ import { getAssumptionDefaults } from '../engine/assumptionDefaults';
 import { DEFAULT_CLOSING_WEEKS } from '@engine/underwritingAssumptions';
 import { firstFullYear, calculateDownPaymentMatrix, calculateNapkin, type DownPaymentMatrixResult, type Napkin } from '../engine';
 import { titleCase } from './titleCase';
-import { classifyAgainstOpportunityCost, classifyNapkin, STOPLIGHT_BAND_POINTS, type StoplightResult, type NapkinVerdict } from '../engine/stoplight';
+import { classifyAgainstTargetRate, classifyNapkin, STOPLIGHT_BAND_POINTS, STOPLIGHT_RED_POINTS, SEVERE_COVERAGE_FLOOR, type StoplightResult, type NapkinVerdict } from '../engine/stoplight';
 
 /**
  * The single source for the deal brief. Every figure comes from ONE engine run (`computeDealMetrics`, the same call the
@@ -235,11 +235,11 @@ export interface BriefModel {
   /** Inputs for the on-demand Monte Carlo (same preparation the Sensitivity tab uses). */
   monteCarloInputs: Record<string, any>;
   downPaymentMatrix: DownPaymentMatrixResult;
-  /** The executive-summary light: the deal's annualized IRR against the owner's opportunity cost. */
+  /** The executive-summary light: the deal's annualized IRR against the owner's target rate. */
   stoplight: StoplightResult;
   /** The back-of-the-napkin math (units, rent, expenses, NOI, total cost, yield, loan) for the first full year. */
   napkin: Napkin;
-  /** "Does it make money?": the napkin's yield against the opportunity cost, capped by whether the income covers the loan. */
+  /** "Does it make money?": the napkin's yield against the target rate, capped by whether the income covers the loan. */
   napkinVerdict: NapkinVerdict;
   /** Owned properties have a rent roll worth printing; a prospect's rent comes from its underwriting. */
   isPipeline: boolean;
@@ -416,10 +416,11 @@ export function buildBriefModel(
   const napkin = calculateNapkin(assetClass, inputs);
   const defaults = getAssumptionDefaults();
   const napkinVerdict = classifyNapkin({
-    yieldOnCostPct: napkin.yieldOnCostPct, opportunityCost: discountRate, dscr: napkin.dscr,
+    yieldOnCostPct: napkin.yieldOnCostPct, targetRate: discountRate, dscr: napkin.dscr, cashFlow: napkin.cashFlow,
     minDscr: defaults.minDscr ?? 1.25, bandPoints: defaults.stoplightBandPoints ?? STOPLIGHT_BAND_POINTS,
+    redPoints: defaults.stoplightRedPoints ?? STOPLIGHT_RED_POINTS, coverageFloor: defaults.stoplightCoverageFloor ?? SEVERE_COVERAGE_FLOOR,
   });
-  const stoplight = classifyAgainstOpportunityCost(num(raw.irr), discountRate, getAssumptionDefaults().stoplightBandPoints ?? STOPLIGHT_BAND_POINTS);
+  const stoplight = classifyAgainstTargetRate(num(raw.irr), discountRate, defaults.stoplightBandPoints ?? STOPLIGHT_BAND_POINTS, defaults.stoplightRedPoints ?? STOPLIGHT_RED_POINTS);
 
   const matrixRows = downPaymentMatrix?.rows ?? [];
   const bestRow = matrixRows.reduce<(typeof matrixRows)[number] | null>((b, r) => (b === null || r.cashOnCash > b.cashOnCash ? r : b), null);

@@ -195,7 +195,7 @@ export const InquiryCommandBar: React.FC<InquiryCommandBarProps> = ({
               {/* Metric to protect */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  2. Hurdle / Covenant
+                  2. Target / Covenant
                 </label>
                 <select
                   value={targetMetric}
@@ -210,7 +210,7 @@ export const InquiryCommandBar: React.FC<InquiryCommandBarProps> = ({
                 >
                   <option value="dscr">Debt Service Coverage (DSCR)</option>
                   <option value="cash_on_cash">Cash-on-Cash Return (%)</option>
-                  <option value="irr">Hurdle IRR (%)</option>
+                  <option value="irr">Target IRR (%)</option>
                   <option value="cash_flow">Net Operating Cash Flow ($)</option>
                 </select>
               </div>
