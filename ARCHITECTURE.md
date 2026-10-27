@@ -220,13 +220,16 @@ Owner decisions carried over from the retired plan docs (still in git history). 
   percentage, extra opex, and value by cap rate or a typed ARV.
 - **PDF brief.** Computed from facts with the shared engine; no stored metrics.
   One story, in the order a lender asks: page 1 the stoplight and key terms, then the pro forma with its charts and where each number came
-  from, then leverage, then the Monte Carlo. The stoplight (`engine/stoplight.ts`) compares the annualized IRR with the investor profile's
-  discount rate (the opportunity cost, also the Monte Carlo hurdle): green at 1 point or more above, red more than 1 point below, yellow between.
-  The 1-point band is the owner's decision and lives as `STOPLIGHT_BAND_POINTS`; making it a profile field needs an edge-function and SQL change.
+  from, then leverage, then the Monte Carlo. The ratings are about the investor's target rate (the profile's discount rate, also what the Monte Carlo
+  measures runs against; the app calls it the target rate everywhere users read). Yellow is the common answer: green needs 1 point or more above
+  target, red only more than 3 points below, yellow between. The green band, the red distance and a coverage floor (income under 0.80x of the loan
+  payment is red whatever the yield) are all investor profile settings (`stoplightBandPoints`, `stoplightRedPoints`, `stoplightCoverageFloor`, stored in
+  profile preferences, carried by `manage-profile`); `engine/stoplight.ts` holds the starting values and the rules.
   Page 1 leads with the napkin (`_shared/napkin.ts`): units x average rent, less vacancy and expenses, is NOI; NOI over the whole cost to buy is the
   yield on cost, set against what the loan costs and whether NOI covers the loan payment. The first light (`classifyNapkin`) is that yield against the
-  opportunity cost, forced red when DSCR is under 1.00x and capped at yellow when under the lender's minimum; the slim second line is the 10-year IRR
-  against the same rate. All figures are the pro forma's first full year, so the page foots to the table. The lender summary reuses it. Print
+  target rate; a loan shortfall holds it at yellow (and states the cash the owner would supply) unless coverage is under the floor; the slim second
+  line is the 10-year IRR against the same rate. All figures are the pro forma's first full year, so the page foots to the table. The lender summary
+  reuses the napkin. Print
   layout is checked by `npm run test:brief`.
 
 ## 8. Assumptions, the investor profile, and intake
