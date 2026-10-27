@@ -130,21 +130,28 @@ describe('DealBrief render', () => {
 });
 
 describe('executive summary', () => {
-  it('lights the stoplight from the IRR against the profile opportunity cost', () => {
+  it('lights the stoplight from the IRR against the profile target rate', () => {
     const low = buildBriefModel(mkDeal({ ...baseInputs, discountRate: 40 }), [], []);
     expect(low.stoplight.light).toBe('red');
     const high = buildBriefModel(mkDeal({ ...baseInputs, discountRate: 0 }), [], []);
     expect(high.stoplight.light).toBe('green');
     expect(high.stoplight.irr).toBe(high.irr);
-    expect(high.stoplight.opportunityCost).toBe(high.discountRate);
+    expect(high.stoplight.targetRate).toBe(high.discountRate);
   });
 
-  it('uses the band from the investor profile', () => {
+  it('uses the thresholds from the investor profile', () => {
     const before = getAssumptionDefaults();
     try {
-      expect(buildBriefModel(mkDeal(baseInputs), [], []).stoplight.bandPoints).toBe(1);
-      setAssumptionDefaults({ ...before, stoplightBandPoints: 2.5 });
-      expect(buildBriefModel(mkDeal(baseInputs), [], []).stoplight.bandPoints).toBe(2.5);
+      const base = buildBriefModel(mkDeal(baseInputs), [], []);
+      expect(base.stoplight.bandPoints).toBe(1);
+      expect(base.stoplight.redPoints).toBe(3);
+      expect(base.napkinVerdict.coverageFloor).toBe(0.8);
+      setAssumptionDefaults({ ...before, stoplightBandPoints: 2.5, stoplightRedPoints: 6, stoplightCoverageFloor: 0.9 });
+      const set = buildBriefModel(mkDeal(baseInputs), [], []);
+      expect(set.stoplight.bandPoints).toBe(2.5);
+      expect(set.stoplight.redPoints).toBe(6);
+      expect(set.napkinVerdict.redPoints).toBe(6);
+      expect(set.napkinVerdict.coverageFloor).toBe(0.9);
     } finally { setAssumptionDefaults(before); }
   });
 

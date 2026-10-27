@@ -246,16 +246,16 @@ export function generateStrikePriceStory(
     `${fmtPct(baselineSummary.cashOnCash)} Cash-on-Cash return${baselineSummary.irr ? ` (${fmtPct(baselineSummary.irr)} IRR)` : ''}. ` +
     (isDiscountNeeded
       ? `This falls short of your target benchmark of ${metricLabel}.`
-      : `This satisfies your target hurdle of ${metricLabel}.`),
+      : `This meets your target of ${metricLabel}.`),
     isDiscountNeeded
-      ? `To achieve your hurdle without relying on speculative market appreciation, the purchase price must not exceed ${formatCurrency(solvedPrice)}. ` +
+      ? `To achieve your target without relying on speculative market appreciation, the purchase price must not exceed ${formatCurrency(solvedPrice)}. ` +
         `At this strike basis, the loan amount sizes to ${formatCurrency(solvedSummary.loanAmount)}, moderating debt service and unlocking ${fmtPct(solvedSummary.cashOnCash)} in initial cash yield.`
       : `Your underwriting indicates room for negotiation. You can pay up to ${formatCurrency(solvedPrice)} while continuing to satisfy your ${metricLabel} requirement.`,
   ];
 
   const recommendation = isDiscountNeeded
     ? `Anchor your initial letter of intent (LOI) at or below ${formatCurrency(solvedPrice)}, citing lender debt coverage constraints (${metricLabel}) as justification.`
-    : `The asking price supports your investment hurdles. Prioritize due diligence on property condition and lease verifications.`;
+    : `The asking price supports your investment targets. Prioritize due diligence on property condition and lease verifications.`;
 
   return {
     questionId: targetType === 'dscr' ? 'max_offer_dscr' : 'max_offer_irr',
@@ -264,7 +264,7 @@ export function generateStrikePriceStory(
       : `Asking price of ${formatCurrency(askingPrice)} satisfies ${metricLabel}`,
     verdictBadge: {
       status: isDiscountNeeded ? 'tight' : 'bankable',
-      label: isDiscountNeeded ? `Requires ${fmtPct(Math.abs(pctDelta), 1)} Discount` : `Hurdle Satisfied`,
+      label: isDiscountNeeded ? `Requires ${fmtPct(Math.abs(pctDelta), 1)} Discount` : `Target Met`,
     },
     keyTakeaways: takeaways,
     narrativeParagraphs: paragraphs,

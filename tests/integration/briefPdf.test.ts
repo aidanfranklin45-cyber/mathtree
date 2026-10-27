@@ -112,7 +112,7 @@ describe('printed briefs (public sample deal)', () => {
     for (const t of ['loan request', 'sources & uses at closing', 'debt yield', 'break-even occupancy', 'dscr stress', 'repayment at the end of the hold', 'risks & underwriting flags']) {
       expect(r.text, `"${t}" is missing`).toContain(t);
     }
-    expect(r.text).not.toContain('opportunity cost');
+    expect(r.text).not.toContain('target rate');
     expect(r.overflowX).toBe(false);
     r.groups.forEach((h, i) => expect(h, `page ${i + 1} is ${Math.round(h)}px tall`).toBeLessThanOrEqual(PRINTABLE_HEIGHT));
     expectNoOrphanSheets(await pageTexts(r.pdf));
@@ -171,7 +171,7 @@ describe('a long pipeline deal (15-year hold, partial first year, two parcels)',
       expect(new Set(titles).size, 'chart titles are split across pages').toBe(1);
       expect(where('net operating income covers the loan payment') === titles[0] || where('net operating income first covers') === titles[0], 'a chart is on a different page from its title').toBe(true);
       // The overview comes first, with the stoplight; the parcel table and rent roll come after the pro forma
-      expect(where('opportunity cost')).toBe(0);
+      expect(where('target rate')).toBe(0);
       expect(where('official county assessor')).toBeGreaterThan(where('monte carlo simulation'));
       expect(pages[0]).not.toContain('official county assessor');
       // The header carries the name, status and closing: no memo-type label, county or GIS badge
@@ -190,9 +190,14 @@ describe('page 1 tells the napkin story for each kind of deal', () => {
   const common = { downPaymentPercent: 25, interestRate: 6.5, loanTerm: 30, exitYear: 10, closingDate: '2026-12-02', vacancyRate: 5, rentGrowth: 3, discountRate: 6, targetCapRate: 6.5, closingCosts: 5000 };
   const cases: Array<{ name: string; asset: string; inputs: Record<string, any>; verdict: string; mustHave: string[]; mustNot?: string[] }> = [
     {
-      name: 'a 12-unit storage deal whose income does not cover its loan', asset: 'storage',
+      name: 'a 12-unit storage deal short of its loan payment is yellow, with the cash gap stated', asset: 'storage',
       inputs: { ...common, purchasePrice: 200_000, downPaymentPercent: 10, interestRate: 6.53, closingCosts: 2500, rehabCosts: 2500, expenseRatio: 35, payrollMarketingPercent: 8, unitCount: 12, storageRentPerUnit: 150, storageUnitCount: 12 },
-      verdict: 'not projected to be profitable', mustHave: ['units', 'average rent per unit', 'what the loan costs', 'not projected to pay for itself'],
+      verdict: 'projected to be marginal', mustHave: ['units', 'average rent per unit', 'what the loan costs', '0.84x of the loan payment', 'would have to come from you'], mustNot: ['not projected to be profitable'],
+    },
+    {
+      name: 'a clearly short deal is still red', asset: 'storage',
+      inputs: { ...common, purchasePrice: 450_000, downPaymentPercent: 10, interestRate: 6.53, closingCosts: 2500, rehabCosts: 2500, expenseRatio: 35, payrollMarketingPercent: 8, unitCount: 12, storageRentPerUnit: 150, storageUnitCount: 12 },
+      verdict: 'not projected to be profitable', mustHave: ['what the loan costs'], mustNot: ['projected to be marginal'],
     },
     {
       name: 'a 10-unit apartment building that clears the bar', asset: 'multi-unit',
@@ -218,7 +223,7 @@ describe('page 1 tells the napkin story for each kind of deal', () => {
       verdict: '', mustHave: ['rent for the year'], mustNot: ['2 tenants', 'tenant', 'as signed', 'intercompany'],
     },
   ];
-  it.each(cases)('$name', async ({ asset, inputs, verdict, mustHave, mustNot }) => {
+  it.each(cases)('$name', async ({ name, asset, inputs, verdict, mustHave, mustNot }) => {
     const React = await import('react');
     const { renderToStaticMarkup } = await import('react-dom/server');
     const { DealBrief } = await import('../../src/components/brief/DealBrief');
@@ -230,7 +235,7 @@ describe('page 1 tells the napkin story for each kind of deal', () => {
       await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><title>t</title></head><body style="margin:0">${html}</body></html>`);
       await page.emulateMedia({ media: 'print' });
       const pdf = await page.pdf({ format: 'Letter', landscape: true, printBackground: true, preferCSSPageSize: true });
-      writeFileSync(join(outDir, `napkin-${asset}.pdf`), pdf);
+      writeFileSync(join(outDir, `napkin-${asset}-${name.replace(/[^a-z0-9]+/gi, '-').slice(0, 40)}.pdf`), pdf);
       const pages = (await pageTexts(pdf)).map((t) => t.toLowerCase());
       // Page 1 is the overview and fits one sheet: the pro forma starts on page 2
       expect(pages[0]).toContain('the back-of-the-napkin math');

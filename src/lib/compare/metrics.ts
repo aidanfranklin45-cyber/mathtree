@@ -42,7 +42,7 @@ export const METRIC_GROUPS: MetricGroup[] = [
       { key: 'cashOnCash', label: 'Year 1 Cash-on-Cash Return', short: 'Cash-on-cash', description: 'Year 1 net cash flow divided by total initial cash equity invested', kind: 'pct', get: (s) => s.cashOnCashYear1, format: fmtPct, highlight: true },
       { key: 'blendedCoC', label: '10-Year Blended CoC Yield', short: 'Blended CoC', description: 'Average annual operational cash-on-cash yield over the 10-year holding period', kind: 'pct', get: (s) => s.blendedCoC, format: fmtPct },
       { key: 'equityMultiple', label: '10-Year Equity Multiple', short: 'Equity multiple', description: 'Total cumulative cash flow plus exit equity divided by initial cash invested', kind: 'multiple', get: (s) => s.equityMultiple, format: fmtMultiple, highlight: true },
-      { key: 'npv', label: '10-Year Net Present Value (NPV)', short: 'NPV', description: 'Discounted net present value of all cash flows and residual equity at underwriting hurdle rate', kind: 'money', get: (s) => s.npv, format: fmtMoney },
+      { key: 'npv', label: '10-Year Net Present Value (NPV)', short: 'NPV', description: 'Discounted net present value of all cash flows and residual equity at your target rate', kind: 'money', get: (s) => s.npv, format: fmtMoney },
       { key: 'totalWealth', label: '10-Year Net Wealth Created', short: 'Wealth created', description: 'Total net dollars generated after initial equity return', kind: 'money', get: (s) => s.totalWealthCreated, format: fmtMoney, highlight: true },
     ],
   },

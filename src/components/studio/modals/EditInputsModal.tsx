@@ -469,7 +469,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 {from('exitYear')}
               </div>
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-emerald-400" title="Investor Opportunity Cost / Hurdle Rate for NPV">Discount Rate (%)</label>
+                <label className="text-[11px] font-bold text-emerald-400" title="Your target rate, used for NPV">Target Rate (%)</label>
                 <input type="number" min="0" max="50" step="any" value={form.discountRate} onChange={(e) => set('discountRate', e.target.value)} className="w-full bg-slate-900 border border-emerald-900/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400" />
                 {from('discountRate')}
               </div>

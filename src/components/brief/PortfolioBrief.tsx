@@ -68,7 +68,7 @@ export const PortfolioBrief: React.FC<{ model: PortfolioModel; onPrint?: () => v
           <div className="row hmeta">
             <span>👤 Sponsor / Investor: <strong style={{ color: '#0f172a' }}>{orNP(m.investorName)}</strong></span><span>•</span>
             <span>🏢 Entity: <strong style={{ color: '#0f172a' }}>{orNP(m.companyName)}</strong></span><span>•</span>
-            <span>🎯 Hurdle Rate: <strong style={{ color: '#059669' }}>{m.hurdleRate !== null ? `${m.hurdleRate.toFixed(1)}% / yr` : NP}</strong></span>
+            <span>🎯 Target Rate: <strong style={{ color: '#059669' }}>{m.hurdleRate !== null ? `${m.hurdleRate.toFixed(1)}% / yr` : NP}</strong></span>
           </div>
         </div>
         <div className="hside">
