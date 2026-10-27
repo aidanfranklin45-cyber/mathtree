@@ -261,7 +261,7 @@ export const SensitivityTab: React.FC<Props> = ({ deal, metrics, onUpdateInputs 
           <div className={statCard}><p className={statLabel}>Downside Profit (P5)</p><p className={`text-sm font-extrabold text-accent-rose mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{formatCurrency(mc?.profit.p5 ?? 0)}</p></div>
           <div className={statCard}><p className={statLabel}>Upside Profit (P95)</p><p className={`text-sm font-extrabold text-accent-emerald mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{formatCurrency(mc?.profit.p95 ?? 0)}</p></div>
           <div className={statCard}><p className={statLabel}>Chance of a Loss</p><p className={`text-sm font-extrabold text-amber-400 mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{(mc?.profit.probLoss ?? 0).toFixed(1)}%</p></div>
-          <div className={statCard}><p className={statLabel}>Chance of Clearing {(mc?.hurdleRate ?? 0).toFixed(1)}% Hurdle</p><p className={`text-sm font-extrabold text-white mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{(mc?.probAboveHurdle ?? 0).toFixed(1)}%</p></div>
+          <div className={statCard}><p className={statLabel}>Chance of Clearing {(mc?.hurdleRate ?? 0).toFixed(1)}% Target</p><p className={`text-sm font-extrabold text-white mt-1 ${running ? 'opacity-40 animate-pulse' : ''}`}>{(mc?.probAboveHurdle ?? 0).toFixed(1)}%</p></div>
         </div>
 
         {mc?.equity.thin && (

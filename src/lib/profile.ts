@@ -1,5 +1,5 @@
 // src/lib/profile.ts
-// Secure investor profile and hurdle rate management powered directly by Supabase backend
+// Secure investor profile and target rate management powered directly by Supabase backend
 // and the manage-profile Edge Function. Zero dependency on client localStorage caching.
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase/client';
@@ -27,9 +27,13 @@ export interface InvestorProfile {
   primaryEntityId?: string | null;
   associatedCompanies?: AssociatedCompany[];
   formationState?: string;
-  discountRate: number;         // Hurdle Rate (%/yr opportunity cost)
-  /** The brief's stoplight: within this many points of the discount rate is yellow, beyond it green or red. */
+  discountRate: number;         // Target rate (%/yr): the annual return the investor requires
+  /** The briefs' stoplights: green when at least this many points above the target rate. */
   stoplightBandPoints: number;
+  /** Red when more than this many points below the target rate; yellow in between. */
+  stoplightRedPoints: number;
+  /** The first light is red whatever the yield when income covers less than this share of the loan payment (0.80 = 80 cents of each dollar). */
+  stoplightCoverageFloor: number;
   /** The lender view: the coverage a lender requires (DSCR), and the sponsor facts a loan package states. Blank means not provided. */
   minDscr: number;
   sponsorExperience: string;
@@ -53,8 +57,10 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   companyName: 'MathTree Capital',
   primaryEntityId: null,
   associatedCompanies: [],
-  discountRate: 8.0,          // Target Hurdle Rate (%/yr opportunity cost)
-  stoplightBandPoints: 1,     // Percentage points either side of the hurdle that read as "close"
+  discountRate: 8.0,          // Target rate (%/yr)
+  stoplightBandPoints: 1,     // Points above the target rate that read as green
+  stoplightRedPoints: 3,      // Points below the target rate beyond which it reads as red
+  stoplightCoverageFloor: 0.8, // Income under this share of the loan payment reads as red
   minDscr: 1.25,              // Common lender covenant minimum; lenders differ
   sponsorExperience: '',
   sponsorLiquidity: null,
@@ -79,6 +85,12 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   const bandRaw = parseFloat(String(raw.stoplightBandPoints ?? ''));
   const stoplightBandPoints = isNaN(bandRaw) ? DEFAULT_PROFILE.stoplightBandPoints : Math.max(0.1, Math.min(10, bandRaw));
 
+  const redRaw = parseFloat(String(raw.stoplightRedPoints ?? ''));
+  const stoplightRedPoints = isNaN(redRaw) ? DEFAULT_PROFILE.stoplightRedPoints : Math.max(0.5, Math.min(20, redRaw));
+
+  const floorRaw = parseFloat(String(raw.stoplightCoverageFloor ?? ''));
+  const stoplightCoverageFloor = isNaN(floorRaw) ? DEFAULT_PROFILE.stoplightCoverageFloor : Math.max(0.5, Math.min(1, floorRaw));
+
   const minDscrRaw = parseFloat(String(raw.minDscr ?? ''));
   const minDscr = isNaN(minDscrRaw) ? DEFAULT_PROFILE.minDscr : Math.max(1, Math.min(3, minDscrRaw));
   const sponsorExperience = String(raw.sponsorExperience ?? '').trim().slice(0, 600);
@@ -99,7 +111,7 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
   // Blanks are filled with the labelled convention for them (the owner's own figures are never touched), so a standard added later
   // never leaves a property asking for something the owner would expect to be assumed
   const underwritingAssumptions = suggestedStartingPoints(stored);
-  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear, stoplightBandPoints, minDscr });
+  setAssumptionDefaults({ assumptions: underwritingAssumptions, discountRate, exitYear, stoplightBandPoints, stoplightRedPoints, stoplightCoverageFloor, minDscr });
 
   return {
     id: raw.id ?? null,
@@ -113,6 +125,8 @@ function sanitizeProfile(raw: Partial<InvestorProfile>): InvestorProfile {
     formationState: raw.formationState ? String(raw.formationState).trim() : undefined,
     discountRate,
     stoplightBandPoints,
+    stoplightRedPoints,
+    stoplightCoverageFloor,
     minDscr,
     sponsorExperience,
     sponsorLiquidity,
@@ -267,11 +281,13 @@ export async function saveProfile(
       if (data?.profile) {
         const wanted = JSON.stringify(merged.underwritingAssumptions ?? { assets: {} });
         const echoed = JSON.stringify(sanitizeAssumptions(data.profile.underwritingAssumptions));
-        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints, minDscr: merged.minDscr, sponsorExperience: merged.sponsorExperience, sponsorLiquidity: merged.sponsorLiquidity, sponsorNetWorth: merged.sponsorNetWorth });
+        cachedProfile = sanitizeProfile({ ...data.profile, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints, stoplightRedPoints: merged.stoplightRedPoints, stoplightCoverageFloor: merged.stoplightCoverageFloor, minDscr: merged.minDscr, sponsorExperience: merged.sponsorExperience, sponsorLiquidity: merged.sponsorLiquidity, sponsorNetWorth: merged.sponsorNetWorth });
         savedSuccessfully = true;
         // An edge function deployed before assumptions existed saves the rest and drops them: write them directly so they are never lost
         const bandEchoed = Number(data.profile.stoplightBandPoints);
         const bandLost = !(Math.abs(bandEchoed - merged.stoplightBandPoints) < 1e-9)
+          || !(Math.abs(Number(data.profile.stoplightRedPoints) - merged.stoplightRedPoints) < 1e-9)
+          || !(Math.abs(Number(data.profile.stoplightCoverageFloor) - merged.stoplightCoverageFloor) < 1e-9)
           || !(Math.abs(Number(data.profile.minDscr) - merged.minDscr) < 1e-9)
           || String(data.profile.sponsorExperience ?? '') !== merged.sponsorExperience
           || (data.profile.sponsorLiquidity ?? null) !== merged.sponsorLiquidity
@@ -280,7 +296,7 @@ export async function saveProfile(
           try {
             const { data: row } = await supabaseClient.from('profiles').select('preferences').eq('id', currentUser.id).maybeSingle();
             const prefs = row?.preferences && typeof row.preferences === 'object' ? row.preferences : {};
-            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints, minDscr: merged.minDscr, sponsorExperience: merged.sponsorExperience, sponsorLiquidity: merged.sponsorLiquidity, sponsorNetWorth: merged.sponsorNetWorth } }).eq('id', currentUser.id);
+            const { error } = await supabaseClient.from('profiles').update({ preferences: { ...prefs, underwritingAssumptions: merged.underwritingAssumptions, stoplightBandPoints: merged.stoplightBandPoints, stoplightRedPoints: merged.stoplightRedPoints, stoplightCoverageFloor: merged.stoplightCoverageFloor, minDscr: merged.minDscr, sponsorExperience: merged.sponsorExperience, sponsorLiquidity: merged.sponsorLiquidity, sponsorNetWorth: merged.sponsorNetWorth } }).eq('id', currentUser.id);
             if (error) throw error;
           } catch (e) {
             console.warn('[profile] Could not store underwriting assumptions directly:', e);
@@ -309,6 +325,8 @@ export async function saveProfile(
         preferences: {
           discountRate: merged.discountRate,
           stoplightBandPoints: merged.stoplightBandPoints,
+          stoplightRedPoints: merged.stoplightRedPoints,
+          stoplightCoverageFloor: merged.stoplightCoverageFloor,
           minDscr: merged.minDscr,
           sponsorExperience: merged.sponsorExperience,
           sponsorLiquidity: merged.sponsorLiquidity,
@@ -339,7 +357,7 @@ export async function saveProfile(
 }
 
 /**
- * Resolve discount rate (opportunity cost hurdle rate) using hierarchy:
+ * Resolve the target rate (the discount rate) using hierarchy:
  * Deal Specific Input -> Profile Global Setting -> Default (8.0%)
  */
 export function resolveHurdleRate(dealDiscountRate?: number | string | null, profile?: Partial<InvestorProfile>): number {

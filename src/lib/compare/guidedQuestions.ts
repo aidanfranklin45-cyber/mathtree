@@ -19,7 +19,7 @@ export const QUESTION_FAMILIES: QuestionFamily[] = [
   {
     id: 'pricing',
     title: 'Acquisition Basis & Strike Price',
-    shortDesc: 'Maximum allowable offer to hit target DSCR or hurdle IRR',
+    shortDesc: 'Maximum allowable offer to hit target DSCR or target IRR',
     iconName: 'Tag',
   },
   {
@@ -94,8 +94,8 @@ export const GUIDED_QUESTIONS: GuidedQuestionDef[] = [
   {
     id: 'max_offer_irr',
     familyId: 'pricing',
-    question: 'What price can I pay to achieve our 15% hurdle IRR?',
-    shortPrompt: 'Maximum bid for 15% IRR hurdle',
+    question: 'What price can I pay to achieve our 15% target IRR?',
+    shortPrompt: 'Maximum bid for 15% target IRR',
     explanation: 'Executes goal-seek solving for the exact purchase basis required to deliver your target return over the projected hold.',
     targetScope: 'single_deal',
     defaultParameters: { targetIrr: 15 },

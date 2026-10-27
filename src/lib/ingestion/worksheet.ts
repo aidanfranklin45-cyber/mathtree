@@ -59,7 +59,7 @@ export const ROW_SPECS: RowSpec[] = [
   { key: 'targetCapRate', field: 'exitCap', label: 'Exit cap rate', group: 'Exit and hold' },
   { key: 'sellingCostPercent', field: 'sellingCost', label: 'Selling costs', group: 'Exit and hold' },
   { key: 'exitYear', field: 'exitYear', label: 'Hold period', group: 'Exit and hold' },
-  { key: 'discountRate', field: 'discountRate', label: 'Discount rate', group: 'Exit and hold' },
+  { key: 'discountRate', field: 'discountRate', label: 'Target rate', group: 'Exit and hold' },
 ];
 
 /** The classes a figure belongs to; a figure not listed belongs to every class. A row for a figure the class does not use is never shown or asked. */

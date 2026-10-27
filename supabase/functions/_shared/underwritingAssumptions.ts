@@ -186,7 +186,7 @@ export interface SeedContext {
   purchasePrice?: number | null;
   unitCount?: number | null;
   squareFeet?: number | null;
-  /** The profile's own hurdle rate and hold, which predate this module and live beside it. */
+  /** The profile's own target rate and hold, which predate this module and live beside it. */
   discountRate?: number | null;
   /** Accepted: set on the deal as the hold period. */
   exitYear?: number | null;
@@ -224,7 +224,7 @@ export function seedFromAssumptions(assumptions: UnderwritingAssumptions | null 
   put('rentGrowth', a.rentGrowth, 'Rent growth', why('rentGrowth'), ['annualRentGrowth']);
   if (a.expenseGrowth !== undefined) put('expenseGrowth', a.expenseGrowth, 'Expense growth', why('expenseGrowth'), ['expenseInflation']);
   put('exitYear', a.holdingPeriod ?? ctx.exitYear ?? undefined, 'Hold period', a.holdingPeriod !== undefined ? why('holdingPeriod') : undefined);
-  put('discountRate', ctx.discountRate ?? undefined, 'Discount rate');
+  put('discountRate', ctx.discountRate ?? undefined, 'Target rate');
   if (asset !== 'single-family') put('targetCapRate', a.exitCapRate, 'Exit cap rate', why('exitCapRate'), ['targetExitCapRate']);
   else put('appreciationRate', a.appreciationRate, 'Appreciation', why('appreciationRate'));
   // Appreciation also drives what an income-valued property is worth along the way, so it follows the profile for every asset class
@@ -353,7 +353,7 @@ export const TRACKED_INPUTS: Record<string, string> = {
   rentGrowth: 'Rent growth',
   expenseGrowth: 'Expense growth',
   exitYear: 'Hold period',
-  discountRate: 'Discount rate',
+  discountRate: 'Target rate',
   targetCapRate: 'Exit cap rate',
   appreciationRate: 'Appreciation',
   sellingCostPercent: 'Selling costs',

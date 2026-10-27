@@ -222,7 +222,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                       </svg>
                       <span>Investor Profile</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">Hurdle</span>
+                    <span className="text-[10px] text-slate-500 font-mono">Target</span>
                   </button>
                 )}
 

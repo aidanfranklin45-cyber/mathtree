@@ -230,7 +230,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ deal, metrics, onSelec
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-white flex items-center gap-1"><span>💸</span><span>Net Present Value (NPV)</span></p>
-                <p className="text-slate-400">The current value of all future cash flows (cash flow + exit proceeds), discounted back to today using a target discount rate (hurdle rate), minus your initial cash investment.</p>
+                <p className="text-slate-400">The current value of all future cash flows (cash flow + exit proceeds), discounted back to today using your target rate, minus your initial cash investment.</p>
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-accent-cyan flex items-center gap-1"><span /><span>Equity Multiplier (MOIC)</span></p>

@@ -129,7 +129,7 @@ export function executeLeverageInquiry(deal: DealRecord): InquiryExecutionResult
 
 /**
  * 3. Strike Price / Maximum Offer Basis Inquiry:
- * Back-solves maximum allowable acquisition basis for a target DSCR or hurdle IRR.
+ * Back-solves maximum allowable acquisition basis for a target DSCR or target IRR.
  */
 export function executeStrikePriceInquiry(
   deal: DealRecord,
