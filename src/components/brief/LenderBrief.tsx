@@ -16,6 +16,8 @@ const LENDER_CSS = `
 .brief .lv-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 .brief .lv-grid2 .box { margin-bottom: 0; }
 .brief .lv-kv td { padding: 4px 8px; }
+.brief .lv-note { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 12px; line-height: 1.45; }
+@media print { .brief .lv-note { display: none; } }
 .brief .lv-flag { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11.5px; line-height: 1.45; }
 .brief .lv-flag strong { color: #92400e; }
 `;
@@ -64,6 +66,14 @@ const StressTable: React.FC<{ rows: LenderMetrics['stress']; min: number }> = ({
 export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; onClose?: () => void }> = ({ model: lm, onPrint, onClose }) => {
   const b = lm.brief;
   const m = lm.metrics;
+  // What the sponsor has not stated: it prints as "Not provided", and the reader of the screen is told so
+  const missing = [
+    lm.borrower.entity === null && 'the borrowing entity',
+    lm.borrower.principal === null && 'your name',
+    lm.borrower.experience === null && 'experience',
+    lm.borrower.liquidity === null && 'liquid assets',
+    lm.borrower.netWorth === null && 'net worth',
+  ].filter(Boolean) as string[];
   const verdictColor = lm.coverage.status === 'meets' ? { fg: '#059669', bg: '#ecfdf5', bd: '#a7f3d0', ico: '✓', word: 'Meets the coverage test' }
     : lm.coverage.status === 'below' ? { fg: '#e11d48', bg: '#fff1f2', bd: '#fecdd3', ico: '!', word: 'Below the coverage minimum' }
       : { fg: '#475569', bg: '#f8fafc', bd: '#cbd5e1', ico: '–', word: 'No senior debt' };
@@ -76,6 +86,12 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
         <div className="toolbar">
           {onClose && <button type="button" className="btn alt2" onClick={onClose}>Close</button>}
           {onPrint && <button type="button" className="btn" onClick={onPrint}>Print / Save as PDF</button>}
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <div className="lv-note" role="note">
+          <strong>Details missing (screen only, not printed):</strong> {missing.join(', ')} will print as &quot;Not provided&quot;. Add them in your investor profile (the profile button in the app header, under &quot;Lender view&quot;) and reload this page. Nothing is guessed.
         </div>
       )}
 
@@ -224,12 +240,12 @@ export const LenderBrief: React.FC<{ model: LenderModel; onPrint?: () => void; o
       </div>
 
       <div className="box">
-        <div className="bh"><span>Tenancy behind the income</span><span className="sub">{lm.tenancy.leaseCount > 0 ? `${lm.tenancy.leaseCount} lease${lm.tenancy.leaseCount === 1 ? '' : 's'}` : 'No lease schedule'}</span></div>
-        {(b.rentRoll.length > 0 || b.underwritingLeases.length > 0) ? (
+        <div className="bh"><span>Tenancy behind the income</span><span className="sub">{lm.tenancy.leaseCount > 0 ? `${lm.tenancy.leaseCount} lease${lm.tenancy.leaseCount === 1 ? '' : 's'} in force at the end of ${m.basisYear}` : 'No lease schedule'}</span></div>
+        {lm.tenancy.leases.length > 0 ? (
           <table>
             <thead><tr><th>Tenant</th><th>Type</th><th className="num">Monthly Rent</th><th>Lease Start</th><th>Lease End</th><th>Escalation</th></tr></thead>
             <tbody>
-              {(b.underwritingLeases.length > 0 ? b.underwritingLeases : b.rentRoll).map((l, i) => (
+              {lm.tenancy.leases.map((l, i) => (
                 <tr key={i}><td style={{ fontWeight: 700 }}>{orNP(l.tenant)}</td><td>{orNP(l.type)}</td><td className="num">{cur(l.monthlyRent)}</td><td>{orNP(l.start)}</td><td>{l.end ?? 'No end date'}</td><td>{orNP(l.escalation)}</td></tr>
               ))}
             </tbody>

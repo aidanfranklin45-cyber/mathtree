@@ -66,6 +66,25 @@ describe('buildLenderModel', () => {
     expect(titles).toContain('Lease Expiry Inside The Hold');
   });
 
+  it('counts only the leases in force at the end of the first full year as tenants', () => {
+    // An earlier intercompany period, then the formal lease: one tenancy behind the stabilized income, not two
+    const deal = mkDeal({
+      ...baseInputs, closingDate: '2025-07-15', exitYear: 15,
+      leases: [
+        { tenantName: 'Operating LLC (intercompany rent)', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2025-07-15', leaseEndDate: '2026-07-31' },
+        { tenantName: 'Operating LLC', monthlyRent: 2600, leaseType: 'NNN', leaseStartDate: '2026-08-03', leaseEndDate: '2036-08-03', escalationRate: 3 },
+      ],
+    });
+    const lm = buildLenderModel(buildBriefModel(deal, [], []), blank);
+    expect(lm.tenancy.leaseCount).toBe(1);
+    expect(lm.tenancy.leases.map((l) => l.tenant)).toEqual(['Operating LLC']);
+    expect(lm.tenancy.earlierPeriods).toBe(1);
+    expect(lm.tenancy.singleTenant).toBe(true);
+    expect(lm.tenancy.earliestEnd).toBe('2036-08-03');
+    // the expiry flag speaks of one lease, not "1 of 2"
+    expect(lm.flags.find((f) => f.title === 'Lease Expiry Inside The Hold')?.description).toContain('1 of 1 lease ends');
+  });
+
   it('flags an exit cap rate below the going-in cap rate in the shared brief', () => {
     const brief = buildBriefModel(mkDeal({ ...baseInputs, targetCapRate: 3 }), [], []);
     expect(brief.warnings.map((w) => w.title)).toContain('Exit Cap Rate Below Going-In Cap Rate');
@@ -88,5 +107,20 @@ describe('LenderBrief render', () => {
     expect(html).toContain('Not provided');
     expect(html).toContain('not a lender quote');
     expect(html).not.toContain('target rate');
+  });
+
+  it('tells the screen reader which sponsor details print as "Not provided", and prints none of that hint', async () => {
+    const React = await import('react');
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { LenderBrief } = await import('../../components/brief/LenderBrief');
+    const brief = buildBriefModel(mkDeal(baseInputs), [], []);
+    const empty = renderToStaticMarkup(React.createElement(LenderBrief, { model: buildLenderModel(brief, blank) }));
+    expect(empty).toContain('Details missing');
+    expect(empty).toContain('liquid assets');
+    const full = renderToStaticMarkup(React.createElement(LenderBrief, { model: buildLenderModel(brief, {
+      entityName: 'Doe Holdings LLC', fullName: 'Pat Doe', minDscr: 1.25, sponsorExperience: '12 years', sponsorLiquidity: 250000, sponsorNetWorth: 1_200_000,
+    }) }));
+    expect(full).not.toContain('Details missing');
+    expect(full).toContain('Doe Holdings LLC');
   });
 });

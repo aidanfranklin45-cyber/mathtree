@@ -37,5 +37,13 @@ npx tsc --noEmit   # type-check
 npx vitest run <file> --reporter=dot   # one test file at a time
 ```
 
+The printed briefs have their own layout check. It prints the investor brief and the lender summary to real PDFs in headless Chromium
+(on the public sample deal, read-only) and fails if any page spills past a sheet or a sheet is nearly empty. It needs a Chromium once per machine:
+
+```bash
+npx playwright install chromium   # one time
+npm run test:brief                # prints the PDFs to a temp folder (the path is shown) and checks them
+```
+
 Read `ARCHITECTURE.md` for how it fits together and `AGENTS.md` for how changes are made (branches and pull requests only, no
 full-suite test runs, no plan documents in the repo).
