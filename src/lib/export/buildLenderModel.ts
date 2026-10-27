@@ -1,5 +1,7 @@
 import type { BriefModel } from './buildBriefModel';
 import { calculateLenderMetrics, type LenderMetrics } from '../engine';
+import { isLeaseInForce } from '@engine/leaseInForce';
+import type { BriefLease } from './buildBriefModel';
 
 /**
  * The lender view of a deal. It adds nothing of its own to the math: every figure is the brief's, or comes from the shared engine's
@@ -32,7 +34,14 @@ export interface LenderModel {
   /** Loan over the county's assessed value: a fact from the parcel, not an appraisal. Null without a county value. */
   ltvAssessedPct: number | null;
   coverage: { status: 'meets' | 'below' | 'none'; text: string };
-  tenancy: { leaseCount: number; earliestEnd: string | null; latestEnd: string | null; endingBeforeHold: number; holdEndYear: number | null; singleTenant: boolean };
+  tenancy: {
+    /** The leases in force at the end of the first full year: the tenancy the stabilized income comes from. */
+    leases: BriefLease[];
+    leaseCount: number;
+    /** Lease periods on the deal that are not in force then (an earlier intercompany period, for example): noted, never counted as tenants. */
+    earlierPeriods: number;
+    earliestEnd: string | null; latestEnd: string | null; endingBeforeHold: number; holdEndYear: number | null; singleTenant: boolean;
+  };
   flags: Array<{ title: string; description: string }>;
 }
 
@@ -60,13 +69,20 @@ export function buildLenderModel(brief: BriefModel, profile: LenderProfile): Len
       : { status: 'below', text: `Debt service coverage of ${dscrRounded.toFixed(2)}x is below the ${profile.minDscr.toFixed(2)}x minimum.` };
 
   // Tenancy: facts from the underwriting leases and the rent roll, against the end of the hold
-  const leases = brief.underwritingLeases.length > 0 ? brief.underwritingLeases : brief.rentRoll;
+  // A deal can carry several lease periods (for example intercompany rent before a formal lease). The tenants behind the stabilized income are the
+  // leases in force on the last day of the first full year; if none is, every lease that has content stands (the same rule as the tenant count elsewhere).
+  const allLeases = brief.underwritingLeases.length > 0 ? brief.underwritingLeases : brief.rentRoll;
+  const asOf = metrics.basisYear > 0 ? `${metrics.basisYear}-12-31` : null;
+  const running = asOf ? allLeases.filter((l) => isLeaseInForce({ leaseStartDate: l.start, leaseEndDate: l.end }, asOf)) : [];
+  const leases = running.length > 0 ? running : allLeases;
   const ends = leases.map((l) => l.end).filter((e): e is string => !!e).sort();
   const closeYear = year(brief.closingDate) ?? brief.startYear;
   const holdEndYear = Number.isFinite(closeYear) ? closeYear + brief.holdYears : null;
   const endingBeforeHold = holdEndYear === null ? 0 : leases.filter((l) => { const y = year(l.end); return y !== null && y < holdEndYear; }).length;
   const tenancy: LenderModel['tenancy'] = {
+    leases,
     leaseCount: leases.length,
+    earlierPeriods: allLeases.length - leases.length,
     earliestEnd: ends[0] ?? null,
     latestEnd: ends[ends.length - 1] ?? null,
     endingBeforeHold,
