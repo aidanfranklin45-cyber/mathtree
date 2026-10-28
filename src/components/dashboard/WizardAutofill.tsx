@@ -22,7 +22,7 @@ import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
 import { managerChoice } from '@engine/underwritingAssumptions';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
-import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
+import { extractFileRead, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
 
 /** What the documents gave, ready to be written into the form: the owner has not been asked to tick anything. */
 export interface Autofill {
@@ -116,7 +116,11 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     setBusy(true);
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { problems.push(`${f.name} can't be read. Use ${READABLE_EXTENSIONS.join(', ')} files, or paste the text.`); continue; }
-      try { added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto', file: f }); }
+      try {
+        const read = await extractFileRead(f);
+        added.push({ id: nextId.current++, name: f.name, text: read.text, type: 'auto', file: f });
+        problems.push(...read.notes.map((n) => `${f.name}: ${n}`));
+      }
       catch (e) { problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`); }
     }
     setBusy(false);

@@ -9,7 +9,7 @@ import { getAssumptionDefaults, useAssumptionVersion } from '../../lib/engine/as
 import { managerChoice } from '@engine/underwritingAssumptions';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
 import { groundIntake } from '../../lib/ingestion/lineage';
-import { extractFileText, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
+import { extractFileRead, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
 
 /** What the owner accepted. The caller decides what to do with it: save it to a deal, or fill a form. */
 export interface IntakeAcceptance {
@@ -123,7 +123,9 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { rejected.push(f.name); continue; }
       try {
-        added.push({ id: nextId.current++, name: f.name, text: await extractFileText(f), type: 'auto', file: f });
+        const read = await extractFileRead(f);
+        added.push({ id: nextId.current++, name: f.name, text: read.text, type: 'auto', file: f });
+        problems.push(...read.notes.map((n) => `${f.name}: ${n}`));
       } catch (e) {
         problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`);
       }
