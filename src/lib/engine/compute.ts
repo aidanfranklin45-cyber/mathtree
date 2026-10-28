@@ -135,6 +135,17 @@ export function computeDealMetrics(deal: AnyDeal, overrides?: Partial<DealInputs
 }
 
 /**
+ * True when changing the expense ratio would not move a single year of NOI. This happens when a commercial deal has no rent and the engine
+ * charges the stated taxes, insurance and upkeep instead. Asked of the engine itself, so it can never drift from how opex is computed.
+ */
+export function expenseRatioIsInert(deal: AnyDeal, overrides?: Partial<DealInputs>): boolean {
+  const at = (ratio: number) => computeDealMetrics(deal, { ...overrides, expenseRatio: ratio, operatingExpenseRatio: ratio });
+  const a = at(10).projections.map((p) => p.netOperatingIncome);
+  const b = at(40).projections.map((p) => p.netOperatingIncome);
+  return a.length > 0 && a.every((v, i) => v === b[i]);
+}
+
+/**
  * The engine names a few per-year fields differently from the UI's ProFormaYear contract
  * (grossPotentialIncome / loanBalanceRemaining). Reconcile once here so no component has to care.
  */
