@@ -54,6 +54,9 @@ interface NoteProps {
 export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWhy, decisionNotes, extra, onGo, onDecide, onOwnFigure }) => {
   const [own, setOwn] = useState<{ value: string; reason: string }>({ value: '', reason: '' });
   const name = named ? <span className="text-slate-400">{r.label}</span> : null;
+  // A figure the owner has already typed into the form is the figure they are giving a reason for: it is not asked for a second time
+  const entered = r.source === 'owner' && typeof r.value === 'number';
+  const figure = own.value.trim() || (entered ? String(r.value) : '');
   if (r.state === 'optional' && !question && r.decisions.length === 0) return null;
 
   if (r.state === 'ready' || r.state === 'assumed') {
@@ -110,13 +113,13 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
       {r.state === 'unsupported' && (
         <div className="space-y-1.5">
           {r.key === 'expenseRatio' && <p className="text-[11px] text-slate-400">The ratio counts taxes, insurance, upkeep, utilities and payroll. It leaves out management, the reserve and debt, and nets off tenant reimbursements.</p>}
-          {r.key === 'expenseRatio' && <p className="text-[11px] text-slate-300">Agree with the figure above? Type it again with your reason.</p>}
+          {r.key === 'expenseRatio' && <p className="text-[11px] text-slate-300">{entered ? `You entered ${r.value}${PERCENT_ROWS.has(r.key) ? '%' : ''}. Say why, then press Use.` : 'Agree with the figure above? Type it again with your reason.'}</p>}
           <span className="flex flex-wrap items-center gap-2">
-            <input type="number" min="0" step="any" aria-label={`Your own ${r.label}`} placeholder="Your figure" value={own.value} onChange={(e) => setOwn({ ...own, value: e.target.value })} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+            <input type="number" min="0" step="any" aria-label={`Your own ${r.label}`} placeholder="Your figure" value={figure} onChange={(e) => setOwn({ ...own, value: e.target.value })} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
             {PERCENT_ROWS.has(r.key) && <span className="text-[11px] text-slate-400">%</span>}
             <input type="text" aria-label={`Why ${r.label.toLowerCase()}`} placeholder="Why this number?" value={own.reason} onChange={(e) => setOwn({ ...own, reason: e.target.value })} className="flex-1 min-w-[10rem] bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white" />
-            <button type="button" disabled={!own.value.trim() || !own.reason.trim()} onClick={() => onOwnFigure(r, own.value.trim(), own.reason.trim())} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Use</button>
-            {(!own.value.trim() || !own.reason.trim()) && <span className="text-[10px] text-slate-500">Needs a figure and a reason</span>}
+            <button type="button" disabled={!figure || !own.reason.trim()} onClick={() => onOwnFigure(r, figure, own.reason.trim())} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Use</button>
+            {(!figure || !own.reason.trim()) && <span className="text-[10px] text-slate-500">{figure ? 'Needs a reason' : 'Needs a figure and a reason'}</span>}
           </span>
         </div>
       )}
