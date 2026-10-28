@@ -254,8 +254,14 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
   // With leases (a rent roll) the engine charges the ratio against what the leases pay, so that is the rent the costs are divided by
   const leaseRentAnnual = Array.isArray(b.patch.leases) ? (b.patch.leases as Array<{ monthlyRent?: number }>).reduce((sum, l) => sum + (Number(l.monthlyRent) || 0), 0) * 12 : 0;
   const rentUnderwritten = typeof b.patch.grossRentAnnual === 'number' && (b.patch.grossRentAnnual as number) > 0 ? (b.patch.grossRentAnnual as number) : leaseRentAnnual > 0 ? leaseRentAnnual : t.income.rent;
-  if (netCosts > 0 && rentUnderwritten > 0) {
-    const ratio = round2((netCosts / rentUnderwritten) * 100);
+  // Tenants can reimburse all of the costs (a triple-net lease, with an administration fee on top): the landlord's own cost is then nothing, which
+  // is a figure the document supports. What they pay above the costs is not counted as income.
+  const fullyReimbursed = costs > 0 && reimbursed >= costs;
+  if ((netCosts > 0 || fullyReimbursed) && rentUnderwritten > 0) {
+    const ratio = round2((Math.max(netCosts, 0) / rentUnderwritten) * 100);
+    const net = fullyReimbursed
+      ? `0 (tenants reimburse all of it${reimbursed > costs ? `, ${Math.round(reimbursed - costs).toLocaleString()} more than the costs, which is not counted as income` : ''})`
+      : Math.round(netCosts).toLocaleString();
     const span = t.months && t.months !== 12 ? `, annualised from ${t.months} months` : '';
     const left = [management > 0 ? 'management' : '', onSiteCost > 0 ? 'on-site payroll and marketing' : '', 'reserves'].filter(Boolean).join(', ');
     // What the ratio is made of, so "what does this include?" is answered on screen
@@ -265,8 +271,8 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
       .sort((x, y) => (y[1] as number) - (x[1] as number))
       .map(([cat, v]) => `${NAMES[cat as ExpenseCategory] ?? cat} ${Math.round(v as number).toLocaleString()}`)
       .join(', ');
-    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${Math.round(netCosts).toLocaleString()}, divided by rent ${Math.round(rentUnderwritten).toLocaleString()}${rentUnderwritten !== t.income.rent ? ` (the rent underwritten; the income table shows ${Math.round(t.income.rent).toLocaleString()})` : ''}${span}`, [...rentReadings, ...stmt.expenses.flatMap((l) => [l.amount, l.category])]);
-    if (b.provenance.expenseRatio && b.patch.expenseRatio === ratio) b.provenance.expenseRatio.netCosts = netCosts;
+    b.set('expenseRatio', ratio, doc, `${source === 'operating statement' ? '' : "Seller's figures: "}Operating costs ${Math.round(costs).toLocaleString()}${parts ? ` (${parts})` : ''}, without ${left}${reimbursed > 0 ? `, less tenant reimbursements ${Math.round(reimbursed).toLocaleString()}` : ''} = ${net}, divided by rent ${Math.round(rentUnderwritten).toLocaleString()}${rentUnderwritten !== t.income.rent ? ` (the rent underwritten; the income table shows ${Math.round(t.income.rent).toLocaleString()})` : ''}${span}`, [...rentReadings, ...stmt.expenses.flatMap((l) => [l.amount, l.category])]);
+    if (b.provenance.expenseRatio && b.patch.expenseRatio === ratio) b.provenance.expenseRatio.netCosts = Math.max(netCosts, 0);
   }
   // Storage charges on-site payroll and marketing as a share of the rent, from its own input: the document's own dollars are that share
   if (onSiteCost > 0 && rentUnderwritten > 0) {
@@ -298,7 +304,13 @@ function applyOperatingStatement(b: Builder, stmt: OperatingStatementIntake, doc
     if (leasesEmitted) {
       b.notes.push(`The statement shows ${vacancy}% vacancy and credit loss. Vacancy is not applied: rent comes from the occupied leases, and applying it again would double-count.`);
     } else {
-      b.set('vacancyRate', vacancy, doc, 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)', [...rentReadings, ...stmt.income.filter((l) => val(l.category) === 'vacancy_credit_loss').map((l) => l.amount)]);
+      // A table that takes vacancy from income including tenant reimbursements prints a smaller percentage than the one the engine needs: the engine
+      // applies vacancy to rent only (reimbursements are taken off the costs instead), so the same dollars are a larger share of the rent
+      const allIncome = t.income.rent + t.income.recoveries + t.income.other_income;
+      const how = t.income.recoveries > 0
+        ? `The table takes ${Math.round(t.income.vacancy_credit_loss).toLocaleString()} a year (${round2((t.income.vacancy_credit_loss / allIncome) * 100)}% of its total income, which includes tenant reimbursements). The engine applies vacancy to rent only, so against the rent of ${Math.round(t.income.rent).toLocaleString()} the same dollars are ${vacancy}%`
+        : 'Vacancy and credit loss / rent, as printed (assumes rent is shown before the loss)';
+      b.set('vacancyRate', vacancy, doc, how, [...rentReadings, ...stmt.income.filter((l) => val(l.category) === 'vacancy_credit_loss').map((l) => l.amount)]);
     }
   }
   // No leases and no unit mix gave a rent: the gross potential rent in the income table is the in-place rent. It is only taken when it is
