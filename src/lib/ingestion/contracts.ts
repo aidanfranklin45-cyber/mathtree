@@ -73,6 +73,9 @@ const RENT_AVERAGE_TOLERANCE = 0.01;
 /** Physical occupancy and the vacancy line differ by more than this many points before the owner is asked (credit loss and concessions explain a little). */
 const OCCUPANCY_TOLERANCE_POINTS = 3;
 const MANAGEMENT_LABEL = /manage|mgmt|mgt/i;
+/** A vacancy line the seller labels as an assumption ("5% Vacancy Factor", "Vacancy allowance", "Vacancy (5%)"), not a measured loss. */
+const STATED_ALLOWANCE = /factor|allowance|assum|underwrit|\d\s*%/i;
+const RESERVE_LABEL = /reserve/i;
 const REIMBURSEMENT_LABEL = /rubs|reimburs|utility billing|recover/i;
 
 export const LINE_CONTRACTS: LineContract[] = [
@@ -154,10 +157,15 @@ export const LINE_CONTRACTS: LineContract[] = [
         if (d.documentType !== 'offering_memorandum') continue;
         const occupancy = Number(val(d.occupancyPercent));
         const rent = sum(lines([d], 'income').filter((l) => l.category === 'rent'));
-        const loss = sum(lines([d], 'income').filter((l) => l.category === 'vacancy_credit_loss').map((l) => ({ amount: Math.abs(l.amount) })));
+        const lossLines = lines([d], 'income').filter((l) => l.category === 'vacancy_credit_loss');
+        const loss = sum(lossLines.map((l) => ({ amount: Math.abs(l.amount) })));
         if (!(occupancy > 0 && occupancy <= 100) || !(rent > 0) || loss === 0) continue;
         const lineShare = (loss / rent) * 100;
-        if (Math.abs(100 - occupancy - lineShare) > OCCUPANCY_TOLERANCE_POINTS) return `The document states ${occupancy}% occupancy, but its vacancy line is ${lineShare.toFixed(1)}% of rent.`;
+        // "5% Vacancy Factor" is an allowance the seller underwrites, not a count of empty space: a fully leased property is not at odds with it.
+        // It only disagrees with the occupancy when the space actually empty is more than the allowance covers.
+        const allowance = lossLines.every((l) => STATED_ALLOWANCE.test(l.label));
+        const gap = 100 - occupancy - lineShare;
+        if (allowance ? gap > OCCUPANCY_TOLERANCE_POINTS : Math.abs(gap) > OCCUPANCY_TOLERANCE_POINTS) return `The document states ${occupancy}% occupancy, but its vacancy line is ${lineShare.toFixed(1)}% of rent.`;
       }
       return null;
     },
@@ -172,7 +180,8 @@ export const LINE_CONTRACTS: LineContract[] = [
       { id: 'own', label: "I'll enter it" },
     ],
     when: (docs) => {
-      const o = lines(docs, 'income').filter((l) => l.category === 'other' && l.amount !== 0);
+      // A reserve taken off inside the income table ("1% Capital Replacement Reserve ($-817)") is a deduction, not income of an unknown kind
+      const o = lines(docs, 'income').filter((l) => l.category === 'other' && l.amount !== 0 && !(l.amount < 0 && RESERVE_LABEL.test(l.label)));
       return o.length ? `${o.map((l) => `${l.label} (${money(l.amount)})`).join(', ')}: income the reader could not classify. It is left out unless you say otherwise.` : null;
     },
   },
