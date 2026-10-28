@@ -75,6 +75,7 @@ const OCCUPANCY_TOLERANCE_POINTS = 3;
 const MANAGEMENT_LABEL = /manage|mgmt|mgt/i;
 /** A vacancy line the seller labels as an assumption ("5% Vacancy Factor", "Vacancy allowance", "Vacancy (5%)"), not a measured loss. */
 const STATED_ALLOWANCE = /factor|allowance|assum|underwrit|\d\s*%/i;
+const RESERVE_LABEL = /reserve/i;
 const REIMBURSEMENT_LABEL = /rubs|reimburs|utility billing|recover/i;
 
 export const LINE_CONTRACTS: LineContract[] = [
@@ -179,7 +180,8 @@ export const LINE_CONTRACTS: LineContract[] = [
       { id: 'own', label: "I'll enter it" },
     ],
     when: (docs) => {
-      const o = lines(docs, 'income').filter((l) => l.category === 'other' && l.amount !== 0);
+      // A reserve taken off inside the income table ("1% Capital Replacement Reserve ($-817)") is a deduction, not income of an unknown kind
+      const o = lines(docs, 'income').filter((l) => l.category === 'other' && l.amount !== 0 && !(l.amount < 0 && RESERVE_LABEL.test(l.label)));
       return o.length ? `${o.map((l) => `${l.label} (${money(l.amount)})`).join(', ')}: income the reader could not classify. It is left out unless you say otherwise.` : null;
     },
   },

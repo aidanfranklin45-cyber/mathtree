@@ -555,3 +555,24 @@ describe('a stated vacancy allowance is not at odds with full occupancy', () => 
     expect(asks(100, 'Vacancy and credit loss')).toContain('vacancyAgreesWithOccupancy');
   });
 });
+
+describe('a reserve taken off inside the income table is not unclassified income', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  const asks = (extra: ReturnType<typeof line>) => {
+    const doc = coerceIntake('offering_memorandum', {
+      address: box('1 Main St'), assetClass: box('commercial'), askingPrice: box(800000),
+      income: [line('Scheduled Base Rent', 'rent', 66000), extra],
+      expenses: [line('Property Taxes', 'property_tax', 8000)],
+    });
+    const proposal = proposeChanges([doc], { asset_class: 'commercial', purchase_price: null, inputs: {} });
+    return evaluateContracts(proposal, [doc]).filter((c) => c.outcome === 'ask').map((c) => c.key);
+  };
+
+  it('does not ask about a negative reserve line', () => {
+    expect(asks(line('1% Capital Replacement Reserve', 'other', -817))).not.toContain('unclassifiedIncome');
+  });
+
+  it('still asks about an income line it cannot classify', () => {
+    expect(asks(line('Parking and antenna', 'other', 2400))).toContain('unclassifiedIncome');
+  });
+});
