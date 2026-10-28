@@ -324,7 +324,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     [intake, result, ratioFrom, deal.asset_class],
   );
   const readiness = assess({
-    netLease: formInputs.leaseType === 'NNN' || formInputs.leaseType === 'Absolute Net',
+    // A ratio the document builds to nothing (tenants reimburse every cost) is a net lease's, whether or not the lease type was read
+    netLease: formInputs.leaseType === 'NNN' || formInputs.leaseType === 'Absolute Net'
+      || (String(formInputs.expenseRatio ?? '').trim() !== '' && Number(formInputs.expenseRatio) === 0 && result?.proposal.patch.provenance.expenseRatio?.netCosts === 0),
     extraWarnings: [...issueFindings(reads.flatMap((r) => r.issues)), ...ratioCheckList.filter((c) => !c.ok).map((c) => ({ id: 'ratio:' + c.id, severity: 'warning' as const, title: checkTitle(c), detail: c.text, rowKey: 'expenseRatio' }))],
     rows, engineMissing: neededAll, outcome, claims: { noi: claimOf(/NOI claimed/i), managementCost: claimOf(/management cost/i) },
     selfManaged: formInputs.manageProperty !== true, checks: intake?.checks, exitCap: Number(formInputs.targetCapRate) || null, acknowledged,
