@@ -3,7 +3,7 @@ import type { DealInputs, DealRecord } from '../../../lib/math/types';
 import type { DealTopPatch } from '../../../stores/useDealStore';
 import { supabase } from '../../../lib/supabase/client';
 import { AddressService } from '../../../lib/services/addressService';
-import { computeDealMetrics, resolveProfileAssumptions } from '../../../lib/engine/compute';
+import { computeDealMetrics, expenseRatioIsInert, resolveProfileAssumptions } from '../../../lib/engine/compute';
 import { IncompleteInputsError, type MissingInput } from '../../../lib/engine';
 import { getProfile } from '../../../lib/profile';
 import { seedFromAssumptions, reconcileBasis, DEFAULT_CLOSING_WEEKS, type InputBasis } from '../../../../supabase/functions/_shared/underwritingAssumptions';
@@ -95,19 +95,22 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
     let cf: number | null = null;
     let npv: number | null = null;
     let missing: MissingInput[] = [];
+    let ratioInert = false;
     try {
       const inputs: Record<string, any> = { ...built };
       if (inputs.grossRentAnnual === 0 || inputs.monthlyRent === 0) inputs.leases = [];
       // No lease terms entered: the rent is not a lease (same rule as saving), so no escalation is asked for
       if (!rollMode && !rollApplied && !(form.tenantName.trim() || form.leaseStart || form.leaseEnd || form.escalation.trim() !== '' || form.nextEscalation || form.expiryAssumption || (asset === 'commercial' && form.leaseType))) inputs.leases = [];
       const m: any = computeDealMetrics({ asset_class: deal.asset_class, inputs: { ...deal.inputs, ...inputs, ...(rollApplied ? rollResult.patch : {}) } as DealInputs });
+      const engineDeal = { asset_class: deal.asset_class, inputs: { ...deal.inputs, ...inputs, ...(rollApplied ? rollResult.patch : {}) } as DealInputs };
+      ratioInert = expenseRatioIsInert(engineDeal);
       cf = m.projections?.[0]?.cashFlow ?? 0;
       npv = m.npv ?? 0;
     } catch (err) {
       // An incomplete form is not an error: say what the engine still needs
       if (err instanceof IncompleteInputsError) missing = err.missing;
     }
-    return { ltv, loan, equity, cf, npv, missing };
+    return { ltv, loan, equity, cf, npv, missing, ratioInert };
   }, [form, built, deal, rollApplied, rollResult]);
 
   /** Copies the owner's profile assumptions into every blank field, with their reasons. Fields already filled are never overwritten. */
@@ -436,6 +439,7 @@ export const EditInputsModal: React.FC<EditInputsModalProps> = ({ isOpen, deal, 
                 <label className={label}>Expense Ratio (%)</label>
                 <input type="number" min="0" max="100" step="any" value={form.opexRatio} onChange={(e) => set('opexRatio', e.target.value)} className={inp2} />
                 {from('opexRatio')}
+                {preview.ratioInert && <p className="text-[9px] text-amber-400 leading-snug">The expense ratio on a deal that's not producing any income will not modify the expenses associated with this property.</p>}
               </div>
               <div className="space-y-1">
                 <label className={label}>Expense Inflation (%)</label>
