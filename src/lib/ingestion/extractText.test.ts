@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { joinPages, linesFromPieces, needsReading, piecesFromWords } from './extractText';
+import { joinPages, linesFromPieces, needsReading, piecesFromWords, whiteShare } from './extractText';
 import { redactForModel } from '@engine/redact';
 
 const p = (str: string, x: number, y: number) => ({ str, x, y, width: str.length * 5 });
@@ -67,5 +67,18 @@ describe('piecesFromWords', () => {
   it('drops low-confidence words, which are what OCR makes of a photograph', () => {
     const text = linesFromPieces(piecesFromWords([w('Rent', 100, 100, 180, 120), w('xq~', 300, 100, 360, 120, 20)]));
     expect(text).toBe('Rent');
+  });
+});
+
+describe('whiteShare', () => {
+  const px = (r: number, g: number, b: number, n: number) => Array.from({ length: n }, () => [r, g, b, 255]).flat();
+
+  it('is high for a page of paper and ink (a picture of a table) and low for a photograph', () => {
+    expect(whiteShare(new Uint8ClampedArray([...px(255, 255, 255, 80), ...px(10, 20, 90, 20)]))).toBe(0.8);
+    expect(whiteShare(new Uint8ClampedArray([...px(255, 255, 255, 30), ...px(90, 120, 60, 70)]))).toBe(0.3);
+  });
+
+  it('is zero for nothing', () => {
+    expect(whiteShare(new Uint8ClampedArray([]))).toBe(0);
   });
 });

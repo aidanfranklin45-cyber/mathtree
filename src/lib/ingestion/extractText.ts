@@ -3,9 +3,10 @@
  * rebuilt into lines and columns: pieces on the same baseline become one line, and a wide gap between pieces becomes a tab, which keeps a
  * rent roll's columns apart (the redaction step finds the tenant column from those tabs).
  *
- * A page with no usable text layer (a table pasted in as a picture, or a font whose text comes out as symbols) is read by OCR in the browser,
- * so it becomes text like any other and goes through the same redaction. The picture itself is never sent anywhere. A page that is only a
- * photograph yields no words and is reported as not read. A PDF with no text at all is still refused: it is a scan, and the owner is told so.
+ * A page with no text layer that looks like a document (a table pasted in as a picture) is read by OCR in the browser, so it becomes text
+ * like any other and goes through the same redaction. The picture itself is never sent anywhere. A photograph is skipped, and a page whose
+ * font came out as symbols is left as it is: reading it again costs seconds and its numbers come through. A PDF with no text at all is still
+ * refused: it is a scan, and the owner is told so.
  */
 
 export interface TextPiece {
@@ -72,6 +73,10 @@ const OCR_MIN_CONFIDENCE = 60;
 const GARBLED_SHARE = 0.015;
 /** Characters real prose uses beyond ASCII (curly quotes, dashes, bullets, registered and degree signs, ellipsis). */
 const ORDINARY_SYMBOLS = /[‘’“”–—•®©°§ …]/g;
+/** A picture of a table or a sheet is mostly white paper; a photograph is not. Read from a small rendering of the page. */
+const DOCUMENT_WHITE = 0.7;
+/** Pages read at the same time: each worker is a copy of the OCR engine, so a few is the useful number. */
+const OCR_WORKERS = 3;
 
 const lettersAndDigits = (text: string): number => text.replace(/[^A-Za-z0-9]/g, '').length;
 
@@ -96,27 +101,74 @@ export function piecesFromWords(words: OcrWord[], scale = OCR_SCALE): TextPiece[
     .map((w) => ({ str: w.text, x: w.bbox.x0 / scale, y: -((w.bbox.y0 + w.bbox.y1) / 2) / scale, width: (w.bbox.x1 - w.bbox.x0) / scale }));
 }
 
+/** The share of a rendering's pixels that are white paper. */
+export function whiteShare(rgba: Uint8ClampedArray): number {
+  let white = 0;
+  for (let i = 0; i < rgba.length; i += 4) if (rgba[i] > 235 && rgba[i + 1] > 235 && rgba[i + 2] > 235) white++;
+  return rgba.length ? white / (rgba.length / 4) : 0;
+}
+
 /** A PDF's text, and what the owner should know about how it was read. */
 export interface PdfRead {
   text: string;
-  /** Plain sentences about pages read from their picture, or that could not be read. */
+  /** Plain sentences about pages read from their picture, or that could not be read. Information, not errors. */
   notes: string[];
 }
 
 type PdfPage = import('pdfjs-dist').PDFPageProxy;
 type OcrWorker = import('tesseract.js').Worker;
 
-/** Renders one page and reads it with OCR, in this browser; nothing is uploaded. Null when it holds no words (a photograph). */
-async function readPageByOcr(page: PdfPage, worker: OcrWorker): Promise<string | null> {
-  const viewport = page.getViewport({ scale: OCR_SCALE });
+async function renderPage(page: PdfPage, scale: number): Promise<HTMLCanvasElement> {
+  const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   await page.render({ canvas, viewport }).promise;
-  const { data } = await worker.recognize(canvas, {}, { blocks: true });
-  const words = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)));
-  const text = linesFromPieces(piecesFromWords(words));
-  return lettersAndDigits(text) >= 20 ? text : null;
+  return canvas;
+}
+
+/** Whether a page with no text is a picture of a document (worth reading) and not a photograph (nothing to read). */
+async function looksLikeDocument(page: PdfPage): Promise<boolean> {
+  const canvas = await renderPage(page, 0.25);
+  const ctx = canvas.getContext('2d');
+  return !!ctx && whiteShare(ctx.getImageData(0, 0, canvas.width, canvas.height).data) >= DOCUMENT_WHITE;
+}
+
+async function newOcrWorker(): Promise<OcrWorker> {
+  const { createWorker } = await import('tesseract.js');
+  return createWorker('eng');
+}
+
+// The OCR engine and its language data are a large download the first time. Starting it when the owner opens the file picker means it is
+// usually ready by the time a PDF is chosen.
+let warm: Promise<OcrWorker> | null = null;
+export function warmOcr(): void {
+  if (warm) return;
+  warm = newOcrWorker();
+  warm.catch(() => { warm = null; });
+}
+
+/** Reads each page with OCR, in this browser (nothing is uploaded), a few at a time. Null for a page that holds no words. */
+async function readPagesByOcr(pages: PdfPage[]): Promise<Array<string | null>> {
+  const count = Math.min(pages.length, OCR_WORKERS);
+  const ready = warm;
+  warm = null;
+  const workers = await Promise.all(Array.from({ length: count }, (_, i) => (i === 0 && ready ? ready.catch(() => newOcrWorker()) : newOcrWorker())));
+  const results: Array<string | null> = pages.map(() => null);
+  let next = 0;
+  try {
+    await Promise.all(workers.map(async (worker) => {
+      for (let i = next++; i < pages.length; i = next++) {
+        const { data } = await worker.recognize(await renderPage(pages[i], OCR_SCALE), {}, { blocks: true });
+        const words = (data.blocks ?? []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines.flatMap((l) => l.words)));
+        const text = linesFromPieces(piecesFromWords(words));
+        results[i] = lettersAndDigits(text) >= MIN_PAGE_CHARS ? text : null;
+      }
+    }));
+  } finally {
+    for (const w of workers) void w.terminate();
+  }
+  return results;
 }
 
 const pageList = (pages: number[]) => (pages.length === 1 ? `Page ${pages[0]}` : `Pages ${pages.join(', ')}`);
@@ -128,7 +180,7 @@ export class ScannedPdfError extends Error {
   }
 }
 
-export async function extractPdfRead(file: File): Promise<PdfRead> {
+export async function extractPdfRead(file: File, onStatus?: (message: string) => void): Promise<PdfRead> {
   // Loaded only when a PDF is read, so it is not part of the main bundle
   const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')]);
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
@@ -137,7 +189,7 @@ export async function extractPdfRead(file: File): Promise<PdfRead> {
   try {
     const pages = Math.min(pdf.numPages, MAX_PDF_PAGES);
     const out: string[] = [];
-    const weak: Array<{ n: number; page: PdfPage; why: 'empty' | 'garbled' }> = [];
+    const pictures: Array<{ n: number; page: PdfPage }> = [];
     for (let n = 1; n <= pages; n++) {
       const page = await pdf.getPage(n);
       const content = await page.getTextContent();
@@ -147,35 +199,26 @@ export async function extractPdfRead(file: File): Promise<PdfRead> {
       }
       const text = linesFromPieces(pieces);
       out.push(text);
-      const why = needsReading(text);
-      if (why) weak.push({ n, page, why });
+      if (needsReading(text) === 'empty' && (await looksLikeDocument(page))) pictures.push({ n, page });
     }
 
     const notes: string[] = [];
-    // Pages with no usable text layer are read from their picture. The OCR engine and its language data are large, so they load only then.
-    if (weak.length) {
-      const pictured: number[] = [];
-      const garbled: number[] = [];
-      const notRead: number[] = [];
-      let ocr: OcrWorker | null = null;
+    if (pictures.length) {
+      const read: number[] = [];
+      const failed: number[] = [];
+      onStatus?.(`Reading ${pageList(pictures.map((p) => p.n)).toLowerCase()} from ${pictures.length === 1 ? 'its picture' : 'their pictures'}…`);
       try {
-        const { createWorker } = await import('tesseract.js');
-        ocr = await createWorker('eng');
-        for (const w of weak) {
-          const text = await readPageByOcr(w.page, ocr);
-          // Only a page that gives back real text replaces the original: a photograph read as scraps of letters does not
-          if (text && lettersAndDigits(text) >= MIN_PAGE_CHARS) { out[w.n - 1] = text; (w.why === 'garbled' ? garbled : pictured).push(w.n); }
-          else if (w.why === 'empty') notRead.push(w.n);
-        }
+        const texts = await readPagesByOcr(pictures.map((p) => p.page));
+        pictures.forEach((p, i) => {
+          const t = texts[i];
+          if (t) { out[p.n - 1] = t; read.push(p.n); } else failed.push(p.n);
+        });
       } catch {
         // The OCR engine could not load (offline, blocked): the pages are reported below, and the pages with text are still read
-        for (const w of weak) if (!pictured.includes(w.n) && !garbled.includes(w.n) && !notRead.includes(w.n)) notRead.push(w.n);
-      } finally {
-        void ocr?.terminate();
+        for (const p of pictures) if (!read.includes(p.n)) failed.push(p.n);
       }
-      if (pictured.length) notes.push(`${pageList(pictured)} had no text, so ${pictured.length === 1 ? 'it was' : 'they were'} read from the picture. Check those figures against the document.`);
-      if (garbled.length) notes.push(`${pageList(garbled)} had garbled text, so ${garbled.length === 1 ? 'it was' : 'they were'} read again from the picture.`);
-      if (notRead.length) notes.push(`${pageList(notRead)} could not be read (photos, or pictures with no text). If ${notRead.length === 1 ? 'it holds' : 'they hold'} figures, type them in.`);
+      if (read.length) notes.push(`${pageList(read)} ${read.length === 1 ? 'was a picture' : 'were pictures'}, read with text recognition. Check those figures against the document.`);
+      if (failed.length) notes.push(`${pageList(failed)} ${failed.length === 1 ? 'is a picture' : 'are pictures'} that could not be read. If ${failed.length === 1 ? 'it holds' : 'they hold'} figures, type them in.`);
     }
 
     const text = joinPages(out);
@@ -200,8 +243,8 @@ export function isReadableFile(name: string): boolean {
 }
 
 /** The file's text, whichever supported kind it is, and what the owner should know about how it was read. */
-export async function extractFileRead(file: File): Promise<PdfRead> {
-  return file.name.toLowerCase().endsWith('.pdf') ? extractPdfRead(file) : { text: await file.text(), notes: [] };
+export async function extractFileRead(file: File, onStatus?: (message: string) => void): Promise<PdfRead> {
+  return file.name.toLowerCase().endsWith('.pdf') ? extractPdfRead(file, onStatus) : { text: await file.text(), notes: [] };
 }
 
 /** The file's text, whichever supported kind it is. */

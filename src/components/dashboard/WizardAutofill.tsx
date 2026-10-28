@@ -22,7 +22,7 @@ import { FORM_FIELD_FOR_KEY } from '../../lib/ingestion/wizardMap';
 import { getAssumptionDefaults } from '../../lib/engine/assumptionDefaults';
 import { managerChoice } from '@engine/underwritingAssumptions';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
-import { extractFileRead, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
+import { extractFileRead, isReadableFile, READABLE_EXTENSIONS, warmOcr } from '../../lib/ingestion/extractText';
 
 /** What the documents gave, ready to be written into the form: the owner has not been asked to tick anything. */
 export interface Autofill {
@@ -100,6 +100,9 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
   const [details, setDetails] = useState(false); // the sources behind each row are in the worksheet; the full reading of the documents is one click away
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // How a file was read (a page read from its picture) is information, not a problem; `status` is what is happening now
+  const [info, setInfo] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({});
   // The questions the owner has answered, with the answer in words (they collapse to one line and can be reopened)
   const [resolved, setResolved] = useState<Record<string, string>>({});
@@ -113,17 +116,20 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
     if (!files) return;
     const added: Source[] = [];
     const problems: string[] = [];
+    const infos: string[] = [];
     setBusy(true);
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { problems.push(`${f.name} can't be read. Use ${READABLE_EXTENSIONS.join(', ')} files, or paste the text.`); continue; }
       try {
-        const read = await extractFileRead(f);
+        const read = await extractFileRead(f, setStatus);
         added.push({ id: nextId.current++, name: f.name, text: read.text, type: 'auto', file: f });
-        problems.push(...read.notes.map((n) => `${f.name}: ${n}`));
+        infos.push(...read.notes.map((n) => `${f.name}: ${n}`));
       }
       catch (e) { problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`); }
     }
     setBusy(false);
+    setStatus(null);
+    setInfo(infos.length ? infos.join(' ') : null);
     setSources((s) => [...s, ...added]);
     setNote(problems.length ? problems.join(' ') : null);
   };
@@ -496,7 +502,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       {open && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <label className={`${btn} bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white cursor-pointer`}>
+            <label onClick={warmOcr} className={`${btn} bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white cursor-pointer`}>
               Choose files
               <input type="file" multiple accept={READABLE_EXTENSIONS.join(',')} className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
             </label>
@@ -533,6 +539,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
       </div>
 
       {note && <p className="text-[11px] text-amber-300">{note}</p>}
+      {info && <p className="text-[11px] text-slate-400">{info}</p>}
       {reads.filter((r) => r.error).map((r) => <p key={r.source.id} className="text-[11px] text-amber-300">{r.source.name}: {r.error}</p>)}
 
       {(done || profileFigures.length > 0 || intake !== null) && (
@@ -571,7 +578,7 @@ export const WizardAutofill: React.FC<Props> = ({ deal, onAutofill, onSet, onAns
           )}
         </div>
       )}
-      {!engaged ? <p className="text-[11px] text-slate-500">{busy ? 'Reading the documents…' : 'Add your documents and press Fill, or fill in the form yourself. What still needs an answer shows up after that.'}</p> : (
+      {!engaged ? <p className="text-[11px] text-slate-500">{busy ? (status ?? 'Reading the documents…') : 'Add your documents and press Fill, or fill in the form yourself. What still needs an answer shows up after that.'}</p> : (
       <ReadinessBanner
         readiness={readiness}
         onNext={() => goToRow(readiness.blockers[0]?.rowKey)}

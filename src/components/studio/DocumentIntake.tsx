@@ -9,7 +9,7 @@ import { getAssumptionDefaults, useAssumptionVersion } from '../../lib/engine/as
 import { managerChoice } from '@engine/underwritingAssumptions';
 import { readDocument, type ParsedDocument } from '../../lib/ingestion/client';
 import { groundIntake } from '../../lib/ingestion/lineage';
-import { extractFileRead, isReadableFile, READABLE_EXTENSIONS } from '../../lib/ingestion/extractText';
+import { extractFileRead, isReadableFile, READABLE_EXTENSIONS, warmOcr } from '../../lib/ingestion/extractText';
 
 /** What the owner accepted. The caller decides what to do with it: save it to a deal, or fill a form. */
 export interface IntakeAcceptance {
@@ -78,6 +78,8 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // How a file was read (a page read from its picture) is information, not a problem
+  const [info, setInfo] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
   // For a flagged figure, what the owner picked instead of the document's: their own assumption, or a number typed for this property
   const [choices, setChoices] = useState<Record<string, Choice>>({});
@@ -119,13 +121,14 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
     const added: Source[] = [];
     const rejected: string[] = [];
     const problems: string[] = [];
+    const infos: string[] = [];
     setBusy(true);
     for (const f of Array.from(files)) {
       if (!isReadableFile(f.name)) { rejected.push(f.name); continue; }
       try {
         const read = await extractFileRead(f);
         added.push({ id: nextId.current++, name: f.name, text: read.text, type: 'auto', file: f });
-        problems.push(...read.notes.map((n) => `${f.name}: ${n}`));
+        infos.push(...read.notes.map((n) => `${f.name}: ${n}`));
       } catch (e) {
         problems.push(`${f.name}: ${e instanceof Error ? e.message : 'could not be opened.'}`);
       }
@@ -136,6 +139,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
     setApplied(false);
     const notes = [...problems, ...(rejected.length ? [`${rejected.join(', ')} can't be read. Use ${READABLE_EXTENSIONS.join(', ')} files, or paste the text.`] : [])];
     setNote(notes.length ? notes.join(' ') : null);
+    setInfo(infos.length ? infos.join(' ') : null);
   };
 
   const addPasted = () => {
@@ -180,7 +184,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
     <div className="space-y-4">
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <label className={`${btn} bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white cursor-pointer`}>
+          <label onClick={warmOcr} className={`${btn} bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white cursor-pointer`}>
             Choose files
             <input type="file" multiple accept={READABLE_EXTENSIONS.join(',')} className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
           </label>
@@ -213,6 +217,7 @@ export const DocumentIntake: React.FC<Props> = ({ deal, knownNames = [], applyLa
       )}
 
       {note && <p className="text-[11px] text-amber-300">{note}</p>}
+      {info && <p className="text-[11px] text-slate-400">{info}</p>}
 
       {reads && (
         <section className="space-y-2">
