@@ -1340,7 +1340,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
               <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white font-black text-sm shrink-0">✨</div>
               <div>
                 <h3 id="wizard-modal-title" className="text-base sm:text-lg font-black text-white tracking-tight">Create New Project</h3>
-                <p className="text-[11px] sm:text-xs text-slate-400">{filledOnce ? <><span className="text-amber-300 font-bold">{emptyFields.size}</span> field{emptyFields.size === 1 ? '' : 's'} still need{emptyFields.size === 1 ? 's' : ''} an answer</> : 'One page: fill everything you can, then answer what is left'}</p>
+                <p className="text-[11px] sm:text-xs text-slate-400">{filledOnce ? (emptyFields.size === 0 && sheetBlocks && sheet ? <>Every field is filled. <span className="text-amber-300 font-bold">{sheet.readiness.blockers.length}</span> item{sheet.readiness.blockers.length === 1 ? '' : 's'} still need{sheet.readiness.blockers.length === 1 ? 's' : ''} a source or an answer</> : <><span className="text-amber-300 font-bold">{emptyFields.size}</span> field{emptyFields.size === 1 ? '' : 's'} still need{emptyFields.size === 1 ? 's' : ''} an answer</>) : 'One page: fill everything you can, then answer what is left'}</p>
               </div>
             </div>
             <button aria-label="Close project creation wizard" onClick={close} className="text-slate-400 hover:text-white text-sm p-1.5 rounded-lg hover:bg-slate-800/80 transition">✕</button>
@@ -1372,7 +1372,7 @@ export const ProjectWizardModal: React.FC<Props> = ({ isOpen, onClose, onProject
         </div>
 
         {sheetNudge && sheetBlocks && sheet && (
-          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Not yet. {sheet.readiness.summary} The worksheet shows what is left.</p>
+          <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Not yet. {sheet.readiness.summary}</p>
         )}
         {verifyNudge && needsVerification && !verified && (
           <p role="alert" className="px-5 py-2 text-xs font-semibold text-rose-300 bg-rose-500/10 border-t border-rose-500/30">Almost there. Please scroll down to the bottom of the page and confirm that you have read and checked everything, then create the project.</p>

@@ -124,7 +124,7 @@ export const DECISION_ROW: Record<string, string> = {
 };
 
 /** The sentence shown when an expense ratio rests on a convention alone. */
-export const UNSUPPORTED_EXPENSE_RATIO = "Your profile's number isn't evidence for this property. Add an operating statement, or enter your own figure and why.";
+export const UNSUPPORTED_EXPENSE_RATIO = "This is your profile's default, a starting point and not a figure from this property. Upload an operating statement, or enter the ratio you expect and why.";
 
 const present = (v: unknown): v is number | string | boolean => v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '') && !(typeof v === 'number' && !Number.isFinite(v));
 
@@ -185,8 +185,10 @@ export function buildWorksheet(args: {
       return { ...base, state: neededKeys.has(spec.key) ? 'needed' : 'optional', source: 'missing', basis: neededKeys.has(spec.key) ? 'Nothing supplies this yet.' : 'Not required.', reasons: [], decisions: open };
     }
 
-    const source: RowSource = receipt ? (receipt.source as RowSource) : 'owner';
-    const basis = receipt ? receiptText(receipt) : 'Your own entry.';
+    // A profile figure the owner has put their reason behind is the owner's own now, even when they typed the same number
+    const ownedProfile = receipt?.source === 'profile' && (ownerReasons[spec.key] ?? '').trim() !== '';
+    const source: RowSource = receipt && !ownedProfile ? (receipt.source as RowSource) : 'owner';
+    const basis = receipt && !ownedProfile ? receiptText(receipt) : 'Your own entry.';
     const c = ask(spec.key);
     const own = resolved[spec.key];
 

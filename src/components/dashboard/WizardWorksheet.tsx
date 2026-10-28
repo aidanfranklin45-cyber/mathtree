@@ -109,12 +109,14 @@ export const RowNote: React.FC<NoteProps> = ({ row: r, question, named, neededWh
       {extra}
       {r.state === 'unsupported' && (
         <div className="space-y-1.5">
-          {r.key === 'expenseRatio' && <p className="text-[10px] text-slate-500">The ratio counts taxes, insurance, upkeep, utilities and payroll. It leaves out management, the reserve and debt, and nets off tenant reimbursements.</p>}
+          {r.key === 'expenseRatio' && <p className="text-[11px] text-slate-400">The ratio counts taxes, insurance, upkeep, utilities and payroll. It leaves out management, the reserve and debt, and nets off tenant reimbursements.</p>}
+          {r.key === 'expenseRatio' && <p className="text-[11px] text-slate-300">Agree with the figure above? Type it again with your reason.</p>}
           <span className="flex flex-wrap items-center gap-2">
             <input type="number" min="0" step="any" aria-label={`Your own ${r.label}`} placeholder="Your figure" value={own.value} onChange={(e) => setOwn({ ...own, value: e.target.value })} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
             {PERCENT_ROWS.has(r.key) && <span className="text-[11px] text-slate-400">%</span>}
             <input type="text" aria-label={`Why ${r.label.toLowerCase()}`} placeholder="Why this number?" value={own.reason} onChange={(e) => setOwn({ ...own, reason: e.target.value })} className="flex-1 min-w-[10rem] bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-white" />
             <button type="button" disabled={!own.value.trim() || !own.reason.trim()} onClick={() => onOwnFigure(r, own.value.trim(), own.reason.trim())} className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[11px] font-bold disabled:opacity-40">Use</button>
+            {(!own.value.trim() || !own.reason.trim()) && <span className="text-[10px] text-slate-500">Needs a figure and a reason</span>}
           </span>
         </div>
       )}
@@ -138,12 +140,18 @@ export const ReadinessBanner: React.FC<BannerProps> = ({ readiness, onNext, ackn
     <div id="wiz-readiness" className={`p-2.5 rounded-xl border text-[11px] ${tone}`} role="status" data-verdict={readiness.verdict}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-black">
-          {readiness.verdict === 'ready' ? '✓ Ready to confirm' : readiness.verdict === 'review' ? 'Read these, then confirm' : `${left} to settle`}
+          {readiness.verdict === 'ready' ? '✓ Ready to confirm' : readiness.verdict === 'review' ? 'Read these, then confirm' : `${left} ${left === 1 ? 'item needs' : 'items need'} your input`}
         </span>
         {left > 0 && <button type="button" onClick={onNext} className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 hover:border-emerald-500/60 text-slate-100 font-bold">Next ›</button>}
       </div>
+      {left > 0 && (
+        <ul className="mt-1.5 space-y-1 list-disc pl-4 text-slate-100">
+          {readiness.blockers.map((b) => <li key={b.id} className="font-bold">{b.title}</li>)}
+        </ul>
+      )}
       {readiness.warnings.length > 0 && (
         <ul className="mt-1.5 space-y-1.5">
+          <li className="list-none text-[10px] uppercase tracking-wide text-slate-500">Worth a look: tick each once you have read it</li>
           {readiness.warnings.map((w) => (
             <li key={w.id}>
               <label className="flex items-start gap-2 cursor-pointer text-amber-100">
