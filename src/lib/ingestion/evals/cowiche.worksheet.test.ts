@@ -76,7 +76,17 @@ describe('a convention is not evidence for an expense ratio', () => {
     const ratio = row(rows, 'expenseRatio');
     expect(ratio.source).toBe('profile');
     expect(ratio.state).toBe('unsupported');
-    expect(ratio.reasons[0].detail).toMatch(/isn't evidence for this property/);
+    expect(ratio.reasons[0].detail).toMatch(/not a figure from this property/);
+  });
+
+  it('accepts the profile\'s own number when the owner types it again with a reason', () => {
+    const base = worksheet({ rent: 120_900 });
+    const receipts = base.receipts.map((r) => (r.key === 'expenseRatio' ? { ...r, source: 'profile' as const, how: 'Your investor profile: Common underwriting convention', from: [], traced: true } : r));
+    const rows = buildWorksheet({ inputs: { ...base.inputs, expenseRatio: 35 }, receipts, contracts: base.contracts, resolved: { utilityReimbursements: 'ok' }, needed: base.needed, ownerReasons: { expenseRatio: 'Matches our other buildings' } });
+    const ratio = row(rows, 'expenseRatio');
+    expect(ratio.source).toBe('owner');
+    expect(ratio.state).toBe('ready');
+    expect(ratio.basis).toContain('Matches our other buildings');
   });
 
   it('accepts the document\'s ratio, traced to the cost lines it was built from', () => {
