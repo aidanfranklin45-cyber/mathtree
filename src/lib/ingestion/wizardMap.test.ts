@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coerceIntake } from '@engine/intakeParse';
+import { evaluateContracts } from './contracts';
 import { applyChoices, assumptionText, attachVariances, buildApplication, formatValue, proposeChanges } from './apply';
 import { validateIntake } from './validate';
 import { expectedFor } from './expected';
@@ -526,5 +527,31 @@ describe('a triple-net memorandum whose tenants reimburse all of the costs', () 
     expect(p.patch.patch.vacancyRate).toBe(6.52); // 4,300 / 66,000
     expect(p.patch.provenance.vacancyRate.how).toContain('5% of its total income');
     expect(p.patch.provenance.vacancyRate.how).toContain('rent only');
+  });
+});
+
+describe('a stated vacancy allowance is not at odds with full occupancy', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  const memo = (occupancy: number, vacancyLabel: string) => coerceIntake('offering_memorandum', {
+    address: box('1 Main St'), assetClass: box('commercial'), askingPrice: box(800000), occupancyPercent: box(occupancy),
+    income: [line('Scheduled Base Rent', 'rent', 66000), line(vacancyLabel, 'vacancy_credit_loss', 4300)],
+    expenses: [line('Property Taxes', 'property_tax', 8000)],
+  });
+  const asks = (occupancy: number, label: string) => {
+    const doc = memo(occupancy, label);
+    const proposal = proposeChanges([doc], { asset_class: 'commercial', purchase_price: null, inputs: {} });
+    return evaluateContracts(proposal, [doc]).filter((c) => c.outcome === 'ask').map((c) => c.key);
+  };
+
+  it('does not ask when the property is fully leased and the seller underwrites a 5% factor', () => {
+    expect(asks(100, '5% Vacancy Factor')).not.toContain('vacancyAgreesWithOccupancy');
+  });
+
+  it('still asks when the empty space is more than the allowance covers', () => {
+    expect(asks(88, '5% Vacancy Factor')).toContain('vacancyAgreesWithOccupancy');
+  });
+
+  it('still asks when a measured vacancy line and the occupancy disagree either way', () => {
+    expect(asks(100, 'Vacancy and credit loss')).toContain('vacancyAgreesWithOccupancy');
   });
 });
