@@ -503,3 +503,28 @@ describe('the closing date comes from the investor profile', () => {
     expect(r.closing).toBeNull();
   });
 });
+
+describe('a triple-net memorandum whose tenants reimburse all of the costs', () => {
+  const line = (label: string, category: string, amount: number) => ({ label: box(label), category: box(category), amount: box(amount) });
+  // Invented figures: reimbursements equal the total expenses, management fee included, so the landlord's own cost is nothing
+  const nnn = coerceIntake('offering_memorandum', {
+    address: box('1 Main St'), assetClass: box('commercial'), askingPrice: box(800000), squareFeet: box(6000), expenseStructure: box('NNN'),
+    income: [line('Scheduled Base Rent', 'rent', 66000), line('CAM/NNN Reimbursement', 'recoveries', 20000), line('5% Vacancy Factor', 'vacancy_credit_loss', 4300)],
+    expenses: [line('Property Taxes', 'property_tax', 8000), line('Insurance', 'insurance', 2000), line('Repairs', 'repairs_maintenance', 4000), line('Management', 'management', 4000), line('Water', 'utilities', 2000)],
+  });
+  const p = proposeChanges([nnn], { asset_class: 'commercial', purchase_price: null, inputs: {} });
+
+  it('proposes a 0% expense ratio from the document, saying the extra is not counted as income', () => {
+    expect(p.patch.patch.expenseRatio).toBe(0);
+    const how = p.patch.provenance.expenseRatio.how;
+    expect(how).toContain('tenants reimburse all of it');
+    expect(how).toContain('4,000 more than the costs');
+    expect(p.patch.notes.join(' ')).toContain('without them the expense ratio would be');
+  });
+
+  it('explains a vacancy printed on income that includes reimbursements', () => {
+    expect(p.patch.patch.vacancyRate).toBe(6.52); // 4,300 / 66,000
+    expect(p.patch.provenance.vacancyRate.how).toContain('5% of its total income');
+    expect(p.patch.provenance.vacancyRate.how).toContain('rent only');
+  });
+});
